@@ -1,0 +1,4 @@
+# Maxon source is LF only; the layout rules reject a carriage return.
+*.maxon text eol=lf
+# This test holds a carriage return on purpose, so git keeps its bytes as written.
+tests/errors/layout-carriage-return.maxon -text
