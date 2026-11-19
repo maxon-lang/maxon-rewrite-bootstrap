@@ -1,8 +1,9 @@
-package main
+package backend
 
 import (
 	"bytes"
 	"encoding/binary"
+	"minimaxon/internal/diag"
 	"os"
 )
 
@@ -171,7 +172,7 @@ func WritePe(path string, code, data []byte, dll string, imports []string, entry
 	}
 
 	if err := os.WriteFile(path, w.Bytes(), 0o644); err != nil {
-		panic(Internal("cannot write %s: %v", path, err))
+		panic(diag.Internal("cannot write %s: %v", path, err))
 	}
 }
 

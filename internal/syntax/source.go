@@ -1,7 +1,8 @@
-package main
+package syntax
 
 import (
 	"bytes"
+	"minimaxon/internal/diag"
 	"os"
 )
 
@@ -45,7 +46,7 @@ func readSourceFile(file string, buffer []byte, at int) int {
 	}
 	length := info.Size()
 	if length > int64(len(buffer)-at) {
-		panic(NewError(ErrUnexpectedToken, fileChangedMessage, file, 1, 1))
+		panic(diag.NewError(diag.ErrUnexpectedToken, fileChangedMessage, file, 1, 1))
 	}
 
 	size := int(length)
@@ -54,7 +55,7 @@ func readSourceFile(file string, buffer []byte, at int) int {
 		n, err := handle.ReadAt(buffer[at+read:at+size], int64(read))
 		read += n
 		if n == 0 && err != nil {
-			panic(NewError(ErrUnexpectedToken, fileChangedMessage, file, 1, 1))
+			panic(diag.NewError(diag.ErrUnexpectedToken, fileChangedMessage, file, 1, 1))
 		}
 	}
 

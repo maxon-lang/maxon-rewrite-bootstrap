@@ -1,7 +1,16 @@
-package main
+package driver
 
 import (
 	"fmt"
+	"minimaxon/internal/ast"
+	"minimaxon/internal/backend"
+	"minimaxon/internal/check"
+	"minimaxon/internal/diag"
+	"minimaxon/internal/ir"
+	"minimaxon/internal/par"
+	"minimaxon/internal/project"
+	"minimaxon/internal/resolve"
+	"minimaxon/internal/syntax"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -22,7 +31,7 @@ const (
 )
 
 var tokenBuffers = sync.Pool{New: func() any {
-	buffer := make([]Token, 0, initialTokenCapacity)
+	buffer := make([]syntax.Token, 0, initialTokenCapacity)
 	return &buffer
 }}
 
@@ -34,21 +43,21 @@ func heapAllocated() uint64 {
 	return sample[0].Value.Uint64()
 }
 
-func Compile(path, output string, jobs int, timings, emitIr bool) (errs []*CompileError) {
+func Compile(path, output string, jobs int, timings, emitIr bool) (errs []*diag.CompileError) {
 	defer func() {
 		if r := recover(); r != nil {
-			ce, ok := r.(*CompileError)
+			ce, ok := r.(*diag.CompileError)
 			if !ok {
 				panic(r)
 			}
-			errs = []*CompileError{ce}
+			errs = []*diag.CompileError{ce}
 		}
 	}()
 	return compileProject(path, output, jobs, timings, emitIr)
 }
 
-func compileProject(path, output string, jobs int, timings, emitIr bool) []*CompileError {
-	var errors []*CompileError
+func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag.CompileError {
+	var errors []*diag.CompileError
 	clock := time.Now()
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
@@ -66,8 +75,8 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 		clock = time.Now()
 	}
 
-	project := Discover(path, &errors)
-	budget, restore := suspendCollection(project, jobs)
+	proj := project.Discover(path, &errors)
+	budget, restore := suspendCollection(proj, jobs)
 	defer restore()
 	if timings {
 		fmt.Fprintf(os.Stderr, "no-GC budget %d MB\n", budget>>20)
@@ -76,12 +85,12 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 	if len(errors) > 0 {
 		return sortedErrors(errors)
 	}
-	modules := project.Modules
+	modules := proj.Modules
 
-	phase := func(work func(*Module)) { ForEach(modules, jobs, work) }
+	phase := func(work func(*ast.Module)) { par.ForEach(modules, jobs, work) }
 
-	failed := func() []*CompileError {
-		all := append([]*CompileError{}, errors...)
+	failed := func() []*diag.CompileError {
+		all := append([]*diag.CompileError{}, errors...)
 		for _, m := range modules {
 			all = append(all, m.Errors...)
 		}
@@ -93,19 +102,19 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 
 	var readBytes, lexBytes, parseBytes atomic.Uint64
 	parseStart := heapAllocated()
-	phase(func(m *Module) {
-		Guard(&m.Errors, func() {
+	phase(func(m *ast.Module) {
+		diag.Guard(&m.Errors, func() {
 			a0 := stepAllocated(timings)
-			buffer, slices := LoadModuleSource(m.Files)
+			buffer, slices := syntax.LoadModuleSource(m.Files)
 			a1 := stepAllocated(timings)
-			scratch := tokenBuffers.Get().(*[]Token)
-			tokens := Lex(buffer, slices, *scratch, map[string]string{})
+			scratch := tokenBuffers.Get().(*[]syntax.Token)
+			tokens := syntax.Lex(buffer, slices, *scratch, map[string]string{})
 			a2 := stepAllocated(timings)
 			files := make([]string, len(slices))
 			for i, s := range slices {
 				files[i] = s.File
 			}
-			parser := NewParser(tokens, files)
+			parser := syntax.NewParser(tokens, files)
 			m.Decls = append(m.Decls, parser.ParseProgram().Decls...)
 			m.Errors = append(m.Errors, parser.Errors...)
 			a3 := stepAllocated(timings)
@@ -124,29 +133,29 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 		return parseErrors
 	}
 
-	project.BuildTables(jobs)
+	project.BuildTables(proj, jobs)
 	mark("tables")
 	if tableErrors := failed(); tableErrors != nil {
 		return tableErrors
 	}
 
-	phase(func(m *Module) { NewResolver(project, m).Run() })
+	phase(func(m *ast.Module) { resolve.NewResolver(proj, m).Run() })
 	mark("resolve")
 	if resolveErrors := failed(); resolveErrors != nil {
 		return resolveErrors
 	}
-	if !project.DependencyOrder(&errors) {
+	if !project.DependencyOrder(proj, &errors) {
 		return sortedErrors(errors)
 	}
 	mark("cycles")
 
-	var main *FuncDecl
-	phase(func(m *Module) {
-		checker := NewChecker(project, m, &m.Errors)
+	var main *ast.FuncDecl
+	phase(func(m *ast.Module) {
+		checker := check.NewChecker(proj, m, &m.Errors)
 		for _, d := range m.Decls {
 			m.Functions = append(m.Functions, checker.Declare(d)...)
 		}
-		if m == project.Root {
+		if m == proj.Root {
 			main = checker.CheckMain()
 		}
 	})
@@ -155,17 +164,17 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 		return declareErrors
 	}
 
-	checkConstants(project, jobs, &errors)
+	checkConstants(proj, jobs, &errors)
 	mark("constants")
 	if constErrors := failed(); constErrors != nil {
 		return constErrors
 	}
 
-	phase(func(m *Module) {
-		checker := NewChecker(project, m, &m.Errors)
+	phase(func(m *ast.Module) {
+		checker := check.NewChecker(proj, m, &m.Errors)
 		for _, d := range m.Decls {
 			switch d.(type) {
-			case *TypeDecl, *UnionDecl:
+			case *ast.TypeDecl, *ast.UnionDecl:
 				checker.CheckBody(d)
 			}
 		}
@@ -179,10 +188,10 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 		return bodyErrors
 	}
 
-	phase(func(m *Module) {
-		NewChecker(project, m, &m.Errors).Verify(m.Pending)
+	phase(func(m *ast.Module) {
+		check.NewChecker(proj, m, &m.Errors).Verify(m.Pending)
 		if len(m.Errors) == 0 {
-			ownership := NewOwnership(&m.Errors)
+			ownership := check.NewOwnership(&m.Errors)
 			for _, f := range m.Functions {
 				ownership.Check(f)
 			}
@@ -194,28 +203,30 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 	}
 
 	if output != "" {
-		phase(func(m *Module) {
-			m.Ir = make([]*IrFunction, len(m.Functions))
-			for i, f := range m.Functions {
-				m.Ir[i] = Lower(f)
+		irs := make([][]*ir.IrFunction, len(modules))
+		par.ForEachIndex(len(modules), jobs, func(i int) {
+			fns := make([]*ir.IrFunction, len(modules[i].Functions))
+			for k, f := range modules[i].Functions {
+				fns[k] = ir.Lower(f)
 			}
+			irs[i] = fns
 		})
 		mark("lower")
 		if emitIr {
 			var text strings.Builder
-			for _, m := range modules {
-				for _, fn := range m.Ir {
-					PrintIr(fn, &text)
+			for _, fns := range irs {
+				for _, fn := range fns {
+					ir.PrintIr(fn, &text)
 				}
 			}
 			if err := os.WriteFile(output+".ir", []byte(text.String()), 0o644); err != nil {
-				panic(Internal("cannot write %s.ir: %v", output, err))
+				panic(diag.Internal("cannot write %s.ir: %v", output, err))
 			}
 		}
-		var runtimeUnit *CodeUnit
-		emitModules := func() { phase(func(m *Module) { m.Unit = EmitModule(m.Ir) }) }
+		units := make([]*backend.CodeUnit, len(modules)+1)
+		emitModules := func() { par.ForEachIndex(len(modules), jobs, func(i int) { units[i+1] = backend.EmitModule(irs[i]) }) }
 		if jobs <= 1 {
-			runtimeUnit = EmitRuntime(main)
+			units[0] = backend.EmitRuntime(main)
 			emitModules()
 		} else {
 			var failure any
@@ -224,7 +235,7 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 			go func() {
 				defer done.Done()
 				defer func() { failure = recover() }()
-				runtimeUnit = EmitRuntime(main)
+				units[0] = backend.EmitRuntime(main)
 			}()
 			emitModules()
 			done.Wait()
@@ -233,12 +244,7 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*Comp
 			}
 		}
 		mark("codegen")
-		units := make([]*CodeUnit, 0, len(modules)+1)
-		units = append(units, runtimeUnit)
-		for _, m := range modules {
-			units = append(units, m.Unit)
-		}
-		Link(output, units, RtEntry, jobs)
+		backend.Link(output, units, ir.RtEntry, jobs)
 		mark("link")
 	}
 	return nil
@@ -262,22 +268,22 @@ func reportParseAllocation(phaseTotal, read, lex, parse uint64) {
 }
 
 type constEntry struct {
-	module *Module
-	decl   *ConstDecl
+	module *ast.Module
+	decl   *ast.ConstDecl
 }
 
-func checkConstants(project *Project, jobs int, errs *[]*CompileError) {
+func checkConstants(proj *ast.Project, jobs int, errs *[]*diag.CompileError) {
 	var consts []constEntry
-	for _, m := range project.Modules {
+	for _, m := range proj.Modules {
 		for _, d := range m.Decls {
-			if c, ok := d.(*ConstDecl); ok {
+			if c, ok := d.(*ast.ConstDecl); ok {
 				consts = append(consts, constEntry{m, c})
 			}
 		}
 	}
-	deps := make([][]*ConstDecl, len(consts))
-	ForEachIndex(len(consts), jobs, func(i int) {
-		seen := map[*ConstDecl]bool{}
+	deps := make([][]*ast.ConstDecl, len(consts))
+	par.ForEachIndex(len(consts), jobs, func(i int) {
+		seen := map[*ast.ConstDecl]bool{}
 		for _, c := range ConstRefs(consts[i].decl.Value, nil) {
 			if !seen[c] {
 				seen[c] = true
@@ -286,7 +292,7 @@ func checkConstants(project *Project, jobs int, errs *[]*CompileError) {
 		}
 	})
 
-	index := make(map[*ConstDecl]int, len(consts))
+	index := make(map[*ast.ConstDecl]int, len(consts))
 	for i, c := range consts {
 		index[c.decl] = i
 	}
@@ -313,7 +319,7 @@ func checkConstants(project *Project, jobs int, errs *[]*CompileError) {
 
 	for i := range consts {
 		before := len(*errs)
-		Guard(errs, func() { depthOf(i) })
+		diag.Guard(errs, func() { depthOf(i) })
 		if len(*errs) > before {
 			return
 		}
@@ -327,10 +333,10 @@ func checkConstants(project *Project, jobs int, errs *[]*CompileError) {
 		waves[depth[i]] = append(waves[depth[i]], i)
 	}
 	for _, items := range waves {
-		waveErrors := make([][]*CompileError, len(items))
-		ForEachIndex(len(items), jobs, func(k int) {
+		waveErrors := make([][]*diag.CompileError, len(items))
+		par.ForEachIndex(len(items), jobs, func(k int) {
 			entry := consts[items[k]]
-			NewChecker(project, entry.module, &waveErrors[k]).CheckConst(entry.decl)
+			check.NewChecker(proj, entry.module, &waveErrors[k]).CheckConst(entry.decl)
 		})
 		for _, e := range waveErrors {
 			*errs = append(*errs, e...)
@@ -338,25 +344,25 @@ func checkConstants(project *Project, jobs int, errs *[]*CompileError) {
 	}
 }
 
-func ConstRefs(e Expr, into []*ConstDecl) []*ConstDecl {
+func ConstRefs(e ast.Expr, into []*ast.ConstDecl) []*ast.ConstDecl {
 	switch e := e.(type) {
-	case *NameExpr:
-		if c, ok := e.Target.(*ConstDecl); ok {
+	case *ast.NameExpr:
+		if c, ok := e.Target.(*ast.ConstDecl); ok {
 			return append(into, c)
 		}
-	case *BinaryExpr:
+	case *ast.BinaryExpr:
 		return ConstRefs(e.R, ConstRefs(e.L, into))
-	case *UnaryExpr:
+	case *ast.UnaryExpr:
 		return ConstRefs(e.E, into)
-	case *CondExpr:
+	case *ast.CondExpr:
 		return ConstRefs(e.Else, ConstRefs(e.Then, ConstRefs(e.Cond, into)))
-	case *CastExpr:
+	case *ast.CastExpr:
 		return ConstRefs(e.E, into)
-	case *MemberExpr:
+	case *ast.MemberExpr:
 		return ConstRefs(e.Obj, into)
-	case *StrLit:
+	case *ast.StrLit:
 		for _, p := range e.Parts {
-			if part, ok := p.(Expr); ok {
+			if part, ok := p.(ast.Expr); ok {
 				into = ConstRefs(part, into)
 			}
 		}
@@ -364,9 +370,9 @@ func ConstRefs(e Expr, into []*ConstDecl) []*ConstDecl {
 	return into
 }
 
-func suspendCollection(project *Project, jobs int) (int64, func()) {
+func suspendCollection(proj *ast.Project, jobs int) (int64, func()) {
 	var source atomic.Int64
-	ForEach(project.Modules, jobs, func(m *Module) {
+	par.ForEach(proj.Modules, jobs, func(m *ast.Module) {
 		for _, f := range m.Files {
 			if info, err := os.Stat(f); err == nil {
 				source.Add(info.Size())
@@ -382,8 +388,8 @@ func suspendCollection(project *Project, jobs int) (int64, func()) {
 	}
 }
 
-func sortedErrors(errs []*CompileError) []*CompileError {
-	out := append([]*CompileError{}, errs...)
+func sortedErrors(errs []*diag.CompileError) []*diag.CompileError {
+	out := append([]*diag.CompileError{}, errs...)
 	sort.SliceStable(out, func(a, b int) bool {
 		x, y := out[a], out[b]
 		if x.File != y.File {

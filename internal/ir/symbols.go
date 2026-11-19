@@ -1,4 +1,4 @@
-package main
+package ir
 
 const (
 	RtEntry         = "rt.entry"

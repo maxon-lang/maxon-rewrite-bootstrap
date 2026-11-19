@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"minimaxon/internal/diag"
+	"minimaxon/internal/driver"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,13 +47,13 @@ const (
 )
 
 var (
-	jobs    = DefaultJobs()
+	jobs    = driver.DefaultJobs()
 	timings bool
 	emitIR  bool
 )
 
-func compileWithFlags(path, output string) []*CompileError {
-	return Compile(path, output, jobs, timings, emitIR)
+func compileWithFlags(path, output string) []*diag.CompileError {
+	return driver.Compile(path, output, jobs, timings, emitIR)
 }
 
 func describeInternal(r any, stack []byte) string {
@@ -141,7 +143,7 @@ func run(args []string) int {
 		cmd := exec.Command(exe)
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 		if err := cmd.Start(); err != nil {
-			panic(Internal("cannot start %s: %v", exe, err))
+			panic(diag.Internal("cannot start %s: %v", exe, err))
 		}
 		_ = cmd.Wait()
 		return exitCodeOf(cmd.ProcessState)
@@ -151,7 +153,7 @@ func run(args []string) int {
 		}
 		exe, err := os.Executable()
 		if err != nil {
-			panic(Internal("cannot locate the executable: %v", err))
+			panic(diag.Internal("cannot locate the executable: %v", err))
 		}
 		return runTests(filepath.Join(filepath.Dir(exe), "tests"))
 	default:
@@ -167,13 +169,13 @@ func exitCodeOf(state *os.ProcessState) int {
 func tempExe(source string) string {
 	dir := filepath.Join(os.TempDir(), "minimaxon")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		panic(Internal("cannot create %s: %v", dir, err))
+		panic(diag.Internal("cannot create %s: %v", dir, err))
 	}
 	base := filepath.Base(strings.TrimRight(source, "/\\"))
 	return filepath.Join(dir, strings.TrimSuffix(base, filepath.Ext(base))+executableExtension)
 }
 
-func report(errs []*CompileError) bool {
+func report(errs []*diag.CompileError) bool {
 	for _, e := range errs {
 		fmt.Fprintln(os.Stderr, e)
 	}
@@ -190,7 +192,7 @@ type expectation struct {
 func readLines(path string) []string {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		panic(Internal("cannot read %s: %v", path, err))
+		panic(diag.Internal("cannot read %s: %v", path, err))
 	}
 	text := strings.TrimPrefix(string(data), byteOrderMark)
 	text = strings.ReplaceAll(text, "\r\n", "\n")
@@ -217,7 +219,7 @@ func readExpectation(program string) expectation {
 			case strings.HasPrefix(line, expectExitPrefix):
 				n, err := strconv.Atoi(strings.TrimSpace(line[len(expectExitPrefix):]))
 				if err != nil {
-					panic(Internal("%s: malformed expect-exit: %v", file, err))
+					panic(diag.Internal("%s: malformed expect-exit: %v", file, err))
 				}
 				expect.Exit = n
 			case strings.HasPrefix(line, expectStdoutPrefix):
@@ -237,7 +239,7 @@ func readExpectation(program string) expectation {
 func runTests(dir string) int {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
-		panic(Internal("cannot resolve %s: %v", dir, err))
+		panic(diag.Internal("cannot resolve %s: %v", dir, err))
 	}
 	modulesRoot := filepath.Join(dir, modulesDir)
 	var files []string
@@ -251,7 +253,7 @@ func runTests(dir string) int {
 		return nil
 	})
 	if walkErr != nil {
-		panic(Internal("cannot read %s: %v", dir, walkErr))
+		panic(diag.Internal("cannot read %s: %v", dir, walkErr))
 	}
 	if entries, err := os.ReadDir(modulesRoot); err == nil {
 		for _, e := range entries {
@@ -266,7 +268,7 @@ func runTests(dir string) int {
 	for _, file := range files {
 		name, err := filepath.Rel(dir, file)
 		if err != nil {
-			panic(Internal("cannot relativize %s: %v", file, err))
+			panic(diag.Internal("cannot relativize %s: %v", file, err))
 		}
 		failure, failed := runTest(file, readExpectation(file))
 		status := "PASS"
@@ -288,7 +290,7 @@ func runTests(dir string) int {
 	return 1
 }
 
-func compileForTest(file, output string) (errs []*CompileError, internal string) {
+func compileForTest(file, output string) (errs []*diag.CompileError, internal string) {
 	defer func() {
 		if r := recover(); r != nil {
 			internal = describeInternal(r, debug.Stack())
@@ -297,7 +299,7 @@ func compileForTest(file, output string) (errs []*CompileError, internal string)
 	return compileWithFlags(file, output), ""
 }
 
-func joinErrors(errs []*CompileError) string {
+func joinErrors(errs []*diag.CompileError) string {
 	parts := make([]string, len(errs))
 	for i, e := range errs {
 		parts[i] = e.Error()

@@ -1,8 +1,10 @@
-package main
+package backend
 
 import (
 	"encoding/binary"
 	"math"
+	"minimaxon/internal/ast"
+	"minimaxon/internal/diag"
 )
 
 type R int
@@ -121,22 +123,22 @@ func SymbolText(symbol any) string {
 	switch s := symbol.(type) {
 	case string:
 		return s
-	case *FuncDecl:
+	case *ast.FuncDecl:
 		return s.Symbol()
 	}
-	panic(Internal("symbol %T is neither a function nor a name", symbol))
+	panic(diag.Internal("symbol %T is neither a function nor a name", symbol))
 }
 
 func (u *CodeUnit) DefineCode(symbol any) {
 	if _, ok := u.CodeSymbols[symbol]; ok {
-		panic(Internal("code symbol %s is defined twice", SymbolText(symbol)))
+		panic(diag.Internal("code symbol %s is defined twice", SymbolText(symbol)))
 	}
 	u.CodeSymbols[symbol] = u.Asm.Pos()
 }
 
 func (u *CodeUnit) DefineData(symbol any, size int) {
 	if _, ok := u.DataSymbols[symbol]; ok {
-		panic(Internal("data symbol %s is defined twice", SymbolText(symbol)))
+		panic(diag.Internal("data symbol %s is defined twice", SymbolText(symbol)))
 	}
 	u.DataSymbols[symbol] = u.Data.Reserve(size)
 }
@@ -427,7 +429,7 @@ func (a *Asm) Call(l *Label) {
 
 func (a *Asm) Bind(l *Label) {
 	if l.Symbol != nil {
-		panic(Internal("external label %s cannot be bound in a unit", SymbolText(l.Symbol)))
+		panic(diag.Internal("external label %s cannot be bound in a unit", SymbolText(l.Symbol)))
 	}
 	l.Pos = a.Pos()
 	for _, use := range l.Uses {

@@ -1,4 +1,8 @@
-package main
+package ast
+
+import (
+	"minimaxon/internal/diag"
+)
 
 type Pos struct {
 	File string
@@ -8,8 +12,8 @@ type Pos struct {
 
 func (p *Pos) P() *Pos { return p }
 
-func (p *Pos) Error(code, msg string) *CompileError {
-	return NewError(code, msg, p.File, p.Line, p.Col)
+func (p *Pos) Error(code, msg string) *diag.CompileError {
+	return diag.NewError(code, msg, p.File, p.Line, p.Col)
 }
 
 type Node interface {

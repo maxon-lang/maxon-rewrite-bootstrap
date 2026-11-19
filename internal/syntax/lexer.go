@@ -1,7 +1,9 @@
-package main
+package syntax
 
 import (
 	"math/bits"
+	"minimaxon/internal/ast"
+	"minimaxon/internal/diag"
 	"unicode/utf8"
 )
 
@@ -63,7 +65,7 @@ type Token struct {
 	Payload any
 }
 
-func (t Token) IntValue() I128 { return t.Payload.(I128) }
+func (t Token) IntValue() ast.I128 { return t.Payload.(ast.I128) }
 
 func (t Token) Parts() []StrPart {
 	parts, _ := t.Payload.([]StrPart)
@@ -203,8 +205,8 @@ func (lx *Lexer) lexSlice() {
 	}
 }
 
-func (lx *Lexer) fail(code, msg string, l, c int) *CompileError {
-	return NewError(code, msg, lx.file, l, c)
+func (lx *Lexer) fail(code, msg string, l, c int) *diag.CompileError {
+	return diag.NewError(code, msg, lx.file, l, c)
 }
 
 func (lx *Lexer) advance() {
@@ -254,7 +256,7 @@ func (lx *Lexer) skipSpaceAndComments() {
 				lx.advance()
 			}
 			if lx.pos >= lx.end {
-				panic(lx.fail(ErrUnexpectedToken, "unterminated block comment", l, cl))
+				panic(lx.fail(diag.ErrUnexpectedToken, "unterminated block comment", l, cl))
 			}
 			lx.advance()
 			lx.advance()
@@ -265,6 +267,7 @@ func (lx *Lexer) skipSpaceAndComments() {
 }
 
 func (lx *Lexer) lexNumber(l, cl int) {
+	literal := lx.pos
 	radix := uint64(10)
 	if lx.src[lx.pos] == '0' {
 		switch lx.peek(1) {
@@ -281,8 +284,7 @@ func (lx *Lexer) lexNumber(l, cl int) {
 		}
 	}
 
-	start := lx.pos
-	var value I128
+	var value ast.I128
 	digits := 0
 	for lx.pos < lx.end && (isAsciiHexDigit(lx.src[lx.pos]) || lx.src[lx.pos] == '_') {
 		ch := lx.src[lx.pos]
@@ -301,22 +303,22 @@ func (lx *Lexer) lexNumber(l, cl int) {
 		}
 		hi, lo := bits.Mul64(value.Lo, radix)
 		lo, carry := bits.Add64(lo, d, 0)
-		value = I128{Hi: int64(hi + carry), Lo: lo}
-		if value.Gt(U64Max) {
-			panic(lx.fail(ErrExpressionError, "integer literal is larger than u64.max", l, cl))
+		value = ast.I128{Hi: int64(hi + carry), Lo: lo}
+		if value.Gt(ast.U64Max) {
+			panic(lx.fail(diag.ErrExpressionError, "integer literal is larger than u64.max", l, cl))
 		}
 		digits++
 		lx.advance()
 	}
 
 	if digits == 0 {
-		panic(lx.fail(ErrExpressionError, "malformed integer literal", l, cl))
+		panic(lx.fail(diag.ErrExpressionError, "malformed integer literal", l, cl))
 	}
 	if lx.pos < lx.end && lx.src[lx.pos] == '.' && isAsciiDigit(lx.peek(1)) {
-		panic(lx.fail(ErrUnsupported, "float literals are not supported by minimaxon", l, cl))
+		panic(lx.fail(diag.ErrUnsupported, "float literals are not supported by minimaxon", l, cl))
 	}
 
-	lx.toks = append(lx.toks, Token{Kind: TInt, Text: lx.intern(lx.src[start:lx.pos]), Line: l, Col: cl, Payload: value})
+	lx.toks = append(lx.toks, Token{Kind: TInt, Text: lx.intern(lx.src[literal:lx.pos]), Line: l, Col: cl, Payload: value})
 }
 
 func (lx *Lexer) readEscape(l, cl int) rune {
@@ -348,7 +350,7 @@ func (lx *Lexer) readEscape(l, cl int) rune {
 	case 'u':
 		return rune(lx.readHex(4, l, cl))
 	}
-	panic(lx.fail(ErrUnexpectedToken, "unknown escape sequence '\\"+string(lx.runeAt(at))+"'", l, cl))
+	panic(lx.fail(diag.ErrUnexpectedToken, "unknown escape sequence '\\"+string(lx.runeAt(at))+"'", l, cl))
 }
 
 func (lx *Lexer) readHex(n, l, cl int) int {
@@ -356,7 +358,7 @@ func (lx *Lexer) readHex(n, l, cl int) int {
 	for i := 0; i < n; i++ {
 		ch := lx.peek(0)
 		if !isAsciiHexDigit(ch) {
-			panic(lx.fail(ErrUnexpectedToken, "malformed hex escape", l, cl))
+			panic(lx.fail(diag.ErrUnexpectedToken, "malformed hex escape", l, cl))
 		}
 		var d int
 		if isAsciiDigit(ch) {
@@ -377,7 +379,7 @@ func (lx *Lexer) lexString(l, cl int) {
 
 	for {
 		if lx.pos >= lx.end || lx.src[lx.pos] == '\n' {
-			panic(lx.fail(ErrUnexpectedToken, "unterminated string literal", l, cl))
+			panic(lx.fail(diag.ErrUnexpectedToken, "unterminated string literal", l, cl))
 		}
 		c := lx.src[lx.pos]
 		if c == '"' {
@@ -389,7 +391,7 @@ func (lx *Lexer) lexString(l, cl int) {
 			continue
 		}
 		if c == '}' {
-			panic(lx.fail(ErrUnexpectedToken, "a '}' in a string is written '\\}'", lx.line, lx.col))
+			panic(lx.fail(diag.ErrUnexpectedToken, "a '}' in a string is written '\\}'", lx.line, lx.col))
 		}
 		if c == '{' {
 			if len(text) > 0 {
@@ -413,7 +415,7 @@ func (lx *Lexer) lexString(l, cl int) {
 				case ch == ')' || ch == ']':
 					parens--
 				case ch == ':' && parens == 0 && nest == 0:
-					panic(lx.fail(ErrUnsupported, "format specifiers are not supported by minimaxon", lx.line, lx.col))
+					panic(lx.fail(diag.ErrUnsupported, "format specifiers are not supported by minimaxon", lx.line, lx.col))
 				case ch == '"':
 					lx.advance()
 					for lx.pos < lx.end && lx.src[lx.pos] != '"' && lx.src[lx.pos] != '\n' {
@@ -426,7 +428,7 @@ func (lx *Lexer) lexString(l, cl int) {
 				lx.advance()
 			}
 			if lx.pos >= lx.end || lx.src[lx.pos] != '}' {
-				panic(lx.fail(ErrUnexpectedToken, "unterminated interpolation in string literal", el, ec))
+				panic(lx.fail(diag.ErrUnexpectedToken, "unterminated interpolation in string literal", el, ec))
 			}
 			parts = append(parts, ExprPart{Source: string(lx.src[start:lx.pos]), Line: el, Col: ec})
 			lx.advance()
@@ -449,7 +451,7 @@ func (lx *Lexer) lexQuote(l, cl int) {
 		lx.advance()
 	}
 	if lx.pos >= lx.end || lx.src[lx.pos] != '\'' {
-		panic(lx.fail(ErrUnexpectedToken, "unterminated label", l, cl))
+		panic(lx.fail(diag.ErrUnexpectedToken, "unterminated label", l, cl))
 	}
 	text := lx.intern(lx.src[start:lx.pos])
 	lx.advance()
@@ -503,7 +505,7 @@ func (lx *Lexer) lexPunct(c byte, l, cl int) {
 		}
 	case '!':
 		if lx.peek(1) != '=' {
-			panic(lx.fail(ErrUnexpectedToken, "unexpected character '!'", l, cl))
+			panic(lx.fail(diag.ErrUnexpectedToken, "unexpected character '!'", l, cl))
 		}
 		kind = TNotEq
 		length = 2
@@ -522,9 +524,9 @@ func (lx *Lexer) lexPunct(c byte, l, cl int) {
 			kind = TGt
 		}
 	case '#':
-		panic(lx.fail(ErrUnsupported, "conditional compilation is not supported by minimaxon", l, cl))
+		panic(lx.fail(diag.ErrUnsupported, "conditional compilation is not supported by minimaxon", l, cl))
 	default:
-		panic(lx.fail(ErrUnexpectedToken, "unexpected character '"+string(lx.runeAt(lx.pos))+"'", l, cl))
+		panic(lx.fail(diag.ErrUnexpectedToken, "unexpected character '"+string(lx.runeAt(lx.pos))+"'", l, cl))
 	}
 
 	text := lx.intern(lx.src[lx.pos : lx.pos+length])

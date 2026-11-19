@@ -1,7 +1,7 @@
 # minimaxon
 
 A small Maxon compiler for trying out language changes, and the seed of the next full Maxon compiler. It is
-written in Go, targets x64 Windows only, and is about 8,000 lines. It compiles modules in parallel and writes a
+written in Go, targets x64 Windows only, and is about 8,000 lines in ten packages. It compiles modules in parallel and writes a
 PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the real compiler and does not share code with `maxon-bin/`. It started from a core subset of
@@ -23,6 +23,10 @@ go build -o minimaxon.exe .
 .\minimaxon.exe run tests/run/enums-unions.maxon
 ```
 
+```powershell
+go test ./...
+```
+
 | Command | What it does |
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory |
@@ -37,6 +41,11 @@ to stderr.
 
 ### Tests
 
+There are two kinds. **Unit tests** (`internal/<package>/*_test.go`) test one package with `go test`, which builds
+only that package and the ones it imports, so a change is checked in a few hundred milliseconds without rebuilding
+the compiler. `internal/check`'s tests show how to run the front end on a source string in memory. **Corpus tests**
+run whole programs through `minimaxon test`.
+
 Each `tests/**/*.maxon` is one program, except under `tests/modules/`, where each directory is a project
 and its root files carry the directives. Directives in comments say what the program must do:
 
@@ -49,7 +58,7 @@ and its root files carry the directives. Directives in comments say what the pro
 ### Errors
 
 A diagnostic is `file:line:col: error E….: message`, and compiling stops at the first error in each
-function. A diagnostic is a `*CompileError` panic that `Guard` (`diag.go`) turns into a list entry; any other
+function. A diagnostic is a `*CompileError` panic that `Guard` (`internal/diag`) turns into a list entry; any other
 panic is a bug in minimaxon, not in the program. It prints `internal compiler error` with a stack trace and
 exits 3.
 
@@ -82,32 +91,54 @@ under it that holds source, at any depth, is a module of its own. Names follow M
 - A directory whose name is not an identifier, or a top-level one named `export`, `stdlib`, `runtime` or
   `scriptlib`, is `E3182`.
 
+## Packages
+
+The compiler is a set of packages under `internal/`, each a phase or a layer, so each builds and tests on its own.
+Dependencies only point down the list, and Go refuses an import cycle, so the layering cannot erode:
+
+| Package | Holds | Imports |
+|---|---|---|
+| `diag` | `CompileError`, `Guard`, the error codes | — |
+| `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines | — |
+| `ast` | the program model: AST nodes, semantic types, `I128`, `Module` and `Project`, keywords | `diag` |
+| `project` | loading a project: discovery, declaration tables, the import-cycle check | `ast`, `diag`, `par` |
+| `syntax` | module source buffers, the lexer and the parser | `ast`, `diag` |
+| `resolve` | name resolution | `ast`, `diag` |
+| `check` | the type checker and the ownership pass | `ast`, `diag` |
+| `ir` | the IR, its printer, lowering, and the runtime's symbol names | `ast`, `diag` |
+| `backend` | the x64 encoder, codegen, the runtime unit, the linker and the PE writer | `ast`, `diag`, `ir`, `par` |
+| `driver` | `Compile`: runs the phases | all of the above |
+
+The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. A package exports only what another
+package uses. The AST nodes still carry their semantic types directly, which is why `ast` holds both; moving type
+information into side tables, as `go/ast` and `go/types` do, would let the two separate.
+
+An edit rebuilds only its package and the packages that import it: after a change to `check`, the compiler
+rebuilds in about 0.4 s, and `go test ./internal/check` runs in about 0.3 s.
+
 ## Pipeline
 
-`Compile` in [`driver.go`](driver.go) runs the phases below in order. Every phase is parallel, and each
-completes before the next starts, so a work item only reads another's results from an earlier phase and needs
-no locks. Within a module the work is serial; the module is the unit of parallelism, except for constants (one
-per item) and the link (one code unit per item). Results are merged in source order, which keeps the output
-deterministic. `ForEach` in `modules.go` runs a phase over a worker pool of `--jobs` goroutines.
+`driver.Compile` runs the phases below in order. Every phase is parallel, and each completes before the next
+starts, so a work item only reads another's results from an earlier phase and needs no locks. Within a module the
+work is serial; the module is the unit of parallelism, except for constants (one per item) and the link (one code
+unit per item). Results are merged in source order, which keeps the output deterministic.
 
-| Phase | File | Work per module |
+| Phase | Package | Work per module |
 |---|---|---|
-| discover | `modules.go` | walks the directory tree, one goroutine per subdirectory |
-| parse | `source.go`, `lexer.go`, `parser.go` | reads the module's files into one buffer, strips comments, lexes the whole buffer in one pass and parses the token stream into the AST (`ast.go`); anything outside the subset is `E9000` |
-| tables | `modules.go` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
-| resolve | `resolver.go` | binds every name to its declaration and records module dependencies |
-| declare | `checker.go` | the module's fields, cases and function signatures |
-| constants | `driver.go` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
-| bodies | `checker.go` | types every function body; a call into another module takes the callee's declared return type and is recorded, not checked |
-| verify | `checker.go`, `ownership.go` | checks the recorded cross-module calls, then moves (`E3102`) |
-| lower | `lower.go`, `ir.go` | the checked AST of each function becomes IR (below), and unreachable blocks are pruned |
-| codegen | `codegen.go`, `runtime.go` | IR → x64, one code unit per module, calls between units symbolic; the runtime is its own hand-written unit |
-| link | `linker.go`, `pe.go` | offsets by prefix sum, then each unit copied and patched in parallel; the units go in module-path order after a runtime unit |
+| discover | `project` | walks the directory tree, one goroutine per subdirectory |
+| parse | `syntax` | reads the module's files into one buffer, strips comments, lexes the whole buffer in one pass and parses the token stream into the AST; anything outside the subset is `E9000` |
+| tables | `project` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
+| resolve | `resolve` | binds every name to its declaration and records module dependencies |
+| declare | `check` | the module's fields, cases and function signatures |
+| constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
+| bodies | `check` | types every function body; a call into another module takes the callee's declared return type and is recorded, not checked |
+| verify | `check` | checks the recorded cross-module calls, then moves (`E3102`) |
+| lower | `ir` | the checked AST of each function becomes IR (below), and unreachable blocks are pruned |
+| codegen | `backend` | IR → x64, one code unit per module, calls between units symbolic; the runtime is its own hand-written unit |
+| link | `backend` | offsets by prefix sum, then each unit copied and patched in parallel; the units go in module-path order after a runtime unit |
 
-`x64.go` is the instruction encoder, `types.go` the checker's types, `i128.go` the 128-bit integers that hold
-constant ranges, and `main.go` the CLI and test runner. A phase that reports an error stops the compile, so
-later phases never see a broken module. The one serial step is the import-cycle check between resolve and
-declare, a walk over the module graph.
+A phase that reports an error stops the compile, so later phases never see a broken module. The one serial step
+is the import-cycle check between resolve and declare, a walk over the module graph.
 
 ### Reading a module
 
@@ -137,7 +168,7 @@ the MB and pause columns of `--timings` when changing a phase.
 ## The IR
 
 The checker works on the AST, which mirrors what the author wrote. Everything after it works on the IR in
-`ir.go`, which is what a later pass such as reference counting, region lowering or an optimization changes.
+`internal/ir`, which is what a later pass such as reference counting, region lowering or an optimization changes.
 
 - A function is a list of basic blocks, each a list of instructions ending in one terminator (`jump`, `branch`,
   `switch`, `ret`, `trap`).
@@ -200,8 +231,8 @@ checked where the result is computed. `as` checks at compile time for a constant
 
 A typical change touches one file per stage:
 
-1. **Syntax:** a node in `ast.go` and a branch in `parser.go` (`parseStatement`, `parsePrimary` and their
-   helpers). If the word was an `unsupported(...)` refusal, that call is where the new production goes. A node
+1. **Syntax:** a node in `internal/ast` and a branch in `internal/syntax` (`parseStatement`, `parsePrimary` and
+   their helpers). If the word was an `unsupported(...)` refusal, that call is where the new production goes. A node
    holding names needs a case in `Resolver.stmt` or `Resolver.expr` too, which panics with an internal error on
    a node it does not know.
 2. **Typing:** a case in `Checker.checkExpr` or `Checker.checkStmt`. Store what codegen needs on the node.
@@ -210,8 +241,9 @@ A typical change touches one file per stage:
 3. **Ownership:** a case in `Ownership.stmt` or `Ownership.expr`. The pass, like lowering and codegen, panics
    with an internal error on a node it does not know, so it cannot be skipped by accident.
 4. **Lowering:** a case in `Lowerer.expr` or `Lowerer.stmt`, built from the existing instructions where it can.
-   A new instruction needs a case in `codegen.instr` and `instrText` (`ir.go`) as well.
-5. **Tests:** a `tests/run/` program for the behaviour, and a `tests/errors/` program for each diagnostic.
+   A new instruction needs a case in `codegen.instr` (`internal/backend`) and `instrText` (`internal/ir`) as well.
+5. **Tests:** a unit test in the package that changed, a `tests/run/` program for the behaviour, and a
+   `tests/errors/` program for each diagnostic.
 
 A rule that is only a diagnostic, such as a new ownership or region check, usually needs steps 2 or 3 and
 a test, and nothing else.

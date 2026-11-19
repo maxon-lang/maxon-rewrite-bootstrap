@@ -1,7 +1,9 @@
-package main
+package ir
 
 import (
 	"fmt"
+	"minimaxon/internal/ast"
+	"minimaxon/internal/diag"
 	"strings"
 )
 
@@ -186,7 +188,7 @@ type AllocInstr struct {
 type CallInstr struct {
 	InstrBase
 	Dst    *V
-	Target *FuncDecl
+	Target *ast.FuncDecl
 	Args   []V
 }
 
@@ -239,7 +241,7 @@ type IrBlock struct {
 }
 
 type IrFunction struct {
-	Decl       *FuncDecl
+	Decl       *ast.FuncDecl
 	ParamCount int
 	Slots      []IrKind
 	Regs       []IrKind
@@ -273,7 +275,7 @@ func Successors(b *IrBlock) []*IrBlock {
 	case *RetTerm, *TrapTerm:
 		return nil
 	}
-	panic(Internal("block b%d has no terminator", b.ID))
+	panic(diag.Internal("block b%d has no terminator", b.ID))
 }
 
 func (f *IrFunction) RemoveUnreachable() {
@@ -402,7 +404,7 @@ func instrText(i Instr) string {
 	case *CallRuntimeInstr:
 		return fmt.Sprintf("%sruntime %s(%s)", dstPrefix(x.Dst), x.Symbol, argList(x.Args))
 	}
-	panic(Internal("printer: unhandled instruction %T", i))
+	panic(diag.Internal("printer: unhandled instruction %T", i))
 }
 
 func termText(t Terminator) string {
@@ -422,5 +424,5 @@ func termText(t Terminator) string {
 	case *TrapTerm:
 		return "trap"
 	}
-	panic(Internal("printer: a block has no terminator"))
+	panic(diag.Internal("printer: a block has no terminator"))
 }

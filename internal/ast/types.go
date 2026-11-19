@@ -1,6 +1,9 @@
-package main
+package ast
 
-import "fmt"
+import (
+	"fmt"
+	"minimaxon/internal/diag"
+)
 
 type Ty interface {
 	Name() string
@@ -167,4 +170,18 @@ type Local struct {
 
 func NewLocal(name string, t Ty, isVar bool) *Local {
 	return &Local{Name: name, Type: t, IsVar: isVar, ParamIndex: -1, Slot: -1}
+}
+
+func Shell(d TypeDeclNode) Ty {
+	switch t := d.(type) {
+	case *AliasDecl:
+		return &IntTy{Alias: t.Name, Min: t.Min, Max: t.Max}
+	case *TypeDecl:
+		return NewRecordTy(t)
+	case *EnumDecl:
+		return NewEnumTy(t)
+	case *UnionDecl:
+		return NewUnionTy(t)
+	}
+	panic(diag.Internal("no type for %T", d))
 }

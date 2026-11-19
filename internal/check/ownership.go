@@ -1,9 +1,13 @@
-package main
+package check
 
-import "fmt"
+import (
+	"fmt"
+	"minimaxon/internal/ast"
+	"minimaxon/internal/diag"
+)
 
 type ownState struct {
-	moved map[*Local]Node
+	moved map[*ast.Local]ast.Node
 	dead  bool
 }
 
@@ -12,7 +16,7 @@ var (
 	ownClean       = &ownState{}
 )
 
-func (s *ownState) tryGetMove(l *Local) (Node, bool) {
+func (s *ownState) tryGetMove(l *ast.Local) (ast.Node, bool) {
 	if s.moved == nil {
 		return nil, false
 	}
@@ -20,11 +24,11 @@ func (s *ownState) tryGetMove(l *Local) (Node, bool) {
 	return site, ok
 }
 
-func (s *ownState) with(l *Local, site Node) *ownState {
+func (s *ownState) with(l *ast.Local, site ast.Node) *ownState {
 	if s.dead {
 		return s
 	}
-	m := make(map[*Local]Node, len(s.moved)+1)
+	m := make(map[*ast.Local]ast.Node, len(s.moved)+1)
 	for k, v := range s.moved {
 		m[k] = v
 	}
@@ -32,7 +36,7 @@ func (s *ownState) with(l *Local, site Node) *ownState {
 	return &ownState{moved: m}
 }
 
-func (s *ownState) without(l *Local) *ownState {
+func (s *ownState) without(l *ast.Local) *ownState {
 	if s.dead || s.moved == nil {
 		return s
 	}
@@ -42,7 +46,7 @@ func (s *ownState) without(l *Local) *ownState {
 	if len(s.moved) == 1 {
 		return ownClean
 	}
-	m := make(map[*Local]Node, len(s.moved))
+	m := make(map[*ast.Local]ast.Node, len(s.moved))
 	for k, v := range s.moved {
 		if k != l {
 			m[k] = v
@@ -58,11 +62,11 @@ func mergeOwn(a, b *ownState) *ownState {
 	if a.dead || a.moved == nil {
 		return b
 	}
-	var m map[*Local]Node
+	var m map[*ast.Local]ast.Node
 	for k, v := range b.moved {
 		if _, ok := a.moved[k]; !ok {
 			if m == nil {
-				m = make(map[*Local]Node, len(a.moved)+1)
+				m = make(map[*ast.Local]ast.Node, len(a.moved)+1)
 				for ak, av := range a.moved {
 					m[ak] = av
 				}
@@ -77,37 +81,37 @@ func mergeOwn(a, b *ownState) *ownState {
 }
 
 type ownFrame struct {
-	target    Node
+	target    ast.Node
 	breaks    *ownState
 	continues *ownState
 }
 
-func newOwnFrame(target Node) *ownFrame {
+func newOwnFrame(target ast.Node) *ownFrame {
 	return &ownFrame{target: target, breaks: ownUnreachable, continues: ownUnreachable}
 }
 
 type Ownership struct {
-	errors      *[]*CompileError
+	errors      *[]*diag.CompileError
 	frames      []*ownFrame
-	moveTargets map[Node]string
+	moveTargets map[ast.Node]string
 }
 
-func NewOwnership(errs *[]*CompileError) *Ownership {
-	return &Ownership{errors: errs, moveTargets: map[Node]string{}}
+func NewOwnership(errs *[]*diag.CompileError) *Ownership {
+	return &Ownership{errors: errs, moveTargets: map[ast.Node]string{}}
 }
 
-func isMovable(l *Local) bool {
+func isMovable(l *ast.Local) bool {
 	if !l.IsVar || l.IsParam {
 		return false
 	}
 	switch l.Type.(type) {
-	case *RecordTy, *UnionTy:
+	case *ast.RecordTy, *ast.UnionTy:
 		return true
 	}
 	return false
 }
 
-func (o *Ownership) Check(f *FuncDecl) {
+func (o *Ownership) Check(f *ast.FuncDecl) {
 	anyMovable := false
 	for _, l := range f.Locals {
 		anyMovable = anyMovable || isMovable(l)
@@ -119,48 +123,48 @@ func (o *Ownership) Check(f *FuncDecl) {
 	o.walk(f.Body, ownClean)
 }
 
-func (o *Ownership) frameOf(target Node) *ownFrame {
+func (o *Ownership) frameOf(target ast.Node) *ownFrame {
 	for i := len(o.frames) - 1; i >= 0; i-- {
 		if o.frames[i].target == target {
 			return o.frames[i]
 		}
 	}
-	panic(Internal("ownership: a jump has no enclosing frame"))
+	panic(diag.Internal("ownership: a jump has no enclosing frame"))
 }
 
-func (o *Ownership) walk(body []Stmt, s *ownState) *ownState {
+func (o *Ownership) walk(body []ast.Stmt, s *ownState) *ownState {
 	for _, st := range body {
 		s = o.stmt(st, s)
 	}
 	return s
 }
 
-func (o *Ownership) stmt(st Stmt, s *ownState) *ownState {
+func (o *Ownership) stmt(st ast.Stmt, s *ownState) *ownState {
 	switch st := st.(type) {
-	case *LetStmt:
+	case *ast.LetStmt:
 		return o.move(st.Init, st.Name, o.expr(st.Init, s))
 
-	case *AssignStmt:
+	case *ast.AssignStmt:
 		s = o.expr(st.Value, s)
-		if target, ok := st.Target.(*NameExpr); ok && target.Kind == NameLocal {
+		if target, ok := st.Target.(*ast.NameExpr); ok && target.Kind == ast.NameLocal {
 			return o.move(st.Value, target.Local.Name, s.without(target.Local))
 		}
-		if member, ok := st.Target.(*MemberExpr); ok {
+		if member, ok := st.Target.(*ast.MemberExpr); ok {
 			return o.expr(member.Obj, s)
 		}
 		return s
 
-	case *DiscardStmt:
+	case *ast.DiscardStmt:
 		return o.expr(st.Value, s)
 
-	case *ExprStmt:
+	case *ast.ExprStmt:
 		s = o.expr(st.E, s)
-		if _, ok := st.E.(*PanicExpr); ok {
+		if _, ok := st.E.(*ast.PanicExpr); ok {
 			return ownUnreachable
 		}
 		return s
 
-	case *IfStmt:
+	case *ast.IfStmt:
 		s = o.expr(st.Cond, s)
 		a := o.walk(st.Then, s)
 		b := s
@@ -169,35 +173,35 @@ func (o *Ownership) stmt(st Stmt, s *ownState) *ownState {
 		}
 		return mergeOwn(a, b)
 
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		return o.loop(st, s, st.Body, st.Cond)
 
-	case *ForStmt:
+	case *ast.ForStmt:
 		return o.loop(st, o.expr(st.To, o.expr(st.From, s)), st.Body, nil)
 
-	case *MatchStmt:
+	case *ast.MatchStmt:
 		return o.match(st.Match, s)
 
-	case *ReturnStmt:
+	case *ast.ReturnStmt:
 		if st.Value != nil {
 			o.expr(st.Value, s)
 		}
 		return ownUnreachable
 
-	case *BreakStmt:
+	case *ast.BreakStmt:
 		frame := o.frameOf(st.Target)
 		frame.breaks = mergeOwn(frame.breaks, s)
 		return ownUnreachable
 
-	case *ContinueStmt:
+	case *ast.ContinueStmt:
 		frame := o.frameOf(st.Target)
 		frame.continues = mergeOwn(frame.continues, s)
 		return ownUnreachable
 	}
-	panic(Internal("ownership: unhandled statement %T", st))
+	panic(diag.Internal("ownership: unhandled statement %T", st))
 }
 
-func (o *Ownership) loop(loop Node, s *ownState, body []Stmt, cond Expr) *ownState {
+func (o *Ownership) loop(loop ast.Node, s *ownState, body []ast.Stmt, cond ast.Expr) *ownState {
 	frame := newOwnFrame(loop)
 	o.frames = append(o.frames, frame)
 	entry := s
@@ -216,7 +220,7 @@ func (o *Ownership) loop(loop Node, s *ownState, body []Stmt, cond Expr) *ownSta
 	return mergeOwn(mergeOwn(entry, end), frame.breaks)
 }
 
-func (o *Ownership) match(m *MatchCore, s *ownState) *ownState {
+func (o *Ownership) match(m *ast.MatchCore, s *ownState) *ownState {
 	s = o.expr(m.Subject, s)
 	frame := newOwnFrame(m)
 	o.frames = append(o.frames, frame)
@@ -227,7 +231,7 @@ func (o *Ownership) match(m *MatchCore, s *ownState) *ownState {
 			a = o.stmt(arm.Action, a)
 		} else if arm.Value != nil {
 			a = o.expr(arm.Value, a)
-			if arm.Kind == ArmPanic {
+			if arm.Kind == ast.ArmPanic {
 				a = ownUnreachable
 			}
 		}
@@ -237,19 +241,19 @@ func (o *Ownership) match(m *MatchCore, s *ownState) *ownState {
 	return mergeOwn(result, frame.breaks)
 }
 
-func (o *Ownership) move(value Expr, into string, s *ownState) *ownState {
+func (o *Ownership) move(value ast.Expr, into string, s *ownState) *ownState {
 	if s.dead {
 		return s
 	}
-	n, ok := value.(*NameExpr)
-	if !ok || n.Kind != NameLocal || !isMovable(n.Local) {
+	n, ok := value.(*ast.NameExpr)
+	if !ok || n.Kind != ast.NameLocal || !isMovable(n.Local) {
 		return s
 	}
 	o.moveTargets[value] = into
 	return s.with(n.Local, value)
 }
 
-func (o *Ownership) read(n *NameExpr, s *ownState) *ownState {
+func (o *Ownership) read(n *ast.NameExpr, s *ownState) *ownState {
 	l := n.Local
 	if s.dead {
 		return s
@@ -262,34 +266,34 @@ func (o *Ownership) read(n *NameExpr, s *ownState) *ownState {
 	if !found {
 		into = "another variable"
 	}
-	*o.errors = append(*o.errors, n.Error(ErrUseAfterMove,
+	*o.errors = append(*o.errors, n.Error(diag.ErrUseAfterMove,
 		fmt.Sprintf("'%s' was moved into '%s' at line %d; assign it again before reading it, or bind a clone", n.Name, into, site.P().Line)))
 	return s.without(l)
 }
 
-func (o *Ownership) expr(e Expr, s *ownState) *ownState {
+func (o *Ownership) expr(e ast.Expr, s *ownState) *ownState {
 	switch e := e.(type) {
-	case *IntLit, *BoolLit, *SelfExpr:
+	case *ast.IntLit, *ast.BoolLit, *ast.SelfExpr:
 		return s
-	case *StrLit:
+	case *ast.StrLit:
 		for _, part := range e.Parts {
-			if pe, ok := part.(Expr); ok {
+			if pe, ok := part.(ast.Expr); ok {
 				s = o.expr(pe, s)
 			}
 		}
 		return s
-	case *NameExpr:
-		if e.Kind == NameLocal {
+	case *ast.NameExpr:
+		if e.Kind == ast.NameLocal {
 			return o.read(e, s)
 		}
 		return s
-	case *BinaryExpr:
+	case *ast.BinaryExpr:
 		return o.expr(e.R, o.expr(e.L, s))
-	case *UnaryExpr:
+	case *ast.UnaryExpr:
 		return o.expr(e.E, s)
-	case *CondExpr:
+	case *ast.CondExpr:
 		return o.expr(e.Else, o.expr(e.Then, o.expr(e.Cond, s)))
-	case *CallExpr:
+	case *ast.CallExpr:
 		if e.Receiver != nil {
 			s = o.expr(e.Receiver, s)
 		}
@@ -297,24 +301,24 @@ func (o *Ownership) expr(e Expr, s *ownState) *ownState {
 			s = o.expr(arg, s)
 		}
 		return s
-	case *MemberExpr:
-		if e.Kind == MemberEnumCase || e.Kind == MemberUnionCase {
+	case *ast.MemberExpr:
+		if e.Kind == ast.MemberEnumCase || e.Kind == ast.MemberUnionCase {
 			return s
 		}
 		return o.expr(e.Obj, s)
-	case *StructLitExpr:
+	case *ast.StructLitExpr:
 		for _, v := range e.Ordered {
 			if v != nil {
 				s = o.expr(v, s)
 			}
 		}
 		return s
-	case *CastExpr:
+	case *ast.CastExpr:
 		return o.expr(e.E, s)
-	case *MatchExpr:
+	case *ast.MatchExpr:
 		return o.match(e.Match, s)
-	case *PanicExpr:
+	case *ast.PanicExpr:
 		return o.expr(e.Message, s)
 	}
-	panic(Internal("ownership: unhandled expression %T", e))
+	panic(diag.Internal("ownership: unhandled expression %T", e))
 }

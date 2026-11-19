@@ -1,7 +1,10 @@
-package main
+package backend
 
 import (
 	"encoding/binary"
+	"minimaxon/internal/diag"
+	"minimaxon/internal/ir"
+	"minimaxon/internal/par"
 	"sync"
 )
 
@@ -27,7 +30,7 @@ func linkOffsets(sizes []int, alignment int) ([]int, int) {
 
 func Link(out string, units []*CodeUnit, entry any, jobs int) {
 	unitData := make([][]byte, len(units))
-	ForEachIndex(len(units), jobs, func(i int) { unitData[i] = units[i].Data.ToArray() })
+	par.ForEachIndex(len(units), jobs, func(i int) { unitData[i] = units[i].Data.ToArray() })
 
 	codeSizes := make([]int, len(units))
 	dataSizes := make([]int, len(units))
@@ -47,7 +50,7 @@ func Link(out string, units []*CodeUnit, entry any, jobs int) {
 	dataSymbols := make(map[any]int, dataSymbolCount)
 	var symbolLock sync.Mutex
 
-	ForEachIndex(len(units), jobs, func(i int) {
+	par.ForEachIndex(len(units), jobs, func(i int) {
 		u := units[i]
 		copy(code[codeBase[i]:], u.Asm.Code)
 		copy(data[dataBase[i]:], unitData[i])
@@ -55,13 +58,13 @@ func Link(out string, units []*CodeUnit, entry any, jobs int) {
 		defer symbolLock.Unlock()
 		for sym, off := range u.CodeSymbols {
 			if _, ok := codeSymbols[sym]; ok {
-				panic(Internal("code symbol %s is defined in two units", SymbolText(sym)))
+				panic(diag.Internal("code symbol %s is defined in two units", SymbolText(sym)))
 			}
 			codeSymbols[sym] = codeBase[i] + off
 		}
 		for sym, off := range u.DataSymbols {
 			if _, ok := dataSymbols[sym]; ok {
-				panic(Internal("data symbol %s is defined in two units", SymbolText(sym)))
+				panic(diag.Internal("data symbol %s is defined in two units", SymbolText(sym)))
 			}
 			dataSymbols[sym] = dataBase[i] + off
 		}
@@ -69,11 +72,11 @@ func Link(out string, units []*CodeUnit, entry any, jobs int) {
 
 	entryOffset, ok := codeSymbols[entry]
 	if !ok {
-		panic(Internal("no entry symbol %s", SymbolText(entry)))
+		panic(diag.Internal("no entry symbol %s", SymbolText(entry)))
 	}
 
-	WritePe(out, code, data, RtDll, RtImports, entryOffset, func(textRva, dataRva, iatRva uint32) {
-		ForEachIndex(len(units), jobs, func(i int) {
+	WritePe(out, code, data, ir.RtDll, ir.RtImports, entryOffset, func(textRva, dataRva, iatRva uint32) {
+		par.ForEachIndex(len(units), jobs, func(i int) {
 			a := units[i].Asm
 			for _, f := range a.DataFixups {
 				linkPatch(code, codeBase[i]+f.Pos, textRva, dataRva+uint32(dataBase[i]+f.DataOffset))
@@ -88,7 +91,7 @@ func Link(out string, units []*CodeUnit, entry any, jobs int) {
 				} else if d, ok := dataSymbols[f.Symbol]; ok {
 					target = dataRva + uint32(d)
 				} else {
-					panic(Internal("undefined symbol %s", SymbolText(f.Symbol)))
+					panic(diag.Internal("undefined symbol %s", SymbolText(f.Symbol)))
 				}
 				linkPatch(code, codeBase[i]+f.Pos, textRva, target)
 			}

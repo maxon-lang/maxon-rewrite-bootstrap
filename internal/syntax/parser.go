@@ -1,46 +1,33 @@
-package main
+package syntax
 
-import "fmt"
-
-var reservedWords = map[string]bool{}
-
-func init() {
-	for _, w := range []string{
-		"and", "as", "async", "await", "bool", "break", "continue", "countof", "cstring", "default", "else", "end",
-		"enum", "export", "extends", "extension", "fallthrough", "false", "float", "for", "from", "function", "gives",
-		"if", "ignore", "implements", "in", "int", "interface", "is", "let", "match", "mod", "not", "or", "otherwise",
-		"panic", "public", "return", "returns", "self", "Self", "shl", "shr", "sizeof", "static", "then", "throw",
-		"throws", "to", "true", "try", "type", "typealias", "union", "upto", "uses", "var", "where", "while", "with",
-		"xor",
-	} {
-		reservedWords[w] = true
-	}
-}
-
-func IsReserved(word string) bool { return reservedWords[word] }
+import (
+	"fmt"
+	"minimaxon/internal/ast"
+	"minimaxon/internal/diag"
+)
 
 func isCapability(word string) bool { return word == "isolated" || word == "immutable" }
 
-func sizedTypeRange(name string) (lo, hi I128, ok bool) {
+func sizedTypeRange(name string) (lo, hi ast.I128, ok bool) {
 	switch name {
 	case "u8":
-		return Zero, I64(255), true
+		return ast.Zero, ast.I64(255), true
 	case "u16":
-		return Zero, I64(65535), true
+		return ast.Zero, ast.I64(65535), true
 	case "u32":
-		return Zero, I64(4294967295), true
+		return ast.Zero, ast.I64(4294967295), true
 	case "u64":
-		return Zero, U64Max, true
+		return ast.Zero, ast.U64Max, true
 	case "i8":
-		return I64(-128), I64(127), true
+		return ast.I64(-128), ast.I64(127), true
 	case "i16":
-		return I64(-32768), I64(32767), true
+		return ast.I64(-32768), ast.I64(32767), true
 	case "i32":
-		return I64(-2147483648), I64(2147483647), true
+		return ast.I64(-2147483648), ast.I64(2147483647), true
 	case "i64":
-		return I64Min, I64Max, true
+		return ast.I64Min, ast.I64Max, true
 	}
-	return Zero, Zero, false
+	return ast.Zero, ast.Zero, false
 }
 
 var binaryLevels = [][]string{
@@ -60,7 +47,7 @@ type Parser struct {
 	files     []string
 	p         int
 	fileIndex int
-	Errors    []*CompileError
+	Errors    []*diag.CompileError
 }
 
 func NewParser(toks []Token, files []string) *Parser {
@@ -101,8 +88,8 @@ func (p *Parser) acceptWord(w string) bool {
 	return true
 }
 
-func (p *Parser) errorAt(t *Token, code, msg string) *CompileError {
-	return NewError(code, msg, p.file(), t.Line, t.Col)
+func (p *Parser) errorAt(t *Token, code, msg string) *diag.CompileError {
+	return diag.NewError(code, msg, p.file(), t.Line, t.Col)
 }
 
 func (p *Parser) atEndOfInput() bool {
@@ -110,16 +97,16 @@ func (p *Parser) atEndOfInput() bool {
 	return k == TFileEnd || k == TEof
 }
 
-func (p *Parser) unexpected(expected string) *CompileError {
+func (p *Parser) unexpected(expected string) *diag.CompileError {
 	t := p.cur()
 	if p.atEndOfInput() {
-		return p.errorAt(t, ErrUnexpectedEnd, "unexpected end of file, expected "+expected)
+		return p.errorAt(t, diag.ErrUnexpectedEnd, "unexpected end of file, expected "+expected)
 	}
-	return p.errorAt(t, ErrUnexpectedToken, fmt.Sprintf("expected %s, found '%s'", expected, t.Text))
+	return p.errorAt(t, diag.ErrUnexpectedToken, fmt.Sprintf("expected %s, found '%s'", expected, t.Text))
 }
 
-func (p *Parser) unsupported(what string) *CompileError {
-	return p.errorAt(p.cur(), ErrUnsupported, what+" is not supported by minimaxon")
+func (p *Parser) unsupported(what string) *diag.CompileError {
+	return p.errorAt(p.cur(), diag.ErrUnsupported, what+" is not supported by minimaxon")
 }
 
 func (p *Parser) expect(k T, what string) Token {
@@ -127,7 +114,7 @@ func (p *Parser) expect(k T, what string) Token {
 		if p.atEndOfInput() {
 			panic(p.unexpected(what))
 		}
-		panic(p.errorAt(p.cur(), ErrExpectedToken, fmt.Sprintf("expected %s, found '%s'", what, p.cur().Text)))
+		panic(p.errorAt(p.cur(), diag.ErrExpectedToken, fmt.Sprintf("expected %s, found '%s'", what, p.cur().Text)))
 	}
 	return p.next()
 }
@@ -137,19 +124,19 @@ func (p *Parser) expectWord(w string) Token {
 		if p.atEndOfInput() {
 			panic(p.unexpected("'" + w + "'"))
 		}
-		panic(p.errorAt(p.cur(), ErrExpectedToken, fmt.Sprintf("expected '%s', found '%s'", w, p.cur().Text)))
+		panic(p.errorAt(p.cur(), diag.ErrExpectedToken, fmt.Sprintf("expected '%s', found '%s'", w, p.cur().Text)))
 	}
 	return p.next()
 }
 
 func (p *Parser) expectName(what string) string {
-	if !p.at(TIdent) || reservedWords[p.cur().Text] {
+	if !p.at(TIdent) || ast.IsReserved(p.cur().Text) {
 		panic(p.unexpected(what))
 	}
 	return p.next().Text
 }
 
-func place[N Node](p *Parser, node N, t *Token) N {
+func place[N ast.Node](p *Parser, node N, t *Token) N {
 	pos := node.P()
 	pos.File = p.file()
 	pos.Line = t.Line
@@ -157,7 +144,7 @@ func place[N Node](p *Parser, node N, t *Token) N {
 	return node
 }
 
-func newExprBase() ExprBase { return ExprBase{Type: VoidTy} }
+func newExprBase() ast.ExprBase { return ast.ExprBase{Type: ast.VoidTy} }
 
 func (p *Parser) skipNewlines() {
 	for p.at(TNewline) {
@@ -172,8 +159,8 @@ func (p *Parser) expectNewline() {
 	p.expect(TNewline, "end of line")
 }
 
-func (p *Parser) ParseProgram() *Program {
-	prog := &Program{}
+func (p *Parser) ParseProgram() *ast.Program {
+	prog := &ast.Program{}
 	p.skipNewlines()
 	for !p.at(TEof) {
 		if p.accept(TFileEnd) {
@@ -182,7 +169,7 @@ func (p *Parser) ParseProgram() *Program {
 			continue
 		}
 		failed := len(p.Errors)
-		Guard(&p.Errors, func() {
+		diag.Guard(&p.Errors, func() {
 			prog.Decls = append(prog.Decls, p.parseTopDecl())
 			p.expectNewline()
 			p.skipNewlines()
@@ -203,7 +190,7 @@ func (p *Parser) parseVisibility() string {
 	return ""
 }
 
-func (p *Parser) parseTopDecl() Decl {
+func (p *Parser) parseTopDecl() ast.Decl {
 	vis := p.parseVisibility()
 	t := p.cur()
 	switch {
@@ -219,7 +206,7 @@ func (p *Parser) parseTopDecl() Decl {
 		return p.parseAlias(vis)
 	case p.atWord("let"):
 		p.next()
-		c := place(p, &ConstDecl{DeclBase: DeclBase{Visibility: vis}}, t)
+		c := place(p, &ast.ConstDecl{DeclBase: ast.DeclBase{Visibility: vis}}, t)
 		c.Name = p.expectName("a constant name")
 		p.expect(TAssign, "'='")
 		c.Value = p.ParseExpr()
@@ -234,16 +221,16 @@ func isReceiverWord(word string) bool {
 	return word == "mutable" || word == "immutable" || word == "isolated" || word == "consuming"
 }
 
-func (p *Parser) parseFunction(vis string, inType, isStatic bool) *FuncDecl {
+func (p *Parser) parseFunction(vis string, inType, isStatic bool) *ast.FuncDecl {
 	t := p.expectWord("function")
-	f := place(p, &FuncDecl{DeclBase: DeclBase{Visibility: vis}, IsStatic: isStatic, ReturnType: VoidTy}, &t)
+	f := place(p, &ast.FuncDecl{DeclBase: ast.DeclBase{Visibility: vis}, IsStatic: isStatic, ReturnType: ast.VoidTy}, &t)
 	f.Name = p.expectName("a function name")
 	p.expect(TLParen, "'('")
 
 	if !p.at(TRParen) {
 		if p.at(TIdent) && p.peekTok().Is("self") && isReceiverWord(p.cur().Text) {
 			if !inType || isStatic {
-				panic(p.errorAt(p.cur(), ErrUnexpectedToken, "only an instance method takes a receiver parameter"))
+				panic(p.errorAt(p.cur(), diag.ErrUnexpectedToken, "only an instance method takes a receiver parameter"))
 			}
 			f.Receiver = p.next().Text
 			p.next()
@@ -273,10 +260,10 @@ func (p *Parser) parseFunction(vis string, inType, isStatic bool) *FuncDecl {
 	return f
 }
 
-func (p *Parser) parseParam() *Param {
+func (p *Parser) parseParam() *ast.Param {
 	t := p.cur()
-	prm := place(p, &Param{}, t)
-	if !p.at(TIdent) || (reservedWords[p.cur().Text] && p.cur().Text != "_") {
+	prm := place(p, &ast.Param{}, t)
+	if !p.at(TIdent) || (ast.IsReserved(p.cur().Text) && p.cur().Text != "_") {
 		panic(p.unexpected("a parameter name"))
 	}
 	prm.Name = p.next().Text
@@ -291,9 +278,9 @@ func (p *Parser) parseParam() *Param {
 	return prm
 }
 
-func (p *Parser) parseTypeRef() *TypeRef {
+func (p *Parser) parseTypeRef() *ast.TypeRef {
 	t := p.cur()
-	tr := place(p, &TypeRef{}, t)
+	tr := place(p, &ast.TypeRef{}, t)
 	if p.at(TIdent) && isCapability(p.cur().Text) && p.peekTok().Kind == TIdent {
 		tr.Capability = p.next().Text
 	}
@@ -301,7 +288,7 @@ func (p *Parser) parseTypeRef() *TypeRef {
 		panic(p.unsupported("a tuple type"))
 	}
 	if !p.at(TIdent) {
-		panic(p.errorAt(p.cur(), ErrExpectedType, fmt.Sprintf("expected a type, found '%s'", p.cur().Text)))
+		panic(p.errorAt(p.cur(), diag.ErrExpectedType, fmt.Sprintf("expected a type, found '%s'", p.cur().Text)))
 	}
 	tr.Name = p.next().Text
 	for p.accept(TDot) {
@@ -319,15 +306,15 @@ func (p *Parser) expectEnd(label string) {
 	if p.at(TQuote) {
 		q := p.next()
 		if q.Text != label {
-			panic(p.errorAt(&q, ErrMismatchedEndLabel, fmt.Sprintf("'end' names '%s', but the block is '%s'", q.Text, label)))
+			panic(p.errorAt(&q, diag.ErrMismatchedEndLabel, fmt.Sprintf("'end' names '%s', but the block is '%s'", q.Text, label)))
 		}
 	}
 }
 
 func (p *Parser) expectLabel() string { return p.expect(TQuote, "a block label").Text }
 
-func (p *Parser) parseBlock(opener *Token) []Stmt {
-	var list []Stmt
+func (p *Parser) parseBlock(opener *Token) []ast.Stmt {
+	var list []ast.Stmt
 	p.skipNewlines()
 	for !p.atWord("end") {
 		if p.at(TEof) || p.at(TFileEnd) {
@@ -341,14 +328,14 @@ func (p *Parser) parseBlock(opener *Token) []Stmt {
 		p.skipNewlines()
 	}
 	if len(list) == 0 {
-		panic(p.errorAt(opener, ErrEmptyBlock, "a block must contain at least one statement"))
+		panic(p.errorAt(opener, diag.ErrEmptyBlock, "a block must contain at least one statement"))
 	}
 	return list
 }
 
-func (p *Parser) parseType(vis string) *TypeDecl {
+func (p *Parser) parseType(vis string) *ast.TypeDecl {
 	t := p.expectWord("type")
-	d := place(p, &TypeDecl{TypeDeclBase: TypeDeclBase{DeclBase: DeclBase{Visibility: vis}}}, &t)
+	d := place(p, &ast.TypeDecl{TypeDeclBase: ast.TypeDeclBase{DeclBase: ast.DeclBase{Visibility: vis}}}, &t)
 	d.Name = p.expectName("a type name")
 	if p.atWord("is") || p.atWord("uses") || p.atWord("implements") || p.atWord("where") {
 		panic(p.unsupported("'" + p.cur().Text + "' on a type"))
@@ -361,7 +348,7 @@ func (p *Parser) parseType(vis string) *TypeDecl {
 		mt := p.cur()
 		switch {
 		case p.atWord("var") || p.atWord("let"):
-			fd := place(p, &FieldDecl{Visibility: mvis, IsVar: p.next().Text == "var"}, mt)
+			fd := place(p, &ast.FieldDecl{Visibility: mvis, IsVar: p.next().Text == "var"}, mt)
 			fd.Name = p.expectName("a field name")
 			if p.acceptWord("as") {
 				fd.Type = p.parseTypeRef()
@@ -389,9 +376,9 @@ func (p *Parser) parseType(vis string) *TypeDecl {
 	return d
 }
 
-func (p *Parser) parseEnum(vis string) *EnumDecl {
+func (p *Parser) parseEnum(vis string) *ast.EnumDecl {
 	t := p.expectWord("enum")
-	d := place(p, &EnumDecl{TypeDeclBase: TypeDeclBase{DeclBase: DeclBase{Visibility: vis}}}, &t)
+	d := place(p, &ast.EnumDecl{TypeDeclBase: ast.TypeDeclBase{DeclBase: ast.DeclBase{Visibility: vis}}}, &t)
 	d.Name = p.expectName("an enum name")
 	if p.atWord("implements") {
 		panic(p.unsupported("'implements' on an enum"))
@@ -405,7 +392,7 @@ func (p *Parser) parseEnum(vis string) *EnumDecl {
 			d.Methods = append(d.Methods, p.parseFunction(mvis, true, false))
 		} else {
 			ct := p.cur()
-			c := place(p, &EnumCaseDecl{Name: p.expectName("an enum case")}, ct)
+			c := place(p, &ast.EnumCaseDecl{Name: p.expectName("an enum case")}, ct)
 			if p.accept(TAssign) {
 				neg := p.accept(TMinus)
 				if !p.at(TInt) {
@@ -427,9 +414,9 @@ func (p *Parser) parseEnum(vis string) *EnumDecl {
 	return d
 }
 
-func (p *Parser) parseUnion(vis string) *UnionDecl {
+func (p *Parser) parseUnion(vis string) *ast.UnionDecl {
 	t := p.expectWord("union")
-	d := place(p, &UnionDecl{TypeDeclBase: TypeDeclBase{DeclBase: DeclBase{Visibility: vis}}}, &t)
+	d := place(p, &ast.UnionDecl{TypeDeclBase: ast.TypeDeclBase{DeclBase: ast.DeclBase{Visibility: vis}}}, &t)
 	d.Name = p.expectName("a union name")
 	if p.atWord("implements") {
 		panic(p.unsupported("'implements' on a union"))
@@ -443,12 +430,12 @@ func (p *Parser) parseUnion(vis string) *UnionDecl {
 			d.Methods = append(d.Methods, p.parseFunction(mvis, true, false))
 		} else {
 			ct := p.cur()
-			c := place(p, &UnionCaseDecl{Name: p.expectName("a union case")}, ct)
+			c := place(p, &ast.UnionCaseDecl{Name: p.expectName("a union case")}, ct)
 			if p.accept(TLParen) {
 				for !p.at(TRParen) {
 					fp := p.parseParam()
 					if fp.Mutable {
-						panic(p.errorAt(ct, ErrExpectedToken, "a union payload takes no 'mutable'"))
+						panic(p.errorAt(ct, diag.ErrExpectedToken, "a union payload takes no 'mutable'"))
 					}
 					c.Fields = append(c.Fields, fp)
 					if !p.accept(TComma) {
@@ -469,9 +456,9 @@ func (p *Parser) parseUnion(vis string) *UnionDecl {
 	return d
 }
 
-func (p *Parser) parseAlias(vis string) *AliasDecl {
+func (p *Parser) parseAlias(vis string) *ast.AliasDecl {
 	t := p.expectWord("typealias")
-	d := place(p, &AliasDecl{TypeDeclBase: TypeDeclBase{DeclBase: DeclBase{Visibility: vis}}}, &t)
+	d := place(p, &ast.AliasDecl{TypeDeclBase: ast.TypeDeclBase{DeclBase: ast.DeclBase{Visibility: vis}}}, &t)
 	d.Name = p.expectName("an alias name")
 	p.expect(TAssign, "'='")
 	if !p.atWord("int") {
@@ -486,24 +473,24 @@ func (p *Parser) parseAlias(vis string) *AliasDecl {
 	}
 	d.Max = p.parseBound()
 	if !inclusive {
-		d.Max = d.Max.Sub(One)
+		d.Max = d.Max.Sub(ast.One)
 	}
 	p.expect(TRParen, "')'")
 	if p.atWord("implements") {
 		panic(p.unsupported("'implements' on a typealias"))
 	}
 	if d.Min.Gt(d.Max) {
-		panic(d.Error(ErrTypeMismatch, fmt.Sprintf("the range of '%s' is empty", d.Name)))
+		panic(d.Error(diag.ErrTypeMismatch, fmt.Sprintf("the range of '%s' is empty", d.Name)))
 	}
-	if d.Min.IsNeg() && d.Max.Gt(I64Max) {
-		panic(d.Error(ErrTypeMismatch, "an integer range cannot span both negative values and values above i64.max"))
+	if d.Min.IsNeg() && d.Max.Gt(ast.I64Max) {
+		panic(d.Error(diag.ErrTypeMismatch, "an integer range cannot span both negative values and values above i64.max"))
 	}
 	return d
 }
 
-func (p *Parser) parseBound() I128 {
+func (p *Parser) parseBound() ast.I128 {
 	neg := p.accept(TMinus)
-	var v I128
+	var v ast.I128
 	if p.at(TInt) {
 		v = p.next().IntValue()
 	} else if lo, hi, ok := sizedTypeRange(p.cur().Text); p.at(TIdent) && ok {
@@ -526,11 +513,11 @@ func (p *Parser) parseBound() I128 {
 	return v
 }
 
-func (p *Parser) parseStatement() Stmt {
+func (p *Parser) parseStatement() ast.Stmt {
 	t := p.cur()
 
 	if p.atWord("let") || p.atWord("var") {
-		s := place(p, &LetStmt{IsVar: p.next().Text == "var"}, t)
+		s := place(p, &ast.LetStmt{IsVar: p.next().Text == "var"}, t)
 		if p.at(TLParen) {
 			panic(p.unsupported("tuple destructuring"))
 		}
@@ -543,7 +530,7 @@ func (p *Parser) parseStatement() Stmt {
 	if p.at(TIdent) && p.cur().Text == "_" && p.peekTok().Kind == TAssign {
 		p.next()
 		p.next()
-		return place(p, &DiscardStmt{Value: p.ParseExpr()}, t)
+		return place(p, &ast.DiscardStmt{Value: p.ParseExpr()}, t)
 	}
 
 	if p.atWord("if") {
@@ -552,7 +539,7 @@ func (p *Parser) parseStatement() Stmt {
 
 	if p.atWord("while") {
 		p.next()
-		s := place(p, &WhileStmt{Cond: p.ParseExpr()}, t)
+		s := place(p, &ast.WhileStmt{Cond: p.ParseExpr()}, t)
 		s.Label = p.expectLabel()
 		s.Body = p.parseBlock(t)
 		p.expectEnd(s.Label)
@@ -561,11 +548,11 @@ func (p *Parser) parseStatement() Stmt {
 
 	if p.atWord("for") {
 		p.next()
-		s := place(p, &ForStmt{}, t)
+		s := place(p, &ast.ForStmt{}, t)
 		if p.at(TLParen) {
 			panic(p.unsupported("a destructuring for loop"))
 		}
-		if !p.at(TIdent) || (reservedWords[p.cur().Text] && p.cur().Text != "_") {
+		if !p.at(TIdent) || (ast.IsReserved(p.cur().Text) && p.cur().Text != "_") {
 			panic(p.unexpected("a loop variable"))
 		}
 		s.Var = p.next().Text
@@ -583,12 +570,12 @@ func (p *Parser) parseStatement() Stmt {
 	}
 
 	if p.atWord("match") {
-		return place(p, &MatchStmt{Match: p.parseMatchCore()}, t)
+		return place(p, &ast.MatchStmt{Match: p.parseMatchCore()}, t)
 	}
 
 	if p.atWord("return") {
 		p.next()
-		s := place(p, &ReturnStmt{}, t)
+		s := place(p, &ast.ReturnStmt{}, t)
 		if !p.at(TNewline) && !p.at(TEof) && !p.atWord("end") {
 			s.Value = p.ParseExpr()
 		}
@@ -602,9 +589,9 @@ func (p *Parser) parseStatement() Stmt {
 			label = p.next().Text
 		}
 		if isBreak {
-			return place(p, &BreakStmt{Label: label}, t)
+			return place(p, &ast.BreakStmt{Label: label}, t)
 		}
-		return place(p, &ContinueStmt{Label: label}, t)
+		return place(p, &ast.ContinueStmt{Label: label}, t)
 	}
 
 	if p.at(TAt) {
@@ -620,26 +607,26 @@ func (p *Parser) parseStatement() Stmt {
 	e := p.ParseExpr()
 	if p.accept(TAssign) {
 		switch e.(type) {
-		case *NameExpr, *MemberExpr:
+		case *ast.NameExpr, *ast.MemberExpr:
 		default:
-			panic(p.errorAt(t, ErrUnexpectedToken, "only a variable or a field can be assigned"))
+			panic(p.errorAt(t, diag.ErrUnexpectedToken, "only a variable or a field can be assigned"))
 		}
-		return place(p, &AssignStmt{Target: e, Value: p.ParseExpr()}, t)
+		return place(p, &ast.AssignStmt{Target: e, Value: p.ParseExpr()}, t)
 	}
 	switch e.(type) {
-	case *CallExpr, *PanicExpr:
+	case *ast.CallExpr, *ast.PanicExpr:
 	default:
-		panic(p.errorAt(t, ErrUnexpectedToken, "only a call can stand alone as a statement"))
+		panic(p.errorAt(t, diag.ErrUnexpectedToken, "only a call can stand alone as a statement"))
 	}
-	return place(p, &ExprStmt{E: e}, t)
+	return place(p, &ast.ExprStmt{E: e}, t)
 }
 
-func (p *Parser) parseIf() *IfStmt {
+func (p *Parser) parseIf() *ast.IfStmt {
 	t := p.expectWord("if")
 	if p.atWord("let") || p.atWord("var") || p.atWord("try") {
 		panic(p.unsupported("'if let' and 'if try'"))
 	}
-	s := place(p, &IfStmt{Cond: p.ParseExpr()}, &t)
+	s := place(p, &ast.IfStmt{Cond: p.ParseExpr()}, &t)
 	s.Label = p.expectLabel()
 	s.Then = p.parseBlock(&t)
 	p.expectEnd(s.Label)
@@ -648,7 +635,7 @@ func (p *Parser) parseIf() *IfStmt {
 		et := p.next()
 		s.HasElse = true
 		if p.atWord("if") {
-			s.Else = []Stmt{p.parseIf()}
+			s.Else = []ast.Stmt{p.parseIf()}
 		} else {
 			if p.at(TLParen) {
 				panic(p.unsupported("an else binding"))
@@ -661,9 +648,9 @@ func (p *Parser) parseIf() *IfStmt {
 	return s
 }
 
-func (p *Parser) parseMatchCore() *MatchCore {
+func (p *Parser) parseMatchCore() *ast.MatchCore {
 	t := p.expectWord("match")
-	m := place(p, &MatchCore{Subject: p.ParseExpr()}, &t)
+	m := place(p, &ast.MatchCore{Subject: p.ParseExpr()}, &t)
 	m.Label = p.expectLabel()
 	p.expectNewline()
 	p.skipNewlines()
@@ -676,9 +663,9 @@ func (p *Parser) parseMatchCore() *MatchCore {
 	return m
 }
 
-func (p *Parser) parseArm() *MatchArm {
+func (p *Parser) parseArm() *ast.MatchArm {
 	t := p.cur()
-	arm := place(p, &MatchArm{}, t)
+	arm := place(p, &ast.MatchArm{}, t)
 	if p.acceptWord("default") {
 		arm.IsDefault = true
 	} else {
@@ -695,16 +682,16 @@ func (p *Parser) parseArm() *MatchArm {
 
 	switch {
 	case p.acceptWord("then"):
-		arm.Kind = ArmThen
+		arm.Kind = ast.ArmThen
 		arm.Action = p.parseArmStatement()
 		if p.atWord("and") {
 			panic(p.unsupported("'and fallthrough'"))
 		}
 	case p.acceptWord("gives"):
-		arm.Kind = ArmGives
+		arm.Kind = ast.ArmGives
 		arm.Value = p.ParseExpr()
 	case p.atWord("panic"):
-		arm.Kind = ArmPanic
+		arm.Kind = ast.ArmPanic
 		arm.Value = p.parsePrimary()
 	case p.atWord("throws"):
 		panic(p.unsupported("'throws' in a match arm"))
@@ -714,18 +701,18 @@ func (p *Parser) parseArm() *MatchArm {
 	return arm
 }
 
-func (p *Parser) parseArmStatement() Stmt {
+func (p *Parser) parseArmStatement() ast.Stmt {
 	if p.atWord("if") || p.atWord("while") || p.atWord("for") || p.atWord("match") {
-		panic(p.errorAt(p.cur(), ErrMatchBlockStatement, fmt.Sprintf("a '%s' block cannot be a match arm's action", p.cur().Text)))
+		panic(p.errorAt(p.cur(), diag.ErrMatchBlockStatement, fmt.Sprintf("a '%s' block cannot be a match arm's action", p.cur().Text)))
 	}
 	return p.parseStatement()
 }
 
-func (p *Parser) parsePattern() *Pattern {
+func (p *Parser) parsePattern() *ast.Pattern {
 	t := p.cur()
-	pat := place(p, &Pattern{CaseIndex: -1}, t)
+	pat := place(p, &ast.Pattern{CaseIndex: -1}, t)
 	if p.at(TIdent) && !p.atWord("true") && !p.atWord("false") {
-		pat.Kind = PatternCase
+		pat.Kind = ast.PatternCase
 		pat.CaseName = p.expectName("a case name")
 		if p.at(TDot) {
 			panic(p.errorAt(t, "E3075", "a match arm names a bare case, without its type"))
@@ -733,7 +720,7 @@ func (p *Parser) parsePattern() *Pattern {
 		if p.accept(TLParen) {
 			pat.HasBindings = true
 			for !p.at(TRParen) {
-				if !p.at(TIdent) || (reservedWords[p.cur().Text] && p.cur().Text != "_") {
+				if !p.at(TIdent) || (ast.IsReserved(p.cur().Text) && p.cur().Text != "_") {
 					panic(p.unexpected("a binding name"))
 				}
 				pat.Bindings = append(pat.Bindings, p.next().Text)
@@ -748,20 +735,20 @@ func (p *Parser) parsePattern() *Pattern {
 
 	pat.Value = p.parsePatternValue()
 	if p.atWord("to") || p.atWord("upto") {
-		pat.Kind = PatternRange
+		pat.Kind = ast.PatternRange
 		pat.Inclusive = p.next().Text == "to"
 		pat.High = p.parsePatternValue()
 	} else {
-		pat.Kind = PatternLiteral
+		pat.Kind = ast.PatternLiteral
 	}
 	return pat
 }
 
-func (p *Parser) parsePatternValue() Expr {
+func (p *Parser) parsePatternValue() ast.Expr {
 	t := p.cur()
 	if p.accept(TMinus) {
 		v := p.expect(TInt, "an integer").IntValue()
-		return place(p, &IntLit{ExprBase: newExprBase(), Value: v.Neg()}, t)
+		return place(p, &ast.IntLit{ExprBase: newExprBase(), Value: v.Neg()}, t)
 	}
 	if p.at(TInt) || p.at(TStr) || p.atWord("true") || p.atWord("false") {
 		return p.parsePrimary()
@@ -769,7 +756,7 @@ func (p *Parser) parsePatternValue() Expr {
 	panic(p.unexpected("a pattern"))
 }
 
-func (p *Parser) parseStandaloneExpr() Expr {
+func (p *Parser) parseStandaloneExpr() ast.Expr {
 	e := p.ParseExpr()
 	if !p.at(TNewline) && !p.at(TEof) && !p.at(TFileEnd) {
 		panic(p.unexpected("the end of the interpolation"))
@@ -777,7 +764,7 @@ func (p *Parser) parseStandaloneExpr() Expr {
 	return e
 }
 
-func (p *Parser) ParseExpr() Expr {
+func (p *Parser) ParseExpr() ast.Expr {
 	t := p.cur()
 	e := p.parseOr()
 	if p.atWord("if") {
@@ -785,7 +772,7 @@ func (p *Parser) ParseExpr() Expr {
 		cond := p.parseOr()
 		p.expectWord("else")
 		els := p.ParseExpr()
-		return place(p, &CondExpr{ExprBase: newExprBase(), Cond: cond, Then: e, Else: els}, t)
+		return place(p, &ast.CondExpr{ExprBase: newExprBase(), Cond: cond, Then: e, Else: els}, t)
 	}
 	if p.atWord("to") || p.atWord("upto") {
 		panic(p.unsupported("a range value"))
@@ -806,7 +793,7 @@ func (p *Parser) binaryOperator(level int) (string, bool) {
 	return "", false
 }
 
-func (p *Parser) parseBinary(level int) Expr {
+func (p *Parser) parseBinary(level int) ast.Expr {
 	if level == len(binaryLevels) {
 		return p.parseCast()
 	}
@@ -821,19 +808,19 @@ func (p *Parser) parseBinary(level int) Expr {
 			return e
 		}
 		p.next()
-		e = place(p, &BinaryExpr{ExprBase: newExprBase(), Op: op, L: e, R: p.parseBinary(level + 1), OperandType: VoidTy}, t)
+		e = place(p, &ast.BinaryExpr{ExprBase: newExprBase(), Op: op, L: e, R: p.parseBinary(level + 1), OperandType: ast.VoidTy}, t)
 	}
 }
 
-func (p *Parser) parseOr() Expr { return p.parseBinary(0) }
+func (p *Parser) parseOr() ast.Expr { return p.parseBinary(0) }
 
-func (p *Parser) parseCast() Expr {
+func (p *Parser) parseCast() ast.Expr {
 	t := p.cur()
 	e := p.parseUnary()
 	if p.atWord("as") {
 		p.next()
 		target := p.parseTypeRef()
-		e = place(p, &CastExpr{ExprBase: newExprBase(), E: e, Target: target}, t)
+		e = place(p, &ast.CastExpr{ExprBase: newExprBase(), E: e, Target: target}, t)
 		if p.atWord("as") {
 			panic(p.errorAt(p.cur(), "E2079", "a cast of a cast: cast once, or bind the first cast to a 'let'"))
 		}
@@ -841,20 +828,20 @@ func (p *Parser) parseCast() Expr {
 	return e
 }
 
-func (p *Parser) parseUnary() Expr {
+func (p *Parser) parseUnary() ast.Expr {
 	t := p.cur()
 	if p.accept(TMinus) {
 		if p.at(TMinus) {
-			panic(p.errorAt(p.cur(), ErrUnexpectedToken, "'--x' is not an expression; write '-(-x)'"))
+			panic(p.errorAt(p.cur(), diag.ErrUnexpectedToken, "'--x' is not an expression; write '-(-x)'"))
 		}
 		if p.at(TInt) && p.peekTok().Kind != TDot {
 			lit := p.next()
-			return place(p, &IntLit{ExprBase: newExprBase(), Value: lit.IntValue().Neg()}, t)
+			return place(p, &ast.IntLit{ExprBase: newExprBase(), Value: lit.IntValue().Neg()}, t)
 		}
-		return place(p, &UnaryExpr{ExprBase: newExprBase(), Op: "-", E: p.parsePostfix()}, t)
+		return place(p, &ast.UnaryExpr{ExprBase: newExprBase(), Op: "-", E: p.parsePostfix()}, t)
 	}
 	if p.acceptWord("not") {
-		return place(p, &UnaryExpr{ExprBase: newExprBase(), Op: "not", E: p.parseUnary()}, t)
+		return place(p, &ast.UnaryExpr{ExprBase: newExprBase(), Op: "not", E: p.parseUnary()}, t)
 	}
 	if p.atWord("async") || p.atWord("await") {
 		panic(p.unsupported("'" + p.cur().Text + "'"))
@@ -865,7 +852,7 @@ func (p *Parser) parseUnary() Expr {
 	return p.parsePostfix()
 }
 
-func (p *Parser) parsePostfix() Expr {
+func (p *Parser) parsePostfix() ast.Expr {
 	e := p.parsePrimary()
 	for {
 		t := p.cur()
@@ -877,21 +864,21 @@ func (p *Parser) parsePostfix() Expr {
 				panic(p.unexpected("a member name"))
 			}
 			name := p.next().Text
-			e = place(p, &MemberExpr{ExprBase: newExprBase(), Obj: e, Name: name, CaseIndex: -1}, t)
+			e = place(p, &ast.MemberExpr{ExprBase: newExprBase(), Obj: e, Name: name, CaseIndex: -1}, t)
 		} else if p.at(TLParen) {
-			e = place(p, &CallExpr{ExprBase: newExprBase(), Callee: e, Args: p.parseArgs(), CaseIndex: -1}, t)
+			e = place(p, &ast.CallExpr{ExprBase: newExprBase(), Callee: e, Args: p.parseArgs(), CaseIndex: -1}, t)
 		} else {
 			return e
 		}
 	}
 }
 
-func (p *Parser) parseArgs() []*Arg {
+func (p *Parser) parseArgs() []*ast.Arg {
 	p.expect(TLParen, "'('")
-	var args []*Arg
+	var args []*ast.Arg
 	for !p.at(TRParen) {
 		t := p.cur()
-		arg := place(p, &Arg{}, t)
+		arg := place(p, &ast.Arg{}, t)
 		if p.at(TIdent) && p.peekTok().Kind == TColon {
 			arg.Label = p.next().Text
 			p.next()
@@ -906,16 +893,16 @@ func (p *Parser) parseArgs() []*Arg {
 	return args
 }
 
-func (p *Parser) parsePrimary() Expr {
+func (p *Parser) parsePrimary() ast.Expr {
 	t := p.cur()
 
 	if p.at(TInt) {
-		return place(p, &IntLit{ExprBase: newExprBase(), Value: p.next().IntValue()}, t)
+		return place(p, &ast.IntLit{ExprBase: newExprBase(), Value: p.next().IntValue()}, t)
 	}
 
 	if p.at(TStr) {
 		tok := p.next()
-		lit := place(p, &StrLit{ExprBase: newExprBase()}, t)
+		lit := place(p, &ast.StrLit{ExprBase: newExprBase()}, t)
 		for _, part := range tok.Parts() {
 			switch part := part.(type) {
 			case TextPart:
@@ -924,25 +911,25 @@ func (p *Parser) parsePrimary() Expr {
 				sub := LexText(p.file(), part.Source, part.Line, part.Col)
 				lit.Parts = append(lit.Parts, NewParser(sub, []string{p.file()}).parseStandaloneExpr())
 			default:
-				panic(Internal("unknown string part %T", part))
+				panic(diag.Internal("unknown string part %T", part))
 			}
 		}
 		return lit
 	}
 
 	if p.atWord("true") || p.atWord("false") {
-		return place(p, &BoolLit{ExprBase: newExprBase(), Value: p.next().Text == "true"}, t)
+		return place(p, &ast.BoolLit{ExprBase: newExprBase(), Value: p.next().Text == "true"}, t)
 	}
 
-	if p.at(TIdent) && p.peekTok().Kind == TLBrace && (p.atWord("Self") || !reservedWords[p.cur().Text]) {
-		s := place(p, &StructLitExpr{ExprBase: newExprBase(), TypeName: p.next().Text}, t)
+	if p.at(TIdent) && p.peekTok().Kind == TLBrace && (p.atWord("Self") || !ast.IsReserved(p.cur().Text)) {
+		s := place(p, &ast.StructLitExpr{ExprBase: newExprBase(), TypeName: p.next().Text}, t)
 		p.expect(TLBrace, "'{'")
 		for !p.at(TRBrace) {
 			ft := p.cur()
 			name := p.expectName("a field name")
 			p.expect(TColon, "':'")
 			value := p.ParseExpr()
-			s.Fields = append(s.Fields, StructField{Name: name, Value: value, Site: place(p, &Pos{}, ft)})
+			s.Fields = append(s.Fields, ast.StructField{Name: name, Value: value, Site: place(p, &ast.Pos{}, ft)})
 			if !p.accept(TComma) {
 				break
 			}
@@ -952,11 +939,11 @@ func (p *Parser) parsePrimary() Expr {
 	}
 
 	if p.acceptWord("self") {
-		return place(p, &SelfExpr{ExprBase: newExprBase()}, t)
+		return place(p, &ast.SelfExpr{ExprBase: newExprBase()}, t)
 	}
 
 	if p.acceptWord("Self") {
-		return place(p, &NameExpr{ExprBase: newExprBase(), Name: "Self"}, t)
+		return place(p, &ast.NameExpr{ExprBase: newExprBase(), Name: "Self"}, t)
 	}
 
 	if p.atWord("panic") {
@@ -964,11 +951,11 @@ func (p *Parser) parsePrimary() Expr {
 		p.expect(TLParen, "'('")
 		msg := p.ParseExpr()
 		p.expect(TRParen, "')'")
-		return place(p, &PanicExpr{ExprBase: newExprBase(), Message: msg}, t)
+		return place(p, &ast.PanicExpr{ExprBase: newExprBase(), Message: msg}, t)
 	}
 
 	if p.atWord("match") {
-		return place(p, &MatchExpr{ExprBase: newExprBase(), Match: p.parseMatchCore()}, t)
+		return place(p, &ast.MatchExpr{ExprBase: newExprBase(), Match: p.parseMatchCore()}, t)
 	}
 
 	if p.accept(TLParen) {
@@ -990,8 +977,8 @@ func (p *Parser) parsePrimary() Expr {
 		panic(p.unsupported("'try'"))
 	}
 
-	if p.at(TIdent) && !reservedWords[p.cur().Text] {
-		return place(p, &NameExpr{ExprBase: newExprBase(), Name: p.next().Text}, t)
+	if p.at(TIdent) && !ast.IsReserved(p.cur().Text) {
+		return place(p, &ast.NameExpr{ExprBase: newExprBase(), Name: p.next().Text}, t)
 	}
 
 	panic(p.unexpected("an expression"))

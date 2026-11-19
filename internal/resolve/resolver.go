@@ -1,36 +1,40 @@
-package main
+package resolve
 
-import "strings"
+import (
+	"minimaxon/internal/ast"
+	"minimaxon/internal/diag"
+	"strings"
+)
 
 type lookup struct {
-	Decl  Decl
-	Error *CompileError
+	Decl  ast.Decl
+	Error *diag.CompileError
 }
 
 var primitiveTypes = map[string]bool{"bool": true, "String": true, "Self": true, "int": true, "float": true}
 
 type Resolver struct {
-	project *Project
-	module  *Module
+	project *ast.Project
+	module  *ast.Module
 	scopes  []map[string]bool
 	fields  map[string]bool
 }
 
-func NewResolver(p *Project, m *Module) *Resolver {
+func NewResolver(p *ast.Project, m *ast.Module) *Resolver {
 	return &Resolver{project: p, module: m, fields: map[string]bool{}}
 }
 
 func (r *Resolver) Run() {
 	for _, d := range r.module.Decls {
-		Guard(&r.module.Errors, func() { r.resolveDecl(d) })
+		diag.Guard(&r.module.Errors, func() { r.resolveDecl(d) })
 	}
 }
 
-func (r *Resolver) resolveDecl(d Decl) {
+func (r *Resolver) resolveDecl(d ast.Decl) {
 	switch d := d.(type) {
-	case *FuncDecl:
+	case *ast.FuncDecl:
 		r.resolveFunction(d, nil)
-	case *TypeDecl:
+	case *ast.TypeDecl:
 		for _, f := range d.Fields {
 			if f.Type != nil {
 				r.resolveType(f.Type)
@@ -47,11 +51,11 @@ func (r *Resolver) resolveDecl(d Decl) {
 				r.resolveFunction(m, d)
 			}
 		}
-	case *EnumDecl:
+	case *ast.EnumDecl:
 		for _, m := range d.Methods {
 			r.resolveFunction(m, nil)
 		}
-	case *UnionDecl:
+	case *ast.UnionDecl:
 		for _, c := range d.Cases {
 			for _, p := range c.Fields {
 				r.resolveType(p.Type)
@@ -60,12 +64,12 @@ func (r *Resolver) resolveDecl(d Decl) {
 		for _, m := range d.Methods {
 			r.resolveFunction(m, nil)
 		}
-	case *ConstDecl:
+	case *ast.ConstDecl:
 		r.enter(map[string]bool{})
 		d.Value = r.expr(d.Value)
-	case *AliasDecl:
+	case *ast.AliasDecl:
 	default:
-		panic(Internal("resolver: unhandled declaration %T", d))
+		panic(diag.Internal("resolver: unhandled declaration %T", d))
 	}
 }
 
@@ -74,7 +78,7 @@ func (r *Resolver) enter(fieldNames map[string]bool) {
 	r.fields = fieldNames
 }
 
-func (r *Resolver) resolveFunction(f *FuncDecl, instanceOf *TypeDecl) {
+func (r *Resolver) resolveFunction(f *ast.FuncDecl, instanceOf *ast.TypeDecl) {
 	for _, p := range f.Params {
 		r.resolveType(p.Type)
 	}
@@ -115,54 +119,54 @@ func (r *Resolver) popScope() {
 	r.scopes = r.scopes[:len(r.scopes)-1]
 }
 
-func (r *Resolver) block(body []Stmt) {
+func (r *Resolver) block(body []ast.Stmt) {
 	r.pushScope()
 	for _, s := range body {
-		Guard(&r.module.Errors, func() { r.stmt(s) })
+		diag.Guard(&r.module.Errors, func() { r.stmt(s) })
 	}
 	r.popScope()
 }
 
-func (r *Resolver) stmt(s Stmt) {
+func (r *Resolver) stmt(s ast.Stmt) {
 	switch s := s.(type) {
-	case *LetStmt:
+	case *ast.LetStmt:
 		s.Init = r.expr(s.Init)
 		r.scopes[len(r.scopes)-1][s.Name] = true
-	case *AssignStmt:
+	case *ast.AssignStmt:
 		s.Target = r.expr(s.Target)
 		s.Value = r.expr(s.Value)
-	case *DiscardStmt:
+	case *ast.DiscardStmt:
 		s.Value = r.expr(s.Value)
-	case *ExprStmt:
+	case *ast.ExprStmt:
 		s.E = r.expr(s.E)
-	case *IfStmt:
+	case *ast.IfStmt:
 		s.Cond = r.expr(s.Cond)
 		r.block(s.Then)
 		if s.HasElse {
 			r.block(s.Else)
 		}
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		s.Cond = r.expr(s.Cond)
 		r.block(s.Body)
-	case *ForStmt:
+	case *ast.ForStmt:
 		s.From = r.expr(s.From)
 		s.To = r.expr(s.To)
 		r.pushScope(s.Var)
 		r.block(s.Body)
 		r.popScope()
-	case *MatchStmt:
+	case *ast.MatchStmt:
 		r.match(s.Match)
-	case *ReturnStmt:
+	case *ast.ReturnStmt:
 		if s.Value != nil {
 			s.Value = r.expr(s.Value)
 		}
-	case *BreakStmt, *ContinueStmt:
+	case *ast.BreakStmt, *ast.ContinueStmt:
 	default:
-		panic(Internal("resolver: unhandled statement %T", s))
+		panic(diag.Internal("resolver: unhandled statement %T", s))
 	}
 }
 
-func (r *Resolver) match(m *MatchCore) {
+func (r *Resolver) match(m *ast.MatchCore) {
 	m.Subject = r.expr(m.Subject)
 	for _, arm := range m.Arms {
 		var names []string
@@ -180,87 +184,87 @@ func (r *Resolver) match(m *MatchCore) {
 	}
 }
 
-func (r *Resolver) expr(e Expr) Expr {
+func (r *Resolver) expr(e ast.Expr) ast.Expr {
 	switch e := e.(type) {
-	case *IntLit, *BoolLit, *SelfExpr:
+	case *ast.IntLit, *ast.BoolLit, *ast.SelfExpr:
 		return e
-	case *NameExpr:
+	case *ast.NameExpr:
 		if !r.isBound(e.Name) && e.Name != "Self" {
 			e.Target = r.take(r.bare(e.Name), e)
 		}
 		return e
-	case *MemberExpr:
+	case *ast.MemberExpr:
 		return r.member(e)
-	case *StrLit:
+	case *ast.StrLit:
 		for i, p := range e.Parts {
-			if part, ok := p.(Expr); ok {
+			if part, ok := p.(ast.Expr); ok {
 				e.Parts[i] = r.expr(part)
 			}
 		}
 		return e
-	case *BinaryExpr:
+	case *ast.BinaryExpr:
 		e.L = r.expr(e.L)
 		e.R = r.expr(e.R)
 		return e
-	case *UnaryExpr:
+	case *ast.UnaryExpr:
 		e.E = r.expr(e.E)
 		return e
-	case *CondExpr:
+	case *ast.CondExpr:
 		e.Cond = r.expr(e.Cond)
 		e.Then = r.expr(e.Then)
 		e.Else = r.expr(e.Else)
 		return e
-	case *CallExpr:
+	case *ast.CallExpr:
 		e.Callee = r.expr(e.Callee)
 		for _, a := range e.Args {
 			a.Value = r.expr(a.Value)
 		}
 		return e
-	case *StructLitExpr:
+	case *ast.StructLitExpr:
 		if e.TypeName != "Self" {
 			e.Target = r.take(r.bare(e.TypeName), e)
 		}
-		fields := make([]StructField, len(e.Fields))
+		fields := make([]ast.StructField, len(e.Fields))
 		for i, f := range e.Fields {
-			fields[i] = StructField{Name: f.Name, Value: r.expr(f.Value), Site: f.Site}
+			fields[i] = ast.StructField{Name: f.Name, Value: r.expr(f.Value), Site: f.Site}
 		}
 		e.Fields = fields
 		return e
-	case *CastExpr:
+	case *ast.CastExpr:
 		e.E = r.expr(e.E)
 		r.resolveType(e.Target)
 		return e
-	case *MatchExpr:
+	case *ast.MatchExpr:
 		r.match(e.Match)
 		return e
-	case *PanicExpr:
+	case *ast.PanicExpr:
 		e.Message = r.expr(e.Message)
 		return e
 	default:
-		panic(Internal("resolver: unhandled expression %T", e))
+		panic(diag.Internal("resolver: unhandled expression %T", e))
 	}
 }
 
-func isType(d Decl) bool {
-	_, ok := d.(TypeDeclNode)
+func isType(d ast.Decl) bool {
+	_, ok := d.(ast.TypeDeclNode)
 	return ok
 }
 
-func declaresMember(d Decl, name string) bool {
+func declaresMember(d ast.Decl, name string) bool {
 	switch d := d.(type) {
-	case *TypeDecl:
+	case *ast.TypeDecl:
 		for _, m := range d.Methods {
 			if m.IsStatic && m.Name == name {
 				return true
 			}
 		}
-	case *EnumDecl:
+	case *ast.EnumDecl:
 		for _, c := range d.Cases {
 			if c.Name == name {
 				return true
 			}
 		}
-	case *UnionDecl:
+	case *ast.UnionDecl:
 		for _, c := range d.Cases {
 			if c.Name == name {
 				return true
@@ -280,14 +284,14 @@ func (r *Resolver) isModuleRoot(name string) bool {
 
 type segment struct {
 	Name string
-	Site Node
+	Site ast.Node
 }
 
-func (r *Resolver) member(m *MemberExpr) Expr {
+func (r *Resolver) member(m *ast.MemberExpr) ast.Expr {
 	var segments []segment
-	var cur Expr = m
+	var cur ast.Expr = m
 	for {
-		mm, ok := cur.(*MemberExpr)
+		mm, ok := cur.(*ast.MemberExpr)
 		if !ok {
 			break
 		}
@@ -297,7 +301,7 @@ func (r *Resolver) member(m *MemberExpr) Expr {
 	for i, j := 0, len(segments)-1; i < j; i, j = i+1, j-1 {
 		segments[i], segments[j] = segments[j], segments[i]
 	}
-	head, ok := cur.(*NameExpr)
+	head, ok := cur.(*ast.NameExpr)
 	if !ok || r.isBound(head.Name) || head.Name == "Self" {
 		m.Obj = r.expr(m.Obj)
 		return m
@@ -306,7 +310,7 @@ func (r *Resolver) member(m *MemberExpr) Expr {
 	bare := r.bare(head.Name)
 	decl := bare.Decl
 	if decl != nil {
-		_, isConst := decl.(*ConstDecl)
+		_, isConst := decl.(*ast.ConstDecl)
 		if isConst || (isType(decl) && declaresMember(decl, segments[0].Name)) || !r.isModuleRoot(head.Name) {
 			head.Target = r.take(bare, head)
 			return m
@@ -317,26 +321,26 @@ func (r *Resolver) member(m *MemberExpr) Expr {
 	}
 
 	names := make([]string, len(segments))
-	sites := make([]Node, len(segments))
+	sites := make([]ast.Node, len(segments))
 	for i, s := range segments {
 		names[i] = s.Name
 		sites[i] = s.Site
 	}
 	target, used := r.qualified(head.Name, head, names, sites)
-	result := &NameExpr{Name: target.Base().Name, Target: target}
+	result := &ast.NameExpr{Name: target.Base().Name, Target: target}
 	result.File, result.Line, result.Col = head.File, head.Line, head.Col
-	var out Expr = result
+	var out ast.Expr = result
 	for _, s := range segments[used:] {
 		p := s.Site.P()
-		next := &MemberExpr{Obj: out, Name: s.Name}
+		next := &ast.MemberExpr{Obj: out, Name: s.Name}
 		next.File, next.Line, next.Col = p.File, p.Line, p.Col
 		out = next
 	}
 	return out
 }
 
-func (r *Resolver) qualified(head string, headSite Node, rest []string, sites []Node) (Decl, int) {
-	var mod *Module
+func (r *Resolver) qualified(head string, headSite ast.Node, rest []string, sites []ast.Node) (ast.Decl, int) {
+	var mod *ast.Module
 	switch head {
 	case "export":
 		mod = r.project.Root
@@ -358,7 +362,7 @@ func (r *Resolver) qualified(head string, headSite Node, rest []string, sites []
 		i++
 	}
 	if i == len(rest) {
-		panic(headSite.P().Error(ErrExpressionError, "'"+head+"."+strings.Join(rest, ".")+"' is a module, not a value"))
+		panic(headSite.P().Error(diag.ErrExpressionError, "'"+head+"."+strings.Join(rest, ".")+"' is a module, not a value"))
 	}
 	decl, ok := mod.Names[rest[i]]
 	if !ok {
@@ -371,47 +375,47 @@ func (r *Resolver) qualified(head string, headSite Node, rest []string, sites []
 	return r.take(found, sites[i]), i + 1
 }
 
-func (r *Resolver) resolveType(tr *TypeRef) {
+func (r *Resolver) resolveType(tr *ast.TypeRef) {
 	if len(tr.Qualifier) == 0 {
 		if primitiveTypes[tr.Name] {
 			return
 		}
 		found := r.take(r.bare(tr.Name), tr)
 		if found != nil && !isType(found) {
-			panic(tr.Error(ErrUnknownType, "'"+tr.Name+"' is not a type"))
+			panic(tr.Error(diag.ErrUnknownType, "'"+tr.Name+"' is not a type"))
 		}
 		tr.Target = found
 		return
 	}
 	if !r.isModuleRoot(tr.Qualifier[0]) {
-		panic(tr.Error(ErrUnknownType, "no module '"+tr.Qualifier[0]+"'"))
+		panic(tr.Error(diag.ErrUnknownType, "no module '"+tr.Qualifier[0]+"'"))
 	}
 	path := append(append([]string{}, tr.Qualifier[1:]...), tr.Name)
-	sites := make([]Node, len(path))
+	sites := make([]ast.Node, len(path))
 	for i := range sites {
 		sites[i] = tr
 	}
 	decl, used := r.qualified(tr.Qualifier[0], tr, path, sites)
 	if used != len(path) || !isType(decl) {
-		panic(tr.Error(ErrUnknownType, "'"+strings.Join(tr.Qualifier, ".")+"."+tr.Name+"' is not a type"))
+		panic(tr.Error(diag.ErrUnknownType, "'"+strings.Join(tr.Qualifier, ".")+"."+tr.Name+"' is not a type"))
 	}
 	tr.Target = decl
 }
 
-func (r *Resolver) visible(d Decl) bool {
+func (r *Resolver) visible(d ast.Decl) bool {
 	b := d.Base()
 	return b.Module == r.module || b.IsExported()
 }
 
-func hidden(d Decl, site Node) *CompileError {
+func hidden(d ast.Decl, site ast.Node) *diag.CompileError {
 	b := d.Base()
 	return site.P().Error("E3008", "'"+b.Name+"' is not exported from module "+b.Module.Display())
 }
 
-func (r *Resolver) take(found lookup, site Node) Decl {
+func (r *Resolver) take(found lookup, site ast.Node) ast.Decl {
 	if found.Error != nil {
 		p := site.P()
-		panic(NewError(found.Error.Code, found.Error.Message, p.File, p.Line, p.Col))
+		panic(diag.NewError(found.Error.Code, found.Error.Message, p.File, p.Line, p.Col))
 	}
 	if found.Decl != nil {
 		dm := found.Decl.Base().Module
@@ -434,7 +438,7 @@ func (r *Resolver) bare(name string) lookup {
 		}
 		return lookup{Decl: root, Error: hidden(root, root)}
 	}
-	var candidates, visible []Decl
+	var candidates, visible []ast.Decl
 	for _, d := range r.project.ByName[name] {
 		dm := d.Base().Module
 		if dm != r.module && dm != r.project.Root {
@@ -458,7 +462,7 @@ func (r *Resolver) bare(name string) lookup {
 		for i, d := range visible {
 			where[i] = d.Base().Module.Path + "." + name
 		}
-		return lookup{Error: NewError(code, "'"+name+"' is ambiguous: qualify it as one of "+strings.Join(where, ", "), "", 0, 0)}
+		return lookup{Error: diag.NewError(code, "'"+name+"' is ambiguous: qualify it as one of "+strings.Join(where, ", "), "", 0, 0)}
 	}
 	if len(candidates) > 0 {
 		return lookup{Error: hidden(candidates[0], candidates[0])}

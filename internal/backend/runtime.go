@@ -1,4 +1,9 @@
-package main
+package backend
+
+import (
+	"minimaxon/internal/ast"
+	"minimaxon/internal/ir"
+)
 
 const (
 	impGetProcessHeap     = 0
@@ -27,19 +32,19 @@ type runtimeUnit struct {
 	dataBytes *DataSection
 }
 
-func EmitRuntime(main *FuncDecl) *CodeUnit {
+func EmitRuntime(main *ast.FuncDecl) *CodeUnit {
 	u := NewCodeUnit()
 	g := &runtimeUnit{
 		u:         u,
-		rtAlloc:   ExternLabel(RtAlloc),
-		rtWrite:   ExternLabel(RtWrite),
-		rtPanic:   ExternLabel(RtPanic),
+		rtAlloc:   ExternLabel(ir.RtAlloc),
+		rtWrite:   ExternLabel(ir.RtWrite),
+		rtPanic:   ExternLabel(ir.RtPanic),
 		asm:       u.Asm,
 		dataBytes: u.Data,
 	}
-	u.DefineData(RtHeap, wordBytes)
-	u.DefineData(RtStdout, wordBytes)
-	u.DefineData(RtStderr, wordBytes)
+	u.DefineData(ir.RtHeap, wordBytes)
+	u.DefineData(ir.RtStdout, wordBytes)
+	u.DefineData(ir.RtStderr, wordBytes)
 	g.emitEntry(main)
 	g.emitRuntime()
 	return u
@@ -52,18 +57,18 @@ func (g *runtimeUnit) callRuntime(l *Label, args int) {
 	}
 }
 
-func (g *runtimeUnit) emitEntry(main *FuncDecl) {
+func (g *runtimeUnit) emitEntry(main *ast.FuncDecl) {
 	a := g.asm
-	g.u.DefineCode(RtEntry)
+	g.u.DefineCode(ir.RtEntry)
 	a.SubImm(Rsp, windowsShadowSize)
 	a.CallImport(impGetProcessHeap)
-	a.StoreSymbol(RtHeap, Rax)
+	a.StoreSymbol(ir.RtHeap, Rax)
 	a.MovImm(Rcx, stdOutputHandle)
 	a.CallImport(impGetStdHandle)
-	a.StoreSymbol(RtStdout, Rax)
+	a.StoreSymbol(ir.RtStdout, Rax)
 	a.MovImm(Rcx, stdErrorHandle)
 	a.CallImport(impGetStdHandle)
-	a.StoreSymbol(RtStderr, Rax)
+	a.StoreSymbol(ir.RtStderr, Rax)
 	a.Call(ExternLabel(main))
 	a.Mov(Rcx, Rax)
 	a.CallImport(impExitProcess)
@@ -99,15 +104,15 @@ func (g *runtimeUnit) emitRuntime() {
 	u := g.u
 	data := g.dataBytes
 
-	u.DefineCode(RtAlloc)
+	u.DefineCode(ir.RtAlloc)
 	g.prologue(0, true)
-	a.LoadSymbol(Rcx, RtHeap)
+	a.LoadSymbol(Rcx, ir.RtHeap)
 	a.MovImm(Rdx, heapZeroMemory)
 	a.Load(R8, Rbp, 16)
 	a.CallImport(impHeapAlloc)
 	g.epilogue()
 
-	u.DefineCode(RtWrite)
+	u.DefineCode(ir.RtWrite)
 	g.prologue(0, true)
 	a.Load(Rcx, Rbp, 24)
 	a.Load(Rdx, Rbp, 16)
@@ -119,12 +124,12 @@ func (g *runtimeUnit) emitRuntime() {
 	a.CallImport(impWriteFile)
 	g.epilogue()
 
-	u.DefineCode(RtPanic)
+	u.DefineCode(ir.RtPanic)
 	g.prologue(0, false)
 	pieces := []panicPiece{{data.String("panic: "), true}, {0, false}}
 	pieces = append(pieces, panicPiece{data.String("\n"), true})
 	for _, piece := range pieces {
-		a.LoadSymbol(Rax, RtStderr)
+		a.LoadSymbol(Rax, ir.RtStderr)
 		a.Push(Rax)
 		if piece.isText {
 			a.LeaData(Rax, piece.text)
@@ -139,7 +144,7 @@ func (g *runtimeUnit) emitRuntime() {
 	a.MovImm(Rcx, panicExitCode)
 	a.CallImport(impExitProcess)
 
-	u.DefineCode(RtConcat)
+	u.DefineCode(ir.RtConcat)
 	g.prologue(0, false)
 	a.Load(Rsi, Rbp, 24)
 	a.Load(Rdi, Rbp, 16)
@@ -161,7 +166,7 @@ func (g *runtimeUnit) emitRuntime() {
 	a.Mov(Rax, R12)
 	g.epilogue()
 
-	u.DefineCode(RtItoa)
+	u.DefineCode(ir.RtItoa)
 	g.prologue(64, false)
 	digits := NewLabel()
 	loop := NewLabel()
@@ -204,7 +209,7 @@ func (g *runtimeUnit) emitRuntime() {
 	a.Mov(Rax, R12)
 	g.epilogue()
 
-	u.DefineCode(RtStreq)
+	u.DefineCode(ir.RtStreq)
 	g.prologue(0, false)
 	yes := NewLabel()
 	no := NewLabel()
@@ -230,10 +235,10 @@ func (g *runtimeUnit) emitRuntime() {
 	g.epilogue()
 
 	panics := []struct{ symbol, message string }{
-		{RtPanicRange, "integer value out of range"},
-		{RtPanicOverflow, "integer overflow"},
-		{RtPanicDiv, "division by zero"},
-		{RtPanicShift, "negative shift count"},
+		{ir.RtPanicRange, "integer value out of range"},
+		{ir.RtPanicOverflow, "integer overflow"},
+		{ir.RtPanicDiv, "division by zero"},
+		{ir.RtPanicShift, "negative shift count"},
 	}
 	for _, p := range panics {
 		u.DefineCode(p.symbol)

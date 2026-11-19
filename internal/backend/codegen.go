@@ -1,4 +1,9 @@
-package main
+package backend
+
+import (
+	"minimaxon/internal/diag"
+	"minimaxon/internal/ir"
+)
 
 const (
 	pageSize        = 4096
@@ -17,20 +22,20 @@ type codegen struct {
 	panicOverflow *Label
 	panicDiv      *Label
 	panicShift    *Label
-	f             *IrFunction
+	f             *ir.IrFunction
 	labels        []*Label
 }
 
-func EmitModule(fns []*IrFunction) *CodeUnit {
+func EmitModule(fns []*ir.IrFunction) *CodeUnit {
 	u := NewCodeUnit()
 	g := &codegen{
 		u:             u,
 		asm:           u.Asm,
-		rtAlloc:       ExternLabel(RtAlloc),
-		panicRange:    ExternLabel(RtPanicRange),
-		panicOverflow: ExternLabel(RtPanicOverflow),
-		panicDiv:      ExternLabel(RtPanicDiv),
-		panicShift:    ExternLabel(RtPanicShift),
+		rtAlloc:       ExternLabel(ir.RtAlloc),
+		panicRange:    ExternLabel(ir.RtPanicRange),
+		panicOverflow: ExternLabel(ir.RtPanicOverflow),
+		panicDiv:      ExternLabel(ir.RtPanicDiv),
+		panicShift:    ExternLabel(ir.RtPanicShift),
 	}
 	for _, f := range fns {
 		g.function(f)
@@ -42,7 +47,7 @@ func slotOffset(slot int) int {
 	return -wordBytes * (slot + 1)
 }
 
-func (g *codegen) regOffset(v V) int {
+func (g *codegen) regOffset(v ir.V) int {
 	return -wordBytes * (len(g.f.Slots) + int(v) + 1)
 }
 
@@ -50,15 +55,15 @@ func (g *codegen) paramOffset(index int) int {
 	return 16 + wordBytes*(g.f.ParamCount-1-index)
 }
 
-func (g *codegen) get(r R, v V) {
+func (g *codegen) get(r R, v ir.V) {
 	g.asm.Load(r, Rbp, g.regOffset(v))
 }
 
-func (g *codegen) put(v V, r R) {
+func (g *codegen) put(v ir.V, r R) {
 	g.asm.Store(Rbp, g.regOffset(v), r)
 }
 
-func (g *codegen) function(fn *IrFunction) {
+func (g *codegen) function(fn *ir.IrFunction) {
 	a := g.asm
 	g.f = fn
 	g.labels = make([]*Label, len(fn.Blocks))
@@ -76,9 +81,9 @@ func (g *codegen) function(fn *IrFunction) {
 			g.instr(instr)
 		}
 		if b.Term == nil {
-			panic(Internal("codegen: block b%d of %s has no terminator", b.ID, fn.Decl.Symbol()))
+			panic(diag.Internal("codegen: block b%d of %s has no terminator", b.ID, fn.Decl.Symbol()))
 		}
-		var next *IrBlock
+		var next *ir.IrBlock
 		if i+1 < len(fn.Blocks) {
 			next = fn.Blocks[i+1]
 		}
@@ -99,7 +104,7 @@ func (g *codegen) allocateFrame(bytes int) {
 	}
 }
 
-func (g *codegen) call(target *Label, args []V, dst *V) {
+func (g *codegen) call(target *Label, args []ir.V, dst *ir.V) {
 	a := g.asm
 	for _, arg := range args {
 		g.get(Rax, arg)
@@ -114,127 +119,127 @@ func (g *codegen) call(target *Label, args []V, dst *V) {
 	}
 }
 
-func (g *codegen) instr(i Instr) {
+func (g *codegen) instr(i ir.Instr) {
 	a := g.asm
 	switch x := i.(type) {
-	case *ConstInstr:
+	case *ir.ConstInstr:
 		a.MovImm(Rax, x.Value)
 		g.put(x.Dst, Rax)
-	case *StrInstr:
+	case *ir.StrInstr:
 		a.LeaData(Rax, g.u.Data.String(x.Value))
 		g.put(x.Dst, Rax)
-	case *LoadSlot:
+	case *ir.LoadSlot:
 		a.Load(Rax, Rbp, slotOffset(x.Slot))
 		g.put(x.Dst, Rax)
-	case *StoreSlot:
+	case *ir.StoreSlot:
 		g.get(Rax, x.Src)
 		a.Store(Rbp, slotOffset(x.Slot), Rax)
-	case *SlotAddr:
+	case *ir.SlotAddr:
 		a.Lea(Rax, Rbp, slotOffset(x.Slot))
 		g.put(x.Dst, Rax)
-	case *LoadParam:
+	case *ir.LoadParam:
 		a.Load(Rax, Rbp, g.paramOffset(x.Param))
 		g.put(x.Dst, Rax)
-	case *LoadField:
+	case *ir.LoadField:
 		g.get(Rax, x.Obj)
 		a.Load(Rax, Rax, x.Offset)
 		g.put(x.Dst, Rax)
-	case *StoreField:
+	case *ir.StoreField:
 		g.get(Rcx, x.Obj)
 		g.get(Rax, x.Src)
 		a.Store(Rcx, x.Offset, Rax)
-	case *FieldAddr:
+	case *ir.FieldAddr:
 		g.get(Rax, x.Obj)
 		a.Lea(Rax, Rax, x.Offset)
 		g.put(x.Dst, Rax)
-	case *LoadAt:
+	case *ir.LoadAt:
 		g.get(Rax, x.Addr)
 		a.Load(Rax, Rax, 0)
 		g.put(x.Dst, Rax)
-	case *StoreAt:
+	case *ir.StoreAt:
 		g.get(Rcx, x.Addr)
 		g.get(Rax, x.Src)
 		a.Store(Rcx, 0, Rax)
-	case *LoadGlobal:
+	case *ir.LoadGlobal:
 		a.LoadSymbol(Rax, x.Symbol)
 		g.put(x.Dst, Rax)
-	case *BinInstr:
+	case *ir.BinInstr:
 		g.get(Rax, x.A)
 		g.get(Rcx, x.B)
 		g.binary(x)
 		g.put(x.Dst, Rax)
-	case *CmpInstr:
+	case *ir.CmpInstr:
 		g.get(Rax, x.A)
 		g.get(Rcx, x.B)
 		a.Cmp(Rax, Rcx)
 		a.SetccRax(g.condition(x))
 		g.put(x.Dst, Rax)
-	case *NegInstr:
+	case *ir.NegInstr:
 		g.get(Rax, x.Src)
 		a.Neg(Rax)
 		a.Jcc(CcO, g.panicOverflow)
 		g.put(x.Dst, Rax)
-	case *NotInstr:
+	case *ir.NotInstr:
 		g.get(Rax, x.Src)
 		a.Not(Rax)
 		g.put(x.Dst, Rax)
-	case *GuardInstr:
+	case *ir.GuardInstr:
 		g.guard(x)
-	case *AllocInstr:
+	case *ir.AllocInstr:
 		a.MovImm(Rax, int64(x.Bytes))
 		a.Push(Rax)
 		a.Call(g.rtAlloc)
 		a.AddImm(Rsp, wordBytes)
 		g.put(x.Dst, Rax)
-	case *CallInstr:
+	case *ir.CallInstr:
 		g.call(ExternLabel(x.Target), x.Args, x.Dst)
-	case *CallRuntimeInstr:
+	case *ir.CallRuntimeInstr:
 		g.call(ExternLabel(x.Symbol), x.Args, x.Dst)
 	default:
-		panic(Internal("codegen: unhandled instruction %T", i))
+		panic(diag.Internal("codegen: unhandled instruction %T", i))
 	}
 }
 
-func (g *codegen) condition(c *CmpInstr) Cc {
+func (g *codegen) condition(c *ir.CmpInstr) Cc {
 	switch c.Op {
-	case CmpEq:
+	case ir.CmpEq:
 		return CcE
-	case CmpNe:
+	case ir.CmpNe:
 		return CcNE
-	case CmpLt:
+	case ir.CmpLt:
 		if c.Unsigned {
 			return CcB
 		}
 		return CcL
-	case CmpLe:
+	case ir.CmpLe:
 		if c.Unsigned {
 			return CcBE
 		}
 		return CcLE
-	case CmpGt:
+	case ir.CmpGt:
 		if c.Unsigned {
 			return CcA
 		}
 		return CcG
-	case CmpGe:
+	case ir.CmpGe:
 		if c.Unsigned {
 			return CcAE
 		}
 		return CcGE
 	}
-	panic(Internal("codegen: comparison %d", int(c.Op)))
+	panic(diag.Internal("codegen: comparison %d", int(c.Op)))
 }
 
-func (g *codegen) binary(b *BinInstr) {
+func (g *codegen) binary(b *ir.BinInstr) {
 	a := g.asm
 	switch b.Op {
-	case OpAdd:
+	case ir.OpAdd:
 		a.Add(Rax, Rcx)
 		g.overflow(b)
-	case OpSub:
+	case ir.OpSub:
 		a.Sub(Rax, Rcx)
 		g.overflow(b)
-	case OpMul:
+	case ir.OpMul:
 		if b.Unsigned {
 			a.MulRax(Rcx)
 			if b.Checked {
@@ -246,7 +251,7 @@ func (g *codegen) binary(b *BinInstr) {
 				a.Jcc(CcO, g.panicOverflow)
 			}
 		}
-	case OpDiv, OpMod:
+	case ir.OpDiv, ir.OpMod:
 		a.Test(Rcx, Rcx)
 		a.Jcc(CcE, g.panicDiv)
 		if b.Unsigned {
@@ -256,23 +261,23 @@ func (g *codegen) binary(b *BinInstr) {
 			a.Cqo()
 			a.Idiv(Rcx)
 		}
-		if b.Op == OpMod {
+		if b.Op == ir.OpMod {
 			a.Mov(Rax, Rdx)
 		}
-	case OpAnd:
+	case ir.OpAnd:
 		a.And(Rax, Rcx)
-	case OpOr:
+	case ir.OpOr:
 		a.Or(Rax, Rcx)
-	case OpXor:
+	case ir.OpXor:
 		a.Xor(Rax, Rcx)
-	case OpShl, OpShr:
-		g.shift(b.Op == OpShl, b.Unsigned)
+	case ir.OpShl, ir.OpShr:
+		g.shift(b.Op == ir.OpShl, b.Unsigned)
 	default:
-		panic(Internal("codegen: operator %d", int(b.Op)))
+		panic(diag.Internal("codegen: operator %d", int(b.Op)))
 	}
 }
 
-func (g *codegen) overflow(b *BinInstr) {
+func (g *codegen) overflow(b *ir.BinInstr) {
 	if !b.Checked {
 		return
 	}
@@ -308,10 +313,10 @@ func (g *codegen) shift(left, unsigned bool) {
 	a.Bind(done)
 }
 
-func (g *codegen) guard(x *GuardInstr) {
+func (g *codegen) guard(x *ir.GuardInstr) {
 	a := g.asm
 	g.get(Rax, x.Src)
-	if x.Kind == GuardNonNegative {
+	if x.Kind == ir.GuardNonNegative {
 		a.Test(Rax, Rax)
 		a.Jcc(CcS, g.panicRange)
 		return
@@ -320,31 +325,31 @@ func (g *codegen) guard(x *GuardInstr) {
 	a.Cmp(Rax, Rcx)
 	var cc Cc
 	switch x.Kind {
-	case GuardSignedAtLeast:
+	case ir.GuardSignedAtLeast:
 		cc = CcL
-	case GuardSignedAtMost:
+	case ir.GuardSignedAtMost:
 		cc = CcG
-	case GuardUnsignedAtLeast:
+	case ir.GuardUnsignedAtLeast:
 		cc = CcB
-	case GuardUnsignedAtMost:
+	case ir.GuardUnsignedAtMost:
 		cc = CcA
 	default:
-		panic(Internal("codegen: guard %d", int(x.Kind)))
+		panic(diag.Internal("codegen: guard %d", int(x.Kind)))
 	}
 	a.Jcc(cc, g.panicRange)
 }
 
-func (g *codegen) term(t Terminator, next *IrBlock) {
+func (g *codegen) term(t ir.Terminator, next *ir.IrBlock) {
 	a := g.asm
 	switch x := t.(type) {
-	case *JumpTerm:
+	case *ir.JumpTerm:
 		g.jumpUnlessNext(x.Target, next)
-	case *BranchTerm:
+	case *ir.BranchTerm:
 		g.get(Rax, x.Cond)
 		a.Test(Rax, Rax)
 		a.Jcc(CcE, g.labels[x.Else.ID])
 		g.jumpUnlessNext(x.Then, next)
-	case *SwitchTerm:
+	case *ir.SwitchTerm:
 		g.get(Rax, x.Value)
 		for i, v := range x.Values {
 			a.MovImm(Rcx, v)
@@ -352,19 +357,19 @@ func (g *codegen) term(t Terminator, next *IrBlock) {
 			a.Jcc(CcE, g.labels[x.Targets[i].ID])
 		}
 		g.jumpUnlessNext(x.Default, next)
-	case *RetTerm:
+	case *ir.RetTerm:
 		g.get(Rax, x.Value)
 		a.Mov(Rsp, Rbp)
 		a.Pop(Rbp)
 		a.Ret()
-	case *TrapTerm:
+	case *ir.TrapTerm:
 		a.Raw(trapOpcodeFirst, trapOpcodeNext)
 	default:
-		panic(Internal("codegen: unhandled terminator %T", t))
+		panic(diag.Internal("codegen: unhandled terminator %T", t))
 	}
 }
 
-func (g *codegen) jumpUnlessNext(target, next *IrBlock) {
+func (g *codegen) jumpUnlessNext(target, next *ir.IrBlock) {
 	if target != next {
 		g.asm.Jmp(g.labels[target.ID])
 	}
