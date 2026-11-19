@@ -1,0 +1,19 @@
+typealias Score = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	var i = 0 as Score
+	while i < 6 and i != 4 'loop'
+		if i > 1 and i < 3 'inner'
+			print("in {i}\n")
+		end 'inner' else if i == 0 or i == 5 'edge'
+			print("edge {i}\n")
+		end 'edge'
+		i = i + 1
+	end 'loop'
+	print("stopped at {i}\n")
+	return 0
+end 'main'
+
+//> edge 0
+//> in 2
+//> stopped at 4

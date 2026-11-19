@@ -1,23 +1,26 @@
 # minimaxon
 
-A small Maxon compiler for trying out language changes. It is written in C#, targets x64 Windows only, and
-is about 5,000 lines. It compiles modules in parallel and writes a PE executable directly, with no external
-assembler, linker or C runtime.
+A small Maxon compiler for trying out language changes, and the seed of the next full Maxon compiler. It is
+written in Go, targets x64 Windows only, and is about 8,000 lines. It compiles modules in parallel and writes a
+PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the real compiler and does not share code with `maxon-bin/`. It started from a core subset of
 Maxon's syntax and error codes, but it does not track the real compiler: an experiment is free to change the
-language, its rules and its diagnostics.
+language, its rules and its diagnostics. Compatibility with current Maxon is not a criterion; anything changes
+when the change improves the compiler. It is the bootstrap for a compiler that will later be written in Maxon
+itself, so its code stays plain enough to port: structs, interfaces, slices, and no runtime-specific tricks the
+design depends on.
 
 ## Use
 
-Needs the .NET 10 SDK.
+Needs Go 1.27.
 
 ```powershell
-dotnet build -c Release
+go build -o minimaxon.exe .
 ```
 
 ```powershell
-dotnet bin/Release/net10.0/minimaxon.dll run tests/run/enums-unions.maxon
+.\minimaxon.exe run tests/run/enums-unions.maxon
 ```
 
 | Command | What it does |
@@ -25,11 +28,12 @@ dotnet bin/Release/net10.0/minimaxon.dll run tests/run/enums-unions.maxon
 | `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory |
 | `minimaxon run <file\|dir>` | compile to `%TEMP%\minimaxon\` and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only |
-| `minimaxon test [dir]` | run the corpus (default `tests/`) |
+| `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
 
-`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many modules compile at once. The default is one fewer than the processor count. The
-executable is byte-identical whatever the value. `--timings` prints each phase's wall time, allocation,
-garbage collections and GC pause time to stderr.
+`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many
+modules compile at once. The default is one fewer than the processor count, and the executable is byte-identical
+whatever the value. `--timings` prints each phase's wall time, allocation, garbage collections and GC pause time
+to stderr.
 
 ### Tests
 
@@ -45,8 +49,22 @@ and its root files carry the directives. Directives in comments say what the pro
 ### Errors
 
 A diagnostic is `file:line:col: error E….: message`, and compiling stops at the first error in each
-function. Anything else the compiler throws is a bug in minimaxon, not in the program. It prints
-`internal compiler error` with a stack trace and exits 3.
+function. A diagnostic is a `*CompileError` panic that `Guard` (`diag.go`) turns into a list entry; any other
+panic is a bug in minimaxon, not in the program. It prints `internal compiler error` with a stack trace and
+exits 3.
+
+## Philosophy: assume the source is correct
+
+The compiler assumes the program it compiles is correct, so phases can keep running in parallel without waiting
+on each other. A check that needs another module's results is deferred to the latest point where the compiler
+actually needs the answer, and done there quickly. For example, a module that calls a function its own module does
+not declare assumes the function exists in another module; when the call is finally needed and no matching function
+is found, that is the error. Correct programs pay nothing for the checks, and an incorrect one is still refused
+before it produces an executable.
+
+Cross-module calls already work this way: they are typed from the callee's declared signature and checked in the
+verify phase. Name resolution still builds the project-wide name tables first; it is the next candidate for the
+same treatment.
 
 ## Modules
 
@@ -66,34 +84,35 @@ under it that holds source, at any depth, is a module of its own. Names follow M
 
 ## Pipeline
 
-[`src/Driver.cs`](src/Driver.cs) runs the phases below in order. Every phase is parallel, and each completes
-before the next starts, so a work item only reads another's results from an earlier phase and needs no
-locks. Within a module the work is serial; the module is the unit of parallelism, except for constants
-(one per item) and the link (one code unit per item). Results are merged in
-source order, which keeps the output deterministic.
+`Compile` in [`driver.go`](driver.go) runs the phases below in order. Every phase is parallel, and each
+completes before the next starts, so a work item only reads another's results from an earlier phase and needs
+no locks. Within a module the work is serial; the module is the unit of parallelism, except for constants (one
+per item) and the link (one code unit per item). Results are merged in source order, which keeps the output
+deterministic. `ForEach` in `modules.go` runs a phase over a worker pool of `--jobs` goroutines.
 
 | Phase | File | Work per module |
 |---|---|---|
-| discover | `src/Modules.cs` | walks the directory tree, one subdirectory per item |
-| parse | `src/ModuleSource.cs`, `src/Lexer.cs`, `src/Parser.cs` | reads the module's files into one buffer, strips comments, lexes the whole buffer in one pass and parses the token stream into the AST (`src/Ast.cs`); anything outside the subset is `E9000` |
-| tables | `src/Modules.cs` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
-| resolve | `src/Resolver.cs` | binds every name to its declaration and records module dependencies |
-| declare | `src/Checker.cs` | the module's fields, cases and function signatures |
-| constants | `src/Driver.cs` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
-| bodies | `src/Checker.cs` | types every function body; a call into another module takes the callee's declared return type and is recorded, not checked |
-| verify | `src/Checker.cs`, `src/Ownership.cs` | checks the recorded cross-module calls, then moves (`E3102`) |
-| lower | `src/Lower.cs`, `src/Ir.cs` | the checked AST of each function becomes IR (below), and unreachable blocks are pruned |
-| codegen | `src/Codegen.cs`, `src/Runtime.cs` | IR → x64, one code unit per module, calls between units symbolic; the runtime is its own hand-written unit |
-| link | `src/Linker.cs`, `src/PeWriter.cs` | offsets by prefix sum, then each unit copied and patched in parallel; the units go in module-path order after a runtime unit |
+| discover | `modules.go` | walks the directory tree, one goroutine per subdirectory |
+| parse | `source.go`, `lexer.go`, `parser.go` | reads the module's files into one buffer, strips comments, lexes the whole buffer in one pass and parses the token stream into the AST (`ast.go`); anything outside the subset is `E9000` |
+| tables | `modules.go` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
+| resolve | `resolver.go` | binds every name to its declaration and records module dependencies |
+| declare | `checker.go` | the module's fields, cases and function signatures |
+| constants | `driver.go` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
+| bodies | `checker.go` | types every function body; a call into another module takes the callee's declared return type and is recorded, not checked |
+| verify | `checker.go`, `ownership.go` | checks the recorded cross-module calls, then moves (`E3102`) |
+| lower | `lower.go`, `ir.go` | the checked AST of each function becomes IR (below), and unreachable blocks are pruned |
+| codegen | `codegen.go`, `runtime.go` | IR → x64, one code unit per module, calls between units symbolic; the runtime is its own hand-written unit |
+| link | `linker.go`, `pe.go` | offsets by prefix sum, then each unit copied and patched in parallel; the units go in module-path order after a runtime unit |
 
-`src/X64.cs` is the instruction encoder, and `src/Program.cs` is the CLI and test runner. A phase that
-reports an error stops the compile, so later phases never see a broken module. The one serial step is the
-import-cycle check between resolve and declare, a walk over the module graph.
+`x64.go` is the instruction encoder, `types.go` the checker's types, `i128.go` the 128-bit integers that hold
+constant ranges, and `main.go` the CLI and test runner. A phase that reports an error stops the compile, so
+later phases never see a broken module. The one serial step is the import-cycle check between resolve and
+declare, a walk over the module graph.
 
 ### Reading a module
 
-A module's files are read into one `char[]`, allocated once at the sum of their sizes, which bounds the decoded
-text. Each file is decoded straight into it and stripped of comments in place:
+A module's files are read into one `[]byte`, allocated once at the sum of their sizes, and stripped of comments
+in place:
 
 - a `///` doc comment that starts its line is kept, for the LSP to use later; the lexer skips it;
 - a `//` comment is dropped;
@@ -101,28 +120,24 @@ text. Each file is decoded straight into it and stripped of comments in place:
   after it is unchanged;
 - an unterminated block comment is left as written, so the lexer reports it.
 
-One lexer pass covers the whole buffer. At each file boundary it resets the line, column and bracket depth, so no
-token spans two files, and emits a `FileEnd` token. One parser reads the module's stream, naming each file in
-its diagnostics. A declaration left open at the end of a file fails there with `E2007`, and parsing resumes at
-the next file, so each file reports its own first syntax error.
+The lexer works on the raw UTF-8 bytes, so a column counts bytes. One lexer pass covers the whole buffer. At each
+file boundary it resets the line, column and bracket depth, so no token spans two files, and emits a `FileEnd`
+token. One parser reads the module's stream, naming each file in its diagnostics. A declaration left open at the
+end of a file fails there with `E2007`, and parsing resumes at the next file, so each file reports its own first
+syntax error.
 
 ### Allocation
 
-Parallel phases are only as fast as allocation allows. The compiler uses server GC with dynamic adaptation off
-(`MiniMaxon.csproj`): the adaptive mode starts with one heap, which serializes a short, allocation-heavy run.
-The lexer reuses one token buffer per thread and interns a module's repeated identifiers. The ownership pass skips
-a function with no movable variable, and its state is shared until a move changes it. Watch the MB and pause
-columns of `--timings` when changing a phase.
-
-A compile then suspends collection altogether. After discovery the driver opens a no-GC region of 100 bytes per
-source byte (at least 256 MB, at most half the available memory), which covers what a compile allocates, and closes
-it at the end. The runtime does not commit the budget up front, so peak memory is unchanged; a compile that
-outgrows it simply resumes collecting.
+Parallel phases are only as fast as allocation allows. The lexer reuses token buffers and interns a module's
+repeated identifiers, and the ownership pass skips a function with no movable variable and shares its state
+until a move changes it. During a compile the driver turns the collector off (`debug.SetGCPercent(-1)`) under a
+memory limit of 100 bytes per source byte, at least 256 MB, so a compile that outgrows it still collects. Watch
+the MB and pause columns of `--timings` when changing a phase.
 
 ## The IR
 
 The checker works on the AST, which mirrors what the author wrote. Everything after it works on the IR in
-`src/Ir.cs`, which is what a later pass such as reference counting, region lowering or an optimization changes.
+`ir.go`, which is what a later pass such as reference counting, region lowering or an optimization changes.
 
 - A function is a list of basic blocks, each a list of instructions ending in one terminator (`jump`, `branch`,
   `switch`, `ret`, `trap`).
@@ -131,7 +146,8 @@ The checker works on the AST, which mirrors what the author wrote. Everything af
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
 - Checks are explicit: a range check is a `guard` with its bound, an allocation is `alloc`, and only overflow,
   a zero divisor and a negative shift are left to codegen.
-- The instructions are closed record hierarchies over plain lists, which port directly to Maxon unions.
+- Instructions and terminators are closed sets of structs behind an interface, which port directly to Maxon
+  unions.
 
 Codegen is deliberately naive: every register and slot has its own frame slot, so each instruction loads its
 operands and stores its result. That makes executables about twice the size of keeping values in registers;
@@ -184,16 +200,17 @@ checked where the result is computed. `as` checks at compile time for a constant
 
 A typical change touches one file per stage:
 
-1. **Syntax:** a node in `Ast.cs` and a branch in `Parser.cs`. If the word was an `Unsupported(...)`
-   refusal, that call is where the new production goes. A node holding names needs a case in `Resolver.cs`
-   too, which raises an internal compiler error on a node it does not know.
-2. **Typing:** a case in `Checker.CheckExpr` or `Checker.CheckStmt`. Store what codegen needs on the node.
+1. **Syntax:** a node in `ast.go` and a branch in `parser.go` (`parseStatement`, `parsePrimary` and their
+   helpers). If the word was an `unsupported(...)` refusal, that call is where the new production goes. A node
+   holding names needs a case in `Resolver.stmt` or `Resolver.expr` too, which panics with an internal error on
+   a node it does not know.
+2. **Typing:** a case in `Checker.checkExpr` or `Checker.checkStmt`. Store what codegen needs on the node.
    Read another module's types and signatures freely, but never write them: only the declare phase writes
    a module's own declarations.
-3. **Ownership:** a case in `Ownership.Stmt` or `Ownership.Expr`. The pass, like codegen, raises an internal
-   compiler error on a node it does not know, so it cannot be skipped by accident.
-4. **Lowering:** a case in `Lowerer.Expr` or `Lowerer.Stmt`, built from the existing instructions where it can.
-   A new instruction needs a case in `Codegen.Instr` and `IrPrinter` as well.
+3. **Ownership:** a case in `Ownership.stmt` or `Ownership.expr`. The pass, like lowering and codegen, panics
+   with an internal error on a node it does not know, so it cannot be skipped by accident.
+4. **Lowering:** a case in `Lowerer.expr` or `Lowerer.stmt`, built from the existing instructions where it can.
+   A new instruction needs a case in `codegen.instr` and `instrText` (`ir.go`) as well.
 5. **Tests:** a `tests/run/` program for the behaviour, and a `tests/errors/` program for each diagnostic.
 
 A rule that is only a diagnostic, such as a new ownership or region check, usually needs steps 2 or 3 and
