@@ -28,7 +28,8 @@ dotnet bin/Release/net10.0/minimaxon.dll run tests/run/enums-unions.maxon
 | `minimaxon test [dir]` | run the corpus (default `tests/`) |
 
 `--jobs=N` sets how many modules compile at once. The default is one fewer than the processor count. The
-executable is byte-identical whatever the value.
+executable is byte-identical whatever the value. `--timings` prints each phase's wall time, allocation and
+garbage collections to stderr.
 
 ### Tests
 
@@ -65,24 +66,32 @@ under it that holds source, at any depth, is a module of its own. Names follow M
 
 ## Pipeline
 
-[`src/Driver.cs`](src/Driver.cs) runs the phases below in order. Each phase runs every module in parallel
-and completes before the next starts, so a module only reads another module's results from an earlier
-phase, and needs no locks.
+[`src/Driver.cs`](src/Driver.cs) runs the phases below in order. Every phase is parallel, and each completes
+before the next starts, so a work item only reads another's results from an earlier phase and needs no
+locks. Within a module the work is serial; the module is the unit of parallelism, except for parsing (one
+file per item), constants (one per item) and the link (one code unit per item). Results are merged in
+source order, which keeps the output deterministic.
 
 | Phase | File | Work per module |
 |---|---|---|
-| parse | `src/Lexer.cs`, `src/Parser.cs` | tokens and AST (`src/Ast.cs`); anything outside the subset is `E9000` |
-| tables | `src/Modules.cs` | serial: the declaration tables, and an empty type object for every type |
+| discover | `src/Modules.cs` | walks the directory tree, one subdirectory per item |
+| parse | `src/Lexer.cs`, `src/Parser.cs` | tokens and AST (`src/Ast.cs`), one file per item; anything outside the subset is `E9000` |
+| tables | `src/Modules.cs` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
 | resolve | `src/Resolver.cs` | binds every name to its declaration and records module dependencies |
 | declare | `src/Checker.cs` | the module's fields, cases and function signatures |
-| constants | `src/Checker.cs` | serial: top-level `let` types, in dependency order across modules |
+| constants | `src/Driver.cs` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
 | bodies | `src/Checker.cs` | types every function body; a call into another module takes the callee's declared return type and is recorded, not checked |
 | verify | `src/Checker.cs`, `src/Ownership.cs` | checks the recorded cross-module calls, then moves (`E3102`) |
 | codegen | `src/Codegen.cs` | one code unit per module; calls between units are symbolic |
-| link | `src/Linker.cs`, `src/PeWriter.cs` | serial: joins the units in module-path order, plus a runtime unit, into a PE32+ image |
+| link | `src/Linker.cs`, `src/PeWriter.cs` | offsets by prefix sum, then each unit copied and patched in parallel; the units go in module-path order after a runtime unit |
 
 `src/X64.cs` is the instruction encoder, and `src/Program.cs` is the CLI and test runner. A phase that
-reports an error stops the compile, so later phases never see a broken module.
+reports an error stops the compile, so later phases never see a broken module. The one serial step is the
+import-cycle check between resolve and declare, a walk over the module graph.
+
+Parallel phases are only as fast as allocation allows. The compiler uses server GC (`MiniMaxon.csproj`), and
+the lexer reuses one token buffer per thread and interns each file's repeated identifiers. Watch the MB column
+of `--timings` when changing a phase.
 
 Codegen is deliberately naive. Every expression leaves its value in `rax`, operands go through the stack,
 and every local has a frame slot. Calls use an internal convention: arguments are pushed left to right and

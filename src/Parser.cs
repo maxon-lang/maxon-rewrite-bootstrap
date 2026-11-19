@@ -1,6 +1,6 @@
 namespace MiniMaxon;
 
-public sealed class Parser(List<Token> toks) {
+public sealed class Parser(List<Token> toks, string file) {
   static readonly HashSet<string> Reserved = [
     "and", "as", "async", "await", "bool", "break", "continue", "countof", "cstring", "default", "else", "end",
     "enum", "export", "extends", "extension", "fallthrough", "false", "float", "for", "from", "function", "gives",
@@ -20,7 +20,7 @@ public sealed class Parser(List<Token> toks) {
 
   int p;
 
-  public static Program ParseFile(string file, string source) => new Parser(new Lexer(file, source).Lex()).ParseProgram();
+  public static Program ParseFile(string file, string source) => new Parser(new Lexer(file, source).Lex(), file).ParseProgram();
 
   public static bool IsReserved(string word) => Reserved.Contains(word);
 
@@ -56,7 +56,7 @@ public sealed class Parser(List<Token> toks) {
     return true;
   }
 
-  CompileError ErrorAt(Token t, string code, string msg) => new(code, msg, t.File, t.Line, t.Col);
+  CompileError ErrorAt(Token t, string code, string msg) => new(code, msg, file, t.Line, t.Col);
 
   CompileError Unexpected(string expected) =>
     ErrorAt(Cur, Err.UnexpectedToken, $"expected {expected}, found '{Cur.Text}'");
@@ -84,8 +84,8 @@ public sealed class Parser(List<Token> toks) {
     return Next().Text;
   }
 
-  static TNode N<TNode>(TNode node, Token t) where TNode : Node {
-    node.File = t.File;
+  TNode N<TNode>(TNode node, Token t) where TNode : Node {
+    node.File = file;
     node.Line = t.Line;
     node.Col = t.Col;
     return node;
@@ -686,43 +686,50 @@ public sealed class Parser(List<Token> toks) {
     return e;
   }
 
-  Expr Binary(Func<Expr> operand, params string[] ops) {
-    var e = operand();
-    while (true) {
-      var t = Cur;
-      string? op = null;
-      foreach (var o in ops) {
-        if ((t.Kind == T.Ident && t.Text == o) || (t.Kind is not (T.Ident or T.Str or T.Quote or T.Int) && t.Text == o)) {
-          op = o;
-          break;
-        }
+  static readonly string[][] BinaryLevels = [
+    ["or"],
+    ["xor"],
+    ["and"],
+    ["==", "!=", "<", "<=", ">", ">="],
+    ["shl", "shr"],
+    ["+", "-"],
+    ["*", "/", "mod"],
+  ];
+
+  const int ComparisonLevel = 3;
+
+  string? BinaryOperator(int level) {
+    var t = Cur;
+    if (t.Kind is T.Str or T.Quote or T.Int) {
+      return null;
+    }
+    foreach (var op in BinaryLevels[level]) {
+      if (t.Text == op) {
+        return op;
       }
-      if (op is null) {
+    }
+    return null;
+  }
+
+  Expr ParseBinary(int level) {
+    if (level == BinaryLevels.Length) {
+      return ParseCast();
+    }
+    var e = ParseBinary(level + 1);
+    while (true) {
+      if (level == ComparisonLevel && AtWord("is")) {
+        throw Unsupported("'is'");
+      }
+      var t = Cur;
+      if (BinaryOperator(level) is not { } op) {
         return e;
       }
       Next();
-      e = N(new BinaryExpr { Op = op, L = e, R = operand() }, t);
+      e = N(new BinaryExpr { Op = op, L = e, R = ParseBinary(level + 1) }, t);
     }
   }
 
-  Expr ParseOr() => Binary(ParseXor, "or");
-
-  Expr ParseXor() => Binary(ParseAnd, "xor");
-
-  Expr ParseAnd() => Binary(ParseComparison, "and");
-
-  Expr ParseComparison() {
-    if (AtWord("is")) {
-      throw Unsupported("'is'");
-    }
-    return Binary(ParseShift, "==", "!=", "<", "<=", ">", ">=");
-  }
-
-  Expr ParseShift() => Binary(ParseAdditive, "shl", "shr");
-
-  Expr ParseAdditive() => Binary(ParseMultiplicative, "+", "-");
-
-  Expr ParseMultiplicative() => Binary(ParseCast, "*", "/", "mod");
+  Expr ParseOr() => ParseBinary(0);
 
   Expr ParseCast() {
     var t = Cur;
@@ -818,8 +825,8 @@ public sealed class Parser(List<Token> toks) {
         if (part is TextPart tp) {
           lit.Parts.Add(tp.Text);
         } else if (part is ExprPart ep) {
-          var sub = new Lexer(tok.File, ep.Source, ep.Line, ep.Col).Lex();
-          lit.Parts.Add(new Parser(sub).ParseStandaloneExpr());
+          var sub = new Lexer(file, ep.Source, ep.Line, ep.Col).Lex();
+          lit.Parts.Add(new Parser(sub, file).ParseStandaloneExpr());
         }
       }
       return lit;

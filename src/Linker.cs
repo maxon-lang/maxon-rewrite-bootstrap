@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace MiniMaxon;
 
 public static class Linker {
@@ -6,22 +8,32 @@ public static class Linker {
 
   static int Align(int v, int a) => (v + a - 1) / a * a;
 
-  public static void Link(string outPath, IReadOnlyList<CodeUnit> units, object entry) {
-    var code = new List<byte>();
-    var data = new List<byte>();
-    var codeBase = new int[units.Count];
-    var dataBase = new int[units.Count];
-    var codeSymbols = new Dictionary<object, int>();
-    var dataSymbols = new Dictionary<object, int>();
+  static int[] Offsets(IReadOnlyList<int> sizes, int alignment, out int total) {
+    var offsets = new int[sizes.Count];
+    var at = 0;
+    for (var i = 0; i < sizes.Count; i++) {
+      offsets[i] = Align(at, alignment);
+      at = offsets[i] + sizes[i];
+    }
+    total = at;
+    return offsets;
+  }
 
-    for (var i = 0; i < units.Count; i++) {
+  public static void Link(string outPath, IReadOnlyList<CodeUnit> units, object entry, ParallelOptions options) {
+    var unitData = new byte[units.Count][];
+    Parallel.For(0, units.Count, options, i => unitData[i] = units[i].Data.ToArray());
+
+    var codeBase = Offsets([.. units.Select(u => u.Asm.Code.Count)], CodeAlignment, out var codeSize);
+    var dataBase = Offsets([.. unitData.Select(d => d.Length)], DataAlignment, out var dataSize);
+    var code = new byte[codeSize];
+    var data = new byte[dataSize];
+    var codeSymbols = new ConcurrentDictionary<object, int>();
+    var dataSymbols = new ConcurrentDictionary<object, int>();
+
+    Parallel.For(0, units.Count, options, i => {
       var u = units[i];
-      codeBase[i] = Align(code.Count, CodeAlignment);
-      code.AddRange(new byte[codeBase[i] - code.Count]);
-      code.AddRange(u.Asm.Code);
-      dataBase[i] = Align(data.Count, DataAlignment);
-      data.AddRange(new byte[dataBase[i] - data.Count]);
-      data.AddRange(u.Data.ToArray());
+      u.Asm.Code.CopyTo(code, codeBase[i]);
+      unitData[i].CopyTo(data, dataBase[i]);
       foreach (var (sym, off) in u.CodeSymbols) {
         if (!codeSymbols.TryAdd(sym, codeBase[i] + off)) {
           throw new InternalError($"code symbol {sym} is defined in two units");
@@ -32,27 +44,26 @@ public static class Linker {
           throw new InternalError($"data symbol {sym} is defined in two units");
         }
       }
-    }
+    });
 
-    var bytes = code.ToArray();
     var entryOffset = codeSymbols.TryGetValue(entry, out var e) ? e : throw new InternalError($"no entry symbol {entry}");
 
-    PeWriter.Write(outPath, bytes, data.ToArray(), Rt.Dll, Rt.Imports, entryOffset, (textRva, dataRva, iatRva) => {
-      for (var i = 0; i < units.Count; i++) {
+    PeWriter.Write(outPath, code, data, Rt.Dll, Rt.Imports, entryOffset, (textRva, dataRva, iatRva) => {
+      Parallel.For(0, units.Count, options, i => {
         var a = units[i].Asm;
         foreach (var (pos, off) in a.DataFixups) {
-          Patch(bytes, codeBase[i] + pos, textRva, dataRva + (uint)(dataBase[i] + off));
+          Patch(code, codeBase[i] + pos, textRva, dataRva + (uint)(dataBase[i] + off));
         }
         foreach (var (pos, index) in a.ImportFixups) {
-          Patch(bytes, codeBase[i] + pos, textRva, iatRva + (uint)(8 * index));
+          Patch(code, codeBase[i] + pos, textRva, iatRva + (uint)(8 * index));
         }
         foreach (var (pos, sym) in a.SymbolFixups) {
           var target = codeSymbols.TryGetValue(sym, out var c) ? textRva + (uint)c
             : dataSymbols.TryGetValue(sym, out var d) ? dataRva + (uint)d
             : throw new InternalError($"undefined symbol {sym}");
-          Patch(bytes, codeBase[i] + pos, textRva, target);
+          Patch(code, codeBase[i] + pos, textRva, target);
         }
-      }
+      });
     });
   }
 

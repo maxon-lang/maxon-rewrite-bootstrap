@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace MiniMaxon;
 
 public sealed class Module(string path, string dir, bool isStdlib = false) {
@@ -10,7 +12,8 @@ public sealed class Module(string path, string dir, bool isStdlib = false) {
   public SortedDictionary<string, Module> Children { get; } = new(StringComparer.Ordinal);
   public Dictionary<Module, Node> DepSites { get; } = [];
   public List<CompileError> Errors { get; } = [];
-  public Checker? Checker { get; set; }
+  public List<FuncDecl> Functions { get; } = [];
+  public List<PendingCall> Pending { get; } = [];
   public CodeUnit? Unit { get; set; }
 
   public string Display => IsStdlib ? "stdlib" : Path == "" ? "the project root" : Path;
@@ -53,8 +56,10 @@ public sealed class Project {
     }
 
     var project = new Project(new Module("", path));
-    project.AddDirectory(project.Root, errors);
-    project.Modules.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
+    var found = new ConcurrentBag<CompileError>();
+    project.AddDirectory(project.Root, found);
+    errors.AddRange(found);
+    project.CollectModules(project.Root);
     return project;
   }
 
@@ -62,31 +67,41 @@ public sealed class Project {
     name.Length > 0 && (char.IsAsciiLetter(name[0]) || name[0] == '_') && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
     && !Parser.IsReserved(name);
 
-  bool AddDirectory(Module m, List<CompileError> errors) {
+  bool AddDirectory(Module m, ConcurrentBag<CompileError> errors) {
     m.Files.AddRange(Directory.GetFiles(m.Dir, "*.maxon").Order(StringComparer.Ordinal));
-    var hasSource = m.Files.Count > 0;
-    foreach (var sub in Directory.GetDirectories(m.Dir).Order(StringComparer.Ordinal)) {
-      var name = Path.GetFileName(sub);
-      if (name.StartsWith('.') || name is "bin" or "obj") {
-        continue;
-      }
-      var child = new Module(m.Path == "" ? name : $"{m.Path}.{name}", sub);
+    var subs = Directory.GetDirectories(m.Dir)
+      .Where(sub => Path.GetFileName(sub) is var name && !name.StartsWith('.') && name is not ("bin" or "obj"))
+      .Order(StringComparer.Ordinal).ToArray();
+    var children = new Module?[subs.Length];
+
+    Parallel.For(0, subs.Length, i => {
+      var name = Path.GetFileName(subs[i]);
+      var child = new Module(m.Path == "" ? name : $"{m.Path}.{name}", subs[i]);
       if (!AddDirectory(child, errors)) {
-        continue;
+        return;
       }
       if (!IsQualifier(name) || (m == Root && ReservedTopLevel.Contains(name))) {
-        errors.Add(new CompileError("E3182", $"the directory '{name}' cannot be written as a qualifier; rename it to an identifier that is not reserved", sub, 1, 1));
-        continue;
+        errors.Add(new CompileError("E3182", $"the directory '{name}' cannot be written as a qualifier; rename it to an identifier that is not reserved", subs[i], 1, 1));
+        return;
       }
-      m.Children[name] = child;
-      hasSource = true;
+      children[i] = child;
+    });
+
+    foreach (var child in children.OfType<Module>()) {
+      m.Children[System.IO.Path.GetFileName(child.Dir)] = child;
     }
-    Modules.Add(m);
-    return hasSource;
+    return m.Files.Count > 0 || m.Children.Count > 0;
   }
 
-  public void BuildTables(List<CompileError> errors) {
-    foreach (var m in Modules) {
+  void CollectModules(Module m) {
+    Modules.Add(m);
+    foreach (var child in m.Children.Values) {
+      CollectModules(child);
+    }
+  }
+
+  public void BuildTables(ParallelOptions options) {
+    Driver.ForEach(Modules, options, m => {
       foreach (var d in m.Decls) {
         d.Module = m;
         foreach (var method in Methods(d)) {
@@ -97,14 +112,17 @@ public sealed class Project {
         }
         if (!m.Names.TryAdd(d.Name, d)) {
           var kept = m.Names[d.Name];
-          errors.Add(d.Error(Err.DuplicateDefinition, $"'{d.Name}' is already declared in {m.Display} at {kept.File}:{kept.Line}"));
-          continue;
+          m.Errors.Add(d.Error(Err.DuplicateDefinition, $"'{d.Name}' is already declared in {m.Display} at {kept.File}:{kept.Line}"));
         }
-        if (!ByName.TryGetValue(d.Name, out var list)) {
-          ByName[d.Name] = list = [];
-        }
-        list.Add(d);
       }
+    });
+
+    var groups = Modules.AsParallel().AsOrdered().WithDegreeOfParallelism(options.MaxDegreeOfParallelism)
+      .SelectMany(m => m.Names.Values.OrderBy(d => d.File, StringComparer.Ordinal).ThenBy(d => d.Line))
+      .GroupBy(d => d.Name)
+      .ToDictionary(g => g.Key, g => g.ToList());
+    foreach (var (name, decls) in groups) {
+      ByName[name] = decls;
     }
   }
 

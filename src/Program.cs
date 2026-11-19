@@ -11,12 +11,14 @@ public static class Cli {
       minimaxon test [dir]                            run the test corpus (default: tests/)
 
     A directory is a project: each directory under it is a module. --jobs=N sets how many modules
-    compile at once (default: one fewer than the processor count).
+    compile at once (default: one fewer than the processor count). --timings prints each phase's time.
     """;
 
   static int jobs = Driver.DefaultJobs;
 
-  static List<CompileError> Compile(string path, string? output) => Driver.Compile(path, output, jobs);
+  static bool timings;
+
+  static List<CompileError> Compile(string path, string? output) => Driver.Compile(path, output, jobs, timings);
 
   const int InternalErrorExitCode = 3;
 
@@ -36,6 +38,9 @@ public static class Cli {
       }
       args = [.. args.Where(a => a != jobsFlag)];
     }
+
+    timings = args.Contains("--timings");
+    args = [.. args.Where(a => a != "--timings")];
 
     try {
       return Run(args);

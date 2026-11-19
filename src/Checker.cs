@@ -1,19 +1,15 @@
 namespace MiniMaxon;
 
-public sealed class Checker(Project project, Module module) {
+public sealed record ParamSpec(string Name, Ty Type, bool ByRef);
+
+public sealed record PendingCall(CallExpr Call, string Callee, List<ParamSpec> Params);
+
+public sealed class Checker(Project project, Module module, List<CompileError> errors) {
   enum BlockKind { Loop, Match }
 
   sealed record Block(string Label, BlockKind Kind, Node Node);
 
-  sealed record ParamSpec(string Name, Ty Type, bool ByRef);
-
-  sealed record PendingCall(CallExpr Call, string Callee, List<ParamSpec> Params);
-
-  readonly List<PendingCall> pending = [];
-  readonly List<FuncDecl> functions = [];
-
-  public List<FuncDecl> Functions => functions;
-  public FuncDecl? Main { get; private set; }
+  public List<PendingCall> Pending { get; } = [];
 
   FuncDecl? fn;
   NominalTy? owner;
@@ -33,34 +29,42 @@ public sealed class Checker(Project project, Module module) {
     _ => throw new InternalError($"no type for {d.GetType().Name}"),
   };
 
-  public void Declare() {
-    ResolveMembers();
-    RegisterFunctions();
-    if (module == project.Root) {
-      Guard(CheckMain);
+  public List<FuncDecl> Declare(Decl d) {
+    var declared = new List<FuncDecl>();
+    Guard(() => DeclareMembers(d));
+    switch (d) {
+      case FuncDecl f:
+        Guard(() => AddFunction(f, null, declared));
+        break;
+      case TypeDeclBase { Ty: NominalTy nt }:
+        AddMethods(Project.Methods(d), nt, declared);
+        break;
     }
-    DeclareFieldDefaults();
+    if (d is TypeDecl td) {
+      DeclareFieldDefaults(td);
+    }
+    return declared;
   }
 
-  public static void CheckConsts(Project project) {
-    var inProgress = new HashSet<ConstDecl>();
-    foreach (var m in project.Modules) {
-      foreach (var c in m.Decls.OfType<ConstDecl>()) {
-        m.Checker!.Guard(() => m.Checker.CheckConst(c, inProgress));
-      }
+  public void CheckBody(Decl d) {
+    switch (d) {
+      case FuncDecl f:
+        Guard(() => CheckFunction(f));
+        break;
+      case TypeDecl td:
+        CheckFieldDefaults(td);
+        Guard(() => CheckCycle((NominalTy)td.Ty!));
+        break;
+      case UnionDecl ud:
+        Guard(() => CheckCycle((NominalTy)ud.Ty!));
+        break;
+      default:
+        throw new InternalError($"no body to check in {d.GetType().Name}");
     }
   }
 
-  public void Bodies() {
-    CheckFieldDefaults();
-    foreach (var f in functions) {
-      Guard(() => CheckFunction(f));
-    }
-    Guard(CheckCycles);
-  }
-
-  public void Verify() {
-    foreach (var p in pending) {
+  public void Verify(List<PendingCall> calls) {
+    foreach (var p in calls) {
       Guard(() => p.Call.Ordered = BindArgs(p.Call, p.Callee, p.Params, argsChecked: true));
     }
   }
@@ -69,7 +73,7 @@ public sealed class Checker(Project project, Module module) {
     try {
       a();
     } catch (CompileError e) {
-      module.Errors.Add(e);
+      errors.Add(e);
     }
   }
 
@@ -88,67 +92,52 @@ public sealed class Checker(Project project, Module module) {
     return tr.Target is TypeDeclBase { Ty: { } t } ? t : throw tr.Error(Err.UnknownType, $"unknown type '{tr.Name}'");
   }
 
-  void ResolveMembers() {
-    foreach (var d in module.Decls) {
-      Guard(() => {
-        switch (d) {
-          case TypeDecl td: {
-            var rt = (RecordTy)td.Ty!;
-            foreach (var f in td.Fields) {
-              if (rt.Field(f.Name) is not null) {
-                throw f.Error(Err.DuplicateDefinition, $"field '{f.Name}' is declared twice");
-              }
-              var ft = f.Type is null ? PrimTy.Void : Resolve(f.Type, rt);
-              rt.Fields.Add(new FieldInfo(f.Name, ft, f.IsVar, f.Default, rt.Fields.Count, f.Visibility is "export" or "public"));
-            }
-            break;
+  void DeclareMembers(Decl d) {
+    switch (d) {
+      case TypeDecl td: {
+        var rt = (RecordTy)td.Ty!;
+        foreach (var f in td.Fields) {
+          if (rt.Field(f.Name) is not null) {
+            throw f.Error(Err.DuplicateDefinition, $"field '{f.Name}' is declared twice");
           }
-          case EnumDecl ed: {
-            var et = (EnumTy)ed.Ty!;
-            Int128 next = 0;
-            foreach (var c in ed.Cases) {
-              if (et.Cases.Contains(c.Name)) {
-                throw c.Error(Err.EnumDuplicateCase, $"case '{c.Name}' is declared twice");
-              }
-              var raw = c.Raw ?? next;
-              if (et.Raw.Contains(raw)) {
-                throw c.Error("E3031", $"raw value {raw} is used twice");
-              }
-              et.HasExplicitRaw |= c.Raw is not null;
-              et.Cases.Add(c.Name);
-              et.Raw.Add(raw);
-              next = raw + 1;
-            }
-            break;
-          }
-          case UnionDecl ud: {
-            var ut = (UnionTy)ud.Ty!;
-            foreach (var c in ud.Cases) {
-              if (ut.CaseIndex(c.Name) >= 0) {
-                throw c.Error(Err.EnumDuplicateCase, $"case '{c.Name}' is declared twice");
-              }
-              var payload = c.Fields.Select(f => (f.Name, Resolve(f.Type, ut))).ToList();
-              ut.Cases.Add(new UnionCase(c.Name, payload));
-            }
-            break;
-          }
+          var ft = f.Type is null ? PrimTy.Void : Resolve(f.Type, rt);
+          rt.Fields.Add(new FieldInfo(f.Name, ft, f.IsVar, f.Default, rt.Fields.Count, f.Visibility is "export" or "public"));
         }
-      });
+        break;
+      }
+      case EnumDecl ed: {
+        var et = (EnumTy)ed.Ty!;
+        Int128 next = 0;
+        foreach (var c in ed.Cases) {
+          if (et.Cases.Contains(c.Name)) {
+            throw c.Error(Err.EnumDuplicateCase, $"case '{c.Name}' is declared twice");
+          }
+          var raw = c.Raw ?? next;
+          if (et.Raw.Contains(raw)) {
+            throw c.Error("E3031", $"raw value {raw} is used twice");
+          }
+          et.HasExplicitRaw |= c.Raw is not null;
+          et.Cases.Add(c.Name);
+          et.Raw.Add(raw);
+          next = raw + 1;
+        }
+        break;
+      }
+      case UnionDecl ud: {
+        var ut = (UnionTy)ud.Ty!;
+        foreach (var c in ud.Cases) {
+          if (ut.CaseIndex(c.Name) >= 0) {
+            throw c.Error(Err.EnumDuplicateCase, $"case '{c.Name}' is declared twice");
+          }
+          var payload = c.Fields.Select(f => (f.Name, Resolve(f.Type, ut))).ToList();
+          ut.Cases.Add(new UnionCase(c.Name, payload));
+        }
+        break;
+      }
     }
   }
 
-  void RegisterFunctions() {
-    foreach (var d in module.Decls) {
-      Guard(() => {
-        switch (d) {
-          case FuncDecl f: AddFunction(f, null); break;
-          case TypeDeclBase { Ty: NominalTy nt }: AddMethods(Project.Methods(d), nt); break;
-        }
-      });
-    }
-  }
-
-  void AddMethods(IEnumerable<FuncDecl> methods, NominalTy nt) {
+  void AddMethods(IEnumerable<FuncDecl> methods, NominalTy nt, List<FuncDecl> declared) {
     foreach (var m in methods) {
       Guard(() => {
         if (m.IsStatic && nt is not RecordTy) {
@@ -157,12 +146,12 @@ public sealed class Checker(Project project, Module module) {
         if (!nt.Methods.TryAdd(m.Name, m)) {
           throw m.Error(Err.DuplicateDefinition, $"method '{m.Name}' is declared twice in '{nt.Name}'");
         }
-        AddFunction(m, nt);
+        AddFunction(m, nt, declared);
       });
     }
   }
 
-  void AddFunction(FuncDecl f, NominalTy? nt) {
+  void AddFunction(FuncDecl f, NominalTy? nt, List<FuncDecl> declared) {
     f.Owner = nt;
     var names = new HashSet<string>();
     foreach (var prm in f.Params) {
@@ -172,28 +161,31 @@ public sealed class Checker(Project project, Module module) {
       f.ParamTypes.Add(Resolve(prm.Type, nt));
     }
     f.ReturnType = f.Returns is null ? PrimTy.Void : Resolve(f.Returns, nt);
-    functions.Add(f);
+    declared.Add(f);
   }
 
-  void CheckMain() {
-    if (module.Names.GetValueOrDefault("main") is not FuncDecl main) {
-      throw new CompileError(Err.NoMainFunction, "the project root has no 'main' function", module.Dir, 1, 1);
-    }
-    if (main.Params.Count > 0) {
-      throw main.Error(Err.MainWrongReturnType, "'main' takes no parameters");
-    }
-    if (main.Returns?.Target is not AliasDecl { Name: "ExitCode" }) {
-      throw main.Error(Err.MainWrongReturnType, "'main' must return ExitCode");
-    }
-    Main = main;
-  }
-
-  void DeclareFieldDefaults() {
-    foreach (var td in module.Decls.OfType<TypeDecl>()) {
-      var rt = (RecordTy)td.Ty!;
-      foreach (var fi in rt.Fields.Where(f => f.Default is not null)) {
-        Guard(() => fi.Type = DefaultType(fi, rt));
+  public FuncDecl? CheckMain() {
+    try {
+      if (module.Names.GetValueOrDefault("main") is not FuncDecl main) {
+        throw new CompileError(Err.NoMainFunction, "the project root has no 'main' function", module.Dir, 1, 1);
       }
+      if (main.Params.Count > 0) {
+        throw main.Error(Err.MainWrongReturnType, "'main' takes no parameters");
+      }
+      if (main.Returns?.Target is not AliasDecl { Name: "ExitCode" }) {
+        throw main.Error(Err.MainWrongReturnType, "'main' must return ExitCode");
+      }
+      return main;
+    } catch (CompileError e) {
+      errors.Add(e);
+      return null;
+    }
+  }
+
+  void DeclareFieldDefaults(TypeDecl td) {
+    var rt = (RecordTy)td.Ty!;
+    foreach (var fi in rt.Fields.Where(f => f.Default is not null)) {
+      Guard(() => fi.Type = DefaultType(fi, rt));
     }
   }
 
@@ -214,27 +206,18 @@ public sealed class Checker(Project project, Module module) {
     };
   }
 
-  void CheckFieldDefaults() {
-    foreach (var td in module.Decls.OfType<TypeDecl>()) {
-      var rt = (RecordTy)td.Ty!;
-      foreach (var fi in rt.Fields.Where(f => f.Default is not null)) {
-        Guard(() => {
-          EnterContext(null, rt, calls: true);
-          CheckExpr(fi.Default!);
-          Coerce(fi.Default!, fi.Type, $"the default of field '{fi.Name}'");
-        });
-      }
+  void CheckFieldDefaults(TypeDecl td) {
+    var rt = (RecordTy)td.Ty!;
+    foreach (var fi in rt.Fields.Where(f => f.Default is not null)) {
+      Guard(() => {
+        EnterContext(null, rt, calls: true);
+        CheckExpr(fi.Default!);
+        Coerce(fi.Default!, fi.Type, $"the default of field '{fi.Name}'");
+      });
     }
   }
 
-  void CheckConst(ConstDecl c, HashSet<ConstDecl> inProgress) {
-    if (c.Type is not null) {
-      return;
-    }
-    if (!inProgress.Add(c)) {
-      throw c.Error("E3091", $"constant '{c.Name}' is defined in terms of itself");
-    }
-    constsInProgress = inProgress;
+  public void CheckConst(ConstDecl c) => Guard(() => {
     EnterContext(null, null, calls: false);
     var t = CheckExpr(c.Value);
     if (t is IntTy { IsAnonymous: true } || t == PrimTy.Void || t == PrimTy.Never) {
@@ -244,10 +227,7 @@ public sealed class Checker(Project project, Module module) {
       throw c.Error("E3220", "a constant string cannot interpolate");
     }
     c.Type = t;
-    inProgress.Remove(c);
-  }
-
-  HashSet<ConstDecl>? constsInProgress;
+  });
 
   void EnterContext(FuncDecl? f, NominalTy? nt, bool calls) {
     fn = f;
@@ -446,9 +426,6 @@ public sealed class Checker(Project project, Module module) {
     }
     switch (n.Target) {
       case ConstDecl c:
-        if (c.Type is null && constsInProgress is not null) {
-          c.Module.Checker!.CheckConst(c, constsInProgress);
-        }
         n.Kind = NameKind.Const;
         n.Const = c;
         return c.Type ?? throw n.Error(Err.ExpressionError, $"constant '{c.Name}' has no value");
@@ -677,7 +654,7 @@ public sealed class Checker(Project project, Module module) {
       foreach (var a in c.Args) {
         CheckExpr(a.Value);
       }
-      pending.Add(new PendingCall(c, target.Symbol, SpecsOf(target)));
+      Pending.Add(new PendingCall(c, target.Symbol, SpecsOf(target)));
     }
     return target.ReturnType;
   }
@@ -1116,13 +1093,11 @@ public sealed class Checker(Project project, Module module) {
     }
   }
 
-  void CheckCycles() {
-    foreach (var t in module.Decls.OfType<TypeDeclBase>().Select(d => d.Ty).OfType<NominalTy>().Where(t => t is RecordTy or UnionTy)) {
-      var path = new List<string>();
-      if (Reaches(t, t, path, [])) {
-        var site = t is RecordTy r ? (Node)r.Decl : ((UnionTy)t).Decl;
-        throw site.Error(Err.TypeCycle, $"type '{t.Name}' contains a reference cycle (via {string.Join(" -> ", path)})");
-      }
+  static void CheckCycle(NominalTy t) {
+    var path = new List<string>();
+    if (Reaches(t, t, path, [])) {
+      var site = t is RecordTy r ? (Node)r.Decl : ((UnionTy)t).Decl;
+      throw site.Error(Err.TypeCycle, $"type '{t.Name}' contains a reference cycle (via {string.Join(" -> ", path)})");
     }
   }
 

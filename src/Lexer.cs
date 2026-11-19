@@ -12,21 +12,40 @@ public abstract record StrPart;
 public sealed record TextPart(string Text) : StrPart;
 public sealed record ExprPart(string Source, int Line, int Col) : StrPart;
 
-public sealed record Token(T Kind, string Text, string File, int Line, int Col) {
-  public Int128 IntValue { get; init; }
-  public List<StrPart>? Parts { get; init; }
+public readonly record struct Token(T Kind, string Text, int Line, int Col, object? Payload = null) {
+  public Int128 IntValue => (Int128)Payload!;
+  public List<StrPart>? Parts => Payload as List<StrPart>;
 
   public bool Is(string word) => Kind == T.Ident && Text == word;
 }
 
-public sealed class Lexer(string file, string src, int startLine = 1, int startCol = 1) {
+public sealed class Lexer(string file, string src, int startLine = 1, int startCol = 1, List<Token>? buffer = null) {
   static readonly Int128 U64Max = ulong.MaxValue;
 
   int pos;
   int line = startLine;
   int col = startCol;
   int depth;
-  readonly List<Token> toks = [];
+  readonly List<Token> toks = Fresh(buffer);
+  readonly Dictionary<string, string> pool = [];
+
+  static List<Token> Fresh(List<Token>? buffer) {
+    if (buffer is null) {
+      return [];
+    }
+    buffer.Clear();
+    return buffer;
+  }
+
+  string Intern(ReadOnlySpan<char> text) {
+    var lookup = pool.GetAlternateLookup<ReadOnlySpan<char>>();
+    if (lookup.TryGetValue(text, out var interned)) {
+      return interned;
+    }
+    var s = text.ToString();
+    pool[s] = s;
+    return s;
+  }
 
   public List<Token> Lex() {
     while (true) {
@@ -42,7 +61,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
       if (c == '\n') {
         Advance();
         if (depth == 0 && toks.Count > 0 && toks[^1].Kind != T.Newline) {
-          toks.Add(new Token(T.Newline, "\\n", file, l, cl));
+          toks.Add(new Token(T.Newline, "\\n", l, cl));
         }
         continue;
       }
@@ -52,7 +71,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
         while (pos < src.Length && (char.IsAsciiLetterOrDigit(src[pos]) || src[pos] == '_')) {
           Advance();
         }
-        toks.Add(new Token(T.Ident, src[start..pos], file, l, cl));
+        toks.Add(new Token(T.Ident, Intern(src.AsSpan(start, pos - start)), l, cl));
         continue;
       }
 
@@ -75,9 +94,9 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
     }
 
     if (toks.Count > 0 && toks[^1].Kind != T.Newline) {
-      toks.Add(new Token(T.Newline, "\\n", file, line, col));
+      toks.Add(new Token(T.Newline, "\\n", line, col));
     }
-    toks.Add(new Token(T.Eof, "<eof>", file, line, col));
+    toks.Add(new Token(T.Eof, "<eof>", line, col));
     return toks;
   }
 
@@ -159,7 +178,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
       throw Error(Err.Unsupported, "float literals are not supported by minimaxon", l, cl);
     }
 
-    toks.Add(new Token(T.Int, src[start..pos], file, l, cl) { IntValue = value });
+    toks.Add(new Token(T.Int, Intern(src.AsSpan(start, pos - start)), l, cl, value));
   }
 
   char ReadEscape(int l, int cl) {
@@ -263,7 +282,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
     if (text.Length > 0 || parts.Count == 0) {
       parts.Add(new TextPart(text.ToString()));
     }
-    toks.Add(new Token(T.Str, "\"...\"", file, l, cl) { Parts = parts });
+    toks.Add(new Token(T.Str, "\"...\"", l, cl, parts));
   }
 
   void LexQuote(int l, int cl) {
@@ -275,9 +294,9 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
     if (pos >= src.Length || src[pos] != '\'') {
       throw Error(Err.UnexpectedToken, "unterminated label", l, cl);
     }
-    var text = src[start..pos];
+    var text = Intern(src.AsSpan(start, pos - start));
     Advance();
-    toks.Add(new Token(T.Quote, text, file, l, cl));
+    toks.Add(new Token(T.Quote, text, l, cl));
   }
 
   void LexPunct(char c, int l, int cl) {
@@ -320,10 +339,10 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
         throw Error(Err.UnexpectedToken, $"unexpected character '{c}'", l, cl);
     }
 
-    var text = src.Substring(pos, len);
+    var text = Intern(src.AsSpan(pos, len));
     for (var i = 0; i < len; i++) {
       Advance();
     }
-    toks.Add(new Token(kind, text, file, l, cl));
+    toks.Add(new Token(kind, text, l, cl));
   }
 }

@@ -1,0 +1,8 @@
+let TOTAL = lib.DOUBLE + 1
+
+function main() returns ExitCode
+	print("{TOTAL} {lib.BASE} {lib.NAME}\n")
+	return 0
+end 'main'
+
+//> 41 20 limits

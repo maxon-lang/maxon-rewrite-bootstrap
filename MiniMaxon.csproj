@@ -9,6 +9,8 @@
     <RootNamespace>MiniMaxon</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <TieredPGO>false</TieredPGO>
   </PropertyGroup>
 
 </Project>
