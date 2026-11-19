@@ -12,7 +12,7 @@ type Outer
 	export var inner as Inner
 	export var label as String
 
-	static function create(n Score, label sink String) returns Outer
+	static function create(n Score, consumes label String) returns Outer
 		return Outer{inner: Inner.create(n), label: label}
 	end 'create'
 end 'Outer'

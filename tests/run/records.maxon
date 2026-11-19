@@ -9,7 +9,7 @@ type Point
 		return x + y
 	end 'sum'
 
-	function move(mutable self, dx Coord)
+	function move(mutates self, dx Coord)
 		x = x + dx
 	end 'move'
 

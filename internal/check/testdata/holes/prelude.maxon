@@ -1,24 +1,24 @@
 type Label
 	export var text as String
 
-	static function make(text sink String) returns Label
+	static function make(consumes text String) returns Label
 		return Label{text: text}
 	end 'make'
 
-	function resetOwn(mutable self)
+	function resetOwn(mutates self)
 		self.text = "x"
 	end 'resetOwn'
 
-	function again(mutable self)
+	function again(mutates self)
 		self.resetOwn()
 		replaceText(self.text)
 	end 'again'
 end 'Label'
 
-function replaceText(t mutable String)
+function replaceText(mutates t String)
 	t = "z"
 end 'replaceText'
 
-function fill(out set String, from String)
+function fill(sets out String, from String)
 	out = from.copy()
 end 'fill'

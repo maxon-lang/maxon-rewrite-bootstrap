@@ -15,11 +15,11 @@ function copies(t Tree, s String, n Count) returns Tree
 	return t.copy()
 end 'copies'
 
-function takesMap(m sink map[Count, Count]) returns Count
+function takesMap(consumes m map[Count, Count]) returns Count
 	return 0
 end 'takesMap'
 
-function takesTreeOfPools(p sink pool[Count], t Tree) returns Count
+function takesTreeOfPools(consumes p pool[Count], t Tree) returns Count
 	return 0
 end 'takesTreeOfPools'
 

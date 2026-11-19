@@ -8,10 +8,10 @@ var lookahead0 = [numTokens]bool{TKw_function: true, TKw_static: true}
 var lookahead1 = [numTokens]bool{TKw_enum: true, TKw_export: true, TKw_interface: true, TKw_public: true, TKw_type: true, TKw_typealias: true, TKw_union: true}
 var lookahead2 = [numTokens]bool{TKw_export: true, TKw_interface: true, TKw_public: true}
 var lookahead3 = [numTokens]bool{TKw_export: true, TKw_public: true}
-var lookahead4 = [numTokens]bool{TKw__: true, TKw_mutable: true, TKw_sink: true, TName: true}
-var lookahead5 = [numTokens]bool{TKw_mutable: true, TKw_sink: true}
-var lookahead6 = [numTokens]bool{TKw__: true, TName: true}
-var lookahead7 = [numTokens]bool{TKw_mutable: true, TKw_set: true, TKw_sink: true}
+var lookahead4 = [numTokens]bool{TKw__: true, TKw_consumes: true, TKw_mutates: true, TKw_sets: true, TName: true}
+var lookahead5 = [numTokens]bool{TKw_consumes: true, TKw_mutates: true}
+var lookahead6 = [numTokens]bool{TKw_consumes: true, TKw_mutates: true, TKw_sets: true}
+var lookahead7 = [numTokens]bool{TKw__: true, TName: true}
 var lookahead8 = [numTokens]bool{TKw_let: true, TKw_var: true}
 var lookahead9 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true}
 var lookahead10 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: true, TKw_public: true, TKw_static: true, TKw_var: true}
@@ -79,10 +79,9 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	p.joinNext = true
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
-		switch p.cur().Kind() {
-		case TKw_mutable, TKw_sink:
+		if (p.at(TKw_consumes) && p.peekIs(TKw_self)) || (p.at(TKw_mutates) && p.peekIs(TKw_self)) {
 			if !p.in(&lookahead5) {
-				panic(p.expected("'mutable' or 'sink'"))
+				panic(p.expected("'consumes' or 'mutates'"))
 			}
 			n.Receiver = p.text(p.next())
 			p.expect(TKw_self, "'self'")
@@ -90,14 +89,14 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 				p.expect(TComma, "','")
 				n.Params = append(n.Params, p.parseParam())
 			}
-		case TKw__, TName:
+		} else if p.in(&lookahead4) {
 			n.Params = append(n.Params, p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
 				n.Params = append(n.Params, p.parseParam())
 			}
-		default:
-			panic(p.expected("'_', 'mutable', 'sink' or a name"))
+		} else {
+			panic(p.expected("'_', 'consumes', 'mutates', 'sets' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")
@@ -117,16 +116,16 @@ func (p *Parser) parseParam() *ast.Param {
 	t := p.cur()
 	n := ast.NewParam()
 	place(p, n, t)
-	if !p.in(&lookahead6) {
-		panic(p.expected("'_' or a name"))
-	}
-	n.Name = p.text(p.next())
-	if p.in(&lookahead7) {
-		if !p.in(&lookahead7) {
-			panic(p.expected("'mutable', 'set' or 'sink'"))
+	if p.in(&lookahead6) {
+		if !p.in(&lookahead6) {
+			panic(p.expected("'consumes', 'mutates' or 'sets'"))
 		}
 		n.Convention = p.text(p.next())
 	}
+	if !p.in(&lookahead7) {
+		panic(p.expected("'_' or a name"))
+	}
+	n.Name = p.text(p.next())
 	n.Type = p.parseTypeRef()
 	return n
 }
@@ -346,7 +345,7 @@ func (p *Parser) parseUnionCaseDecl() *ast.UnionCaseDecl {
 	if p.at(TLParen) {
 		p.joinNext = true
 		p.expect(TLParen, "'('")
-		if p.in(&lookahead6) {
+		if p.in(&lookahead4) {
 			n.Fields = append(n.Fields, p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
@@ -523,10 +522,9 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 	p.joinNext = true
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
-		switch p.cur().Kind() {
-		case TKw_mutable, TKw_sink:
+		if (p.at(TKw_consumes) && p.peekIs(TKw_self)) || (p.at(TKw_mutates) && p.peekIs(TKw_self)) {
 			if !p.in(&lookahead5) {
-				panic(p.expected("'mutable' or 'sink'"))
+				panic(p.expected("'consumes' or 'mutates'"))
 			}
 			n.Receiver = p.text(p.next())
 			p.expect(TKw_self, "'self'")
@@ -534,14 +532,14 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 				p.expect(TComma, "','")
 				n.Params = append(n.Params, p.parseParam())
 			}
-		case TKw__, TName:
+		} else if p.in(&lookahead4) {
 			n.Params = append(n.Params, p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
 				n.Params = append(n.Params, p.parseParam())
 			}
-		default:
-			panic(p.expected("'_', 'mutable', 'sink' or a name"))
+		} else {
+			panic(p.expected("'_', 'consumes', 'mutates', 'sets' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")
@@ -729,7 +727,7 @@ func (p *Parser) parseForStmt() *ast.ForStmt {
 	n := ast.NewForStmt()
 	place(p, n, t)
 	p.expect(TKw_for, "'for'")
-	if !p.in(&lookahead6) {
+	if !p.in(&lookahead7) {
 		panic(p.expected("'_' or a name"))
 	}
 	n.Var = p.text(p.next())
@@ -890,14 +888,14 @@ func (p *Parser) parsePattern() *ast.Pattern {
 			p.joinNext = true
 			p.expect(TLParen, "'('")
 			n.HasBindings = true
-			if p.in(&lookahead6) {
-				if !p.in(&lookahead6) {
+			if p.in(&lookahead7) {
+				if !p.in(&lookahead7) {
 					panic(p.expected("'_' or a name"))
 				}
 				n.Bindings = append(n.Bindings, p.text(p.next()))
 				for p.at(TComma) {
 					p.expect(TComma, "','")
-					if !p.in(&lookahead6) {
+					if !p.in(&lookahead7) {
 						panic(p.expected("'_' or a name"))
 					}
 					n.Bindings = append(n.Bindings, p.text(p.next()))

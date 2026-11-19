@@ -8,20 +8,20 @@ type Box
 		return name.copy()
 	end 'describe'
 
-	function rename(mutable self, value sink String)
+	function rename(mutates self, consumes value String)
 		name = value
 	end 'rename'
 
-	function bump(mutable self, by Score)
+	function bump(mutates self, by Score)
 		v = v + by
 	end 'bump'
 
-	static function create(v Score, name sink String) returns Box
+	static function create(v Score, consumes name String) returns Box
 		return Box{v: v, name: name}
 	end 'create'
 end 'Box'
 
-function swap(a mutable Score, b mutable Score)
+function swap(mutates a Score, mutates b Score)
 	let t = a
 	a = b
 	b = t

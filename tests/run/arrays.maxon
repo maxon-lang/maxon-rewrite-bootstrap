@@ -7,11 +7,11 @@ type Point
 	end 'make'
 end 'Point'
 
-function bump(n mutable Count)
+function bump(mutates n Count)
 	n = n + 1
 end 'bump'
 
-function shift(p mutable Point)
+function shift(mutates p Point)
 	p.x = p.x + 10
 end 'shift'
 
@@ -27,11 +27,11 @@ function length[T](items array[T]) returns Count
 	return items.count()
 end 'length'
 
-function duplicate[T](items mutable array[T], at Count)
+function duplicate[T](mutates items array[T], at Count)
 	items.insert(items[at].copy(), at: at)
 end 'duplicate'
 
-function popOr(items mutable array[Count], fallback Count) returns Count
+function popOr(mutates items array[Count], fallback Count) returns Count
 	let last = items.pop()
 	if last.isSome() 'some'
 		return last.unwrap()

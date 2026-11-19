@@ -2,7 +2,7 @@ type Doc
 	export var title as String
 	export var words as array[Count]
 
-	static function make(title sink String) returns Doc
+	static function make(consumes title String) returns Doc
 		var words = array[Count].new()
 		words.append(3)
 		words.append(5)
@@ -17,7 +17,7 @@ type Doc
 		return sum
 	end 'total'
 
-	function grow(mutable self)
+	function grow(mutates self)
 		words.append(1)
 	end 'grow'
 end 'Doc'
@@ -26,7 +26,7 @@ type Library
 	export var first as frozen[Doc]
 	export var name as String
 
-	static function make(first sink frozen[Doc], name sink String) returns Library
+	static function make(consumes first frozen[Doc], consumes name String) returns Library
 		return Library{first: first, name: name}
 	end 'make'
 end 'Library'

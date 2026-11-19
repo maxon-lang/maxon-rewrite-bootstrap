@@ -1,5 +1,5 @@
 // expect-error: E3111 at 3:11
-function f[T](a sink array[T])
+function f[T](consumes a array[T])
 	let x = a[0]
 end 'f'
 

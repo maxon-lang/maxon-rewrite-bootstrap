@@ -406,8 +406,8 @@ func (c *Checker) paramSpecs(params []*ast.Param, self ast.Ty) ([]ast.Ty, []ast.
 	types := make([]ast.Ty, len(params))
 	specs := make([]ast.ParamSpec, len(params))
 	for i, prm := range params {
-		if prm.Name == "_" && prm.Convention == "set" {
-			panic(prm.Error(diag.ErrSetNotInitialized, "a set parameter must be named, so the function can initialise it"))
+		if prm.Name == "_" && ast.ConventionOf(prm.Convention) == ast.ConvSets {
+			panic(prm.Error(diag.ErrSetNotInitialized, "a 'sets' parameter must be named, so the function can initialise it"))
 		}
 		if prm.Name != "_" {
 			if names[prm.Name] {
@@ -1424,7 +1424,7 @@ func (c *Checker) unionConstructor(call *ast.CallExpr, ut *ast.UnionTy, caseInde
 		payload := u.Payload(caseIndex)
 		specs := make([]ast.ParamSpec, len(payload))
 		for i, p := range payload {
-			specs[i] = ast.ParamSpec{Name: p.Name, Type: p.Type, Conv: ast.ConvSink}
+			specs[i] = ast.ParamSpec{Name: p.Name, Type: p.Type, Conv: ast.ConvConsumes}
 		}
 		return specs
 	}

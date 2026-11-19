@@ -3,7 +3,7 @@ type Doc
 	export var n as Count
 	export var words as array[Count]
 
-	static function make(title sink String) returns Doc
+	static function make(consumes title String) returns Doc
 		return Doc{title: title, n: 1, words: array[Count].new()}
 	end 'make'
 
@@ -11,11 +11,11 @@ type Doc
 		return n
 	end 'read'
 
-	function grow(mutable self)
+	function grow(mutates self)
 		n = n + 1
 	end 'grow'
 
-	function finish(sink self) returns Count
+	function finish(consumes self) returns Count
 		return n
 	end 'finish'
 end 'Doc'
@@ -24,7 +24,7 @@ type Shelf
 	export var doc as frozen[Doc]
 	export var tray as cown[Doc]
 
-	static function make(doc sink frozen[Doc], tray sink cown[Doc]) returns Shelf
+	static function make(consumes doc frozen[Doc], consumes tray cown[Doc]) returns Shelf
 		return Shelf{doc: doc, tray: tray}
 	end 'make'
 end 'Shelf'
@@ -33,10 +33,10 @@ function glance(d Doc) returns Count
 	return d.n
 end 'glance'
 
-function bump(x mutable Count)
+function bump(mutates x Count)
 	x = x + 1
 end 'bump'
 
-function keep(d sink Doc)
+function keep(consumes d Doc)
 	let kept = d
 end 'keep'

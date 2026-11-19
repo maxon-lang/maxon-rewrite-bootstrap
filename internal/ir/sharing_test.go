@@ -38,8 +38,8 @@ func TestCopyOfASharedValueIsAnotherOwner(t *testing.T) {
 	}
 }
 
-// A behaviour's body is a function of its own: the cowns come first as mutable parameters, then what it captured, which it
-// owns like a sink parameter.
+// A behaviour's body is a function of its own: the cowns come first as mutates parameters, then what it captured, which it
+// owns like a consumes parameter.
 func TestABehaviourBodyIsAFunctionOfItsOwn(t *testing.T) {
 	f := lowerNamed(t, frontEnd(t, sharingFile), "schedule")
 	text := irText(f)

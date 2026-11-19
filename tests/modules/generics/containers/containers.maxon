@@ -2,13 +2,13 @@ export typealias Score = int(i64.min to i64.max)
 
 export interface Shape
 	function area() returns Score
-	function grow(mutable self, by Score)
+	function grow(mutates self, by Score)
 end 'Shape'
 
 export type Box[T]
 	export var item as T
 
-	export static function make(item sink T) returns Self
+	export static function make(consumes item T) returns Self
 		return Self{item: item}
 	end 'make'
 
@@ -29,7 +29,7 @@ export union Option[T]
 	end 'isSome'
 end 'Option'
 
-export function swap[T](a mutable T, b mutable T)
+export function swap[T](mutates a T, mutates b T)
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
@@ -39,11 +39,11 @@ export function total[T implements Shape](a T, b T) returns Score
 	return a.area() + b.area()
 end 'total'
 
-export function enlarge[T implements Shape](item mutable T, by Score) returns Box[T]
+export function enlarge[T implements Shape](mutates item T, by Score) returns Box[T]
 	item.grow(by)
 	return Box[T].make(item.copy())
 end 'enlarge'
 
-export function wrap[T](item sink T) returns Option[Box[T]]
+export function wrap[T](consumes item T) returns Option[Box[T]]
 	return Option.some(Box.make(item))
 end 'wrap'

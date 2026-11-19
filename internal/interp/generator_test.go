@@ -83,7 +83,7 @@ type fn struct {
 	name   string
 	params []param
 	ret    *ty
-	// recv is "", "mutable" or "sink" for a method; self marks a method.
+	// recv is "", "mutates" or "consumes" for a method; self marks a method.
 	recv   string
 	method bool
 	owner  *ty
@@ -111,7 +111,7 @@ type variable struct {
 	loop int
 	// frozen is how many enclosing match arms borrow from the variable.
 	frozen int
-	// setParam marks a set parameter, which a function owns once it has initialised it but which a behaviour cannot capture:
+	// setParam marks a sets parameter, which a function owns once it has initialised it but which a behaviour cannot capture:
 	// the caller's variable receives it.
 	setParam bool
 }
@@ -133,7 +133,7 @@ type generator struct {
 	loopTags []string
 	budget   int
 	guards   []string
-	// pendingInit are variables that the statement being written gives a value, through a set parameter.
+	// pendingInit are variables that the statement being written gives a value, through a sets parameter.
 	pendingInit []*variable
 	// carelessPercent is how often this program breaks a rule of ownership on purpose.
 	carelessPercent int
@@ -304,7 +304,7 @@ func (g *generator) declareTypes() {
 		for i, f := range r.fields {
 			conv := ""
 			if f.t.managed() {
-				conv = kwSink
+				conv = kwConsumes
 			}
 			r.make.params = append(r.make.params, param{name: fmt.Sprintf("p%d", i), t: f.t, conv: conv})
 		}
@@ -314,7 +314,7 @@ func (g *generator) declareTypes() {
 		make: &fn{name: "make", owner: meter, ret: meter, params: []param{{name: "n", t: tCount}}},
 		methods: []*fn{
 			{name: "score", method: true, owner: meter, ret: tCount},
-			{name: "grow", method: true, recv: kwMutable, owner: meter, params: []param{{name: "by", t: tCount}}},
+			{name: "grow", method: true, recv: kwMutates, owner: meter, params: []param{{name: "by", t: tCount}}},
 		}})
 }
 
@@ -425,9 +425,9 @@ func (g *generator) methods(r *record) {
 	for i, f := range r.fields {
 		conv := ""
 		if f.t.managed() {
-			conv = " " + kwSink
+			conv = kwConsumes + " "
 		}
-		params[i] = fmt.Sprintf("p%d%s %s", i, conv, f.t.src())
+		params[i] = fmt.Sprintf("%sp%d %s", conv, i, f.t.src())
 		inits[i] = fmt.Sprintf("%s: p%d", f.name, i)
 	}
 	// A function in a declaration has a blank line before it, unless it is the body's first line.
@@ -447,9 +447,9 @@ func (g *generator) methods(r *record) {
 		ret    *ty
 	}{
 		{"read", "", nil, tCount},
-		{"bump", kwMutable, []param{{name: "by", t: tCount}}, nil},
-		{"finish", kwSink, nil, tCount},
-		{"absorb", kwMutable, []param{{name: "other", t: r.t}}, nil},
+		{"bump", kwMutates, []param{{name: "by", t: tCount}}, nil},
+		{"finish", kwConsumes, nil, tCount},
+		{"absorb", kwMutates, []param{{name: "other", t: r.t}}, nil},
 	}
 	for _, spec := range specs {
 		m := &fn{name: spec.name, method: true, recv: spec.recv, owner: r.t, params: spec.params, ret: spec.ret}
@@ -477,7 +477,7 @@ func (g *generator) method(r *record, m *fn) {
 	savedScopes, savedRet, savedLoop, savedBudget := g.scopes, g.ret, g.loop, g.budget
 	g.scopes = nil
 	g.push()
-	g.declare(kwSelf, r.t, m.recv == kwSink, m.recv == kwMutable)
+	g.declare(kwSelf, r.t, m.recv == kwConsumes, m.recv == kwMutates)
 	for _, p := range m.params {
 		g.declare(p.name, p.t, false, false)
 	}

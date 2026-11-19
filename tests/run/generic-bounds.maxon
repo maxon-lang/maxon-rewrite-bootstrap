@@ -22,7 +22,7 @@ type Wrapper[T implements Describe] implements Describe
 	var inner as T
 	var uses = 0 as Score
 
-	static function make(inner sink T) returns Self
+	static function make(consumes inner T) returns Self
 		return Self{inner: inner}
 	end 'make'
 

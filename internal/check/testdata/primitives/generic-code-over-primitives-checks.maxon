@@ -1,24 +1,24 @@
-function moveFirst[T](source mutable array[T], target mutable array[T])
+function moveFirst[T](mutates source array[T], mutates target array[T])
 	if not source.isEmpty() 'some'
 		target.append(source.remove(0))
 	end 'some'
 end 'moveFirst'
 
-function store[V](m mutable map[String, V], value sink V)
+function store[V](mutates m map[String, V], consumes value V)
 	m.insert("key", value: value)
 end 'store'
 
-function put[T](p mutable pool[T], item sink T) returns Handle[T]
+function put[T](mutates p pool[T], consumes item T) returns Handle[T]
 	return p.insert(item)
 end 'put'
 
-function back[T](l mutable list[T], item sink T) returns Handle[T]
+function back[T](mutates l list[T], consumes item T) returns Handle[T]
 	let node = l.pushBack(item)
 	l.moveToFront(node)
 	return node
 end 'back'
 
-function swapFirst[T](a mutable array[T], b mutable array[T])
+function swapFirst[T](mutates a array[T], mutates b array[T])
 	let t = a[0].copy()
 	a[0] = b[0].copy()
 	b[0] = t
@@ -31,7 +31,7 @@ function find[T](p pool[T], handle Handle[T]) returns Option[T]
 	return Option[T].none
 end 'find'
 
-function nested[T](grid mutable array[array[T]], item sink T)
+function nested[T](mutates grid array[array[T]], consumes item T)
 	grid[0].append(item)
 end 'nested'
 

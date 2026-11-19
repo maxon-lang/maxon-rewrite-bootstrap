@@ -1,0 +1,10 @@
+// expect-error: E3113
+function fill(sets out String, from String)
+	out = from.copy()
+end 'fill'
+
+function main() returns ExitCode
+	var s as String
+	fill(s, from: s.copy())
+	return 0
+end 'main'

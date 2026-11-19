@@ -4,7 +4,7 @@ type Pair[A, B]
 	var first as A
 	var second as B
 
-	static function make(first sink A, second sink B) returns Self
+	static function make(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'make'
 
@@ -12,7 +12,7 @@ type Pair[A, B]
 		return "pair"
 	end 'describe'
 
-	function trade(mutable self, with sink A)
+	function trade(mutates self, consumes with A)
 		first = with
 	end 'trade'
 end 'Pair'
@@ -22,13 +22,13 @@ union Slot[T]
 	empty
 end 'Slot'
 
-function swap[T](a mutable T, b mutable T)
+function swap[T](mutates a T, mutates b T)
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function fill[T](out set T, from T)
+function fill[T](sets out T, from T)
 	out = from.copy()
 end 'fill'
 
@@ -36,16 +36,16 @@ function count[T](a T) returns Score
 	return 1
 end 'count'
 
-function eat[T](a sink T) returns Score
+function eat[T](consumes a T) returns Score
 	return 1
 end 'eat'
 
-function hold[T](a sink T) returns Pair[T, T]
+function hold[T](consumes a T) returns Pair[T, T]
 	let keep = a.copy()
 	return Pair.make(a, second: keep)
 end 'hold'
 
-function reuse[T](a sink T, b T) returns Score
+function reuse[T](consumes a T, b T) returns Score
 	var held = a
 	var total = eat(held)
 	held = b.copy()
@@ -61,7 +61,7 @@ function later[T](a T, b T, flag bool) returns T
 	return chosen
 end 'later'
 
-function either[T](a sink T, b sink T, flag bool) returns T
+function either[T](consumes a T, consumes b T, flag bool) returns T
 	return a if flag else b
 end 'either'
 
@@ -79,7 +79,7 @@ function reopen[T](slot Slot[T]) returns Slot[T]
 	end 'm'
 end 'reopen'
 
-function disjoint[T](p mutable Pair[T, T])
+function disjoint[T](mutates p Pair[T, T])
 	swap(p.first, b: p.second)
 end 'disjoint'
 

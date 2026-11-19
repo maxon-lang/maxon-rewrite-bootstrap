@@ -4,7 +4,7 @@ type Box[T]
 	var item as T
 	let tag as Score
 
-	static function make(item sink T, tag Score) returns Self
+	static function make(consumes item T, tag Score) returns Self
 		return Self{item: item, tag: tag}
 	end 'make'
 
@@ -12,11 +12,11 @@ type Box[T]
 		return item.copy()
 	end 'peek'
 
-	function replace(mutable self, next sink T)
+	function replace(mutates self, consumes next T)
 		item = next
 	end 'replace'
 
-	function bump(mutable self, by Score)
+	function bump(mutates self, by Score)
 		var next = by
 		next = next + 1
 	end 'bump'
@@ -27,25 +27,25 @@ union Slot[T]
 	empty
 end 'Slot'
 
-function swap[T](a mutable T, b mutable T)
+function swap[T](mutates a T, mutates b T)
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function join[T](a mutable T, b sink T)
+function join[T](mutates a T, consumes b T)
 	a = b
 end 'join'
 
-function fill[T](out set T, from T)
+function fill[T](sets out T, from T)
 	out = from.copy()
 end 'fill'
 
-function consume[T](a sink T) returns Score
+function consume[T](consumes a T) returns Score
 	return 1
 end 'consume'
 
-function take[T](b sink Box[T]) returns T
+function take[T](consumes b Box[T]) returns T
 	return b.item
 end 'take'
 

@@ -6,7 +6,7 @@ function sumOf(items array[Count]) returns Count
 	return sum
 end 'sumOf'
 
-function drop(items mutable array[Count])
+function drop(mutates items array[Count])
 	let last = items.pop()
 	items[0] = 1
 end 'drop'

@@ -206,8 +206,8 @@ type CallRuntimeInstr struct {
 // to every cown it names (README, "Behaviours"). The cowns are references that the instruction only reads, and each gains
 // a count of its own, held until the behaviour has run. Each capture is a value that moves into the behaviour: a managed
 // one has been moved out of its owner, so it is in flight, and a scalar is copied. The body is a function of its own
-// whose parameters are the access to the value of each cown, an address as a mutable parameter has, and then the
-// captures, which it owns as a sink parameter does. The behaviour returns nothing and nothing waits for it.
+// whose parameters are the access to the value of each cown, an address as a mutates parameter has, and then the
+// captures, which it owns as a consumes parameter does. The behaviour returns nothing and nothing waits for it.
 type WhenInstr struct {
 	InstrBase
 	Body     *IrFunction
@@ -237,7 +237,7 @@ type DropSlotInstr struct {
 }
 
 // DropAtInstr drops what the address holds, if anything, and leaves it empty: the old value of a field, an element or an
-// mutable parameter that is about to be assigned.
+// mutates parameter that is about to be assigned.
 type DropAtInstr struct {
 	InstrBase
 	Addr V

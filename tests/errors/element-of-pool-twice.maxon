@@ -7,7 +7,7 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function pair(a mutable Cell, b mutable Cell)
+function pair(mutates a Cell, mutates b Cell)
 	a.n = b.n
 end 'pair'
 

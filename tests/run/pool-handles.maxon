@@ -6,7 +6,7 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function bump(c mutable Cell)
+function bump(mutates c Cell)
 	c.n = c.n + 1
 end 'bump'
 

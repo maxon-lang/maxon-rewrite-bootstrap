@@ -4,7 +4,7 @@ type Point
 	export var x as Score
 	export var y as Score
 
-	function add(mutable self, amount Score)
+	function add(mutates self, amount Score)
 		x = x + amount
 	end 'add'
 
@@ -17,16 +17,16 @@ type Segment
 	export var start as Point
 	export var finish as Point
 
-	static function create(start sink Point, finish sink Point) returns Segment
+	static function create(consumes start Point, consumes finish Point) returns Segment
 		return Segment{start: start, finish: finish}
 	end 'create'
 end 'Segment'
 
-function bump(n mutable Score, by Score)
+function bump(mutates n Score, by Score)
 	n = n + by
 end 'bump'
 
-function swap(a mutable Score, b mutable Score)
+function swap(mutates a Score, mutates b Score)
 	let t = a
 	a = b
 	b = t

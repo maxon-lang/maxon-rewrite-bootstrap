@@ -1,6 +1,6 @@
 interface Shape
 	function area() returns Count
-	function grow(mutable self, by Count)
+	function grow(mutates self, by Count)
 end 'Shape'
 
 type Box

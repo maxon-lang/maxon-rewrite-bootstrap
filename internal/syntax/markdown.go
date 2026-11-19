@@ -36,6 +36,27 @@ func MarkdownKeywordEdits(file, text, old, new string) (edits []Edit, refused in
 			}
 		}
 	}
+	scanMarkdown(text,
+		func(begin, end int) {
+			attempt(begin, end, strings.Count(text[:begin], "\n")+1, func() []Edit {
+				block := NewSource(text[begin:end], []FileSlice{{File: file, Begin: 0, End: end - begin}})
+				found := KeywordEdits(block, old, new)
+				for i := range found {
+					found[i].Begin += begin
+					found[i].End += begin
+				}
+				return found
+			})
+		},
+		func(begin, end int) {
+			attempt(begin, end, 1, func() []Edit { return KeywordEditsInLine(src, 0, begin, end, old, new) })
+		})
+	return edits, refused, firstRefusal
+}
+
+// scanMarkdown finds the Maxon in a Markdown document: it calls block with the text of each fenced block that is tagged
+// maxon or not tagged, and span with each non-empty inline code span (when span is not nil), both as offsets into text.
+func scanMarkdown(text string, block, span func(begin, end int)) {
 	at := 0
 	for at < len(text) {
 		lineEnd := strings.IndexByte(text[at:], '\n')
@@ -45,24 +66,16 @@ func MarkdownKeywordEdits(file, text, old, new string) (edits []Edit, refused in
 			lineEnd += at
 		}
 		line := text[at:lineEnd]
-		if fence, ok := strings.CutPrefix(strings.TrimLeft(line, " \t"), codeFence); ok {
+		if fence, ok := strings.CutPrefix(strings.TrimLeft(line, " 	"), codeFence); ok {
 			blockBegin := min(lineEnd+1, len(text))
 			blockEnd, after := closingFence(text, blockBegin)
 			if tag := strings.TrimSpace(fence); tag == "" || tag == maxonFenceTag {
-				attempt(blockBegin, blockEnd, strings.Count(text[:blockBegin], "\n")+1, func() []Edit {
-					block := NewSource(text[blockBegin:blockEnd], []FileSlice{{File: file, Begin: 0, End: blockEnd - blockBegin}})
-					found := KeywordEdits(block, old, new)
-					for i := range found {
-						found[i].Begin += blockBegin
-						found[i].End += blockBegin
-					}
-					return found
-				})
+				block(blockBegin, blockEnd)
 			}
 			at = after
 			continue
 		}
-		for col := 0; col < len(line); {
+		for col := 0; span != nil && col < len(line); {
 			open := strings.Index(line[col:], codeSpan)
 			if open < 0 {
 				break
@@ -74,13 +87,12 @@ func MarkdownKeywordEdits(file, text, old, new string) (edits []Edit, refused in
 			}
 			end := begin + close
 			if end > begin {
-				attempt(begin, end, 1, func() []Edit { return KeywordEditsInLine(src, 0, begin, end, old, new) })
+				span(begin, end)
 			}
 			col = end + len(codeSpan) - at
 		}
 		at = lineEnd + 1
 	}
-	return edits, refused, firstRefusal
 }
 
 // closingFence finds the fence that closes a block whose text starts at begin: it returns where the block's text ends

@@ -1,0 +1,33 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box
+	export var v as Score
+	export var name as String
+
+	function describe() returns String
+		return name.copy()
+	end 'describe'
+
+	function rename(mutates self, consumes value String)
+		name = value
+	end 'rename'
+
+	function bump(mutates self, by Score)
+		v = v + by
+	end 'bump'
+
+	static function create(v Score, consumes name String) returns Box
+		return Box{v: v, name: name}
+	end 'create'
+end 'Box'
+
+function take(consumes b Box) returns Box
+	b.v = 5
+	return b
+end 'take'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2013 at 25:2

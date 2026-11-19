@@ -2,7 +2,7 @@ typealias Count = int(0 to 1000)
 
 interface Shape
 	function area() returns Count
-	function grow(mutable self, by Count)
+	function grow(mutates self, by Count)
 	function scaled(by Count) returns Self
 end 'Shape'
 
@@ -21,7 +21,7 @@ type Square implements Shape and Named
 		return side * side
 	end 'area'
 
-	function grow(mutable self, by Count)
+	function grow(mutates self, by Count)
 		side = side + by
 	end 'grow'
 
@@ -38,7 +38,7 @@ type Pair[A, B implements Shape]
 	var first as A
 	var second as B
 
-	static function make(first sink A, second sink B) returns Self
+	static function make(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'make'
 
@@ -63,7 +63,7 @@ function total[T implements Shape](a T, b T) returns Count
 	return a.area() + b.area()
 end 'total'
 
-function describe[T implements Shape and Named](item mutable T) returns String
+function describe[T implements Shape and Named](mutates item T) returns String
 	item.grow(1)
 	let bigger = item.scaled(2)
 	return "{item.label()} {bigger.label()} {bigger.area()}"

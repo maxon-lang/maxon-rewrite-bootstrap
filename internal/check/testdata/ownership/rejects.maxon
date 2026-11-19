@@ -7,7 +7,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: use after sink
+// case: use after consumes
 // expect-error: E3102
 function main() returns ExitCode
 	let a = Pair.create(1, second: 2)
@@ -26,7 +26,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: mutable argument is a let
+// case: mutates argument is a let
 // expect-error: E2013
 function main() returns ExitCode
 	let a = Pair.create(1, second: 2)
@@ -34,7 +34,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: mutable argument rooted at a let parameter
+// case: mutates argument rooted at a let parameter
 // expect-error: E2013
 function f(p Pair)
 	change(p)
@@ -44,7 +44,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: method changes self without mutable
+// case: method changes self without mutates
 // expect-error: E2013
 type Cell
 	export var n as Score
@@ -64,7 +64,7 @@ type Cell
 	export let n = 0 as Score
 end 'Cell'
 
-function f(c mutable Cell)
+function f(mutates c Cell)
 	c.n = 1
 end 'f'
 
@@ -84,7 +84,7 @@ end 'main'
 
 // case: bind a borrow
 // expect-error: E3110
-function f(p mutable Pair)
+function f(mutates p Pair)
 	let q = p
 	print("{q.first}")
 end 'f'
@@ -93,7 +93,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: sink a borrow
+// case: consume a borrow
 // expect-error: E3110
 function f(p Pair) returns Score
 	return take(p)
@@ -120,7 +120,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: mutable argument and its field
+// case: mutates argument and its field
 // expect-error: E3112
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
@@ -137,9 +137,9 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: set parameter left uninitialised
+// case: sets parameter left uninitialised
 // expect-error: E3114
-function f(n set Score, flag bool)
+function f(sets n Score, flag bool)
 	if flag 'x'
 		n = 1
 	end 'x'
@@ -149,7 +149,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: set argument already has a value
+// case: sets argument already has a value
 // expect-error: E3115
 function main() returns ExitCode
 	var n = 1 as Score

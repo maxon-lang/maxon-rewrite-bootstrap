@@ -257,12 +257,12 @@ type Convention int
 const (
 	// ConvLet is the default: an immutable borrow.
 	ConvLet Convention = iota
-	// ConvMutable is a mutable borrow: the caller sees the callee's changes.
-	ConvMutable
-	// ConvSink moves the argument into the callee, which owns it.
-	ConvSink
-	// ConvSet takes an uninitialised variable that the callee must initialise.
-	ConvSet
+	// ConvMutates is a mutable borrow: the caller sees the callee's changes.
+	ConvMutates
+	// ConvConsumes moves the argument into the callee, which owns it.
+	ConvConsumes
+	// ConvSets takes an uninitialised variable that the callee must initialise.
+	ConvSets
 )
 
 // ConventionOf reads the keyword a parameter or receiver is written with; none means a let.
@@ -270,29 +270,29 @@ func ConventionOf(word string) Convention {
 	switch word {
 	case "":
 		return ConvLet
-	case "mutable":
-		return ConvMutable
-	case "sink":
-		return ConvSink
-	case "set":
-		return ConvSet
+	case "mutates":
+		return ConvMutates
+	case "consumes":
+		return ConvConsumes
+	case "sets":
+		return ConvSets
 	}
 	panic(diag.Internal("unknown parameter convention '%s'", word))
 }
 
 // ByAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
-func (c Convention) ByAddress() bool { return c == ConvMutable || c == ConvSet }
+func (c Convention) ByAddress() bool { return c == ConvMutates || c == ConvSets }
 
 func (c Convention) String() string {
 	switch c {
 	case ConvLet:
 		return "let"
-	case ConvMutable:
-		return "mutable"
-	case ConvSink:
-		return "sink"
-	case ConvSet:
-		return "set"
+	case ConvMutates:
+		return "mutates"
+	case ConvConsumes:
+		return "consumes"
+	case ConvSets:
+		return "sets"
 	}
 	panic(diag.Internal("unknown convention %d", int(c)))
 }
@@ -320,7 +320,7 @@ func (l *Local) ByRef() bool { return l.IsParam && !l.IsSelf && l.Conv.ByAddress
 
 // Borrowed is whether the local only borrows its value, so the value cannot be moved out of it.
 func (l *Local) Borrowed() bool {
-	return l.Projected || (l.IsParam && l.Conv != ConvSink)
+	return l.Projected || (l.IsParam && l.Conv != ConvConsumes)
 }
 
 // Mutable is whether the local, and the fields reached through it, may be assigned.

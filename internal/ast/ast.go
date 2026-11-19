@@ -71,7 +71,7 @@ func (e *ExprBase) Ty() Ty     { return e.Type }
 func (e *ExprBase) SetTy(t Ty) { e.Type = t }
 
 // IsConsumed is whether the ownership pass found the expression in a position that takes ownership of its value: a
-// binding, an assignment, a sink argument, a return, a field or payload, or a branch of a conditional or a match. A
+// binding, an assignment, a consumes argument, a return, a field or payload, or a branch of a conditional or a match. A
 // place there is moved out of; a fresh value there needs no one to drop it. Lowering reads this to place drops, so the
 // pass is the only place that decides what a move is.
 func (e *ExprBase) IsConsumed() bool { return e.Consumed }

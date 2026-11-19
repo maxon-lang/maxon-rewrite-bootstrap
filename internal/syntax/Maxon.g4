@@ -74,7 +74,7 @@ typeDeclNode
 
 funcDecl
     : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name typeParams=typeParamList?
-      ^'(' ( receiver=('mutable' | 'sink') 'self' (',' params+=param)*
+      ^'(' ( receiver=('mutates' | 'consumes') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
       ')' ('returns' returns=typeRef)?
@@ -100,7 +100,7 @@ funcDecl
 
 /** a parameter */
 param
-    : name=(Name | '_') convention=('mutable' | 'sink' | 'set')? type=typeRef
+    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_') type=typeRef
     ;
 
 @ast::Param {
@@ -197,7 +197,7 @@ interfaceDecl
 
 funcSig
     : 'function' name=Name
-      ^'(' ( receiver=('mutable' | 'sink') 'self' (',' params+=param)*
+      ^'(' ( receiver=('mutates' | 'consumes') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
       ')' ('returns' returns=typeRef)?

@@ -58,9 +58,9 @@ func TestATemporaryThatNothingTookIsDroppedAtTheEndOfItsStatement(t *testing.T) 
 	requireInOrder(t, text, "call Pair.make(", "drop %", "Pair")
 }
 
-// A sink parameter belongs to the callee, so it lives in a slot of its own, and a parameter the body does not name is
+// A consumes parameter belongs to the callee, so it lives in a slot of its own, and a parameter the body does not name is
 // dropped like the rest.
-func TestSinkParametersAreOwnedByTheCallee(t *testing.T) {
+func TestConsumedParametersAreOwnedByTheCallee(t *testing.T) {
 	text := lowered(t, "eat")
 	requireInOrder(t, text, "param 0", "store s0,", "param 1", "store s1,")
 	requireInOrder(t, text, "dropslot s1 String", "dropslot s0 Pair", "ret")

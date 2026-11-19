@@ -1,7 +1,7 @@
 typealias Amount = int(0 to 100)
 
 union Result[T]
-	ok(value mutable T)
+	ok(mutates value T)
 	failed
 end 'Result'
 

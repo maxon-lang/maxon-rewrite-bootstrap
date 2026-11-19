@@ -19,7 +19,7 @@ end 'Square'
 type Box[T]
 	var item as T
 
-	static function make(item sink T) returns Self
+	static function make(consumes item T) returns Self
 		return Self{item: item}
 	end 'make'
 
@@ -28,7 +28,7 @@ type Box[T]
 	end 'peek'
 end 'Box'
 
-function swap[T](a mutable T, b mutable T)
+function swap[T](mutates a T, mutates b T)
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp

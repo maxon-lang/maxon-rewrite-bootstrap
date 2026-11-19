@@ -89,23 +89,24 @@ Parameters say how they take their argument (Hylo's four conventions):
 | Convention | Meaning |
 |---|---|
 | `let` (the default) | an immutable borrow |
-| `mutable` | a mutable borrow; the callee may change the value, and the caller sees the change |
-| `sink` | ownership moves to the callee |
-| `set` | the callee initialises an uninitialised value |
+| `mutates` | a mutable borrow; the callee may change the value, and the caller sees the change |
+| `consumes` | ownership moves to the callee |
+| `sets` | the callee initialises an uninitialised value |
 
-A **projection** is a borrow of a part: a subscript or accessor yields an element or field as `let`, `mutable` or
-`sink`, depending on how it is used (`list[i].count = 3` projects element `i` as `mutable`). The projection lasts as
+A **projection** is a borrow of a part: a subscript or accessor yields an element or field as `let`, `mutates` or
+`consumes`, depending on how it is used (`list[i].count = 3` projects element `i` as `mutates`). The projection lasts as
 long as the expression or block that uses it.
 
-`mutable` is Hylo's `inout`, spelled as minimaxon's by-reference parameter already was.
+`mutates` is Hylo's `inout`, `consumes` its `sink` and `sets` its `set`. Each is written before the parameter's name,
+as a verb whose subject is the function: `push(consumes item T)` reads "push consumes item".
 
 ### The law of exclusivity
 
-While a `mutable`, `sink` or `set` access to a value is active, no other access to a value that overlaps it is
+While a `mutates`, `consumes` or `sets` access to a value is active, no other access to a value that overlaps it is
 active. Without it, a scoped borrow could still dangle within one call:
 
 ```
-f(list, list[i])     // f takes list mutable and borrows one element
+f(list, list[i])     // f mutates list and borrows one element
                       // if f removes element i, the borrow points to freed memory: refused
 ```
 
@@ -120,44 +121,44 @@ f(list, list[i])     // f takes list mutable and borrows one element
 Where this document was open, minimaxon does the following. Hylo's rules decide anything not listed.
 
 - **What moves.** Every value of a record, union or `String` type moves; a scalar (an integer, a bool, an enum)
-  is copied. Binding, assigning, passing to `sink`, returning, storing in a field or a union payload, and giving a
+  is copied. Binding, assigning, passing to `consumes`, returning, storing in a field or a union payload, and giving a
   value from a conditional or a match arm are the moving positions. A fresh value needs no move. Reading, passing
-  to a `let` or `mutable` parameter, matching and interpolating only borrow. A conditional or match arm always gives
+  to a `let` or `mutates` parameter, matching and interpolating only borrow. A conditional or match arm always gives
   a fresh value, so a place in a branch is moved even where the whole expression is only borrowed; write
   `.copy()` there when a borrow is meant.
 - **No partial moves.** A field is never moved out of a value, whether the value is owned or borrowed: the rule is
   that only a whole local that owns its value moves, and `copy()` is the way to take a field. Hylo allows a partial
   move when the whole is consumed or reinitialised; refusing it keeps the state to "whole value present or
   moved", which is one fact per local.
-- **Receivers.** An instance method is `function m(self…)` with no marker for a `let` receiver, `mutable self` for a
-  mutable one and `sink self` for one that consumes the value. The region keywords the grammar had (`mutable`,
+- **Receivers.** An instance method is `function m(self…)` with no marker for a `let` receiver, `mutates self` for a
+  mutable one and `consumes self` for one that consumes the value. The region keywords the grammar had (`mutable`,
   `immutable`, `isolated`, `consuming`) are gone; regions bring their own back if they come.
-- **`sink` is owned, not mutable.** A `sink` parameter, like a `let` local, cannot be assigned or have a field
+- **`consumes` is owned, not mutable.** A `consumes` parameter, like a `let` local, cannot be assigned or have a field
   assigned; it is moved into a `var` to change it. This needs no copy of the argument and no slot for the
   parameter, and Hylo's rule that a `sink` can be changed adds nothing to the soundness argument.
-- **`set` takes a variable with no value.** `var x as T` declares one. Hylo also lets `set` replace a value that is
+- **`sets` takes a variable with no value.** `var x as T` declares one. Hylo also lets `set` replace a value that is
   present; here the argument must have no value, so initialisation never has to drop anything. The callee starts
-  with the parameter uninitialised, may pass it on as a `set` argument, and must have assigned it on every path
+  with the parameter uninitialised, may pass it on as a `sets` argument, and must have assigned it on every path
   that returns.
-- **Projections.** There are no local projection bindings (`mutable r = a.f`). The borrows are parameters, call
+- **Projections.** There are no local projection bindings (`mutates r = a.f`). The borrows are parameters, call
   arguments and the payload bindings of a `match`. A payload that is not a scalar is a `let` projection of the
   subject for the arm: it cannot be assigned or moved, and the subject cannot be assigned, moved or passed
-  `mutable` while the arm runs (the "active projection" rule). A scalar payload is copied into the binding.
+  `mutates` while the arm runs (the "active projection" rule). A scalar payload is copied into the binding.
 - **Exclusivity at a call.** Every argument that names a place counts, whatever its convention or type: an
-  `mutable`, `sink` or `set` argument may not overlap another argument or the receiver, and that includes a `let`
-  scalar (`f(n, mutable n)` is refused). A computed argument (`a.f.copy()`, a call) names no place and never
+  `mutates`, `consumes` or `sets` argument may not overlap another argument or the receiver, and that includes a `let`
+  scalar (`f(n, mutates n)` is refused). A computed argument (`a.f.copy()`, a call) names no place and never
   overlaps. Paths are a root followed by field steps (`paths.go`); `a[i]` is a second step kind that overlaps
   every other element of its collection (step 3).
-- **Mutation needs a mutable path.** Assignment and a `mutable` argument need a `var`, a `mutable` or `set`
-  parameter, or `mutable self` as the root, and a `var` field at every step. A `let` field blocks the whole path
-  below it. A `mutable` argument must name a place; a temporary cannot be mutated.
+- **Mutation needs a mutable path.** Assignment and a `mutates` argument need a `var`, a `mutates` or `sets`
+  parameter, or `mutates self` as the root, and a `var` field at every step. A `let` field blocks the whole path
+  below it. A `mutates` argument must name a place; a temporary cannot be mutated.
 - **`copy()`.** A built-in method on every type, taking nothing. It is deep: a record or union is allocated again,
   and its fields copied in turn. A string that is not a literal is allocated again; a literal lives in the executable, is never freed, and
   is its own copy.
 
 ### Immutable values
 
-`freeze(x sink)` makes a value immutable. Inside a thread it is still owned once and borrowed freely, at no cost.
+`freeze(consumes x)` makes a value immutable. Inside a thread it is still owned once and borrowed freely, at no cost.
 `share(x)` makes another owner of an immutable value and increments its count; that is only needed to give it to
 another thread while keeping it, so counts change only when data crosses. The count is one per frozen
 value, not per object inside it, and is atomic. Frozen values refer only to values frozen before them, so counts
@@ -191,7 +192,7 @@ The pool is what makes user-defined pointer structures safe without adding a pri
 a pool of nodes whose links are handles, a graph is a pool of nodes whose edges are handles, and an LRU cache is a
 list plus a map from keys to node handles. Each element is freed when it is removed.
 
-Projections into a primitive follow the law of exclusivity like any other path: an element borrowed `mutable`
+Projections into a primitive follow the law of exclusivity like any other path: an element borrowed `mutates`
 overlaps its container, so the container cannot remove it while the borrow lasts.
 
 ### Choices made in step 3
@@ -201,11 +202,11 @@ Where this document was open, minimaxon does the following. The operations and t
 
 - **The signatures are the rules.** An operation is a generic method that no source declares, with a receiver
   convention and conventions on its parameters, and a call goes through the same typing, inference, borrowing,
-  moving and exclusivity code as a call of any method. Adding an element is a `sink` parameter. Removing is a return
-  value, which is owned. `mutable self` on everything that changes the structure is what makes "a container method
+  moving and exclusivity code as a call of any method. Adding an element is a `consumes` parameter. Removing is a return
+  value, which is owned. `mutates self` on everything that changes the structure is what makes "a container method
   overlaps any projection of its container" follow from the exclusivity rule, with no rule of its own.
 - **Results that can miss are an `Option[T]`.** `Option` is a built-in union (`some`, `none`) with two methods:
-  `isSome()` and `unwrap(sink self)`. Matching it only borrows the payload (a match binding is a projection), so
+  `isSome()` and `unwrap(consumes self)`. Matching it only borrows the payload (a match binding is a projection), so
   `unwrap` is how a program takes the element out of a `remove`: it consumes the whole option, so no value is left
   partly moved. A miss that is a bug and not an expected answer (`a[i]`, `m[k]`, `p[h]`, `a.remove(i)`) traps
   instead.
@@ -214,13 +215,13 @@ Where this document was open, minimaxon does the following. The operations and t
   Assigning through it needs a mutable root like a field does. Every element step overlaps every other element step
   of the same collection, which is a decision about indexes that cannot be compared before the program runs; it
   also makes `a[i]` overlap `a`. Index, key and handle are values read before the call.
-- **A borrow is held until the call.** Taking the address of `a[i]` for a `mutable` argument, or loading an element
+- **A borrow is held until the call.** Taking the address of `a[i]` for a `mutates` argument, or loading an element
   for a `let` one, happens when the argument is evaluated, and the call runs after the arguments after it. So an
   argument that is a place stays borrowed through the rest of the call's arguments, and the target of an
   assignment through a field or an element stays borrowed while its value is computed; a nested call that changes an
   overlapping place is refused. This is the "active projection against the accesses made while it lasts" check of
   the exclusivity section, extended from match bindings to arguments and assignments, and it closes the gap where
-  `f(mutable a[i], g(mutable a))` took an address that `g` could invalidate. It needs no run-time check.
+  `f(mutates a[i], g(mutates a))` took an address that `g` could invalidate. It needs no run-time check.
 - **A handle is a key.** `Handle[T]` is a scalar word: copied, never moved, not owning. Its generation is part of the
   word, so a stale handle never reaches a reused slot. A handle is typed by its element type and not by its pool, so
   a handle from one pool used on another pool of the same type is a lookup that fails or finds that pool's element;
@@ -245,13 +246,13 @@ Where this document was open, minimaxon does the following. The operations and t
 
 Where this document was open, minimaxon does the following.
 
-- **Owner death is explicit in the IR.** Lowering emits a drop wherever a value dies: a local at the end of its block and
-  on every way out of it, a temporary at the end of its statement, an overwritten value at the assignment, a `sink`
-  parameter that was not moved on, a removed element that the caller discards. A drop is deep by type, and a place that
-  holds nothing drops as a no-op, so a value that was moved from is not dropped and no analysis of which paths moved it
-  is needed: moving empties the place (`move`), and dropping an empty place does nothing. The alternative, a drop flag
-  for each local that is maybe moved, is the same thing with the flag stored beside the value; an empty slot is the flag.
-  The cost is a native frame that starts zeroed, which native freeing provides (step 6).
+-  **Owner death is explicit in the IR.** Lowering emits a drop wherever a value dies: a local at the end of its block
+  and on every way out of it, a temporary at the end of its statement, an overwritten value at the assignment, a
+  `consumes` parameter that was not moved on, a removed element that the caller discards. A drop is deep by type, and a
+  place that holds nothing drops as a no-op, so a value that was moved from is not dropped and no analysis of which
+  paths moved it is needed: moving empties the place (`move`), and dropping an empty place does nothing. The
+  alternative, a drop flag for each local that is maybe moved, is the same thing with the flag stored beside the value;
+  an empty slot is the flag. The cost is a native frame that starts zeroed, which native freeing provides (step 6).
 - **One place decides what moves.** The ownership pass already decides which expressions give their value to a new
   owner, since it must for `E3102`. It now marks them, and lowering reads the mark and nothing else, so the rule that
   refuses a use after a move and the code that empties the slot cannot disagree. A place that is marked but is not a
@@ -259,15 +260,15 @@ Where this document was open, minimaxon does the following.
 - **Strings are owned.** A literal lives in the executable and is immortal. An interpolation makes a new string, and
   `copy()` of a string makes a new one too, where step 1 said its copy is itself: with freeing, two owners of one string
   would free it twice.
-- **What the interpreter tracks.** The owner of each value is the place that holds it, and a place that only borrows
-  holds the same pointer without owning it (a `let` or `mutable` parameter, a projection, and a `match` binding, which the
-  IR marks). A value in flight, such as the result of a call, has no owner, and storing a value that has one is a
+-  **What the interpreter tracks.** The owner of each value is the place that holds it, and a place that only borrows
+  holds the same pointer without owning it (a `let` or `mutates` parameter, a projection, and a `match` binding, which
+  the IR marks). A value in flight, such as the result of a call, has no owner, and storing a value that has one is a
   violation: it would be freed twice. An element's address carries the version of its collection, and every insert,
   remove and move of the collection bumps it, which is the contract of the primitives ("valid until the next call that
-  changes the primitive") made checkable. A handle carries a generation, and the slot freed last is the next one
-  reused, so a reused slot is the common case in a test and not the rare one.
+  changes the primitive") made checkable. A handle carries a generation, and the slot freed last is the next one reused,
+  so a reused slot is the common case in a test and not the rare one.
 - **Exclusivity at run time.** At a call, every argument that the callee may change (an address, an argument it owns,
-  a `mutable self`) must not reach any place another argument reaches, which the owner tree answers: two places overlap
+  a `mutates self`) must not reach any place another argument reaches, which the owner tree answers: two places overlap
   when one is, or lies inside, the other. A borrow is taken when its argument is evaluated, so from there until the call
   runs it is held, and a change to what it reaches (a store, a drop, an insert or a remove) is a violation. That is the
   rule the checker calls a held borrow, and it is checked on the borrows that name existing storage; a value that is
@@ -283,27 +284,27 @@ Where this document was open, minimaxon does the following.
   1. A field or an element of a temporary could be moved out of it (`let s = make().label`): the pass treated an
      expression that is not a place as fresh and moved nothing, so the temporary and the binding both owned the string
      and both would free it. Found by reading the pass while placing drops. It is `E3111` now, like any field.
-  2. `self` of a `mutable self` method could be passed to a `mutable` parameter, which may assign the whole value and so
-     replace the caller's: but `self` is the receiver, a pointer the caller still owns, not a place that can be replaced.
-     Found by the generator, as an internal error in lowering ("no address for this expression"). It is `E2013` now; a
-     field of `self` and a method call on it are fine.
-  3. A variable passed to a `set` parameter counted as initialised as soon as its argument was checked, so a later
-     argument of the same call could read it (`fill(s, from: s.copy())`), though the callee has not run yet. Found by the
-     generator, as a read of an empty slot, a hundred thousand programs in. The variable has its value when the call
+  2.  `self` of a `mutates self` method could be passed to a `mutates` parameter, which may assign the whole value and
+     so replace the caller's: but `self` is the receiver, a pointer the caller still owns, not a place that can be
+     replaced. Found by the generator, as an internal error in lowering ("no address for this expression"). It is
+     `E2013` now; a field of `self` and a method call on it are fine.
+  3.  A variable passed to a `sets` parameter counted as initialised as soon as its argument was checked, so a later
+     argument of the same call could read it (`fill(s, from: s.copy())`), though the callee has not run yet. Found by
+     the generator, as a read of an empty slot, a hundred thousand programs in. The variable has its value when the call
      has run, and not before: `E3113` for the read.
 - **Bugs in lowering that the interpreter found**, fixed at the cause: the target of an assignment had no type, so an
   assignment to a field of a generic instance did not know to drop the old value; an assignment to an element did not
   drop the old element; a field's default was dropped as a temporary because nothing had marked it consumed.
 - **What the generator reaches.** A record, a union, an array, a map, a list and a pool of any of them, with handles
   stored in fields, arrays and maps; methods whose bodies are generated like any function's, with `self` read, changed
-  and consumed; the four conventions, including `set` through a variable with no value; `match` over a union and an
+  and consumed; the four conventions, including `sets` through a variable with no value; `match` over a union and an
   option, as a statement and as a value; conditionals that move; loops with `break` and `continue`; generic functions,
   with and without bounds, and a generic record. About two programs in five break a rule of ownership on purpose
   (moving a field, a borrow or an element; reading a variable that moved; overlapping arguments; changing a collection
   while one of its elements is borrowed; a match arm that changes its subject), to see the checker refuse each. Of the
   programs it accepts, the ones with no map, list or pool also run natively and must give the interpreter's output and
   exit code. Removing a rule from the checker (exclusivity at a call, held borrows, a use after a move, a move out of a
-  borrow, a `set` or a variable that is not initialised, the hold on the target of an assignment) makes the generator
+  borrow, a `sets` or a variable that is not initialised, the hold on the target of an assignment) makes the generator
   find a violation within a few thousand programs, which is the evidence that it reaches what it should.
 - **Not covered.** The generator writes no union or enum methods, no generic interface, no `for` over anything but an
   index, and no recursion; it has not been run on more than one module. A program can only break the rules in the ways
@@ -320,7 +321,7 @@ A green thread runs in its own memory: the values it owns. Data reaches another 
 - **Sharing** an immutable value with `share` (counted).
 - **Cowns and behaviours.** A **cown** (concurrent owner) owns a value, which no thread touches directly; the cown
   reference can be copied and shared freely. A **behaviour**, `when a, b as x, y … end`, names the cowns it needs
-  and runs once it has exclusive access to all of them; inside, `x` and `y` are `mutable` access to their values. It
+  and runs once it has exclusive access to all of them; inside, `x` and `y` are `mutates` access to their values. It
   captures only moved values, shared immutable values and cown references, returns nothing, and is not waited
   for; a result is passed on by scheduling another behaviour. A behaviour's cowns are acquired together and
   nothing blocks while holding one, so there is no deadlock. Behaviours on overlapping cowns run in the order they
@@ -331,13 +332,13 @@ A green thread runs in its own memory: the values it owns. Data reaches another 
 Where this document was open, minimaxon does the following. The rules and the error codes are in the README ("Immutable
 values, cowns and behaviours"); these are the decisions behind them.
 
-- **Immutability is a type.** `frozen[T]` is a built-in generic type, and `freeze` a stdlib function that takes a `sink T`
-  and gives one. A type lets the checker tell an immutable value from its owner by what a name is declared as, with no
-  facts about a value's history to carry through every construct, which is what grew maxon's rulings. The contents of a
-  frozen value are one more step in a place's path, so every rule that asks whether a place can change or be moved
-  (assignment, `mutable`, `sink`, a method receiver, exclusivity, a borrow held across a call) already answers for it: a
-  path that crosses a frozen step is immutable, and nothing moves out of it. Reading through a frozen value is
-  implicit where it only borrows: a field, a subscript, a method that takes `let self`, a match subject, an
+-  **Immutability is a type.** `frozen[T]` is a built-in generic type, and `freeze` a stdlib function that takes a
+  `consumes T` and gives one. A type lets the checker tell an immutable value from its owner by what a name is declared
+  as, with no facts about a value's history to carry through every construct, which is what grew maxon's rulings. The
+  contents of a frozen value are one more step in a place's path, so every rule that asks whether a place can change or
+  be moved (assignment, `mutates`, `consumes`, a method receiver, exclusivity, a borrow held across a call) already
+  answers for it: a path that crosses a frozen step is immutable, and nothing moves out of it. Reading through a frozen
+  value is implicit where it only borrows: a field, a subscript, a method that takes `let self`, a match subject, an
   interpolation, and an argument for a `let` parameter of the type it holds.
 - **`copy()` is `share`, and `thaw` is the copy of the contents.** `copy()` keeps the type, as it does everywhere, and a
   frozen value is immutable, so its copy is another owner of the same value at the cost of a count. That is also what
@@ -358,25 +359,25 @@ values, cowns and behaviours"); these are the decisions behind them.
   through at least one declaration, and through a cown if one of the references is. The cost is that a linked structure
   of cowns names its next link by a handle or a key. Verona leaves the cycle to a collector; if one is built, the check
   goes.
-- **A behaviour is a function that captures by use.** Its body is checked as a function of its own, whose parameters
-  are the access to each cown's value (`mutable`) and then whatever it uses from the function around it, which it owns like a
-  `sink` parameter. Capture is by variable and whole: a scalar is copied, and an owned value moves in at the `when`,
-  marked consumed so that the existing move check, `E3102`, covers a use after it and a use in the next iteration of a
-  loop. Frozen values and cown references are owned values here, so they move too, and keeping one is `share` first,
-  which the spec allows ("moved in, or shared explicitly") and extends to cown references, which it says are "copied/moved
-  in". An implicit copy would be a second way to count and would hide where a count rises; the cost is a `let own =
-  share(c)` before a `when` that uses a cown the enclosing code keeps. A borrow is refused (`E3126`), by the check that a
-  behaviour makes at the capture and, behind it, by the rule that nothing moves out of a borrow. `self` and its fields are
-  refused too, because the receiver is borrowed.
-- **The access names are `mutable` parameters.** `x` and `y` are borrows, so every rule about borrows keeps them inside the
-  body: they cannot be moved, returned, stored, passed as `sink`, or captured by a behaviour inside (`copy()` is the way
-  out). They name different cowns, so exclusivity between them needs no rule of its own, except that one cown named
-  twice would make two names for one value.
-- **The same cown twice.** Naming one variable twice is `E3130`. Two variables that name one cown (`let b = share(a)`)
+-  **A behaviour is a function that captures by use.** Its body is checked as a function of its own, whose parameters
+  are the access to each cown's value (`mutates`) and then whatever it uses from the function around it, which it owns
+  like a `consumes` parameter. Capture is by variable and whole: a scalar is copied, and an owned value moves in at the
+  `when`, marked consumed so that the existing move check, `E3102`, covers a use after it and a use in the next
+  iteration of a loop. Frozen values and cown references are owned values here, so they move too, and keeping one is
+  `share` first, which the spec allows ("moved in, or shared explicitly") and extends to cown references, which it says
+  are "copied/moved in". An implicit copy would be a second way to count and would hide where a count rises; the cost is
+  a `let own = share(c)` before a `when` that uses a cown the enclosing code keeps. A borrow is refused (`E3126`), by
+  the check that a behaviour makes at the capture and, behind it, by the rule that nothing moves out of a borrow. `self`
+  and its fields are refused too, because the receiver is borrowed.
+-  **The access names are `mutates` parameters.** `x` and `y` are borrows, so every rule about borrows keeps them inside
+  the body: they cannot be moved, returned, stored, passed as `consumes`, or captured by a behaviour inside (`copy()` is
+  the way out). They name different cowns, so exclusivity between them needs no rule of its own, except that one cown
+  named twice would make two names for one value.
+-  **The same cown twice.** Naming one variable twice is `E3130`. Two variables that name one cown (`let b = share(a)`)
   cannot be told apart by the checker, so a behaviour scheduled with the same cown twice traps, as an index out of range
-  does: a safe failure, never a race, but the one place where the safety of a program does not rest on the checker alone.
-  Verona de-duplicates the request at run time; giving the body two `mutable` names for one value would break the law of
-  exclusivity, so this step does not.
+  does: a safe failure, never a race, but the one place where the safety of a program does not rest on the checker
+  alone. Verona de-duplicates the request at run time; giving the body two `mutates` names for one value would break the
+  law of exclusivity, so this step does not.
 - **The cowns of a `when` are names, not expressions.** In `when a, b as x, y` the word `as` after an expression is a
   cast, so the grammar takes a name for each cown (a variable or a field of `self`), and a cown that lies deeper is
   shared into a variable first. A name is only read: the behaviour takes a count of its own on each cown when it is
@@ -412,20 +413,20 @@ values, cowns and behaviours"); these are the decisions behind them.
      value, and since step 4 a pool or a map) was lowered with no site to blame, so refusing it for the executable
      crashed the driver. Found by the generator's comparison with executables; lowering names the call now
      (`TestEveryRefusalNamesItsSite`).
-- **What the generator reaches.** Frozen values of records, unions, strings and arrays, held in variables (`let` and
+-  **What the generator reaches.** Frozen values of records, unions, strings and arrays, held in variables (`let` and
   `var`), fields and elements; cowns of counts, records, unions, strings, arrays, frozen values and other cowns; `share`
   and `thaw`; behaviours on one or two cowns whose bodies are written like any function's, nested two deep, with
   scalars, owners, frozen values and cown references captured; reads through a frozen value in fields, subscripts,
   method calls, a bound's method, `match` and arguments for `let` parameters; and calls of generic functions with frozen
-  and cown arguments. About two programs in five are careless, breaking rules throughout, and two in five of the rest break
-  one rule of sharing once, which is what lets a missing rule show: a careless program is nearly always refused for the
-  first of many sins. Removing each of these checks from the checker makes the generator find a violation or an
+  and cown arguments. About two programs in five are careless, breaking rules throughout, and two in five of the rest
+  break one rule of sharing once, which is what lets a missing rule show: a careless program is nearly always refused
+  for the first of many sins. Removing each of these checks from the checker makes the generator find a violation or an
   internal error within 3,000 to 4,000 programs: a captured owner that is not moved, a captured borrow (with the
   move-out-of-a-borrow rule behind it removed too, since it refuses the same program), a change to the contents of a
-  frozen value, a `mutable` or `sink` method on one, a part taken out of one (with the field rule behind it removed
-  too), `x` taken as a `sink` parameter, and `self` named in a behaviour. Removing only the refusal of a cown's fields
-  and methods finds nothing, because typing refuses them first, and the cycle rule is not reached, since the generator
-  declares no type that reaches itself; both have tests of their own.
+  frozen value, a `mutates` or `consumes` method on one, a part taken out of one (with the field rule behind it removed
+  too), `x` taken as a `consumes` parameter, and `self` named in a behaviour. Removing only the refusal of a cown's
+  fields and methods finds nothing, because typing refuses them first, and the cycle rule is not reached, since the
+  generator declares no type that reaches itself; both have tests of their own.
 - **Results.** Three long runs with different seeds and generators of the day, every accepted program that schedules a
   behaviour under 5 or 6 schedules:
 
@@ -460,8 +461,8 @@ values, cowns and behaviours"); these are the decisions behind them.
 Where this document was open, minimaxon does the following.
 
 - **What `T` is.** A value of a type parameter is owned, movable and not a scalar, whatever the parameter is
-  instantiated with. Every rule of step 1 then applies to it as it applies to a record: binding, passing to `sink`,
-  returning and storing move it; a `let`, `mutable` or `set` parameter of type `T` and a payload of one are borrowed,
+  instantiated with. Every rule of step 1 then applies to it as it applies to a record: binding, passing to `consumes`,
+  returning and storing move it; a `let`, `mutates` or `sets` parameter of type `T` and a payload of one are borrowed,
   and a field of a generic value is part of its owner, so moving them is `E3110` or `E3111`; exclusivity counts a
   `T` argument like any other; `copy()` is allowed. This is the strictest reading, and it is sound for every instance
   because an instance only makes a move cheaper (a scalar is copied) and never makes an access broader. The cost
@@ -552,7 +553,7 @@ Where this document was open, minimaxon does the following.
 minimaxon settles whether the rules are sound, which is a question for the checker, not the runtime. It
 implements the rules completely and the runtime only as far as testing them needs.
 
-1. Layer 1 checks: ownership and moves, `copy()`, the four conventions (`mutable` being Hylo's `inout`),
+1. Layer 1 checks: ownership and moves, `copy()`, the four conventions (`mutates` being Hylo's `inout`),
    second-class borrows, and the law of exclusivity over paths. **Done**, in `internal/check` (see "Choices made
    in step 1").
 2. Generics, checked once against their bounds. Second, because how they meet ownership is the unknown that

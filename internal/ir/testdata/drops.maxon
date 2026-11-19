@@ -2,7 +2,7 @@ type Pair
 	export var left as String
 	export var right as String
 
-	static function make(left sink String, right sink String) returns Pair
+	static function make(consumes left String, consumes right String) returns Pair
 		return Pair{left: left, right: right}
 	end 'make'
 end 'Pair'
@@ -11,7 +11,7 @@ function text(n Count) returns String
 	return "{n}!"
 end 'text'
 
-function eat(p sink Pair, _ sink String) returns Count
+function eat(consumes p Pair, consumes _ String) returns Count
 	return 1
 end 'eat'
 
@@ -37,7 +37,7 @@ function loops(n Count)
 	end 'l'
 end 'loops'
 
-function assigns(p mutable Pair)
+function assigns(mutates p Pair)
 	var local = text(1)
 	local = text(2)
 	p.left = local
@@ -51,7 +51,7 @@ function temporaries() returns Count
 	return 1
 end 'temporaries'
 
-function unwrapped(o sink Option[String]) returns String
+function unwrapped(consumes o Option[String]) returns String
 	return o.unwrap()
 end 'unwrapped'
 

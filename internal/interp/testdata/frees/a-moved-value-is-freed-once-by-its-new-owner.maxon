@@ -1,4 +1,4 @@
-function keep(s sink String) returns Count
+function keep(consumes s String) returns Count
 	let after = "z{9}"
 	return 1
 end 'keep'

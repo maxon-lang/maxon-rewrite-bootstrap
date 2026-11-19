@@ -35,6 +35,7 @@ go test ./...
 | `minimaxon check <file\|dir>` | diagnostics only |
 | `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
+| `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many
@@ -124,7 +125,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
 | `ast` | the program model: AST nodes, keywords and visitors (generated), semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project` | `diag` |
 | `project` | loading a project: discovery, declaration tables, the import-cycle check | `ast`, `diag`, `par` |
-| `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar, and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
+| `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
 | `resolve` | name resolution, and telling a subscript from type arguments | `ast`, `diag` |
 | `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture | `ast`, `diag` |
 | `ir` | the IR, its printer, collecting generic instances, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), and the runtime's symbol names | `ast`, `diag` |
@@ -294,7 +295,7 @@ interpreter and the backend each implement the entries. The element is always vi
 - An entry that takes an element **moves it in** (`rt.array.insert`, `rt.map.insert`, `rt.list.pushBack`,
   `rt.pool.insert`), one that returns an element **moves it out** (`rt.array.remove`, `rt.list.popFront`,
   `rt.pool.remove`), and `rt.<primitive>.elem` returns the **address** of an element: a borrow, valid until the next
-  call that changes the primitive. A subscript is that call and a `loadat` or a `storeat`, and a `mutable` argument
+  call that changes the primitive. A subscript is that call and a `loadat` or a `storeat`, and a `mutates` argument
   `a[i]` is the address itself. A value that changes the primitive is computed before the address is taken, which
   is what the ownership pass's exclusivity rules guarantee at the source.
 - An entry that is given an index, a key or a handle that names nothing traps. The queries that cannot miss
@@ -309,15 +310,15 @@ interpreter and the backend each implement the entries. The element is always vi
   its own type, and a copy of a pool or a list keeps its handles valid.
 - A `Handle[T]` is `scalar`; everything else here is `managed`.
 
-**Native.** Only the array has code in the backend. It is a box of three words, the length, the capacity and the
-address of its elements, which are 8-byte words; `rt.array.insert` grows it by doubling and shifts what follows, and
-frees the buffer it leaves (the elements moved to the new one, so only the buffer goes), and `rt.array.remove` hands the
-element it removes to the caller, who owns it. The entries are written in x64 in `internal/backend/arrays.go`,
-a unit of their own that the driver links only into a program that calls one. A map, a list and a pool are lowered all
-the same, which is what the interpreter runs, but the driver refuses a function that needs one before it generates code:
-`E9002`, at the first use in each function. A function that only drops, copies or holds a value that contains one (a
-`sink` parameter of type `map[K, V]`, or a record with a pool in it) is refused too, at the function, since there is no
-routine to free it.
+**Native.** Only the array has code in the backend. It is a box of three words, the length, the capacity and the address
+of its elements, which are 8-byte words; `rt.array.insert` grows it by doubling and shifts what follows, and frees the
+buffer it leaves (the elements moved to the new one, so only the buffer goes), and `rt.array.remove` hands the element
+it removes to the caller, who owns it. The entries are written in x64 in `internal/backend/arrays.go`, a unit of their
+own that the driver links only into a program that calls one. A map, a list and a pool are lowered all the same, which
+is what the interpreter runs, but the driver refuses a function that needs one before it generates code: `E9002`, at the
+first use in each function. A function that only drops, copies or holds a value that contains one (a `consumes`
+parameter of type `map[K, V]`, or a record with a pool in it) is refused too, at the function, since there is no routine
+to free it.
 
 ### Frozen values, cowns and behaviours in the IR
 
@@ -336,13 +337,14 @@ freed with what it holds when the count reaches 0. A scalar can be held (`cown[C
 an instance of a generic).
 
 A `when` is one instruction, `when body cowns [%a, %b] captures [%c]`. The cowns are read, not moved, and each gains a
-count of its own for as long as the behaviour is waiting or running. Each capture is a value that moves in: a managed one
-was moved out of its owner by the instruction before, so it is in flight. **The body is a function of its own**, in
-`IrFunction.Behaviours` of the function around it and printed after it: its parameters are the access to each cown's value
-(an address, as a `mutable` parameter has), then the captures, which it owns as a `sink` parameter does and drops at its end.
-It returns nothing, and nothing waits for it. Its name is the enclosing function's with `$when` and a number, in source
-order (`transfer$when0`, `swap[String]$when0` in an instance, `outer$when0$when0` for one inside another), so a generic
-function that holds a behaviour has one for each instance, lowered with the instance's type arguments.
+count of its own for as long as the behaviour is waiting or running. Each capture is a value that moves in: a managed
+one was moved out of its owner by the instruction before, so it is in flight. **The body is a function of its own**, in
+`IrFunction.Behaviours` of the function around it and printed after it: its parameters are the access to each cown's
+value (an address, as a `mutates` parameter has), then the captures, which it owns as a `consumes` parameter does and
+drops at its end. It returns nothing, and nothing waits for it. Its name is the enclosing function's with `$when` and a
+number, in source order (`transfer$when0`, `swap[String]$when0` in an instance, `outer$when0$when0` for one inside
+another), so a generic function that holds a behaviour has one for each instance, lowered with the instance's type
+arguments.
 
 **Native.** None of it has native code: green threads, a scheduler and atomic counts are not built (see
 [docs/regions.md](docs/regions.md)). The driver refuses a function that freezes, shares, thaws, makes a cown or schedules a
@@ -358,22 +360,22 @@ interpreter and codegen free exactly there.
 | Instruction | Drops |
 |---|---|
 | `dropslot s2 T` | what slot `s2` owns, if anything, and leaves it empty: a local at the end of its block, on every way out of it (fallthrough, `return`, `break`, `continue`), and the old value of a local that is assigned |
-| `dropat %a T` | what the address holds, if anything: the old value of a field, an element or a `mutable` or `set` parameter that is assigned |
+| `dropat %a T` | what the address holds, if anything: the old value of a field, an element or a `mutates` or `sets` parameter that is assigned |
 | `drop %r T` | the value in a register: a temporary that nothing took, an element removed and discarded, the box of an `Option` that was unwrapped, the value given to `array.filled` |
-| `%r = move s2` | reads a slot and leaves it empty: a whole local that moves (a binding, a `sink` argument, a return, a field, a branch of a conditional) |
+| `%r = move s2` | reads a slot and leaves it empty: a whole local that moves (a binding, a `consumes` argument, a return, a field, a branch of a conditional) |
 | `%r = moveat %a` | reads the value at an address and leaves it empty: the payload that leaves the box of an `Option` that `unwrap` consumes |
 | `%r = copy %s T` | a deep copy of the owned value in `%s`, which stays where it is: a new box for each record, union and array inside it, a new string for each string that is not a literal, and another owner of the same box for a frozen value or a cown |
 
 `T` is the type with an instance's type arguments applied, so codegen can call the drop routine of that type. Dropping a
 value drops what it owns, deeply by type: the fields of a record, the payload of a union, the elements of a primitive. A
-borrow is never dropped: a `let` or `mutable` parameter, a projection, and a `match` binding of a payload, which is
+borrow is never dropped: a `let` or `mutates` parameter, a projection, and a `match` binding of a payload, which is
 stored with `store s3, %r borrow`. A place that holds nothing, because it was moved from or never assigned, drops as a
 no-op, so one drop at the end of a scope serves every path to it and no analysis of paths is needed. A function that
 drops a value that holds a map, a list, a pool, a frozen value or a cown is refused natively like one that makes it.
 
-- **One place decides what moves.** The ownership pass marks each expression whose value changes owner
-  (`ast.Expr.IsConsumed`): a binding, an assignment, a `sink` argument, a return, a field or a payload, a branch of a
-  conditional or a match. Lowering reads that mark and nothing else. A consumed place is moved out of, and the pass
+-  **One place decides what moves.** The ownership pass marks each expression whose value changes owner
+  (`ast.Expr.IsConsumed`): a binding, an assignment, a `consumes` argument, a return, a field or a payload, a branch of
+  a conditional or a match. Lowering reads that mark and nothing else. A consumed place is moved out of, and the pass
   refuses every consumed place that is not a whole local; a consumed fresh value goes to its new owner; a fresh value
   that is not consumed is a temporary. The values a declaration holds outside any function, a constant and a field's
   default, are checked by the same pass for the same reason.
@@ -381,7 +383,7 @@ drops a value that holds a map, a list, a pool, a frozen value or a cown is refu
   owns the temporaries it makes: they are dropped when it ends, newest first, and a jump that leaves several scopes drops
   all of them. A condition drops its temporaries before it branches.
 - **Sink parameters** are copied into a slot at entry, which owns them from there, so the callee can move on or drop
-  them like a local. A `sink _` parameter is dropped too.
+  them like a local. A `consumes _` parameter is dropped too.
 - **A string is owned like any value.** A literal and the name of a case are immortal and never freed (a drop of one is a
   no-op, found by its address natively), but an interpolation makes a new string, and so does `copy()` of a string that is
   not a literal; the copy of a literal is the literal.
@@ -495,7 +497,7 @@ test runner. It has no types; it works from the shape of the values and from the
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours").
 - Integer, bool and string literals, interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, calls with Maxon's
-  positional-then-labelled arguments, parameter conventions (`mutable`, `sink`, `set`), `x.copy()`,
+  positional-then-labelled arguments, parameter conventions (`mutates`, `consumes`, `sets`), `x.copy()`,
   `.name`/`.ordinal`/`.rawValue`, explicit type arguments `swap[Count](a, b: c)`, subscripts `a[i]`.
 - Built in: `print`, `printError`, `panic`, `freeze`, `share`, `thaw`, `cown`, the aliases `ExitCode`, `Count`,
   `FullRangeInt`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
@@ -515,7 +517,7 @@ Layer 1 of [docs/regions.md](docs/regions.md), checked in one pass over each fun
 (`internal/check/ownership.go`, with places in `paths.go`). A value of a record, union, `String` or
 type-parameter type has one owner; every other access is a borrow that cannot outlive the call or match that made it.
 
-- **Moves.** Binding a place (`let b = a`), assigning it, passing it to a `sink` parameter, returning it, and
+- **Moves.** Binding a place (`let b = a`), assigning it, passing it to a `consumes` parameter, returning it, and
   storing it in a field or a union payload move it, and so does a conditional or a `match` arm that gives it. Using
   it afterwards is `E3102`; assigning the variable again gives it a value again. A scalar is copied and never
   moves, and a fresh value (a call, a literal) needs no move. A conditional's or a match's value is always a fresh
@@ -523,29 +525,29 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
 - **`x.copy()`** is a deep copy that every type has, so no type may declare a method `copy`. It allocates a new
   box for each record or union inside `x`, and a new string for each string, so that every value has an owner of its
   own to free it.
-- **Conventions.** A parameter takes its argument as `let` (no marker: an immutable borrow), `mutable` (a mutable
-  borrow; the caller sees the change and passes no marker), `sink` (the callee owns it) or `set` (the callee
-  initialises it). A method's receiver is `self` (let), `mutable self` or `sink self`. A `sink` parameter is owned
-  but not mutable, like a `let` local: move it into a `var` to change it. Assignment, and passing as `mutable`,
-  need a mutable place: a `var`, a `mutable` or `set` parameter, or `mutable self`, through fields that are all
-  `var` (`E2013`). `self` itself is the receiver and not a place that can be replaced, so it is never a `mutable`
-  argument (`E2013`); a field of it can be, and a method can be called on it.
-- **Borrows are second-class.** A `let`, `mutable` or `set` parameter, a `match` binding of a payload that is not
-  a scalar, and anything reached through one is borrowed: moving it anywhere (a binding, a field, a `sink`
-  argument, the return value) is `E3110`. A field of an owned value is never moved out either, because the value
-  would be left partly moved (`E3111`), and neither is an element of a collection, which the collection owns, nor a
-  part of a temporary, which is dropped when its statement ends; `copy()` is the fix for all of them. A match binding also cannot be assigned, and
-  the subject cannot be assigned, moved or passed `mutable` while the arm runs (`E3112`). There are no local
-  projection bindings (`mutable r = a.f`): borrows exist only as parameters, match bindings and call arguments.
+-  **Conventions.** A parameter takes its argument as `let` (no marker: an immutable borrow), `mutates` (a mutable
+  borrow; the caller sees the change and passes no marker), `consumes` (the callee owns it) or `sets` (the callee
+  initialises it). The marker comes before the name (`consumes item T`). A method's receiver is `self` (let), `mutates
+  self` or `consumes self`. A `consumes` parameter is owned but not mutable, like a `let` local: move it into a `var` to
+  change it. Assignment, and passing as `mutates`, need a mutable place: a `var`, a `mutates` or `sets` parameter, or
+  `mutates self`, through fields that are all `var` (`E2013`). `self` itself is the receiver and not a place that can be
+  replaced, so it is never a `mutates` argument (`E2013`); a field of it can be, and a method can be called on it.
+-  **Borrows are second-class.** A `let`, `mutates` or `sets` parameter, a `match` binding of a payload that is not a
+  scalar, and anything reached through one is borrowed: moving it anywhere (a binding, a field, a `consumes` argument,
+  the return value) is `E3110`. A field of an owned value is never moved out either, because the value would be left
+  partly moved (`E3111`), and neither is an element of a collection, which the collection owns, nor a part of a
+  temporary, which is dropped when its statement ends; `copy()` is the fix for all of them. A match binding also cannot
+  be assigned, and the subject cannot be assigned, moved or passed `mutates` while the arm runs (`E3112`). There are no
+  local projection bindings (`mutates r = a.f`): borrows exist only as parameters, match bindings and call arguments.
 - **Exclusivity.** A place is a local or parameter followed by field selections and element selections (`a[i]`, see
   "Primitives"), and two places overlap when one is a prefix of the other (`a` and `a.f`; `a.f` and `a.g` do not;
-  `a[i]` and `a[j]` do, for every index). An argument passed `mutable`, `sink` or `set`
+  `a[i]` and `a[j]` do, for every index). An argument passed `mutates`, `consumes` or `sets`
   must not overlap any other argument of the call, receiver included (`E3112`). The rule applies to every
   argument that names a place, scalars too. An argument that is a borrowed place stays borrowed while the later
   arguments are evaluated, and so does the target of an assignment while its value is, so a call nested there that
   changes an overlapping place is refused too (`E3112`).
 - **Initialisation.** `var x as T` declares a variable with no value. Reading it before every path has assigned
-  it is `E3113`. A `set` parameter starts without a value and must have one on every path that returns
+  it is `E3113`. A `sets` parameter starts without a value and must have one on every path that returns
   (`E3114`); its argument must be such a variable, which has a value after the call (`E3115`), and not before:
   another argument of the same call that reads it is `E3113`.
 
@@ -557,7 +559,7 @@ and each instance is lowered once.
 ```
 interface Shape
 	function area() returns Count
-	function grow(mutable self, by Count)
+	function grow(mutates self, by Count)
 end 'Shape'
 
 type Square implements Shape
@@ -567,7 +569,7 @@ type Square implements Shape
 		return side * side
 	end 'area'
 
-	function grow(mutable self, by Count)
+	function grow(mutates self, by Count)
 		side = side + by
 	end 'grow'
 end 'Square'
@@ -575,7 +577,7 @@ end 'Square'
 type Box[T]
 	var item as T
 
-	static function make(item sink T) returns Self
+	static function make(consumes item T) returns Self
 		return Self{item: item}
 	end 'make'
 end 'Box'
@@ -585,13 +587,14 @@ function total[T implements Shape](a T, b T) returns Count
 end 'total'
 ```
 
-- **Declaring.** A function, a `type` or a `union` takes type parameters in brackets, `[T, U implements Shape and Other]`;
-  `implements` names the bounds a parameter must meet. A type, an enum or a union says which interfaces it implements with
-  `implements` too: `type Square implements Shape and Named`. An interface lists method signatures, each with its receiver convention
-  (`mutable self`, `sink self`, or none for a `let` receiver), and may name `Self`. It is a bound and nothing else: it
-  is not the type of a value (`E3119`), has no type parameters, no static function and no parent interface, and an
-  alias, `String` or `bool` cannot implement one. A method uses its type's parameters and takes none of its own
-  (`E3123`). `Self` inside a generic type is the type at its own parameters, and a literal of it is `Self{...}`.
+-  **Declaring.** A function, a `type` or a `union` takes type parameters in brackets, `[T, U implements Shape and
+  Other]`; `implements` names the bounds a parameter must meet. A type, an enum or a union says which interfaces it
+  implements with `implements` too: `type Square implements Shape and Named`. An interface lists method signatures, each
+  with its receiver convention (`mutates self`, `consumes self`, or none for a `let` receiver), and may name `Self`. It
+  is a bound and nothing else: it is not the type of a value (`E3119`), has no type parameters, no static function and
+  no parent interface, and an alias, `String` or `bool` cannot implement one. A method uses its type's parameters and
+  takes none of its own (`E3123`). `Self` inside a generic type is the type at its own parameters, and a literal of it
+  is `Self{...}`.
 - **Using.** Type arguments are written after a name, `Box[Count].make(1)`, `swap[Count](a, b: c)`,
   `lib.Option[Count]`, or inferred from the arguments' types: `swap(a, b: c)`, `Option.some(x)`, `Box.make(x)`. An
   integer constant or the range of an expression names no alias, so it infers nothing and the argument is written
@@ -604,12 +607,12 @@ end 'total'
   has the methods of its bounds (`a.area()`, with `Self` read as the parameter; two bounds that declare one name
   are `E3121`) and what every type has: move, a borrow under any convention, `copy()`. Nothing else: no field, no
   operator, no `match`, no interpolation.
-- **Ownership over `T`.** A value of a type parameter is owned, movable and not a scalar, whatever `T` is
-  instantiated with, so every rule of "Ownership" applies to it unchanged and an instance cannot break what was
-  checked once. Binding it, passing it to `sink`, returning it or storing it moves it (`E3102` after); a `let` or
-  `mutable` parameter of type `T`, a payload of one and a field of a generic type are borrowed (`E3110`, `E3111`);
-  `copy()` keeps one. So a generic container gives its element out with `.copy()`, or takes it out of a primitive
-  with `remove`, `pop` or `unwrap` (see "Primitives"): no value is moved out of a field or a payload.
+-  **Ownership over `T`.** A value of a type parameter is owned, movable and not a scalar, whatever `T` is instantiated
+  with, so every rule of "Ownership" applies to it unchanged and an instance cannot break what was checked once. Binding
+  it, passing it to a `consumes` parameter, returning it or storing it moves it (`E3102` after); a `let` or `mutates`
+  parameter of type `T`, a payload of one and a field of a generic type are borrowed (`E3110`, `E3111`); `copy()` keeps
+  one. So a generic container gives its element out with `.copy()`, or takes it out of a primitive with `remove`, `pop`
+  or `unwrap` (see "Primitives"): no value is moved out of a field or a payload.
 - **Bounds at the instance.** Writing a type argument is the only place an instance is judged: it must implement
   each interface its parameter is bounded by, which is a declaration (`type Round implements Shape`) and not a structural
   match, and the error names the declaration to write and the methods missing (`E3117`). A declaration that says
@@ -645,34 +648,34 @@ one anywhere.
 | `list[T]` | `list[T].new()`; `count()`, `isEmpty()`, `contains(h)`, `first()`, `last()`, `next(h)`, `prev(h)`; `pushFront(item)` and `pushBack(item)` return `Handle[T]`; `popFront()` and `popBack()` return `Option[T]`; `remove(h)` returns `Option[T]`; `moveToFront(h)` |
 | `pool[T]` | `pool[T].new()`; `count()`, `isEmpty()`, `contains(h)`; `insert(item)` returns `Handle[T]`; `remove(h)` returns `Option[T]` |
 | `Handle[T]` | no operations; `==` and `!=` |
-| `Option[T]` | cases `some(value)` and `none`; `isSome()`; `unwrap()`, which consumes the option (`sink self`) and panics on `none` |
+| `Option[T]` | cases `some(value)` and `none`; `isSome()`; `unwrap()`, which consumes the option (`consumes self`) and panics on `none` |
 
-An operation that changes the primitive takes `mutable self`, and one that adds an element takes it `sink`. `first`,
+An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`. `first`,
 `last`, `next` and `prev` return `Option[Handle[T]]`.
 
-- **Collections own their elements.** Adding takes the element `sink`, so it moves in. Taking one out is `remove`,
+- **Collections own their elements.** Adding takes the element `consumes`, so it moves in. Taking one out is `remove`,
   `pop`, `popFront`, `popBack` or `unwrap`, which move it out to the caller, owned; the only other way to hold an
   element is `.copy()`. `copy()` of a collection is deep.
-- **A subscript is a projection.** `a[i]`, `m[k]`, `l[h]` and `p[h]` borrow the element: the array is indexed by a
+-  **A subscript is a projection.** `a[i]`, `m[k]`, `l[h]` and `p[h]` borrow the element: the array is indexed by a
   `Count`, a map by its key, a list and a pool by the `Handle` of the element. Read, it is a `let` borrow; assigned
-  through (`a[i] = v`, `a[i].count = 3`) or passed to a `mutable` parameter, it is `mutable`. It is never an owned value:
-  binding it, returning it or passing it to a `sink` is `E3111`, or `E3110` where the collection itself is borrowed,
-  and `copy()` is the fix. A scalar element is copied like any scalar, so `let n = a[i]` is fine. The element of a
-  temporary (`make()[0]`) cannot be moved or assigned either.
+  through (`a[i] = v`, `a[i].count = 3`) or passed to a `mutates` parameter, it is `mutates`. It is never an owned
+  value: binding it, returning it or passing it to a `consumes` parameter is `E3111`, or `E3110` where the collection
+  itself is borrowed, and `copy()` is the fix. A scalar element is copied like any scalar, so `let n = a[i]` is fine.
+  The element of a temporary (`make()[0]`) cannot be moved or assigned either.
 - **A miss traps**, as an out-of-range index, a missing key or a stale handle: a range-check guard, safe, and it
   never touches freed memory. The operations that cannot miss let a program test first: `count`, `isEmpty`, `has`,
   `contains`, and `first`, `next` and the others that return an `Option`.
 - **Exclusivity.** A path gains a second kind of step, an element, and every element of a collection overlaps every
   other one, whatever the indexes say: `a[i]` and `a[j]` overlap, so `pair(a[i], b: a[j])` and `f(a, n: a[0])` are
   refused (`E3112`), while `pair(a[i], b: b[j])` and `pair(r.left[0], b: r.right[0])` are fine. A method with an
-  `mutable self` receiver, such as `append`, `insert` and `remove`, overlaps every projection of its collection in the
+  `mutates self` receiver, such as `append`, `insert` and `remove`, overlaps every projection of its collection in the
   same call: `a.append(a[0])` is refused, and `let x = a[0]; a.append(x)` is the fix for a scalar. An index, a key
   or a handle is an ordinary value, read before the call, so `a[a.count() - 1]` and `a.insert(x, at: a.count())`
   are fine.
 - **A borrow is held while the rest is evaluated.** An argument that borrows a place, and the target of `x.f = v` and
   `a[i] = v`, stays borrowed while later arguments, or the value, are evaluated, because the address is taken first.
   A call in there that changes an overlapping place is refused (`E3112`): `look(a[0], n: drop(a))`, where `drop`
-  takes `a` as `mutable`, and `a[0].n = drop(a)`. A scalar read by a `let` parameter is a value by then and holds
+  takes `a` as `mutates`, and `a[0].n = drop(a)`. A scalar read by a `let` parameter is a value by then and holds
   nothing.
 - **Handles are keys.** A `Handle[T]` is a plain word: copy it freely, store it in a field, in a map, in an array or
   in another element, compare it with `==`. It owns nothing. Using one is a lookup, so a handle whose element was
@@ -722,46 +725,47 @@ end 'transfer'
 
 | Written | Means |
 |---|---|
-| `freeze(x)` | takes `x` (`sink`) and gives a `frozen[T]`, an immutable value; `T` is not a plain value (`E3127`) |
+| `freeze(x)` | takes `x` (`consumes`) and gives a `frozen[T]`, an immutable value; `T` is not a plain value (`E3127`) |
 | `share(f)` | another owner of the frozen value or the cown that `f` (a `let` borrow) names; the count goes up by 1 |
 | `thaw(f)` | an owned, mutable deep copy of what a frozen value holds |
-| `cown(x)` | takes `x` (`sink`) and gives a `cown[T]`, a reference to a cown that owns the value; `T` may be a plain value |
-| `when a, b as x, y 'label'` … `end` | a behaviour: runs later, once it has exclusive access to the cowns `a` and `b`, with `mutable` access to their values as `x` and `y` |
+| `cown(x)` | takes `x` (`consumes`) and gives a `cown[T]`, a reference to a cown that owns the value; `T` may be a plain value |
+| `when a, b as x, y 'label'` … `end` | a behaviour: runs later, once it has exclusive access to the cowns `a` and `b`, with `mutates` access to their values as `x` and `y` |
 
-- **Frozen values.** The contents are lent and never given: reading a field, calling a method whose receiver is `let`,
+-  **Frozen values.** The contents are lent and never given: reading a field, calling a method whose receiver is `let`,
   subscripting, matching, interpolating, and passing the frozen value to a `let` parameter of the type it holds all see
-  the contents (`d.title`, `d.total()`, `describe(d)`). Anything else is refused: assigning through it, a `mutable`
-  argument, a method that takes `mutable self` or `sink self`, or a `sink` parameter is `E3125`, and taking a part out of
-  it is `E3111`. The type system tells a frozen value from its contents by the type `frozen[T]`, so a place's path
-  gains a step into the contents (`paths.go`), and every rule about places, borrows and exclusivity applies to it as it
-  does to a field. `copy()` of a frozen value, of a cown reference, and of anything that holds one, is a `share`: the
-  copy is another owner of the same value, never a new value; `thaw` is how to get a mutable copy of the contents.
-  There is **one count per frozen value**, however many objects it holds. A frozen value is built from a value that was
-  owned (a tree) and given up by `freeze`, so what it holds is either part of that tree or a counted value that existed
-  before it, and nothing can be added to it afterwards: counts form a DAG and no cycle of frozen values can exist. A
-  string literal and a constant are immortal and uncounted.
+  the contents (`d.title`, `d.total()`, `describe(d)`). Anything else is refused: assigning through it, a `mutates`
+  argument, a method that takes `mutates self` or `consumes self`, or a `consumes` parameter is `E3125`, and taking a
+  part out of it is `E3111`. The type system tells a frozen value from its contents by the type `frozen[T]`, so a
+  place's path gains a step into the contents (`paths.go`), and every rule about places, borrows and exclusivity applies
+  to it as it does to a field. `copy()` of a frozen value, of a cown reference, and of anything that holds one, is a
+  `share`: the copy is another owner of the same value, never a new value; `thaw` is how to get a mutable copy of the
+  contents. There is **one count per frozen value**, however many objects it holds. A frozen value is built from a value
+  that was owned (a tree) and given up by `freeze`, so what it holds is either part of that tree or a counted value that
+  existed before it, and nothing can be added to it afterwards: counts form a DAG and no cycle of frozen values can
+  exist. A string literal and a constant are immortal and uncounted.
 - **Cowns.** A `cown[T]` is a counted reference: `share` and `copy()` make another, dropping one lowers the count, and
   the cown and its value are freed when the last reference is gone and no behaviour holds it. The value is touched only in
   a behaviour (`E3132` for a field, an element, a method, a match or an interpolation of a cown outside one). A type that
   can reach itself through a cown, directly or through other types, is refused (`E3131`): a behaviour could store a
   reference in the value, two cowns could refer to each other, and counting never frees a cycle. A handle or a key
   does the same job without the cycle.
-- **Behaviours.** `when` names its cowns, which are plain variables or fields of `self` (`as` would read as a cast after
-  an expression), and gives one name for each value; the cowns are only read, so naming one does not move it. The body is
-  a function of its own that sees the variables around it by capturing them: **a scalar is copied; an owned value moves
-  in at the `when`**, so using it afterwards is `E3102` (a loop that schedules a behaviour that takes a variable declared
-  outside it fails the same way); a frozen value and a cown reference are owned values too, so one that the enclosing
-  code keeps is shared first (`let own = share(f)`). A borrow cannot be captured, because the behaviour outlives it:
-  a `let`, `mutable` or `set` parameter, the receiver and its fields, a `match` binding, and `x` or `y` of an enclosing
-  behaviour are `E3126`, with the fix named (`share` for a shared value, `copy()` for the rest). A captured value is
-  not mutable in the body (it is moved into a `var` to change it), like a `sink` parameter. `x` and `y` are `mutable`
-  parameters of the body, so they cannot escape: moving, returning, storing or passing them to `sink` is `E3110`, and
-  `copy()` is the way out. A behaviour returns nothing and is not waited for (`return value` is `E3005`); it may
-  schedule more behaviours, and passing a result on is how a chain works. Naming one cown twice is `E3130`, and a count
-  of names that differs from the count of cowns is `E3129`, as is naming something that is not a cown reference.
+-  **Behaviours.** `when` names its cowns, which are plain variables or fields of `self` (`as` would read as a cast
+  after an expression), and gives one name for each value; the cowns are only read, so naming one does not move it. The
+  body is a function of its own that sees the variables around it by capturing them: **a scalar is copied; an owned
+  value moves in at the `when`**, so using it afterwards is `E3102` (a loop that schedules a behaviour that takes a
+  variable declared outside it fails the same way); a frozen value and a cown reference are owned values too, so one
+  that the enclosing code keeps is shared first (`let own = share(f)`). A borrow cannot be captured, because the
+  behaviour outlives it: a `let`, `mutates` or `sets` parameter, the receiver and its fields, a `match` binding, and `x`
+  or `y` of an enclosing behaviour are `E3126`, with the fix named (`share` for a shared value, `copy()` for the rest).
+  A captured value is not mutable in the body (it is moved into a `var` to change it), like a `consumes` parameter. `x`
+  and `y` are `mutates` parameters of the body, so they cannot escape: moving, returning, storing or passing them to
+  `consumes` is `E3110`, and `copy()` is the way out. A behaviour returns nothing and is not waited for (`return value`
+  is `E3005`); it may schedule more behaviours, and passing a result on is how a chain works. Naming one cown twice is
+  `E3130`, and a count of names that differs from the count of cowns is `E3129`, as is naming something that is not a
+  cown reference.
 - **The one run-time check.** Two different variables can name one cown (`let b = share(a)`), and the checker cannot
   tell, so a behaviour that is scheduled with the same cown twice traps (exit 1, "names the same cown twice") instead of
-  giving two `mutable` names to one value. It is a trap, as an index out of range is, and never a race.
+  giving two `mutates` names to one value. It is a trap, as an index out of range is, and never a race.
 - **Order.** A behaviour is queued on each cown it names when it is scheduled. It runs when it is first in all of those
   queues, so behaviours that share a cown run in the order they were scheduled, behaviours on disjoint cowns have no
   order, and a behaviour that names several cowns acquires them together: there is no lock to hold while waiting, so no
@@ -792,6 +796,25 @@ and which tokens join (`-> noSpaceBefore` on a token, `^'('` at a call), and the
 blank lines between declarations (`E2010`). Holding the layout costs the lexer nothing measurable: it lexes the
 bench at the same 49–50 ms as without the checks.
 
+`minimaxon fmt` writes this layout, so a change to a layout rule is "change the rule, run `fmt`". The parser decides the
+layout, so the parser formats: `Parser.gapBefore` says what separates a token from the one before it (none, one space,
+a line start or the end of a line), and `lineFault` and `endFault` say which blank lines may come before a line. The
+checking parser refuses a gap that differs from those, and the formatting parser (`syntax.Format`) writes them instead:
+the output is the token stream with the required gaps, a tab per `Indent`, and the comments, which the lexer skips but
+which stay in the gaps of the source. A comment on its own line is written indented like the line after it, a comment
+after code one space after it, and the text of a comment is never changed. Blank lines between comment paragraphs stay
+where a blank line is allowed, and go where it is not. An interpolation is formatted by the same parser, in its own
+pass.
+
+The formatter reads source whose layout is wrong but whose meaning is clear, which the lexer reads in a lenient mode:
+several spaces or tabs between tokens, trailing whitespace, whitespace on a blank line, a comment spaced or indented as
+it likes. Line endings are first made LF, a byte order mark dropped and a missing final newline added. Indentation of
+code stays strict, since a space or a wrong depth would change the program, and so do a line break inside parentheses
+and a block comment: `fmt` reports the error and leaves the file alone. The lenient checks sit on the lexer's error
+paths, off `lexLine`'s own path, so lexing a correct file costs the same (the lex bench measures 25.5 ms before and 25.9 ms
+after, and the parse phase of a 25 MB generated project 47 ms in both). Before it writes anything `Format` parses its output strictly and
+compares its tokens with the input's, so a formatter bug is an internal error and never a changed program.
+
 ### Where it differs from Maxon
 
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
@@ -814,7 +837,11 @@ bench at the same 49–50 ms as without the checks.
   type. Interfaces are bounds only: no generic interface, no static requirement, no default method, no existential
   value; a type implements one by saying so, and `int` aliases, `String` and `bool` implement none.
 - The reserved words are exactly the keywords the grammar uses, so a word Maxon reserves for a feature minimaxon
-  lacks is an ordinary name, and a word such as `mutable`, `sink` or `set` that Maxon reads by context is reserved.
+  lacks is an ordinary name, and a word that could be read by context, such as `mutates`, `consumes` or `sets`, is
+  reserved.
+- A parameter convention is a verb written before the parameter's name, with the function as its subject:
+  `push(consumes item T)`, `swap(mutates a T, mutates b T)`, `parse(sets result Ast)`, and `mutates self` or
+  `consumes self` for a receiver.
 - Modules differ from Maxon in three ways. Visibility is flat, not "the directory and its subdirectories".
   Import cycles are refused. And the rule that an exported signature may not name a less visible type
   (`E3167`) is not checked.
@@ -834,6 +861,16 @@ A change to the syntax touches many programs, so tools do the mechanical part:
   left alone and listed if it contains the word. In a Markdown file it renames the code: inline code spans, and fenced
   blocks tagged `maxon` or not tagged; prose, and a span or block that does not lex (IR text, a command), are left
   alone, and the first such span holding the word is named.
+- **`minimaxon fmt [--check] <path>...`** is the tool for a layout change (a rule about spaces, indentation, blank
+  lines or comments): change the rule in the parser or the grammar, run `minimaxon fmt tests internal docs README.md`,
+  then check. It rewrites every `.maxon` file under the paths, and the fenced blocks of `.md` files that are tagged
+  `maxon` or not tagged and parse as whole programs; other blocks, code spans and prose are left alone. `fmt --check`
+  writes nothing and exits 1 listing the files that are not in the layout. Over a directory it skips a file that
+  contains `// expect-error: E2001` or `// expect-error: E2010`: those tests are laid out wrongly on purpose, and a
+  formatter would put them right. A file that does not parse is reported and left alone (over a directory, a corpus
+  holds such files on purpose; a file named on the command line that does not parse is an error and exits 1). The
+  unit-test sources under `internal/*/testdata`, case files included, are whole files of declarations and comments,
+  so `fmt` handles them like any other.
 - **`minimaxon test --update-positions`** moves each `expect-error` whose code is now reported at another line or column,
   as after a rename that changes a line's length. It never changes the code a test expects, so a test that now fails
   with another error still fails.

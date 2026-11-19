@@ -5,7 +5,7 @@ type Counter
 		return Counter{n: 0}
 	end 'make'
 
-	function bump(mutable self)
+	function bump(mutates self)
 		n = n + 1
 	end 'bump'
 
@@ -21,11 +21,11 @@ type Stack
 		return Stack{}
 	end 'make'
 
-	function push(mutable self, n Count)
+	function push(mutates self, n Count)
 		items.append(n)
 	end 'push'
 
-	function pop(mutable self) returns Count
+	function pop(mutates self) returns Count
 		return items.pop().unwrap()
 	end 'pop'
 
@@ -55,7 +55,7 @@ function primesBelow(limit Count) returns Count
 	return found
 end 'primesBelow'
 
-function sort(a mutable array[Count])
+function sort(mutates a array[Count])
 	var swapped = true
 	while swapped 'passes'
 		swapped = false

@@ -2,12 +2,12 @@ typealias Score = int(i64.min to i64.max)
 
 interface Shape
 	function area() returns Score
-	function grow(mutable self, by Score)
-	function dispose(sink self)
-	function absorb(mutable self, other Self)
+	function grow(mutates self, by Score)
+	function dispose(consumes self)
+	function absorb(mutates self, other Self)
 end 'Shape'
 
-function twice[T implements Shape](a mutable T)
+function twice[T implements Shape](mutates a T)
 	a.absorb(a)
 end 'twice'
 

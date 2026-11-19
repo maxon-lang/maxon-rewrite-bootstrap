@@ -9,7 +9,7 @@ export type Square implements containers.Shape
 		return side * side
 	end 'area'
 
-	function grow(mutable self, by containers.Score)
+	function grow(mutates self, by containers.Score)
 		side = side + by
 	end 'grow'
 end 'Square'

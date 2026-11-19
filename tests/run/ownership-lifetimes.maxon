@@ -2,7 +2,7 @@ type Part
 	export var name as String
 	export var weight as Count
 
-	static function make(name sink String, weight Count) returns Part
+	static function make(consumes name String, weight Count) returns Part
 		return Part{name: name, weight: weight}
 	end 'make'
 end 'Part'
@@ -11,7 +11,7 @@ type Crate
 	export var label as String
 	export var parts as array[Part]
 
-	static function make(label sink String) returns Crate
+	static function make(consumes label String) returns Crate
 		return Crate{label: label, parts: array[Part].new()}
 	end 'make'
 
@@ -23,11 +23,11 @@ type Crate
 		return sum
 	end 'total'
 
-	function add(mutable self, name sink String, weight Count)
+	function add(mutates self, consumes name String, weight Count)
 		parts.append(Part.make(name, weight: weight))
 	end 'add'
 
-	function take(sink self) returns Count
+	function take(consumes self) returns Count
 		return self.total()
 	end 'take'
 end 'Crate'
@@ -61,7 +61,7 @@ function early(n Count) returns String
 	return a
 end 'early'
 
-function choose(first sink String, second sink String, pickFirst bool) returns String
+function choose(consumes first String, consumes second String, pickFirst bool) returns String
 	if pickFirst 'f'
 		return first
 	end 'f'

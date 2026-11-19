@@ -28,7 +28,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: sink an element
+// case: consume an element
 // expect-error: E3111
 function main() returns ExitCode
 	var a = array[Cell].new()
@@ -61,7 +61,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: two elements as mutable arguments
+// case: two elements as mutates arguments
 // expect-error: E3112
 function main() returns ExitCode
 	var a = array[Cell].new()

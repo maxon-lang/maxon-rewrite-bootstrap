@@ -17,17 +17,17 @@ func TestAFieldOfATemporaryCannotBeMovedOut(t *testing.T) {
 	checkCases(t, "testdata/holes/a-field-of-a-temporary-cannot-be-moved-out.maxon", holesPrelude)
 }
 
-// self is the receiver, a pointer that the caller still owns: a mutable parameter could assign the whole value, which
+// self is the receiver, a pointer that the caller still owns: a mutates parameter could assign the whole value, which
 // self cannot take. A field of it can be passed, and a method called on it (the prelude does both).
 func TestSelfIsNotAMutableArgument(t *testing.T) {
-	errs := checkFile(t, "testdata/holes/self-is-not-a-mutable-argument.maxon")
+	errs := checkFile(t, "testdata/holes/self-is-not-a-mutates-argument.maxon")
 	expectCodes(t, errs, diag.ErrAssignToImmutable)
 	if errs[0].Line != 5 {
 		t.Errorf("the error is at the call in reset, got line %d", errs[0].Line)
 	}
 }
 
-// A variable passed to a set parameter has its value when the call has run, so another argument of the call cannot read it.
+// A variable passed to a sets parameter has its value when the call has run, so another argument of the call cannot read it.
 func TestASetArgumentHasNoValueUntilTheCallHasRun(t *testing.T) {
-	checkCases(t, "testdata/holes/a-set-argument-has-no-value-until-the-call-has-run.maxon", holesPrelude)
+	checkCases(t, "testdata/holes/a-sets-argument-has-no-value-until-the-call-has-run.maxon", holesPrelude)
 }

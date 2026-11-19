@@ -193,7 +193,7 @@ func TestReturningAValueThatAnotherOwnerHolds(t *testing.T) {
 // Two arguments reach the same record, and one of them is passed mutable: the callee would reach one place through two
 // names.
 func TestOverlappingArgumentsAtACall(t *testing.T) {
-	callee, calleeDecl := newFunction("touch", ast.ConvMutable, ast.ConvLet)
+	callee, calleeDecl := newFunction("touch", ast.ConvMutates, ast.ConvLet)
 	callee.ret(callee.konst(0))
 	b, _ := newFunction("main")
 	s := b.slot(ir.KindManaged)
@@ -204,7 +204,7 @@ func TestOverlappingArgumentsAtACall(t *testing.T) {
 }
 
 func TestDisjointArgumentsAtACallAreFine(t *testing.T) {
-	callee, calleeDecl := newFunction("touch", ast.ConvMutable, ast.ConvLet)
+	callee, calleeDecl := newFunction("touch", ast.ConvMutates, ast.ConvLet)
 	callee.ret(callee.konst(0))
 	b, _ := newFunction("main")
 	s, u := b.slot(ir.KindManaged), b.slot(ir.KindManaged)

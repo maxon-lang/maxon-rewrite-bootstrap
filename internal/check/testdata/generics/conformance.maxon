@@ -21,7 +21,7 @@ type Round implements Shape
 		return "r"
 	end 'area'
 
-	function grow(mutable self, by Score)
+	function grow(mutates self, by Score)
 		r = r + by
 	end 'grow'
 end 'Round'
@@ -57,7 +57,7 @@ type Round implements Shape
 		return r
 	end 'area'
 
-	function grow(mutable self, by String)
+	function grow(mutates self, by String)
 		print(by)
 	end 'grow'
 end 'Round'

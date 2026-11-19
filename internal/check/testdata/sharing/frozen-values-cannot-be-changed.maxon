@@ -14,7 +14,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: mutable
+// case: mutates
 // expect-error: E3125
 function main() returns ExitCode
 	let d = freeze(Doc.make("a"))
@@ -30,7 +30,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: sink
+// case: consumes
 // expect-error: E3125
 function main() returns ExitCode
 	let d = freeze(Doc.make("a"))

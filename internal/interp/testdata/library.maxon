@@ -3,7 +3,7 @@ interface Scorable
 end 'Scorable'
 
 interface Growable
-	function grow(mutable self, by Count)
+	function grow(mutates self, by Count)
 end 'Growable'
 
 type Meter implements Scorable and Growable
@@ -17,7 +17,7 @@ type Meter implements Scorable and Growable
 		return n
 	end 'score'
 
-	function grow(mutable self, by Count)
+	function grow(mutates self, by Count)
 		n = n + by
 	end 'grow'
 end 'Meter'
@@ -25,7 +25,7 @@ end 'Meter'
 type Box[T]
 	var item as T
 
-	static function make(item sink T) returns Self
+	static function make(consumes item T) returns Self
 		return Self{item: item}
 	end 'make'
 
@@ -33,11 +33,11 @@ type Box[T]
 		return item.copy()
 	end 'peek'
 
-	function replace(mutable self, next sink T)
+	function replace(mutates self, consumes next T)
 		item = next
 	end 'replace'
 
-	function take(sink self) returns T
+	function take(consumes self) returns T
 		return item.copy()
 	end 'take'
 end 'Box'
@@ -46,7 +46,7 @@ function dup[T](x T) returns T
 	return x.copy()
 end 'dup'
 
-function put[T](items mutable array[T], x sink T)
+function put[T](mutates items array[T], consumes x T)
 	items.append(x)
 end 'put'
 
@@ -57,7 +57,7 @@ function firstOf[T](items array[T]) returns Option[T]
 	return Option.some(items[0].copy())
 end 'firstOf'
 
-function overwrite[T](target mutable T, with T)
+function overwrite[T](mutates target T, with T)
 	target = with.copy()
 end 'overwrite'
 
@@ -69,70 +69,70 @@ function totalFrozen[T implements Scorable](x frozen[T]) returns Count
 	return x.score()
 end 'totalFrozen'
 
-function growTwice[T implements Growable](x mutable T)
+function growTwice[T implements Growable](mutates x T)
 	x.grow(1)
 	x.grow(2)
 end 'growTwice'
 
-function keep[T](x sink T) returns T
+function keep[T](consumes x T) returns T
 	return x
 end 'keep'
 
-function pass2[T](a sink T, b sink T, first bool) returns T
+function pass2[T](consumes a T, consumes b T, first bool) returns T
 	if first 'f'
 		return a
 	end 'f'
 	return b
 end 'pass2'
 
-function both[A, B](a A, b mutable B)
+function both[A, B](a A, mutates b B)
 	b = b.copy()
 	let c = a.copy()
 end 'both'
 
-function consume[T](x sink T)
+function consume[T](consumes x T)
 	let kept = x
 end 'consume'
 
-function both2[A, B](a A, b sink B)
+function both2[A, B](a A, consumes b B)
 	consume[B](b)
 	let c = a.copy()
 end 'both2'
 
-function fill[T](out set T, from T)
+function fill[T](sets out T, from T)
 	out = from.copy()
 end 'fill'
 
-function churn[T](items mutable array[T]) returns Count
+function churn[T](mutates items array[T]) returns Count
 	let last = items.pop()
 	return items.count()
 end 'churn'
 
-function churnList[T](items mutable list[T]) returns Count
+function churnList[T](mutates items list[T]) returns Count
 	let first = items.popFront()
 	return items.count()
 end 'churnList'
 
-function churnMap[V](m mutable map[String, V]) returns Count
+function churnMap[V](mutates m map[String, V]) returns Count
 	let gone = m.remove("k0")
 	return m.count()
 end 'churnMap'
 
-function churnPool[T](p mutable pool[T], x sink T) returns Count
+function churnPool[T](mutates p pool[T], consumes x T) returns Count
 	let h = p.insert(x)
 	return p.count()
 end 'churnPool'
 
-function shrink(items mutable array[Count]) returns Count
+function shrink(mutates items array[Count]) returns Count
 	let last = items.pop()
 	return items.count()
 end 'shrink'
 
-function bump(x mutable Count)
+function bump(mutates x Count)
 	x = x + 1
 end 'bump'
 
-function mint[T](x sink T) returns Handle[T]
+function mint[T](consumes x T) returns Handle[T]
 	var p = pool[T].new()
 	return p.insert(x)
 end 'mint'

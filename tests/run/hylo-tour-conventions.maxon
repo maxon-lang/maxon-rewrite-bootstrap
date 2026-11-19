@@ -12,7 +12,7 @@ end 'Pair'
 type Wrapper
 	export var pair as Pair
 
-	static function wrap(pair sink Pair) returns Wrapper
+	static function wrap(consumes pair Pair) returns Wrapper
 		return Wrapper{pair: pair}
 	end 'wrap'
 end 'Wrapper'
@@ -21,25 +21,25 @@ function total(p Pair) returns Number
 	return p.first + p.second
 end 'total'
 
-function double(p mutable Pair)
+function double(mutates p Pair)
 	p.first = p.first * 2
 	p.second = p.second * 2
 end 'double'
 
-function replace(p mutable Pair, with sink Pair)
+function replace(mutates p Pair, consumes with Pair)
 	p = with
 end 'replace'
 
-function consume(p sink Pair) returns Number
+function consume(consumes p Pair) returns Number
 	let wrapper = Wrapper.wrap(p)
 	return total(wrapper.pair)
 end 'consume'
 
-function make(p set Pair, first Number, second Number)
+function make(sets p Pair, first Number, second Number)
 	p = Pair.create(first, second: second)
 end 'make'
 
-function makeOrdered(p set Pair, ascending bool)
+function makeOrdered(sets p Pair, ascending bool)
 	if ascending 'order'
 		make(p, first: 1, second: 2)
 	end 'order' else 'other'

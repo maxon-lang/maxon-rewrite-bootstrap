@@ -391,13 +391,13 @@ func (g *generator) actMethod(depth int) bool {
 	var receiver string
 	var root *variable
 	switch m.recv {
-	case kwMutable:
+	case kwMutates:
 		p, ok := g.place(r.t, true)
 		if !ok {
 			return false
 		}
 		receiver, root = p.src, p.root
-	case kwSink:
+	case kwConsumes:
 		moves := g.movable(r.t)
 		if len(moves) == 0 {
 			return false
@@ -931,21 +931,21 @@ func (g *generator) function(index int) {
 		if t.kind == kHandle {
 			t = tCount
 		}
-		conv := []string{"", "", kwMutable, kwSink, kwSet}[g.pick(5)]
-		if t.scalar() && conv == kwSink {
+		conv := []string{"", "", kwMutates, kwConsumes, kwSets}[g.pick(5)]
+		if t.scalar() && conv == kwConsumes {
 			conv = ""
 		}
 		p := param{name: fmt.Sprintf("a%d", i), t: t, conv: conv}
 		f.params = append(f.params, p)
-		text := p.name + " "
+		text := ""
 		if conv != "" {
-			text += conv + " "
+			text = conv + " "
 		}
-		parts = append(parts, text+t.src())
-		v := g.declare(p.name, t, conv == kwSink || conv == kwSet, conv == kwMutable || conv == kwSet)
-		v.setParam = conv == kwSet
-		if conv == kwSet {
-			// A set parameter starts with no value, and the function gives it one before it does anything else, except in
+		parts = append(parts, text+p.name+" "+t.src())
+		v := g.declare(p.name, t, conv == kwConsumes || conv == kwSets, conv == kwMutates || conv == kwSets)
+		v.setParam = conv == kwSets
+		if conv == kwSets {
+			// A sets parameter starts with no value, and the function gives it one before it does anything else, except in
 			// a program that is careless about it.
 			v.moved = true
 			sets = append(sets, v)
@@ -1147,7 +1147,7 @@ func (g *generator) bothWith(borrowed place) bool {
 	return true
 }
 
-// actSet declares a variable with no value and has a function that takes it as a set parameter initialise it.
+// actSet declares a variable with no value and has a function that takes it as a sets parameter initialise it.
 func (g *generator) actSet(depth int) bool {
 	t := g.anyType()
 	if t.kind == kHandle {

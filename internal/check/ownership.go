@@ -174,7 +174,7 @@ type Ownership struct {
 	framePool   []*ownFrame
 	projections []ownProjection
 	setParams   []*ast.Local
-	// initialising are the variables that the call being checked gives a value, through set parameters. They have one
+	// initialising are the variables that the call being checked gives a value, through sets parameters. They have one
 	// when the call has run, so the arguments of that same call still find them empty.
 	initialising []*ast.Local
 	steps        []pathStep
@@ -194,7 +194,7 @@ func (o *Ownership) Check(f *ast.FuncDecl) {
 	o.setParams = o.setParams[:0]
 	s := ownClean
 	for _, prm := range f.Params {
-		if prm.Sym != nil && prm.Sym.Conv == ast.ConvSet {
+		if prm.Sym != nil && prm.Sym.Conv == ast.ConvSets {
 			o.setParams = append(o.setParams, prm.Sym)
 			s = s.with(prm.Sym, ownFact{site: prm, kind: factUninitialised})
 		}
@@ -468,7 +468,7 @@ func (o *Ownership) readRoot(l *ast.Local, site ast.Node, s *ownState) *ownState
 	return s.without(l)
 }
 
-// consume is an expression whose value is stored, passed to a sink or returned. Code that can run marks the expression
+// consume is an expression whose value is stored, passed to a consumes parameter or returned. Code that can run marks the expression
 // consumed, which is how lowering learns where a value changes owner. A scalar is copied, and a fresh value needs
 // nothing. A place holding a managed value is moved out of, which only a whole local that owns its value allows;
 // everything else is refused and says to copy.
@@ -536,16 +536,16 @@ func (o *Ownership) requireWritable(site ast.Node, p accessPath) {
 		return
 	case root.IsSelf && !root.Mutable():
 		o.fail(site, diag.ErrAssignToImmutable,
-			"'%s' cannot be changed because 'self' is not mutable here; declare the method with 'mutable self'", p.text())
+			"'%s' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'", p.text())
 		return
 	case root.IsParam && root.Conv == ast.ConvLet:
 		o.fail(site, diag.ErrAssignToImmutable,
-			"'%s' cannot be changed because '%s' is a let parameter; declare it 'mutable' to change the caller's value, or copy it into a var",
+			"'%s' cannot be changed because '%s' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var",
 			p.text(), root.Name)
 		return
-	case root.IsParam && root.Conv == ast.ConvSink:
+	case root.IsParam && root.Conv == ast.ConvConsumes:
 		o.fail(site, diag.ErrAssignToImmutable,
-			"'%s' cannot be changed because '%s' is a sink parameter; move it into a var first", p.text(), root.Name)
+			"'%s' cannot be changed because '%s' is a 'consumes' parameter; move it into a var first", p.text(), root.Name)
 		return
 	case !root.Mutable():
 		o.fail(site, diag.ErrAssignToImmutable,
@@ -594,7 +594,7 @@ func (o *Ownership) requireNotProjected(p accessPath, site ast.Node) {
 	}
 }
 
-// requireSetsInitialised is checked wherever the function returns: each set parameter holds a value by then.
+// requireSetsInitialised is checked wherever the function returns: each sets parameter holds a value by then.
 func (o *Ownership) requireSetsInitialised(s *ownState, site ast.Node) {
 	if s.dead {
 		return
@@ -602,7 +602,7 @@ func (o *Ownership) requireSetsInitialised(s *ownState, site ast.Node) {
 	for _, l := range o.setParams {
 		if _, uninitialised := s.tryGet(l); uninitialised {
 			o.fail(site, diag.ErrSetNotInitialized,
-				"the set parameter '%s' is not initialised on every path; assign it before the function returns", l.Name)
+				"the 'sets' parameter '%s' is not initialised on every path; assign it before the function returns", l.Name)
 		}
 	}
 }
@@ -690,7 +690,7 @@ func (o *Ownership) userCall(e *ast.CallExpr, s *ownState) *ownState {
 	}
 	for i, arg := range e.Ordered {
 		spec := e.Pass.Specs[i]
-		if spec.Conv == ast.ConvMutable {
+		if spec.Conv == ast.ConvMutates {
 			o.requireNotReceiver(arg, spec.Name)
 		}
 		s = o.argument(arg, spec.Conv, ownDest{kind: destParameter, name: spec.Name}, s)
@@ -704,12 +704,12 @@ func (o *Ownership) userCall(e *ast.CallExpr, s *ownState) *ownState {
 	return s
 }
 
-// requireNotReceiver refuses 'self' as a mutable argument. A mutable parameter may be assigned as a whole, which replaces
+// requireNotReceiver refuses 'self' as a mutates argument. A mutates parameter may be assigned as a whole, which replaces
 // the caller's value, and 'self' is the receiver of the call that is running, not a place that can be replaced.
 func (o *Ownership) requireNotReceiver(arg ast.Expr, param string) {
 	if self, ok := arg.(*ast.SelfExpr); ok && self.Local.Mutable() {
 		o.fail(arg, diag.ErrAssignToImmutable,
-			"'self' cannot be passed to the mutable parameter '%s', which could replace the whole value; pass a field of it, or call a method on it", param)
+			"'self' cannot be passed to the 'mutates' parameter '%s', which could replace the whole value; pass a field of it, or call a method on it", param)
 	}
 }
 
@@ -724,36 +724,36 @@ func (o *Ownership) hold(arg ast.Expr, conv ast.Convention, laterArguments bool)
 	o.projections = append(o.projections, ownProjection{place: arg, kind: projectArgument})
 }
 
-// argument passes an expression as the convention says: a let borrows it, a mutable borrows it to change, a sink
-// takes it, and a set initialises it.
+// argument passes an expression as the convention says: a let borrows it, mutates borrows it to change, consumes
+// takes it, and sets initialises it.
 func (o *Ownership) argument(e ast.Expr, conv ast.Convention, dest ownDest, s *ownState) *ownState {
 	switch conv {
 	case ast.ConvLet:
 		return o.expr(e, s)
-	case ast.ConvMutable:
+	case ast.ConvMutates:
 		s = o.expr(e, s)
 		p, ok := pathOf(e, o.fn.SelfLocal, o.steps[:0])
 		if !ok {
 			o.fail(e, diag.ErrAssignToImmutable,
-				"the mutable parameter '%s' changes its argument, so pass a variable, or a field or an element of one", dest.name)
+				"the 'mutates' parameter '%s' changes its argument, so pass a variable, or a field or an element of one", dest.name)
 			return s
 		}
 		o.requireWritable(e, p)
 		return s
-	case ast.ConvSink:
+	case ast.ConvConsumes:
 		return o.consume(e, dest, s)
-	case ast.ConvSet:
+	case ast.ConvSets:
 		return o.initialise(e, dest, s)
 	}
 	panic(diag.Internal("ownership: unknown convention %d", int(conv)))
 }
 
-// initialise is an argument for a set parameter: a variable that has no value yet, which has one afterwards.
+// initialise is an argument for a sets parameter: a variable that has no value yet, which has one afterwards.
 func (o *Ownership) initialise(e ast.Expr, dest ownDest, s *ownState) *ownState {
 	n, ok := e.(*ast.NameExpr)
 	if !ok || n.Kind != ast.NameLocal || !n.Local.Mutable() {
 		o.fail(e, diag.ErrSetArgument,
-			"the set parameter '%s' initialises its argument, so pass a variable declared without a value: 'var x as T'", dest.name)
+			"the 'sets' parameter '%s' initialises its argument, so pass a variable declared without a value: 'var x as T'", dest.name)
 		return s
 	}
 	if s.dead {
@@ -761,7 +761,7 @@ func (o *Ownership) initialise(e ast.Expr, dest ownDest, s *ownState) *ownState 
 	}
 	if fact, found := s.tryGet(n.Local); !found || fact.kind != factUninitialised {
 		o.fail(e, diag.ErrSetArgument,
-			"'%s' already has a value, but the set parameter '%s' initialises its argument; declare a variable without a value: 'var x as T'",
+			"'%s' already has a value, but the 'sets' parameter '%s' initialises its argument; declare a variable without a value: 'var x as T'",
 			n.Name, dest.name)
 		return s
 	}
@@ -769,7 +769,7 @@ func (o *Ownership) initialise(e ast.Expr, dest ownDest, s *ownState) *ownState 
 	return s
 }
 
-// requireExclusive is the law of exclusivity for one call: an argument that is mutable, sink or set must not overlap
+// requireExclusive is the law of exclusivity for one call: an argument passed mutates, consumes or sets must not overlap
 // any other argument, receiver included, because the callee would then reach one place through two names.
 func (o *Ownership) requireExclusive(call *ast.CallExpr) {
 	o.accesses = o.accesses[:0]

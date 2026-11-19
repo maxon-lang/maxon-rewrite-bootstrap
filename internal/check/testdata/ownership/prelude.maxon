@@ -5,7 +5,7 @@ type Pair
 	export var second as Score
 	export var label as String
 
-	function bump(mutable self, by Score)
+	function bump(mutates self, by Score)
 		first = first + by
 	end 'bump'
 
@@ -14,21 +14,21 @@ type Pair
 	end 'create'
 end 'Pair'
 
-function change(p mutable Pair)
+function change(mutates p Pair)
 	p.first = 1
 end 'change'
 
-function swap(a mutable Score, b mutable Score)
+function swap(mutates a Score, mutates b Score)
 	let t = a
 	a = b
 	b = t
 end 'swap'
 
-function take(p sink Pair) returns Score
+function take(consumes p Pair) returns Score
 	return p.first
 end 'take'
 
-function make(n set Score, flag bool)
+function make(sets n Score, flag bool)
 	if flag 'early'
 		n = 1
 	end 'early' else 'late'

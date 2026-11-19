@@ -4,11 +4,11 @@ type Doc
 	export var n as Count
 	export var words as array[Count]
 
-	static function make(title sink String) returns Doc
+	static function make(consumes title String) returns Doc
 		return Doc{title: title, n: 1, words: array[Count].new()}
 	end 'make'
 
-	function grow(mutable self)
+	function grow(mutates self)
 		n = n + 1
 	end 'grow'
 
@@ -17,11 +17,11 @@ type Doc
 	end 'peek'
 end 'Doc'
 
-function bump(x mutable Count)
+function bump(mutates x Count)
 	x = x + 1
 end 'bump'
 
-function take(d sink Doc)
+function take(consumes d Doc)
 	let kept = d
 end 'take'
 

@@ -10,7 +10,7 @@ function classify(n Score) returns String
 	end 'pos'
 end 'classify'
 
-function bump(counter mutable Score)
+function bump(mutates counter Score)
 	counter = counter + 1
 end 'bump'
 

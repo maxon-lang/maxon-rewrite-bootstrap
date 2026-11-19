@@ -1,0 +1,19 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Score
+	function grow(mutates self, by Score)
+	function dispose(consumes self)
+	function absorb(mutates self, other Self)
+end 'Shape'
+
+function drop[T implements Shape](consumes a T) returns Score
+	a.dispose()
+	return a.area()
+end 'drop'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3102 at 12:9

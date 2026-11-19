@@ -21,7 +21,7 @@ type jumpTargets struct {
 	depth int
 }
 
-// ownerSlot is the slot that owns a sink parameter: the caller gives the value away, so the callee holds it in a slot
+// ownerSlot is the slot that owns a consumes parameter: the caller gives the value away, so the callee holds it in a slot
 // of its own, which moving from it empties and the end of the function drops.
 type ownerSlot struct {
 	local *ast.Local
@@ -37,9 +37,9 @@ type Lowerer struct {
 	jumps   map[ast.Node]jumpTargets
 	cur     *IrBlock
 	scopes  []scope
-	// ownerSlots are the slots that hold the sink parameters the body names.
+	// ownerSlots are the slots that hold the consumes parameters the body names.
 	ownerSlots []ownerSlot
-	// selfOwner is the slot that owns a sink self, or -1.
+	// selfOwner is the slot that owns a consumes self, or -1.
 	selfOwner int
 }
 
@@ -100,10 +100,10 @@ func lowerBody(l *Lowerer) *IrFunction {
 	return l.f
 }
 
-// adoptParams moves each sink parameter into a slot, which owns it from there on. A parameter the body does not name
+// adoptParams moves each consumes parameter into a slot, which owns it from there on. A parameter the body does not name
 // (`_`) is dropped all the same, because the caller gave it away.
 func (l *Lowerer) adoptParams() {
-	if l.fn.IsMethod() && l.fn.SelfLocal.Conv == ast.ConvSink && l.kind(l.fn.SelfLocal.Type) == KindManaged {
+	if l.fn.IsMethod() && l.fn.SelfLocal.Conv == ast.ConvConsumes && l.kind(l.fn.SelfLocal.Type) == KindManaged {
 		l.selfOwner = l.adopt(l.fn.SelfLocal.ParamIndex, l.fn.SelfLocal.Type)
 	}
 	first := 0
@@ -111,7 +111,7 @@ func (l *Lowerer) adoptParams() {
 		first = 1
 	}
 	for i, prm := range l.fn.Params {
-		if ast.ConventionOf(prm.Convention) != ast.ConvSink || l.kind(l.fn.ParamTypes[i]) != KindManaged {
+		if ast.ConventionOf(prm.Convention) != ast.ConvConsumes || l.kind(l.fn.ParamTypes[i]) != KindManaged {
 			continue
 		}
 		slot := l.adopt(first+i, l.fn.ParamTypes[i])
@@ -128,7 +128,7 @@ func (l *Lowerer) adopt(index int, t ast.Ty) int {
 	return slot
 }
 
-// ownerOf is the slot that owns a sink parameter, or -1 for a local that no slot owns.
+// ownerOf is the slot that owns a consumes parameter, or -1 for a local that no slot owns.
 func (l *Lowerer) ownerOf(loc *ast.Local) int {
 	if loc.IsSelf {
 		return l.selfOwner
@@ -202,7 +202,7 @@ func (l *Lowerer) param(index int, kind IrKind) V {
 	return d
 }
 
-// self is the receiver, borrowed: a sink self lives in the slot that owns it.
+// self is the receiver, borrowed: a consumes self lives in the slot that owns it.
 func (l *Lowerer) self() V {
 	if l.selfOwner >= 0 {
 		return l.load(l.selfOwner)

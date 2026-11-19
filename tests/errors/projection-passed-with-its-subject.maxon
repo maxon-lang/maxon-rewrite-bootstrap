@@ -8,15 +8,15 @@ type Box
 		return name.copy()
 	end 'describe'
 
-	function rename(mutable self, value sink String)
+	function rename(mutates self, consumes value String)
 		name = value
 	end 'rename'
 
-	function bump(mutable self, by Score)
+	function bump(mutates self, by Score)
 		v = v + by
 	end 'bump'
 
-	static function create(v Score, name sink String) returns Box
+	static function create(v Score, consumes name String) returns Box
 		return Box{v: v, name: name}
 	end 'create'
 end 'Box'
@@ -26,7 +26,7 @@ union Item
 	anonymous
 end 'Item'
 
-function replace(item mutable Item, name String)
+function replace(mutates item Item, name String)
 	item = Item.named(name.copy())
 end 'replace'
 

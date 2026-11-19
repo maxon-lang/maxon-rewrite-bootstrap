@@ -2,7 +2,7 @@ type Node
 	var value as Count
 	var next as Option[Handle[Node]]
 
-	static function make(value Count, next sink Option[Handle[Node]]) returns Node
+	static function make(value Count, consumes next Option[Handle[Node]]) returns Node
 		return Node{value: value, next: next}
 	end 'make'
 end 'Node'
@@ -15,12 +15,12 @@ type Stack
 		return Stack{nodes: pool[Node].new(), top: Option[Handle[Node]].none}
 	end 'make'
 
-	function push(mutable self, value Count)
+	function push(mutates self, value Count)
 		let node = Node.make(value, next: top.copy())
 		top = Option.some(nodes.insert(node))
 	end 'push'
 
-	function pop(mutable self) returns Option[Count]
+	function pop(mutates self) returns Option[Count]
 		if not top.isSome() 'empty'
 			return Option[Count].none
 		end 'empty'

@@ -367,7 +367,7 @@ func (g *generator) holding(c *variable, statement string) {
 	g.line(kwEnd+" %s", label)
 }
 
-// actBorrowedCapture has a behaviour use a variable that only borrows its value: a parameter that is not a sink, the
+// actBorrowedCapture has a behaviour use a variable that only borrows its value: a parameter that is not consumed, the
 // receiver, or the access that an enclosing behaviour has to a cown's value.
 func (g *generator) actBorrowedCapture(depth int) bool {
 	if !g.sharing || !g.sinful() || g.behaviours >= 2 {

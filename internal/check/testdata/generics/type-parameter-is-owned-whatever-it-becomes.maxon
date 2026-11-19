@@ -1,4 +1,4 @@
-function twice[T](a sink T) returns Score
+function twice[T](consumes a T) returns Score
 	let first = a
 	let second = a
 	return 1

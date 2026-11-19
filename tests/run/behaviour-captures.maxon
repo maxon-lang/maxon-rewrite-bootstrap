@@ -1,7 +1,7 @@
 type Note
 	export var name as String
 
-	static function make(name sink String) returns Note
+	static function make(consumes name String) returns Note
 		return Note{name: name}
 	end 'make'
 end 'Note'

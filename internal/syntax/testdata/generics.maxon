@@ -1,6 +1,6 @@
 interface Shape
 	function area() returns Score
-	function grow(mutable self, by Score)
+	function grow(mutates self, by Score)
 end 'Shape'
 
 type Box[T implements Shape and Named, U] implements Shape

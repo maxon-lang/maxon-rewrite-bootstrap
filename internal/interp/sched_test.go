@@ -37,7 +37,7 @@ func (b *builder) when(body *ir.IrFunction, cowns []ir.V, captures ...ir.V) {
 
 // writer is a behaviour on one cown that writes a word to standard output.
 func writer(name, word string) *ir.IrFunction {
-	b, _ := newFunction(name, ast.ConvMutable)
+	b, _ := newFunction(name, ast.ConvMutates)
 	b.write(word)
 	return b.ret(b.konst(0))
 }
@@ -108,7 +108,7 @@ func TestBehavioursOnDisjointCownsRunInEitherOrder(t *testing.T) {
 // A behaviour that names two cowns waits for both, so it runs after the earlier behaviours on either one.
 func TestABehaviourOnTwoCownsWaitsForEarlierOnesOnEither(t *testing.T) {
 	onA, onB := writer("onA", "A"), writer("onB", "B")
-	both, _ := newFunction("both", ast.ConvMutable, ast.ConvMutable)
+	both, _ := newFunction("both", ast.ConvMutates, ast.ConvMutates)
 	both.write("+")
 	bothFn := both.ret(both.konst(0))
 	for seed := range int64(seedsToTry) {
@@ -148,7 +148,7 @@ func TestTheSameSeedGivesTheSameSchedule(t *testing.T) {
 }
 
 func TestABehaviourThatNamesOneCownTwiceTraps(t *testing.T) {
-	body, _ := newFunction("body", ast.ConvMutable, ast.ConvMutable)
+	body, _ := newFunction("body", ast.ConvMutates, ast.ConvMutates)
 	b, _ := newFunction("main")
 	c := b.cown(1)
 	b.when(body.ret(body.konst(0)), []ir.V{c, c})
@@ -161,7 +161,7 @@ func TestABehaviourThatNamesOneCownTwiceTraps(t *testing.T) {
 // A behaviour that was handed a value which its scheduler still owns shares it: that is the data race that the capture
 // rules of the checker rule out.
 func TestACapturedValueThatTheSchedulerStillOwns(t *testing.T) {
-	body, _ := newFunction("body", ast.ConvMutable, ast.ConvLet)
+	body, _ := newFunction("body", ast.ConvMutates, ast.ConvLet)
 	b, _ := newFunction("main")
 	c := b.cown(1)
 	s := b.slot(ir.KindManaged)
@@ -174,7 +174,7 @@ func TestACapturedValueThatTheSchedulerStillOwns(t *testing.T) {
 // A value that was in flight when the behaviour was scheduled and then became main's belongs to main: the behaviour that
 // reads it, whenever it runs after that, races with main.
 func TestAThreadReadingWhatAnotherThreadOwns(t *testing.T) {
-	body, _ := newFunction("body", ast.ConvMutable, ast.ConvLet)
+	body, _ := newFunction("body", ast.ConvMutates, ast.ConvLet)
 	box := body.param(1, ir.KindManaged)
 	field := body.reg(ir.KindScalar)
 	body.emit(&ir.LoadField{Dst: field, Obj: box})
@@ -298,7 +298,7 @@ func TestDroppingAFrozenValueOnceTooOften(t *testing.T) {
 // A cown is freed when its last reference is dropped and no behaviour holds it: a behaviour that is still waiting keeps
 // it, and the value it owns, alive.
 func TestABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped(t *testing.T) {
-	body, _ := newFunction("body", ast.ConvMutable)
+	body, _ := newFunction("body", ast.ConvMutates)
 	addr := body.param(0, ir.KindScalar)
 	value := body.reg(ir.KindManaged)
 	body.emit(&ir.LoadAt{Dst: value, Addr: addr})
@@ -319,7 +319,7 @@ func TestABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped(t *testing.T) {
 
 // A behaviour owns what it captures, and frees it when it ends.
 func TestACapturedValueIsFreedByTheBehaviour(t *testing.T) {
-	body, _ := newFunction("body", ast.ConvMutable, ast.ConvSink)
+	body, _ := newFunction("body", ast.ConvMutates, ast.ConvConsumes)
 	slot := body.slot(ir.KindManaged)
 	body.store(slot, body.param(1, ir.KindManaged))
 	body.emit(&ir.DropSlotInstr{Slot: slot, Ty: ast.StringTy})
@@ -337,7 +337,7 @@ func TestACapturedValueIsFreedByTheBehaviour(t *testing.T) {
 }
 
 func TestACapturedValueThatTheBehaviourNeverFrees(t *testing.T) {
-	body, _ := newFunction("body", ast.ConvMutable, ast.ConvSink)
+	body, _ := newFunction("body", ast.ConvMutates, ast.ConvConsumes)
 	slot := body.slot(ir.KindManaged)
 	body.store(slot, body.param(1, ir.KindManaged))
 	bodyFn := body.ret(body.konst(0))

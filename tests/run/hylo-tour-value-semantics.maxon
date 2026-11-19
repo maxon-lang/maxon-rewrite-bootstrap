@@ -8,7 +8,7 @@ type Vector2
 		return x * other.x + y * other.y
 	end 'dot'
 
-	function scale(mutable self, by Number)
+	function scale(mutates self, by Number)
 		x = x * by
 		y = y * by
 	end 'scale'
@@ -22,7 +22,7 @@ type Vector2
 	end 'create'
 end 'Vector2'
 
-function swap(a mutable Number, b mutable Number)
+function swap(mutates a Number, mutates b Number)
 	let t = a
 	a = b
 	b = t

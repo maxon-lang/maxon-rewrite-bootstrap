@@ -198,7 +198,7 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 				continue
 			}
 			for i, arg := range call.Args[:len(call.Args)-1] {
-				if argumentConv(call.Target, i) == ast.ConvSink {
+				if argumentConv(call.Target, i) == ast.ConvConsumes {
 					continue
 				}
 				if def, ok := defs[arg]; ok && borrowsStorage(fn.Blocks[def.block].Instrs[def.pc]) {

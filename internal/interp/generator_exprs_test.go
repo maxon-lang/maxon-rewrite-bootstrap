@@ -355,7 +355,7 @@ func (g *generator) unionExpr(u *union, depth int) string {
 	}
 	params := make([]param, len(c.payload))
 	for i, p := range c.payload {
-		params[i] = param{name: p.name, t: p.t, conv: kwSink}
+		params[i] = param{name: p.name, t: p.t, conv: kwConsumes}
 	}
 	return g.callArgsText(u.t.name+"."+c.name, params, depth)
 }
@@ -600,12 +600,12 @@ func (g *generator) callTextFirst(f *fn, first string, depth int) (string, bool)
 
 func (g *generator) lastPlace() (place, bool) { return g.recent, g.recentOK }
 
-// argument is an argument for a parameter: a read for a let, a place that can change for a mutable, an owned value for a
-// sink. Sometimes it is a place the arguments before it already used, to try the exclusivity rule.
+// argument is an argument for a parameter: a read for a let, a place that can change for mutates, an owned value for
+// consumes. Sometimes it is a place the arguments before it already used, to try the exclusivity rule.
 func (g *generator) argument(p param, depth int, earlier []*variable) (string, bool) {
 	g.recentOK = false
 	switch p.conv {
-	case kwMutable:
+	case kwMutates:
 		ps := g.notSelf(g.places(p.t, true))
 		if len(ps) == 0 {
 			return "", false
@@ -621,9 +621,9 @@ func (g *generator) argument(p param, depth int, earlier []*variable) (string, b
 		}
 		g.recent, g.recentOK = pl, true
 		return pl.src, true
-	case kwSink:
+	case kwConsumes:
 		return g.owned(p.t, depth-1), true
-	case kwSet:
+	case kwSets:
 		// A variable with no value, which the call gives one.
 		name := g.fresh("v")
 		g.line(kwVar+" %s "+kwAs+" %s", name, p.t.src())
@@ -668,7 +668,7 @@ func (g *generator) methodCall(t *ty, depth int) (string, bool) {
 		return "", false
 	}
 	switch m.recv {
-	case kwSink:
+	case kwConsumes:
 		moves := g.movable(r.t)
 		if len(moves) == 0 || !g.chance(60) {
 			return fmt.Sprintf("%s.%s()", g.recordExpr(r, depth-1), m.name), true
@@ -759,7 +759,7 @@ func (g *generator) collectionOf(t *ty) (*variable, bool) {
 	return found[g.pick(len(found))], true
 }
 
-// notSelf leaves out 'self' itself: a method's receiver cannot be passed as a mutable argument, and a field of it can.
+// notSelf leaves out 'self' itself: a method's receiver cannot be passed as a mutates argument, and a field of it can.
 func (g *generator) notSelf(ps []place) []place {
 	if g.careless() {
 		return ps

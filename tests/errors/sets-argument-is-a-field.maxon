@@ -1,0 +1,34 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box
+	export var v as Score
+	export var name as String
+
+	function describe() returns String
+		return name.copy()
+	end 'describe'
+
+	function rename(mutates self, consumes value String)
+		name = value
+	end 'rename'
+
+	function bump(mutates self, by Score)
+		v = v + by
+	end 'bump'
+
+	static function create(v Score, consumes name String) returns Box
+		return Box{v: v, name: name}
+	end 'create'
+end 'Box'
+
+function make(sets n Score)
+	n = 1
+end 'make'
+
+function main() returns ExitCode
+	var b = Box.create(1, name: "a")
+	make(b.v)
+	return 0
+end 'main'
+
+// expect-error: E3115 at 30:8

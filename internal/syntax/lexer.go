@@ -68,8 +68,12 @@ type lexer struct {
 	end  int
 	// inline is set for an interpolation, which starts at begin.
 	inline bool
-	begin  int
-	depth  int
+	// lenient accepts what has one correct layout and so one meaning, for the formatter to correct: extra
+	// whitespace between tokens and at the end of a line, whitespace on a blank line, a comment indented or spaced
+	// as it likes. Indentation of code stays strict, since another one would change what the program says.
+	lenient bool
+	begin   int
+	depth   int
 	// indent is the indentation, in tabs, of the last code line.
 	indent int
 	toks   []Token
@@ -78,8 +82,10 @@ type lexer struct {
 // Lex lexes every file of src into buffer. Each code line ends with a TNewline; a line indented one tab more than
 // the code line before it starts with a TIndent, and one indented less starts with a TDedent for each tab. Each
 // file ends with a TFileEnd and the module with a TEof.
-func Lex(src *Source, buffer []Token) []Token {
-	lx := &lexer{src: src, text: src.Text, toks: buffer[:0]}
+func Lex(src *Source, buffer []Token) []Token { return lex(src, buffer, false) }
+
+func lex(src *Source, buffer []Token, lenient bool) []Token {
+	lx := &lexer{src: src, text: src.Text, lenient: lenient, toks: buffer[:0]}
 	for i, f := range src.Files {
 		lx.lexFile(i, f.Begin, f.End)
 	}
@@ -89,7 +95,12 @@ func Lex(src *Source, buffer []Token) []Token {
 // LexInterpolation lexes the expression of an interpolation at text[begin:end] of file: part of one line, with no
 // layout of its own.
 func LexInterpolation(src *Source, file, begin, end int, buffer []Token) []Token {
-	lx := &lexer{src: src, text: src.Text, file: file, pos: begin, end: end, inline: true, begin: begin, toks: buffer[:0]}
+	return lexInterpolation(src, file, begin, end, buffer, false)
+}
+
+func lexInterpolation(src *Source, file, begin, end int, buffer []Token, lenient bool) []Token {
+	lx := &lexer{src: src, text: src.Text, file: file, pos: begin, end: end, inline: true, begin: begin, lenient: lenient,
+		toks: buffer[:0]}
 	lx.lexLine()
 	lx.emit(TFileEnd, end, end)
 	return lx.finish(end)
@@ -143,15 +154,19 @@ func (lx *lexer) lineStart() {
 		tabs := lx.pos - lineBegin
 		switch c := lx.text[lx.pos]; {
 		case c == '\n':
-			if tabs > 0 {
+			if tabs > 0 && !lx.lenient {
 				panic(lx.fail("a blank line holds tabs; remove the trailing whitespace", lineBegin))
 			}
 			lx.pos++
 			continue
+		case (c == ' ' || c == '\r') && lx.lenient && lx.skipSpaceLine():
+			continue
 		case c == ' ':
 			panic(lx.fail("a line is indented with a space; indent with tabs only", lx.pos))
 		case c == '/' && lx.text[lx.pos+1] == '/':
-			comments = append(comments, lineBegin)
+			if !lx.lenient {
+				comments = append(comments, lineBegin)
+			}
 			lx.pos = lx.comment(lx.pos) + 1
 			continue
 		}
@@ -176,6 +191,24 @@ func (lx *lexer) lineStart() {
 	}
 }
 
+// skipSpaceLine skips the line at lx.pos if it holds only whitespace, or whitespace and a comment, whatever its
+// indentation: neither says anything the formatter cannot put right. It reports whether it did.
+func (lx *lexer) skipSpaceLine() bool {
+	at := lx.pos
+	for lx.text[at] == ' ' || lx.text[at] == '\t' || lx.text[at] == '\r' {
+		at++
+	}
+	switch {
+	case lx.text[at] == '\n':
+		lx.pos = at + 1
+	case lx.text[at] == '/' && lx.text[at+1] == '/':
+		lx.pos = lx.comment(at) + 1
+	default:
+		return false
+	}
+	return true
+}
+
 func (lx *lexer) checkCommentIndent(lineBegin, tabs int) {
 	got := 0
 	for lx.text[lineBegin+got] == '\t' {
@@ -190,7 +223,7 @@ func (lx *lexer) checkCommentIndent(lineBegin, tabs int) {
 // comment checks the comment at text[start:], which runs to the end of its line, and returns where the line ends.
 func (lx *lexer) comment(start int) int {
 	end := start + strings.IndexByte(lx.text[start:lx.end], '\n')
-	if last := lx.text[end-1]; last == ' ' || last == '\t' || last == '\r' {
+	if last := lx.text[end-1]; (last == ' ' || last == '\t' || last == '\r') && !lx.lenient {
 		panic(lx.fail("a comment ends with whitespace; remove it", end-1))
 	}
 	return end
@@ -224,16 +257,8 @@ func (lx *lexer) lexLine() {
 		switch kind {
 		case noToken:
 			panic(lx.unfinished(state, start))
-		case TWhitespace:
-			panic(lx.badSpace(start, i))
-		case TLineComment:
-			if lx.inline {
-				panic(lx.fail("a comment inside an interpolation; move it after the line", start))
-			}
-			if text[start-1] != ' ' {
-				panic(lx.fail("a comment after code is separated from it by one space", start))
-			}
-			lx.pos = lx.comment(start)
+		case TWhitespace, TLineComment:
+			lx.pos = lx.skipped(kind, start, i)
 			continue
 		case TBlockComment:
 			panic(lx.fail("a block comment is not allowed; write // comments on their own lines or after code", start))
@@ -259,6 +284,26 @@ func (lx *lexer) lexLine() {
 		}
 		lx.emit(kind, start, i)
 	}
+}
+
+// skipped is where lexLine goes on after the whitespace or the comment at text[start:end], which are not tokens. They are
+// checked here, off lexLine's path: whitespace is an error unless it is the one space lexLine steps over, which never
+// reaches here, and so is a comment inside an interpolation or one that touches the code before it; the lenient lexer
+// accepts the whitespace and the comment's position.
+func (lx *lexer) skipped(kind T, start, end int) int {
+	if kind == TWhitespace {
+		if !lx.lenient {
+			panic(lx.badSpace(start, end))
+		}
+		return end
+	}
+	if lx.inline {
+		panic(lx.fail("a comment inside an interpolation; move it after the line", start))
+	}
+	if lx.text[start-1] != ' ' && !lx.lenient {
+		panic(lx.fail("a comment after code is separated from it by one space", start))
+	}
+	return lx.comment(start)
 }
 
 // badSpace is the error for whitespace inside a line that is not the one space lexLine steps over between two

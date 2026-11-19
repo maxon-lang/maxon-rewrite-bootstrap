@@ -2,7 +2,7 @@ type Note
 	export var text as String
 	export var tags = array[String].new()
 
-	static function make(text sink String) returns Note
+	static function make(consumes text String) returns Note
 		return Note{text: text}
 	end 'make'
 end 'Note'

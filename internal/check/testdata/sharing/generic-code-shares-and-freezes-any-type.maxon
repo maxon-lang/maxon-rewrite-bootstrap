@@ -1,4 +1,4 @@
-function wrap[T](x sink T) returns frozen[T]
+function wrap[T](consumes x T) returns frozen[T]
 	return freeze(x)
 end 'wrap'
 
@@ -10,7 +10,7 @@ function open[T](x frozen[T]) returns T
 	return thaw(x)
 end 'open'
 
-function hold[T](x sink T) returns cown[T]
+function hold[T](consumes x T) returns cown[T]
 	return cown(x)
 end 'hold'
 

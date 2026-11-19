@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ const usage = `usage:
   minimaxon test [dir]                            run the test corpus (default: tests/)
   minimaxon interp <file.maxon|dir>               run under the tracking interpreter (development only)
   minimaxon rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths
+  minimaxon fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files under the paths in the one layout
 
 A directory is a project: each directory under it is a module. --jobs=N sets how many modules
 compile at once (default: one fewer than the processor count). --timings prints each phase's time; --emit-ir writes the IR beside the executable, as <out>.ir.
@@ -49,6 +51,7 @@ const (
 	countAllocationsFlag  = "--count-allocations"
 	updatePositionsFlag   = "--update-positions"
 	keywordFlagPrefix     = "--keyword="
+	checkFlag             = "--check"
 	modulesDir            = "modules"
 	sourceExtension       = ".maxon"
 	markdownExtension     = ".md"
@@ -201,6 +204,14 @@ func run(args []string) int {
 			return usageExitCode
 		}
 		return renameKeyword(old, new, args[2:])
+	case args[0] == "fmt" && len(args) >= 2:
+		check := slices.Contains(args[1:], checkFlag)
+		paths := filterArgs(args[1:], func(a string) bool { return a != checkFlag })
+		if len(paths) == 0 {
+			fmt.Fprintln(os.Stderr, usage)
+			return usageExitCode
+		}
+		return formatFiles(paths, check)
 	case args[0] == "test":
 		if len(args) >= 2 {
 			return runTests(args[1])
@@ -575,20 +586,15 @@ func renameKeyword(old, new string, paths []string) int {
 		fmt.Fprintf(os.Stderr, "'%s' is not a keyword of the current grammar: rename it before changing Maxon.g4\n", old)
 		return usageExitCode
 	}
-	var files []string
-	for _, root := range paths {
-		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-			if err == nil && !d.IsDir() && (strings.HasSuffix(path, sourceExtension) || strings.HasSuffix(path, markdownExtension)) {
-				files = append(files, path)
-			}
-			return err
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", root, err)
-			return 1
-		}
+	found, err := collectSourceFiles(paths)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
-	sort.Strings(files)
+	files := make([]string, len(found))
+	for i, f := range found {
+		files[i] = f.path
+	}
 	renamed, changedFiles, skipped := 0, 0, 0
 	for _, file := range files {
 		data, err := os.ReadFile(file)
@@ -629,5 +635,106 @@ func renameKeyword(old, new string, paths []string) int {
 		changedFiles++
 	}
 	fmt.Printf("renamed %d uses of '%s' in %d files; %d files or Markdown code spans that may hold it could not be lexed\n", renamed, old, changedFiles, skipped)
+	return 0
+}
+
+// sourceFile is a file of Maxon or of Markdown that a command reads: named on the command line, or found under a
+// directory that was.
+type sourceFile struct {
+	path     string
+	explicit bool
+}
+
+// collectSourceFiles lists the .maxon and .md files at paths, a file or a directory to search, sorted by path.
+func collectSourceFiles(paths []string) ([]sourceFile, error) {
+	var files []sourceFile
+	for _, root := range paths {
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err == nil && !d.IsDir() && (strings.HasSuffix(path, sourceExtension) || strings.HasSuffix(path, markdownExtension)) {
+				files = append(files, sourceFile{path: path, explicit: path == root})
+			}
+			return err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("cannot read %s: %w", root, err)
+		}
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].path < files[j].path })
+	return files, nil
+}
+
+// layoutErrorCodes are the errors of the layout rules. A test that expects one is a program laid out wrongly on purpose,
+// so fmt over a directory leaves it alone: it would put the layout right and the test would no longer test the rule.
+var layoutErrorCodes = []string{diag.ErrUnexpectedToken, diag.ErrExpectedToken}
+
+func expectsLayoutError(text string) bool {
+	for _, code := range layoutErrorCodes {
+		if strings.Contains(text, expectErrorPrefix+" "+code) {
+			return true
+		}
+	}
+	return false
+}
+
+// formatFiles is the fmt command: it puts every .maxon file under paths, and the Maxon code blocks of every .md file,
+// in the one layout, and with check only lists the files that are not. A file that does not parse is left alone: one
+// found under a directory is reported and skipped, since a corpus holds programs that are refused on purpose, and one
+// named on the command line is an error.
+func formatFiles(paths []string, check bool) int {
+	files, err := collectSourceFiles(paths)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	changed, refused, layoutTests, failed := 0, 0, 0, false
+	for _, file := range files {
+		data, err := os.ReadFile(file.path)
+		if err != nil {
+			panic(diag.Internal("cannot read %s: %v", file.path, err))
+		}
+		text := string(data)
+		formatted := text
+		if strings.HasSuffix(file.path, markdownExtension) {
+			formatted = syntax.FormatMarkdown(file.path, text)
+		} else {
+			if !file.explicit && expectsLayoutError(text) {
+				layoutTests++
+				continue
+			}
+			var errs []*diag.CompileError
+			formatted, errs = syntax.Format(file.path, text)
+			if len(errs) > 0 {
+				refused++
+				if file.explicit {
+					failed = true
+					report(errs)
+				} else {
+					fmt.Printf("skipped  %s\n", errs[0])
+				}
+				continue
+			}
+		}
+		if formatted == text {
+			continue
+		}
+		changed++
+		if check {
+			fmt.Printf("not formatted  %s\n", file.path)
+			continue
+		}
+		if err := os.WriteFile(file.path, []byte(formatted), 0o644); err != nil {
+			panic(diag.Internal("cannot write %s: %v", file.path, err))
+		}
+		fmt.Printf("formatted  %s\n", file.path)
+	}
+	verb := "formatted"
+	if check {
+		verb = "not formatted"
+	}
+	fmt.Printf("%d files %s, %d left alone because they do not parse, %d skipped because they test the layout rules\n",
+		changed, verb, refused, layoutTests)
+	if failed || check && changed > 0 {
+		return 1
+	}
 	return 0
 }

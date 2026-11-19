@@ -35,7 +35,7 @@ end 'Box'
 type Wrap[T]
 	var inner as T
 
-	static function make(inner sink T) returns Self
+	static function make(consumes inner T) returns Self
 		return Self{inner: inner}
 	end 'make'
 end 'Wrap'
@@ -44,7 +44,7 @@ function sizeOf[T implements Shape](a T) returns Score
 	return a.area()
 end 'sizeOf'
 
-function id[T](a sink T) returns T
+function id[T](consumes a T) returns T
 	return a
 end 'id'
 

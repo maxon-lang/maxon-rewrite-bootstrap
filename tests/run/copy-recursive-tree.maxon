@@ -3,7 +3,7 @@ type Tree
 	var name as String
 	var kids = array[Tree].new()
 
-	static function make(value Count, name sink String) returns Tree
+	static function make(value Count, consumes name String) returns Tree
 		return Tree{value: value, name: name}
 	end 'make'
 
@@ -15,7 +15,7 @@ type Tree
 		return total
 	end 'sum'
 
-	function add(mutable self, kid sink Tree)
+	function add(mutates self, consumes kid Tree)
 		kids.append(kid)
 	end 'add'
 

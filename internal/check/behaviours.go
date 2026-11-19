@@ -85,7 +85,7 @@ func (c *Checker) captureFrom(b *behaviourBuild, level int, n *ast.NameExpr) *as
 	c.requireCapturable(n, outer)
 	inner := ast.NewLocal(outer.Name, outer.Type, false)
 	inner.IsParam = true
-	inner.Conv = ast.ConvSink
+	inner.Conv = ast.ConvConsumes
 	inner.ParamIndex = len(b.accesses) + len(b.node.Captures)
 	b.fn.Locals = append(b.fn.Locals, inner)
 	ref := ast.NewNameExpr()
@@ -104,15 +104,15 @@ func (c *Checker) requireCapturable(site ast.Node, outer *ast.Local) {
 	if !outer.Type.IsManaged() || !outer.Borrowed() {
 		return
 	}
-	what := "a let or mutable parameter"
+	what := "a let or 'mutates' parameter"
 	switch {
 	case outer.Projected:
 		what = "a match binding"
 	case outer.IsSelf:
 		what = "the receiver"
-	case outer.IsParam && outer.Conv == ast.ConvSet:
-		what = "a set parameter"
-	case outer.IsParam && outer.Conv == ast.ConvMutable && c.isAccess(outer):
+	case outer.IsParam && outer.Conv == ast.ConvSets:
+		what = "a 'sets' parameter"
+	case outer.IsParam && outer.Conv == ast.ConvMutates && c.isAccess(outer):
 		what = "the access that a behaviour has to a cown's value, for as long as it runs"
 	}
 	var fix string
@@ -173,7 +173,7 @@ func (c *Checker) enterBehaviour(w *ast.WhenStmt, values []ast.Ty) {
 	for i, name := range w.Names {
 		access := ast.NewLocal(name, values[i], false)
 		access.IsParam = true
-		access.Conv = ast.ConvMutable
+		access.Conv = ast.ConvMutates
 		access.ParamIndex = i
 		c.bind(access, w)
 		b.accesses = append(b.accesses, access)

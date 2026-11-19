@@ -43,8 +43,8 @@ type FuncDecl struct {
 
 type Param struct {
 	Pos
-	Name       string
 	Convention string
+	Name       string
 	Type       *TypeRef
 
 	Sym *Local
@@ -672,13 +672,13 @@ var reservedWords = map[string]bool{
 	"public":     true,
 	"static":     true,
 	"function":   true,
-	"mutable":    true,
-	"sink":       true,
+	"mutates":    true,
+	"consumes":   true,
 	"self":       true,
 	"returns":    true,
 	"end":        true,
+	"sets":       true,
 	"_":          true,
-	"set":        true,
 	"let":        true,
 	"type":       true,
 	"var":        true,

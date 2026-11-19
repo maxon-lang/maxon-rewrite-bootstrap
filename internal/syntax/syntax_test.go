@@ -192,8 +192,8 @@ func TestParseRecoversAtTheNextFile(t *testing.T) {
 	}
 }
 
-// mutableKeyword is the receiver convention of the second method of the interface in testdata/generics.maxon.
-const mutableKeyword = "mutable"
+// mutatesKeyword is the receiver convention of the second method of the interface in testdata/generics.maxon.
+const mutatesKeyword = "mutates"
 
 func TestParsesGenericDeclarationsAndUses(t *testing.T) {
 	prog, errs := parseFiles(t, "testdata/generics.maxon")
@@ -201,7 +201,7 @@ func TestParsesGenericDeclarationsAndUses(t *testing.T) {
 		t.Fatalf("errors: %v", errs)
 	}
 	iface := prog.Decls[0].(*ast.InterfaceDecl)
-	if len(iface.Methods) != 2 || iface.Methods[1].Receiver != mutableKeyword || len(iface.Methods[1].Params) != 1 {
+	if len(iface.Methods) != 2 || iface.Methods[1].Receiver != mutatesKeyword || len(iface.Methods[1].Params) != 1 {
 		t.Fatalf("interface methods: %+v", iface.Methods)
 	}
 	box := prog.Decls[1].(*ast.TypeDecl)

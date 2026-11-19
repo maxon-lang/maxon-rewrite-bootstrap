@@ -7,7 +7,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: mutable of a var path
+// case: mutates of a var path
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
 	change(a)
@@ -15,14 +15,14 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: mutable receiver of a var
+// case: mutates receiver of a var
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
 	a.bump(a.second.copy())
 	return 0
 end 'main'
 
-// case: sink then reassign
+// case: consumes then reassign
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
 	let n = take(a)
@@ -31,7 +31,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: set a declared variable
+// case: sets a declared variable
 function main() returns ExitCode
 	var n as Score
 	make(n, flag: true)

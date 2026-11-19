@@ -1,4 +1,4 @@
-function twice[T](a sink T) returns Score
+function twice[T](consumes a T) returns Score
 	let n = consume(a)
 	return consume(a)
 end 'twice'

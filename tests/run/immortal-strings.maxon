@@ -1,7 +1,7 @@
 type Label
 	export var text as String
 
-	static function make(text sink String) returns Label
+	static function make(consumes text String) returns Label
 		return Label{text: text}
 	end 'make'
 end 'Label'
@@ -18,7 +18,7 @@ end 'Mark'
 
 let greeting = "hello"
 
-function pass(text sink String) returns String
+function pass(consumes text String) returns String
 	return text
 end 'pass'
 

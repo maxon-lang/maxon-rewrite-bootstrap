@@ -19,6 +19,18 @@ test `testdata`, the generator), and the docs. Work through the list; skip a ste
 
   It changes only keyword tokens (not names, labels, comments, string text or Markdown prose) and names what it could
   not lex but that contains the word: fix those by hand. It refuses once `old` is no longer reserved.
+- **A layout change** (spaces, joins, indentation, blank lines, comments): change the rule first (`Maxon.g4`'s
+  `noSpaceBefore`/`^`, or `gapBefore`, `lineFault` and `endFault` in `internal/syntax/parser.go`), then let the formatter
+  rewrite every program in the new layout, and check:
+
+  ```powershell
+  go build -o minimaxon.exe . ; .\minimaxon.exe fmt tests internal docs README.md ; .\minimaxon.exe fmt --check tests internal docs README.md
+  ```
+
+  `fmt` reads the old layout through the lenient lexer, so a rule the lexer enforces (`E2001`) may need its lenient case
+  too; a rule only the parser enforces (`E2010`) is formatted by the same function that checks it. Over a directory it
+  skips files that contain `// expect-error: E2001` or `E2010`, the tests of the layout rules: update those by hand to
+  break the new rule. A file it cannot parse is listed and left alone.
 - **Other syntax changes:** no tool yet. Edit by hand, or write a throwaway script in the scratchpad. Match on
   declaration shapes, never bare words, and read the diff for prose hits in `.md` files.
 

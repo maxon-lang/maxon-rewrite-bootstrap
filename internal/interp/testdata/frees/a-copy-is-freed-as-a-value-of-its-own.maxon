@@ -2,7 +2,7 @@ type Item
 	export var text as String
 	export var parts = array[String].new()
 
-	static function make(text sink String) returns Item
+	static function make(consumes text String) returns Item
 		return Item{text: text}
 	end 'make'
 end 'Item'

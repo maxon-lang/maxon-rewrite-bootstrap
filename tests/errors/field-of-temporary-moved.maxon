@@ -2,7 +2,7 @@
 type Outer
 	export var label as String
 
-	static function make(label sink String) returns Outer
+	static function make(consumes label String) returns Outer
 		return Outer{label: label}
 	end 'make'
 end 'Outer'

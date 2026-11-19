@@ -14,7 +14,7 @@ type Tree
 		return total
 	end 'sum'
 
-	function add(mutable self, kid sink Tree)
+	function add(mutates self, consumes kid Tree)
 		kids.append(kid)
 	end 'add'
 

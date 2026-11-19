@@ -2,7 +2,7 @@ type Doc
 	export var title as String
 	export var n as Count
 
-	static function make(title sink String) returns Doc
+	static function make(consumes title String) returns Doc
 		return Doc{title: title, n: 1}
 	end 'make'
 
@@ -30,7 +30,7 @@ function copied(f frozen[Doc], c cown[Doc]) returns frozen[Doc]
 	return f.copy()
 end 'copied'
 
-function schedule(c cown[Doc], note sink Doc, n Count)
+function schedule(c cown[Doc], consumes note Doc, n Count)
 	when c as x 'run'
 		x.n = note.n + n
 	end 'run'

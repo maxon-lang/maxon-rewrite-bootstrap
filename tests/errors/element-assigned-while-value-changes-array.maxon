@@ -7,7 +7,7 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function drop(xs mutable array[Cell]) returns Count
+function drop(mutates xs array[Cell]) returns Count
 	return xs.count()
 end 'drop'
 

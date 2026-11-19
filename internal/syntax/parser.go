@@ -30,6 +30,8 @@ type Parser struct {
 	prevKind T
 	joinNext bool
 	blanks   blankRule
+	// format is set when the parser formats: where it would refuse a layout, it writes the layout the rules require.
+	format *formatter
 }
 
 // blankRule says which blank lines may come before a line: ParseProgram sets the rule between declarations, and a
@@ -75,8 +77,17 @@ func (p *Parser) peekTok() *Token { return &p.toks[min(p.p+1, len(p.toks)-1)] }
 // next consumes the current token, after checking the layout before it.
 func (p *Parser) next() Token {
 	t := p.toks[p.p]
-	p.checkLayout(&t)
+	p.layout(&t)
 	return p.skip()
+}
+
+// layout checks the gap before t, or in a formatting parser writes the gap the rules require there and then t.
+func (p *Parser) layout(t *Token) {
+	if p.format != nil {
+		p.formatToken(t)
+		return
+	}
+	p.checkLayout(t)
 }
 
 // skip consumes the current token without checking its layout, as error recovery does.
@@ -121,24 +132,54 @@ func startsLine(kind T) bool {
 	return kind == TNewline || kind == TIndent || kind == TDedent || kind == TFileEnd
 }
 
-// checkLayout checks the space before t. Within a line the lexer has made every gap one space or none; here the
-// grammar decides which: none where t, or the token before it, joins its neighbour. At the start of a line the
-// lexer has checked the indentation, and only the blank lines before it are left to check.
-func (p *Parser) checkLayout(t *Token) {
-	kind := t.Kind()
-	start := lexemeStart(*t)
+// gap is what the layout puts before a token.
+type gap int
+
+const (
+	// gapLines is the start of a line: only the blank lines and comment lines before it are left to decide.
+	gapLines gap = iota
+	// gapEndOfLine is before a newline: nothing, or a comment after the code.
+	gapEndOfLine
+	// gapNone joins the token to the one before it.
+	gapNone
+	// gapSpace is one space.
+	gapSpace
+)
+
+// gapBefore is the one place that says what separates a token of kind from the one before it: within a line, none
+// where it, or the token before it, joins its neighbour, and one space otherwise. The checker refuses another gap and
+// the formatter writes this one.
+func (p *Parser) gapBefore(kind T) gap {
 	switch {
 	case startsLine(p.prevKind):
-		p.checkBlankLines(start)
+		return gapLines
 	case kind == TNewline:
-		// The gap may hold a comment after the code, which the lexer has checked.
+		return gapEndOfLine
 	case p.joinNext || tokenNoSpaceBefore[kind]:
+		return gapNone
+	}
+	return gapSpace
+}
+
+// checkLayout checks the space before t. Within a line the lexer has made every gap one space or none; here the
+// grammar decides which. At the start of a line the lexer has checked the indentation, and only the blank lines
+// before it are left to check.
+func (p *Parser) checkLayout(t *Token) {
+	start := lexemeStart(*t)
+	switch p.gapBefore(t.Kind()) {
+	case gapLines:
+		p.blankLines(start)
+	case gapEndOfLine:
+		// The gap may hold a comment after the code, which the lexer has checked.
+	case gapNone:
 		if start > p.prevEnd {
 			msg := "expected no space before '" + p.describe(t) + "'"
 			panic(p.src.errorAt(diag.ErrExpectedToken, msg, p.fileNumber(), p.prevEnd))
 		}
-	case start == p.prevEnd:
-		panic(p.layoutError(t, "expected a space before '"+p.describe(t)+"'"))
+	case gapSpace:
+		if start == p.prevEnd {
+			panic(p.layoutError(t, "expected a space before '"+p.describe(t)+"'"))
+		}
 	}
 }
 
@@ -147,9 +188,58 @@ func (p *Parser) layoutError(t *Token, msg string) *diag.CompileError {
 	return diag.NewError(diag.ErrExpectedToken, msg, p.file(), line, col)
 }
 
-// checkBlankLines checks the blank lines and comment lines between the last line and the one that starts at
-// lineStart, against the rule ParseProgram set for it.
-func (p *Parser) checkBlankLines(lineStart int) {
+// blankFault is how the blank lines before a line break the rule: a blank line that is not allowed (a formatter
+// removes it), or one that is missing (a formatter adds it).
+type blankFault int
+
+const (
+	noFault blankFault = iota
+	extraBlank
+	missingBlank
+)
+
+const (
+	blankInBody           = "a blank line is only allowed between declarations, and before a function of a type, an enum or a union"
+	blankBeforeFunction   = "expected a blank line before this function, which is not the first line of its type, enum or union"
+	blankAfterDeclaration = "expected a blank line after the declaration above"
+)
+
+// lineFault is the fault of the line that would come after kept lines under rule, blank or not, the one before it
+// being lastBlank.
+func lineFault(rule blankRule, kept int, blank, lastBlank bool) (blankFault, string) {
+	switch {
+	case blank && rule == noBlanks:
+		return extraBlank, blankInBody
+	case blank && kept == 0 && rule == firstInFile:
+		return extraBlank, "the file starts with a blank line"
+	case blank && lastBlank:
+		return extraBlank, "two blank lines in a row; keep one"
+	case !blank && kept == 0 && rule == afterDecl:
+		return missingBlank, blankAfterDeclaration
+	case !blank && kept == 0 && rule == beforeFunction:
+		return missingBlank, blankBeforeFunction
+	}
+	return noFault, ""
+}
+
+// endFault is the fault of the gap's end, when kept lines have come before the line that starts it, the last one
+// blank or not, and that line is the end of the file or not.
+func endFault(rule blankRule, kept int, lastBlank, atFileEnd bool) (blankFault, string) {
+	switch {
+	case rule == afterDecl && kept == 0 && !atFileEnd:
+		return missingBlank, blankAfterDeclaration
+	case rule == beforeFunction && kept == 0:
+		return missingBlank, blankBeforeFunction
+	case lastBlank && atFileEnd:
+		return extraBlank, "the file ends with a blank line"
+	}
+	return noFault, ""
+}
+
+// blankLines checks the blank lines and comment lines between the last line and the one that starts at lineStart,
+// against the rule ParseProgram set for it. A formatting parser writes the lines the rule allows instead of
+// refusing the others.
+func (p *Parser) blankLines(lineStart int) {
 	rule := p.blanks
 	p.blanks = noBlanks
 	if rule == noBlanks && p.prevKind == TNewline && p.startsFunction() {
@@ -157,39 +247,63 @@ func (p *Parser) checkBlankLines(lineStart int) {
 	}
 	gap := p.src.Text[p.prevEnd:lineStart]
 	at := p.prevEnd
+	kept := 0
 	lastBlank := false
-	for i := 0; ; i++ {
+	depth := 0
+	if p.format != nil {
+		depth = p.depthAfterIndentTokens()
+	}
+	for {
 		end := strings.IndexByte(gap, '\n')
 		if end < 0 {
 			break
 		}
-		blank := end == 0
-		switch {
-		case blank && rule == noBlanks:
-			panic(p.src.errorAt(diag.ErrExpectedToken, "a blank line is only allowed between declarations, and before a function of a type, an enum or a union", p.fileNumber(), at))
-		case blank && i == 0 && rule == firstInFile:
-			panic(p.src.errorAt(diag.ErrExpectedToken, "the file starts with a blank line", p.fileNumber(), at))
-		case blank && lastBlank:
-			panic(p.src.errorAt(diag.ErrExpectedToken, "two blank lines in a row; keep one", p.fileNumber(), at))
-		case !blank && i == 0 && rule == afterDecl:
-			panic(p.src.errorAt(diag.ErrExpectedToken, "expected a blank line after the declaration above", p.fileNumber(), at))
-		case !blank && i == 0 && rule == beforeFunction:
-			panic(p.src.errorAt(diag.ErrExpectedToken, blankBeforeFunction, p.fileNumber(), at))
+		line := gap[:end]
+		blank := isBlankLine(line)
+		if fault, msg := lineFault(rule, kept, blank, lastBlank); fault != noFault {
+			p.refuse(msg, at)
+			if fault == extraBlank {
+				gap, at = gap[end+1:], at+end+1
+				continue
+			}
+			p.format.blankLine()
+			kept++
 		}
+		if p.format != nil {
+			p.format.gapLine(line, blank, depth)
+		}
+		kept++
 		lastBlank = blank
 		gap, at = gap[end+1:], at+end+1
 	}
-	switch {
-	case rule == afterDecl && at == p.prevEnd && !p.at(TFileEnd):
-		panic(p.src.errorAt(diag.ErrExpectedToken, "expected a blank line after the declaration above", p.fileNumber(), at))
-	case rule == beforeFunction && at == p.prevEnd:
-		panic(p.src.errorAt(diag.ErrExpectedToken, blankBeforeFunction, p.fileNumber(), at))
-	case lastBlank && p.at(TFileEnd):
-		panic(p.src.errorAt(diag.ErrExpectedToken, "the file ends with a blank line", p.fileNumber(), at-1))
+	if fault, msg := endFault(rule, kept, lastBlank, p.at(TFileEnd)); fault != noFault {
+		if fault == extraBlank {
+			p.refuse(msg, at-1)
+			p.format.dropBlankLine()
+		} else {
+			p.refuse(msg, at)
+			p.format.blankLine()
+		}
 	}
 }
 
-const blankBeforeFunction = "expected a blank line before this function, which is not the first line of its type, enum or union"
+// refuse is the syntax error for a gap that breaks the layout. A formatting parser carries on, to write the layout the
+// rules require instead.
+func (p *Parser) refuse(msg string, at int) {
+	if p.format == nil {
+		panic(p.src.errorAt(diag.ErrExpectedToken, msg, p.fileNumber(), at))
+	}
+}
+
+// isBlankLine is whether a line holds nothing but whitespace, which only a line the formatter reads can.
+func isBlankLine(line string) bool {
+	for i := range len(line) {
+		if c := line[i]; c != ' ' && c != '\t' && c != '\n' {
+			return false
+		}
+	}
+	return true
+}
 
 // startsFunction is whether the line starting at the current token defines a function inside a declaration: a method
 // or a static function. No statement starts with these words, so inside a function body it is never true. An
@@ -315,22 +429,32 @@ func (p *Parser) strLitParts(t Token) []any {
 	p.parts = p.parts[:0]
 	p.src.readString(p.fileNumber(), int(t.Start), &p.parts)
 	values := make([]any, 0, len(p.parts))
+	var formatted []string
 	for _, part := range p.parts {
 		switch part := part.(type) {
 		case TextPart:
 			values = append(values, part.Text)
 		case ExprPart:
 			// The sub-parser borrows the spare buffer; an interpolation nested inside it finds none and allocates.
-			toks := LexInterpolation(p.src, p.fileNumber(), part.Begin, part.End, p.spare)
+			toks := lexInterpolation(p.src, p.fileNumber(), part.Begin, part.End, p.spare, p.format != nil)
 			p.spare = nil
 			// The interpolation's first token follows its '{' with no space between them.
 			sub := &Parser{src: p.src, toks: toks, fileIndex: p.fileNumber(), line: p.line,
 				prevEnd: part.Begin, prevKind: TLBrace, joinNext: true}
+			if p.format != nil {
+				sub.format = &formatter{}
+			}
 			values = append(values, sub.parseInterpolation())
+			if p.format != nil {
+				formatted = append(formatted, string(sub.format.out))
+			}
 			p.spare = sub.toks[:0]
 		default:
 			panic(diag.Internal("unknown string part %T", part))
 		}
+	}
+	if p.format != nil {
+		p.format.replaceString(p.src.Text, t, p.parts, formatted)
 	}
 	return values
 }
