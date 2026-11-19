@@ -4,8 +4,11 @@ let A = match B 'm'
 	1 gives C
 	default gives D
 end 'm'
+
 let B = 1 as Small
+
 let C = 2 as Small
+
 let D = 3 as Small
 
 function main() returns ExitCode

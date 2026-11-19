@@ -1,4 +1,5 @@
 typealias Amount = int(i64.min to i64.max)
+
 typealias Code = int(0 to 999)
 
 enum Color
@@ -34,15 +35,12 @@ function main() returns ExitCode
 		green or
 		blue then print("GB\n")
 	end 'm'
-
 	let s = HttpStatus.notFound
 	print("{s.name} {s.rawValue} {s == HttpStatus.ok}\n")
-
 	print("{describe(Result.success(42))}\n")
 	print("{describe(Result.failure(404, message: "not found"))}\n")
 	let p = Result.pending
 	print("{describe(p)} {p.name}\n")
-
 	let n = 7
 	let size = match n 's'
 		0 gives "zero"
@@ -50,7 +48,6 @@ function main() returns ExitCode
 		default gives "big"
 	end 's'
 	print("{size}\n")
-
 	let word = "beta"
 	match word 'w'
 		"alpha" then print("first\n")

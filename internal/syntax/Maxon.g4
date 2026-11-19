@@ -23,17 +23,25 @@
 //   Token : regex ;    A token rule: literals, [sets] with ranges, ~ to negate a set or one character, . for any
 //                      byte, groups, and ? * +. `-> skip` drops what it matches; `-> scan` has the DFA match only
 //                      the token's first byte and the hand-written lexer method scan<Token> read the rest, for a
-//                      token that is not regular.
+//                      token that is not regular. `-> noSpaceBefore`, `-> noSpaceAfter` and `-> noSpace` join the
+//                      token to its neighbours wherever it appears.
+//   ^x, x^             Join a literal or token to the one before or after it, here only: a call's `^'('`.
 //
 // Lookahead is one token, or two where one does not decide; where two alternatives share a leading rule, it is
 // parsed once and the token after it decides. Otherwise the earlier alternative wins, as in ANTLR.
 //
 // The lexer takes the longest match at each position, a keyword before a token rule and an earlier token rule
 // before a later one. It never backs off to a shorter match: input that stops partway through a token is an error.
+//
+// The layout is part of the syntax. A line is indented with one tab per level; the lexer makes the line after a
+// deeper one start with Indent, and a shallower one with a Dedent per level, which the rules below place. Tokens
+// on a line are separated by one space, or none where a join says so. A comment is a // line indented like the
+// line after it, or follows code after one space. One blank line separates top-level declarations, and there are
+// no others.
 
 grammar Maxon;
 
-tokens { FileEnd }
+tokens { FileEnd, /** an indented line */ Indent, /** the end of the indented lines */ Dedent }
 
 // Declarations
 
@@ -64,7 +72,7 @@ typeDeclNode
 
 funcDecl
     : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name
-      '(' ( receiver=('mutable' | 'immutable' | 'isolated' | 'consuming') 'self' (',' params+=param)*
+      ^'(' ( receiver=('mutable' | 'immutable' | 'isolated' | 'consuming') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
       ')' ('returns' returns=typeRef)?
@@ -101,7 +109,7 @@ constDecl
 
 typeDecl
     : visibility=('export' | 'public')? 'type' name=Name Newline
-      ((fields+=fieldDecl | methods+=funcDecl) Newline)*
+      (Indent ((fields+=fieldDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
@@ -111,7 +119,7 @@ fieldDecl
 
 enumDecl
     : visibility=('export' | 'public')? 'enum' name=Name Newline
-      ((cases+=enumCaseDecl | methods+=funcDecl) Newline)*
+      (Indent ((cases+=enumCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
@@ -121,22 +129,22 @@ enumCaseDecl
 
 unionDecl
     : visibility=('export' | 'public')? 'union' name=Name Newline
-      ((cases+=unionCaseDecl | methods+=funcDecl) Newline)*
+      (Indent ((cases+=unionCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
 unionCaseDecl
-    : name=Name ('(' (fields+=param (',' fields+=param)*)? ')')?
+    : name=Name (^'(' (fields+=param (',' fields+=param)*)? ')')?
     ;
 
 aliasDecl
     : visibility=('export' | 'public')? 'typealias' name=Name '=' 'int'
-      '(' low=bound (inclusive='to' | 'upto') high=bound ')'
+      ^'(' low=bound (inclusive='to' | 'upto') high=bound ')'
     ;
 
 /** a range bound */
 bound
-    : negative='-'? (value=Integer | sized=Name '.' limit=Name)
+    : negative='-'^? (value=Integer | sized=Name '.' limit=Name)
     ;
 
 @ast::Bound {
@@ -160,7 +168,7 @@ endLabel
 
 /** a block of statements */
 block returns [[]Stmt stmts]
-    : Newline (stmts+=stmt Newline)+
+    : Newline Indent (stmts+=stmt Newline)+ Dedent
     ;
 
 /** a statement */
@@ -257,7 +265,7 @@ matchStmt
 
 matchCore
     : 'match' subject=expr label=Label Newline
-      (arms+=matchArm Newline)*
+      (Indent (arms+=matchArm Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
@@ -278,7 +286,7 @@ matchArm
 
 /** a pattern */
 pattern
-    : caseName=Name (hasBindings='(' (bindings+=(Name | '_') (',' bindings+=(Name | '_'))*)? ')')?
+    : caseName=Name (hasBindings=^'(' (bindings+=(Name | '_') (',' bindings+=(Name | '_'))*)? ')')?
     | value=patternValue ((inclusive='to' | 'upto') high=patternValue)?
     ;
 
@@ -308,8 +316,8 @@ expr
     | matchExpr
     | '(' expr ')'
     | obj=expr '.' name=Name                                         # MemberExpr
-    | callee=expr '(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
-    | op=('-' | 'not') e=expr                                        # UnaryExpr
+    | callee=expr ^'(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
+    | op=('-'^ | 'not') e=expr                                       # UnaryExpr
     | e=expr 'as' target=typeRef                                     # CastExpr
     | l=expr op=('*' | '/' | 'mod') r=expr                           # BinaryExpr
     | l=expr op=('+' | '-') r=expr                                   # BinaryExpr
@@ -347,7 +355,7 @@ expr
 
 /** an integer */
 intLit
-    : negative='-'? magnitude=Integer
+    : negative='-'^? magnitude=Integer
     ;
 
 @ast::IntLit {
@@ -407,7 +415,7 @@ arg
     ;
 
 panicExpr
-    : 'panic' '(' message=expr ')'
+    : 'panic' ^'(' message=expr ')'
     ;
 
 matchExpr
@@ -444,13 +452,13 @@ LineComment : '//' ~[\n]* -> skip ;
 /** a block comment */
 BlockComment : '/*' (~'*' | '*'+ ~[*/])* '*'+ '/' -> skip ;
 
-LParen : '(' ;
-RParen : ')' ;
-LBrace : '{' ;
-RBrace : '}' ;
-Comma : ',' ;
-Colon : ':' ;
-Dot : '.' ;
+LParen : '(' -> noSpaceAfter ;
+RParen : ')' -> noSpaceBefore ;
+LBrace : '{' -> noSpace ;
+RBrace : '}' -> noSpaceBefore ;
+Comma : ',' -> noSpaceBefore ;
+Colon : ':' -> noSpaceBefore ;
+Dot : '.' -> noSpace ;
 Plus : '+' ;
 Minus : '-' ;
 Star : '*' ;

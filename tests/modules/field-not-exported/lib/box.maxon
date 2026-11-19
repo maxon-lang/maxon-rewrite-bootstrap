@@ -2,7 +2,6 @@ export typealias Score = int(i64.min to i64.max)
 
 export type Box
 	var secret = 3 as Score
-
 	export static function create() returns Box
 		return Box{}
 	end 'create'

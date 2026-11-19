@@ -1,10 +1,12 @@
-/* A block comment
-   over three lines. */
+// A comment line
+// over two lines.
+
 typealias Score = int(i64.min to i64.max)
 
 /// A doc comment stays in the module buffer.
 /// So does this second line.
 function twice(n Score) returns Score
+	// A comment line inside a body, indented like the line after it.
 	return n * 2 // a trailing comment
 end 'twice'
 
@@ -12,8 +14,8 @@ function main() returns ExitCode
 	print("a // inside a string\n")
 	print("b /* inside a string */\n")
 	print("{"// in an interpolated string"} c\n")
-	let x = /* inline */ twice(21)
-	print("{x}\n") /* trailing block */
+	let x = twice(21)
+	print("{x}\n") // trailing
 	print("done\n")
 	return 0
 end 'main'

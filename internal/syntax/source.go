@@ -102,7 +102,8 @@ func LoadModuleSource(files []string) *Source {
 	return NewSource(src.String(), slices)
 }
 
-// readSourceFile reads file into buffer and returns its text, without a byte order mark.
+// readSourceFile reads file into buffer and returns its text. A byte order mark is an error: source is UTF-8, and
+// the mark is an invisible character before the first token.
 func readSourceFile(file string, buffer []byte) []byte {
 	handle, err := os.Open(file)
 	if err != nil {
@@ -128,5 +129,9 @@ func readSourceFile(file string, buffer []byte) []byte {
 			panic(diag.NewError(diag.ErrUnexpectedToken, fileChangedMessage, file, 1, 1))
 		}
 	}
-	return bytes.TrimPrefix(buffer[:size], utf8Bom)
+	if bytes.HasPrefix(buffer[:size], utf8Bom) {
+		panic(diag.NewError(diag.ErrUnexpectedToken, "the file starts with a byte order mark; save it as UTF-8 without one",
+			file, 1, 1))
+	}
+	return buffer[:size]
 }

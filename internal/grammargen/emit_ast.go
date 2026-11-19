@@ -166,7 +166,14 @@ func emitTokens(m *model) string {
 	for _, k := range m.keywords {
 		w.p("\t%s\n", keywordConst(k))
 	}
-	w.p("\tnumTokens\n)\n\n")
+	w.p("\tnumTokens\n")
+	w.p("\t// The skipped tokens: the lexer checks and drops them, so the parser never sees one.\n")
+	for _, t := range m.g.tokens {
+		if t.skip {
+			w.p("\tT%s\n", t.name)
+		}
+	}
+	w.p("\t// noToken is what a DFA state that accepts no token accepts.\n\tnoToken\n)\n\n")
 	emitDfa(w, m)
 	return w.b.String()
 }

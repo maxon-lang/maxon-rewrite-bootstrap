@@ -16,12 +16,10 @@ end 'bump'
 
 function main() returns ExitCode
 	print("{classify(-3)} {classify(0)} {classify(9)}\n")
-
 	var k = 0 as Score
 	bump(k)
 	bump(k)
 	print("k {k}\n")
-
 	var i = 0 as Score
 	while true 'outer'
 		i = i + 1

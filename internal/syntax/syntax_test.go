@@ -52,8 +52,8 @@ func TestLexKindsAndPositions(t *testing.T) {
 }
 
 func TestPositionsCountLinesPerFile(t *testing.T) {
-	_, errs := parseFiles(t, "let a = 1", "\nlet b = )\n")
-	if len(errs) != 1 || errs[0].File != "b.maxon" || errs[0].Line != 2 || errs[0].Col != 9 {
+	_, errs := parseFiles(t, "let a = 1\n", "let b = 2\n\nlet c = )\n")
+	if len(errs) != 1 || errs[0].File != "b.maxon" || errs[0].Line != 3 || errs[0].Col != 9 {
 		t.Fatalf("errors: %v", errs)
 	}
 }
@@ -81,8 +81,8 @@ func TestTokenLongerThanTheLengthBitsIsAnError(t *testing.T) {
 }
 
 func TestCommentsAreSkippedAndKeepPositions(t *testing.T) {
-	prog, errs := parseFiles(t, "let a = /* c */ 1 // trailing\n/// doc\nlet s = \"{f(\"//\")} // kept\"\nlet b /* one\ntwo */ = )\n")
-	if len(errs) != 1 || errs[0].Line != 5 || errs[0].Col != 10 {
+	prog, errs := parseFiles(t, "let a = 1 // trailing\n\n/// doc\nlet s = \"{f(\"//\")} // kept\"\n\n// one\n// two\nlet b = )\n")
+	if len(errs) != 1 || errs[0].Line != 8 || errs[0].Col != 9 {
 		t.Fatalf("errors: %v", errs)
 	}
 	if len(prog.Decls) != 2 {

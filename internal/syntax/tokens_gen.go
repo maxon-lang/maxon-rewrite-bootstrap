@@ -8,6 +8,8 @@ type T int
 
 const (
 	TFileEnd T = iota
+	TIndent
+	TDedent
 	TName
 	TInteger
 	TString
@@ -78,6 +80,12 @@ const (
 	TKw_false
 	TKw_panic
 	numTokens
+	// The skipped tokens: the lexer checks and drops them, so the parser never sees one.
+	TWhitespace
+	TLineComment
+	TBlockComment
+	// noToken is what a DFA state that accepts no token accepts.
+	noToken
 )
 
 // The lexer's DFA, compiled from every token rule and keyword of Maxon.g4.
@@ -87,9 +95,6 @@ const (
 	dfaClasses = 51
 	// dfaStart is the start state's row offset in dfaNext.
 	dfaStart = dfaClasses
-	// noToken is the accepted token of a state that accepts none; skipToken that of a skipped token.
-	noToken   = numTokens
-	skipToken = numTokens + 1
 )
 
 // dfaClass is each byte's class: bytes in one class lead to the same state from every state.
@@ -335,7 +340,7 @@ var dfaNext = [...]uint16{
 var dfaAccept = [...]T{
 	noToken,       // 0
 	noToken,       // 1
-	skipToken,     // 2 Whitespace
+	TWhitespace,   // 2
 	TNewline,      // 3
 	noToken,       // 4
 	TString,       // 5
@@ -383,7 +388,7 @@ var dfaAccept = [...]T{
 	noToken,       // 47
 	TLabel,        // 48
 	noToken,       // 49
-	skipToken,     // 50 LineComment
+	TLineComment,  // 50
 	TInteger,      // 51
 	noToken,       // 52
 	noToken,       // 53
@@ -432,7 +437,7 @@ var dfaAccept = [...]T{
 	TName,         // 96
 	noToken,       // 97
 	noToken,       // 98
-	skipToken,     // 99 LineComment
+	TLineComment,  // 99
 	TInteger,      // 100
 	noToken,       // 101
 	TInteger,      // 102
@@ -476,7 +481,7 @@ var dfaAccept = [...]T{
 	TName,         // 140
 	TKw_xor,       // 141
 	noToken,       // 142
-	skipToken,     // 143 BlockComment
+	TBlockComment, // 143
 	TInteger,      // 144
 	TInteger,      // 145
 	TInteger,      // 146
@@ -574,6 +579,22 @@ var dfaIncomplete = [...]string{
 	142: "incomplete block comment",
 	221: "",
 }
+
+// tokenDescription is each described token's description, for a syntax error to name a token with no text.
+var tokenDescription = [numTokens]string{
+	TIndent:  "an indented line",
+	TDedent:  "the end of the indented lines",
+	TName:    "a name",
+	TInteger: "an integer",
+	TString:  "a string",
+	TLabel:   "a label",
+	TNewline: "the end of the line",
+}
+
+// tokenNoSpaceBefore and tokenNoSpaceAfter mark the tokens joined to the token before or after them.
+var tokenNoSpaceBefore = [numTokens]bool{TRParen: true, TLBrace: true, TRBrace: true, TComma: true, TColon: true, TDot: true}
+
+var tokenNoSpaceAfter = [numTokens]bool{TLParen: true, TLBrace: true, TDot: true}
 
 // tokenScanned marks the tokens the DFA only starts; scanRest reads the rest of each.
 var tokenScanned = [numTokens]bool{TString: true}

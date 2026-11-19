@@ -69,7 +69,6 @@ const box = `typealias Score = int(i64.min to i64.max)
 
 type Box
 	export var v as Score
-
 	static function create(v Score) returns Box
 		return Box{v: v}
 	end 'create'
@@ -88,6 +87,7 @@ end 'main'
 
 func TestMixedAliases(t *testing.T) {
 	expectCodes(t, checkSource(t, `typealias Apples = int(0 to 100)
+
 typealias Pears = int(0 to 100)
 
 function main() returns ExitCode

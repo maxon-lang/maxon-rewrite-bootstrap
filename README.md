@@ -190,10 +190,10 @@ is the import-cycle check between resolve and declare, a walk over the module gr
 ### Reading a module
 
 A module's files are read into one buffer, a string allocated once at the sum of their sizes, as they are written:
-offsets in it are the files' own byte offsets, less any byte order mark. Every token's text is a substring of it, so
-lexing allocates no text and needs no intern table. A string cannot be read into, so each file is read into a
-scratch buffer sized for the module's largest file and copied from there. Comments are `-> skip` token rules, so the
-lexer drops them; a `///` doc comment stays in the buffer for the LSP to use later.
+offsets in it are the files' own byte offsets, and a byte order mark is an error. Every token's text is a
+substring of it, so lexing allocates no text and needs no intern table. A string cannot be read into, so each file
+is read into a scratch buffer sized for the module's largest file and copied from there. Comments are `-> skip`
+token rules, so the lexer drops them; a `///` doc comment stays in the buffer for the LSP to use later.
 
 A token is 8 bytes: its kind and length packed into one 32-bit word (8 bits of kind, 24 of length, so a token is
 at most 16 MB) and its start offset in the buffer. Offsets are 32-bit, so a module's source is at most 4 GB. A
@@ -204,8 +204,11 @@ which the parser walks from the last line it asked about, so placing a node cost
 length is about 15% faster than re-lexing a token to find it, and the packing keeps it at 8 bytes.
 
 The lexer works on the raw UTF-8 bytes, so a column counts bytes. One lexer pass covers the whole buffer. At each
-file boundary it resets the bracket depth, so no token spans two files, and emits a `FileEnd` token. One parser
-reads the module's stream, naming each file in its diagnostics. A declaration left open at the
+file boundary it resets the bracket depth and the indentation, so no token spans two files, and emits a `FileEnd`
+token. It reads a file line by line: it checks each line's indentation and emits `Indent` and `Dedent` where it
+changes, checks blank lines and comment lines, and runs the DFA over each code line, stepping over the one space
+between two tokens without a round of the DFA. One parser reads the module's stream, naming each file in its
+diagnostics. A declaration left open at the
 end of a file fails there with `E2007`, and parsing resumes at the next file, so each file reports its own first
 syntax error.
 
@@ -271,6 +274,28 @@ holds it, and constant expressions fold at compile time. A value whose range is 
 such as a `for` variable or arithmetic over constants, fits any alias whose range contains it. Mixing two
 different aliases is `E3005`. Arithmetic traps on 64-bit overflow, and on leaving the alias's range,
 checked where the result is computed. `as` checks at compile time for a constant and at run time otherwise.
+
+### Layout
+
+The layout is part of the syntax: a program has one way to be written, and anything else is a syntax error at the
+character that breaks the rule.
+
+- A line is indented with tabs, one per level, and a body is one level deeper than the line that opens it. A
+  blank line holds nothing, not even tabs.
+- Tokens on a line are separated by exactly one space, or by none: after `(` and `{`, before `)`, `}`, `,` and
+  `:`, around `.`, before the `(` of a call, a declaration's parameters or `int(...)`, and after a unary `-`.
+  There is no trailing whitespace, no tab inside a line, and no carriage return.
+- A line break is only where the grammar has one, never inside parentheses.
+- A comment is a `//` comment: on its own line, indented like the line after it, or after code, separated from
+  it by one space. A `/* */` comment is an error.
+- Exactly one blank line separates two top-level declarations, and a comment block after the last one. There are
+  no other blank lines: none inside a declaration, none at the start or end of a file. A file ends with one
+  newline, and has no byte order mark.
+
+The lexer checks what does not depend on the grammar (`E2001`). The grammar says where `Indent` and `Dedent` go
+and which tokens join (`-> noSpaceBefore` on a token, `^'('` at a call), and the parser checks each gap and the
+blank lines between declarations (`E2010`). Holding the layout costs the lexer nothing measurable: it lexes the
+bench at the same 49–50 ms as without the checks.
 
 ### Where it differs from Maxon
 

@@ -2,7 +2,6 @@ typealias Score = int(i64.min to i64.max)
 
 type Box
 	export var v as Score
-
 	static function create(v Score) returns Box
 		return Box{v: v}
 	end 'create'

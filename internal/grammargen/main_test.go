@@ -102,6 +102,36 @@ func TestParserConvertsAndClimbs(t *testing.T) {
 	}
 }
 
+func TestJoinsComeFromTokenCommandsAndCarets(t *testing.T) {
+	outs := generateTiny(t, `grammar T;
+call : callee=Name ^'(' arg=neg ')' ;
+neg : op=('-'^ | 'not') v=Integer ;
+Name : [a-z]+ ;
+Integer : [0-9]+ ;
+LParen : '(' -> noSpaceAfter ;
+RParen : ')' -> noSpaceBefore ;
+Minus : '-' ;
+`)
+	parser, tokens := outs[parserFile], outs[tokensFile]
+	for _, want := range []string{
+		"p.joinNext = true\n\tp.expect(TLParen",
+		"joins := p.at(TMinus)",
+		"p.joinNext = p.joinNext || joins",
+	} {
+		if !strings.Contains(parser, want) {
+			t.Errorf("parser lacks %q:\n%s", want, parser)
+		}
+	}
+	for _, want := range []string{
+		"var tokenNoSpaceBefore = [numTokens]bool{TRParen: true}",
+		"var tokenNoSpaceAfter = [numTokens]bool{TLParen: true}",
+	} {
+		if !strings.Contains(tokens, want) {
+			t.Errorf("tokens lack %q:\n%s", want, tokens)
+		}
+	}
+}
+
 func TestSharedLeadingRuleIsParsedOnce(t *testing.T) {
 	parser := generateTiny(t, `grammar T;
 stmt : assign | call ;
@@ -132,7 +162,8 @@ func TestGrammarErrorsNameTheLine(t *testing.T) {
 		"grammar G;\nA : 'x'* ;\n":                    "g.g4:2: token 'A' matches the empty string, so the lexer would never move on",
 		"grammar G;\nA : 'x' .*? 'y' ;\n":             "g.g4:2: the DFA lexer takes the longest match; a non-greedy loop cannot be compiled",
 		"grammar G;\na : W ;\nW : ' ' -> skip ;\n":    "g.g4:2: token 'W' is skipped, so no rule can use it",
-		"grammar G;\nA : 'x' -> more ;\n":             "g.g4:2: token 'A' has the command 'more'; a token takes '-> skip' or '-> scan'",
+		"grammar G;\na : b^ ;\nb : 'x' ;\n":           "g.g4:2: ^ joins a token to its neighbour; put it on a literal or a token",
+		"grammar G;\nA : 'x' -> more ;\n":             "g.g4:2: token 'A' has the command 'more'; a token takes skip, scan, noSpaceBefore, noSpaceAfter or noSpace",
 	}
 	for src, want := range cases {
 		_, err := generate("g.g4", []byte(src))
@@ -151,11 +182,7 @@ func (a *dfa) run(s string) (string, int, string) {
 		i++
 	}
 	if t := a.accept[state]; t != noAccept {
-		name := a.tokens[t].name
-		if name == "" {
-			name = "skip " + a.tokens[t].def.name
-		}
-		return name, i, ""
+		return a.tokens[t].name, i, ""
 	}
 	return "", i, a.incomplete[state]
 }
@@ -185,7 +212,7 @@ Slash : '/' ;
 		{"===", "TEqEq", 2, ""},
 		{"0x1f;", "TInteger", 4, ""},
 		{"0x;", "", 2, "incomplete integer"},
-		{"/* a **/b", "skip Comment", 8, ""},
+		{"/* a **/b", "TComment", 8, ""},
 		{"/* open", "", 7, "incomplete comment"},
 		{"/ x", "TSlash", 1, ""},
 	}

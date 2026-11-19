@@ -283,11 +283,17 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 	case ekLiteral, ekToken:
 		term := g.m.terminal(e)
 		call := fmt.Sprintf("p.expect(%s, %q)", term, g.m.describeTerminal(term))
+		if e.joinBefore {
+			g.p("p.joinNext = true\n")
+		}
 		if e.label == "" {
 			g.p("%s\n", call)
-			return
+		} else {
+			g.assignToken(tg, e, call)
 		}
-		g.assignToken(tg, e, call)
+		if e.joinAfter {
+			g.p("p.joinNext = true\n")
+		}
 	case ekRule:
 		call := g.call(g.m.ruleByName[e.text])
 		switch {
@@ -310,7 +316,25 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 				descs = append(descs, g.m.describeTerminal(t))
 			}
 			g.p("if !%s {\npanic(p.expected(%q))\n}\n", g.atAny(terms), joinOr(descs))
+			// A ^ on one of the literals joins it, and only it, to its neighbour.
+			for _, a := range e.group {
+				if a.elems[0].joinBefore {
+					g.p("if p.at(%s) {\np.joinNext = true\n}\n", g.m.terminal(a.elems[0]))
+				}
+			}
+			var joinsAfter []string
+			for _, a := range e.group {
+				if a.elems[0].joinAfter {
+					joinsAfter = append(joinsAfter, g.m.terminal(a.elems[0]))
+				}
+			}
+			if len(joinsAfter) == 0 {
+				g.assignToken(tg, e, "p.next()")
+				return
+			}
+			g.p("{\njoins := %s\n", g.atAny(joinsAfter))
 			g.assignToken(tg, e, "p.next()")
+			g.p("p.joinNext = p.joinNext || joins\n}\n")
 			return
 		}
 		if len(e.group) == 1 && e.label == "" {

@@ -130,7 +130,9 @@ func lexGrammar(file, src string) []gtok {
 	return append(toks, gtok{tkEnd, "end of file", line})
 }
 
-var grammarPunctuation = []string{"->", "+=", "::", ":", ";", "|", "(", ")", "?", "*", "+", "=", "#", "~", ".", "<", ">", ",", "@"}
+var grammarPunctuation = []string{
+	"->", "+=", "^", "::", ":", ";", "|", "(", ")", "?", "*", "+", "=", "#", "~", ".", "<", ">", ",", "@",
+}
 
 func punctAt(s string) (string, bool) {
 	for _, p := range grammarPunctuation {
@@ -168,6 +170,9 @@ type tokenDef struct {
 	// skip drops what the rule matches; scan has the DFA only start the token and lexer.scan<Name> finish it.
 	skip bool
 	scan bool
+	// noSpaceBefore and noSpaceAfter join the token to the token before or after it wherever it appears.
+	noSpaceBefore bool
+	noSpaceAfter  bool
 }
 
 type rule struct {
@@ -207,6 +212,9 @@ type elem struct {
 	group    []*alt
 	suffix   byte
 	line     int
+	// joinBefore (written ^x) and joinAfter (x^) put no space between the token and the one before or after it.
+	joinBefore bool
+	joinAfter  bool
 }
 
 type astBlock struct {
@@ -245,9 +253,19 @@ func parseGrammar(file, src string) *grammar {
 		case p.isIdent("tokens"):
 			p.next()
 			body := p.expect(tkBrace)
-			for name := range strings.SplitSeq(body.text, ",") {
-				if name = strings.TrimSpace(name); name != "" {
-					g.tokens = append(g.tokens, &tokenDef{name: name, desc: p.takeDoc(), line: body.line})
+			// Each entry is a name, after an optional /** description */.
+			for entry := range strings.SplitSeq(body.text, ",") {
+				entry = strings.TrimSpace(entry)
+				desc := ""
+				if rest, ok := strings.CutPrefix(entry, "/**"); ok {
+					text, name, found := strings.Cut(rest, "*/")
+					if !found {
+						p.fail(body.line, "unterminated description in tokens {}")
+					}
+					desc, entry = strings.TrimSpace(text), strings.TrimSpace(name)
+				}
+				if entry != "" {
+					g.tokens = append(g.tokens, &tokenDef{name: entry, desc: desc, line: body.line})
 				}
 			}
 		case p.isPunct("@"):
@@ -352,19 +370,32 @@ func (p *grammarParser) astBlock() *astBlock {
 func (p *grammarParser) lexerRule() *tokenDef {
 	t := &tokenDef{line: p.cur().line, name: p.ident(), desc: p.takeDoc()}
 	p.expectPunct(":")
-	if p.cur().kind == tkLiteral && p.peek().kind == tkPunct && p.peek().text == ";" {
+	if p.cur().kind == tkLiteral && p.peek().kind == tkPunct && (p.peek().text == ";" || p.peek().text == "->") {
 		t.literal = p.cur().text
 	}
 	t.body = p.lexAlts(t)
 	if p.isPunct("->") {
 		p.next()
-		switch command := p.ident(); command {
-		case "skip":
-			t.skip = true
-		case "scan":
-			t.scan = true
-		default:
-			p.fail(t.line, "token '%s' has the command '%s'; a token takes '-> skip' or '-> scan'", t.name, command)
+		for {
+			switch command := p.ident(); command {
+			case "skip":
+				t.skip = true
+			case "scan":
+				t.scan = true
+			case "noSpaceBefore":
+				t.noSpaceBefore = true
+			case "noSpaceAfter":
+				t.noSpaceAfter = true
+			case "noSpace":
+				t.noSpaceBefore, t.noSpaceAfter = true, true
+			default:
+				p.fail(t.line, "token '%s' has the command '%s'; a token takes skip, scan, noSpaceBefore, "+
+					"noSpaceAfter or noSpace", t.name, command)
+			}
+			if !p.isPunct(",") {
+				break
+			}
+			p.next()
 		}
 	}
 	p.expectPunct(";")
@@ -424,6 +455,10 @@ func (p *grammarParser) elem() *elem {
 		e.label = p.next().text
 		e.appendTo = p.next().text == "+="
 	}
+	if p.isPunct("^") {
+		p.next()
+		e.joinBefore = true
+	}
 	t := p.next()
 	switch {
 	case t.kind == tkLiteral:
@@ -438,6 +473,14 @@ func (p *grammarParser) elem() *elem {
 		p.expectPunct(")")
 	default:
 		p.fail(t.line, "unexpected '%s'", t.text)
+	}
+	// A ^ between two elements joins the second to the first; it is the first's x^ only where no element follows.
+	if next := p.peek(); p.isPunct("^") && next.kind == tkPunct && strings.Contains("|);?*+#", next.text) {
+		p.next()
+		e.joinAfter = true
+	}
+	if (e.joinBefore || e.joinAfter) && e.kind != ekLiteral && e.kind != ekToken {
+		p.fail(e.line, "^ joins a token to its neighbour; put it on a literal or a token")
 	}
 	if p.cur().kind == tkPunct && (p.cur().text == "?" || p.cur().text == "*" || p.cur().text == "+") {
 		e.suffix = p.next().text[0]

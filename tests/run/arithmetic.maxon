@@ -1,4 +1,5 @@
 typealias Score = int(i64.min to i64.max)
+
 typealias Tally = int(0 to u64.max)
 
 function add(a Score, b Score) returns Score
@@ -18,19 +19,16 @@ function main() returns ExitCode
 	print("neg {-x * 3}\n")
 	print("div {x / 5} mod {x mod 5}\n")
 	print("bits {x and 15} {x or 1} {x xor 2} {x shl 2} {x shr 1}\n")
-
 	var total = 0 as Score
 	for i in 1 to 10 'sum'
 		total = total + i
 	end 'sum'
 	print("total {total}\n")
-
 	var count = 0 as Tally
 	for _ in 0 upto 5 'count'
 		count = count + 1
 	end 'count'
 	print("count {count}\n")
-
 	print("fib {fib(20)}\n")
 	print("const {3 * 4 + 1} {-9223372036854775807 - 1} {18446744073709551615 as Tally}\n")
 	print("flag {x > 10 and x < 50} {not (x == 42)}\n")

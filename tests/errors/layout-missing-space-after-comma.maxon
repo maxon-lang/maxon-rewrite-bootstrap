@@ -1,0 +1,9 @@
+function f(a ExitCode,b ExitCode) returns ExitCode
+	return a
+end 'f'
+
+function main() returns ExitCode
+	return f(1, 2)
+end 'main'
+
+// expect-error: E2010 at 1:23

@@ -1,9 +1,11 @@
 package syntax
 
 import (
+	"fmt"
 	"math/bits"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -59,28 +61,37 @@ const (
 )
 
 type lexer struct {
-	src   *Source
-	text  string
-	file  int
-	pos   int
-	end   int
-	depth int
-	toks  []Token
+	src  *Source
+	text string
+	file int
+	pos  int
+	end  int
+	// inline is set for an interpolation, which starts at begin.
+	inline bool
+	begin  int
+	depth  int
+	// indent is the indentation, in tabs, of the last code line.
+	indent int
+	toks   []Token
 }
 
-// Lex lexes every file of src into buffer, ending each file with a TFileEnd and the module with a TEof.
+// Lex lexes every file of src into buffer. Each code line ends with a TNewline; a line indented one tab more than
+// the code line before it starts with a TIndent, and one indented less starts with a TDedent for each tab. Each
+// file ends with a TFileEnd and the module with a TEof.
 func Lex(src *Source, buffer []Token) []Token {
 	lx := &lexer{src: src, text: src.Text, toks: buffer[:0]}
 	for i, f := range src.Files {
-		lx.lexRange(i, f.Begin, f.End)
+		lx.lexFile(i, f.Begin, f.End)
 	}
 	return lx.finish(len(src.Text))
 }
 
-// LexInterpolation lexes the expression of an interpolation at text[begin:end] of file.
+// LexInterpolation lexes the expression of an interpolation at text[begin:end] of file: part of one line, with no
+// layout of its own.
 func LexInterpolation(src *Source, file, begin, end int, buffer []Token) []Token {
-	lx := &lexer{src: src, text: src.Text, toks: buffer[:0]}
-	lx.lexRange(file, begin, end)
+	lx := &lexer{src: src, text: src.Text, file: file, pos: begin, end: end, inline: true, begin: begin, toks: buffer[:0]}
+	lx.lexLine()
+	lx.emit(TFileEnd, end, end)
 	return lx.finish(end)
 }
 
@@ -89,18 +100,26 @@ func (lx *lexer) finish(at int) []Token {
 	return lx.toks
 }
 
-func (lx *lexer) lexRange(file, begin, end int) {
-	lx.file, lx.pos, lx.end, lx.depth = file, begin, end, 0
-	lx.lexSlice()
-	if n := len(lx.toks); n > 0 && lx.toks[n-1].Kind() != TNewline && lx.toks[n-1].Kind() != TFileEnd {
-		lx.emit(TNewline, end, end)
+func (lx *lexer) lexFile(file, begin, end int) {
+	lx.file, lx.pos, lx.end, lx.depth, lx.indent = file, begin, end, 0, 0
+	if begin < end && lx.text[end-1] != '\n' {
+		panic(lx.fail("the file does not end with a newline", end))
+	}
+	for lx.pos < end {
+		lx.lineStart()
+		if lx.pos < end {
+			lx.lexLine()
+		}
+	}
+	for ; lx.indent > 0; lx.indent-- {
+		lx.emit(TDedent, end, end)
 	}
 	lx.emit(TFileEnd, end, end)
 }
 
 func (lx *lexer) emit(kind T, start, end int) {
 	if end-start > MaxTokenLength {
-		panic(lx.fail(diag.ErrUnexpectedToken, "a token is longer than 16 MB; split it", start))
+		panic(lx.fail("a token is longer than 16 MB; split it", start))
 	}
 	lx.toks = append(lx.toks, Token{kindLength: uint32(kind) | uint32(end-start)<<tokenKindBits, Start: uint32(start)})
 }
@@ -111,12 +130,86 @@ func isAsciiHexDigit(c byte) bool {
 	return isAsciiDigit(c) || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 
-// lexSlice runs the generated DFA (tokens_gen.go) from each position to the longest token there. It never backs
-// off: a match that stops in a state accepting no token is an error naming the unfinished token.
-func (lx *lexer) lexSlice() {
+// lineStart reads the blank lines and comment lines before the next code line, and that line's indentation. A
+// line is indented with tabs only, at most one more than the code line before it; a comment line is indented like
+// the code line after it, or not at all at the end of the file.
+func (lx *lexer) lineStart() {
+	var comments []int
+	for lx.pos < lx.end {
+		lineBegin := lx.pos
+		for lx.text[lx.pos] == '\t' {
+			lx.pos++
+		}
+		tabs := lx.pos - lineBegin
+		switch c := lx.text[lx.pos]; {
+		case c == '\n':
+			if tabs > 0 {
+				panic(lx.fail("a blank line holds tabs; remove the trailing whitespace", lineBegin))
+			}
+			lx.pos++
+			continue
+		case c == ' ':
+			panic(lx.fail("a line is indented with a space; indent with tabs only", lx.pos))
+		case c == '/' && lx.text[lx.pos+1] == '/':
+			comments = append(comments, lineBegin)
+			lx.pos = lx.comment(lx.pos) + 1
+			continue
+		}
+		for _, at := range comments {
+			lx.checkCommentIndent(at, tabs)
+		}
+		switch {
+		case tabs > lx.indent+1:
+			panic(lx.fail("a line is indented more than one tab deeper than the line above", lineBegin))
+		case tabs == lx.indent+1:
+			lx.emit(TIndent, lx.pos, lx.pos)
+		default:
+			for range lx.indent - tabs {
+				lx.emit(TDedent, lx.pos, lx.pos)
+			}
+		}
+		lx.indent = tabs
+		return
+	}
+	for _, at := range comments {
+		lx.checkCommentIndent(at, 0)
+	}
+}
+
+func (lx *lexer) checkCommentIndent(lineBegin, tabs int) {
+	got := 0
+	for lx.text[lineBegin+got] == '\t' {
+		got++
+	}
+	if got != tabs {
+		panic(lx.fail(fmt.Sprintf("a comment line is indented %d tabs, but the code line after it %d; indent them alike",
+			got, tabs), lineBegin))
+	}
+}
+
+// comment checks the comment at text[start:], which runs to the end of its line, and returns where the line ends.
+func (lx *lexer) comment(start int) int {
+	end := start + strings.IndexByte(lx.text[start:lx.end], '\n')
+	if last := lx.text[end-1]; last == ' ' || last == '\t' || last == '\r' {
+		panic(lx.fail("a comment ends with whitespace; remove it", end-1))
+	}
+	return end
+}
+
+// lexLine runs the generated DFA (tokens_gen.go) from each position to the longest token there, up to the end of
+// the line. It never backs off: a match that stops in a state accepting no token is an error naming the
+// unfinished token.
+func (lx *lexer) lexLine() {
 	text := lx.text[:lx.end]
 	for lx.pos < len(text) {
 		start := lx.pos
+		// Most tokens follow one space; step over it here rather than in a round of the DFA. Any other
+		// whitespace goes through the DFA, whose TWhitespace case checks it.
+		if text[start] == ' ' && start+1 < len(text) && !(lx.inline && start == lx.begin) {
+			if c := text[start+1]; c != ' ' && c != '\t' && c != '\r' && c != '\n' {
+				start++
+			}
+		}
 		state := dfaStart
 		i := start
 		for i < len(text) {
@@ -129,11 +222,21 @@ func (lx *lexer) lexSlice() {
 		}
 		kind := dfaAccept[state/dfaClasses]
 		switch kind {
-		case skipToken:
-			lx.pos = i
-			continue
 		case noToken:
 			panic(lx.unfinished(state, start))
+		case TWhitespace:
+			panic(lx.badSpace(start, i))
+		case TLineComment:
+			if lx.inline {
+				panic(lx.fail("a comment inside an interpolation; move it after the line", start))
+			}
+			if text[start-1] != ' ' {
+				panic(lx.fail("a comment after code is separated from it by one space", start))
+			}
+			lx.pos = lx.comment(start)
+			continue
+		case TBlockComment:
+			panic(lx.fail("a block comment is not allowed; write // comments on their own lines or after code", start))
 		}
 		if tokenScanned[kind] {
 			i = lx.scanRest(kind, start)
@@ -141,9 +244,11 @@ func (lx *lexer) lexSlice() {
 		lx.pos = i
 		switch kind {
 		case TNewline:
-			if n := len(lx.toks); lx.depth > 0 || n == 0 || lx.toks[n-1].Kind() == TNewline {
-				continue
+			if lx.depth > 0 {
+				panic(lx.fail("a line breaks inside parentheses; keep what they hold on one line", start))
 			}
+			lx.emit(kind, start, i)
+			return
 		case TLParen, TLBrace:
 			lx.depth++
 		case TRParen, TRBrace:
@@ -156,19 +261,42 @@ func (lx *lexer) lexSlice() {
 	}
 }
 
+// badSpace is the error for whitespace inside a line that is not the one space lexLine steps over between two
+// tokens.
+func (lx *lexer) badSpace(start, end int) *diag.CompileError {
+	text := lx.text
+	for at := start; at < end; at++ {
+		switch text[at] {
+		case '\t':
+			return lx.fail("a tab inside a line; tabs only indent, and tokens are separated by one space", at)
+		case '\r':
+			return lx.fail("a carriage return; end lines with a newline alone", at)
+		}
+	}
+	switch {
+	case end == lx.end || text[end] == '\n':
+		return lx.fail("trailing whitespace; remove it", start)
+	case lx.inline && start == lx.begin:
+		return lx.fail("a space at the start of an interpolation; remove it", start)
+	case end-start > 1:
+		return lx.fail("tokens are separated by one space, not several", start)
+	}
+	panic(diag.Internal("the space at %d is one space between two tokens, which lexLine steps over", start))
+}
+
 // unfinished is the error for input that stops in a state accepting no token.
 func (lx *lexer) unfinished(state, start int) *diag.CompileError {
 	if msg := dfaIncomplete[state/dfaClasses]; msg != "" {
-		return lx.fail(diag.ErrUnexpectedToken, msg, start)
+		return lx.fail(msg, start)
 	}
 	r, _ := utf8.DecodeRuneInString(lx.text[start:lx.end])
-	return lx.fail(diag.ErrUnexpectedToken, "unexpected character '"+string(r)+"'", start)
+	return lx.fail("unexpected character '"+string(r)+"'", start)
 }
 
 func (lx *lexer) scanString(start int) int { return lx.src.readString(lx.file, start, nil) }
 
-func (lx *lexer) fail(code, msg string, at int) *diag.CompileError {
-	return lx.src.errorAt(code, msg, lx.file, at)
+func (lx *lexer) fail(msg string, at int) *diag.CompileError {
+	return lx.src.errorAt(diag.ErrUnexpectedToken, msg, lx.file, at)
 }
 
 // readInteger reads the integer literal at text[at:end], which the lexer's DFA matched, returning its value and its

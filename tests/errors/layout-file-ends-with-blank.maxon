@@ -1,0 +1,6 @@
+// expect-error: E2010 at 6:1
+
+function main() returns ExitCode
+	return 0
+end 'main'
+

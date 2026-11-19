@@ -4,5 +4,4 @@ end 'main'
 
 function broken() returns ExitCode
 	return 1
-
-// expect-error: E2007 at 9:1
+// expect-error: E2007 at 8:1

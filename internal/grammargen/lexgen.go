@@ -304,10 +304,7 @@ func (m *model) lexTokens() []*lexToken {
 		if t.body == nil {
 			continue
 		}
-		lt := &lexToken{def: t, re: t.body}
-		if !t.skip {
-			lt.name = "T" + t.name
-		}
+		lt := &lexToken{name: "T" + t.name, def: t, re: t.body}
 		if t.body.nullable() {
 			m.fail(t.line, "token '%s' matches the empty string, so the lexer would never move on", t.name)
 		}
@@ -473,8 +470,7 @@ func emitDfa(w *writer, m *model) {
 	w.p("const (\n\t// dfaClasses is how many byte classes there are: the width of a row of dfaNext.\n")
 	w.p("\tdfaClasses = %d\n", a.numClasses)
 	w.p("\t// dfaStart is the start state's row offset in dfaNext.\n\tdfaStart = dfaClasses\n")
-	w.p("\t// noToken is the accepted token of a state that accepts none; skipToken that of a skipped token.\n")
-	w.p("\tnoToken = numTokens\n\tskipToken = numTokens + 1\n)\n\n")
+	w.p(")\n\n")
 	w.p("// dfaClass is each byte's class: bytes in one class lead to the same state from every state.\n")
 	w.p("var dfaClass = [256]uint8{")
 	for b, c := range a.classes {
@@ -501,8 +497,6 @@ func emitDfa(w *writer, m *model) {
 		switch {
 		case t == noAccept:
 			w.p("\tnoToken, // %d\n", d)
-		case a.tokens[t].name == "":
-			w.p("\tskipToken, // %d %s\n", d, a.tokens[t].def.name)
 		default:
 			w.p("\t%s, // %d\n", a.tokens[t].name, d)
 		}
@@ -523,6 +517,30 @@ func emitDfa(w *writer, m *model) {
 		if t.scan {
 			scanned = append(scanned, t)
 		}
+	}
+	w.p("// tokenDescription is each described token's description, for a syntax error to name a token with no text.\n")
+	w.p("var tokenDescription = [numTokens]string{\n")
+	for _, t := range m.g.tokens {
+		if t.desc != "" && !t.skip {
+			w.p("\tT%s: %q,\n", t.name, t.desc)
+		}
+	}
+	w.p("}\n\n")
+	w.p("// tokenNoSpaceBefore and tokenNoSpaceAfter mark the tokens joined to the token before or after them.\n")
+	for _, side := range []struct {
+		table string
+		on    func(*tokenDef) bool
+	}{
+		{"tokenNoSpaceBefore", func(t *tokenDef) bool { return t.noSpaceBefore }},
+		{"tokenNoSpaceAfter", func(t *tokenDef) bool { return t.noSpaceAfter }},
+	} {
+		w.p("var %s = [numTokens]bool{", side.table)
+		for _, t := range m.g.tokens {
+			if side.on(t) {
+				w.p("T%s: true, ", t.name)
+			}
+		}
+		w.p("}\n\n")
 	}
 	w.p("// tokenScanned marks the tokens the DFA only starts; scanRest reads the rest of each.\n")
 	w.p("var tokenScanned = [numTokens]bool{")

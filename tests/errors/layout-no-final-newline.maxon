@@ -1,0 +1,5 @@
+// expect-error: E2001 at 5:11
+
+function main() returns ExitCode
+	return 0
+end 'main'

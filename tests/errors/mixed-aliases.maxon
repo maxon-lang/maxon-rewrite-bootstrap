@@ -1,4 +1,5 @@
 typealias Apples = int(0 to 100)
+
 typealias Pears = int(0 to 100)
 
 function main() returns ExitCode

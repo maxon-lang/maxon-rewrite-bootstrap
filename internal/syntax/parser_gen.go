@@ -11,9 +11,9 @@ var lookahead3 = [numTokens]bool{TKw_export: true, TKw_public: true}
 var lookahead4 = [numTokens]bool{TKw__: true, TKw_consuming: true, TKw_immutable: true, TKw_isolated: true, TKw_mutable: true, TName: true}
 var lookahead5 = [numTokens]bool{TKw_consuming: true, TKw_immutable: true, TKw_isolated: true, TKw_mutable: true}
 var lookahead6 = [numTokens]bool{TKw__: true, TName: true}
-var lookahead7 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: true, TKw_public: true, TKw_static: true, TKw_var: true}
-var lookahead8 = [numTokens]bool{TKw_let: true, TKw_var: true}
-var lookahead9 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true}
+var lookahead7 = [numTokens]bool{TKw_let: true, TKw_var: true}
+var lookahead8 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true}
+var lookahead9 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: true, TKw_public: true, TKw_static: true, TKw_var: true}
 var lookahead10 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true, TName: true}
 var lookahead11 = [numTokens]bool{TKw_Self: true, TName: true}
 var lookahead12 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_break: true, TKw_continue: true, TKw_false: true, TKw_for: true, TKw_if: true, TKw_let: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_var: true, TKw_while: true, TLParen: true, TMinus: true, TName: true, TString: true}
@@ -70,6 +70,7 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	}
 	p.expect(TKw_function, "'function'")
 	n.Name = p.text(p.expect(TName, "a name"))
+	p.joinNext = true
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
 		switch p.cur().Kind() {
@@ -152,15 +153,27 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	p.expect(TKw_type, "'type'")
 	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TNewline, "the end of the line")
-	for p.in(&lookahead7) {
-		if p.in(&lookahead8) || (p.at(TKw_export) && p.peekIn(&lookahead8)) || (p.at(TKw_public) && p.peekIn(&lookahead8)) {
+	if p.at(TIndent) {
+		p.expect(TIndent, "an indented line")
+		if p.in(&lookahead7) || (p.at(TKw_export) && p.peekIn(&lookahead7)) || (p.at(TKw_public) && p.peekIn(&lookahead7)) {
 			n.Fields = append(n.Fields, p.parseFieldDecl())
-		} else if p.in(&lookahead9) {
+		} else if p.in(&lookahead8) {
 			n.Methods = append(n.Methods, p.parseFuncDecl())
 		} else {
 			panic(p.expected("'export', 'function', 'let', 'public', 'static' or 'var'"))
 		}
 		p.expect(TNewline, "the end of the line")
+		for p.in(&lookahead9) {
+			if p.in(&lookahead7) || (p.at(TKw_export) && p.peekIn(&lookahead7)) || (p.at(TKw_public) && p.peekIn(&lookahead7)) {
+				n.Fields = append(n.Fields, p.parseFieldDecl())
+			} else if p.in(&lookahead8) {
+				n.Methods = append(n.Methods, p.parseFuncDecl())
+			} else {
+				panic(p.expected("'export', 'function', 'let', 'public', 'static' or 'var'"))
+			}
+			p.expect(TNewline, "the end of the line")
+		}
+		p.expect(TDedent, "the end of the indented lines")
 	}
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
@@ -215,7 +228,8 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	p.expect(TKw_enum, "'enum'")
 	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TNewline, "the end of the line")
-	for p.in(&lookahead10) {
+	if p.at(TIndent) {
+		p.expect(TIndent, "an indented line")
 		switch p.cur().Kind() {
 		case TName:
 			n.Cases = append(n.Cases, p.parseEnumCaseDecl())
@@ -225,6 +239,18 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 			panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 		}
 		p.expect(TNewline, "the end of the line")
+		for p.in(&lookahead10) {
+			switch p.cur().Kind() {
+			case TName:
+				n.Cases = append(n.Cases, p.parseEnumCaseDecl())
+			case TKw_export, TKw_function, TKw_public, TKw_static:
+				n.Methods = append(n.Methods, p.parseFuncDecl())
+			default:
+				panic(p.expected("'export', 'function', 'public', 'static' or a name"))
+			}
+			p.expect(TNewline, "the end of the line")
+		}
+		p.expect(TDedent, "the end of the indented lines")
 	}
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
@@ -258,7 +284,8 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 	p.expect(TKw_union, "'union'")
 	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TNewline, "the end of the line")
-	for p.in(&lookahead10) {
+	if p.at(TIndent) {
+		p.expect(TIndent, "an indented line")
 		switch p.cur().Kind() {
 		case TName:
 			n.Cases = append(n.Cases, p.parseUnionCaseDecl())
@@ -268,6 +295,18 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 			panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 		}
 		p.expect(TNewline, "the end of the line")
+		for p.in(&lookahead10) {
+			switch p.cur().Kind() {
+			case TName:
+				n.Cases = append(n.Cases, p.parseUnionCaseDecl())
+			case TKw_export, TKw_function, TKw_public, TKw_static:
+				n.Methods = append(n.Methods, p.parseFuncDecl())
+			default:
+				panic(p.expected("'export', 'function', 'public', 'static' or a name"))
+			}
+			p.expect(TNewline, "the end of the line")
+		}
+		p.expect(TDedent, "the end of the indented lines")
 	}
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
@@ -282,6 +321,7 @@ func (p *Parser) parseUnionCaseDecl() *ast.UnionCaseDecl {
 	place(p, n, t)
 	n.Name = p.text(p.expect(TName, "a name"))
 	if p.at(TLParen) {
+		p.joinNext = true
 		p.expect(TLParen, "'('")
 		if p.in(&lookahead6) {
 			n.Fields = append(n.Fields, p.parseParam())
@@ -309,6 +349,7 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TAssign, "'='")
 	p.expect(TKw_int, "'int'")
+	p.joinNext = true
 	p.expect(TLParen, "'('")
 	n.Low = p.parseBound()
 	switch p.cur().Kind() {
@@ -332,6 +373,7 @@ func (p *Parser) parseBound() *ast.Bound {
 	if p.at(TMinus) {
 		p.expect(TMinus, "'-'")
 		n.Negative = true
+		p.joinNext = true
 	}
 	switch p.cur().Kind() {
 	case TInteger:
@@ -372,18 +414,20 @@ func (p *Parser) parseEndLabel() *ast.EndLabel {
 func (p *Parser) parseBlock() []ast.Stmt {
 	var stmts []ast.Stmt
 	p.expect(TNewline, "the end of the line")
+	p.expect(TIndent, "an indented line")
 	stmts = append(stmts, p.parseStmt())
 	p.expect(TNewline, "the end of the line")
 	for p.in(&lookahead12) {
 		stmts = append(stmts, p.parseStmt())
 		p.expect(TNewline, "the end of the line")
 	}
+	p.expect(TDedent, "the end of the indented lines")
 	return stmts
 }
 
 func (p *Parser) parseStmt() ast.Stmt {
 	t := p.cur()
-	if p.in(&lookahead8) {
+	if p.in(&lookahead7) {
 		return p.parseLetStmt()
 	} else if p.at(TKw__) {
 		return p.parseDiscardStmt()
@@ -597,9 +641,15 @@ func (p *Parser) parseMatchCore() *ast.MatchCore {
 	n.Subject = p.parseExpr()
 	n.Label = p.text(p.expect(TLabel, "a label"))
 	p.expect(TNewline, "the end of the line")
-	for p.in(&lookahead14) {
+	if p.at(TIndent) {
+		p.expect(TIndent, "an indented line")
 		n.Arms = append(n.Arms, p.parseMatchArm())
 		p.expect(TNewline, "the end of the line")
+		for p.in(&lookahead14) {
+			n.Arms = append(n.Arms, p.parseMatchArm())
+			p.expect(TNewline, "the end of the line")
+		}
+		p.expect(TDedent, "the end of the indented lines")
 	}
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) && p.peekIn(&lookahead15) {
@@ -650,6 +700,7 @@ func (p *Parser) parsePattern() *ast.Pattern {
 	case TName:
 		n.CaseName = p.text(p.expect(TName, "a name"))
 		if p.at(TLParen) {
+			p.joinNext = true
 			p.expect(TLParen, "'('")
 			n.HasBindings = true
 			if p.in(&lookahead6) {
@@ -735,7 +786,11 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		if !p.in(&lookahead18) {
 			panic(p.expected("'not' or '-'"))
 		}
-		n.Op = p.text(p.next())
+		{
+			joins := p.at(TMinus)
+			n.Op = p.text(p.next())
+			p.joinNext = p.joinNext || joins
+		}
 		n.E = p.parseExprPrec(10)
 		left = n
 	} else {
@@ -760,6 +815,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n := ast.NewCallExpr()
 			place(p, n, p.cur())
 			n.Callee = left
+			p.joinNext = true
 			p.expect(TLParen, "'('")
 			if p.in(&lookahead13) {
 				n.Args = append(n.Args, p.parseArg())
@@ -887,6 +943,7 @@ func (p *Parser) parseIntLit() *ast.IntLit {
 	if p.at(TMinus) {
 		p.expect(TMinus, "'-'")
 		n.Negative = true
+		p.joinNext = true
 	}
 	n.Magnitude = p.intLitMagnitude(p.expect(TInteger, "an integer"))
 	return n
@@ -982,6 +1039,7 @@ func (p *Parser) parsePanicExpr() *ast.PanicExpr {
 	n := ast.NewPanicExpr()
 	place(p, n, t)
 	p.expect(TKw_panic, "'panic'")
+	p.joinNext = true
 	p.expect(TLParen, "'('")
 	n.Message = p.parseExpr()
 	p.expect(TRParen, "')'")
