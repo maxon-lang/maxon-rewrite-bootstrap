@@ -140,65 +140,75 @@ func (o *Ownership) walk(body []ast.Stmt, s *ownState) *ownState {
 }
 
 func (o *Ownership) stmt(st ast.Stmt, s *ownState) *ownState {
-	switch st := st.(type) {
-	case *ast.LetStmt:
-		return o.move(st.Init, st.Name, o.expr(st.Init, s))
+	return ast.VisitStmtState[*ownState, *ownState](o, st, s)
+}
 
-	case *ast.AssignStmt:
-		s = o.expr(st.Value, s)
-		if target, ok := st.Target.(*ast.NameExpr); ok && target.Kind == ast.NameLocal {
-			return o.move(st.Value, target.Local.Name, s.without(target.Local))
-		}
-		if member, ok := st.Target.(*ast.MemberExpr); ok {
-			return o.expr(member.Obj, s)
-		}
-		return s
+func (o *Ownership) VisitLetStmt(st *ast.LetStmt, s *ownState) *ownState {
+	return o.move(st.Init, st.Name, o.expr(st.Init, s))
+}
 
-	case *ast.DiscardStmt:
-		return o.expr(st.Value, s)
+func (o *Ownership) VisitAssignStmt(st *ast.AssignStmt, s *ownState) *ownState {
+	s = o.expr(st.Value, s)
+	if target, ok := st.Target.(*ast.NameExpr); ok && target.Kind == ast.NameLocal {
+		return o.move(st.Value, target.Local.Name, s.without(target.Local))
+	}
+	if member, ok := st.Target.(*ast.MemberExpr); ok {
+		return o.expr(member.Obj, s)
+	}
+	return s
+}
 
-	case *ast.ExprStmt:
-		s = o.expr(st.E, s)
-		if _, ok := st.E.(*ast.PanicExpr); ok {
-			return ownUnreachable
-		}
-		return s
+func (o *Ownership) VisitDiscardStmt(st *ast.DiscardStmt, s *ownState) *ownState {
+	return o.expr(st.Value, s)
+}
 
-	case *ast.IfStmt:
-		s = o.expr(st.Cond, s)
-		a := o.walk(st.Then, s)
-		b := s
-		if st.HasElse {
-			b = o.walk(st.Else, s)
-		}
-		return mergeOwn(a, b)
-
-	case *ast.WhileStmt:
-		return o.loop(st, s, st.Body, st.Cond)
-
-	case *ast.ForStmt:
-		return o.loop(st, o.expr(st.To, o.expr(st.From, s)), st.Body, nil)
-
-	case *ast.MatchStmt:
-		return o.match(st.Match, s)
-
-	case *ast.ReturnStmt:
-		if st.Value != nil {
-			o.expr(st.Value, s)
-		}
-		return ownUnreachable
-
-	case *ast.BreakStmt:
-		frame := o.frameOf(st.Target)
-		frame.breaks = mergeOwn(frame.breaks, s)
-		return ownUnreachable
-
-	case *ast.ContinueStmt:
-		frame := o.frameOf(st.Target)
-		frame.continues = mergeOwn(frame.continues, s)
+func (o *Ownership) VisitExprStmt(st *ast.ExprStmt, s *ownState) *ownState {
+	s = o.expr(st.E, s)
+	if _, ok := st.E.(*ast.PanicExpr); ok {
 		return ownUnreachable
 	}
-	panic(diag.Internal("ownership: unhandled statement %T", st))
+	return s
+}
+
+func (o *Ownership) VisitIfStmt(st *ast.IfStmt, s *ownState) *ownState {
+	s = o.expr(st.Cond, s)
+	a := o.walk(st.Then, s)
+	b := s
+	if st.HasElse {
+		b = o.walk(st.Else, s)
+	}
+	return mergeOwn(a, b)
+}
+
+func (o *Ownership) VisitWhileStmt(st *ast.WhileStmt, s *ownState) *ownState {
+	return o.loop(st, s, st.Body, st.Cond)
+}
+
+func (o *Ownership) VisitForStmt(st *ast.ForStmt, s *ownState) *ownState {
+	return o.loop(st, o.expr(st.To, o.expr(st.From, s)), st.Body, nil)
+}
+
+func (o *Ownership) VisitMatchStmt(st *ast.MatchStmt, s *ownState) *ownState {
+	return o.match(st.Match, s)
+}
+
+func (o *Ownership) VisitReturnStmt(st *ast.ReturnStmt, s *ownState) *ownState {
+	if st.Value != nil {
+		o.expr(st.Value, s)
+	}
+	return ownUnreachable
+}
+
+func (o *Ownership) VisitBreakStmt(st *ast.BreakStmt, s *ownState) *ownState {
+	frame := o.frameOf(st.Target)
+	frame.breaks = mergeOwn(frame.breaks, s)
+	return ownUnreachable
+}
+
+func (o *Ownership) VisitContinueStmt(st *ast.ContinueStmt, s *ownState) *ownState {
+	frame := o.frameOf(st.Target)
+	frame.continues = mergeOwn(frame.continues, s)
+	return ownUnreachable
 }
 
 func (o *Ownership) loop(loop ast.Node, s *ownState, body []ast.Stmt, cond ast.Expr) *ownState {
@@ -272,53 +282,77 @@ func (o *Ownership) read(n *ast.NameExpr, s *ownState) *ownState {
 }
 
 func (o *Ownership) expr(e ast.Expr, s *ownState) *ownState {
-	switch e := e.(type) {
-	case *ast.IntLit, *ast.BoolLit, *ast.SelfExpr:
-		return s
-	case *ast.StrLit:
-		for _, part := range e.Parts {
-			if pe, ok := part.(ast.Expr); ok {
-				s = o.expr(pe, s)
-			}
+	return ast.VisitExprState[*ownState, *ownState](o, e, s)
+}
+
+func (o *Ownership) VisitIntLit(_ *ast.IntLit, s *ownState) *ownState { return s }
+
+func (o *Ownership) VisitBoolLit(_ *ast.BoolLit, s *ownState) *ownState { return s }
+
+func (o *Ownership) VisitSelfExpr(_ *ast.SelfExpr, s *ownState) *ownState { return s }
+
+func (o *Ownership) VisitStrLit(e *ast.StrLit, s *ownState) *ownState {
+	for _, part := range e.Parts {
+		if pe, ok := part.(ast.Expr); ok {
+			s = o.expr(pe, s)
 		}
-		return s
-	case *ast.NameExpr:
-		if e.Kind == ast.NameLocal {
-			return o.read(e, s)
-		}
-		return s
-	case *ast.BinaryExpr:
-		return o.expr(e.R, o.expr(e.L, s))
-	case *ast.UnaryExpr:
-		return o.expr(e.E, s)
-	case *ast.CondExpr:
-		return o.expr(e.Else, o.expr(e.Then, o.expr(e.Cond, s)))
-	case *ast.CallExpr:
-		if e.Receiver != nil {
-			s = o.expr(e.Receiver, s)
-		}
-		for _, arg := range e.Ordered {
-			s = o.expr(arg, s)
-		}
-		return s
-	case *ast.MemberExpr:
-		if e.Kind == ast.MemberEnumCase || e.Kind == ast.MemberUnionCase {
-			return s
-		}
-		return o.expr(e.Obj, s)
-	case *ast.StructLitExpr:
-		for _, v := range e.Ordered {
-			if v != nil {
-				s = o.expr(v, s)
-			}
-		}
-		return s
-	case *ast.CastExpr:
-		return o.expr(e.E, s)
-	case *ast.MatchExpr:
-		return o.match(e.Match, s)
-	case *ast.PanicExpr:
-		return o.expr(e.Message, s)
 	}
-	panic(diag.Internal("ownership: unhandled expression %T", e))
+	return s
+}
+
+func (o *Ownership) VisitNameExpr(e *ast.NameExpr, s *ownState) *ownState {
+	if e.Kind == ast.NameLocal {
+		return o.read(e, s)
+	}
+	return s
+}
+
+func (o *Ownership) VisitBinaryExpr(e *ast.BinaryExpr, s *ownState) *ownState {
+	return o.expr(e.R, o.expr(e.L, s))
+}
+
+func (o *Ownership) VisitUnaryExpr(e *ast.UnaryExpr, s *ownState) *ownState {
+	return o.expr(e.E, s)
+}
+
+func (o *Ownership) VisitCondExpr(e *ast.CondExpr, s *ownState) *ownState {
+	return o.expr(e.Else, o.expr(e.Then, o.expr(e.Cond, s)))
+}
+
+func (o *Ownership) VisitCallExpr(e *ast.CallExpr, s *ownState) *ownState {
+	if e.Receiver != nil {
+		s = o.expr(e.Receiver, s)
+	}
+	for _, arg := range e.Ordered {
+		s = o.expr(arg, s)
+	}
+	return s
+}
+
+func (o *Ownership) VisitMemberExpr(e *ast.MemberExpr, s *ownState) *ownState {
+	if e.Kind == ast.MemberEnumCase || e.Kind == ast.MemberUnionCase {
+		return s
+	}
+	return o.expr(e.Obj, s)
+}
+
+func (o *Ownership) VisitStructLitExpr(e *ast.StructLitExpr, s *ownState) *ownState {
+	for _, v := range e.Ordered {
+		if v != nil {
+			s = o.expr(v, s)
+		}
+	}
+	return s
+}
+
+func (o *Ownership) VisitCastExpr(e *ast.CastExpr, s *ownState) *ownState {
+	return o.expr(e.E, s)
+}
+
+func (o *Ownership) VisitMatchExpr(e *ast.MatchExpr, s *ownState) *ownState {
+	return o.match(e.Match, s)
+}
+
+func (o *Ownership) VisitPanicExpr(e *ast.PanicExpr, s *ownState) *ownState {
+	return o.expr(e.Message, s)
 }

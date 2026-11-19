@@ -1,7 +1,7 @@
 # minimaxon
 
 A small Maxon compiler for trying out language changes, and the seed of the next full Maxon compiler. It is
-written in Go, targets x64 Windows only, and is about 8,000 lines in ten packages. It compiles modules in parallel and writes a
+written in Go, targets x64 Windows only, and is about 8,800 hand-written lines in eleven packages. It compiles modules in parallel and writes a
 PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it. It
@@ -100,6 +100,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 |---|---|---|
 | `diag` | `CompileError`, `Guard`, the error codes | — |
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines | — |
+| `astgen` | the command that generates `ast`'s nodes and visitors from `nodes.spec` (not imported) | � |
 | `ast` | the program model: AST nodes, semantic types, `I128`, `Module` and `Project`, keywords | `diag` |
 | `project` | loading a project: discovery, declaration tables, the import-cycle check | `ast`, `diag`, `par` |
 | `syntax` | module source buffers, the lexer and the parser | `ast`, `diag` |
@@ -109,7 +110,31 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `backend` | the x64 encoder, codegen, the runtime unit, the linker and the PE writer | `ast`, `diag`, `ir`, `par` |
 | `driver` | `Compile`: runs the phases | all of the above |
 
-The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. A package exports only what another
+The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner.
+
+### Generated code
+
+Code that only restates a fact is generated from the one place that fact is written, so it cannot drift from it
+or be written wrong. `internal/ast/nodes.spec` lists every AST node, its fields, the AST's enums, and the closed
+sets a phase dispatches over (`Decl`, `TypeDeclNode`, `Stmt`, `Expr`). `internal/astgen` turns it into
+`internal/ast/nodes_gen.go`: the structs, the constants, and for each set three visitor interfaces with one method
+per member and a dispatch function for each:
+
+| Visitor | Method | Dispatch |
+|---|---|---|
+| `StmtVisitor` | `VisitIfStmt(n *IfStmt)` | `VisitStmt(v, n)` |
+| `StmtResultVisitor[R]` | `VisitIfStmt(n *IfStmt) R` | `VisitStmtResult(v, n)` |
+| `StmtStateVisitor[S, R]` | `VisitIfStmt(n *IfStmt, s S) R` | `VisitStmtState(v, n, s)` |
+
+Code that handles every member of a set goes through a visitor rather than a type switch, so adding a member
+fails `go build` in each phase that has not handled it yet. A type switch remains only where code asks about a
+few members, such as whether an expression can be assigned to. Regenerate after editing the spec:
+
+```powershell
+go generate ./internal/ast
+```
+
+`go test ./internal/astgen` fails if `nodes_gen.go` is not what the spec generates. A package exports only what another
 package uses. The AST nodes still carry their semantic types directly, which is why `ast` holds both; moving type
 information into side tables, as `go/ast` and `go/types` do, would let the two separate.
 
@@ -231,19 +256,19 @@ checked where the result is computed. `as` checks at compile time for a constant
 
 A typical change touches one file per stage:
 
-1. **Syntax:** a node in `internal/ast` and a branch in `internal/syntax` (`parseStatement`, `parsePrimary` and
-   their helpers). If the word was an `unsupported(...)` refusal, that call is where the new production goes. A node
-   holding names needs a case in `Resolver.stmt` or `Resolver.expr` too, which panics with an internal error on
-   a node it does not know.
-2. **Typing:** a case in `Checker.checkExpr` or `Checker.checkStmt`. Store what codegen needs on the node.
-   Read another module's types and signatures freely, but never write them: only the declare phase writes
+1. **Syntax:** the node in `internal/ast/nodes.spec`, then `go generate ./internal/ast`, and a branch in
+   `internal/syntax` (`parseStatement`, `parsePrimary` and their helpers). If the word was an `unsupported(...)`
+   refusal, that call is where the new production goes. `go build` now names every visitor that lacks the node's
+   `Visit` method; the steps below fill them in.
+2. **Resolution:** `Visit<Node>` on `Resolver`, binding any names the node holds.
+3. **Typing:** `Visit<Node>` on `Checker`, and on `termination` for a statement. Store what codegen needs on the
+   node. Read another module's types and signatures freely, but never write them: only the declare phase writes
    a module's own declarations.
-3. **Ownership:** a case in `Ownership.stmt` or `Ownership.expr`. The pass, like lowering and codegen, panics
-   with an internal error on a node it does not know, so it cannot be skipped by accident.
-4. **Lowering:** a case in `Lowerer.expr` or `Lowerer.stmt`, built from the existing instructions where it can.
-   A new instruction needs a case in `codegen.instr` (`internal/backend`) and `instrText` (`internal/ir`) as well.
-5. **Tests:** a unit test in the package that changed, a `tests/run/` program for the behaviour, and a
+4. **Ownership:** `Visit<Node>` on `Ownership`.
+5. **Lowering:** `Visit<Node>` on `Lowerer`, built from the existing instructions where it can. A new instruction
+   needs a case in `codegen.instr` (`internal/backend`) and `instrText` (`internal/ir`) as well.
+6. **Tests:** a unit test in the package that changed, a `tests/run/` program for the behaviour, and a
    `tests/errors/` program for each diagnostic.
 
-A rule that is only a diagnostic, such as a new ownership or region check, usually needs steps 2 or 3 and
+A rule that is only a diagnostic, such as a new ownership or region check, usually needs steps 3 or 4 and
 a test, and nothing else.

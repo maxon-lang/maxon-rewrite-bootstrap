@@ -31,47 +31,55 @@ func (r *Resolver) Run() {
 }
 
 func (r *Resolver) resolveDecl(d ast.Decl) {
-	switch d := d.(type) {
-	case *ast.FuncDecl:
-		r.resolveFunction(d, nil)
-	case *ast.TypeDecl:
-		for _, f := range d.Fields {
-			if f.Type != nil {
-				r.resolveType(f.Type)
-			}
-			if f.Default != nil {
-				r.enter(map[string]bool{})
-				f.Default = r.expr(f.Default)
-			}
+	ast.VisitDecl(r, d)
+}
+
+func (r *Resolver) VisitFuncDecl(d *ast.FuncDecl) {
+	r.resolveFunction(d, nil)
+}
+
+func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
+	for _, f := range d.Fields {
+		if f.Type != nil {
+			r.resolveType(f.Type)
 		}
-		for _, m := range d.Methods {
-			if m.IsStatic {
-				r.resolveFunction(m, nil)
-			} else {
-				r.resolveFunction(m, d)
-			}
+		if f.Default != nil {
+			r.enter(map[string]bool{})
+			f.Default = r.expr(f.Default)
 		}
-	case *ast.EnumDecl:
-		for _, m := range d.Methods {
+	}
+	for _, m := range d.Methods {
+		if m.IsStatic {
 			r.resolveFunction(m, nil)
+		} else {
+			r.resolveFunction(m, d)
 		}
-	case *ast.UnionDecl:
-		for _, c := range d.Cases {
-			for _, p := range c.Fields {
-				r.resolveType(p.Type)
-			}
-		}
-		for _, m := range d.Methods {
-			r.resolveFunction(m, nil)
-		}
-	case *ast.ConstDecl:
-		r.enter(map[string]bool{})
-		d.Value = r.expr(d.Value)
-	case *ast.AliasDecl:
-	default:
-		panic(diag.Internal("resolver: unhandled declaration %T", d))
 	}
 }
+
+func (r *Resolver) VisitEnumDecl(d *ast.EnumDecl) {
+	for _, m := range d.Methods {
+		r.resolveFunction(m, nil)
+	}
+}
+
+func (r *Resolver) VisitUnionDecl(d *ast.UnionDecl) {
+	for _, c := range d.Cases {
+		for _, p := range c.Fields {
+			r.resolveType(p.Type)
+		}
+	}
+	for _, m := range d.Methods {
+		r.resolveFunction(m, nil)
+	}
+}
+
+func (r *Resolver) VisitConstDecl(d *ast.ConstDecl) {
+	r.enter(map[string]bool{})
+	d.Value = r.expr(d.Value)
+}
+
+func (r *Resolver) VisitAliasDecl(*ast.AliasDecl) {}
 
 func (r *Resolver) enter(fieldNames map[string]bool) {
 	r.scopes = []map[string]bool{{}}
@@ -128,43 +136,61 @@ func (r *Resolver) block(body []ast.Stmt) {
 }
 
 func (r *Resolver) stmt(s ast.Stmt) {
-	switch s := s.(type) {
-	case *ast.LetStmt:
-		s.Init = r.expr(s.Init)
-		r.scopes[len(r.scopes)-1][s.Name] = true
-	case *ast.AssignStmt:
-		s.Target = r.expr(s.Target)
-		s.Value = r.expr(s.Value)
-	case *ast.DiscardStmt:
-		s.Value = r.expr(s.Value)
-	case *ast.ExprStmt:
-		s.E = r.expr(s.E)
-	case *ast.IfStmt:
-		s.Cond = r.expr(s.Cond)
-		r.block(s.Then)
-		if s.HasElse {
-			r.block(s.Else)
-		}
-	case *ast.WhileStmt:
-		s.Cond = r.expr(s.Cond)
-		r.block(s.Body)
-	case *ast.ForStmt:
-		s.From = r.expr(s.From)
-		s.To = r.expr(s.To)
-		r.pushScope(s.Var)
-		r.block(s.Body)
-		r.popScope()
-	case *ast.MatchStmt:
-		r.match(s.Match)
-	case *ast.ReturnStmt:
-		if s.Value != nil {
-			s.Value = r.expr(s.Value)
-		}
-	case *ast.BreakStmt, *ast.ContinueStmt:
-	default:
-		panic(diag.Internal("resolver: unhandled statement %T", s))
+	ast.VisitStmt(r, s)
+}
+
+func (r *Resolver) VisitLetStmt(s *ast.LetStmt) {
+	s.Init = r.expr(s.Init)
+	r.scopes[len(r.scopes)-1][s.Name] = true
+}
+
+func (r *Resolver) VisitAssignStmt(s *ast.AssignStmt) {
+	s.Target = r.expr(s.Target)
+	s.Value = r.expr(s.Value)
+}
+
+func (r *Resolver) VisitDiscardStmt(s *ast.DiscardStmt) {
+	s.Value = r.expr(s.Value)
+}
+
+func (r *Resolver) VisitExprStmt(s *ast.ExprStmt) {
+	s.E = r.expr(s.E)
+}
+
+func (r *Resolver) VisitIfStmt(s *ast.IfStmt) {
+	s.Cond = r.expr(s.Cond)
+	r.block(s.Then)
+	if s.HasElse {
+		r.block(s.Else)
 	}
 }
+
+func (r *Resolver) VisitWhileStmt(s *ast.WhileStmt) {
+	s.Cond = r.expr(s.Cond)
+	r.block(s.Body)
+}
+
+func (r *Resolver) VisitForStmt(s *ast.ForStmt) {
+	s.From = r.expr(s.From)
+	s.To = r.expr(s.To)
+	r.pushScope(s.Var)
+	r.block(s.Body)
+	r.popScope()
+}
+
+func (r *Resolver) VisitMatchStmt(s *ast.MatchStmt) {
+	r.match(s.Match)
+}
+
+func (r *Resolver) VisitReturnStmt(s *ast.ReturnStmt) {
+	if s.Value != nil {
+		s.Value = r.expr(s.Value)
+	}
+}
+
+func (r *Resolver) VisitBreakStmt(*ast.BreakStmt) {}
+
+func (r *Resolver) VisitContinueStmt(*ast.ContinueStmt) {}
 
 func (r *Resolver) match(m *ast.MatchCore) {
 	m.Subject = r.expr(m.Subject)
@@ -185,64 +211,87 @@ func (r *Resolver) match(m *ast.MatchCore) {
 }
 
 func (r *Resolver) expr(e ast.Expr) ast.Expr {
-	switch e := e.(type) {
-	case *ast.IntLit, *ast.BoolLit, *ast.SelfExpr:
-		return e
-	case *ast.NameExpr:
-		if !r.isBound(e.Name) && e.Name != "Self" {
-			e.Target = r.take(r.bare(e.Name), e)
-		}
-		return e
-	case *ast.MemberExpr:
-		return r.member(e)
-	case *ast.StrLit:
-		for i, p := range e.Parts {
-			if part, ok := p.(ast.Expr); ok {
-				e.Parts[i] = r.expr(part)
-			}
-		}
-		return e
-	case *ast.BinaryExpr:
-		e.L = r.expr(e.L)
-		e.R = r.expr(e.R)
-		return e
-	case *ast.UnaryExpr:
-		e.E = r.expr(e.E)
-		return e
-	case *ast.CondExpr:
-		e.Cond = r.expr(e.Cond)
-		e.Then = r.expr(e.Then)
-		e.Else = r.expr(e.Else)
-		return e
-	case *ast.CallExpr:
-		e.Callee = r.expr(e.Callee)
-		for _, a := range e.Args {
-			a.Value = r.expr(a.Value)
-		}
-		return e
-	case *ast.StructLitExpr:
-		if e.TypeName != "Self" {
-			e.Target = r.take(r.bare(e.TypeName), e)
-		}
-		fields := make([]ast.StructField, len(e.Fields))
-		for i, f := range e.Fields {
-			fields[i] = ast.StructField{Name: f.Name, Value: r.expr(f.Value), Site: f.Site}
-		}
-		e.Fields = fields
-		return e
-	case *ast.CastExpr:
-		e.E = r.expr(e.E)
-		r.resolveType(e.Target)
-		return e
-	case *ast.MatchExpr:
-		r.match(e.Match)
-		return e
-	case *ast.PanicExpr:
-		e.Message = r.expr(e.Message)
-		return e
-	default:
-		panic(diag.Internal("resolver: unhandled expression %T", e))
+	return ast.VisitExprResult[ast.Expr](r, e)
+}
+
+func (r *Resolver) VisitIntLit(e *ast.IntLit) ast.Expr { return e }
+
+func (r *Resolver) VisitBoolLit(e *ast.BoolLit) ast.Expr { return e }
+
+func (r *Resolver) VisitSelfExpr(e *ast.SelfExpr) ast.Expr { return e }
+
+func (r *Resolver) VisitNameExpr(e *ast.NameExpr) ast.Expr {
+	if !r.isBound(e.Name) && e.Name != "Self" {
+		e.Target = r.take(r.bare(e.Name), e)
 	}
+	return e
+}
+
+func (r *Resolver) VisitMemberExpr(e *ast.MemberExpr) ast.Expr {
+	return r.member(e)
+}
+
+func (r *Resolver) VisitStrLit(e *ast.StrLit) ast.Expr {
+	for i, p := range e.Parts {
+		if part, ok := p.(ast.Expr); ok {
+			e.Parts[i] = r.expr(part)
+		}
+	}
+	return e
+}
+
+func (r *Resolver) VisitBinaryExpr(e *ast.BinaryExpr) ast.Expr {
+	e.L = r.expr(e.L)
+	e.R = r.expr(e.R)
+	return e
+}
+
+func (r *Resolver) VisitUnaryExpr(e *ast.UnaryExpr) ast.Expr {
+	e.E = r.expr(e.E)
+	return e
+}
+
+func (r *Resolver) VisitCondExpr(e *ast.CondExpr) ast.Expr {
+	e.Cond = r.expr(e.Cond)
+	e.Then = r.expr(e.Then)
+	e.Else = r.expr(e.Else)
+	return e
+}
+
+func (r *Resolver) VisitCallExpr(e *ast.CallExpr) ast.Expr {
+	e.Callee = r.expr(e.Callee)
+	for _, a := range e.Args {
+		a.Value = r.expr(a.Value)
+	}
+	return e
+}
+
+func (r *Resolver) VisitStructLitExpr(e *ast.StructLitExpr) ast.Expr {
+	if e.TypeName != "Self" {
+		e.Target = r.take(r.bare(e.TypeName), e)
+	}
+	fields := make([]ast.StructField, len(e.Fields))
+	for i, f := range e.Fields {
+		fields[i] = ast.StructField{Name: f.Name, Value: r.expr(f.Value), Site: f.Site}
+	}
+	e.Fields = fields
+	return e
+}
+
+func (r *Resolver) VisitCastExpr(e *ast.CastExpr) ast.Expr {
+	e.E = r.expr(e.E)
+	r.resolveType(e.Target)
+	return e
+}
+
+func (r *Resolver) VisitMatchExpr(e *ast.MatchExpr) ast.Expr {
+	r.match(e.Match)
+	return e
+}
+
+func (r *Resolver) VisitPanicExpr(e *ast.PanicExpr) ast.Expr {
+	e.Message = r.expr(e.Message)
+	return e
 }
 
 func isType(d ast.Decl) bool {
@@ -251,28 +300,45 @@ func isType(d ast.Decl) bool {
 }
 
 func declaresMember(d ast.Decl, name string) bool {
-	switch d := d.(type) {
-	case *ast.TypeDecl:
-		for _, m := range d.Methods {
-			if m.IsStatic && m.Name == name {
-				return true
-			}
-		}
-	case *ast.EnumDecl:
-		for _, c := range d.Cases {
-			if c.Name == name {
-				return true
-			}
-		}
-	case *ast.UnionDecl:
-		for _, c := range d.Cases {
-			if c.Name == name {
-				return true
-			}
+	return ast.VisitDeclState[string, bool](memberDeclarations{}, d, name)
+}
+
+// memberDeclarations answers whether a declaration declares a member that a qualified name can reach through it:
+// a static function, or a case.
+type memberDeclarations struct{}
+
+func (memberDeclarations) VisitTypeDecl(d *ast.TypeDecl, name string) bool {
+	for _, m := range d.Methods {
+		if m.IsStatic && m.Name == name {
+			return true
 		}
 	}
 	return false
 }
+
+func (memberDeclarations) VisitEnumDecl(d *ast.EnumDecl, name string) bool {
+	for _, c := range d.Cases {
+		if c.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (memberDeclarations) VisitUnionDecl(d *ast.UnionDecl, name string) bool {
+	for _, c := range d.Cases {
+		if c.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (memberDeclarations) VisitFuncDecl(*ast.FuncDecl, string) bool { return false }
+
+func (memberDeclarations) VisitConstDecl(*ast.ConstDecl, string) bool { return false }
+
+func (memberDeclarations) VisitAliasDecl(*ast.AliasDecl, string) bool { return false }
 
 func (r *Resolver) isModuleRoot(name string) bool {
 	if name == "export" || name == "stdlib" {

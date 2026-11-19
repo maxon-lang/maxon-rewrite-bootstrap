@@ -284,7 +284,7 @@ func checkConstants(proj *ast.Project, jobs int, errs *[]*diag.CompileError) {
 	deps := make([][]*ast.ConstDecl, len(consts))
 	par.ForEachIndex(len(consts), jobs, func(i int) {
 		seen := map[*ast.ConstDecl]bool{}
-		for _, c := range ConstRefs(consts[i].decl.Value, nil) {
+		for _, c := range referencedConsts(consts[i].decl.Value, nil) {
 			if !seen[c] {
 				seen[c] = true
 				deps[i] = append(deps[i], c)
@@ -344,30 +344,95 @@ func checkConstants(proj *ast.Project, jobs int, errs *[]*diag.CompileError) {
 	}
 }
 
-func ConstRefs(e ast.Expr, into []*ast.ConstDecl) []*ast.ConstDecl {
-	switch e := e.(type) {
-	case *ast.NameExpr:
-		if c, ok := e.Target.(*ast.ConstDecl); ok {
-			return append(into, c)
-		}
-	case *ast.BinaryExpr:
-		return ConstRefs(e.R, ConstRefs(e.L, into))
-	case *ast.UnaryExpr:
-		return ConstRefs(e.E, into)
-	case *ast.CondExpr:
-		return ConstRefs(e.Else, ConstRefs(e.Then, ConstRefs(e.Cond, into)))
-	case *ast.CastExpr:
-		return ConstRefs(e.E, into)
-	case *ast.MemberExpr:
-		return ConstRefs(e.Obj, into)
-	case *ast.StrLit:
-		for _, p := range e.Parts {
-			if part, ok := p.(ast.Expr); ok {
-				into = ConstRefs(part, into)
-			}
+type constList = []*ast.ConstDecl
+
+// referencedConsts appends the constants that e names, so the constants phase types them first. It walks every
+// expression a constant could hold, including ones the checker then refuses, because a missed reference would
+// check a constant in the same wave as one it reads.
+func referencedConsts(e ast.Expr, into constList) constList {
+	return ast.VisitExprState[constList, constList](constRefs{}, e, into)
+}
+
+type constRefs struct{}
+
+func (constRefs) VisitIntLit(_ *ast.IntLit, into constList) constList { return into }
+
+func (constRefs) VisitBoolLit(_ *ast.BoolLit, into constList) constList { return into }
+
+func (constRefs) VisitSelfExpr(_ *ast.SelfExpr, into constList) constList { return into }
+
+func (constRefs) VisitStrLit(e *ast.StrLit, into constList) constList {
+	for _, p := range e.Parts {
+		if part, ok := p.(ast.Expr); ok {
+			into = referencedConsts(part, into)
 		}
 	}
 	return into
+}
+
+func (constRefs) VisitNameExpr(e *ast.NameExpr, into constList) constList {
+	if c, ok := e.Target.(*ast.ConstDecl); ok {
+		return append(into, c)
+	}
+	return into
+}
+
+func (constRefs) VisitBinaryExpr(e *ast.BinaryExpr, into constList) constList {
+	return referencedConsts(e.R, referencedConsts(e.L, into))
+}
+
+func (constRefs) VisitUnaryExpr(e *ast.UnaryExpr, into constList) constList {
+	return referencedConsts(e.E, into)
+}
+
+func (constRefs) VisitCondExpr(e *ast.CondExpr, into constList) constList {
+	return referencedConsts(e.Else, referencedConsts(e.Then, referencedConsts(e.Cond, into)))
+}
+
+func (constRefs) VisitCastExpr(e *ast.CastExpr, into constList) constList {
+	return referencedConsts(e.E, into)
+}
+
+func (constRefs) VisitMemberExpr(e *ast.MemberExpr, into constList) constList {
+	return referencedConsts(e.Obj, into)
+}
+
+func (constRefs) VisitCallExpr(e *ast.CallExpr, into constList) constList {
+	into = referencedConsts(e.Callee, into)
+	for _, a := range e.Args {
+		into = referencedConsts(a.Value, into)
+	}
+	return into
+}
+
+func (constRefs) VisitStructLitExpr(e *ast.StructLitExpr, into constList) constList {
+	for _, f := range e.Fields {
+		into = referencedConsts(f.Value, into)
+	}
+	return into
+}
+
+// A match expression's arms all give a value; a 'then' arm, the only one holding a statement, is refused in one.
+func (constRefs) VisitMatchExpr(e *ast.MatchExpr, into constList) constList {
+	into = referencedConsts(e.Match.Subject, into)
+	for _, arm := range e.Match.Arms {
+		for _, p := range arm.Patterns {
+			if p.Value != nil {
+				into = referencedConsts(p.Value, into)
+			}
+			if p.High != nil {
+				into = referencedConsts(p.High, into)
+			}
+		}
+		if arm.Value != nil {
+			into = referencedConsts(arm.Value, into)
+		}
+	}
+	return into
+}
+
+func (constRefs) VisitPanicExpr(e *ast.PanicExpr, into constList) constList {
+	return referencedConsts(e.Message, into)
 }
 
 func suspendCollection(proj *ast.Project, jobs int) (int64, func()) {

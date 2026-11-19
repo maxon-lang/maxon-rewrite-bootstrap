@@ -82,13 +82,19 @@ func NewProject(root *Module) *Project {
 }
 
 func Methods(d Decl) []*FuncDecl {
-	switch t := d.(type) {
-	case *TypeDecl:
-		return t.Methods
-	case *EnumDecl:
-		return t.Methods
-	case *UnionDecl:
-		return t.Methods
-	}
-	return nil
+	return VisitDeclResult[[]*FuncDecl](methods{}, d)
 }
+
+type methods struct{}
+
+func (methods) VisitTypeDecl(t *TypeDecl) []*FuncDecl { return t.Methods }
+
+func (methods) VisitEnumDecl(t *EnumDecl) []*FuncDecl { return t.Methods }
+
+func (methods) VisitUnionDecl(t *UnionDecl) []*FuncDecl { return t.Methods }
+
+func (methods) VisitFuncDecl(*FuncDecl) []*FuncDecl { return nil }
+
+func (methods) VisitConstDecl(*ConstDecl) []*FuncDecl { return nil }
+
+func (methods) VisitAliasDecl(*AliasDecl) []*FuncDecl { return nil }

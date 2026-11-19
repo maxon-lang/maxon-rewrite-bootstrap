@@ -2,7 +2,6 @@ package ast
 
 import (
 	"fmt"
-	"minimaxon/internal/diag"
 )
 
 type Ty interface {
@@ -173,15 +172,15 @@ func NewLocal(name string, t Ty, isVar bool) *Local {
 }
 
 func Shell(d TypeDeclNode) Ty {
-	switch t := d.(type) {
-	case *AliasDecl:
-		return &IntTy{Alias: t.Name, Min: t.Min, Max: t.Max}
-	case *TypeDecl:
-		return NewRecordTy(t)
-	case *EnumDecl:
-		return NewEnumTy(t)
-	case *UnionDecl:
-		return NewUnionTy(t)
-	}
-	panic(diag.Internal("no type for %T", d))
+	return VisitTypeDeclNodeResult[Ty](shell{}, d)
 }
+
+type shell struct{}
+
+func (shell) VisitAliasDecl(t *AliasDecl) Ty { return &IntTy{Alias: t.Name, Min: t.Min, Max: t.Max} }
+
+func (shell) VisitTypeDecl(t *TypeDecl) Ty { return NewRecordTy(t) }
+
+func (shell) VisitEnumDecl(t *EnumDecl) Ty { return NewEnumTy(t) }
+
+func (shell) VisitUnionDecl(t *UnionDecl) Ty { return NewUnionTy(t) }

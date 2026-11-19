@@ -127,68 +127,73 @@ func (l *Lowerer) block(body []ast.Stmt) {
 }
 
 func (l *Lowerer) stmt(s ast.Stmt) {
-	switch s := s.(type) {
-	case *ast.LetStmt:
-		v := l.expr(s.Init)
-		l.emit(&StoreSlot{Slot: s.Sym.Slot, Src: v})
-	case *ast.AssignStmt:
-		l.assign(s)
-	case *ast.DiscardStmt:
-		l.expr(s.Value)
-	case *ast.ExprStmt:
-		l.expr(s.E)
-	case *ast.IfStmt:
-		then := l.f.NewBlock()
-		end := l.f.NewBlock()
-		els := end
-		if s.HasElse {
-			els = l.f.NewBlock()
-		}
-		cond := l.expr(s.Cond)
-		l.cur.Term = &BranchTerm{Cond: cond, Then: then, Else: els}
-		l.cur = then
-		l.block(s.Then)
-		l.goTo(end)
-		if s.HasElse {
-			l.cur = els
-			l.block(s.Else)
-			l.goTo(end)
-		}
-		l.cur = end
-	case *ast.WhileStmt:
-		top := l.f.NewBlock()
-		body := l.f.NewBlock()
-		end := l.f.NewBlock()
-		l.jumps[s] = jumpTargets{brk: end, cont: top}
-		l.goTo(top)
-		cond := l.expr(s.Cond)
-		l.cur.Term = &BranchTerm{Cond: cond, Then: body, Else: end}
-		l.cur = body
-		l.block(s.Body)
-		l.goTo(top)
-		l.cur = end
-	case *ast.ForStmt:
-		l.forLoop(s)
-	case *ast.MatchStmt:
-		l.match(s.Match, nil)
-	case *ast.ReturnStmt:
-		var v V
-		if s.Value == nil {
-			v = l.konst(0)
-		} else {
-			v = l.expr(s.Value)
-		}
-		l.seal(&RetTerm{Value: v})
-	case *ast.BreakStmt:
-		l.seal(&JumpTerm{Target: l.jumps[s.Target].brk})
-	case *ast.ContinueStmt:
-		l.seal(&JumpTerm{Target: l.jumps[s.Target].cont})
-	default:
-		panic(diag.Internal("lower: unhandled statement %T", s))
-	}
+	ast.VisitStmt(l, s)
 }
 
-func (l *Lowerer) assign(a *ast.AssignStmt) {
+func (l *Lowerer) VisitLetStmt(s *ast.LetStmt) {
+	v := l.expr(s.Init)
+	l.emit(&StoreSlot{Slot: s.Sym.Slot, Src: v})
+}
+
+func (l *Lowerer) VisitDiscardStmt(s *ast.DiscardStmt) { l.expr(s.Value) }
+
+func (l *Lowerer) VisitExprStmt(s *ast.ExprStmt) { l.expr(s.E) }
+
+func (l *Lowerer) VisitIfStmt(s *ast.IfStmt) {
+	then := l.f.NewBlock()
+	end := l.f.NewBlock()
+	els := end
+	if s.HasElse {
+		els = l.f.NewBlock()
+	}
+	cond := l.expr(s.Cond)
+	l.cur.Term = &BranchTerm{Cond: cond, Then: then, Else: els}
+	l.cur = then
+	l.block(s.Then)
+	l.goTo(end)
+	if s.HasElse {
+		l.cur = els
+		l.block(s.Else)
+		l.goTo(end)
+	}
+	l.cur = end
+}
+
+func (l *Lowerer) VisitWhileStmt(s *ast.WhileStmt) {
+	top := l.f.NewBlock()
+	body := l.f.NewBlock()
+	end := l.f.NewBlock()
+	l.jumps[s] = jumpTargets{brk: end, cont: top}
+	l.goTo(top)
+	cond := l.expr(s.Cond)
+	l.cur.Term = &BranchTerm{Cond: cond, Then: body, Else: end}
+	l.cur = body
+	l.block(s.Body)
+	l.goTo(top)
+	l.cur = end
+}
+
+func (l *Lowerer) VisitMatchStmt(s *ast.MatchStmt) { l.match(s.Match, nil) }
+
+func (l *Lowerer) VisitReturnStmt(s *ast.ReturnStmt) {
+	var v V
+	if s.Value == nil {
+		v = l.konst(0)
+	} else {
+		v = l.expr(s.Value)
+	}
+	l.seal(&RetTerm{Value: v})
+}
+
+func (l *Lowerer) VisitBreakStmt(s *ast.BreakStmt) {
+	l.seal(&JumpTerm{Target: l.jumps[s.Target].brk})
+}
+
+func (l *Lowerer) VisitContinueStmt(s *ast.ContinueStmt) {
+	l.seal(&JumpTerm{Target: l.jumps[s.Target].cont})
+}
+
+func (l *Lowerer) VisitAssignStmt(a *ast.AssignStmt) {
 	switch t := a.Target.(type) {
 	case *ast.NameExpr:
 		switch t.Kind {
@@ -219,7 +224,7 @@ func (l *Lowerer) assign(a *ast.AssignStmt) {
 	panic(diag.Internal("lower: unhandled assignment target"))
 }
 
-func (l *Lowerer) forLoop(s *ast.ForStmt) {
+func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
 	slot := s.Sym.Slot
 	limit := l.f.NewSlot(KindScalar)
 	unsigned := isUnsignedInt(s.Sym.Type)
@@ -291,56 +296,52 @@ func (l *Lowerer) expr(e ast.Expr) V {
 	if c, ok := e.Ty().(*ast.ConstIntTy); ok {
 		return l.konst(c.Value.Bits())
 	}
-	switch e := e.(type) {
-	case *ast.IntLit:
-		return l.konst(e.Value.Bits())
-	case *ast.BoolLit:
-		if e.Value {
-			return l.konst(1)
-		}
-		return l.konst(0)
-	case *ast.StrLit:
-		return l.stringLit(e)
-	case *ast.NameExpr:
-		return l.name(e)
-	case *ast.SelfExpr:
-		return l.self()
-	case *ast.BinaryExpr:
-		return l.binary(e)
-	case *ast.UnaryExpr:
-		return l.unary(e)
-	case *ast.CondExpr:
-		cond := l.expr(e.Cond)
-		return l.choose(e.Ty(), cond,
-			func() V { return l.converted(e.Then, e.Ty()) },
-			func() V { return l.converted(e.Else, e.Ty()) })
-	case *ast.CallExpr:
-		return l.call(e)
-	case *ast.MemberExpr:
-		return l.member(e)
-	case *ast.StructLitExpr:
-		values := make([]ast.Expr, len(e.Ordered))
-		for i, v := range e.Ordered {
-			if v != nil {
-				values[i] = v
-			} else {
-				values[i] = e.Record.Fields[i].Default
-			}
-		}
-		return l.record(values, nil)
-	case *ast.CastExpr:
-		v := l.expr(e.E)
-		l.fit(v, e.Ty().(*ast.IntTy), e.E.Ty())
-		return v
-	case *ast.MatchExpr:
-		return l.match(e.Match, e.Ty())
-	case *ast.PanicExpr:
-		msg := l.expr(e.Message)
-		l.emit(&CallRuntimeInstr{Symbol: RtPanic, Args: []V{msg}})
-		l.seal(&TrapTerm{})
-		return l.konst(0)
+	return ast.VisitExprResult[V](l, e)
+}
+
+func (l *Lowerer) VisitIntLit(e *ast.IntLit) V { return l.konst(e.Value.Bits()) }
+
+func (l *Lowerer) VisitBoolLit(e *ast.BoolLit) V {
+	if e.Value {
+		return l.konst(1)
 	}
-	panic(diag.Internal("lower: unhandled expression %T", e))
+	return l.konst(0)
+}
+
+func (l *Lowerer) VisitSelfExpr(*ast.SelfExpr) V { return l.self() }
+
+func (l *Lowerer) VisitCondExpr(e *ast.CondExpr) V {
+	cond := l.expr(e.Cond)
+	return l.choose(e.Ty(), cond,
+		func() V { return l.converted(e.Then, e.Ty()) },
+		func() V { return l.converted(e.Else, e.Ty()) })
+}
+
+func (l *Lowerer) VisitStructLitExpr(e *ast.StructLitExpr) V {
+	values := make([]ast.Expr, len(e.Ordered))
+	for i, v := range e.Ordered {
+		if v != nil {
+			values[i] = v
+		} else {
+			values[i] = e.Record.Fields[i].Default
+		}
+	}
+	return l.record(values, nil)
+}
+
+func (l *Lowerer) VisitCastExpr(e *ast.CastExpr) V {
+	v := l.expr(e.E)
+	l.fit(v, e.Ty().(*ast.IntTy), e.E.Ty())
+	return v
+}
+
+func (l *Lowerer) VisitMatchExpr(e *ast.MatchExpr) V { return l.match(e.Match, e.Ty()) }
+
+func (l *Lowerer) VisitPanicExpr(e *ast.PanicExpr) V {
+	msg := l.expr(e.Message)
+	l.emit(&CallRuntimeInstr{Symbol: RtPanic, Args: []V{msg}})
+	l.seal(&TrapTerm{})
+	return l.konst(0)
 }
 
 func (l *Lowerer) choose(typ ast.Ty, cond V, then, els func() V) V {
@@ -370,7 +371,7 @@ func (l *Lowerer) converted(e ast.Expr, target ast.Ty) V {
 	return v
 }
 
-func (l *Lowerer) name(n *ast.NameExpr) V {
+func (l *Lowerer) VisitNameExpr(n *ast.NameExpr) V {
 	switch n.Kind {
 	case ast.NameLocal:
 		loc := n.Local
@@ -424,7 +425,7 @@ func (l *Lowerer) address(e ast.Expr) V {
 	panic(diag.Internal("lower: no address for this expression"))
 }
 
-func (l *Lowerer) call(c *ast.CallExpr) V {
+func (l *Lowerer) VisitCallExpr(c *ast.CallExpr) V {
 	switch c.Kind {
 	case ast.CallPrint, ast.CallPrintError:
 		text := l.expr(c.Ordered[0])
@@ -495,7 +496,7 @@ func unionCaseNames(ut *ast.UnionTy) []string {
 	return names
 }
 
-func (l *Lowerer) member(m *ast.MemberExpr) V {
+func (l *Lowerer) VisitMemberExpr(m *ast.MemberExpr) V {
 	switch m.Kind {
 	case ast.MemberField:
 		obj := l.expr(m.Obj)
@@ -553,7 +554,7 @@ func (l *Lowerer) selectValue(index V, kind IrKind, count int, value func(int) V
 	return l.load(result)
 }
 
-func (l *Lowerer) stringLit(s *ast.StrLit) V {
+func (l *Lowerer) VisitStrLit(s *ast.StrLit) V {
 	if s.IsPlain() {
 		text := ""
 		for _, p := range s.Parts {
@@ -601,7 +602,7 @@ func (l *Lowerer) part(part any) V {
 	panic(diag.Internal("lower: cannot interpolate %s", e.Ty().Name()))
 }
 
-func (l *Lowerer) binary(b *ast.BinaryExpr) V {
+func (l *Lowerer) VisitBinaryExpr(b *ast.BinaryExpr) V {
 	if (b.Op == "and" || b.Op == "or") && b.Ty() == ast.Ty(ast.BoolTy) {
 		result := l.f.NewSlot(KindScalar)
 		rhs := l.f.NewBlock()
@@ -655,7 +656,7 @@ func (l *Lowerer) flip(boolean V) V {
 	return d
 }
 
-func (l *Lowerer) unary(u *ast.UnaryExpr) V {
+func (l *Lowerer) VisitUnaryExpr(u *ast.UnaryExpr) V {
 	v := l.expr(u.E)
 	if u.Op == "not" && u.Ty() == ast.Ty(ast.BoolTy) {
 		return l.flip(v)

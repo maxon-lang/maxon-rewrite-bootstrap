@@ -411,7 +411,7 @@ func (c *Checker) checkFunction(f *ast.FuncDecl) {
 	}
 
 	c.checkBlock(f.Body)
-	if c.returnType(f) != ast.VoidTy && !c.terminatesBody(f.Body) {
+	if c.returnType(f) != ast.VoidTy && !terminatesBody(f.Body) {
 		panic(f.Error(diag.ErrMissingReturn, fmt.Sprintf("'%s' must return a %s on every path", f.Name, c.returnType(f).Name())))
 	}
 }
@@ -424,29 +424,46 @@ func (c *Checker) checkBlock(body []ast.Stmt) {
 	c.popScope()
 }
 
-func (c *Checker) terminatesBody(body []ast.Stmt) bool {
-	return len(body) > 0 && c.terminates(body[len(body)-1])
+func terminatesBody(body []ast.Stmt) bool {
+	return len(body) > 0 && ast.VisitStmtResult[bool](termination{}, body[len(body)-1])
 }
 
-func (c *Checker) terminates(s ast.Stmt) bool {
-	switch t := s.(type) {
-	case *ast.ReturnStmt:
-		return true
-	case *ast.ExprStmt:
-		_, isPanic := t.E.(*ast.PanicExpr)
-		return isPanic
-	case *ast.IfStmt:
-		return t.HasElse && c.terminatesBody(t.Then) && c.terminatesBody(t.Else)
-	case *ast.MatchStmt:
-		for _, a := range t.Match.Arms {
-			if !(a.Kind == ast.ArmPanic || (a.Action != nil && c.terminates(a.Action))) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
+// termination answers whether a statement never completes normally, so the code after it is unreachable.
+type termination struct{}
+
+func (termination) VisitReturnStmt(*ast.ReturnStmt) bool { return true }
+
+func (termination) VisitExprStmt(t *ast.ExprStmt) bool {
+	_, isPanic := t.E.(*ast.PanicExpr)
+	return isPanic
 }
+
+func (termination) VisitIfStmt(t *ast.IfStmt) bool {
+	return t.HasElse && terminatesBody(t.Then) && terminatesBody(t.Else)
+}
+
+func (termination) VisitMatchStmt(t *ast.MatchStmt) bool {
+	for _, a := range t.Match.Arms {
+		if !(a.Kind == ast.ArmPanic || (a.Action != nil && ast.VisitStmtResult[bool](termination{}, a.Action))) {
+			return false
+		}
+	}
+	return true
+}
+
+func (termination) VisitLetStmt(*ast.LetStmt) bool { return false }
+
+func (termination) VisitAssignStmt(*ast.AssignStmt) bool { return false }
+
+func (termination) VisitDiscardStmt(*ast.DiscardStmt) bool { return false }
+
+func (termination) VisitWhileStmt(*ast.WhileStmt) bool { return false }
+
+func (termination) VisitForStmt(*ast.ForStmt) bool { return false }
+
+func (termination) VisitBreakStmt(*ast.BreakStmt) bool { return false }
+
+func (termination) VisitContinueStmt(*ast.ContinueStmt) bool { return false }
 
 func (c *Checker) assignable(src, dst ast.Ty) bool {
 	if src == dst || src == ast.NeverTy {
@@ -558,44 +575,18 @@ func (c *Checker) join(site ast.Node, a, b ast.Ty) ast.Ty {
 }
 
 func (c *Checker) checkExpr(e ast.Expr) ast.Ty {
-	var t ast.Ty
-	switch x := e.(type) {
-	case *ast.IntLit:
-		t = &ast.ConstIntTy{Value: x.Value}
-	case *ast.BoolLit:
-		t = ast.BoolTy
-	case *ast.StrLit:
-		t = c.checkStr(x)
-	case *ast.NameExpr:
-		t = c.checkName(x)
-	case *ast.SelfExpr:
-		t = c.checkSelf(x)
-	case *ast.BinaryExpr:
-		t = c.checkBinary(x)
-	case *ast.UnaryExpr:
-		t = c.checkUnary(x)
-	case *ast.CondExpr:
-		t = c.checkCond(x)
-	case *ast.CallExpr:
-		t = c.checkCall(x)
-	case *ast.MemberExpr:
-		t = c.checkMember(x)
-	case *ast.StructLitExpr:
-		t = c.checkStructLit(x)
-	case *ast.CastExpr:
-		t = c.checkCast(x)
-	case *ast.MatchExpr:
-		t = c.checkMatch(x.Match, true)
-	case *ast.PanicExpr:
-		t = c.checkPanic(x)
-	default:
-		panic(diag.Internal("unhandled expression %T", e))
-	}
+	t := ast.VisitExprResult[ast.Ty](c, e)
 	e.SetTy(t)
 	return t
 }
 
-func (c *Checker) checkStr(s *ast.StrLit) ast.Ty {
+func (c *Checker) VisitIntLit(x *ast.IntLit) ast.Ty { return &ast.ConstIntTy{Value: x.Value} }
+
+func (c *Checker) VisitBoolLit(*ast.BoolLit) ast.Ty { return ast.BoolTy }
+
+func (c *Checker) VisitMatchExpr(x *ast.MatchExpr) ast.Ty { return c.checkMatch(x.Match, true) }
+
+func (c *Checker) VisitStrLit(s *ast.StrLit) ast.Ty {
 	for _, p := range s.Parts {
 		part, ok := p.(ast.Expr)
 		if !ok {
@@ -612,7 +603,7 @@ func (c *Checker) checkStr(s *ast.StrLit) ast.Ty {
 	return ast.StringTy
 }
 
-func (c *Checker) checkName(n *ast.NameExpr) ast.Ty {
+func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
 	if local := c.lookupLocal(n.Name); local != nil {
 		n.Kind = ast.NameLocal
 		n.Local = local
@@ -644,7 +635,7 @@ func (c *Checker) checkName(n *ast.NameExpr) ast.Ty {
 	panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name)))
 }
 
-func (c *Checker) checkSelf(s *ast.SelfExpr) ast.Ty {
+func (c *Checker) VisitSelfExpr(s *ast.SelfExpr) ast.Ty {
 	if c.fn == nil || !c.fn.IsMethod() {
 		panic(s.Error(diag.ErrUnexpectedToken, "'self' is used only inside an instance method"))
 	}
@@ -738,7 +729,7 @@ func (c *Checker) fold(site ast.Node, op string, a, b ast.I128) ast.I128 {
 	return r
 }
 
-func (c *Checker) checkBinary(b *ast.BinaryExpr) ast.Ty {
+func (c *Checker) VisitBinaryExpr(b *ast.BinaryExpr) ast.Ty {
 	l := c.checkExpr(b.L)
 	r := c.checkExpr(b.R)
 
@@ -797,7 +788,7 @@ func (c *Checker) checkBinary(b *ast.BinaryExpr) ast.Ty {
 	panic(b.Error(diag.ErrUnsupported, fmt.Sprintf("unknown operator '%s'", b.Op)))
 }
 
-func (c *Checker) checkUnary(u *ast.UnaryExpr) ast.Ty {
+func (c *Checker) VisitUnaryExpr(u *ast.UnaryExpr) ast.Ty {
 	t := c.checkExpr(u.E)
 	if u.Op == "not" {
 		if t == ast.BoolTy {
@@ -826,7 +817,7 @@ func (c *Checker) checkUnary(u *ast.UnaryExpr) ast.Ty {
 	panic(u.Error(diag.ErrTypeMismatch, fmt.Sprintf("'-' needs an integer, found %s", t.Name())))
 }
 
-func (c *Checker) checkCond(cd *ast.CondExpr) ast.Ty {
+func (c *Checker) VisitCondExpr(cd *ast.CondExpr) ast.Ty {
 	if c.checkExpr(cd.Cond) != ast.BoolTy {
 		panic(cd.Cond.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", cd.Cond.Ty().Name())))
 	}
@@ -835,7 +826,7 @@ func (c *Checker) checkCond(cd *ast.CondExpr) ast.Ty {
 	return c.join(cd, then, els)
 }
 
-func (c *Checker) checkPanic(p *ast.PanicExpr) ast.Ty {
+func (c *Checker) VisitPanicExpr(p *ast.PanicExpr) ast.Ty {
 	if c.checkExpr(p.Message) != ast.StringTy {
 		panic(p.Message.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("panic takes a String, found %s", p.Message.Ty().Name())))
 	}
@@ -932,7 +923,7 @@ func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *as
 	return c.returnType(target)
 }
 
-func (c *Checker) checkCall(call *ast.CallExpr) ast.Ty {
+func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 	if !c.allowCalls {
 		panic(call.Error("E3220", "a constant calls nothing"))
 	}
@@ -990,7 +981,7 @@ func (c *Checker) checkCall(call *ast.CallExpr) ast.Ty {
 	panic(call.Error(diag.ErrUnsupported, "only a named function or method can be called"))
 }
 
-func (c *Checker) checkMember(m *ast.MemberExpr) ast.Ty {
+func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
 	if nt := c.typeNamed(m.Obj); nt != nil {
 		switch t := nt.(type) {
 		case *ast.EnumTy:
@@ -1058,7 +1049,7 @@ func (c *Checker) checkMember(m *ast.MemberExpr) ast.Ty {
 	panic(m.Error(diag.ErrUnknownField, fmt.Sprintf("%s has no field '%s'", t.Name(), m.Name)))
 }
 
-func (c *Checker) checkStructLit(s *ast.StructLitExpr) ast.Ty {
+func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
 	var target ast.Ty
 	if s.TypeName == "Self" {
 		if c.owner != nil {
@@ -1096,7 +1087,7 @@ func (c *Checker) checkStructLit(s *ast.StructLitExpr) ast.Ty {
 	return rt
 }
 
-func (c *Checker) checkCast(cast *ast.CastExpr) ast.Ty {
+func (c *Checker) VisitCastExpr(cast *ast.CastExpr) ast.Ty {
 	target := c.resolve(cast.Target, c.owner)
 	ti, ok := target.(*ast.IntTy)
 	if !ok {
@@ -1116,40 +1107,33 @@ func (c *Checker) checkCast(cast *ast.CastExpr) ast.Ty {
 }
 
 func (c *Checker) checkStmt(s ast.Stmt) {
-	switch t := s.(type) {
-	case *ast.LetStmt:
-		c.checkLet(t)
-	case *ast.AssignStmt:
-		c.checkAssign(t)
-	case *ast.DiscardStmt:
-		c.checkExpr(t.Value)
-	case *ast.ExprStmt:
-		c.checkExpr(t.E)
-	case *ast.IfStmt:
-		c.requireBool(t.Cond)
-		c.checkBlock(t.Then)
-		if t.HasElse {
-			c.checkBlock(t.Else)
-		}
-	case *ast.WhileStmt:
-		c.requireBool(t.Cond)
-		c.pushBlock(t.Label, checkerLoop, t)
-		c.checkBlock(t.Body)
-		c.popBlock()
-	case *ast.ForStmt:
-		c.checkFor(t)
-	case *ast.MatchStmt:
-		c.checkMatch(t.Match, false)
-	case *ast.ReturnStmt:
-		c.checkReturn(t)
-	case *ast.BreakStmt:
-		t.Target = c.resolveJump(t, t.Label, true)
-	case *ast.ContinueStmt:
-		t.Target = c.resolveJump(t, t.Label, false)
-	default:
-		panic(diag.Internal("unhandled statement %T", s))
+	ast.VisitStmt(c, s)
+}
+
+func (c *Checker) VisitDiscardStmt(t *ast.DiscardStmt) { c.checkExpr(t.Value) }
+
+func (c *Checker) VisitExprStmt(t *ast.ExprStmt) { c.checkExpr(t.E) }
+
+func (c *Checker) VisitIfStmt(t *ast.IfStmt) {
+	c.requireBool(t.Cond)
+	c.checkBlock(t.Then)
+	if t.HasElse {
+		c.checkBlock(t.Else)
 	}
 }
+
+func (c *Checker) VisitWhileStmt(t *ast.WhileStmt) {
+	c.requireBool(t.Cond)
+	c.pushBlock(t.Label, checkerLoop, t)
+	c.checkBlock(t.Body)
+	c.popBlock()
+}
+
+func (c *Checker) VisitMatchStmt(t *ast.MatchStmt) { c.checkMatch(t.Match, false) }
+
+func (c *Checker) VisitBreakStmt(t *ast.BreakStmt) { t.Target = c.resolveJump(t, t.Label, true) }
+
+func (c *Checker) VisitContinueStmt(t *ast.ContinueStmt) { t.Target = c.resolveJump(t, t.Label, false) }
 
 func (c *Checker) requireBool(e ast.Expr) {
 	if c.checkExpr(e) != ast.BoolTy {
@@ -1157,7 +1141,7 @@ func (c *Checker) requireBool(e ast.Expr) {
 	}
 }
 
-func (c *Checker) checkLet(l *ast.LetStmt) {
+func (c *Checker) VisitLetStmt(l *ast.LetStmt) {
 	if l.Name == "_" {
 		panic(l.Error(diag.ErrUnexpectedToken, "write '_ = call()' to discard a result"))
 	}
@@ -1176,11 +1160,11 @@ func (c *Checker) checkLet(l *ast.LetStmt) {
 	l.Sym = c.declareLocal(l.Name, t, l.IsVar, l, false, false, -1)
 }
 
-func (c *Checker) checkAssign(a *ast.AssignStmt) {
+func (c *Checker) VisitAssignStmt(a *ast.AssignStmt) {
 	var target ast.Ty
 	switch t := a.Target.(type) {
 	case *ast.NameExpr:
-		target = c.checkName(t)
+		target = c.VisitNameExpr(t)
 		switch {
 		case t.Kind == ast.NameLocal && t.Local.IsParam && !t.Local.ByRef:
 			panic(a.Error(diag.ErrAssignToImmutable, fmt.Sprintf("the parameter '%s' is a let; mark it 'mutable' to reassign it", t.Name)))
@@ -1190,7 +1174,7 @@ func (c *Checker) checkAssign(a *ast.AssignStmt) {
 			panic(a.Error(diag.ErrAssignToImmutable, fmt.Sprintf("'%s' is a let and cannot be reassigned", t.Name)))
 		}
 	case *ast.MemberExpr:
-		target = c.checkMember(t)
+		target = c.VisitMemberExpr(t)
 		t.SetTy(target)
 		if t.Kind != ast.MemberField {
 			panic(a.Error(diag.ErrAssignToImmutable, fmt.Sprintf("'%s' cannot be assigned", t.Name)))
@@ -1205,7 +1189,7 @@ func (c *Checker) checkAssign(a *ast.AssignStmt) {
 	c.coerce(a.Value, target, "assignment")
 }
 
-func (c *Checker) checkFor(f *ast.ForStmt) {
+func (c *Checker) VisitForStmt(f *ast.ForStmt) {
 	from := c.checkExpr(f.From)
 	to := c.checkExpr(f.To)
 	if !c.isInt(from) || !c.isInt(to) {
@@ -1235,7 +1219,7 @@ func (c *Checker) checkFor(f *ast.ForStmt) {
 	c.popBlock()
 }
 
-func (c *Checker) checkReturn(r *ast.ReturnStmt) {
+func (c *Checker) VisitReturnStmt(r *ast.ReturnStmt) {
 	ret := c.returnType(c.fn)
 	if ret == ast.VoidTy {
 		if r.Value != nil {
