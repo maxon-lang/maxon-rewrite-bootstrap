@@ -3,11 +3,13 @@ interface Shape
 	function area() returns Count
 end 'Shape'
 
-function total[T implements Shape](x T) returns Count
+function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
 function main() returns ExitCode
-	print("{total(array[Count].new())}")
+	print("{total(CountArray.new())}")
 	return 0
 end 'main'
+
+typealias CountArray = array with Count

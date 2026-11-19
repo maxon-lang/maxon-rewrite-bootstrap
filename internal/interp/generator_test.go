@@ -51,11 +51,20 @@ func (t *ty) src() string {
 		return t.name
 	}
 	names := map[kind]string{kArray: "array", kPool: "pool", kList: "list", kMap: "map", kHandle: "Handle", kOption: "Option", kFrozen: "frozen", kCown: "cown"}
-	parts := make([]string, len(t.args))
-	for i, a := range t.args {
+	return instanceSrc(names[t.kind], t.args)
+}
+
+// instanceSrc is how a type writes a generic type given its arguments, with an argument that is an instance itself in
+// parentheses.
+func instanceSrc(base string, args []*ty) string {
+	parts := make([]string, len(args))
+	for i, a := range args {
 		parts[i] = a.src()
 	}
-	return names[t.kind] + "[" + strings.Join(parts, ", ") + "]"
+	if len(parts) == 1 && !strings.Contains(parts[0], " "+kwWith+" ") {
+		return base + " " + kwWith + " " + parts[0]
+	}
+	return base + " " + kwWith + " (" + strings.Join(parts, ", ") + ")"
 }
 
 func (t *ty) managed() bool { return t.kind != kCount && t.kind != kBool && t.kind != kHandle }
@@ -122,6 +131,9 @@ type generator struct {
 	unions  []*union
 	fns     []*fn
 	types   map[string]*ty
+	// aliases name the instances that the program writes as an expression, in the order it first does.
+	aliases []*ty
+	aliasOf map[*ty]string
 	out     []string
 	indent  int
 	labels  int
@@ -158,7 +170,40 @@ var (
 )
 
 func newGenerator(seed int64) *generator {
-	return &generator{r: rand.New(rand.NewSource(seed)), types: map[string]*ty{}}
+	return &generator{r: rand.New(rand.NewSource(seed)), types: map[string]*ty{}, aliasOf: map[*ty]string{}}
+}
+
+// typeExpr is a type written as an expression, to call a static function or name a case on it. An instance of a
+// generic type is written through a typealias, which the program declares before its other declarations.
+func (g *generator) typeExpr(t *ty) string {
+	if len(t.args) == 0 && !strings.Contains(t.name, " ") {
+		return t.src()
+	}
+	if name, ok := g.aliasOf[t]; ok {
+		return name
+	}
+	name := fmt.Sprintf("I%d", len(g.aliases))
+	g.aliasOf[t] = name
+	g.aliases = append(g.aliases, t)
+	return name
+}
+
+// typed is a value of type t that names its type, so a call that infers its type arguments from it gets t: an integer
+// expression names no alias of its own.
+func typed(t *ty, value string) string {
+	if t.kind == kCount {
+		return "(" + value + ") " + kwAs + " Count"
+	}
+	return value
+}
+
+// aliasDecls are the typealiases of the instances the program writes as expressions.
+func (g *generator) aliasDecls() string {
+	var b strings.Builder
+	for _, t := range g.aliases {
+		fmt.Fprintf(&b, kwTypealias+" %s = %s\n\n", g.aliasOf[t], t.src())
+	}
+	return b.String()
 }
 
 func (g *generator) intern(t *ty) *ty {
@@ -293,7 +338,7 @@ func (g *generator) declareTypes() {
 			g.unions = append(g.unions, g.newUnion(len(g.unions)))
 		}
 	}
-	for _, name := range []string{"Box[Count]", "Box[String]"} {
+	for _, name := range []string{"Box " + kwWith + " Count", "Box " + kwWith + " String"} {
 		t := g.intern(&ty{kind: kRecord, name: name})
 		item := g.boxed(name)
 		g.records = append(g.records, &record{t: t, fields: []field{{name: "item", t: item, isVar: true}},

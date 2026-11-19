@@ -1,9 +1,11 @@
+typealias CountArray = array with Count
+
 type Doc
 	export var title as String
-	export var words as array[Count]
+	export var words as array with Count
 
 	static function make(consumes title String) returns Doc
-		var words = array[Count].new()
+		var words = CountArray.new()
 		words.append(3)
 		words.append(5)
 		return Doc{title: title, words: words}
@@ -23,10 +25,10 @@ type Doc
 end 'Doc'
 
 type Library
-	export var first as frozen[Doc]
+	export var first as frozen with Doc
 	export var name as String
 
-	static function make(consumes first frozen[Doc], consumes name String) returns Library
+	static function make(consumes first frozen with Doc, consumes name String) returns Library
 		return Library{first: first, name: name}
 	end 'make'
 end 'Library'

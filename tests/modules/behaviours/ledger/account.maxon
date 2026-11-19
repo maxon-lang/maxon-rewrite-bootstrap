@@ -6,13 +6,13 @@ export type Account
 	end 'open'
 end 'Account'
 
-export function credit(into cown[Account], amount Count)
+export function credit(into cown with Account, amount Count)
 	when into as a 'credit'
 		a.balance = a.balance + amount
 	end 'credit'
 end 'credit'
 
-export function report(from cown[Account], label String)
+export function report(from cown with Account, label String)
 	let note = label.copy()
 	when from as a 'report'
 		print("{note}: {a.balance}\n")

@@ -1,0 +1,9 @@
+typealias Score = int(0 to 9)
+
+typealias Points = Score
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3134 at 3:20

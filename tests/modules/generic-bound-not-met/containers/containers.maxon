@@ -5,7 +5,7 @@ export interface Shape
 	function grow(mutates self, by Score)
 end 'Shape'
 
-export type Box[T]
+export type Box uses T
 	export var item as T
 
 	export static function make(consumes item T) returns Self
@@ -17,7 +17,7 @@ export type Box[T]
 	end 'peek'
 end 'Box'
 
-export union Option[T]
+export union Option uses T
 	some(value T)
 	none
 
@@ -29,21 +29,21 @@ export union Option[T]
 	end 'isSome'
 end 'Option'
 
-export function swap[T](mutates a T, mutates b T)
+export function swap(mutates a T, mutates b T) uses T
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-export function total[T implements Shape](a T, b T) returns Score
+export function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() + b.area()
 end 'total'
 
-export function enlarge[T implements Shape](mutates item T, by Score) returns Box[T]
+export function enlarge(mutates item T, by Score) uses T returns Box with T where T implements Shape
 	item.grow(by)
-	return Box[T].make(item.copy())
+	return Box.make(item.copy())
 end 'enlarge'
 
-export function wrap[T](consumes item T) returns Option[Box[T]]
+export function wrap(consumes item T) uses T returns Option with (Box with T)
 	return Option.some(Box.make(item))
 end 'wrap'

@@ -1,6 +1,8 @@
-// expect-error: E9002 at 3:25
+// expect-error: E9002 at 5:23
+typealias CountList = list with Count
+
 function main() returns ExitCode
-	var l = list[Count].new()
+	var l = CountList.new()
 	print("{l.count()}")
 	return 0
 end 'main'

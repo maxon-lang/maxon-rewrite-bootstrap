@@ -1,10 +1,12 @@
-// expect-error: E3112 at 8:14
-function grow(mutates xs array[Count], n Count)
+// expect-error: E3112 at 10:14
+typealias CountArray = array with Count
+
+function grow(mutates xs array with Count, n Count)
 	xs.append(n)
 end 'grow'
 
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	grow(a, n: a[0])
 	return 0
 end 'main'

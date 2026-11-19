@@ -1,6 +1,8 @@
-// expect-error: E9002 at 3:31
+// expect-error: E9002 at 5:27
+typealias CountCountMap = map with (Count, Count)
+
 function main() returns ExitCode
-	var m = map[Count, Count].new()
+	var m = CountCountMap.new()
 	m.insert(1, value: 2)
 	return 0
 end 'main'

@@ -1,6 +1,14 @@
 typealias Score = int(i64.min to i64.max)
 
-type Box[T]
+typealias ScoreBox = Box with Score
+
+typealias ScoreBoxBox = Box with (Box with Score)
+
+typealias ScoreStringPair = Pair with (Score, String)
+
+typealias StringBox = Box with String
+
+type Box uses T
 	var item as T
 
 	static function make(consumes item T) returns Self
@@ -16,7 +24,7 @@ type Box[T]
 	end 'replace'
 end 'Box'
 
-type Pair[A, B]
+type Pair uses A, B
 	var first as A
 	var second as B
 
@@ -24,12 +32,12 @@ type Pair[A, B]
 		return Self{first: first, second: second}
 	end 'make'
 
-	function swapped() returns Pair[B, A]
-		return Pair[B, A].make(second.copy(), second: first.copy())
+	function swapped() returns Pair with (B, A)
+		return Pair.make(second.copy(), second: first.copy())
 	end 'swapped'
 end 'Pair'
 
-union Option[T]
+union Option uses T
 	some(value T)
 	none
 
@@ -48,21 +56,21 @@ union Option[T]
 	end 'orElse'
 end 'Option'
 
-function swap[T](mutates a T, mutates b T)
+function swap(mutates a T, mutates b T) uses T
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function twice[T](x T) returns Pair[T, T]
+function twice(x T) uses T returns Pair with (T, T)
 	return Pair.make(x.copy(), second: x.copy())
 end 'twice'
 
-function find[T](flag bool, x T) returns Option[T]
+function find(flag bool, x T) uses T returns Option with T
 	if flag 'f'
 		return Option.some(x.copy())
 	end 'f'
-	return Option[T].none
+	return Option.none
 end 'find'
 
 function main() returns ExitCode
@@ -70,18 +78,18 @@ function main() returns ExitCode
 	var b = 2 as Score
 	swap(a, b: b)
 	print("{a} {b}\n")
-	var p = Box[String].make("first")
-	var q = Box[String].make("second")
+	var p = StringBox.make("first")
+	var q = StringBox.make("second")
 	swap(p, b: q)
 	print("{p.peek()} {q.peek()}\n")
 	p.replace("third")
 	print("{p.peek()} {q.peek()}\n")
-	let pair = Pair[Score, String].make(7, second: "seven")
+	let pair = ScoreStringPair.make(7, second: "seven")
 	let flipped = pair.swapped()
 	print("{pair.first} {pair.second} {flipped.first} {flipped.second}\n")
-	let both = twice(Box[Score].make(4))
+	let both = twice(ScoreBox.make(4))
 	print("{both.first.peek()} {both.second.peek()}\n")
-	let nested = Box[Box[Score]].make(Box[Score].make(9))
+	let nested = ScoreBoxBox.make(ScoreBox.make(9))
 	var other = nested.copy()
 	other.item.replace(1)
 	print("{nested.peek().peek()} {other.peek().peek()}\n")

@@ -1,3 +1,5 @@
+typealias ItemArray = array with Item
+
 export type Item
 	export var id as Count
 	export var weight as Count
@@ -8,10 +10,10 @@ export type Item
 end 'Item'
 
 export type Shelf
-	var items as array[Item]
+	var items as array with Item
 
 	export static function make() returns Shelf
-		return Shelf{items: array[Item].new()}
+		return Shelf{items: ItemArray.new()}
 	end 'make'
 
 	export function add(mutates self, consumes item Item)
@@ -31,7 +33,7 @@ export type Shelf
 	end 'size'
 end 'Shelf'
 
-export function heaviest(items array[Item]) returns Count
+export function heaviest(items array with Item) returns Count
 	var best = 0 as Count
 	for i in 0 upto items.count() 'scan'
 		if items[i].weight > best 'bigger'
@@ -41,19 +43,19 @@ export function heaviest(items array[Item]) returns Count
 	return best
 end 'heaviest'
 
-export function length[T](items array[T]) returns Count
+export function length(items array with T) uses T returns Count
 	return items.count()
 end 'length'
 
-export function firstOr[T](items array[T], consumes fallback T) returns T
+export function firstOr(items array with T, consumes fallback T) uses T returns T
 	if items.isEmpty() 'none'
 		return fallback
 	end 'none'
 	return items[0].copy()
 end 'firstOr'
 
-export function drain(mutates shelf Shelf) returns array[Item]
-	var out = array[Item].new()
+export function drain(mutates shelf Shelf) returns array with Item
+	var out = ItemArray.new()
 	while not shelf.items.isEmpty() 'each'
 		out.append(shelf.items.remove(0))
 	end 'each'

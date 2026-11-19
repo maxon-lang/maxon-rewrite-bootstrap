@@ -1,0 +1,13 @@
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+function total(a T, b T) uses T returns Count where U implements Shape
+	return 0
+end 'total'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3133 at 5:53

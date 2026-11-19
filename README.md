@@ -126,7 +126,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `ast` | the program model: AST nodes, keywords and visitors (generated), semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project` | `diag` |
 | `project` | loading a project: discovery, declaration tables, the import-cycle check | `ast`, `diag`, `par` |
 | `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
-| `resolve` | name resolution, and telling a subscript from type arguments | `ast`, `diag` |
+| `resolve` | name resolution, and binding each `where` constraint to its type parameter | `ast`, `diag` |
 | `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture | `ast`, `diag` |
 | `ir` | the IR, its printer, collecting generic instances, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), and the runtime's symbol names | `ast`, `diag` |
 | `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer | `ast`, `diag`, `ir`, `par` |
@@ -198,7 +198,8 @@ unit per item). Results are merged in source order, which keeps the output deter
 | discover | `project` | walks the directory tree, one goroutine per subdirectory |
 | parse | `syntax` | reads the module's files into one buffer, lexes the whole buffer in one pass and parses the token stream into the AST; anything the grammar does not allow is a syntax error |
 | tables | `project` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
-| resolve | `resolve` | binds every name to its declaration and records module dependencies; brackets after a name that is a type or a function become its type arguments, and after anything else stay a subscript |
+| resolve | `resolve` | binds every name to its declaration and records module dependencies, and each `where` constraint to the type parameter it names (`E3133`) |
+| aliases | `check` | serial and cheap: each typealias of an instance gets its type, after the typealiases it names, in source order (a cycle is `E2012`) |
 | declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the verify phase |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
 | bodies | `check` | types every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function |
@@ -212,8 +213,9 @@ unit per item). Results are merged in source order, which keeps the output deter
 `driver.Prepare` (and `Interpret`, which runs the result once) runs the same phases through lower and gives the IR to
 the interpreter instead of codegen, which is how a map, a list, a pool, a frozen value, a cown and a behaviour run.
 
-A phase that reports an error stops the compile, so later phases never see a broken module. The one serial step
-is the import-cycle check between resolve and declare, a walk over the module graph.
+A phase that reports an error stops the compile, so later phases never see a broken module. The serial steps
+are the import-cycle check and the aliases phase between resolve and declare, walks over the module graph and over
+the typealiases of instances, and the instances phase.
 
 ### Reading a module
 
@@ -308,7 +310,7 @@ interpreter and the backend each implement the entries. The element is always vi
   primitive. What it does to each part is code that depends on the type, so it is a routine of its own for each type that
   the backend makes (below) and the interpreter does by the shape of the value; a copy of an array copies every element by
   its own type, and a copy of a pool or a list keeps its handles valid.
-- A `Handle[T]` is `scalar`; everything else here is `managed`.
+- A `Handle with T` is `scalar`; everything else here is `managed`.
 
 **Native.** Only the array has code in the backend. It is a box of three words, the length, the capacity and the address
 of its elements, which are 8-byte words; `rt.array.insert` grows it by doubling and shifts what follows, and frees the
@@ -317,7 +319,7 @@ it removes to the caller, who owns it. The entries are written in x64 in `intern
 own that the driver links only into a program that calls one. A map, a list and a pool are lowered all the same, which
 is what the interpreter runs, but the driver refuses a function that needs one before it generates code: `E9002`, at the
 first use in each function. A function that only drops, copies or holds a value that contains one (a `consumes`
-parameter of type `map[K, V]`, or a record with a pool in it) is refused too, at the function, since there is no routine
+parameter of type `map with (K, V)`, or a record with a pool in it) is refused too, at the function, since there is no routine
 to free it.
 
 ### Frozen values, cowns and behaviours in the IR
@@ -332,8 +334,8 @@ owns (`internal/ir/symbols.go`):
 | `rt.share(f)` | the same box, with the count raised by 1: another owner, which is `share` and the `copy()` of a frozen value or a cown |
 | `rt.cown.new(v)` | moves `v` into a new cown with a count of 1 |
 
-Dropping an owner (`drop`, `dropslot`, `dropat` of a `frozen[T]` or `cown[T]`) lowers the count by 1, and the box is
-freed with what it holds when the count reaches 0. A scalar can be held (`cown[Count]`, `frozen[T]` with `T` a scalar in
+Dropping an owner (`drop`, `dropslot`, `dropat` of a `frozen with T` or `cown with T`) lowers the count by 1, and the box is
+freed with what it holds when the count reaches 0. A scalar can be held (`cown with Count`, `frozen with T` with `T` a scalar in
 an instance of a generic).
 
 A `when` is one instruction, `when body cowns [%a, %b] captures [%c]`. The cowns are read, not moved, and each gains a
@@ -489,8 +491,8 @@ test runner. It has no types; it works from the shape of the values and from the
 ## The subset
 
 - `function`, `type` (fields, defaults, methods, `static function`), `enum` (integer raw values), `union`
-  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, a top-level `let` constant. A function, a
-  type and a union can be generic (see "Generics").
+  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = Box with Count`, a top-level
+  `let` constant. A function, a type and a union can be generic (see "Generics").
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `while`, `for i in a to|upto b`, `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms), `break`/`continue`
@@ -498,7 +500,7 @@ test runner. It has no types; it works from the shape of the values and from the
 - Integer, bool and string literals, interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, calls with Maxon's
   positional-then-labelled arguments, parameter conventions (`mutates`, `consumes`, `sets`), `x.copy()`,
-  `.name`/`.ordinal`/`.rawValue`, explicit type arguments `swap[Count](a, b: c)`, subscripts `a[i]`.
+  `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`.
 - Built in: `print`, `printError`, `panic`, `freeze`, `share`, `thaw`, `cown`, the aliases `ExitCode`, `Count`,
   `FullRangeInt`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib.
@@ -574,7 +576,7 @@ type Square implements Shape
 	end 'grow'
 end 'Square'
 
-type Box[T]
+type Box uses T
 	var item as T
 
 	static function make(consumes item T) returns Self
@@ -582,26 +584,41 @@ type Box[T]
 	end 'make'
 end 'Box'
 
-function total[T implements Shape](a T, b T) returns Count
+typealias SquareBox = Box with Square
+
+function total(a T, b T) uses T returns Count where T implements Shape
 	return a.area() + b.area()
 end 'total'
+
+function wrap(consumes item T) uses T returns Option with (Box with T)
+	return Option.some(Box.make(item))
+end 'wrap'
 ```
 
--  **Declaring.** A function, a `type` or a `union` takes type parameters in brackets, `[T, U implements Shape and
-  Other]`; `implements` names the bounds a parameter must meet. A type, an enum or a union says which interfaces it
-  implements with `implements` too: `type Square implements Shape and Named`. An interface lists method signatures, each
+-  **Declaring.** A function, a `type` or a `union` declares type parameters with `uses`: after the name of a type or
+  a union (`type Pair uses A, B`), after the parameter list of a function (`function swap(mutates a T, mutates b T)
+  uses T`). A `where` clause ends the line, after `implements` or `returns`, and names the bounds a parameter must
+  meet: `where T implements Shape and Named, U implements Other`. It constrains only the declaration's own parameters
+  (`E3133`), each once (`E3006`). A type, an enum or a union says which interfaces it implements with `implements`
+  too: `type Square implements Shape and Named`. An interface lists method signatures, each
   with its receiver convention (`mutates self`, `consumes self`, or none for a `let` receiver), and may name `Self`. It
   is a bound and nothing else: it is not the type of a value (`E3119`), has no type parameters, no static function and
   no parent interface, and an alias, `String` or `bool` cannot implement one. A method uses its type's parameters and
   takes none of its own (`E3123`). `Self` inside a generic type is the type at its own parameters, and a literal of it
   is `Self{...}`.
-- **Using.** Type arguments are written after a name, `Box[Count].make(1)`, `swap[Count](a, b: c)`,
-  `lib.Option[Count]`, or inferred from the arguments' types: `swap(a, b: c)`, `Option.some(x)`, `Box.make(x)`. An
-  integer constant or the range of an expression names no alias, so it infers nothing and the argument is written
-  (`E3118`). Their number is checked (`E3116`). In an expression `Box[Count]` and `a[i]` are written alike, so the
-  parser reads brackets after any expression as a subscript, and the resolver, which knows what a name stands for,
-  turns them into type arguments when the name is a type or a function; after a variable, a field or anything else
-  they stay a subscript.
+- **Instances.** A type names an instance with `with`: `Box with Count`, `map with (String, Count)`, `lib.Option
+  with Count`. One argument is written bare, several in parentheses, and an argument that is an instance itself is
+  parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E3116`). A `typealias` names an
+  instance, `typealias Counts = array with Count`, and is that instance, not a type of its own: `Counts` and `array
+  with Count` are one type. Its right-hand side is an instance (`E3134`), it may name other typealiases in any module,
+  and one that names itself is `E2012`.
+- **Calls infer.** An expression writes no type arguments, so brackets are always a subscript. A call takes them from
+  its arguments' types (`swap(a, b: c)`, `Option.some(x)`, `Box.make(x)`), and the ones the arguments leave open from
+  the type the call's result must have where it is used: a return value, an argument of a function that is not
+  generic, the value of an assignment or a field of a literal, and the branches of a conditional or a match that is
+  one of these (`return Option.none`, `Shelf{items: array.new()}`). Otherwise a static function or a case is called
+  through a typealias of the instance: `Counts.new()`. An integer constant or the range of an expression names no
+  alias, so it infers nothing; with nothing else to go by the call is `E3118`.
 - **Checked once.** A generic body is typed and checked for ownership once, where it is declared, whether or not
   anything instantiates it, and its errors are reported there and only there. Inside it a value of a type parameter
   has the methods of its bounds (`a.area()`, with `Self` read as the parameter; two bounds that declare one name
@@ -613,20 +630,20 @@ end 'total'
   parameter of type `T`, a payload of one and a field of a generic type are borrowed (`E3110`, `E3111`); `copy()` keeps
   one. So a generic container gives its element out with `.copy()`, or takes it out of a primitive with `remove`, `pop`
   or `unwrap` (see "Primitives"): no value is moved out of a field or a payload.
-- **Bounds at the instance.** Writing a type argument is the only place an instance is judged: it must implement
-  each interface its parameter is bounded by, which is a declaration (`type Round implements Shape`) and not a structural
-  match, and the error names the declaration to write and the methods missing (`E3117`). A declaration that says
-  `is Shape` is checked once, for every method with the signature `Shape` gives (`E3120`), so a bound never fails
+- **Bounds at the instance.** An instance is judged only where it is written or a call infers it: each type argument
+  must implement each interface its parameter is bounded by, which is a declaration (`type Round implements Shape`)
+  and not a structural match, and the error names the declaration to write and the methods missing (`E3117`). A declaration that says
+  `implements Shape` is checked once, for every method with the signature `Shape` gives (`E3120`), so a bound never fails
   later. Inside another generic, a type parameter meets a bound only if it is declared with it. Bounds belong to
   declarations that another module may still be declaring, so they are checked in the verify phase. A bound's
   method is called through the interface, so the implementing method needs no `export`.
 - **Lowering.** An instance is lowered by monomorphization: the checked body is lowered again for each list of
   type arguments with the parameters bound, so a slot is `scalar` or `managed` for the instance's type, `copy()`
   copies that type, and a call through a bound calls the method of the type that stands in. The IR names an
-  instance `swap[Count]` or `Box[String].make`, and emits it in the unit of the module that declares the generic;
+  instance `swap[Count]` (source has no spelling for an instance of a function) or `(Box with String).make`, and emits it in the unit of the module that declares the generic;
   calls to the types of other modules are symbolic. The `instances` phase finds them serially, so their order does
   not depend on `--jobs`.
-- **Interning.** `Box[Count]` is one type wherever it is written: each generic declaration interns its instances,
+- **Interning.** `Box with Count` is one type wherever it is written: each generic declaration interns its instances,
   keyed by their arguments, behind a lock, which is the only write that parallel phases share. An instance holds no
   members of its own; it reads the declaration's fields, cases and methods and substitutes its arguments.
 - **Limits.** A generic type may not contain itself, even with a larger type argument each time (`E4014`), and a
@@ -635,7 +652,7 @@ end 'total'
 ### Primitives
 
 Layer 2 of [docs/regions.md](docs/regions.md), as far as step 3 goes: their signatures and ownership rules. An
-`array[T]`, a `map[K, V]`, a `list[T]` (doubly linked, one node per element) and a `pool[T]` own their elements.
+`array with T`, a `map with (K, V)`, a `list with T` (doubly linked, one node per element) and a `pool with T` own their elements.
 Their operations are generic methods that no source declares (`internal/ast/builtins.go`), typed, borrowed and moved
 like any other method from the signature below, so none of the ownership rules has a special case for them. They are
 declared in the stdlib module, so a name resolves to them last, after the module's own, the root's and an exported
@@ -643,15 +660,16 @@ one anywhere.
 
 | Type | Operations |
 |---|---|
-| `array[T]` | `array[T].new()`, `array[T].filled(n, value: x)`; `count()`, `isEmpty()`; `append(item)`, `insert(item, at: i)`, `remove(i)` returns `T`, `pop()` returns `Option[T]` |
-| `map[K, V]` | `map[K, V].new()`; `count()`, `isEmpty()`, `has(k)`; `insert(k, value: v)`, `remove(k)` returns `Option[V]` |
-| `list[T]` | `list[T].new()`; `count()`, `isEmpty()`, `contains(h)`, `first()`, `last()`, `next(h)`, `prev(h)`; `pushFront(item)` and `pushBack(item)` return `Handle[T]`; `popFront()` and `popBack()` return `Option[T]`; `remove(h)` returns `Option[T]`; `moveToFront(h)` |
-| `pool[T]` | `pool[T].new()`; `count()`, `isEmpty()`, `contains(h)`; `insert(item)` returns `Handle[T]`; `remove(h)` returns `Option[T]` |
-| `Handle[T]` | no operations; `==` and `!=` |
-| `Option[T]` | cases `some(value)` and `none`; `isSome()`; `unwrap()`, which consumes the option (`consumes self`) and panics on `none` |
+| `array with T` | `new()`, `filled(n, value: x)`; `count()`, `isEmpty()`; `append(item)`, `insert(item, at: i)`, `remove(i)` returns `T`, `pop()` returns `Option with T` |
+| `map with (K, V)` | `new()`; `count()`, `isEmpty()`, `has(k)`; `insert(k, value: v)`, `remove(k)` returns `Option with V` |
+| `list with T` | `new()`; `count()`, `isEmpty()`, `contains(h)`, `first()`, `last()`, `next(h)`, `prev(h)`; `pushFront(item)` and `pushBack(item)` return `Handle with T`; `popFront()` and `popBack()` return `Option with T`; `remove(h)` returns `Option with T`; `moveToFront(h)` |
+| `pool with T` | `new()`; `count()`, `isEmpty()`, `contains(h)`; `insert(item)` returns `Handle with T`; `remove(h)` returns `Option with T` |
+| `Handle with T` | no operations; `==` and `!=` |
+| `Option with T` | cases `some(value)` and `none`; `isSome()`; `unwrap()`, which consumes the option (`consumes self`) and panics on `none` |
 
-An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`. `first`,
-`last`, `next` and `prev` return `Option[Handle[T]]`.
+`new` and `filled` are static functions, called through a typealias of the instance (`Counts.new()`) or where the
+type is known (`Shelf{items: array.new()}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`. `first`,
+`last`, `next` and `prev` return `Option with (Handle with T)`.
 
 - **Collections own their elements.** Adding takes the element `consumes`, so it moves in. Taking one out is `remove`,
   `pop`, `popFront`, `popBack` or `unwrap`, which move it out to the caller, owned; the only other way to hold an
@@ -677,7 +695,7 @@ An operation that changes the primitive takes `mutates self`, and one that adds 
   A call in there that changes an overlapping place is refused (`E3112`): `look(a[0], n: drop(a))`, where `drop`
   takes `a` as `mutates`, and `a[0].n = drop(a)`. A scalar read by a `let` parameter is a value by then and holds
   nothing.
-- **Handles are keys.** A `Handle[T]` is a plain word: copy it freely, store it in a field, in a map, in an array or
+- **Handles are keys.** A `Handle with T` is a plain word: copy it freely, store it in a field, in a map, in an array or
   in another element, compare it with `==`. It owns nothing. Using one is a lookup, so a handle whose element was
   removed finds nothing, and a slot that was reused does not answer to the old handle, because a handle also
   carries a generation. A handle of one pool used on another pool of the same element type is not a soundness issue:
@@ -687,9 +705,9 @@ An operation that changes the primitive takes `mutates self`, and one that adds 
   each other by handle (see `tests/` and `internal/check/primitives_test.go`).
 - **Map keys** are compared and copied as a word or as text: an integer alias, a `bool`, an enum, a `String` or a
   `Handle`. Any other key, a record or a union or a type parameter, is `E3124`. A generic function can therefore take
-  a `map[String, V]` with a generic `V`, but not a `map[K, V]` with a generic `K`; a bound for keys would lift that.
+  a `map with (String, V)` with a generic `V`, but not a `map with (K, V)` with a generic `K`; a bound for keys would lift that.
   `insert` replaces the value of a key that is there, which is dropped.
-- **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `array[T]` is
+- **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `array with T` is
   owned and movable, so a generic container gives an element out with `remove` or `pop`, or `.copy()`.
 - **Iteration** is `for i in 0 upto a.count()` and a subscript. There is no `for x in a`, and a map has no way to
   walk its keys yet.
@@ -697,9 +715,9 @@ An operation that changes the primitive takes `mutates self`, and one that adds 
   dies (see "The primitives in the IR" and "Native freeing"). A map, a list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
   program that uses one is refused when it is compiled to an executable (`E9002`) and still passes `check`; the test
   runner runs such a program under the interpreter alone.
-- **Limits.** `Option[T]` here is the stdlib's; a module that exports its own `Option` wins the bare name in the
-  other modules, and `stdlib.Option[T]` names this one. A primitive implements no interface (`E3117`). A record
-  that contains itself through an array (`var kids = array[Tree].new()` in `Tree`) is fine, natively too: its drop and
+- **Limits.** `Option with T` here is the stdlib's; a module that exports its own `Option` wins the bare name in the
+  other modules, and `stdlib.Option with T` names this one. A primitive implements no interface (`E3117`). A record
+  that contains itself through an array (`var kids as array with Tree` in `Tree`) is fine, natively too: its drop and
   its copy are routines that call themselves.
 
 ### Immutable values, cowns and behaviours
@@ -713,7 +731,7 @@ type Account
 	export var balance as Count
 end 'Account'
 
-function transfer(from cown[Account], dest cown[Account], amount Count)
+function transfer(from cown with Account, dest cown with Account, amount Count)
 	when from, dest as f, t 'move'
 		if f.balance >= amount 'enough'
 			f.balance = f.balance - amount
@@ -725,17 +743,17 @@ end 'transfer'
 
 | Written | Means |
 |---|---|
-| `freeze(x)` | takes `x` (`consumes`) and gives a `frozen[T]`, an immutable value; `T` is not a plain value (`E3127`) |
+| `freeze(x)` | takes `x` (`consumes`) and gives a `frozen with T`, an immutable value; `T` is not a plain value (`E3127`) |
 | `share(f)` | another owner of the frozen value or the cown that `f` (a `let` borrow) names; the count goes up by 1 |
 | `thaw(f)` | an owned, mutable deep copy of what a frozen value holds |
-| `cown(x)` | takes `x` (`consumes`) and gives a `cown[T]`, a reference to a cown that owns the value; `T` may be a plain value |
+| `cown(x)` | takes `x` (`consumes`) and gives a `cown with T`, a reference to a cown that owns the value; `T` may be a plain value |
 | `when a, b as x, y 'label'` … `end` | a behaviour: runs later, once it has exclusive access to the cowns `a` and `b`, with `mutates` access to their values as `x` and `y` |
 
 -  **Frozen values.** The contents are lent and never given: reading a field, calling a method whose receiver is `let`,
   subscripting, matching, interpolating, and passing the frozen value to a `let` parameter of the type it holds all see
   the contents (`d.title`, `d.total()`, `describe(d)`). Anything else is refused: assigning through it, a `mutates`
   argument, a method that takes `mutates self` or `consumes self`, or a `consumes` parameter is `E3125`, and taking a
-  part out of it is `E3111`. The type system tells a frozen value from its contents by the type `frozen[T]`, so a
+  part out of it is `E3111`. The type system tells a frozen value from its contents by the type `frozen with T`, so a
   place's path gains a step into the contents (`paths.go`), and every rule about places, borrows and exclusivity applies
   to it as it does to a field. `copy()` of a frozen value, of a cown reference, and of anything that holds one, is a
   `share`: the copy is another owner of the same value, never a new value; `thaw` is how to get a mutable copy of the
@@ -743,7 +761,7 @@ end 'transfer'
   that was owned (a tree) and given up by `freeze`, so what it holds is either part of that tree or a counted value that
   existed before it, and nothing can be added to it afterwards: counts form a DAG and no cycle of frozen values can
   exist. A string literal and a constant are immortal and uncounted.
-- **Cowns.** A `cown[T]` is a counted reference: `share` and `copy()` make another, dropping one lowers the count, and
+- **Cowns.** A `cown with T` is a counted reference: `share` and `copy()` make another, dropping one lowers the count, and
   the cown and its value are freed when the last reference is gone and no behaviour holds it. The value is touched only in
   a behaviour (`E3132` for a field, an element, a method, a match or an interpolation of a cown outside one). A type that
   can reach itself through a cown, directly or through other types, is refused (`E3131`): a behaviour could store a
@@ -829,13 +847,17 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   regions: owned values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
   only the array. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
-  and a frozen value is a type, `frozen[T]`, where Maxon recovers immutability from facts about a value's history.
+  and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
   The grammar has none of the rest, so each is a syntax error.
 - The primitives are not Maxon's `Array`, `Map` and `List` wrappers: an array, a map, a list and a pool are the
   built-in types themselves, they have no iteration yet, and indexing is a subscript that traps on a miss.
 - Generics are checked once against their bounds, never per instantiation; maxon checks a generic function per inferred
   type. Interfaces are bounds only: no generic interface, no static requirement, no default method, no existential
   value; a type implements one by saying so, and `int` aliases, `String` and `bool` implement none.
+- Generics are written as in Maxon (`uses`, `with`, `where`), with four differences: an instance is written wherever a
+  type is (`returns Option with (Box with T)`), not only through a typealias; a bound is `where T implements Shape`,
+  the word a type declares conformance with, rather than `where T is Shape`; a union can be generic; and a call whose
+  arguments leave a type argument open takes it from where its result goes (`return Option.none`).
 - The reserved words are exactly the keywords the grammar uses, so a word Maxon reserves for a feature minimaxon
   lacks is an ordinary name, and a word that could be read by context, such as `mutates`, `consumes` or `sets`, is
   reserved.

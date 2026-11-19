@@ -1,3 +1,5 @@
+typealias ItemList = list with Item
+
 type Item
 	export var name as String
 	export var weight as Count
@@ -7,7 +9,7 @@ type Item
 	end 'make'
 end 'Item'
 
-function describe(l list[Item]) returns String
+function describe(l list with Item) returns String
 	var text = ""
 	var at = l.first()
 	while at.isSome() 'walk'
@@ -19,7 +21,7 @@ function describe(l list[Item]) returns String
 end 'describe'
 
 function main() returns ExitCode
-	var l = list[Item].new()
+	var l = ItemList.new()
 	let b = l.pushBack(Item.make("b", weight: 2))
 	let a = l.pushFront(Item.make("a", weight: 1))
 	let c = l.pushBack(Item.make("c", weight: 3))

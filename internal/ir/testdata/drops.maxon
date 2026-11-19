@@ -51,11 +51,11 @@ function temporaries() returns Count
 	return 1
 end 'temporaries'
 
-function unwrapped(consumes o Option[String]) returns String
+function unwrapped(consumes o Option with String) returns String
 	return o.unwrap()
 end 'unwrapped'
 
-function bound(o Option[String]) returns Count
+function bound(o Option with String) returns Count
 	match o 'm'
 		some(v) then print(v)
 		none then print("none")

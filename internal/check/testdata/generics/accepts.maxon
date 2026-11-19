@@ -2,7 +2,7 @@
 function main() returns ExitCode
 	var a = 1 as Score
 	var b = 2 as Score
-	swap[Score](a, b: b)
+	swap(a, b: b)
 	return 0
 end 'main'
 
@@ -16,23 +16,31 @@ function main() returns ExitCode
 end 'main'
 
 // case: generic type and its field
+typealias StringBox = Box with String
+
 function main() returns ExitCode
-	var b = Box[String].make("x", tag: 1)
+	var b = StringBox.make("x", tag: 1)
 	b.replace("y")
 	print("{b.peek()} {b.tag}")
 	return 0
 end 'main'
 
 // case: nested instances
+typealias ScoreBox = Box with Score
+
+typealias ScoreBoxBox = Box with (Box with Score)
+
 function main() returns ExitCode
-	let b = Box[Box[Score]].make(Box[Score].make(1, tag: 2), tag: 3)
+	let b = ScoreBoxBox.make(ScoreBox.make(1, tag: 2), tag: 3)
 	print("{b.peek().tag}")
 	return 0
 end 'main'
 
 // case: union instance
+typealias StringSlot = Slot with String
+
 function main() returns ExitCode
-	let s = Slot[String].full("x")
+	let s = StringSlot.full("x")
 	match s 'm'
 		full(v) then print(v)
 		empty then print("none")
@@ -51,8 +59,10 @@ function main() returns ExitCode
 end 'main'
 
 // case: copy of a generic instance
+typealias StringBox = Box with String
+
 function main() returns ExitCode
-	let a = Box[String].make("x", tag: 1)
+	let a = StringBox.make("x", tag: 1)
 	let b = a.copy()
 	print(b.peek())
 	return 0

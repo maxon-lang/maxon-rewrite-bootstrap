@@ -1,5 +1,9 @@
 typealias Score = int(i64.min to i64.max)
 
+typealias SquareBox = containers.Box with shapes.Square
+
+typealias ScoreBoxes = array with containers.ScoreBox
+
 function main() returns ExitCode
 	var a = shapes.Square.make(3)
 	var b = shapes.Square.make(4)
@@ -8,7 +12,7 @@ function main() returns ExitCode
 	print("{a.side} {boxed.peek().side}\n")
 	containers.swap(a, b: b)
 	print("{a.side} {b.side}\n")
-	let inner = containers.Box[shapes.Square].make(shapes.Square.make(5))
+	let inner = SquareBox.make(shapes.Square.make(5))
 	print("{inner.item.area()}\n")
 	let option = containers.wrap(shapes.Square.make(6))
 	print("{option.isSome()}\n")
@@ -16,6 +20,9 @@ function main() returns ExitCode
 	var y = 2 as containers.Score
 	containers.swap(x, b: y)
 	print("{x} {y}\n")
+	var boxes = ScoreBoxes.new()
+	boxes.append(containers.ScoreBox.make(7))
+	print("{boxes[0].peek()}\n")
 	return 0
 end 'main'
 
@@ -25,3 +32,4 @@ end 'main'
 //> 25
 //> true
 //> 2 1
+//> 7

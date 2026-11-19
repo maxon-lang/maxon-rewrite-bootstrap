@@ -1,6 +1,8 @@
 // expect-exit: 1
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].filled(3, value: 1)
+	var a = CountArray.filled(3, value: 1)
 	print("before\n")
 	print("{a[a.count()]}\n")
 	return 0

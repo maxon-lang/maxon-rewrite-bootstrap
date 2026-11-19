@@ -3,6 +3,8 @@
 // far slower than the executable at this.
 // memory-limit: 48
 // native-only
+typealias PointArray = array with Point
+
 type Point
 	export var x as Count
 	export var y as Count
@@ -14,7 +16,7 @@ end 'Point'
 
 type Entry
 	export var label as String
-	export var points = array[Point].new()
+	export var points = PointArray.new()
 
 	static function make(n Count) returns Entry
 		var e = Entry{label: "entry {n}"}

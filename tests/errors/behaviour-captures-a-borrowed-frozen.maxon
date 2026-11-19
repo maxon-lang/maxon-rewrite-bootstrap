@@ -8,7 +8,7 @@ type Acct
 	end 'make'
 end 'Acct'
 
-function show(f frozen[Acct], c cown[Acct])
+function show(f frozen with Acct, c cown with Acct)
 	when c as x 'show'
 		print("{f.tag}")
 	end 'show'

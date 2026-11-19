@@ -1,6 +1,8 @@
-// expect-error: E2013 at 4:2
+// expect-error: E2013 at 6:2
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	let a = array[Count].new()
+	let a = CountArray.new()
 	a.append(1)
 	return 0
 end 'main'

@@ -1,5 +1,7 @@
+typealias StringPool = pool with String
+
 function main() returns ExitCode
-	var p = pool[String].new()
+	var p = StringPool.new()
 	let first = p.insert("p{1}")
 	let second = p.insert("p{2}")
 	let gone = p.remove(first)

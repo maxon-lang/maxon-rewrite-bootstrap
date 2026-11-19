@@ -14,7 +14,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-function measure[T implements Shape](f frozen[T]) returns Count
+function measure(f frozen with T) uses T returns Count where T implements Shape
 	return f.area()
 end 'measure'
 

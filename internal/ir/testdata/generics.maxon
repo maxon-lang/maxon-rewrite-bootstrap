@@ -1,5 +1,7 @@
 typealias Score = int(i64.min to i64.max)
 
+typealias ScoreBox = Box with Score
+
 interface Shape
 	function area() returns Score
 end 'Shape'
@@ -16,7 +18,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-type Box[T]
+type Box uses T
 	var item as T
 
 	static function make(consumes item T) returns Self
@@ -28,17 +30,17 @@ type Box[T]
 	end 'peek'
 end 'Box'
 
-function swap[T](mutates a T, mutates b T)
+function swap(mutates a T, mutates b T) uses T
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function total[T implements Shape](a T, b T) returns Score
+function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() + b.area()
 end 'total'
 
-function both[T implements Shape](a T) returns Score
+function both(a T) uses T returns Score where T implements Shape
 	var b = a.copy()
 	var c = a.copy()
 	swap(b, b: c)
@@ -53,8 +55,8 @@ function main() returns ExitCode
 	var a = Square.create(1)
 	var b = Square.create(2)
 	swap(a, b: b)
-	let x = Box[Score].make(1)
-	let y = Box[Score].make(2)
+	let x = ScoreBox.make(1)
+	let y = ScoreBox.make(2)
 	print("{both(a)} {total(a, b: b)} {x.peek()} {y.peek()}\n")
 	return 0
 end 'main'

@@ -69,7 +69,7 @@ func TestConsumedParametersAreOwnedByTheCallee(t *testing.T) {
 // The box of an Option is dropped once its payload has left it, and a payload that is owned moves out by address.
 func TestUnwrapMovesThePayloadOutAndDropsTheBox(t *testing.T) {
 	text := lowered(t, "unwrapped")
-	requireInOrder(t, text, "fieldaddr", "moveat", "drop %", "Option[String]")
+	requireInOrder(t, text, "fieldaddr", "moveat", "drop %", "Option with String")
 }
 
 // A match binding of a payload names part of the subject for the arm: it is stored as a borrow and never dropped.

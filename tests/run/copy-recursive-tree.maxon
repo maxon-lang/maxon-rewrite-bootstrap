@@ -1,7 +1,9 @@
+typealias TreeArray = array with Tree
+
 type Tree
 	var value as Count
 	var name as String
-	var kids = array[Tree].new()
+	var kids = TreeArray.new()
 
 	static function make(value Count, consumes name String) returns Tree
 		return Tree{value: value, name: name}

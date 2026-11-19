@@ -33,6 +33,7 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 	proj.Modules = []*ast.Module{root}
 	project.BuildTables(proj, 1)
 	resolve.NewResolver(proj, root).Run()
+	check.DeclareAliases(proj)
 	c := check.NewChecker(proj, root, &root.Errors)
 	for _, d := range root.Decls {
 		root.Functions = append(root.Functions, c.Declare(d)...)
@@ -47,7 +48,7 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 		c.CheckBody(f)
 	}
 	c.Verify(c.Pending)
-	c.VerifyBounds(c.Bounds)
+	c.VerifyBounds(append(root.Bounds, c.Bounds...))
 	root.Callers = c.Callers
 	if len(root.Errors) == 0 {
 		o := check.NewOwnership(&root.Errors)
@@ -125,7 +126,7 @@ func TestRoutinesAreMadeForEveryTypeTheCodeReaches(t *testing.T) {
 	module := EmitModule(lowered(t, routinesFile))
 	routines := EmitTypeRoutines([]*CodeUnit{module}, 1)
 	for _, want := range []string{
-		"drop Tree", "copy Tree", "drop array[Tree]", "copy array[Tree]", "drop String", "copy String",
+		"drop Tree", "copy Tree", "drop array with Tree", "copy array with Tree", "drop String", "copy String",
 		"drop Shape", "copy Shape", "copy Plain",
 	} {
 		if !hasRoutine(routines, want) {

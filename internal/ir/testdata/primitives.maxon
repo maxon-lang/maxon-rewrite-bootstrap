@@ -1,4 +1,4 @@
-function sumOf(items array[Count]) returns Count
+function sumOf(items array with Count) returns Count
 	var sum = 0 as Count
 	for i in 0 upto items.count() 'each'
 		sum = sum + items[i]
@@ -6,17 +6,17 @@ function sumOf(items array[Count]) returns Count
 	return sum
 end 'sumOf'
 
-function drop(mutates items array[Count])
+function drop(mutates items array with Count)
 	let last = items.pop()
 	items[0] = 1
 end 'drop'
 
-function lookup(m map[Count, Count], k Count) returns Count
+function lookup(m map with (Count, Count), k Count) returns Count
 	return m[k]
 end 'lookup'
 
 function build() returns Count
-	var p = pool[Count].new()
+	var p = CountPool.new()
 	let h = p.insert(1)
 	p[h] = 2
 	let copied = p.copy()
@@ -26,3 +26,5 @@ end 'build'
 function main() returns ExitCode
 	return 0
 end 'main'
+
+typealias CountPool = pool with Count

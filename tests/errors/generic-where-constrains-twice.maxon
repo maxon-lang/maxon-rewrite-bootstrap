@@ -1,0 +1,17 @@
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+interface Named
+	function name() returns String
+end 'Named'
+
+type Box uses T where T implements Shape, T implements Named
+	var item as T
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3006 at 9:43

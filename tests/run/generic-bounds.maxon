@@ -1,5 +1,9 @@
 typealias Score = int(i64.min to i64.max)
 
+typealias ColorWrapper = Wrapper with Color
+
+typealias ColorWrapperWrapper = Wrapper with (Wrapper with Color)
+
 interface Describe
 	function describe() returns String
 	function twin() returns Self
@@ -18,9 +22,9 @@ enum Color implements Describe
 	end 'twin'
 end 'Color'
 
-type Wrapper[T implements Describe] implements Describe
+type Wrapper uses T implements Describe where T implements Describe
 	var inner as T
-	var uses = 0 as Score
+	var calls = 0 as Score
 
 	static function make(consumes inner T) returns Self
 		return Self{inner: inner}
@@ -30,13 +34,13 @@ type Wrapper[T implements Describe] implements Describe
 		return "wrapper of {inner.describe()}"
 	end 'describe'
 
-	function twin() returns Wrapper[T]
+	function twin() returns Wrapper with T
 		return Self.make(inner.twin())
 	end 'twin'
 end 'Wrapper'
 
 type Tally
-	var total = Wrapper[Color].make(Color.red)
+	var total = ColorWrapper.make(Color.red)
 	var count = 3 as Score
 
 	static function create() returns Tally
@@ -44,39 +48,39 @@ type Tally
 	end 'create'
 end 'Tally'
 
-function show[T implements Describe](item T) returns String
+function show(item T) uses T returns String where T implements Describe
 	return item.describe()
 end 'show'
 
-function showTwin[T implements Describe](item T) returns String
+function showTwin(item T) uses T returns String where T implements Describe
 	return show(item.twin())
 end 'showTwin'
 
-function depth[T](x T, n Score) returns Score
+function depth(x T, n Score) uses T returns Score
 	if n == 0 'done'
 		return 0
 	end 'done'
 	return 1 + depth(x.copy(), n: n - 1)
 end 'depth'
 
-function ping[T](x T, n Score) returns Score
+function ping(x T, n Score) uses T returns Score
 	if n == 0 'done'
 		return 0
 	end 'done'
 	return pong(x.copy(), n: n - 1)
 end 'ping'
 
-function pong[T](x T, n Score) returns Score
+function pong(x T, n Score) uses T returns Score
 	return 1 + ping(x.copy(), n: n)
 end 'pong'
 
 function main() returns ExitCode
 	print("{show(Color.red)}\n")
 	print("{showTwin(Color.red)}\n")
-	let w = Wrapper[Color].make(Color.red)
+	let w = ColorWrapper.make(Color.red)
 	print("{show(w)}\n")
 	print("{showTwin(w)}\n")
-	let w2 = Wrapper[Wrapper[Color]].make(w.copy())
+	let w2 = ColorWrapperWrapper.make(w.copy())
 	print("{show(w2)}\n")
 	let t = Tally.create()
 	print("{t.total.describe()} {t.count}\n")

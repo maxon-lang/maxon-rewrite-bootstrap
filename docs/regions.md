@@ -163,7 +163,7 @@ Where this document was open, minimaxon does the following. Hylo's rules decide 
 another thread while keeping it, so counts change only when data crosses. The count is one per frozen
 value, not per object inside it, and is atomic. Frozen values refer only to values frozen before them, so counts
 form a DAG and never leak. String literals and module-level constants live in the executable image, are marked
-immortal, and are never counted. Implemented in step 5 as the type `frozen[T]`; see "Choices made in step 5".
+immortal, and are never counted. Implemented in step 5 as the type `frozen with T`; see "Choices made in step 5".
 
 ## Layer 2: runtime primitives
 
@@ -205,7 +205,7 @@ Where this document was open, minimaxon does the following. The operations and t
   moving and exclusivity code as a call of any method. Adding an element is a `consumes` parameter. Removing is a return
   value, which is owned. `mutates self` on everything that changes the structure is what makes "a container method
   overlaps any projection of its container" follow from the exclusivity rule, with no rule of its own.
-- **Results that can miss are an `Option[T]`.** `Option` is a built-in union (`some`, `none`) with two methods:
+- **Results that can miss are an `Option with T`.** `Option` is a built-in union (`some`, `none`) with two methods:
   `isSome()` and `unwrap(consumes self)`. Matching it only borrows the payload (a match binding is a projection), so
   `unwrap` is how a program takes the element out of a `remove`: it consumes the whole option, so no value is left
   partly moved. A miss that is a bug and not an expected answer (`a[i]`, `m[k]`, `p[h]`, `a.remove(i)`) traps
@@ -222,15 +222,15 @@ Where this document was open, minimaxon does the following. The operations and t
   overlapping place is refused. This is the "active projection against the accesses made while it lasts" check of
   the exclusivity section, extended from match bindings to arguments and assignments, and it closes the gap where
   `f(mutates a[i], g(mutates a))` took an address that `g` could invalidate. It needs no run-time check.
-- **A handle is a key.** `Handle[T]` is a scalar word: copied, never moved, not owning. Its generation is part of the
+- **A handle is a key.** `Handle with T` is a scalar word: copied, never moved, not owning. Its generation is part of the
   word, so a stale handle never reaches a reused slot. A handle is typed by its element type and not by its pool, so
   a handle from one pool used on another pool of the same type is a lookup that fails or finds that pool's element;
   that is not a soundness issue and is not prevented. Equality of handles is allowed.
-- **A list hands out handles like a pool.** A list is a doubly linked list whose nodes are named by `Handle[T]`:
+- **A list hands out handles like a pool.** A list is a doubly linked list whose nodes are named by `Handle with T`:
   `pushFront` and `pushBack` return the handle, `first`, `last`, `next` and `prev` walk, `remove` and `moveToFront`
   take one. That is the smallest API with which a cache is a list and a map from keys to handles.
 - **Keys of a map** are words or text: an integer alias, a `bool`, an enum, a `String` or a `Handle`. A record has no
-  equality, and a type parameter is not known to have one, so generic code over `map[K, V]` waits for a bound on keys
+  equality, and a type parameter is not known to have one, so generic code over `map with (K, V)` waits for a bound on keys
   (`E3124`).
 - **No iteration beyond the index.** `for i in 0 upto a.count()` works. A `for x in a` loop would borrow the array for
   its whole body, which the exclusivity rule already covers, but it is not built, and a map has no key walk.
@@ -332,7 +332,7 @@ A green thread runs in its own memory: the values it owns. Data reaches another 
 Where this document was open, minimaxon does the following. The rules and the error codes are in the README ("Immutable
 values, cowns and behaviours"); these are the decisions behind them.
 
--  **Immutability is a type.** `frozen[T]` is a built-in generic type, and `freeze` a stdlib function that takes a
+-  **Immutability is a type.** `frozen with T` is a built-in generic type, and `freeze` a stdlib function that takes a
   `consumes T` and gives one. A type lets the checker tell an immutable value from its owner by what a name is declared
   as, with no facts about a value's history to carry through every construct, which is what grew maxon's rulings. The
   contents of a frozen value are one more step in a place's path, so every rule that asks whether a place can change or
@@ -349,7 +349,7 @@ values, cowns and behaviours"); these are the decisions behind them.
   (layer 1), so the objects inside it are the tree's, and the only counted values inside are ones that already existed.
   Nothing inside can change afterwards, so it can never be made to hold a value that is made later. The references
   between frozen values, and from a frozen value to a cown, point to older ones, which makes counts a DAG. `freeze` of a
-  plain value is refused (`frozen[Count]` has nothing to freeze); a generic instance may still hold a scalar, so the
+  plain value is refused (`frozen with Count` has nothing to freeze); a generic instance may still hold a scalar, so the
   box and the entries take one.
 - **A cown is a counted reference, and a type may not reach itself through one.** A cown reference is another kind of
   owner that `share` and `copy()` make, freed with the last one and with no behaviour holding the cown. The value of a
@@ -405,7 +405,7 @@ values, cowns and behaviours"); these are the decisions behind them.
   few thousand programs under several seeds make likely and no number makes certain.
 - **Checker holes found.** None: no program that the checker accepted broke a rule under the interpreter, in 85,000
   generated programs (below). Two bugs, neither a hole, each with a test that failed first:
-  1. A method of a bound called on a frozen value (`f.area()` with `f` of `frozen[T]`) reached instance resolution with
+  1. A method of a bound called on a frozen value (`f.area()` with `f` of `frozen with T`) reached instance resolution with
      the frozen type as the receiver, which has no such method, and failed as an internal error. Found by hand while
      writing the corpus; `Resolved` looks through a frozen receiver now, as the checker does
      (`tests/run/frozen-bound-call.maxon`, and `totalFrozen` in the generator's library).
@@ -484,14 +484,16 @@ Where this document was open, minimaxon does the following.
 - **Generic declarations.** A function, a record and a union. A method takes its type's parameters and none of its
   own. `Self` in a generic type is the type at its own parameters, and a literal of it is `Self{...}`.
 - **Inference.** From the argument types, by matching a parameter's type against the argument's, through the
-  instances of generic types. An integer constant or the range of an expression names no alias, so it infers
-  nothing and the type argument is written. A parameter that no argument mentions is written too.
+  instances of generic types, and for what the arguments leave open, from the type the result must have where it
+  goes (a return value, an argument, an assignment, a field). An integer constant or the range of an expression names
+  no alias, so it infers nothing. Source writes no type arguments in an expression: where nothing fixes one, a static
+  function or a case is called through a typealias of the instance (`typealias Counts = array with Count`).
 - **Lowering.** Monomorphization, because the IR keeps `scalar` and `managed` apart and copy is type-directed: each
   instance's body is the checked body lowered with the parameters bound. A phase between verify and lower finds the
   instances serially, from the calls each function records, so each is lowered once and in an order that does not
   depend on the number of jobs. An instance is emitted in the unit of the module that declares the generic.
 - **Instances are shared.** A generic declaration interns its instances by type arguments behind a lock, so
-  `Box[Count]` is the same type in every module; an instance reads its members through the declaration. It is the
+  `Box with Count` is the same type in every module; an instance reads its members through the declaration. It is the
   one write the parallel phases share, and nothing reads an instance's members before the declare phase ends.
 - **Limits.** Nesting of instances is capped at depth 16: a generic type that contains itself with a larger
   argument, or a generic function that calls itself with one, is an error instead of an endless expansion.

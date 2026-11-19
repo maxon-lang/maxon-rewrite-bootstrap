@@ -28,11 +28,11 @@ type Plain
 	end 'make'
 end 'Plain'
 
-type Box[T implements Shape]
+type Box uses T where T implements Shape
 	var item as T
 end 'Box'
 
-type Wrap[T]
+type Wrap uses T
 	var inner as T
 
 	static function make(consumes inner T) returns Self
@@ -40,17 +40,17 @@ type Wrap[T]
 	end 'make'
 end 'Wrap'
 
-function sizeOf[T implements Shape](a T) returns Score
+function sizeOf(a T) uses T returns Score where T implements Shape
 	return a.area()
 end 'sizeOf'
 
-function id[T](consumes a T) returns T
+function id(consumes a T) uses T returns T
 	return a
 end 'id'
 
-function nest[T](consumes x T, depth Score) returns Score
+function nest(consumes x T, depth Score) uses T returns Score
 	if depth > 0 'more'
-		return nest(Wrap[T].make(x), depth: depth - 1)
+		return nest(Wrap.make(x), depth: depth - 1)
 	end 'more'
 	return 0
 end 'nest'

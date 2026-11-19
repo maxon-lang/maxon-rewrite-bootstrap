@@ -1,5 +1,7 @@
-// expect-error: E9002 at 3:25
+// expect-error: E9002 at 3:23
 function main() returns ExitCode
-	var p = pool[Count].new()
+	var p = CountPool.new()
 	return 0
 end 'main'
+
+typealias CountPool = pool with Count

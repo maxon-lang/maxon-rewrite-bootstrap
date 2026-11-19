@@ -1,5 +1,5 @@
 // expect-error: E2013 at 6:11
-type Box[T]
+type Box uses T
 	var item as T
 
 	function reset(mutates self)
@@ -7,7 +7,7 @@ type Box[T]
 	end 'reset'
 end 'Box'
 
-function replace[T](mutates b Box[T])
+function replace(mutates b Box with T) uses T
 	b.item = b.item.copy()
 end 'replace'
 

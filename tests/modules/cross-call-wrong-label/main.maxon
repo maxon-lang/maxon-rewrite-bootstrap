@@ -1,5 +1,5 @@
 function main() returns ExitCode
-	print("{lib.join("a", with: "b")}\n")
+	print("{lib.join("a", by: "b")}\n")
 	return 0
 end 'main'
 

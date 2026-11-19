@@ -315,21 +315,21 @@ func (g *generator) owned(t *ty, depth int) string {
 	case kArray:
 		switch n := g.pick(6); {
 		case n < 2:
-			return fmt.Sprintf("%s.new()", t.src())
+			return fmt.Sprintf("%s.new()", g.typeExpr(t))
 		case n < 4:
-			return fmt.Sprintf("%s.filled(%d, value: %s)", t.src(), g.pick(4), g.owned(t.args[0], depth-1))
+			return fmt.Sprintf("%s.filled(%d, value: %s)", g.typeExpr(t), g.pick(4), g.owned(t.args[0], depth-1))
 		}
 		if s, ok := g.ownedFromStorage(t); ok {
 			return s
 		}
-		return fmt.Sprintf("%s.new()", t.src())
+		return fmt.Sprintf("%s.new()", g.typeExpr(t))
 	case kPool, kList, kMap:
 		if g.chance(30) {
 			if s, ok := g.ownedFromStorage(t); ok {
 				return s
 			}
 		}
-		return fmt.Sprintf("%s.new()", t.src())
+		return fmt.Sprintf("%s.new()", g.typeExpr(t))
 	case kOption:
 		return g.optionExpr(t, depth)
 	case kHandle:
@@ -342,7 +342,7 @@ func (g *generator) owned(t *ty, depth int) string {
 
 func (g *generator) recordExpr(r *record, depth int) string {
 	if strings.HasPrefix(r.t.name, "Box") {
-		return fmt.Sprintf("%s.make(%s)", r.t.name, g.owned(r.fields[0].t, depth-1))
+		return fmt.Sprintf("%s.make(%s)", g.typeExpr(r.t), g.owned(r.fields[0].t, depth-1))
 	}
 	return g.callArgsText(r.t.name+".make", r.make.params, depth)
 
@@ -378,22 +378,22 @@ func (g *generator) optionExpr(t *ty, depth int) string {
 	elem := t.args[0]
 	switch n := g.pick(8); {
 	case n < 2:
-		return fmt.Sprintf("%s.none", t.src())
+		return fmt.Sprintf("%s.none", g.typeExpr(t))
 	case n < 4:
-		return fmt.Sprintf("Option[%s].some(%s)", elem.src(), g.owned(elem, depth-1))
+		return fmt.Sprintf("%s.some(%s)", g.typeExpr(t), g.owned(elem, depth-1))
 	case n < 6:
 		if a, ok := g.place(g.array(elem), true); ok {
 			return a.src + ".pop()"
 		}
 	case n < 7:
 		if a, ok := g.place(g.array(elem), false); ok {
-			return fmt.Sprintf("firstOf[%s](%s)", elem.src(), a.src)
+			return fmt.Sprintf("firstOf(%s)", a.src)
 		}
 	}
 	if s, ok := g.ownedFromStorage(t); ok {
 		return s
 	}
-	return fmt.Sprintf("Option[%s].none", elem.src())
+	return fmt.Sprintf("%s.none", g.typeExpr(t))
 }
 
 // handleExpr is the handle of a new element of a pool or a list, or one that a variable already holds.
@@ -418,7 +418,7 @@ func (g *generator) handleExpr(t *ty, depth int) string {
 
 // freshHandle needs a pool to put something in, so it makes one inside an expression it cannot: callers declare it.
 func (g *generator) freshHandle(elem *ty, depth int) string {
-	return "mint[" + elem.src() + "](" + g.owned(elem, depth-1) + ")"
+	return "mint(" + typed(elem, g.owned(elem, depth-1)) + ")"
 }
 
 // condExpr is a conditional whose branches give owned values, so a place in one is moved.
@@ -712,7 +712,7 @@ func (g *generator) libraryCall(t *ty, depth int) (string, bool) {
 		return fmt.Sprintf("Meter.make(%s)", g.countExpr(depth-1)), true
 	case t.kind == kOption:
 		if a, ok := g.place(g.array(t.args[0]), false); ok {
-			return fmt.Sprintf("firstOf[%s](%s)", t.args[0].src(), a.src), true
+			return fmt.Sprintf("firstOf(%s)", a.src), true
 		}
 	}
 	if !t.managed() {
@@ -720,12 +720,12 @@ func (g *generator) libraryCall(t *ty, depth int) (string, bool) {
 	}
 	switch g.pick(4) {
 	case 0:
-		return fmt.Sprintf("keep[%s](%s)", t.src(), g.owned(t, depth-1)), true
+		return fmt.Sprintf("keep(%s)", typed(t, g.owned(t, depth-1))), true
 	case 1:
-		return fmt.Sprintf("pass2[%s](%s, b: %s, first: %s)", t.src(), g.owned(t, depth-1), g.owned(t, depth-1), g.boolExpr(depth-1)), true
+		return fmt.Sprintf("pass2(%s, b: %s, first: %s)", typed(t, g.owned(t, depth-1)), typed(t, g.owned(t, depth-1)), g.boolExpr(depth-1)), true
 	case 2:
 		if p, ok := g.place(t, false); ok {
-			return fmt.Sprintf("dup[%s](%s)", t.src(), p.src), true
+			return fmt.Sprintf("dup(%s)", p.src), true
 		}
 	}
 	return "", false

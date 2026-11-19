@@ -1,3 +1,7 @@
+typealias PartArray = array with Part
+
+typealias StringArray = array with String
+
 type Part
 	export var name as String
 	export var weight as Count
@@ -9,10 +13,10 @@ end 'Part'
 
 type Crate
 	export var label as String
-	export var parts as array[Part]
+	export var parts as array with Part
 
 	static function make(consumes label String) returns Crate
-		return Crate{label: label, parts: array[Part].new()}
+		return Crate{label: label, parts: PartArray.new()}
 	end 'make'
 
 	function total() returns Count
@@ -98,7 +102,7 @@ function main() returns ExitCode
 	let removed = crate.parts.remove(0)
 	_ = crate.parts.remove(0)
 	print("{removed.name} {crate.parts.count()}\n")
-	var filled = array[String].filled(3, value: "f{7}")
+	var filled = StringArray.filled(3, value: "f{7}")
 	filled[1] = "g{8}"
 	print("{filled[0]} {filled[1]} {filled[2]}\n")
 	print("{crate.take()}\n")

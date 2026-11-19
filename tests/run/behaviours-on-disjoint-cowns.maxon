@@ -6,7 +6,7 @@ type Counter
 	end 'make'
 end 'Counter'
 
-function bump(c cown[Counter], times Count)
+function bump(c cown with Counter, times Count)
 	for i in 0 upto times 'each'
 		let mine = share(c)
 		when mine as x 'bump'
@@ -15,7 +15,7 @@ function bump(c cown[Counter], times Count)
 	end 'each'
 end 'bump'
 
-function total(a cown[Counter], b cown[Counter], c cown[Counter])
+function total(a cown with Counter, b cown with Counter, c cown with Counter)
 	when a, b, c as x, y, z 'total'
 		print("{x.n} {y.n} {z.n} {x.n + y.n + z.n}\n")
 	end 'total'

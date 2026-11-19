@@ -27,7 +27,7 @@ func TestPrimitiveInstancesAreInterned(t *testing.T) {
 	if a != Instantiate(b.Array, []Ty{StringTy}) || a == Instantiate(b.Array, []Ty{BoolTy}) {
 		t.Fatal("instances are not interned by their arguments")
 	}
-	if a.Name() != "array[String]" || b.HandleOf(BoolTy).Name() != "Handle[bool]" || b.OptionOf(StringTy).Name() != "Option[String]" {
+	if a.Name() != "array with String" || b.HandleOf(BoolTy).Name() != "Handle with bool" || b.OptionOf(StringTy).Name() != "Option with String" {
 		t.Fatalf("names %s %s %s", a.Name(), b.HandleOf(BoolTy).Name(), b.OptionOf(StringTy).Name())
 	}
 	const workers = 16
@@ -51,7 +51,7 @@ func TestWhatAPrimitiveHoldsAndWhatIndexesIt(t *testing.T) {
 	pool := Instantiate(b.Pool, []Ty{BoolTy}).(*BuiltinTy)
 	list := Instantiate(b.List, []Ty{BoolTy}).(*BuiltinTy)
 	if array.Element() != StringTy || array.Index() != Ty(b.Count) {
-		t.Errorf("array[String] holds %s by %s", array.Element().Name(), array.Index().Name())
+		t.Errorf("array with String holds %s by %s", array.Element().Name(), array.Index().Name())
 	}
 	if m.Element() != StringTy || m.Index() != BoolTy {
 		t.Errorf("map[bool, String] holds %s by %s", m.Element().Name(), m.Index().Name())
@@ -126,7 +126,7 @@ func TestFrozenValuesAndCownsAreCountedTypes(t *testing.T) {
 	b := newProject().Builtins
 	frozen := b.FrozenOf(StringTy)
 	cown := b.CownOf(BoolTy)
-	if frozen != b.FrozenOf(StringTy) || frozen.Name() != "frozen[String]" || cown.Name() != "cown[bool]" {
+	if frozen != b.FrozenOf(StringTy) || frozen.Name() != "frozen with String" || cown.Name() != "cown with bool" {
 		t.Fatalf("names %s %s", frozen.Name(), cown.Name())
 	}
 	for _, shared := range []*BuiltinTy{frozen, cown} {

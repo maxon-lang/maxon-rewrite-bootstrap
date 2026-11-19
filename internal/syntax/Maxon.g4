@@ -73,11 +73,11 @@ typeDeclNode
 }
 
 funcDecl
-    : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name typeParams=typeParamList?
+    : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name
       ^'(' ( receiver=('mutates' | 'consumes') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
-      ')' ('returns' returns=typeRef)?
+      ')' typeParams=usesClause? ('returns' returns=typeRef)? where=whereClause?
       body=block
       'end' end=endLabel?
     ;
@@ -116,7 +116,7 @@ constDecl
 }
 
 typeDecl
-    : visibility=('export' | 'public')? 'type' name=Name typeParams=typeParamList? conforms=conformsClause? Newline
+    : visibility=('export' | 'public')? 'type' name=Name typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
       (Indent ((fields+=fieldDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -136,7 +136,7 @@ enumCaseDecl
     ;
 
 unionDecl
-    : visibility=('export' | 'public')? 'union' name=Name typeParams=typeParamList? conforms=conformsClause? Newline
+    : visibility=('export' | 'public')? 'union' name=Name typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
       (Indent ((cases+=unionCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -146,8 +146,10 @@ unionCaseDecl
     ;
 
 aliasDecl
-    : visibility=('export' | 'public')? 'typealias' name=Name '=' 'int'
-      ^'(' low=bound (inclusive='to' | 'upto') high=bound ')'
+    : visibility=('export' | 'public')? 'typealias' name=Name '='
+      ( 'int' ^'(' low=bound (inclusive='to' | 'upto') high=bound ')'
+      | instance=typeRef
+      )
     ;
 
 /** a range bound */
@@ -161,7 +163,7 @@ bound
 
 /** a type */
 typeRef
-    : (qualifier+=Name '.')* name=(Name | 'Self') typeArgs=typeArgList?
+    : (qualifier+=Name '.')* name=(Name | 'Self') ('with' typeArgs=typeArgs)?
     ;
 
 @ast::TypeRef {
@@ -169,20 +171,35 @@ typeRef
 	Param *TypeParam
 }
 
-typeArgList
-    : '[' args+=typeRef (',' args+=typeRef)* ']'
+/** type arguments */
+typeArgs returns [[]*TypeRef args]
+    : args+=typeRef
+    | '(' args+=typeRef (',' args+=typeRef)* ')'
     ;
 
-typeParamList
-    : '[' params+=typeParam (',' params+=typeParam)* ']'
+usesClause returns [[]*TypeParam params]
+    : 'uses' params+=typeParam (',' params+=typeParam)*
     ;
 
 typeParam
-    : name=Name ('implements' bounds+=typeRef ('and' bounds+=typeRef)*)?
+    : name=Name
     ;
 
 @ast::TypeParam {
 	Ty *TypeParamTy
+}
+
+whereClause returns [[]*Constraint constraints]
+    : 'where' constraints+=constraint (',' constraints+=constraint)*
+    ;
+
+/** a constraint */
+constraint
+    : param=Name 'implements' bounds+=typeRef ('and' bounds+=typeRef)*
+    ;
+
+@ast::Constraint {
+	Target *TypeParam
 }
 
 conformsClause returns [[]*TypeRef interfaces]
@@ -445,7 +462,6 @@ nameExpr
     ;
 
 @ast::NameExpr {
-	TypeArgs *TypeArgList
 	Target Decl
 	Kind NameKind
 	Local *Local

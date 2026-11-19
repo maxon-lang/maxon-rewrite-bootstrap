@@ -1,5 +1,7 @@
 typealias Count = int(0 to 1000)
 
+typealias SquareSquarePair = Pair with (Square, Square)
+
 interface Shape
 	function area() returns Count
 	function grow(mutates self, by Count)
@@ -34,7 +36,7 @@ type Square implements Shape and Named
 	end 'label'
 end 'Square'
 
-type Pair[A, B implements Shape]
+type Pair uses A, B where B implements Shape
 	var first as A
 	var second as B
 
@@ -47,7 +49,7 @@ type Pair[A, B implements Shape]
 	end 'secondArea'
 end 'Pair'
 
-union Option[T]
+union Option uses T
 	some(value T)
 	none
 
@@ -59,21 +61,21 @@ union Option[T]
 	end 'isSome'
 end 'Option'
 
-function total[T implements Shape](a T, b T) returns Count
+function total(a T, b T) uses T returns Count where T implements Shape
 	return a.area() + b.area()
 end 'total'
 
-function describe[T implements Shape and Named](mutates item T) returns String
+function describe(mutates item T) uses T returns String where T implements Shape and Named
 	item.grow(1)
 	let bigger = item.scaled(2)
 	return "{item.label()} {bigger.label()} {bigger.area()}"
 end 'describe'
 
-function pick[T](flag bool, a T, b T) returns Option[T]
+function pick(flag bool, a T, b T) uses T returns Option with T
 	if flag 'f'
 		return Option.some(a.copy())
 	end 'f'
-	return Option[T].none
+	return Option.none
 end 'pick'
 
 function main() returns ExitCode
@@ -81,7 +83,7 @@ function main() returns ExitCode
 	let t = Square.make(4)
 	print("{total(s, b: t)}\n")
 	print("{describe(s)}\n")
-	let p = Pair[Square, Square].make(Square.make(1), second: Square.make(5))
+	let p = SquareSquarePair.make(Square.make(1), second: Square.make(5))
 	print("{p.secondArea()}\n")
 	let o = pick(true, a: s, b: t)
 	print("{o.isSome()}\n")

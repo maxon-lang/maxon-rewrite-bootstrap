@@ -1,5 +1,5 @@
 // expect-error: E9002 at 3:16
-function f(m map[Count, Count]) returns Count
+function f(m map with (Count, Count)) returns Count
 	let c = m.copy()
 	return 0
 end 'f'

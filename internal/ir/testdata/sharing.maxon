@@ -1,3 +1,5 @@
+typealias DocCownArray = array with (cown with Doc)
+
 type Doc
 	export var title as String
 	export var n as Count
@@ -15,28 +17,28 @@ function glance(d Doc) returns Count
 	return d.n
 end 'glance'
 
-function frozenFields(f frozen[Doc]) returns Count
+function frozenFields(f frozen with Doc) returns Count
 	print(f.title)
 	return f.n + f.read() + glance(f)
 end 'frozenFields'
 
-function sharedAndThawed(f frozen[Doc]) returns Doc
+function sharedAndThawed(f frozen with Doc) returns Doc
 	let other = share(f)
 	return thaw(other)
 end 'sharedAndThawed'
 
-function copied(f frozen[Doc], c cown[Doc]) returns frozen[Doc]
+function copied(f frozen with Doc, c cown with Doc) returns frozen with Doc
 	let d = c.copy()
 	return f.copy()
 end 'copied'
 
-function schedule(c cown[Doc], consumes note Doc, n Count)
+function schedule(c cown with Doc, consumes note Doc, n Count)
 	when c as x 'run'
 		x.n = note.n + n
 	end 'run'
 end 'schedule'
 
-function nested(c cown[Doc], d cown[Doc])
+function nested(c cown with Doc, d cown with Doc)
 	let mine = share(d)
 	when c as x 'outer'
 		when mine as y 'inner'
@@ -45,8 +47,8 @@ function nested(c cown[Doc], d cown[Doc])
 	end 'outer'
 end 'nested'
 
-function filled(c cown[Doc]) returns array[cown[Doc]]
-	return array[cown[Doc]].filled(2, value: share(c))
+function filled(c cown with Doc) returns array with (cown with Doc)
+	return DocCownArray.filled(2, value: share(c))
 end 'filled'
 
 function main() returns ExitCode

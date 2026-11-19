@@ -23,12 +23,12 @@ func TestShareAndThawLowerToTheirEntries(t *testing.T) {
 	text := irText(lowerNamed(t, frontEnd(t, sharingFile), "sharedAndThawed"))
 	requireInOrder(t, text, "runtime rt.share(", "store s0,", "rt.frozen.get(", "= copy %3 Doc")
 	// The share is another owner, so it is dropped like one.
-	requireInOrder(t, text, "dropslot s0 frozen[Doc]")
+	requireInOrder(t, text, "dropslot s0 frozen with Doc")
 }
 
 func TestCopyOfASharedValueIsAnotherOwner(t *testing.T) {
 	text := irText(lowerNamed(t, frontEnd(t, sharingFile), "copied"))
-	for _, want := range []string{"= copy %0 cown[Doc]", "= copy %2 frozen[Doc]"} {
+	for _, want := range []string{"= copy %0 cown with Doc", "= copy %2 frozen with Doc"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("a copy of a frozen value and of a cown reference is a copy instruction, missing %q:\n%s", want, text)
 		}

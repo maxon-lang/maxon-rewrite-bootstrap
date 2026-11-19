@@ -14,7 +14,7 @@ type Mark implements Scale
 	end 'doubled'
 end 'Mark'
 
-function twice[T implements Scale](a T) returns T
+function twice(a T) uses T returns T where T implements Scale
 	return a.doubled().doubled()
 end 'twice'
 

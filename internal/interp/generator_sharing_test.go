@@ -63,15 +63,9 @@ func (g *generator) sharedExpr(t *ty, depth int) string {
 	}
 	if t.kind == kCown {
 		if inner == tCount {
-			return fmt.Sprintf("cown[Count](%s)", g.countExpr(depth-1))
-		}
-		if g.chance(50) {
-			return fmt.Sprintf("cown[%s](%s)", inner.src(), g.owned(inner, depth-1))
+			return fmt.Sprintf("cown(%s)", typed(inner, g.countExpr(depth-1)))
 		}
 		return fmt.Sprintf("cown(%s)", g.owned(inner, depth-1))
-	}
-	if g.chance(50) {
-		return fmt.Sprintf("freeze[%s](%s)", inner.src(), g.owned(inner, depth-1))
 	}
 	return fmt.Sprintf("freeze(%s)", g.owned(inner, depth-1))
 }
@@ -455,7 +449,7 @@ func (g *generator) actFrozenAbuse(depth int) bool {
 			if !f.t.managed() {
 				continue
 			}
-			g.line("consume[%s](%s)", f.t.src(), target)
+			g.line("consume(%s)", target)
 		}
 		return true
 	}

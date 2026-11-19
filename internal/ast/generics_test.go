@@ -6,7 +6,7 @@ import (
 )
 
 func newBox() *RecordTy {
-	decl := &TypeDecl{TypeParams: &TypeParamList{Params: []*TypeParam{{Name: "T"}}}}
+	decl := &TypeDecl{TypeParams: []*TypeParam{{Name: "T"}}}
 	decl.Name = "Box"
 	return NewRecordTy(decl)
 }
@@ -22,7 +22,7 @@ func TestSameArgumentsGiveTheSameInstance(t *testing.T) {
 	if a == c {
 		t.Fatal("one instance for different arguments")
 	}
-	if a.Name() != "Box[String]" {
+	if a.Name() != "Box with String" {
 		t.Fatalf("name %q", a.Name())
 	}
 }

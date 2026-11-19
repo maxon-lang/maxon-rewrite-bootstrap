@@ -1,5 +1,5 @@
 // expect-error: E3111 at 3:11
-function f[T](consumes a array[T])
+function f(consumes a array with T) uses T
 	let x = a[0]
 end 'f'
 

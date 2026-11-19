@@ -1,0 +1,55 @@
+typealias Score = int(0 to 100)
+
+typealias ScoreArray = array with Score
+
+union Slot uses T
+	full(value T)
+	empty
+end 'Slot'
+
+type Shelf
+	var items as array with Score
+
+	static function make() returns Shelf
+		return Shelf{items: array.new()}
+	end 'make'
+end 'Shelf'
+
+function emptyLike(x T) uses T returns Slot with T
+	return Slot.empty
+end 'emptyLike'
+
+function pick(flag bool, x T) uses T returns Slot with T
+	return Slot.full(x.copy()) if flag else Slot.empty
+end 'pick'
+
+function describe(s Slot with Score) returns String
+	return match s 'm'
+		full(v) gives "full {v}"
+		empty gives "empty"
+	end 'm'
+end 'describe'
+
+function reset(flag bool, s Slot with T) uses T returns Slot with T
+	return match flag 'm'
+		true gives Slot.empty
+		false gives s.copy()
+	end 'm'
+end 'reset'
+
+function main() returns ExitCode
+	var shelf = Shelf.make()
+	shelf.items.append(4)
+	var more = ScoreArray.new()
+	more = array.new()
+	more.append(5)
+	print("{shelf.items.count()} {more.count()}\n")
+	let three = 3 as Score
+	print("{describe(Slot.empty)} {describe(emptyLike(three))} {describe(pick(true, x: three))}\n")
+	print("{describe(reset(true, s: pick(true, x: three)))} {describe(reset(false, s: pick(true, x: three)))}\n")
+	return 0
+end 'main'
+
+//> 1 1
+//> empty empty full 3
+//> empty full 3

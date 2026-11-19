@@ -1,6 +1,8 @@
 // expect-exit: 1
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	let first = a.pop()
 	print("{first.isSome()}\n")
 	print("{first.unwrap()}\n")

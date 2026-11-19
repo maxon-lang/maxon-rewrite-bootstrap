@@ -1,6 +1,8 @@
-// expect-error: E3036 at 4:10
+// expect-error: E3036 at 6:10
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	a.append()
 	return 0
 end 'main'

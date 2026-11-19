@@ -26,8 +26,8 @@ function double(mutates p Pair)
 	p.second = p.second * 2
 end 'double'
 
-function replace(mutates p Pair, consumes with Pair)
-	p = with
+function replace(mutates p Pair, consumes other Pair)
+	p = other
 end 'replace'
 
 function consume(consumes p Pair) returns Number
@@ -52,7 +52,7 @@ function main() returns ExitCode
 	print("{total(pair)}\n")
 	double(pair)
 	print("{pair.first} {pair.second}\n")
-	replace(pair, with: Pair.create(7, second: 8))
+	replace(pair, other: Pair.create(7, second: 8))
 	print("{pair.first} {pair.second}\n")
 	print("{consume(pair)}\n")
 	pair = Pair.create(1, second: 1)

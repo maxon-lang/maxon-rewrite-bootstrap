@@ -1,16 +1,16 @@
-function wrap[T](consumes x T) returns frozen[T]
+function wrap(consumes x T) uses T returns frozen with T
 	return freeze(x)
 end 'wrap'
 
-function again[T](x frozen[T]) returns frozen[T]
+function again(x frozen with T) uses T returns frozen with T
 	return share(x)
 end 'again'
 
-function open[T](x frozen[T]) returns T
+function open(x frozen with T) uses T returns T
 	return thaw(x)
 end 'open'
 
-function hold[T](consumes x T) returns cown[T]
+function hold(consumes x T) uses T returns cown with T
 	return cown(x)
 end 'hold'
 

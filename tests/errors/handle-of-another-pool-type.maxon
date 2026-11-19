@@ -1,4 +1,8 @@
-// expect-error: E3005 at 14:12
+// expect-error: E3005 at 18:12
+typealias CellPool = pool with Cell
+
+typealias CountPool = pool with Count
+
 type Cell
 	export var n as Count
 
@@ -8,8 +12,8 @@ type Cell
 end 'Cell'
 
 function main() returns ExitCode
-	var p = pool[Cell].new()
-	var q = pool[Count].new()
+	var p = CellPool.new()
+	var q = CountPool.new()
 	let h = q.insert(1)
 	print("{p[h].n}")
 	return 0

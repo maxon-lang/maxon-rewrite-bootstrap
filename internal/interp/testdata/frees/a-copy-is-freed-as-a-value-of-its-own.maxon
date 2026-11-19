@@ -1,6 +1,8 @@
+typealias StringArray = array with String
+
 type Item
 	export var text as String
-	export var parts = array[String].new()
+	export var parts = StringArray.new()
 
 	static function make(consumes text String) returns Item
 		return Item{text: text}

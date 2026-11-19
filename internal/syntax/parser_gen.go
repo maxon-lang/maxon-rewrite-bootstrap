@@ -73,9 +73,6 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	}
 	p.expect(TKw_function, "'function'")
 	n.Name = p.text(p.expect(TName, "a name"))
-	if p.at(TLBracket) {
-		n.TypeParams = p.parseTypeParamList()
-	}
 	p.joinNext = true
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
@@ -100,9 +97,15 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 		}
 	}
 	p.expect(TRParen, "')'")
+	if p.at(TKw_uses) {
+		n.TypeParams = p.parseUsesClause()
+	}
 	if p.at(TKw_returns) {
 		p.expect(TKw_returns, "'returns'")
 		n.Returns = p.parseTypeRef()
+	}
+	if p.at(TKw_where) {
+		n.Where = p.parseWhereClause()
 	}
 	n.Body = p.parseBlock()
 	p.expect(TKw_end, "'end'")
@@ -159,11 +162,14 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	}
 	p.expect(TKw_type, "'type'")
 	n.Name = p.text(p.expect(TName, "a name"))
-	if p.at(TLBracket) {
-		n.TypeParams = p.parseTypeParamList()
+	if p.at(TKw_uses) {
+		n.TypeParams = p.parseUsesClause()
 	}
 	if p.at(TKw_implements) {
 		n.Conforms = p.parseConformsClause()
+	}
+	if p.at(TKw_where) {
+		n.Where = p.parseWhereClause()
 	}
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
@@ -299,11 +305,14 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 	}
 	p.expect(TKw_union, "'union'")
 	n.Name = p.text(p.expect(TName, "a name"))
-	if p.at(TLBracket) {
-		n.TypeParams = p.parseTypeParamList()
+	if p.at(TKw_uses) {
+		n.TypeParams = p.parseUsesClause()
 	}
 	if p.at(TKw_implements) {
 		n.Conforms = p.parseConformsClause()
+	}
+	if p.at(TKw_where) {
+		n.Where = p.parseWhereClause()
 	}
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
@@ -370,21 +379,28 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 	p.expect(TKw_typealias, "'typealias'")
 	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TAssign, "'='")
-	p.expect(TKw_int, "'int'")
-	p.joinNext = true
-	p.expect(TLParen, "'('")
-	n.Low = p.parseBound()
 	switch p.cur().Kind() {
-	case TKw_to:
-		p.expect(TKw_to, "'to'")
-		n.Inclusive = true
-	case TKw_upto:
-		p.expect(TKw_upto, "'upto'")
+	case TKw_int:
+		p.expect(TKw_int, "'int'")
+		p.joinNext = true
+		p.expect(TLParen, "'('")
+		n.Low = p.parseBound()
+		switch p.cur().Kind() {
+		case TKw_to:
+			p.expect(TKw_to, "'to'")
+			n.Inclusive = true
+		case TKw_upto:
+			p.expect(TKw_upto, "'upto'")
+		default:
+			panic(p.expected("'to' or 'upto'"))
+		}
+		n.High = p.parseBound()
+		p.expect(TRParen, "')'")
+	case TKw_Self, TName:
+		n.Instance = p.parseTypeRef()
 	default:
-		panic(p.expected("'to' or 'upto'"))
+		panic(p.expected("'Self', 'int' or a name"))
 	}
-	n.High = p.parseBound()
-	p.expect(TRParen, "')'")
 	return n
 }
 
@@ -422,38 +438,41 @@ func (p *Parser) parseTypeRef() *ast.TypeRef {
 		panic(p.expected("'Self' or a name"))
 	}
 	n.Name = p.text(p.next())
-	if p.at(TLBracket) && p.peekIn(&lookahead12) {
-		n.TypeArgs = p.parseTypeArgList()
+	if p.at(TKw_with) {
+		p.expect(TKw_with, "'with'")
+		n.TypeArgs = p.parseTypeArgs()
 	}
 	return n
 }
 
-func (p *Parser) parseTypeArgList() *ast.TypeArgList {
-	t := p.cur()
-	n := ast.NewTypeArgList()
-	place(p, n, t)
-	p.expect(TLBracket, "'['")
-	n.Args = append(n.Args, p.parseTypeRef())
-	for p.at(TComma) {
-		p.expect(TComma, "','")
-		n.Args = append(n.Args, p.parseTypeRef())
+func (p *Parser) parseTypeArgs() []*ast.TypeRef {
+	var args []*ast.TypeRef
+	switch p.cur().Kind() {
+	case TKw_Self, TName:
+		args = append(args, p.parseTypeRef())
+	case TLParen:
+		p.expect(TLParen, "'('")
+		args = append(args, p.parseTypeRef())
+		for p.at(TComma) {
+			p.expect(TComma, "','")
+			args = append(args, p.parseTypeRef())
+		}
+		p.expect(TRParen, "')'")
+	default:
+		panic(p.expected("type arguments"))
 	}
-	p.expect(TRBracket, "']'")
-	return n
+	return args
 }
 
-func (p *Parser) parseTypeParamList() *ast.TypeParamList {
-	t := p.cur()
-	n := ast.NewTypeParamList()
-	place(p, n, t)
-	p.expect(TLBracket, "'['")
-	n.Params = append(n.Params, p.parseTypeParam())
+func (p *Parser) parseUsesClause() []*ast.TypeParam {
+	var params []*ast.TypeParam
+	p.expect(TKw_uses, "'uses'")
+	params = append(params, p.parseTypeParam())
 	for p.at(TComma) {
 		p.expect(TComma, "','")
-		n.Params = append(n.Params, p.parseTypeParam())
+		params = append(params, p.parseTypeParam())
 	}
-	p.expect(TRBracket, "']'")
-	return n
+	return params
 }
 
 func (p *Parser) parseTypeParam() *ast.TypeParam {
@@ -461,13 +480,30 @@ func (p *Parser) parseTypeParam() *ast.TypeParam {
 	n := ast.NewTypeParam()
 	place(p, n, t)
 	n.Name = p.text(p.expect(TName, "a name"))
-	if p.at(TKw_implements) {
-		p.expect(TKw_implements, "'implements'")
+	return n
+}
+
+func (p *Parser) parseWhereClause() []*ast.Constraint {
+	var constraints []*ast.Constraint
+	p.expect(TKw_where, "'where'")
+	constraints = append(constraints, p.parseConstraint())
+	for p.at(TComma) {
+		p.expect(TComma, "','")
+		constraints = append(constraints, p.parseConstraint())
+	}
+	return constraints
+}
+
+func (p *Parser) parseConstraint() *ast.Constraint {
+	t := p.cur()
+	n := ast.NewConstraint()
+	place(p, n, t)
+	n.Param = p.text(p.expect(TName, "a name"))
+	p.expect(TKw_implements, "'implements'")
+	n.Bounds = append(n.Bounds, p.parseTypeRef())
+	for p.at(TKw_and) {
+		p.expect(TKw_and, "'and'")
 		n.Bounds = append(n.Bounds, p.parseTypeRef())
-		for p.at(TKw_and) {
-			p.expect(TKw_and, "'and'")
-			n.Bounds = append(n.Bounds, p.parseTypeRef())
-		}
 	}
 	return n
 }

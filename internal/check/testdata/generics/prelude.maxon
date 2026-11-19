@@ -25,7 +25,7 @@ type Plain
 	export var n as Score
 end 'Plain'
 
-type Box[T]
+type Box uses T
 	export var item as T
 	export let tag as Score
 
@@ -42,21 +42,21 @@ type Box[T]
 	end 'replace'
 end 'Box'
 
-union Slot[T]
+union Slot uses T
 	full(value T)
 	empty
 end 'Slot'
 
-function swap[T](mutates a T, mutates b T)
+function swap(mutates a T, mutates b T) uses T
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function consume[T](consumes a T) returns Score
+function consume(consumes a T) uses T returns Score
 	return 1
 end 'consume'
 
-function total[T implements Shape](a T, b T) returns Score
+function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() + b.area()
 end 'total'

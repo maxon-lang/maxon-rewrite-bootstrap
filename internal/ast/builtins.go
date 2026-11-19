@@ -17,9 +17,9 @@ const (
 
 var builtinNames = [...]string{"array", "map", "list", "pool", "Handle", "frozen", "cown"}
 
-// BuiltinTy is a runtime primitive: array[T], map[K, V], list[T], pool[T], the Handle[T] that names an element of a
-// pool or a list, or one of the two types that cross between threads: frozen[T], an immutable value, and cown[T], a
-// reference to a cown that owns a value. It is generic like a record: the declaration has Params, each instance has
+// BuiltinTy is a runtime primitive: array with T, map with (K, V), list with T, pool with T, the Handle with T that
+// names an element of a pool or a list, or one of the two types that cross between threads: frozen with T, an
+// immutable value, and cown with T, a reference to a cown that owns a value. It is generic like a record: the declaration has Params, each instance has
 // Args, and an instance is interned by them. An array, a map, a list and a pool own their elements and are managed; a
 // Handle is a key, a plain word that owns nothing, so it is copied like an integer; a frozen value and a cown
 // reference are managed and counted, and have many owners.
@@ -196,11 +196,10 @@ func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
 	d.Visibility = "public"
 	d.Module = stdlib
 	d.File = "<stdlib>"
-	d.TypeParams = &TypeParamList{}
 	for _, p := range params {
 		tp := NewTypeParam()
 		tp.Name = p
-		d.TypeParams.Params = append(d.TypeParams.Params, tp)
+		d.TypeParams = append(d.TypeParams, tp)
 	}
 	return d
 }
@@ -208,7 +207,7 @@ func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
 func (b *Builtins) newPrimitive(kind BuiltinKind, params ...string) *BuiltinTy {
 	d := newBuiltinDecl(b.stdlib, builtinNames[kind], params...)
 	t := &BuiltinTy{name: d.Name, Methods: map[string]*FuncDecl{}, Kind: kind, Decl: d, lib: b}
-	t.initGeneric(d.TypeParams.Items())
+	t.initGeneric(d.TypeParams, nil)
 	d.Ty = t
 	b.stdlib.Decls = append(b.stdlib.Decls, d)
 	b.stdlib.Names[d.Name] = d
@@ -242,7 +241,7 @@ func (b *Builtins) declareOption() {
 	d.File = "<stdlib>"
 	tp := NewTypeParam()
 	tp.Name = "T"
-	d.TypeParams = &TypeParamList{Params: []*TypeParam{tp}}
+	d.TypeParams = []*TypeParam{tp}
 	u := NewUnionTy(d)
 	u.Cases = []*UnionCase{
 		{Name: "some", Payload: []PayloadField{{Name: "value", Type: u.Params[0]}}},
@@ -269,16 +268,16 @@ func (b *Builtins) Is(t Ty) bool {
 	return false
 }
 
-// HandleOf is Handle[t].
+// HandleOf is Handle with t.
 func (b *Builtins) HandleOf(t Ty) *BuiltinTy { return instantiateBuiltin(b.Handle, []Ty{t}) }
 
-// FrozenOf is frozen[t].
+// FrozenOf is frozen with t.
 func (b *Builtins) FrozenOf(t Ty) *BuiltinTy { return instantiateBuiltin(b.Frozen, []Ty{t}) }
 
-// CownOf is cown[t].
+// CownOf is cown with t.
 func (b *Builtins) CownOf(t Ty) *BuiltinTy { return instantiateBuiltin(b.Cown, []Ty{t}) }
 
-// OptionOf is Option[t].
+// OptionOf is Option with t.
 func (b *Builtins) OptionOf(t Ty) *UnionTy { return instantiateUnion(b.Option, []Ty{t}) }
 
 func param(name string, t Ty, conv Convention) ParamSpec {
@@ -375,7 +374,7 @@ func (b *Builtins) declarePool() {
 
 // declareSharing declares the functions that make and use the values which cross between threads:
 //
-//	freeze(x)  takes a value and gives an immutable frozen[T]
+//	freeze(x)  takes a value and gives an immutable frozen with T
 //	share(x)   gives another owner of the same frozen value or cown
 //	thaw(x)    gives an owned copy of what a frozen value holds
 //	cown(x)    takes a value and gives a reference to a cown that owns it

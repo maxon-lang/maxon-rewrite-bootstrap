@@ -6,7 +6,7 @@ type Account
 	end 'make'
 end 'Account'
 
-function transfer(from cown[Account], dest cown[Account], amount Count)
+function transfer(from cown with Account, dest cown with Account, amount Count)
 	when from, dest as f, t 'move'
 		if f.balance >= amount 'enough'
 			f.balance = f.balance - amount
@@ -15,7 +15,7 @@ function transfer(from cown[Account], dest cown[Account], amount Count)
 	end 'move'
 end 'transfer'
 
-function report(a cown[Account], b cown[Account], c cown[Account])
+function report(a cown with Account, b cown with Account, c cown with Account)
 	when a, b, c as x, y, z 'report'
 		print("a {x.balance} b {y.balance} c {z.balance} total {x.balance + y.balance + z.balance}\n")
 	end 'report'

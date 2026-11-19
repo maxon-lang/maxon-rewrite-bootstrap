@@ -1,7 +1,7 @@
 // case: move an element into a let
 // expect-error: E3111
 function main() returns ExitCode
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	let c = a[0]
 	print("{c.n}")
 	return 0
@@ -10,7 +10,7 @@ end 'main'
 // case: return an element of a variable
 // expect-error: E3111
 function f() returns Cell
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	return a[0]
 end 'f'
 
@@ -20,7 +20,7 @@ end 'main'
 
 // case: return an element of a borrowed array
 // expect-error: E3110
-function f(xs array[Cell]) returns Cell
+function f(xs array with Cell) returns Cell
 	return xs[0]
 end 'f'
 
@@ -31,7 +31,7 @@ end 'main'
 // case: consume an element
 // expect-error: E3111
 function main() returns ExitCode
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	print("{take(a[0])}")
 	return 0
 end 'main'
@@ -39,7 +39,7 @@ end 'main'
 // case: assign one element from another
 // expect-error: E3111
 function main() returns ExitCode
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	a[0] = a[1]
 	return 0
 end 'main'
@@ -54,8 +54,10 @@ end 'main'
 
 // case: move a value out of a map
 // expect-error: E3111
+typealias CountCellMap = map with (Count, Cell)
+
 function main() returns ExitCode
-	var m = map[Count, Cell].new()
+	var m = CountCellMap.new()
 	let c = m[1]
 	print("{c.n}")
 	return 0
@@ -64,31 +66,37 @@ end 'main'
 // case: two elements as mutates arguments
 // expect-error: E3112
 function main() returns ExitCode
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	pair(a[0], b: a[1])
 	return 0
 end 'main'
 
 // case: the array and one of its elements
 // expect-error: E3112
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	grow(a, n: a[0])
 	return 0
 end 'main'
 
 // case: append an element of the array
 // expect-error: E3112
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	a.append(a[0])
 	return 0
 end 'main'
 
 // case: insert an element of the array
 // expect-error: E3112
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	a.insert(a[0], at: 0)
 	return 0
 end 'main'
@@ -96,15 +104,17 @@ end 'main'
 // case: remove while an element is borrowed
 // expect-error: E3112
 function main() returns ExitCode
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	print("{look(a[0], n: drop(a))}")
 	return 0
 end 'main'
 
 // case: change a pool while an element is borrowed
 // expect-error: E3112
+typealias CellPool = pool with Cell
+
 function main() returns ExitCode
-	var p = pool[Cell].new()
+	var p = CellPool.new()
 	let h = p.insert(Cell.make(1))
 	pair(p[h], b: p[h])
 	return 0
@@ -112,10 +122,14 @@ end 'main'
 
 // case: change the array in an arm that borrows its element
 // expect-error: E3112
+typealias CellOption = Option with Cell
+
+typealias CellOptionArray = array with (Option with Cell)
+
 function main() returns ExitCode
-	var a = array[Option[Cell]].new()
+	var a = CellOptionArray.new()
 	match a[0] 'm'
-		some(c) then a.append(Option[Cell].none)
+		some(c) then a.append(CellOption.none)
 		none then print("none")
 	end 'm'
 	return 0
@@ -123,23 +137,27 @@ end 'main'
 
 // case: assign an element of a let
 // expect-error: E2013
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	let a = array[Count].new()
+	let a = CountArray.new()
 	a[0] = 1
 	return 0
 end 'main'
 
 // case: append to a let
 // expect-error: E2013
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	let a = array[Count].new()
+	let a = CountArray.new()
 	a.append(1)
 	return 0
 end 'main'
 
 // case: change an element of a borrowed array
 // expect-error: E2013
-function f(a array[Cell])
+function f(a array with Cell)
 	touch(a[0])
 end 'f'
 
@@ -156,24 +174,30 @@ end 'main'
 
 // case: index with a bool
 // expect-error: E3005
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	print("{a[true]}")
 	return 0
 end 'main'
 
 // case: index a pool with a number
 // expect-error: E3005
+typealias CellPool = pool with Cell
+
 function main() returns ExitCode
-	var p = pool[Cell].new()
+	var p = CellPool.new()
 	print("{p[0].n}")
 	return 0
 end 'main'
 
 // case: index a map with the wrong key
 // expect-error: E3005
+typealias StringCountMap = map with (String, Count)
+
 function main() returns ExitCode
-	var m = map[String, Count].new()
+	var m = StringCountMap.new()
 	print("{m[1]}")
 	return 0
 end 'main'
@@ -188,8 +212,10 @@ end 'main'
 
 // case: index a handle
 // expect-error: E3005
+typealias CellPool = pool with Cell
+
 function main() returns ExitCode
-	var p = pool[Cell].new()
+	var p = CellPool.new()
 	let h = p.insert(Cell.make(1))
 	print("{h[0]}")
 	return 0
@@ -197,17 +223,23 @@ end 'main'
 
 // case: index with two values
 // expect-error: E3005
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	print("{a[0, 1]}")
 	return 0
 end 'main'
 
 // case: a handle of another pool
 // expect-error: E3005
+typealias CellPool = pool with Cell
+
+typealias EntryPool = pool with Entry
+
 function main() returns ExitCode
-	var p = pool[Cell].new()
-	var q = pool[Entry].new()
+	var p = CellPool.new()
+	var q = EntryPool.new()
 	let h = q.insert(Entry.make(1, value: "a"))
 	print("{p[h].n}")
 	return 0
@@ -215,14 +247,16 @@ end 'main'
 
 // case: a record as a map key
 // expect-error: E3124
+typealias CellCountMap = map with (Cell, Count)
+
 function main() returns ExitCode
-	var m = map[Cell, Count].new()
+	var m = CellCountMap.new()
 	return 0
 end 'main'
 
 // case: a type parameter as a map key
 // expect-error: E3124
-function f[K](m map[K, Count])
+function f(m map with (K, Count)) uses K
 	print("{m.count()}")
 end 'f'
 
@@ -232,40 +266,50 @@ end 'main'
 
 // case: an unknown method
 // expect-error: E3004
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	a.push(1)
 	return 0
 end 'main'
 
 // case: a method named without a call
 // expect-error: E9000
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	print("{a.count}")
 	return 0
 end 'main'
 
 // case: the wrong number of arguments
 // expect-error: E3036
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	a.append()
 	return 0
 end 'main'
 
 // case: an unlabelled second argument
 // expect-error: E2053
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	a.insert(1, 0)
 	return 0
 end 'main'
 
 // case: an element of the wrong type
 // expect-error: E3005
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	a.append("x")
 	return 0
 end 'main'
@@ -273,7 +317,7 @@ end 'main'
 // case: an Option used after unwrap
 // expect-error: E3102
 function main() returns ExitCode
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	let o = a.pop()
 	let c = o.unwrap()
 	print("{o.isSome()} {c.n}")
@@ -282,8 +326,10 @@ end 'main'
 
 // case: a primitive given to a bounded parameter
 // expect-error: E3117
+typealias CountArray = array with Count
+
 function main() returns ExitCode
-	print("{total(array[Count].new())}")
+	print("{total(CountArray.new())}")
 	return 0
 end 'main'
 
@@ -313,8 +359,10 @@ end 'main'
 
 // case: a handle has no methods
 // expect-error: E3004
+typealias CellPool = pool with Cell
+
 function main() returns ExitCode
-	var p = pool[Cell].new()
+	var p = CellPool.new()
 	let h = p.insert(Cell.make(1))
 	print("{h.count()}")
 	return 0

@@ -26,6 +26,7 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 	proj.Modules = []*ast.Module{root}
 	project.BuildTables(proj, 1)
 	resolve.NewResolver(proj, root).Run()
+	DeclareAliases(proj)
 	if len(root.Errors) > 0 {
 		return root.Errors
 	}
@@ -45,7 +46,7 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 		c.CheckBody(f)
 	}
 	c.Verify(c.Pending)
-	c.VerifyBounds(c.Bounds)
+	c.VerifyBounds(append(root.Bounds, c.Bounds...))
 	if len(root.Errors) == 0 {
 		o := NewOwnership(&root.Errors)
 		for _, d := range root.Decls {

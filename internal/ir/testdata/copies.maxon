@@ -1,7 +1,11 @@
+typealias StringArray = array with String
+
+typealias TreeArray = array with Tree
+
 type Tree
 	var value as Count
 	var name as String
-	var kids = array[Tree].new()
+	var kids = TreeArray.new()
 
 	static function make() returns Tree
 		return Tree{value: 1, name: "n"}
@@ -11,15 +15,15 @@ end 'Tree'
 function copies(t Tree, s String, n Count) returns Tree
 	let a = s.copy()
 	let b = n.copy()
-	let c = array[String].filled(3, value: s.copy())
+	let c = StringArray.filled(3, value: s.copy())
 	return t.copy()
 end 'copies'
 
-function takesMap(consumes m map[Count, Count]) returns Count
+function takesMap(consumes m map with (Count, Count)) returns Count
 	return 0
 end 'takesMap'
 
-function takesTreeOfPools(consumes p pool[Count], t Tree) returns Count
+function takesTreeOfPools(consumes p pool with Count, t Tree) returns Count
 	return 0
 end 'takesTreeOfPools'
 

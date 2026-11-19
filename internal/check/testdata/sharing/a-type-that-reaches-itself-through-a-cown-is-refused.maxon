@@ -1,10 +1,12 @@
 // case: a cycle through a cown
 // expect-error: E3131
+typealias NodeCownOption = Option with (cown with Node)
+
 type Node
-	export var next as Option[cown[Node]]
+	export var next as Option with (cown with Node)
 
 	static function make() returns Node
-		return Node{next: Option[cown[Node]].none}
+		return Node{next: NodeCownOption.none}
 	end 'make'
 end 'Node'
 
@@ -13,11 +15,13 @@ function main() returns ExitCode
 end 'main'
 
 // case: no cycle through an owned or frozen value
+typealias LinkFrozenOption = Option with (frozen with Link)
+
 type Link
-	export var rest as Option[frozen[Link]]
+	export var rest as Option with (frozen with Link)
 
 	static function make() returns Link
-		return Link{rest: Option[frozen[Link]].none}
+		return Link{rest: LinkFrozenOption.none}
 	end 'make'
 end 'Link'
 

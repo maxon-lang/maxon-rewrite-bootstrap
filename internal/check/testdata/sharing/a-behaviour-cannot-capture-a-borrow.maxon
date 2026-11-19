@@ -1,4 +1,4 @@
-function watch(note Doc, c cown[Doc])
+function watch(note Doc, c cown with Doc)
 	when c as x 'run'
 		x.n = note.n
 	end 'run'

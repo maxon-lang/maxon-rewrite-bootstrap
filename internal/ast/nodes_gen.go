@@ -19,10 +19,11 @@ type TypeDeclNodeBase struct {
 type FuncDecl struct {
 	DeclBase
 	IsStatic   bool
-	TypeParams *TypeParamList
 	Receiver   string
 	Params     []*Param
+	TypeParams []*TypeParam
 	Returns    *TypeRef
+	Where      []*Constraint
 	Body       []Stmt
 	End        *EndLabel
 
@@ -59,8 +60,9 @@ type ConstDecl struct {
 
 type TypeDecl struct {
 	TypeDeclNodeBase
-	TypeParams *TypeParamList
+	TypeParams []*TypeParam
 	Conforms   []*TypeRef
+	Where      []*Constraint
 	Fields     []*FieldDecl
 	Methods    []*FuncDecl
 	End        *EndLabel
@@ -91,8 +93,9 @@ type EnumCaseDecl struct {
 
 type UnionDecl struct {
 	TypeDeclNodeBase
-	TypeParams *TypeParamList
+	TypeParams []*TypeParam
 	Conforms   []*TypeRef
+	Where      []*Constraint
 	Cases      []*UnionCaseDecl
 	Methods    []*FuncDecl
 	End        *EndLabel
@@ -109,6 +112,7 @@ type AliasDecl struct {
 	Low       *Bound
 	Inclusive bool
 	High      *Bound
+	Instance  *TypeRef
 }
 
 type Bound struct {
@@ -123,28 +127,25 @@ type TypeRef struct {
 	Pos
 	Qualifier []string
 	Name      string
-	TypeArgs  *TypeArgList
+	TypeArgs  []*TypeRef
 
 	Target Decl
 	Param  *TypeParam
 }
 
-type TypeArgList struct {
-	Pos
-	Args []*TypeRef
-}
-
-type TypeParamList struct {
-	Pos
-	Params []*TypeParam
-}
-
 type TypeParam struct {
 	Pos
-	Name   string
-	Bounds []*TypeRef
+	Name string
 
 	Ty *TypeParamTy
+}
+
+type Constraint struct {
+	Pos
+	Param  string
+	Bounds []*TypeRef
+
+	Target *TypeParam
 }
 
 type InterfaceDecl struct {
@@ -383,12 +384,11 @@ type NameExpr struct {
 	ExprBase
 	Name string
 
-	TypeArgs *TypeArgList
-	Target   Decl
-	Kind     NameKind
-	Local    *Local
-	Const    *ConstDecl
-	Field    *FieldInfo
+	Target Decl
+	Kind   NameKind
+	Local  *Local
+	Const  *ConstDecl
+	Field  *FieldInfo
 }
 
 type SelfExpr struct {
@@ -478,16 +478,12 @@ func NewTypeRef() *TypeRef {
 	return &TypeRef{}
 }
 
-func NewTypeArgList() *TypeArgList {
-	return &TypeArgList{}
-}
-
-func NewTypeParamList() *TypeParamList {
-	return &TypeParamList{}
-}
-
 func NewTypeParam() *TypeParam {
 	return &TypeParam{}
+}
+
+func NewConstraint() *Constraint {
+	return &Constraint{}
 }
 
 func NewInterfaceDecl() *InterfaceDecl {
@@ -690,6 +686,9 @@ var reservedWords = map[string]bool{
 	"to":         true,
 	"upto":       true,
 	"Self":       true,
+	"with":       true,
+	"uses":       true,
+	"where":      true,
 	"implements": true,
 	"and":        true,
 	"interface":  true,

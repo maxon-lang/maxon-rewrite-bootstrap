@@ -21,14 +21,14 @@ type Box
 	end 'create'
 end 'Box'
 
-function reset(mutates b Box, with Score)
-	b.v = with
+function reset(mutates b Box, value Score)
+	b.v = value
 end 'reset'
 
 function main() returns ExitCode
 	var b = Box.create(1, name: "a")
-	reset(b, with: b.v)
+	reset(b, value: b.v)
 	return 0
 end 'main'
 
-// expect-error: E3112 at 30:18
+// expect-error: E3112 at 30:19

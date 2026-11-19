@@ -1,3 +1,5 @@
+typealias CellArray = array with Cell
+
 type Cell
 	export var n as Count
 
@@ -16,12 +18,12 @@ type Entry
 end 'Entry'
 
 type Rack
-	export var left as array[Cell]
-	export var right as array[Cell]
-	export var node as Handle[Cell]
+	export var left as array with Cell
+	export var right as array with Cell
+	export var node as Handle with Cell
 
-	static function make(node Handle[Cell]) returns Rack
-		return Rack{left: array[Cell].new(), right: array[Cell].new(), node: node}
+	static function make(node Handle with Cell) returns Rack
+		return Rack{left: CellArray.new(), right: CellArray.new(), node: node}
 	end 'make'
 end 'Rack'
 
@@ -41,11 +43,11 @@ function pair(mutates a Cell, mutates b Cell)
 	a.n = b.n
 end 'pair'
 
-function grow(mutates xs array[Count], n Count)
+function grow(mutates xs array with Count, n Count)
 	xs.append(n)
 end 'grow'
 
-function drop(mutates xs array[Cell]) returns Count
+function drop(mutates xs array with Cell) returns Count
 	return xs.count()
 end 'drop'
 
@@ -57,10 +59,10 @@ function take(consumes c Cell) returns Count
 	return c.n
 end 'take'
 
-function make() returns array[Cell]
-	return array[Cell].new()
+function make() returns array with Cell
+	return CellArray.new()
 end 'make'
 
-function total[T implements Shape](x T) returns Count
+function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'

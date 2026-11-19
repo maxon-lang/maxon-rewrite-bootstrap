@@ -205,27 +205,28 @@ func TestParsesGenericDeclarationsAndUses(t *testing.T) {
 		t.Fatalf("interface methods: %+v", iface.Methods)
 	}
 	box := prog.Decls[1].(*ast.TypeDecl)
-	params := box.TypeParams.Items()
-	if len(params) != 2 || len(params[0].Bounds) != 2 || params[0].Bounds[1].Name != "Named" || len(params[1].Bounds) != 0 {
-		t.Fatalf("type parameters: %+v", params)
+	if len(box.TypeParams) != 2 || box.TypeParams[1].Name != "U" {
+		t.Fatalf("type parameters: %+v", box.TypeParams)
+	}
+	if len(box.Where) != 1 || box.Where[0].Param != "T" || len(box.Where[0].Bounds) != 2 || box.Where[0].Bounds[1].Name != "Named" {
+		t.Fatalf("constraints: %+v", box.Where)
 	}
 	if len(box.Conforms) != 1 || box.Conforms[0].Name != "Shape" {
 		t.Fatalf("conforms: %+v", box.Conforms)
 	}
 	pick := prog.Decls[2].(*ast.FuncDecl)
-	result := pick.Returns.TypeArgs.Items()
-	if len(result) != 2 || result[1].Name != "Other" || result[1].Qualifier[0] != "lib" || len(result[1].TypeArgs.Items()) != 1 {
+	if len(pick.TypeParams) != 1 || len(pick.Where) != 1 {
+		t.Fatalf("type parameters %+v, constraints %+v", pick.TypeParams, pick.Where)
+	}
+	// 'with' takes one argument bare, so a bare instance as the argument nests to the right.
+	result := pick.Returns.TypeArgs
+	if len(result) != 2 || result[1].Name != "Other" || result[1].Qualifier[0] != "lib" || len(result[1].TypeArgs) != 1 ||
+		result[1].TypeArgs[0].Name != "Option" || len(result[1].TypeArgs[0].TypeArgs) != 1 {
 		t.Fatalf("return type arguments: %+v", result)
 	}
-	// In an expression, brackets after a value are parsed alike whether they apply type arguments or subscript it;
-	// the resolver tells them apart.
-	call := pick.Body[0].(*ast.LetStmt).Init.(*ast.CallExpr).Callee.(*ast.MemberExpr).Obj.(*ast.IndexExpr)
-	if name, ok := call.Obj.(*ast.NameExpr); !ok || name.Name != "Box" || len(call.Args) != 1 {
-		t.Fatalf("type application: %+v", call)
-	}
-	ret := pick.Body[1].(*ast.ReturnStmt).Value.(*ast.CallExpr).Callee.(*ast.IndexExpr)
-	if name, ok := ret.Obj.(*ast.NameExpr); !ok || name.Name != "swap" || len(ret.Args) != 1 {
-		t.Fatalf("callee type arguments: %+v", ret)
+	alias := prog.Decls[3].(*ast.AliasDecl)
+	if alias.Instance == nil || alias.Instance.Name != "array" || len(alias.Instance.TypeArgs[0].TypeArgs) != 2 {
+		t.Fatalf("typealias: %+v", alias.Instance)
 	}
 }
 

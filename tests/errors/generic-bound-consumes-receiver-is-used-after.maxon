@@ -7,7 +7,7 @@ interface Shape
 	function absorb(mutates self, other Self)
 end 'Shape'
 
-function drop[T implements Shape](consumes a T) returns Score
+function drop(consumes a T) uses T returns Score where T implements Shape
 	a.dispose()
 	return a.area()
 end 'drop'

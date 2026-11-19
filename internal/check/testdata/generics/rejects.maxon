@@ -1,7 +1,9 @@
 // case: wrong number of type arguments
 // expect-error: E3116
+typealias ScoreScoreBox = Box with (Score, Score)
+
 function main() returns ExitCode
-	let b = Box[Score, Score].make(1, tag: 1)
+	let b = ScoreScoreBox.make(1, tag: 1)
 	return 0
 end 'main'
 
@@ -17,22 +19,11 @@ end 'main'
 
 // case: type arguments on a plain type
 // expect-error: E3116
-function f(p Plain[Score])
+function f(p Plain with Score)
 	print("x")
 end 'f'
 
 function main() returns ExitCode
-	return 0
-end 'main'
-
-// case: type arguments on a plain function
-// expect-error: E3116
-function plain(n Score) returns Score
-	return n
-end 'plain'
-
-function main() returns ExitCode
-	_ = plain[Score](1)
 	return 0
 end 'main'
 
@@ -55,7 +46,7 @@ end 'main'
 
 // case: unknown method on an unbounded parameter
 // expect-error: E3004
-function f[T](a T) returns Score
+function f(a T) uses T returns Score
 	return a.area()
 end 'f'
 
@@ -65,7 +56,7 @@ end 'main'
 
 // case: field of a type parameter
 // expect-error: E3018
-function f[T](a T) returns Score
+function f(a T) uses T returns Score
 	return a.tag
 end 'f'
 
@@ -75,7 +66,7 @@ end 'main'
 
 // case: comparing type parameters
 // expect-error: E3005
-function f[T](a T, b T) returns bool
+function f(a T, b T) uses T returns bool
 	return a == b
 end 'f'
 
@@ -85,7 +76,7 @@ end 'main'
 
 // case: interpolating a type parameter
 // expect-error: E3005
-function f[T](a T) returns String
+function f(a T) uses T returns String
 	return "{a}"
 end 'f'
 
@@ -95,7 +86,7 @@ end 'main'
 
 // case: returning a different type parameter
 // expect-error: E3005
-function f[T, U](a T, b U) returns T
+function f(a T, b U) uses T, U returns T
 	return b.copy()
 end 'f'
 
@@ -105,7 +96,7 @@ end 'main'
 
 // case: bound that is not an interface
 // expect-error: E3123
-function f[T implements Square](a T)
+function f(a T) uses T where T implements Square
 	print("x")
 end 'f'
 

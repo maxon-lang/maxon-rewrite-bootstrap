@@ -1,3 +1,11 @@
+typealias ColorCountMap = map with (Color, Count)
+
+typealias StringCellMap = map with (String, Cell)
+
+typealias StringHandleCountMap = map with (Handle with String, Count)
+
+typealias StringPool = pool with String
+
 type Cell
 	export var n as Count
 	export var label as String
@@ -17,7 +25,7 @@ enum Color
 end 'Color'
 
 function main() returns ExitCode
-	var m = map[String, Cell].new()
+	var m = StringCellMap.new()
 	m.insert("one", value: Cell.make(1, label: "first"))
 	m.insert("two", value: Cell.make(2, label: "second"))
 	print("{m.count()} {m.has("one")} {m.has("three")} {m.isEmpty()}\n")
@@ -40,14 +48,14 @@ function main() returns ExitCode
 	print("{missing.isSome()}\n")
 	let cell = taken.unwrap()
 	print("{cell.n} {cell.label}\n")
-	var counts = map[Color, Count].new()
+	var counts = ColorCountMap.new()
 	counts.insert(Color.red, value: 1)
 	counts.insert(Color.green, value: 2)
 	counts[Color.red] = counts[Color.red] + counts[Color.green]
 	print("{counts[Color.red]} {counts[Color.green]}\n")
-	var handles = pool[String].new()
+	var handles = StringPool.new()
 	let h = handles.insert("pooled")
-	var byHandle = map[Handle[String], Count].new()
+	var byHandle = StringHandleCountMap.new()
 	byHandle.insert(h, value: 7)
 	print("{byHandle[h]} {byHandle.has(h)}\n")
 	return 0

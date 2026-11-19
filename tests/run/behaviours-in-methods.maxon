@@ -1,18 +1,22 @@
+typealias StringArray = array with String
+
+typealias StringSlot = Slot with String
+
 type Ledger
-	export var entries as array[String]
+	export var entries as array with String
 
 	static function make() returns Ledger
-		return Ledger{entries: array[String].new()}
+		return Ledger{entries: StringArray.new()}
 	end 'make'
 
-	function record(mutates self, into cown[Ledger], text String)
+	function record(mutates self, into cown with Ledger, text String)
 		let note = text.copy()
 		when into as l 'append'
 			l.entries.append(note)
 		end 'append'
 	end 'record'
 
-	function show(into cown[Ledger])
+	function show(into cown with Ledger)
 		when into as l 'show'
 			for i in 0 upto l.entries.count() 'lines'
 				print("{i}: {l.entries[i]}\n")
@@ -21,10 +25,10 @@ type Ledger
 	end 'show'
 end 'Ledger'
 
-type Slot[T]
+type Slot uses T
 	var held as T
 
-	static function put(into cown[Slot[T]], consumes value T)
+	static function put(into cown with (Slot with T), consumes value T)
 		when into as s 'put'
 			s.held = value
 		end 'put'
@@ -44,8 +48,8 @@ function main() returns ExitCode
 	local.show(reader)
 	let slot = cown(Slot.make("a"))
 	let writer = share(slot)
-	Slot[String].put(slot, value: "b")
-	Slot[String].put(writer, value: "c")
+	StringSlot.put(slot, value: "b")
+	StringSlot.put(writer, value: "c")
 	return 0
 end 'main'
 

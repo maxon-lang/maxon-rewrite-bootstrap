@@ -2,6 +2,7 @@ package ast
 
 import (
 	"minimaxon/internal/diag"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -17,10 +18,12 @@ type TypeParamTy struct {
 
 func newTypeParamTy(name string) *TypeParamTy { return &TypeParamTy{name: name} }
 
-// NewTypeParamOf is the type of a declared type parameter. Whether it has bounds is known from the syntax, before
-// the bounds themselves are resolved, so a use of the declaration can tell whether it has anything to check.
-func NewTypeParamOf(p *TypeParam) *TypeParamTy {
-	return &TypeParamTy{name: p.Name, bounded: len(p.Bounds) > 0}
+// NewTypeParamOf is the type of a declared type parameter, given the constraints of its declaration. Whether it has
+// bounds is known from the syntax, before the bounds themselves are resolved, so a use of the declaration can tell
+// whether it has anything to check.
+func NewTypeParamOf(p *TypeParam, where []*Constraint) *TypeParamTy {
+	bounded := slices.ContainsFunc(where, func(c *Constraint) bool { return c.Param == p.Name })
+	return &TypeParamTy{name: p.Name, bounded: bounded}
 }
 
 // Bounded is whether the parameter declares any bound.
@@ -57,22 +60,6 @@ type GenericCall struct {
 	Passing
 	Method   *FuncSig
 	TypeArgs []Ty
-}
-
-// Items are the references of a type argument list, which is nil where none is written.
-func (l *TypeArgList) Items() []*TypeRef {
-	if l == nil {
-		return nil
-	}
-	return l.Args
-}
-
-// Items are the parameters of a type parameter list, which is nil where none is declared.
-func (l *TypeParamList) Items() []*TypeParam {
-	if l == nil {
-		return nil
-	}
-	return l.Params
 }
 
 // Binding gives type parameters their arguments.
@@ -144,7 +131,7 @@ func subst(t Ty, params []*TypeParamTy, args []Ty) Ty {
 // own type argument without end, which has no finite expansion.
 const MaxTypeDepth = 16
 
-// TypeDepth is how deeply instances nest in t: a parameter or a plain type is 0, and Box[Box[int]] is 2. A body
+// TypeDepth is how deeply instances nest in t: a parameter or a plain type is 0, and Box with (Box with Count) is 2. A body
 // that calls itself with a growing type argument has no end, which a limit on the depth finds.
 func TypeDepth(t Ty) int {
 	var args []Ty
@@ -167,12 +154,27 @@ func TypeDepth(t Ty) int {
 	return deepest + 1
 }
 
-func instanceName(base string, args []Ty) string {
+func typeNames(args []Ty) []string {
 	names := make([]string, len(args))
 	for i, a := range args {
 		names[i] = a.Name()
 	}
-	return base + "[" + strings.Join(names, ", ") + "]"
+	return names
+}
+
+// InstanceSpelling is how source writes a generic type given its arguments: 'Box with Count', 'map with (String,
+// Count)', and 'Option with (Box with Count)', where an argument that is an instance itself is parenthesized.
+func InstanceSpelling(base string, args []string) string {
+	if len(args) == 1 && !strings.Contains(args[0], " with ") {
+		return base + " with " + args[0]
+	}
+	return base + " with (" + strings.Join(args, ", ") + ")"
+}
+
+// functionInstanceName is the name of an instance of a generic function in the IR and in diagnostics. Source has no
+// spelling for it, since a call always infers the type arguments.
+func functionInstanceName(base string, args []Ty) string {
+	return base + "[" + strings.Join(typeNames(args), ", ") + "]"
 }
 
 // InstanceTable interns the instances of one generic declaration, so two modules that write the same type arguments

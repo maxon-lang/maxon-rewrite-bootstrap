@@ -1,0 +1,13 @@
+type Box uses T
+	var item as T
+end 'Box'
+
+typealias Boxes = array with Crates
+
+typealias Crates = Box with Boxes
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2012 at 5:1

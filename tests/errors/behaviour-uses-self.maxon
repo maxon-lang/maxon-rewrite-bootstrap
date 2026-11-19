@@ -2,7 +2,7 @@
 type Meter
 	export var reading as Count
 
-	function watch(c cown[Count])
+	function watch(c cown with Count)
 		when c as x 'watch'
 			x = self.reading
 		end 'watch'

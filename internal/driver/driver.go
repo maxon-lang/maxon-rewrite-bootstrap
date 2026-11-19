@@ -188,6 +188,12 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 	}
 	mark("cycles")
 
+	check.DeclareAliases(proj)
+	mark("aliases")
+	if aliasErrors := failed(); aliasErrors != nil {
+		return aliasErrors
+	}
+
 	var main *ast.FuncDecl
 	phase(func(m *ast.Module) {
 		checker := check.NewChecker(proj, m, &m.Errors)
@@ -411,7 +417,7 @@ func checkConstants(proj *ast.Project, jobs int, errs *[]*diag.CompileError) {
 			return depth[i]
 		}
 		if state[i] == visiting {
-			panic(consts[i].decl.Error("E2012", "constant '"+consts[i].decl.Name+"' depends on itself"))
+			panic(consts[i].decl.Error(diag.ErrDependsOnItself, "constant '"+consts[i].decl.Name+"' depends on itself"))
 		}
 		state[i] = visiting
 		depth[i] = 0

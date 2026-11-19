@@ -1,4 +1,6 @@
-// expect-error: E3111 at 12:11
+// expect-error: E3111 at 14:11
+typealias CountCellMap = map with (Count, Cell)
+
 type Cell
 	export var n as Count
 
@@ -8,7 +10,7 @@ type Cell
 end 'Cell'
 
 function main() returns ExitCode
-	var m = map[Count, Cell].new()
+	var m = CountCellMap.new()
 	let c = m[1]
 	print("{c.n}")
 	return 0

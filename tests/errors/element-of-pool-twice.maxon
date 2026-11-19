@@ -1,4 +1,8 @@
-// expect-error: E3112 at 21:17
+// expect-error: E3112 at 25:17
+typealias CellArray = array with Cell
+
+typealias CellPool = pool with Cell
+
 type Cell
 	export var n as Count
 
@@ -11,12 +15,12 @@ function pair(mutates a Cell, mutates b Cell)
 	a.n = b.n
 end 'pair'
 
-function make() returns array[Cell]
-	return array[Cell].new()
+function make() returns array with Cell
+	return CellArray.new()
 end 'make'
 
 function main() returns ExitCode
-	var p = pool[Cell].new()
+	var p = CellPool.new()
 	let h = p.insert(Cell.make(1))
 	pair(p[h], b: p[h])
 	return 0

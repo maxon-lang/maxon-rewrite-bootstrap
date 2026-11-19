@@ -8,7 +8,7 @@ type Acct
 	end 'make'
 end 'Acct'
 
-function show(c cown[Acct], d cown[Acct])
+function show(c cown with Acct, d cown with Acct)
 	when c as x 'show'
 		when d as y 'again'
 			y.balance = 1

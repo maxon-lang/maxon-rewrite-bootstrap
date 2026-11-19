@@ -1,9 +1,11 @@
-// expect-error: E3131 at 2:1
+// expect-error: E3131 at 4:1
+typealias NodeCownOption = Option with (cown with Node)
+
 type Node
-	export var next as Option[cown[Node]]
+	export var next as Option with (cown with Node)
 
 	static function make() returns Node
-		return Node{next: Option[cown[Node]].none}
+		return Node{next: NodeCownOption.none}
 	end 'make'
 end 'Node'
 

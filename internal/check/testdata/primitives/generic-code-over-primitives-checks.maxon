@@ -1,56 +1,66 @@
-function moveFirst[T](mutates source array[T], mutates target array[T])
+typealias CountArray = array with Count
+
+typealias CountArrayArray = array with (array with Count)
+
+typealias CountList = list with Count
+
+typealias CountPool = pool with Count
+
+typealias StringCountMap = map with (String, Count)
+
+function moveFirst(mutates source array with T, mutates target array with T) uses T
 	if not source.isEmpty() 'some'
 		target.append(source.remove(0))
 	end 'some'
 end 'moveFirst'
 
-function store[V](mutates m map[String, V], consumes value V)
+function store(mutates m map with (String, V), consumes value V) uses V
 	m.insert("key", value: value)
 end 'store'
 
-function put[T](mutates p pool[T], consumes item T) returns Handle[T]
+function put(mutates p pool with T, consumes item T) uses T returns Handle with T
 	return p.insert(item)
 end 'put'
 
-function back[T](mutates l list[T], consumes item T) returns Handle[T]
+function back(mutates l list with T, consumes item T) uses T returns Handle with T
 	let node = l.pushBack(item)
 	l.moveToFront(node)
 	return node
 end 'back'
 
-function swapFirst[T](mutates a array[T], mutates b array[T])
+function swapFirst(mutates a array with T, mutates b array with T) uses T
 	let t = a[0].copy()
 	a[0] = b[0].copy()
 	b[0] = t
 end 'swapFirst'
 
-function find[T](p pool[T], handle Handle[T]) returns Option[T]
+function find(p pool with T, handle Handle with T) uses T returns Option with T
 	if p.contains(handle) 'live'
 		return Option.some(p[handle].copy())
 	end 'live'
-	return Option[T].none
+	return Option.none
 end 'find'
 
-function nested[T](mutates grid array[array[T]], consumes item T)
+function nested(mutates grid array with (array with T), consumes item T) uses T
 	grid[0].append(item)
 end 'nested'
 
 function main() returns ExitCode
-	var a = array[Count].new()
-	var b = array[Count].new()
+	var a = CountArray.new()
+	var b = CountArray.new()
 	a.append(1)
 	b.append(2)
 	moveFirst(a, target: b)
 	a.append(3)
 	swapFirst(a, b: b)
-	var m = map[String, Count].new()
+	var m = StringCountMap.new()
 	store(m, value: 1)
-	var p = pool[Count].new()
+	var p = CountPool.new()
 	let h = put(p, item: 4)
-	var l = list[Count].new()
+	var l = CountList.new()
 	let n = back(l, item: 5)
-	var grid = array[array[Count]].new()
-	grid.append(array[Count].new())
+	var grid = CountArrayArray.new()
+	grid.append(CountArray.new())
 	nested(grid, item: 6)
 	print("{find(p, handle: h).isSome()} {l.contains(n)}")
 	return 0

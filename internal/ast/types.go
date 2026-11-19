@@ -98,12 +98,12 @@ func (n *NominalBase) Declaration() *NominalBase {
 func (n *NominalBase) IsGeneric() bool { return len(n.Params) > 0 }
 
 func (n *NominalBase) newInstanceBase(args []Ty) NominalBase {
-	return NominalBase{name: instanceName(n.name, args), Methods: n.Methods, Args: args, declaring: n}
+	return NominalBase{name: InstanceSpelling(n.name, typeNames(args)), Methods: n.Methods, Args: args, declaring: n}
 }
 
-func (n *NominalBase) initGeneric(params []*TypeParam) {
+func (n *NominalBase) initGeneric(params []*TypeParam, where []*Constraint) {
 	for _, p := range params {
-		p.Ty = NewTypeParamOf(p)
+		p.Ty = NewTypeParamOf(p, where)
 		n.Params = append(n.Params, p.Ty)
 	}
 	if len(params) > 0 {
@@ -131,7 +131,7 @@ type RecordTy struct {
 
 func NewRecordTy(d *TypeDecl) *RecordTy {
 	r := &RecordTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
-	r.initGeneric(d.TypeParams.Items())
+	r.initGeneric(d.TypeParams, d.Where)
 	return r
 }
 
@@ -205,7 +205,7 @@ type UnionTy struct {
 
 func NewUnionTy(d *UnionDecl) *UnionTy {
 	u := &UnionTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
-	u.initGeneric(d.TypeParams.Items())
+	u.initGeneric(d.TypeParams, d.Where)
 	return u
 }
 
@@ -334,7 +334,12 @@ func Shell(d TypeDeclNode) Ty {
 
 type shell struct{}
 
+// VisitAliasDecl is the integer type a typealias of a range names. A typealias of an instance has no shell: its type
+// is the instance, which the aliases phase finds once the types it names are known.
 func (shell) VisitAliasDecl(t *AliasDecl) Ty {
+	if t.Instance != nil {
+		return nil
+	}
 	lo, hi := t.Low.value(), t.High.value()
 	if !t.Inclusive {
 		hi = hi.Sub(One)

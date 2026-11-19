@@ -1,4 +1,6 @@
-// expect-error: E2013 at 19:14
+// expect-error: E2013 at 21:14
+typealias CellArray = array with Cell
+
 type Cell
 	export var n as Count
 
@@ -11,8 +13,8 @@ function touch(mutates c Cell)
 	c.n = c.n + 1
 end 'touch'
 
-function make() returns array[Cell]
-	return array[Cell].new()
+function make() returns array with Cell
+	return CellArray.new()
 end 'make'
 
 function main() returns ExitCode

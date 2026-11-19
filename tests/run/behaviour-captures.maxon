@@ -1,3 +1,5 @@
+typealias StringArray = array with String
+
 type Note
 	export var name as String
 
@@ -7,10 +9,10 @@ type Note
 end 'Note'
 
 type Log
-	export var lines as array[String]
+	export var lines as array with String
 
 	static function make() returns Log
-		return Log{lines: array[String].new()}
+		return Log{lines: StringArray.new()}
 	end 'make'
 end 'Log'
 

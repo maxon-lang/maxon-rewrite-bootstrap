@@ -1,6 +1,8 @@
 // expect-exit: 1
+typealias StringList = list with String
+
 function main() returns ExitCode
-	var l = list[String].new()
+	var l = StringList.new()
 	let old = l.pushBack("first")
 	let gone = l.remove(old)
 	print("removed {gone.isSome()}\n")

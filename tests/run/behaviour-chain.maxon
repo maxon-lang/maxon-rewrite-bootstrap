@@ -6,14 +6,14 @@ type Stage
 	end 'make'
 end 'Stage'
 
-function third(c cown[Stage], carried Count)
+function third(c cown with Stage, carried Count)
 	when c as s 'third'
 		s.value = s.value + carried
 		print("third {s.value}\n")
 	end 'third'
 end 'third'
 
-function second(b cown[Stage], c cown[Stage], carried Count)
+function second(b cown with Stage, c cown with Stage, carried Count)
 	let next = share(c)
 	when b as s 'second'
 		s.value = s.value * carried
@@ -22,7 +22,7 @@ function second(b cown[Stage], c cown[Stage], carried Count)
 	end 'second'
 end 'second'
 
-function first(a cown[Stage], b cown[Stage], c cown[Stage])
+function first(a cown with Stage, b cown with Stage, c cown with Stage)
 	let nextB = share(b)
 	let nextC = share(c)
 	when a as s 'first'

@@ -7,7 +7,7 @@ interface Shape
 	function absorb(mutates self, other Self)
 end 'Shape'
 
-function twice[T implements Shape](mutates a T)
+function twice(mutates a T) uses T where T implements Shape
 	a.absorb(a)
 end 'twice'
 

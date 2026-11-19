@@ -1,4 +1,6 @@
-// expect-error: E3112 at 16:16
+// expect-error: E3112 at 18:16
+typealias CellArray = array with Cell
+
 type Cell
 	export var n as Count
 
@@ -7,12 +9,12 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function drop(mutates xs array[Cell]) returns Count
+function drop(mutates xs array with Cell) returns Count
 	return xs.count()
 end 'drop'
 
 function main() returns ExitCode
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	a[0].n = drop(a)
 	return 0
 end 'main'

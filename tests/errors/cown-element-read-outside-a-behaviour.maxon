@@ -1,4 +1,6 @@
-// expect-error: E3132 at 13:11
+// expect-error: E3132 at 15:11
+typealias CountArray = array with Count
+
 type Acct
 	export var balance as Count
 	export var tag as String
@@ -9,7 +11,7 @@ type Acct
 end 'Acct'
 
 function main() returns ExitCode
-	let c = cown(array[Count].new())
+	let c = cown(CountArray.new())
 	print("{c[0]}")
 	return 0
 end 'main'

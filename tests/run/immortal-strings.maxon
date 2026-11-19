@@ -1,3 +1,5 @@
+typealias StringArray = array with String
+
 type Label
 	export var text as String
 
@@ -28,7 +30,7 @@ function main() returns ExitCode
 	a = "replaced"
 	let label = Label.make("field")
 	let again = label.copy()
-	var words = array[String].new()
+	var words = StringArray.new()
 	words.append("one")
 	words.append(greeting)
 	words.append(Color.green.name)

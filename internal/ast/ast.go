@@ -43,9 +43,12 @@ func (t *TypeDeclNodeBase) TypeBase() *TypeDeclNodeBase { return t }
 func (f *FuncDecl) Symbol() string {
 	if f.Owner == nil {
 		if f.Generic != nil {
-			return instanceName(f.Name, f.TypeArgs)
+			return functionInstanceName(f.Name, f.TypeArgs)
 		}
 		return f.Name
+	}
+	if len(f.Owner.Base().Args) > 0 {
+		return "(" + f.Owner.Name() + ")." + f.Name
 	}
 	return f.Owner.Name() + "." + f.Name
 }

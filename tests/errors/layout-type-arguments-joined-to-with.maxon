@@ -1,0 +1,16 @@
+typealias Score = int(i64.min to i64.max)
+
+type Pair uses A, B
+	var first as A
+	var second as B
+end 'Pair'
+
+function show(p Pair with(Score, Score))
+	print("x\n")
+end 'show'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2010 at 8:26

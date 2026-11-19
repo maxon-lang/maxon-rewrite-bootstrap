@@ -1,6 +1,14 @@
+typealias NoteArray = array with Note
+
+typealias SlotArray = array with Slot
+
+typealias StringArray = array with String
+
+typealias StringArrayArray = array with (array with String)
+
 type Note
 	export var text as String
-	export var tags = array[String].new()
+	export var tags = StringArray.new()
 
 	static function make(consumes text String) returns Note
 		return Note{text: text}
@@ -45,13 +53,13 @@ function loops(limit Count) returns Count
 end 'loops'
 
 function grow(n Count) returns Count
-	var notes = array[Note].new()
+	var notes = NoteArray.new()
 	for i in 0 upto n 'fill'
 		notes.append(Note.make(label(i)))
 	end 'fill'
 	notes.insert(Note.make("front"), at: 0)
 	let removed = notes.remove(3)
-	var kept = array[Note].new()
+	var kept = NoteArray.new()
 	kept.append(removed)
 	notes[1] = Note.make("replaced")
 	notes[2].tags.append("one")
@@ -68,7 +76,7 @@ function grow(n Count) returns Count
 end 'grow'
 
 function slots() returns Count
-	var held = array[Slot].new()
+	var held = SlotArray.new()
 	held.append(Slot.filled(Note.make("a"), rank: 1))
 	held.append(Slot.named(label(2)))
 	held.append(Slot.vacant)
@@ -87,9 +95,9 @@ function slots() returns Count
 end 'slots'
 
 function nested() returns Count
-	var grid = array[array[String]].new()
+	var grid = StringArrayArray.new()
 	for i in 0 upto 3 'rows'
-		var row = array[String].new()
+		var row = StringArray.new()
 		for j in 0 upto 6 'cols'
 			row.append("{i}{j}")
 		end 'cols'

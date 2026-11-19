@@ -1,10 +1,11 @@
 typealias Score = int(i64.min to i64.max)
 
-type Box[T]
-	var item as T
-end 'Box'
+type Pair uses A, B
+	var first as A
+	var second as B
+end 'Pair'
 
-function show(b Box[ Score])
+function show(p Pair with ( Score, Score))
 	print("x\n")
 end 'show'
 
@@ -12,4 +13,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E2010 at 7:21
+// expect-error: E2010 at 8:28

@@ -1,3 +1,9 @@
+typealias CountArray = array with Count
+
+typealias CountArrayArray = array with (array with Count)
+
+typealias PointArray = array with Point
+
 type Point
 	export var x as Count
 	export var y as Count
@@ -15,7 +21,7 @@ function shift(mutates p Point)
 	p.x = p.x + 10
 end 'shift'
 
-function total(items array[Count]) returns Count
+function total(items array with Count) returns Count
 	var sum = 0 as Count
 	for i in 0 upto items.count() 'sum'
 		sum = sum + items[i]
@@ -23,15 +29,15 @@ function total(items array[Count]) returns Count
 	return sum
 end 'total'
 
-function length[T](items array[T]) returns Count
+function length(items array with T) uses T returns Count
 	return items.count()
 end 'length'
 
-function duplicate[T](mutates items array[T], at Count)
+function duplicate(mutates items array with T, at Count) uses T
 	items.insert(items[at].copy(), at: at)
 end 'duplicate'
 
-function popOr(mutates items array[Count], fallback Count) returns Count
+function popOr(mutates items array with Count, fallback Count) returns Count
 	let last = items.pop()
 	if last.isSome() 'some'
 		return last.unwrap()
@@ -40,12 +46,12 @@ function popOr(mutates items array[Count], fallback Count) returns Count
 end 'popOr'
 
 function main() returns ExitCode
-	var a = array[Count].new()
+	var a = CountArray.new()
 	for i in 0 upto 1000 'grow'
 		a.append(i as Count)
 	end 'grow'
 	print("{a.count()} {total(a)} {a[999]}\n")
-	var b = array[Count].filled(3, value: 7)
+	var b = CountArray.filled(3, value: 7)
 	b.insert(1, at: 0)
 	b.insert(2, at: 2)
 	b.insert(3, at: b.count())
@@ -54,13 +60,13 @@ function main() returns ExitCode
 	bump(b[0])
 	b[1] = b[0] + b[1]
 	print("{b[0]} {b[1]} {b[2]} {b[3]}\n")
-	var empty = array[Count].new()
+	var empty = CountArray.new()
 	print("{empty.isEmpty()} {b.isEmpty()} {popOr(empty, fallback: 42)} {popOr(b, fallback: 42)} {b.count()}\n")
 	match b.pop() 'popped'
 		some(v) then print("popped {v}\n")
 		none then print("nothing\n")
 	end 'popped'
-	var points = array[Point].new()
+	var points = PointArray.new()
 	points.append(Point.make(1, y: 2))
 	points.append(Point.make(3, y: 4))
 	shift(points[1])
@@ -73,9 +79,9 @@ function main() returns ExitCode
 	duplicate(points, at: 0)
 	points[0].x = 5
 	print("{points[0].x} {points[1].x} {points.count()}\n")
-	var grid = array[array[Count]].new()
-	grid.append(array[Count].filled(3, value: 0))
-	grid.append(array[Count].filled(2, value: 1))
+	var grid = CountArrayArray.new()
+	grid.append(CountArray.filled(3, value: 0))
+	grid.append(CountArray.filled(2, value: 1))
 	grid[0][1] = 5
 	grid[1].append(8)
 	print("{grid[0][0]} {grid[0][1]} {grid[1].count()} {grid[1][2]} {grid.count()}\n")

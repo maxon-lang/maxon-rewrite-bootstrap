@@ -8,7 +8,7 @@ type Acct
 	end 'make'
 end 'Acct'
 
-function show(a Acct, c cown[Acct])
+function show(a Acct, c cown with Acct)
 	when c as x 'show'
 		print("{a.tag}")
 	end 'show'

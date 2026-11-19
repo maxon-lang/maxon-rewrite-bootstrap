@@ -1,4 +1,6 @@
-// expect-error: E3111 at 15:16
+// expect-error: E3111 at 17:16
+typealias CellArray = array with Cell
+
 type Cell
 	export var n as Count
 
@@ -7,8 +9,8 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function make() returns array[Cell]
-	return array[Cell].new()
+function make() returns array with Cell
+	return CellArray.new()
 end 'make'
 
 function main() returns ExitCode

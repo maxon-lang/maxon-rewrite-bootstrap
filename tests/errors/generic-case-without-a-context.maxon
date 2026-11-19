@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	let nothing = Option.none
+	return 0
+end 'main'
+
+// expect-error: E3118 at 2:16

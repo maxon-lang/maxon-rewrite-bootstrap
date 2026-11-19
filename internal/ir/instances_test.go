@@ -28,6 +28,7 @@ func frontEnd(t *testing.T, path string) *ast.Module {
 	proj.Modules = []*ast.Module{root}
 	project.BuildTables(proj, 1)
 	resolve.NewResolver(proj, root).Run()
+	check.DeclareAliases(proj)
 	c := check.NewChecker(proj, root, &root.Errors)
 	for _, d := range root.Decls {
 		root.Functions = append(root.Functions, c.Declare(d)...)
@@ -42,7 +43,7 @@ func frontEnd(t *testing.T, path string) *ast.Module {
 		c.CheckBody(f)
 	}
 	c.Verify(c.Pending)
-	c.VerifyBounds(c.Bounds)
+	c.VerifyBounds(append(root.Bounds, c.Bounds...))
 	root.Callers = c.Callers
 	if len(root.Errors) == 0 {
 		o := check.NewOwnership(&root.Errors)
@@ -74,7 +75,7 @@ func TestEachInstanceIsFoundOnceInDiscoveryOrder(t *testing.T) {
 	found := Instances([]*ast.Module{m})
 	got := strings.Join(instanceNames(found[0]), " ")
 	// main's calls come first, in the order they are written, then the calls inside each instance.
-	want := "swap[Score] swap[Square] Box[Score].make both[Square] total[Square] Box[Score].peek"
+	want := "swap[Score] swap[Square] (Box with Score).make both[Square] total[Square] (Box with Score).peek"
 	if got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}

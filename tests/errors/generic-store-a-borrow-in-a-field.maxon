@@ -1,6 +1,6 @@
 typealias Score = int(i64.min to i64.max)
 
-type Box[T]
+type Box uses T
 	var item as T
 	let tag as Score
 
@@ -22,35 +22,35 @@ type Box[T]
 	end 'bump'
 end 'Box'
 
-union Slot[T]
+union Slot uses T
 	full(value T)
 	empty
 end 'Slot'
 
-function swap[T](mutates a T, mutates b T)
+function swap(mutates a T, mutates b T) uses T
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function join[T](mutates a T, consumes b T)
+function join(mutates a T, consumes b T) uses T
 	a = b
 end 'join'
 
-function fill[T](sets out T, from T)
+function fill(sets out T, from T) uses T
 	out = from.copy()
 end 'fill'
 
-function consume[T](consumes a T) returns Score
+function consume(consumes a T) uses T returns Score
 	return 1
 end 'consume'
 
-function wrap[T](mutates a T) returns Box[T]
-	return Box[T].make(a, tag: 1)
+function wrap(mutates a T) uses T returns Box with T
+	return Box.make(a, tag: 1)
 end 'wrap'
 
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3110 at 49:21
+// expect-error: E3110 at 49:18

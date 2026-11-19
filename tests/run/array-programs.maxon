@@ -1,3 +1,7 @@
+typealias CountArray = array with Count
+
+typealias CounterArray = array with Counter
+
 type Counter
 	var n as Count
 
@@ -15,7 +19,7 @@ type Counter
 end 'Counter'
 
 type Stack
-	var items = array[Count].new()
+	var items = CountArray.new()
 
 	static function make() returns Stack
 		return Stack{}
@@ -35,12 +39,12 @@ type Stack
 end 'Stack'
 
 union Shape
-	row(cells array[Count])
+	row(cells array with Count)
 	empty
 end 'Shape'
 
 function primesBelow(limit Count) returns Count
-	var prime = array[bool].filled(limit, value: true)
+	var prime = array.filled(limit, value: true)
 	var found = 0 as Count
 	for i in 2 upto limit 'candidates'
 		if prime[i] 'is'
@@ -55,7 +59,7 @@ function primesBelow(limit Count) returns Count
 	return found
 end 'primesBelow'
 
-function sort(mutates a array[Count])
+function sort(mutates a array with Count)
 	var swapped = true
 	while swapped 'passes'
 		swapped = false
@@ -72,7 +76,7 @@ end 'sort'
 
 function main() returns ExitCode
 	print("{primesBelow(100)} {primesBelow(1000)}\n")
-	var a = array[Count].new()
+	var a = CountArray.new()
 	for i in 0 upto 8 'fill'
 		a.append(((i * 5) mod 8) as Count)
 	end 'fill'
@@ -82,7 +86,7 @@ function main() returns ExitCode
 		line = "{line}{a[i]},"
 	end 'show'
 	print("{line}\n")
-	var counters = array[Counter].new()
+	var counters = CounterArray.new()
 	for i in 0 upto 3 'make'
 		counters.append(Counter.make())
 	end 'make'
@@ -94,7 +98,7 @@ function main() returns ExitCode
 	stack.push(10)
 	stack.push(20)
 	print("{stack.pop()} {stack.size()} {stack.pop()} {stack.size()}\n")
-	var fib = array[Count].new()
+	var fib = CountArray.new()
 	fib.append(0)
 	fib.append(1)
 	let rounds = 30 as Count

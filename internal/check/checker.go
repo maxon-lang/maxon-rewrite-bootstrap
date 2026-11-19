@@ -50,6 +50,9 @@ type Checker struct {
 	blocks     []checkerBlock
 	nextSlot   int
 	uses       *[]*ast.CallExpr
+	// expect is the type the context of the expression being checked needs, or nil where it needs none in particular:
+	// a call on a bare generic type takes from it the type arguments its own arguments do not fix.
+	expect ast.Ty
 	// root is the function being checked, which a behaviour in its body is part of: the calls in the body are recorded on
 	// it, because its instances are what the body is lowered with.
 	root *ast.FuncDecl
@@ -94,6 +97,17 @@ func (c *Checker) Declare(d ast.Decl) []*ast.FuncDecl {
 	return declared
 }
 
+// DeclareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
+func (c *Checker) DeclareAlias(a *ast.AliasDecl) {
+	c.guard(func() {
+		if len(a.Instance.TypeArgs) == 0 {
+			panic(a.Instance.Error(diag.ErrAliasTarget, fmt.Sprintf("a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '%s' itself where '%s' is used",
+				a.Instance.Name, a.Name)))
+		}
+		a.Ty = c.resolve(a.Instance, nil)
+	})
+}
+
 func (c *Checker) CheckBody(d ast.Decl) {
 	switch t := d.(type) {
 	case *ast.FuncDecl:
@@ -120,7 +134,8 @@ func (c *Checker) Verify(calls []ast.PendingCall) {
 	}
 }
 
-// VerifyBounds checks the type arguments that the module wrote or inferred against their parameters' bounds.
+// VerifyBounds checks the type arguments that the module's instances and inferred calls give against their parameters'
+// bounds.
 func (c *Checker) VerifyBounds(bounds []ast.PendingBound) {
 	for _, b := range bounds {
 		c.guard(func() {
@@ -135,7 +150,7 @@ func (c *Checker) VerifyBounds(bounds []ast.PendingBound) {
 func (c *Checker) resolve(tr *ast.TypeRef, self ast.Ty) ast.Ty {
 	t := c.resolveNamed(tr, self)
 	if _, isInterface := t.(*ast.InterfaceTy); isInterface {
-		panic(tr.Error(diag.ErrInterfaceAsType, fmt.Sprintf("'%s' is an interface, which only bounds a type parameter: write a type parameter 'T implements %s' and use T as the type", tr.Name, tr.Name)))
+		panic(tr.Error(diag.ErrInterfaceAsType, fmt.Sprintf("'%s' is an interface, which only bounds a type parameter: declare a type parameter with 'uses T where T implements %s' and use T as the type", tr.Name, tr.Name)))
 	}
 	return t
 }
@@ -172,7 +187,7 @@ func (c *Checker) resolveNamed(tr *ast.TypeRef, self ast.Ty) ast.Ty {
 }
 
 func (c *Checker) requireNoTypeArgs(tr *ast.TypeRef, name string) {
-	if len(tr.TypeArgs.Items()) > 0 {
+	if len(tr.TypeArgs) > 0 {
 		panic(tr.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is not generic and takes no type arguments", name)))
 	}
 }
@@ -189,8 +204,7 @@ func (c *Checker) withTypeArgs(tr *ast.TypeRef, t ast.Ty, self ast.Ty) ast.Ty {
 }
 
 // resolveArgs resolves a written list of type arguments.
-func (c *Checker) resolveArgs(list *ast.TypeArgList, self ast.Ty) []ast.Ty {
-	refs := list.Items()
+func (c *Checker) resolveArgs(refs []*ast.TypeRef, self ast.Ty) []ast.Ty {
 	args := make([]ast.Ty, len(refs))
 	for i, r := range refs {
 		args[i] = c.resolve(r, self)
@@ -202,7 +216,7 @@ func (c *Checker) resolveArgs(list *ast.TypeArgList, self ast.Ty) []ast.Ty {
 func requireTypeArgCount(site ast.Node, name string, params []*ast.TypeParamTy, given int) {
 	if given != len(params) {
 		panic(site.P().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' takes %d type argument(s), given %d: write '%s'",
-			name, len(params), given, genericSpelling(name, params))))
+			name, len(params), given, ast.InstanceSpelling(name, paramNames(params)))))
 	}
 }
 
@@ -231,21 +245,12 @@ func requireKey(site ast.Node, key ast.Ty) {
 	}
 }
 
-// callSpelling is how a call writes its type arguments, with a placeholder for each.
-func callSpelling(name string, params []*ast.TypeParamTy) string {
-	placeholders := make([]string, len(params))
-	for i := range params {
-		placeholders[i] = "<Type>"
-	}
-	return name + "[" + strings.Join(placeholders, ", ") + "]"
-}
-
-func genericSpelling(name string, params []*ast.TypeParamTy) string {
+func paramNames(params []*ast.TypeParamTy) []string {
 	names := make([]string, len(params))
 	for i, p := range params {
 		names[i] = p.Name()
 	}
-	return name + "[" + strings.Join(names, ", ") + "]"
+	return names
 }
 
 func (c *Checker) queueBounds(site ast.Node, params []*ast.TypeParamTy, args []ast.Ty) {
@@ -265,15 +270,15 @@ func (c *Checker) resolveBound(tr *ast.TypeRef) *ast.InterfaceTy {
 	if !ok {
 		panic(tr.Error(diag.ErrGenericDeclaration, fmt.Sprintf("'%s' is not an interface, and only an interface can be a bound or be implemented", tr.Name)))
 	}
-	if len(tr.TypeArgs.Items()) > 0 {
+	if len(tr.TypeArgs) > 0 {
 		panic(tr.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("the interface '%s' is not generic and takes no type arguments", tr.Name)))
 	}
 	return d.Ty.(*ast.InterfaceTy)
 }
 
-// declareTypeParams gives each type parameter its bounds. A bound is a pointer to an interface, so it needs nothing
-// from the interface's own declaration.
-func (c *Checker) declareTypeParams(params []*ast.TypeParam) {
+// declareTypeParams gives each type parameter the bounds its declaration's constraints name. A bound is a pointer to an
+// interface, so it needs nothing from the interface's own declaration.
+func (c *Checker) declareTypeParams(params []*ast.TypeParam, where []*ast.Constraint) {
 	seen := map[string]bool{}
 	for _, p := range params {
 		if seen[p.Name] {
@@ -281,10 +286,12 @@ func (c *Checker) declareTypeParams(params []*ast.TypeParam) {
 		}
 		seen[p.Name] = true
 		if p.Ty == nil {
-			p.Ty = ast.NewTypeParamOf(p)
+			p.Ty = ast.NewTypeParamOf(p, where)
 		}
-		for _, b := range p.Bounds {
-			p.Ty.Interfaces = append(p.Ty.Interfaces, c.resolveBound(b))
+	}
+	for _, cs := range where {
+		for _, b := range cs.Bounds {
+			cs.Target.Ty.Interfaces = append(cs.Target.Ty.Interfaces, c.resolveBound(b))
 		}
 	}
 }
@@ -300,7 +307,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 	switch t := d.(type) {
 	case *ast.TypeDecl:
 		rt := t.Ty.(*ast.RecordTy)
-		c.declareTypeParams(t.TypeParams.Items())
+		c.declareTypeParams(t.TypeParams, t.Where)
 		c.declareConforms(t.Conforms, rt)
 		self := ast.SelfType(rt)
 		for _, f := range t.Fields {
@@ -344,7 +351,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 		}
 	case *ast.UnionDecl:
 		ut := t.Ty.(*ast.UnionTy)
-		c.declareTypeParams(t.TypeParams.Items())
+		c.declareTypeParams(t.TypeParams, t.Where)
 		c.declareConforms(t.Conforms, ut)
 		self := ast.SelfType(ut)
 		for _, cs := range t.Cases {
@@ -431,13 +438,13 @@ func (c *Checker) returnOf(returns *ast.TypeRef, self ast.Ty) ast.Ty {
 // declareGenerics gives a function its type parameters: its own, or for a method the ones of its type.
 func (c *Checker) declareGenerics(f *ast.FuncDecl, nt ast.NominalTy) {
 	switch {
-	case len(f.TypeParams.Items()) > 0 && nt != nil:
+	case len(f.TypeParams) > 0 && nt != nil:
 		panic(f.Error(diag.ErrGenericDeclaration, fmt.Sprintf("the method '%s' takes no type parameters of its own: use the type's, or write a function", f.Name)))
 	case nt != nil && nt.Base().IsGeneric():
 		f.Generics = nt.Base().Params
-	case len(f.TypeParams.Items()) > 0:
-		c.declareTypeParams(f.TypeParams.Items())
-		for _, p := range f.TypeParams.Items() {
+	case len(f.TypeParams) > 0:
+		c.declareTypeParams(f.TypeParams, f.Where)
+		for _, p := range f.TypeParams {
 			f.Generics = append(f.Generics, p.Ty)
 		}
 	default:
@@ -825,7 +832,16 @@ func (c *Checker) join(site ast.Node, a, b ast.Ty) ast.Ty {
 }
 
 func (c *Checker) checkExpr(e ast.Expr) ast.Ty {
+	return c.checkExpecting(e, nil)
+}
+
+// checkExpecting types an expression whose context needs a value of want; want is nil where the context needs none
+// in particular. The expectation reaches only the expression itself, and the branches that give its value.
+func (c *Checker) checkExpecting(e ast.Expr, want ast.Ty) ast.Ty {
+	outer := c.expect
+	c.expect = want
 	t := ast.VisitExprResult[ast.Ty](c, e)
+	c.expect = outer
 	e.SetTy(t)
 	return t
 }
@@ -854,9 +870,6 @@ func (c *Checker) VisitStrLit(s *ast.StrLit) ast.Ty {
 }
 
 func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
-	if len(n.TypeArgs.Items()) > 0 && !c.namesType(n) {
-		panic(n.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is not generic and takes no type arguments", n.Name)))
-	}
 	if local := c.useLocal(n); local != nil {
 		n.Kind = ast.NameLocal
 		n.Local = local
@@ -889,11 +902,6 @@ func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
 		panic(n.Error(diag.ErrExpressionError, "'Self' is a type, not a value"))
 	}
 	panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name)))
-}
-
-// namesType is whether a name is a type rather than a variable, a field or a function, so it may take type arguments.
-func (c *Checker) namesType(n *ast.NameExpr) bool {
-	return n.Name == "Self" || (c.typeNamed(n) != nil)
 }
 
 func (c *Checker) VisitSelfExpr(s *ast.SelfExpr) ast.Ty {
@@ -1066,8 +1074,8 @@ func (c *Checker) VisitCondExpr(cd *ast.CondExpr) ast.Ty {
 	if c.checkExpr(cd.Cond) != ast.BoolTy {
 		panic(cd.Cond.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", cd.Cond.Ty().Name())))
 	}
-	then := c.checkExpr(cd.Then)
-	els := c.checkExpr(cd.Else)
+	then := c.checkExpecting(cd.Then, c.expect)
+	els := c.checkExpecting(cd.Else, c.expect)
 	return c.join(cd, then, els)
 }
 
@@ -1128,7 +1136,7 @@ func (c *Checker) bindArgs(call *ast.CallExpr, callee string, ps []ast.ParamSpec
 	ordered := c.orderArgs(call, callee, ps)
 	for i := range ps {
 		if !argsChecked {
-			c.checkExpr(ordered[i])
+			c.checkExpecting(ordered[i], ps[i].Type)
 		}
 		c.coerceArg(ordered[i], callee, ps[i])
 	}
@@ -1156,18 +1164,6 @@ func (c *Checker) checkSameType(value ast.Expr, ps ast.ParamSpec) {
 	}
 }
 
-// explicitTypeArgs are the type arguments a call writes after the function's name, or nil.
-func (c *Checker) explicitTypeArgs(site ast.Node, target *ast.FuncDecl, list *ast.TypeArgList) []ast.Ty {
-	if len(list.Items()) == 0 {
-		return nil
-	}
-	if len(target.Generics) == 0 {
-		panic(site.P().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is not generic and takes no type arguments", target.Symbol())))
-	}
-	requireTypeArgCount(site, target.Symbol(), target.Generics, len(list.Items()))
-	return c.resolveArgs(list, c.owner)
-}
-
 // nameable is whether a type can be written as a type argument, so inference may choose it: an integer constant or
 // the range of an expression names no alias.
 func nameable(t ast.Ty) bool {
@@ -1180,16 +1176,25 @@ func nameable(t ast.Ty) bool {
 	return t != ast.VoidTy && t != ast.NeverTy
 }
 
-// infer chooses the type arguments of a call from its arguments' types.
-func (c *Checker) infer(site ast.Node, callee string, params []*ast.TypeParamTy, specs []ast.ParamSpec, ordered []ast.Expr) []ast.Ty {
+// infer chooses the type arguments of a call from its arguments' types, and the ones they leave open from the type
+// the context expects of result, the type the call gives before its type arguments are known.
+func (c *Checker) infer(site ast.Node, callee string, params []*ast.TypeParamTy, specs []ast.ParamSpec, ordered []ast.Expr, result ast.Ty) []ast.Ty {
 	args := make([]ast.Ty, len(params))
 	for i, spec := range specs {
 		unifyType(spec.Type, ordered[i].Ty(), params, args)
 	}
+	return c.inferRest(site, callee, params, args, result)
+}
+
+// inferRest fills the type arguments that are still open from the type the context expects of result.
+func (c *Checker) inferRest(site ast.Node, callee string, params []*ast.TypeParamTy, args []ast.Ty, result ast.Ty) []ast.Ty {
+	if c.expect != nil {
+		unifyType(result, c.expect, params, args)
+	}
 	for i, a := range args {
 		if a == nil {
-			panic(site.P().Error(diag.ErrCannotInfer, fmt.Sprintf("the type argument '%s' of '%s' cannot be inferred from the arguments, which name no type for it; write the type arguments: '%s(...)'",
-				params[i].Name(), callee, callSpelling(callee, params))))
+			panic(site.P().Error(diag.ErrCannotInfer, fmt.Sprintf("the type argument '%s' of '%s' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance",
+				params[i].Name(), callee)))
 		}
 	}
 	return args
@@ -1233,27 +1238,31 @@ func (c *Checker) recordUses(calls ...*ast.CallExpr) {
 	*c.uses = append(*c.uses, calls...)
 }
 
-// callGeneric types a call whose callee has type parameters. given are the arguments already known, from the callee's
-// own type or written at the call; without them they are inferred. checked is whether given came from a type
-// whose arguments were already checked against their bounds.
-func (c *Checker) callGeneric(call *ast.CallExpr, target *ast.FuncDecl, given []ast.Ty, checked bool) ast.Ty {
+// callGeneric types a call whose callee has type parameters. given are the arguments of the instance the callee is
+// called on, which were checked against their bounds where the instance was written; without them they are inferred.
+func (c *Checker) callGeneric(call *ast.CallExpr, target *ast.FuncDecl, given []ast.Ty) ast.Ty {
 	callee := target.Symbol()
-	ordered := c.checkedArgs(call, callee, target.Pass.Specs)
+	args := given
+	var ordered []ast.Expr
+	var specs []ast.ParamSpec
+	if given != nil {
+		specs = ast.Binding{Params: target.Generics, Args: given}.ApplySpecs(target.Pass.Specs)
+		ordered = c.orderArgs(call, callee, specs)
+		for i, spec := range specs {
+			c.checkExpecting(ordered[i], spec.Type)
+		}
+	} else {
+		ordered = c.checkedArgs(call, callee, target.Pass.Specs)
+	}
 	if target.Intrinsic != ast.NotIntrinsic {
 		c.checkIntrinsicArgs(call, target, ordered)
 	}
-	args := given
-	if args == nil {
-		args = c.infer(call, callee, target.Generics, target.Pass.Specs, ordered)
-	}
-	if !checked {
+	if given == nil {
+		args = c.infer(call, callee, target.Generics, target.Pass.Specs, ordered, target.ReturnType)
 		c.queueBounds(call, target.Generics, args)
+		specs = ast.Binding{Params: target.Generics, Args: args}.ApplySpecs(target.Pass.Specs)
 	}
-	b := ast.Binding{Params: target.Generics, Args: args}
-	call.Generic = &ast.GenericCall{
-		SelfConv: target.Pass.SelfConv, Specs: b.ApplySpecs(target.Pass.Specs),
-		TypeArgs: args,
-	}
+	call.Generic = &ast.GenericCall{SelfConv: target.Pass.SelfConv, Specs: specs, TypeArgs: args}
 	call.Pass = &call.Generic.Passing
 	call.Ordered = ordered
 	if target.Intrinsic == ast.NotIntrinsic {
@@ -1266,7 +1275,7 @@ func (c *Checker) callGeneric(call *ast.CallExpr, target *ast.FuncDecl, given []
 			c.coerceArg(ordered[i], callee, spec)
 		}
 	}
-	return b.Apply(c.returnType(target))
+	return ast.Binding{Params: target.Generics, Args: args}.Apply(c.returnType(target))
 }
 
 // declares is whether a call of the function is checked now: its signature is known, because this module declares it
@@ -1276,7 +1285,7 @@ func (c *Checker) declares(f *ast.FuncDecl) bool {
 	return f.Module == c.module || f.Intrinsic != ast.NotIntrinsic
 }
 
-func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, receiver ast.Expr, given []ast.Ty, checked bool) ast.Ty {
+func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, receiver ast.Expr, given []ast.Ty) ast.Ty {
 	if !c.declares(target) && !target.IsExported() {
 		panic(call.Error("E3008", fmt.Sprintf("'%s' is not exported from module %s", target.Symbol(), target.Module.Display())))
 	}
@@ -1285,7 +1294,7 @@ func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *as
 	call.Receiver = receiver
 	call.Pass = &target.Pass
 	if len(target.Generics) > 0 {
-		return c.callGeneric(call, target, given, checked)
+		return c.callGeneric(call, target, given)
 	}
 	if c.declares(target) {
 		call.Ordered = c.bindArgs(call, target.Symbol(), target.Pass.Specs, false)
@@ -1298,9 +1307,9 @@ func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *as
 	return c.returnType(target)
 }
 
-// typeNamed is the type that a name written as an expression names, or nil if it names no type. With type arguments it
-// is an instance of a generic type. Without them a generic type names its declaration, which only a call that
-// infers the arguments accepts; requireInstance refuses it anywhere else.
+// typeNamed is the type that a name written as an expression names, or nil if it names no type. A generic type names
+// its declaration, which only a call or a case that infers the arguments accepts; requireInstance refuses it anywhere
+// else. A typealias of an instance names the instance.
 func (c *Checker) typeNamed(e ast.Expr) ast.NominalTy {
 	n, ok := e.(*ast.NameExpr)
 	if !ok {
@@ -1309,9 +1318,6 @@ func (c *Checker) typeNamed(e ast.Expr) ast.NominalTy {
 	if n.Name == "Self" {
 		if c.owner == nil {
 			panic(n.Error(diag.ErrUnknownType, "'Self' names a type only inside one"))
-		}
-		if len(n.TypeArgs.Items()) > 0 {
-			panic(n.Error(diag.ErrTypeArgumentCount, "'Self' is not generic and takes no type arguments"))
 		}
 		return c.owner
 	}
@@ -1329,23 +1335,14 @@ func (c *Checker) typeNamed(e ast.Expr) ast.NominalTy {
 	if !isNominal {
 		return nil
 	}
-	if !nt.Base().IsGeneric() {
-		if len(n.TypeArgs.Items()) > 0 {
-			panic(n.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is not generic and takes no type arguments", n.Name)))
-		}
-		return nt
-	}
-	if len(n.TypeArgs.Items()) == 0 {
-		return nt
-	}
-	return c.instantiate(n, nt, c.resolveArgs(n.TypeArgs, c.owner))
+	return nt
 }
 
 // requireInstance refuses a generic declaration where a type is needed and no call can infer its arguments.
 func (c *Checker) requireInstance(site ast.Node, nt ast.NominalTy) ast.NominalTy {
 	if nt.Base().IsGeneric() {
-		panic(site.P().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is generic: write its type arguments, as '%s'",
-			nt.Name(), genericSpelling(nt.Name(), nt.Base().Params))))
+		panic(site.P().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is generic: name an instance with a typealias, as 'typealias Name = %s'",
+			nt.Name(), ast.InstanceSpelling(nt.Name(), paramNames(nt.Base().Params)))))
 	}
 	return nt
 }
@@ -1366,12 +1363,11 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 			return ast.VoidTy
 		}
 		if f, isFunc := n.Target.(*ast.FuncDecl); isFunc {
-			return c.callFunction(call, ast.CallFunction, f, nil, c.explicitTypeArgs(n, f, n.TypeArgs), false)
+			return c.callFunction(call, ast.CallFunction, f, nil, nil)
 		}
 		if td, isType := n.Target.(*ast.TypeDecl); isType && td.Ty == ast.Ty(c.project.Builtins.Cown) {
 			// cown(x) is the constructor of the cown type.
-			f := c.project.Builtins.CownNew
-			return c.callFunction(call, ast.CallFunction, f, nil, c.explicitTypeArgs(n, f, n.TypeArgs), false)
+			return c.callFunction(call, ast.CallFunction, c.project.Builtins.CownNew, nil, nil)
 		}
 		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name)))
 	}
@@ -1384,8 +1380,7 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 				}
 			}
 			if sm, found := nt.MethodTable()[m.Name]; found && sm.IsStatic {
-				given := nt.Base().Args
-				return c.callFunction(call, ast.CallStatic, sm, nil, given, len(given) > 0)
+				return c.callFunction(call, ast.CallStatic, sm, nil, nt.Base().Args)
 			}
 			panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("'%s' has no static function or case '%s'", nt.Name(), m.Name)))
 		}
@@ -1402,7 +1397,7 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 		if recv, isNominal := content.(ast.NominalTy); isNominal {
 			if method, found := recv.MethodTable()[m.Name]; found && !method.IsStatic {
 				requireNotFrozenChange(call, rt, method.Pass.SelfConv, m.Name)
-				return c.callFunction(call, ast.CallMethod, method, m.Obj, recv.Base().Args, true)
+				return c.callFunction(call, ast.CallMethod, method, m.Obj, recv.Base().Args)
 			}
 		}
 		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'", rt.Name(), m.Name)))
@@ -1432,7 +1427,7 @@ func (c *Checker) unionConstructor(call *ast.CallExpr, ut *ast.UnionTy, caseInde
 	callee := ut.Name() + "." + uc.Name
 	if ut.Base().IsGeneric() {
 		ordered := c.checkedArgs(call, callee, specs)
-		ut = c.instantiate(call, ut, c.infer(call, ut.Name(), ut.Base().Params, specs, ordered)).(*ast.UnionTy)
+		ut = c.instantiate(call, ut, c.infer(call, ut.Name(), ut.Base().Params, specs, ordered, ast.SelfType(ut))).(*ast.UnionTy)
 		specs = specsOf(ut)
 		for i, spec := range specs {
 			c.coerceArg(ordered[i], callee, spec)
@@ -1482,7 +1477,7 @@ func (c *Checker) boundCall(call *ast.CallExpr, m *ast.MemberExpr, param *ast.Ty
 // boundsText says what a type parameter can call, for the error that names a method it cannot.
 func boundsText(param *ast.TypeParamTy) string {
 	if len(param.Interfaces) == 0 {
-		return fmt.Sprintf(": a type parameter has only the methods of its bounds, and '%s' has none; write '%s is <Interface>'", param.Name(), param.Name())
+		return fmt.Sprintf(": a type parameter has only the methods of its bounds, and '%s' has none; constrain it with 'where %s implements <Interface>'", param.Name(), param.Name())
 	}
 	names := make([]string, len(param.Interfaces))
 	for i, iface := range param.Interfaces {
@@ -1606,6 +1601,10 @@ func (c *Checker) copyCall(call *ast.CallExpr, receiver ast.Expr, t ast.Ty) ast.
 
 func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
 	if nt := c.typeNamed(m.Obj); nt != nil {
+		if ut, isUnion := nt.(*ast.UnionTy); isUnion && ut.Base().IsGeneric() && ut.CaseIndex(m.Name) >= 0 {
+			params := ut.Base().Params
+			nt = c.instantiate(m.Obj, ut, c.inferRest(m.Obj, ut.Name()+"."+m.Name, params, make([]ast.Ty, len(params)), ast.SelfType(ut)))
+		}
 		c.requireInstance(m.Obj, nt)
 		switch t := nt.(type) {
 		case *ast.EnumTy:
@@ -1722,7 +1721,7 @@ func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
 		if s.Ordered[f.Index] != nil {
 			panic(sf.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is given twice", sf.Name)))
 		}
-		c.checkExpr(sf.Value)
+		c.checkExpecting(sf.Value, rt.FieldType(f))
 		c.coerce(sf.Value, rt.FieldType(f), fmt.Sprintf("field '%s'", sf.Name))
 		s.Ordered[f.Index] = sf.Value
 	}
@@ -1840,7 +1839,7 @@ func (c *Checker) VisitAssignStmt(a *ast.AssignStmt) {
 	default:
 		panic(a.Error(diag.ErrUnexpectedToken, "only a variable, a field or an element can be assigned"))
 	}
-	c.checkExpr(a.Value)
+	c.checkExpecting(a.Value, target)
 	c.coerce(a.Value, target, "assignment")
 }
 
@@ -1888,7 +1887,7 @@ func (c *Checker) VisitReturnStmt(r *ast.ReturnStmt) {
 	if r.Value == nil {
 		panic(r.Error(diag.ErrMissingReturn, fmt.Sprintf("'%s' must return a %s", c.fn.Name, ret.Name())))
 	}
-	c.checkExpr(r.Value)
+	c.checkExpecting(r.Value, ret)
 	c.coerce(r.Value, ret, "return value")
 }
 
@@ -1929,6 +1928,7 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 		panic(m.Subject.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("cannot match on a value of %s", st.Name())))
 	}
 
+	expect := c.expect
 	c.pushBlock(m.Label, checkerMatch, m)
 	var result ast.Ty
 	hasDefault := false
@@ -1946,7 +1946,7 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 
 			c.pushScope()
 			defer c.popScope()
-			c.checkArm(arm, st, isExpr, seen, seenBools, &result)
+			c.checkArm(arm, st, isExpr, seen, seenBools, &result, expect)
 		})
 	}
 	c.popBlock()
@@ -1960,7 +1960,7 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 	return result
 }
 
-func (c *Checker) checkArm(arm *ast.MatchArm, st ast.Ty, isExpr bool, seen map[int]bool, seenBools map[bool]bool, result *ast.Ty) {
+func (c *Checker) checkArm(arm *ast.MatchArm, st ast.Ty, isExpr bool, seen map[int]bool, seenBools map[bool]bool, result *ast.Ty, expect ast.Ty) {
 	for _, pat := range arm.Patterns {
 		c.checkPattern(pat, st, len(arm.Patterns), seen, seenBools)
 	}
@@ -1979,7 +1979,7 @@ func (c *Checker) checkArm(arm *ast.MatchArm, st ast.Ty, isExpr bool, seen map[i
 		if !isExpr {
 			panic(arm.Error(diag.ErrUnexpectedToken, "an arm of a match statement uses 'then'"))
 		}
-		t := c.checkExpr(arm.Value)
+		t := c.checkExpecting(arm.Value, expect)
 		if *result == nil {
 			*result = t
 		} else {

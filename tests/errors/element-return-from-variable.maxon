@@ -1,4 +1,6 @@
-// expect-error: E3111 at 12:10
+// expect-error: E3111 at 14:10
+typealias CellArray = array with Cell
+
 type Cell
 	export var n as Count
 
@@ -8,7 +10,7 @@ type Cell
 end 'Cell'
 
 function f() returns Cell
-	var a = array[Cell].new()
+	var a = CellArray.new()
 	return a[0]
 end 'f'
 

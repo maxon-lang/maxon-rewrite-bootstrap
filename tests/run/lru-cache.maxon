@@ -1,3 +1,9 @@
+typealias CountEntryHandleMap = map with (Count, Handle with Entry)
+
+typealias EntryList = list with Entry
+
+typealias StringOption = Option with String
+
 type Entry
 	export var key as Count
 	export var value as String
@@ -8,17 +14,17 @@ type Entry
 end 'Entry'
 
 type Cache
-	var order as list[Entry]
-	var index as map[Count, Handle[Entry]]
+	var order as list with Entry
+	var index as map with (Count, Handle with Entry)
 	var capacity as Count
 
 	static function make(capacity Count) returns Cache
-		return Cache{order: list[Entry].new(), index: map[Count, Handle[Entry]].new(), capacity: capacity}
+		return Cache{order: EntryList.new(), index: CountEntryHandleMap.new(), capacity: capacity}
 	end 'make'
 
-	function get(mutates self, key Count) returns Option[String]
+	function get(mutates self, key Count) returns Option with String
 		if not index.has(key) 'miss'
-			return Option[String].none
+			return StringOption.none
 		end 'miss'
 		let node = index[key]
 		order.moveToFront(node)

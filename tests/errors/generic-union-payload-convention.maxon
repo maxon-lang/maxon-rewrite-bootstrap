@@ -1,6 +1,6 @@
 typealias Amount = int(0 to 100)
 
-union Result[T]
+union Result uses T
 	ok(mutates value T)
 	failed
 end 'Result'

@@ -652,7 +652,7 @@ func (g *generator) actArray(depth int) bool {
 	case n < 7:
 		g.line("print(\"{%s.count()}\\n\")", v.name)
 	case n < 8 && mutable:
-		g.line("put[%s](%s, x: %s)", elem.src(), v.name, g.owned(elem, 2))
+		g.line("put(%s, x: %s)", v.name, g.owned(elem, 2))
 	default:
 		name := g.fresh("v")
 		g.line(kwLet+" %s = %s.copy()", name, v.name)
@@ -675,7 +675,7 @@ func (g *generator) elementStatement(v *variable) {
 		g.line(kwLet+" %s = %s.copy()", name, p.src)
 		g.declare(name, elem, true, false)
 	case n < 4 && v.mutable && elem.managed():
-		g.line("overwrite[%s](%s, with: %s)", elem.src(), p.src, g.owned(elem, 1))
+		g.line("overwrite(%s, value: %s)", p.src, g.owned(elem, 1))
 	case n < 5 && elem == tCount:
 		g.line("print(\"{%s}\\n\")", p.src)
 	default:
@@ -886,7 +886,7 @@ func (g *generator) actGeneric(depth int) bool {
 		if !ok || a.src == kwSelf {
 			return false
 		}
-		g.line("overwrite[%s](%s, with: %s)", t.src(), a.src, g.owned(t, 1))
+		g.line("overwrite(%s, value: %s)", a.src, g.owned(t, 1))
 		return true
 	case 2:
 		t := g.anyType()
@@ -894,7 +894,7 @@ func (g *generator) actGeneric(depth int) bool {
 			return false
 		}
 		name := g.fresh("v")
-		g.line(kwLet+" %s = keep[%s](%s)", name, t.src(), g.owned(t, 2))
+		g.line(kwLet+" %s = keep(%s)", name, typed(t, g.owned(t, 2)))
 		g.declare(name, t, true, false)
 		return true
 	default:
@@ -903,7 +903,7 @@ func (g *generator) actGeneric(depth int) bool {
 			return false
 		}
 		name := g.fresh("v")
-		g.line(kwLet+" %s = pass2[%s](%s, b: %s, first: %s)", name, t.src(), g.owned(t, 1), g.owned(t, 1), g.boolExpr(1))
+		g.line(kwLet+" %s = pass2(%s, b: %s, first: %s)", name, typed(t, g.owned(t, 1)), typed(t, g.owned(t, 1)), g.boolExpr(1))
 		g.declare(name, t, true, false)
 		return true
 	}
@@ -1016,7 +1016,7 @@ func (g *generator) preamble() {
 	elem := g.elementType()
 	name := g.fresh("v")
 	arr := g.array(elem)
-	g.line(kwVar+" %s = %s.new()", name, arr.src())
+	g.line(kwVar+" %s = %s.new()", name, g.typeExpr(arr))
 	g.declare(name, arr, true, true)
 	g.line("%s.append(%s)", name, g.owned(elem, 2))
 	g.line("%s.append(%s)", name, g.owned(elem, 2))
@@ -1024,7 +1024,7 @@ func (g *generator) preamble() {
 		elem = g.elementType()
 		p := g.fresh("v")
 		pt := g.pool(elem)
-		g.line(kwVar+" %s = %s.new()", p, pt.src())
+		g.line(kwVar+" %s = %s.new()", p, g.typeExpr(pt))
 		g.declare(p, pt, true, true)
 		h := g.fresh("h")
 		g.line(kwLet+" %s = %s.insert(%s)", h, p, g.owned(elem, 2))
@@ -1034,7 +1034,7 @@ func (g *generator) preamble() {
 		elem = g.elementType()
 		l := g.fresh("v")
 		lt := g.list(elem)
-		g.line(kwVar+" %s = %s.new()", l, lt.src())
+		g.line(kwVar+" %s = %s.new()", l, g.typeExpr(lt))
 		g.declare(l, lt, true, true)
 		h := g.fresh("h")
 		g.line(kwLet+" %s = %s.pushBack(%s)", h, l, g.owned(elem, 2))
@@ -1044,7 +1044,7 @@ func (g *generator) preamble() {
 		key, elem := g.keyType(), g.elementType()
 		m := g.fresh("v")
 		mt := g.mapOf(key, elem)
-		g.line(kwVar+" %s = %s.new()", m, mt.src())
+		g.line(kwVar+" %s = %s.new()", m, g.typeExpr(mt))
 		g.declare(m, mt, true, true)
 		g.line("%s.insert(%s, value: %s)", m, g.keyLiteral(key), g.owned(elem, 2))
 	}
@@ -1078,7 +1078,7 @@ func Program(seed int64) string {
 		g.function(i)
 	}
 	g.mainFunction()
-	return strings.TrimRight(library, "\n") + "\n\n" + strings.Join(g.out, "\n") + "\n"
+	return strings.TrimRight(library, "\n") + "\n\n" + g.aliasDecls() + strings.Join(g.out, "\n") + "\n"
 }
 
 // anyPlace is a place of any managed type that is in scope, to be borrowed.
@@ -1140,9 +1140,9 @@ func (g *generator) bothWith(borrowed place) bool {
 		return false
 	}
 	if g.chance(50) {
-		g.line("both[%s, %s](%s, b: %s)", borrowed.t.src(), changed.t.src(), borrowed.src, changed.src)
+		g.line("both(%s, b: %s)", borrowed.src, changed.src)
 	} else {
-		g.line("both2[%s, %s](%s, b: %s)", borrowed.t.src(), changed.t.src(), borrowed.src, g.owned(changed.t, 1))
+		g.line("both2(%s, b: %s)", borrowed.src, typed(changed.t, g.owned(changed.t, 1)))
 	}
 	return true
 }
@@ -1159,7 +1159,7 @@ func (g *generator) actSet(depth int) bool {
 	}
 	name := g.fresh("v")
 	g.line(kwVar+" %s "+kwAs+" %s", name, t.src())
-	g.line("fill[%s](%s, from: %s)", t.src(), name, p.src)
+	g.line("fill(%s, from: %s)", name, p.src)
 	g.declare(name, t, true, true)
 	return true
 }
@@ -1201,17 +1201,17 @@ func (g *generator) actTargetHold(depth int) bool {
 		var call string
 		switch v.t.kind {
 		case kArray:
-			call = fmt.Sprintf("churn[%s](%s)", elem.src(), v.name)
+			call = fmt.Sprintf("churn(%s)", v.name)
 		case kList:
-			call = fmt.Sprintf("churnList[%s](%s)", elem.src(), v.name)
+			call = fmt.Sprintf("churnList(%s)", v.name)
 		case kMap:
 			if v.t.args[0] != tString {
 				g.line("print(\"-\\n\")")
 				return
 			}
-			call = fmt.Sprintf("churnMap[%s](%s)", elem.src(), v.name)
+			call = fmt.Sprintf("churnMap(%s)", v.name)
 		default:
-			call = fmt.Sprintf("churnPool[%s](%s, x: %s)", elem.src(), v.name, g.owned(elem, 1))
+			call = fmt.Sprintf("churnPool(%s, x: %s)", v.name, g.owned(elem, 1))
 		}
 		g.line("%s = %s", target, call)
 	})
