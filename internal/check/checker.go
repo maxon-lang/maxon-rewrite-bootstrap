@@ -98,9 +98,6 @@ func (c *Checker) Verify(calls []ast.PendingCall) {
 }
 
 func (c *Checker) resolve(tr *ast.TypeRef, self ast.NominalTy) ast.Ty {
-	if tr.Capability != "" {
-		panic(tr.Error(diag.ErrUnsupported, fmt.Sprintf("the '%s' capability is not supported by minimaxon", tr.Capability)))
-	}
 	if len(tr.Qualifier) == 0 {
 		switch tr.Name {
 		case "bool":
@@ -153,15 +150,15 @@ func (c *Checker) declareMembers(d ast.Decl) {
 				panic(cs.Error(diag.ErrEnumDuplicateCase, fmt.Sprintf("case '%s' is declared twice", cs.Name)))
 			}
 			raw := next
-			if cs.HasRaw {
-				raw = cs.Raw
+			if cs.Raw != nil {
+				raw = cs.Raw.Value()
 			}
 			for _, r := range et.Raw {
 				if r == raw {
 					panic(cs.Error("E3031", fmt.Sprintf("raw value %s is used twice", raw.String())))
 				}
 			}
-			et.HasExplicitRaw = et.HasExplicitRaw || cs.HasRaw
+			et.HasExplicitRaw = et.HasExplicitRaw || cs.Raw != nil
 			et.Cases = append(et.Cases, cs.Name)
 			et.Raw = append(et.Raw, raw)
 			next = raw.Add(ast.One)
@@ -174,6 +171,9 @@ func (c *Checker) declareMembers(d ast.Decl) {
 			}
 			payload := make([]ast.PayloadField, 0, len(cs.Fields))
 			for _, f := range cs.Fields {
+				if f.Mutable {
+					panic(f.Error(diag.ErrUnexpectedToken, "a union payload is not a parameter and takes no 'mutable'"))
+				}
 				payload = append(payload, ast.PayloadField{Name: f.Name, Type: c.resolve(f.Type, ut)})
 			}
 			ut.Cases = append(ut.Cases, &ast.UnionCase{Name: cs.Name, Payload: payload})
@@ -198,6 +198,12 @@ func (c *Checker) addMethods(methods []*ast.FuncDecl, nt ast.NominalTy, declared
 }
 
 func (c *Checker) addFunction(f *ast.FuncDecl, nt ast.NominalTy, declared *[]*ast.FuncDecl) {
+	if nt == nil && f.IsStatic {
+		panic(f.Error("E2015", "a static function belongs in a 'type'"))
+	}
+	if f.Receiver != "" && (nt == nil || f.IsStatic) {
+		panic(f.Error(diag.ErrUnexpectedToken, "only an instance method takes a receiver parameter"))
+	}
 	f.Owner = nt
 	names := map[string]bool{}
 	for _, prm := range f.Params {
@@ -444,7 +450,7 @@ func (termination) VisitIfStmt(t *ast.IfStmt) bool {
 
 func (termination) VisitMatchStmt(t *ast.MatchStmt) bool {
 	for _, a := range t.Match.Arms {
-		if !(a.Kind == ast.ArmPanic || (a.Action != nil && ast.VisitStmtResult[bool](termination{}, a.Action))) {
+		if !(a.Kind() == ast.ArmPanic || (a.Action != nil && ast.VisitStmtResult[bool](termination{}, a.Action))) {
 			return false
 		}
 	}
@@ -580,7 +586,7 @@ func (c *Checker) checkExpr(e ast.Expr) ast.Ty {
 	return t
 }
 
-func (c *Checker) VisitIntLit(x *ast.IntLit) ast.Ty { return &ast.ConstIntTy{Value: x.Value} }
+func (c *Checker) VisitIntLit(x *ast.IntLit) ast.Ty { return &ast.ConstIntTy{Value: x.Value()} }
 
 func (c *Checker) VisitBoolLit(*ast.BoolLit) ast.Ty { return ast.BoolTy }
 
@@ -1070,10 +1076,10 @@ func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
 	for _, sf := range s.Fields {
 		f := rt.Field(sf.Name)
 		if f == nil {
-			panic(sf.Site.Error(diag.ErrUnknownField, fmt.Sprintf("'%s' has no field '%s'", rt.Name(), sf.Name)))
+			panic(sf.Error(diag.ErrUnknownField, fmt.Sprintf("'%s' has no field '%s'", rt.Name(), sf.Name)))
 		}
 		if s.Ordered[f.Index] != nil {
-			panic(sf.Site.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is given twice", sf.Name)))
+			panic(sf.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is given twice", sf.Name)))
 		}
 		c.checkExpr(sf.Value)
 		c.coerce(sf.Value, f.Type, fmt.Sprintf("field '%s'", sf.Name))
@@ -1112,7 +1118,14 @@ func (c *Checker) checkStmt(s ast.Stmt) {
 
 func (c *Checker) VisitDiscardStmt(t *ast.DiscardStmt) { c.checkExpr(t.Value) }
 
-func (c *Checker) VisitExprStmt(t *ast.ExprStmt) { c.checkExpr(t.E) }
+func (c *Checker) VisitExprStmt(t *ast.ExprStmt) {
+	switch t.E.(type) {
+	case *ast.CallExpr, *ast.PanicExpr:
+	default:
+		panic(t.Error(diag.ErrUnexpectedToken, "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='"))
+	}
+	c.checkExpr(t.E)
+}
 
 func (c *Checker) VisitIfStmt(t *ast.IfStmt) {
 	c.requireBool(t.Cond)
@@ -1279,7 +1292,7 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 	for _, arm := range m.Arms {
 		c.guard(func() {
 			if arm.IsDefault {
-				if isCases && arm.Kind != ast.ArmPanic {
+				if isCases && arm.Kind() != ast.ArmPanic {
 					panic(arm.Error(diag.ErrMatchDefaultEnumMustThrow, "on an enum or union, 'default' is 'default panic(...)'"))
 				}
 				hasDefault = true
@@ -1306,10 +1319,14 @@ func (c *Checker) checkArm(arm *ast.MatchArm, st ast.Ty, isExpr bool, seen map[i
 		c.checkPattern(pat, st, len(arm.Patterns), seen, seenBools)
 	}
 
-	switch arm.Kind {
+	switch arm.Kind() {
 	case ast.ArmThen:
 		if isExpr {
 			panic(arm.Error(diag.ErrUnexpectedToken, "an arm of a match expression 'gives' a value"))
+		}
+		switch arm.Action.(type) {
+		case *ast.IfStmt, *ast.WhileStmt, *ast.ForStmt, *ast.MatchStmt:
+			panic(arm.Action.P().Error(diag.ErrMatchBlockStatement, "a block statement cannot be a match arm's action; move it into a function and call that"))
 		}
 		c.checkStmt(arm.Action)
 	case ast.ArmGives:
@@ -1358,7 +1375,7 @@ func (c *Checker) checkExhaustive(m *ast.MatchCore, st ast.Ty, hasDefault bool, 
 }
 
 func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, altCount int, seen map[int]bool, seenBools map[bool]bool) {
-	switch pat.Kind {
+	switch pat.Kind() {
 	case ast.PatternCase:
 		switch t := st.(type) {
 		case *ast.EnumTy:

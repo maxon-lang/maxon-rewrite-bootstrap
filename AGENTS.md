@@ -68,9 +68,10 @@ go test ./...
   in one place that every caller goes through.
 - **No workarounds.** Fix the cause. A symptom without a mechanism is the next thing to debug, never a known issue to
   describe as unexplained.
-- **Never hand-write what the spec generates.** AST nodes and enums are edited in `internal/ast/nodes.spec`,
-  then `go generate ./internal/ast`. Code that handles every member of `Decl`, `TypeDeclNode`, `Stmt` or `Expr`
-  implements a generated visitor, never a type switch, so a new node fails the build where it is not handled yet.
+- **Never hand-write what the grammar generates.** Syntax, AST nodes, tokens and keywords are edited in
+  `internal/syntax/Maxon.g4`, then `go generate ./internal/syntax`; never edit a `*_gen.go` file. Code that handles
+  every member of `Decl`, `TypeDeclNode`, `Stmt` or `Expr` implements a generated visitor, never a type switch, so a
+  new node fails the build where it is not handled yet.
 - **No silent unhandled cases.** A type switch or `if` chain that does not cover every case ends in a panic with a
   `diag.Internal` error, never a default value. No sentinel return values.
 - **Diagnostics are deterministic and name the fix.** A compile error is a property of the program, says what is

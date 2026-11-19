@@ -4,8 +4,6 @@ import (
 	"minimaxon/internal/diag"
 )
 
-//go:generate go run minimaxon/internal/astgen
-
 type Pos struct {
 	File string
 	Line int
@@ -22,6 +20,10 @@ type Node interface {
 	P() *Pos
 }
 
+type Program struct {
+	Decls []Decl
+}
+
 type Decl interface {
 	Node
 	Base() *DeclBase
@@ -33,10 +35,10 @@ func (d *DeclBase) IsExported() bool { return d.Visibility == "export" || d.Visi
 
 type TypeDeclNode interface {
 	Decl
-	TypeBase() *TypeDeclBase
+	TypeBase() *TypeDeclNodeBase
 }
 
-func (t *TypeDeclBase) TypeBase() *TypeDeclBase { return t }
+func (t *TypeDeclNodeBase) TypeBase() *TypeDeclNodeBase { return t }
 
 func (f *FuncDecl) Symbol() string {
 	if f.Owner == nil {
@@ -63,6 +65,13 @@ type Expr interface {
 func (e *ExprBase) Ty() Ty     { return e.Type }
 func (e *ExprBase) SetTy(t Ty) { e.Type = t }
 
+func (l *IntLit) Value() I128 {
+	if l.Negative {
+		return l.Magnitude.Neg()
+	}
+	return l.Magnitude
+}
+
 func (s *StrLit) IsPlain() bool {
 	for _, p := range s.Parts {
 		if _, ok := p.(string); !ok {
@@ -70,4 +79,24 @@ func (s *StrLit) IsPlain() bool {
 		}
 	}
 	return true
+}
+
+func (p *Pattern) Kind() PatternKind {
+	switch {
+	case p.CaseName != "":
+		return PatternCase
+	case p.High != nil:
+		return PatternRange
+	}
+	return PatternLiteral
+}
+
+func (a *MatchArm) Kind() ArmKind {
+	switch {
+	case a.Action != nil:
+		return ArmThen
+	case a.Gives:
+		return ArmGives
+	}
+	return ArmPanic
 }

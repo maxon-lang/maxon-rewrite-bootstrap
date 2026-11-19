@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	"minimaxon/internal/diag"
 )
 
 type Ty interface {
@@ -177,7 +178,60 @@ func Shell(d TypeDeclNode) Ty {
 
 type shell struct{}
 
-func (shell) VisitAliasDecl(t *AliasDecl) Ty { return &IntTy{Alias: t.Name, Min: t.Min, Max: t.Max} }
+func (shell) VisitAliasDecl(t *AliasDecl) Ty {
+	lo, hi := t.Low.value(), t.High.value()
+	if !t.Inclusive {
+		hi = hi.Sub(One)
+	}
+	if lo.Gt(hi) {
+		panic(t.Error(diag.ErrTypeMismatch, fmt.Sprintf("the range of '%s' is empty", t.Name)))
+	}
+	if lo.IsNeg() && hi.Gt(I64Max) {
+		panic(t.Error(diag.ErrTypeMismatch, "an integer range cannot span both negative values and values above i64.max"))
+	}
+	return &IntTy{Alias: t.Name, Min: lo, Max: hi}
+}
+
+// sizedRanges are the bounds a range can name as, for example, i64.min.
+var sizedRanges = map[string][2]I128{
+	"u8":  {Zero, I64(255)},
+	"u16": {Zero, I64(65535)},
+	"u32": {Zero, I64(4294967295)},
+	"u64": {Zero, U64Max},
+	"i8":  {I64(-128), I64(127)},
+	"i16": {I64(-32768), I64(32767)},
+	"i32": {I64(-2147483648), I64(2147483647)},
+	"i64": {I64Min, I64Max},
+}
+
+func (b *Bound) value() I128 {
+	v := b.Value
+	if b.Sized != "" {
+		r, ok := sizedRanges[b.Sized]
+		if !ok {
+			panic(b.Error(diag.ErrUnknownType, fmt.Sprintf("'%s' is not a sized integer; a bound names one of u8, u16, u32, u64, i8, i16, i32 or i64", b.Sized)))
+		}
+		switch b.Limit {
+		case "min":
+			v = r[0]
+		case "max":
+			v = r[1]
+		default:
+			panic(b.Error(diag.ErrUnknownField, fmt.Sprintf("'%s.%s' is not a bound; write '%s.min' or '%s.max'", b.Sized, b.Limit, b.Sized, b.Sized)))
+		}
+	}
+	if b.Negative {
+		return v.Neg()
+	}
+	return v
+}
+
+// ParamSpec is a parameter as the checker resolved it.
+type ParamSpec struct {
+	Name  string
+	Type  Ty
+	ByRef bool
+}
 
 func (shell) VisitTypeDecl(t *TypeDecl) Ty { return NewRecordTy(t) }
 

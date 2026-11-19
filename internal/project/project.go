@@ -66,9 +66,7 @@ func addDirectory(p *ast.Project, m *ast.Module, errs *[]*diag.CompileError, mu 
 	children := make([]*ast.Module, len(subs))
 	var wg sync.WaitGroup
 	for i, name := range subs {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			childPath := name
 			if m.Path != "" {
 				childPath = m.Path + "." + name
@@ -86,7 +84,7 @@ func addDirectory(p *ast.Project, m *ast.Module, errs *[]*diag.CompileError, mu 
 				return
 			}
 			children[i] = child
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -114,7 +112,7 @@ func BuildTables(p *ast.Project, jobs int) {
 				method.Module = m
 			}
 			if tb, ok := d.(ast.TypeDeclNode); ok {
-				tb.TypeBase().Ty = ast.Shell(tb)
+				diag.Guard(&m.Errors, func() { tb.TypeBase().Ty = ast.Shell(tb) })
 			}
 			if kept, ok := m.Names[b.Name]; ok {
 				k := kept.P()

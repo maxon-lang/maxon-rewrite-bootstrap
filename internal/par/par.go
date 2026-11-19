@@ -13,7 +13,7 @@ func ForEach[T any](items []T, jobs int, work func(T)) {
 
 func ForEachIndex(n, jobs int, work func(int)) {
 	if jobs <= 1 || n <= 1 {
-		for i := 0; i < n; i++ {
+		for i := range n {
 			work(i)
 		}
 		return
@@ -23,10 +23,8 @@ func ForEachIndex(n, jobs int, work func(int)) {
 	var wg sync.WaitGroup
 	var failure any
 	workers := min(jobs, n)
-	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range workers {
+		wg.Go(func() {
 			defer func() {
 				if r := recover(); r != nil {
 					if _, wrapped := r.(*WorkerPanic); !wrapped {
@@ -46,7 +44,7 @@ func ForEachIndex(n, jobs int, work func(int)) {
 				}
 				work(i)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	if failure != nil {

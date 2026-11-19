@@ -69,7 +69,7 @@ func NewProject(root *Module) *Project {
 		{"Count", Zero, U64Max},
 		{"FullRangeInt", I64Min, I64Max},
 	} {
-		alias := &AliasDecl{Min: b.min, Max: b.max}
+		alias := NewAliasDecl()
 		alias.Name = b.name
 		alias.Visibility = "public"
 		alias.Module = p.Stdlib

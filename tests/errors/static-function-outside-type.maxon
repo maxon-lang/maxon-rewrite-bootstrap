@@ -1,0 +1,9 @@
+static function helper() returns ExitCode
+	return 0
+end 'helper'
+
+function main() returns ExitCode
+	return helper()
+end 'main'
+
+// expect-error: E2015 at 1:1

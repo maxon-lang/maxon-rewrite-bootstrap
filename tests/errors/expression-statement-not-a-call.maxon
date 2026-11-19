@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let x = 1 as ExitCode
+	x + 1
+	return x
+end 'main'
+
+// expect-error: E2001 at 3:2

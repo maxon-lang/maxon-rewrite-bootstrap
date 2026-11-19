@@ -1,0 +1,12 @@
+function main() returns ExitCode
+	let x = 1 as ExitCode
+	match x 'm'
+		1 then while false 'w'
+			return 1
+		end 'w'
+		default then return 0
+	end 'm'
+	return x
+end 'main'
+
+// expect-error: E2049 at 4:10

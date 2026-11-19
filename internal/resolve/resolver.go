@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"fmt"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"strings"
@@ -39,6 +40,7 @@ func (r *Resolver) VisitFuncDecl(d *ast.FuncDecl) {
 }
 
 func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
+	checkEnd(d.Name, d.End)
 	for _, f := range d.Fields {
 		if f.Type != nil {
 			r.resolveType(f.Type)
@@ -58,12 +60,14 @@ func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
 }
 
 func (r *Resolver) VisitEnumDecl(d *ast.EnumDecl) {
+	checkEnd(d.Name, d.End)
 	for _, m := range d.Methods {
 		r.resolveFunction(m, nil)
 	}
 }
 
 func (r *Resolver) VisitUnionDecl(d *ast.UnionDecl) {
+	checkEnd(d.Name, d.End)
 	for _, c := range d.Cases {
 		for _, p := range c.Fields {
 			r.resolveType(p.Type)
@@ -81,12 +85,20 @@ func (r *Resolver) VisitConstDecl(d *ast.ConstDecl) {
 
 func (r *Resolver) VisitAliasDecl(*ast.AliasDecl) {}
 
+// checkEnd refuses an 'end' whose label is not the block's.
+func checkEnd(label string, end *ast.EndLabel) {
+	if end != nil && end.Name != label {
+		panic(end.Error(diag.ErrMismatchedEndLabel, fmt.Sprintf("'end' names '%s', but the block is '%s'", end.Name, label)))
+	}
+}
+
 func (r *Resolver) enter(fieldNames map[string]bool) {
 	r.scopes = []map[string]bool{{}}
 	r.fields = fieldNames
 }
 
 func (r *Resolver) resolveFunction(f *ast.FuncDecl, instanceOf *ast.TypeDecl) {
+	checkEnd(f.Name, f.End)
 	for _, p := range f.Params {
 		r.resolveType(p.Type)
 	}
@@ -158,6 +170,8 @@ func (r *Resolver) VisitExprStmt(s *ast.ExprStmt) {
 }
 
 func (r *Resolver) VisitIfStmt(s *ast.IfStmt) {
+	checkEnd(s.Label, s.End)
+	checkEnd(s.ElseLabel, s.ElseEnd)
 	s.Cond = r.expr(s.Cond)
 	r.block(s.Then)
 	if s.HasElse {
@@ -166,11 +180,13 @@ func (r *Resolver) VisitIfStmt(s *ast.IfStmt) {
 }
 
 func (r *Resolver) VisitWhileStmt(s *ast.WhileStmt) {
+	checkEnd(s.Label, s.End)
 	s.Cond = r.expr(s.Cond)
 	r.block(s.Body)
 }
 
 func (r *Resolver) VisitForStmt(s *ast.ForStmt) {
+	checkEnd(s.Label, s.End)
 	s.From = r.expr(s.From)
 	s.To = r.expr(s.To)
 	r.pushScope(s.Var)
@@ -193,6 +209,7 @@ func (r *Resolver) VisitBreakStmt(*ast.BreakStmt) {}
 func (r *Resolver) VisitContinueStmt(*ast.ContinueStmt) {}
 
 func (r *Resolver) match(m *ast.MatchCore) {
+	checkEnd(m.Label, m.End)
 	m.Subject = r.expr(m.Subject)
 	for _, arm := range m.Arms {
 		var names []string
@@ -270,11 +287,9 @@ func (r *Resolver) VisitStructLitExpr(e *ast.StructLitExpr) ast.Expr {
 	if e.TypeName != "Self" {
 		e.Target = r.take(r.bare(e.TypeName), e)
 	}
-	fields := make([]ast.StructField, len(e.Fields))
-	for i, f := range e.Fields {
-		fields[i] = ast.StructField{Name: f.Name, Value: r.expr(f.Value), Site: f.Site}
+	for _, f := range e.Fields {
+		f.Value = r.expr(f.Value)
 	}
-	e.Fields = fields
 	return e
 }
 

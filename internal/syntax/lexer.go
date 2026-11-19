@@ -7,39 +7,6 @@ import (
 	"unicode/utf8"
 )
 
-type T int
-
-const (
-	TIdent T = iota
-	TInt
-	TStr
-	TQuote
-	TNewline
-	TFileEnd
-	TEof
-	TLParen
-	TRParen
-	TLBrace
-	TRBrace
-	TLBracket
-	TRBracket
-	TComma
-	TColon
-	TDot
-	TPlus
-	TMinus
-	TStar
-	TSlash
-	TAssign
-	TEqEq
-	TNotEq
-	TLt
-	TLe
-	TGt
-	TGe
-	TAt
-)
-
 type StrPart interface {
 	strPart()
 }
@@ -71,8 +38,6 @@ func (t Token) Parts() []StrPart {
 	parts, _ := t.Payload.([]StrPart)
 	return parts
 }
-
-func (t Token) Is(word string) bool { return t.Kind == TIdent && t.Text == word }
 
 type FileSlice struct {
 	File  string
@@ -182,7 +147,12 @@ func (lx *Lexer) lexSlice() {
 			for lx.pos < lx.end && (isAsciiLetter(lx.src[lx.pos]) || isAsciiDigit(lx.src[lx.pos]) || lx.src[lx.pos] == '_') {
 				lx.advance()
 			}
-			lx.toks = append(lx.toks, Token{Kind: TIdent, Text: lx.intern(lx.src[start:lx.pos]), Line: l, Col: cl})
+			text := lx.intern(lx.src[start:lx.pos])
+			kind := TName
+			if k, ok := keywordKinds[text]; ok {
+				kind = k
+			}
+			lx.toks = append(lx.toks, Token{Kind: kind, Text: text, Line: l, Col: cl})
 			continue
 		}
 
@@ -318,7 +288,7 @@ func (lx *Lexer) lexNumber(l, cl int) {
 		panic(lx.fail(diag.ErrUnsupported, "float literals are not supported by minimaxon", l, cl))
 	}
 
-	lx.toks = append(lx.toks, Token{Kind: TInt, Text: lx.intern(lx.src[literal:lx.pos]), Line: l, Col: cl, Payload: value})
+	lx.toks = append(lx.toks, Token{Kind: TInteger, Text: lx.intern(lx.src[literal:lx.pos]), Line: l, Col: cl, Payload: value})
 }
 
 func (lx *Lexer) readEscape(l, cl int) rune {
@@ -441,7 +411,7 @@ func (lx *Lexer) lexString(l, cl int) {
 	if len(text) > 0 || len(parts) == 0 {
 		parts = append(parts, TextPart{Text: string(text)})
 	}
-	lx.toks = append(lx.toks, Token{Kind: TStr, Text: stringText, Line: l, Col: cl, Payload: parts})
+	lx.toks = append(lx.toks, Token{Kind: TString, Text: stringText, Line: l, Col: cl, Payload: parts})
 }
 
 func (lx *Lexer) lexQuote(l, cl int) {
@@ -455,80 +425,20 @@ func (lx *Lexer) lexQuote(l, cl int) {
 	}
 	text := lx.intern(lx.src[start:lx.pos])
 	lx.advance()
-	lx.toks = append(lx.toks, Token{Kind: TQuote, Text: text, Line: l, Col: cl})
+	lx.toks = append(lx.toks, Token{Kind: TLabel, Text: text, Line: l, Col: cl})
 }
 
 func (lx *Lexer) lexPunct(c byte, l, cl int) {
-	var kind T
-	length := 1
-	switch c {
-	case '(':
-		kind = TLParen
-		lx.depth++
-	case ')':
-		kind = TRParen
-		lx.depth = max(0, lx.depth-1)
-	case '{':
-		kind = TLBrace
-		lx.depth++
-	case '}':
-		kind = TRBrace
-		lx.depth = max(0, lx.depth-1)
-	case '[':
-		kind = TLBracket
-		lx.depth++
-	case ']':
-		kind = TRBracket
-		lx.depth = max(0, lx.depth-1)
-	case ',':
-		kind = TComma
-	case ':':
-		kind = TColon
-	case '.':
-		kind = TDot
-	case '+':
-		kind = TPlus
-	case '-':
-		kind = TMinus
-	case '*':
-		kind = TStar
-	case '/':
-		kind = TSlash
-	case '@':
-		kind = TAt
-	case '=':
-		if lx.peek(1) == '=' {
-			kind = TEqEq
-			length = 2
-		} else {
-			kind = TAssign
-		}
-	case '!':
-		if lx.peek(1) != '=' {
-			panic(lx.fail(diag.ErrUnexpectedToken, "unexpected character '!'", l, cl))
-		}
-		kind = TNotEq
-		length = 2
-	case '<':
-		if lx.peek(1) == '=' {
-			kind = TLe
-			length = 2
-		} else {
-			kind = TLt
-		}
-	case '>':
-		if lx.peek(1) == '=' {
-			kind = TGe
-			length = 2
-		} else {
-			kind = TGt
-		}
-	case '#':
-		panic(lx.fail(diag.ErrUnsupported, "conditional compilation is not supported by minimaxon", l, cl))
-	default:
+	kind, length, ok := matchPunctuation(c, lx.peek(1))
+	if !ok {
 		panic(lx.fail(diag.ErrUnexpectedToken, "unexpected character '"+string(lx.runeAt(lx.pos))+"'", l, cl))
 	}
-
+	switch kind {
+	case TLParen, TLBrace:
+		lx.depth++
+	case TRParen, TRBrace:
+		lx.depth = max(0, lx.depth-1)
+	}
 	text := lx.intern(lx.src[lx.pos : lx.pos+length])
 	for i := 0; i < length; i++ {
 		lx.advance()

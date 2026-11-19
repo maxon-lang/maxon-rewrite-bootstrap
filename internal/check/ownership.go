@@ -241,7 +241,7 @@ func (o *Ownership) match(m *ast.MatchCore, s *ownState) *ownState {
 			a = o.stmt(arm.Action, a)
 		} else if arm.Value != nil {
 			a = o.expr(arm.Value, a)
-			if arm.Kind == ast.ArmPanic {
+			if arm.Kind() == ast.ArmPanic {
 				a = ownUnreachable
 			}
 		}

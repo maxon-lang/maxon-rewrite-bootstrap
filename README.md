@@ -1,7 +1,8 @@
 # minimaxon
 
 A small Maxon compiler for trying out language changes, and the seed of the next full Maxon compiler. It is
-written in Go, targets x64 Windows only, and is about 8,800 hand-written lines in eleven packages. It compiles modules in parallel and writes a
+written in Go, targets x64 Windows only, and is about 7,700 hand-written lines in ten packages, plus the generator
+that writes its parser and AST. It compiles modules in parallel and writes a
 PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it. It
@@ -100,25 +101,39 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 |---|---|---|
 | `diag` | `CompileError`, `Guard`, the error codes | — |
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines | — |
-| `astgen` | the command that generates `ast`'s nodes and visitors from `nodes.spec` (not imported) | � |
-| `ast` | the program model: AST nodes, semantic types, `I128`, `Module` and `Project`, keywords | `diag` |
+| `ast` | the program model: AST nodes, keywords and visitors (generated), semantic types, `I128`, `Module` and `Project` | `diag` |
 | `project` | loading a project: discovery, declaration tables, the import-cycle check | `ast`, `diag`, `par` |
-| `syntax` | module source buffers, the lexer and the parser | `ast`, `diag` |
+| `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, and the parser generated from the grammar | `ast`, `diag` |
 | `resolve` | name resolution | `ast`, `diag` |
 | `check` | the type checker and the ownership pass | `ast`, `diag` |
 | `ir` | the IR, its printer, lowering, and the runtime's symbol names | `ast`, `diag` |
 | `backend` | the x64 encoder, codegen, the runtime unit, the linker and the PE writer | `ast`, `diag`, `ir`, `par` |
 | `driver` | `Compile`: runs the phases | all of the above |
 
-The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner.
+The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
+that generates code from the grammar; nothing imports it.
 
 ### Generated code
 
 Code that only restates a fact is generated from the one place that fact is written, so it cannot drift from it
-or be written wrong. `internal/ast/nodes.spec` lists every AST node, its fields, the AST's enums, and the closed
-sets a phase dispatches over (`Decl`, `TypeDeclNode`, `Stmt`, `Expr`). `internal/astgen` turns it into
-`internal/ast/nodes_gen.go`: the structs, the constants, and for each set three visitor interfaces with one method
-per member and a dispatch function for each:
+or be written wrong. That place is `internal/syntax/Maxon.g4`, the grammar, in a subset of ANTLR 4 notation that its
+header explains. It says how each construct is written and which AST node it builds: a label such as `cond=expr` is
+a field of the node, `@ast::Node { ... }` adds the fields later phases fill in, and a rule whose alternatives are
+nodes, such as `stmt` or `expr`, is a closed set of them. `internal/grammargen` turns it into:
+
+| File | Holds |
+|---|---|
+| `internal/syntax/parser_gen.go` | a recursive-descent parser with one function per rule; operator precedence comes from the order of `expr`'s alternatives |
+| `internal/syntax/tokens_gen.go` | the token kinds, the keyword table and the punctuation matcher the lexer uses |
+| `internal/ast/nodes_gen.go` | the node structs and constructors, the reserved words, and three visitors per set |
+
+The parser decides with one token of lookahead, or two where one is not enough. Where two alternatives start with
+the same rule, as an assignment and an expression statement both start with an expression, it parses that rule once
+and the token after it decides. A syntax error names what the grammar allows at that point, such as
+`expected an expression, found ')'`. The lexer, the loop over a module's declarations, and the conversion of a
+token to a field that is not its text (`intLitMagnitude`, `strLitParts`, `boundValue`) are hand-written in `syntax`.
+
+Each set gets three visitor interfaces with one method per member, and a dispatch function for each:
 
 | Visitor | Method | Dispatch |
 |---|---|---|
@@ -128,13 +143,13 @@ per member and a dispatch function for each:
 
 Code that handles every member of a set goes through a visitor rather than a type switch, so adding a member
 fails `go build` in each phase that has not handled it yet. A type switch remains only where code asks about a
-few members, such as whether an expression can be assigned to. Regenerate after editing the spec:
+few members, such as whether an expression can be assigned to. Regenerate after editing the grammar:
 
 ```powershell
-go generate ./internal/ast
+go generate ./internal/syntax
 ```
 
-`go test ./internal/astgen` fails if `nodes_gen.go` is not what the spec generates. A package exports only what another
+`go test ./internal/grammargen` fails if a generated file is not what the grammar generates. A package exports only what another
 package uses. The AST nodes still carry their semantic types directly, which is why `ast` holds both; moving type
 information into side tables, as `go/ast` and `go/types` do, would let the two separate.
 
@@ -151,7 +166,7 @@ unit per item). Results are merged in source order, which keeps the output deter
 | Phase | Package | Work per module |
 |---|---|---|
 | discover | `project` | walks the directory tree, one goroutine per subdirectory |
-| parse | `syntax` | reads the module's files into one buffer, strips comments, lexes the whole buffer in one pass and parses the token stream into the AST; anything outside the subset is `E9000` |
+| parse | `syntax` | reads the module's files into one buffer, strips comments, lexes the whole buffer in one pass and parses the token stream into the AST; anything the grammar does not allow is a syntax error |
 | tables | `project` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
 | resolve | `resolve` | binds every name to its declaration and records module dependencies |
 | declare | `check` | the module's fields, cases and function signatures |
@@ -242,8 +257,10 @@ checked where the result is computed. `as` checks at compile time for a constant
 - `/` and `mod` panic on a zero divisor instead of throwing `DivisionByZero` under `try`.
 - No alias subtyping (`implements`), floats, characters, arrays, tuples, generics, interfaces, closures,
   `try`/`throws`, async, services, region capabilities (`isolated`, `immutable`, `modify`, `freeze`), static
-  fields, default parameters, format specifiers, or `#if`. Each of these is parsed far enough to report
-  `E9000`.
+  fields, default parameters, format specifiers, or `#if`. The grammar has none of them, so each is a syntax
+  error.
+- The reserved words are exactly the keywords the grammar uses, so a word Maxon reserves for a feature minimaxon
+  lacks is an ordinary name, and a word such as `mutable` that Maxon reads by context is reserved.
 - Modules differ from Maxon in three ways. Visibility is flat, not "the directory and its subdirectories".
   Import cycles are refused. And the rule that an exported signature may not name a less visible type
   (`E3167`) is not checked.
@@ -256,10 +273,10 @@ checked where the result is computed. `as` checks at compile time for a constant
 
 A typical change touches one file per stage:
 
-1. **Syntax:** the node in `internal/ast/nodes.spec`, then `go generate ./internal/ast`, and a branch in
-   `internal/syntax` (`parseStatement`, `parsePrimary` and their helpers). If the word was an `unsupported(...)`
-   refusal, that call is where the new production goes. `go build` now names every visitor that lacks the node's
-   `Visit` method; the steps below fill them in.
+1. **Syntax:** a rule in `internal/syntax/Maxon.g4`, listed in the set it belongs to (`stmt`, `expr`, `decl`), with
+   an `@ast::Node` block for the fields later phases fill in; then `go generate ./internal/syntax`. That writes the
+   node, its parse function and its keywords. `go build` now names every visitor that lacks the node's `Visit`
+   method, and any token conversion the grammar asks for; the steps below fill them in.
 2. **Resolution:** `Visit<Node>` on `Resolver`, binding any names the node holds.
 3. **Typing:** `Visit<Node>` on `Checker`, and on `termination` for a statement. Store what codegen needs on the
    node. Read another module's types and signatures freely, but never write them: only the declare phase writes

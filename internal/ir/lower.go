@@ -299,7 +299,7 @@ func (l *Lowerer) expr(e ast.Expr) V {
 	return ast.VisitExprResult[V](l, e)
 }
 
-func (l *Lowerer) VisitIntLit(e *ast.IntLit) V { return l.konst(e.Value.Bits()) }
+func (l *Lowerer) VisitIntLit(e *ast.IntLit) V { return l.konst(e.Value().Bits()) }
 
 func (l *Lowerer) VisitBoolLit(e *ast.BoolLit) V {
 	if e.Value {
@@ -747,7 +747,7 @@ func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 			}
 		}
 
-		switch arm.Kind {
+		switch arm.Kind() {
 		case ast.ArmThen:
 			l.stmt(arm.Action)
 		case ast.ArmGives:
@@ -775,7 +775,7 @@ func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body *IrBlock) {
 	unsigned := isUnsignedInt(st)
 	fail := l.f.NewBlock()
 	switch {
-	case pat.Kind == ast.PatternCase:
+	case pat.Kind() == ast.PatternCase:
 		scrutinee := subject
 		if _, ok := st.(*ast.UnionTy); ok {
 			scrutinee = l.tag(subject)
@@ -783,12 +783,12 @@ func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body *IrBlock) {
 		idx := l.konst(int64(pat.CaseIndex))
 		cmp := l.compare(CmpEq, scrutinee, idx, false)
 		l.cur.Term = &BranchTerm{Cond: cmp, Then: body, Else: fail}
-	case pat.Kind == ast.PatternLiteral && st == ast.Ty(ast.StringTy):
+	case pat.Kind() == ast.PatternLiteral && st == ast.Ty(ast.StringTy):
 		testBlock := l.cur
 		lit := l.expr(pat.Value)
 		eq := l.runtime(RtStreq, KindScalar, subject, lit)
 		testBlock.Term = &BranchTerm{Cond: eq, Then: body, Else: fail}
-	case pat.Kind == ast.PatternLiteral:
+	case pat.Kind() == ast.PatternLiteral:
 		var value int64
 		if bl, ok := pat.Value.(*ast.BoolLit); ok {
 			if bl.Value {
@@ -800,7 +800,7 @@ func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body *IrBlock) {
 		c := l.konst(value)
 		cmp := l.compare(CmpEq, subject, c, unsigned)
 		l.cur.Term = &BranchTerm{Cond: cmp, Then: body, Else: fail}
-	case pat.Kind == ast.PatternRange:
+	case pat.Kind() == ast.PatternRange:
 		lo := pat.Value.Ty().(*ast.ConstIntTy).Value
 		hi := pat.High.Ty().(*ast.ConstIntTy).Value
 		if !pat.Inclusive {

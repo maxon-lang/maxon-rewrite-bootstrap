@@ -126,3 +126,10 @@ function main() returns ExitCode
 end 'main'
 `), diag.ErrUseAfterMove)
 }
+
+func TestEndLabelMustNameItsBlock(t *testing.T) {
+	expectCodes(t, checkSource(t, `function main() returns ExitCode
+	return 0
+end 'mian'
+`), diag.ErrMismatchedEndLabel)
+}
