@@ -8,54 +8,98 @@ import (
 	"minimaxon/internal/diag"
 )
 
-func lexFiles(files ...string) ([]Token, []string) {
+func sourceOf(files ...string) *Source {
 	var buf []byte
 	var slices []FileSlice
-	var names []string
 	for i, src := range files {
 		name := string(rune('a'+i)) + ".maxon"
 		slices = append(slices, FileSlice{File: name, Begin: len(buf), End: len(buf) + len(src)})
 		buf = append(buf, src...)
-		names = append(names, name)
 	}
-	return Lex(string(buf), slices, nil), names
+	return NewSource(string(buf), slices)
 }
 
 func parseFiles(t *testing.T, files ...string) (*ast.Program, []*diag.CompileError) {
 	t.Helper()
-	toks, names := lexFiles(files...)
-	p := NewParser(toks, names)
+	src := sourceOf(files...)
+	p := NewParser(src, Lex(src, nil))
 	return p.ParseProgram(), p.Errors
 }
 
 func TestLexKindsAndPositions(t *testing.T) {
-	toks, _ := lexFiles("let x = 0x1F\n")
+	src := sourceOf("let x = 0x1F\n")
+	toks := Lex(src, nil)
+	p := NewParser(src, toks)
 	want := []struct {
 		kind T
 		text string
 		col  int
 	}{
-		{TKw_let, "let", 1}, {TName, "x", 5}, {TAssign, "=", 7}, {TInteger, "0x1F", 9}, {TNewline, "", 0}, {TFileEnd, "", 0}, {TEof, "", 0},
+		{TKw_let, "let", 1}, {TName, "x", 5}, {TAssign, "=", 7}, {TInteger, "0x1F", 9}, {TNewline, "", 13}, {TFileEnd, "", 1}, {TEof, "", 1},
 	}
 	if len(toks) != len(want) {
 		t.Fatalf("got %d tokens: %+v", len(toks), toks)
 	}
 	for i, w := range want {
-		if toks[i].Kind != w.kind || (w.text != "" && toks[i].Text != w.text) || (w.col != 0 && toks[i].Col != w.col) {
-			t.Errorf("token %d = %+v, want kind %d text %q col %d", i, toks[i], w.kind, w.text, w.col)
+		_, col := p.lineCol(&toks[i])
+		if toks[i].Kind() != w.kind || (w.text != "" && p.text(toks[i]) != w.text) || col != w.col {
+			t.Errorf("token %d = kind %d text %q col %d, want kind %d text %q col %d", i, toks[i].Kind(), p.text(toks[i]), col, w.kind, w.text, w.col)
 		}
 	}
-	if v := toks[3].IntValue(); v != ast.I64(31) {
+	if v := p.intLitMagnitude(toks[3]); v != ast.I64(31) {
 		t.Errorf("0x1F = %v", v)
 	}
 }
 
-func TestStripCommentsKeepsColumns(t *testing.T) {
-	src := []byte("let a = /* c */ 1 // trailing\n/// doc\n\"// kept\"\n")
-	end := StripComments(src, 0, len(src))
-	want := "let a = " + strings.Repeat(" ", 7) + " 1 \n/// doc\n\"// kept\"\n"
-	if got := string(src[:end]); got != want {
-		t.Fatalf("got %q\nwant %q", got, want)
+func TestPositionsCountLinesPerFile(t *testing.T) {
+	_, errs := parseFiles(t, "let a = 1", "\nlet b = )\n")
+	if len(errs) != 1 || errs[0].File != "b.maxon" || errs[0].Line != 2 || errs[0].Col != 9 {
+		t.Fatalf("errors: %v", errs)
+	}
+}
+
+func TestStringPartsAreSlicesOfTheSource(t *testing.T) {
+	src := sourceOf(`let s = "a{x}b\tc"` + "\n")
+	p := NewParser(src, Lex(src, nil))
+	parts := p.strLitParts(p.toks[3])
+	if len(parts) != 3 || parts[0] != "a" || parts[2] != "b\tc" {
+		t.Fatalf("parts: %#v", parts)
+	}
+	if _, ok := parts[1].(*ast.NameExpr); !ok {
+		t.Errorf("interpolation: got %T, want a name", parts[1])
+	}
+}
+
+func TestTokenLongerThanTheLengthBitsIsAnError(t *testing.T) {
+	defer func() {
+		ce, ok := recover().(*diag.CompileError)
+		if !ok || !strings.Contains(ce.Message, "longer than 16 MB") || ce.Line != 1 || ce.Col != 5 {
+			t.Fatalf("got %v, want the token length error at 1:5", ce)
+		}
+	}()
+	Lex(sourceOf("let "+strings.Repeat("x", MaxTokenLength+1)+" = 1\n"), nil)
+}
+
+func TestCommentsAreSkippedAndKeepPositions(t *testing.T) {
+	prog, errs := parseFiles(t, "let a = /* c */ 1 // trailing\n/// doc\nlet s = \"{f(\"//\")} // kept\"\nlet b /* one\ntwo */ = )\n")
+	if len(errs) != 1 || errs[0].Line != 5 || errs[0].Col != 10 {
+		t.Fatalf("errors: %v", errs)
+	}
+	if len(prog.Decls) != 2 {
+		t.Fatalf("decls: %+v", prog.Decls)
+	}
+	parts := prog.Decls[1].(*ast.ConstDecl).Value.(*ast.StrLit).Parts
+	if len(parts) != 2 || parts[1] != " // kept" {
+		t.Errorf("string parts: %#v", parts)
+	}
+}
+
+func TestTokenTextDoesNotAllocate(t *testing.T) {
+	src := sourceOf("let name = 1\n")
+	p := NewParser(src, Lex(src, nil))
+	var text string
+	if n := testing.AllocsPerRun(100, func() { text = p.text(p.toks[1]) }); n != 0 || text != "name" {
+		t.Errorf("text %q allocated %v times", text, n)
 	}
 }
 

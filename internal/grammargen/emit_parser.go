@@ -215,7 +215,7 @@ func (g *pgen) choice(las []laSet, line int, desc string, branch func(i int)) {
 		}
 	}
 	if disjoint {
-		g.p("switch p.cur().Kind {\n")
+		g.p("switch p.cur().Kind() {\n")
 		for i, l := range las {
 			g.p("case %s:\n", strings.Join(firstTerminals(l), ", "))
 			branch(i)
@@ -337,7 +337,7 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 func (g *pgen) assignToken(tg target, e *elem, call string) {
 	if tg.helper != nil {
 		g.checkHelperLabel(tg.helper, e)
-		g.store(tg.helper.returns.name, e.appendTo, call+".Text")
+		g.store(tg.helper.returns.name, e.appendTo, "p.text("+call+")")
 		return
 	}
 	if tg.node == nil {
@@ -352,7 +352,7 @@ func (g *pgen) assignToken(tg target, e *elem, call string) {
 		}
 		g.p("%s\n%s = true\n", call, dst)
 	case "string":
-		g.store(dst, e.appendTo, call+".Text")
+		g.store(dst, e.appendTo, "p.text("+call+")")
 	default:
 		g.store(dst, e.appendTo, fmt.Sprintf("p.%s%s(%s)", lowerFirst(tg.node.name), f.name, call))
 	}
@@ -605,7 +605,7 @@ func (g *pgen) operatorRule(r *rule) {
 		}
 	})
 
-	g.p("for {\nswitch p.cur().Kind {\n")
+	g.p("for {\nswitch p.cur().Kind() {\n")
 	owner := map[string]*alt{}
 	for _, a := range tails {
 		first, nullable := g.a.firstOne(a.elems[1])

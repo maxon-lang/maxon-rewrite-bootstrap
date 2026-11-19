@@ -12,8 +12,8 @@ import (
 
 func checkSource(t *testing.T, src string) []*diag.CompileError {
 	t.Helper()
-	toks := syntax.Lex(src, []syntax.FileSlice{{File: "t.maxon", Begin: 0, End: len(src)}}, nil)
-	parser := syntax.NewParser(toks, []string{"t.maxon"})
+	source := syntax.NewSource(src, []syntax.FileSlice{{File: "t.maxon", Begin: 0, End: len(src)}})
+	parser := syntax.NewParser(source, syntax.Lex(source, nil))
 	prog := parser.ParseProgram()
 	if len(parser.Errors) > 0 {
 		t.Fatalf("parse errors: %v", parser.Errors)

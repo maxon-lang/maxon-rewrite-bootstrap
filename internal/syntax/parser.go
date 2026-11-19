@@ -8,23 +8,36 @@ import (
 
 //go:generate go run minimaxon/internal/grammargen
 
-// Parser holds what the generated parse functions (parser_gen.go) share: the token stream, the position in it,
-// and the file each token came from.
+// Parser holds what the generated parse functions (parser_gen.go) share: the module's source, its token stream,
+// the position in it, and the file and line the parser is in.
 type Parser struct {
+	src       *Source
 	toks      []Token
-	files     []string
 	p         int
 	fileIndex int
-	Errors    []*diag.CompileError
+	// line indexes a line near the last position asked for, so finding the next is a short walk.
+	line   int
+	Errors []*diag.CompileError
 	// spare is a token buffer an interpolation's parser borrows, so each one does not allocate its own.
 	spare []Token
+	// parts is reused by each string literal's conversion.
+	parts []StrPart
 }
 
-func NewParser(toks []Token, files []string) *Parser {
-	return &Parser{toks: toks, files: files}
+func NewParser(src *Source, toks []Token) *Parser {
+	return &Parser{src: src, toks: toks}
 }
 
-func (p *Parser) file() string { return p.files[min(p.fileIndex, len(p.files)-1)] }
+func (p *Parser) fileNumber() int { return min(p.fileIndex, len(p.src.Files)-1) }
+
+func (p *Parser) file() string { return p.src.Files[p.fileNumber()].File }
+
+func (p *Parser) lineCol(t *Token) (int, int) {
+	return p.src.lineCol(p.fileNumber(), int(t.Start), &p.line)
+}
+
+// text is a token's text: a substring of the module's source.
+func (p *Parser) text(t Token) string { return p.src.Text[t.Start:t.End()] }
 
 func (p *Parser) cur() *Token { return &p.toks[p.p] }
 
@@ -38,23 +51,39 @@ func (p *Parser) next() Token {
 	return t
 }
 
-func (p *Parser) at(k T) bool { return p.toks[p.p].Kind == k }
+func (p *Parser) at(k T) bool { return p.toks[p.p].Kind() == k }
 
-func (p *Parser) in(set *[numTokens]bool) bool { return set[p.toks[p.p].Kind] }
+func (p *Parser) in(set *[numTokens]bool) bool { return set[p.toks[p.p].Kind()] }
 
-func (p *Parser) peekIs(k T) bool { return p.peekTok().Kind == k }
+func (p *Parser) peekIs(k T) bool { return p.peekTok().Kind() == k }
 
-func (p *Parser) peekIn(set *[numTokens]bool) bool { return set[p.peekTok().Kind] }
+func (p *Parser) peekIn(set *[numTokens]bool) bool { return set[p.peekTok().Kind()] }
 
 func (p *Parser) atEndOfInput() bool { return p.at(TFileEnd) || p.at(TEof) }
+
+// describe is how a syntax error shows a token: its text, or a name for a token whose text is not shown.
+func (p *Parser) describe(t *Token) string {
+	switch t.Kind() {
+	case TNewline:
+		return newlineText
+	case TFileEnd:
+		return fileEndText
+	case TEof:
+		return eofText
+	case TString:
+		return stringText
+	}
+	return p.text(*t)
+}
 
 // expected is the syntax error at the current token, naming what the grammar allows there.
 func (p *Parser) expected(what string) *diag.CompileError {
 	t := p.cur()
+	line, col := p.lineCol(t)
 	if p.atEndOfInput() {
-		return diag.NewError(diag.ErrUnexpectedEnd, "unexpected end of file, expected "+what, p.file(), t.Line, t.Col)
+		return diag.NewError(diag.ErrUnexpectedEnd, "unexpected end of file, expected "+what, p.file(), line, col)
 	}
-	return diag.NewError(diag.ErrExpectedToken, fmt.Sprintf("expected %s, found '%s'", what, t.Text), p.file(), t.Line, t.Col)
+	return diag.NewError(diag.ErrExpectedToken, fmt.Sprintf("expected %s, found '%s'", what, p.describe(t)), p.file(), line, col)
 }
 
 func (p *Parser) expect(k T, what string) Token {
@@ -67,8 +96,7 @@ func (p *Parser) expect(k T, what string) Token {
 func place[N ast.Node](p *Parser, node N, t *Token) {
 	pos := node.P()
 	pos.File = p.file()
-	pos.Line = t.Line
-	pos.Col = t.Col
+	pos.Line, pos.Col = p.lineCol(t)
 }
 
 func (p *Parser) skipNewlines() {
@@ -106,28 +134,35 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 // The conversions below turn a token into a field that is not its text, as Maxon.g4 declares.
 
-func (p *Parser) intLitMagnitude(t Token) ast.I128 { return t.IntValue() }
+func (p *Parser) intLitMagnitude(t Token) ast.I128 { return p.integer(t) }
 
-func (p *Parser) boundValue(t Token) ast.I128 { return t.IntValue() }
+func (p *Parser) boundValue(t Token) ast.I128 { return p.integer(t) }
+
+func (p *Parser) integer(t Token) ast.I128 {
+	value, _ := p.src.readInteger(p.fileNumber(), int(t.Start), t.End())
+	return value
+}
 
 func (p *Parser) strLitParts(t Token) []any {
-	var parts []any
-	for _, part := range t.Parts() {
+	p.parts = p.parts[:0]
+	p.src.readString(p.fileNumber(), int(t.Start), &p.parts)
+	values := make([]any, 0, len(p.parts))
+	for _, part := range p.parts {
 		switch part := part.(type) {
 		case TextPart:
-			parts = append(parts, part.Text)
+			values = append(values, part.Text)
 		case ExprPart:
 			// The sub-parser borrows the spare buffer; an interpolation nested inside it finds none and allocates.
-			toks := LexText(p.file(), part.Source, part.Line, part.Col, p.spare)
+			toks := LexInterpolation(p.src, p.fileNumber(), part.Begin, part.End, p.spare)
 			p.spare = nil
-			sub := NewParser(toks, p.files[p.fileIndex:p.fileIndex+1])
-			parts = append(parts, sub.parseInterpolation())
+			sub := &Parser{src: p.src, toks: toks, fileIndex: p.fileNumber(), line: p.line}
+			values = append(values, sub.parseInterpolation())
 			p.spare = sub.toks[:0]
 		default:
 			panic(diag.Internal("unknown string part %T", part))
 		}
 	}
-	return parts
+	return values
 }
 
 func (p *Parser) parseInterpolation() ast.Expr {

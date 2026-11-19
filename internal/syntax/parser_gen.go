@@ -62,22 +62,22 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
 		}
-		n.Visibility = p.next().Text
+		n.Visibility = p.text(p.next())
 	}
 	if p.at(TKw_static) {
 		p.expect(TKw_static, "'static'")
 		n.IsStatic = true
 	}
 	p.expect(TKw_function, "'function'")
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
-		switch p.cur().Kind {
+		switch p.cur().Kind() {
 		case TKw_consuming, TKw_immutable, TKw_isolated, TKw_mutable:
 			if !p.in(&lookahead5) {
 				panic(p.expected("'consuming', 'immutable', 'isolated' or 'mutable'"))
 			}
-			n.Receiver = p.next().Text
+			n.Receiver = p.text(p.next())
 			p.expect(TKw_self, "'self'")
 			for p.at(TComma) {
 				p.expect(TComma, "','")
@@ -113,7 +113,7 @@ func (p *Parser) parseParam() *ast.Param {
 	if !p.in(&lookahead6) {
 		panic(p.expected("'_' or a name"))
 	}
-	n.Name = p.next().Text
+	n.Name = p.text(p.next())
 	if p.at(TKw_mutable) {
 		p.expect(TKw_mutable, "'mutable'")
 		n.Mutable = true
@@ -130,10 +130,10 @@ func (p *Parser) parseConstDecl() *ast.ConstDecl {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
 		}
-		n.Visibility = p.next().Text
+		n.Visibility = p.text(p.next())
 	}
 	p.expect(TKw_let, "'let'")
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TAssign, "'='")
 	n.Value = p.parseExpr()
 	return n
@@ -147,10 +147,10 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
 		}
-		n.Visibility = p.next().Text
+		n.Visibility = p.text(p.next())
 	}
 	p.expect(TKw_type, "'type'")
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TNewline, "the end of the line")
 	for p.in(&lookahead7) {
 		if p.in(&lookahead8) || (p.at(TKw_export) && p.peekIn(&lookahead8)) || (p.at(TKw_public) && p.peekIn(&lookahead8)) {
@@ -177,9 +177,9 @@ func (p *Parser) parseFieldDecl() *ast.FieldDecl {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
 		}
-		n.Visibility = p.next().Text
+		n.Visibility = p.text(p.next())
 	}
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TKw_let:
 		p.expect(TKw_let, "'let'")
 	case TKw_var:
@@ -188,8 +188,8 @@ func (p *Parser) parseFieldDecl() *ast.FieldDecl {
 	default:
 		panic(p.expected("'let' or 'var'"))
 	}
-	n.Name = p.expect(TName, "a name").Text
-	switch p.cur().Kind {
+	n.Name = p.text(p.expect(TName, "a name"))
+	switch p.cur().Kind() {
 	case TKw_as:
 		p.expect(TKw_as, "'as'")
 		n.Type = p.parseTypeRef()
@@ -210,13 +210,13 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
 		}
-		n.Visibility = p.next().Text
+		n.Visibility = p.text(p.next())
 	}
 	p.expect(TKw_enum, "'enum'")
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TNewline, "the end of the line")
 	for p.in(&lookahead10) {
-		switch p.cur().Kind {
+		switch p.cur().Kind() {
 		case TName:
 			n.Cases = append(n.Cases, p.parseEnumCaseDecl())
 		case TKw_export, TKw_function, TKw_public, TKw_static:
@@ -237,7 +237,7 @@ func (p *Parser) parseEnumCaseDecl() *ast.EnumCaseDecl {
 	t := p.cur()
 	n := ast.NewEnumCaseDecl()
 	place(p, n, t)
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	if p.at(TAssign) {
 		p.expect(TAssign, "'='")
 		n.Raw = p.parseIntLit()
@@ -253,13 +253,13 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
 		}
-		n.Visibility = p.next().Text
+		n.Visibility = p.text(p.next())
 	}
 	p.expect(TKw_union, "'union'")
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TNewline, "the end of the line")
 	for p.in(&lookahead10) {
-		switch p.cur().Kind {
+		switch p.cur().Kind() {
 		case TName:
 			n.Cases = append(n.Cases, p.parseUnionCaseDecl())
 		case TKw_export, TKw_function, TKw_public, TKw_static:
@@ -280,7 +280,7 @@ func (p *Parser) parseUnionCaseDecl() *ast.UnionCaseDecl {
 	t := p.cur()
 	n := ast.NewUnionCaseDecl()
 	place(p, n, t)
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	if p.at(TLParen) {
 		p.expect(TLParen, "'('")
 		if p.in(&lookahead6) {
@@ -303,15 +303,15 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
 		}
-		n.Visibility = p.next().Text
+		n.Visibility = p.text(p.next())
 	}
 	p.expect(TKw_typealias, "'typealias'")
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TAssign, "'='")
 	p.expect(TKw_int, "'int'")
 	p.expect(TLParen, "'('")
 	n.Low = p.parseBound()
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TKw_to:
 		p.expect(TKw_to, "'to'")
 		n.Inclusive = true
@@ -333,13 +333,13 @@ func (p *Parser) parseBound() *ast.Bound {
 		p.expect(TMinus, "'-'")
 		n.Negative = true
 	}
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TInteger:
 		n.Value = p.boundValue(p.expect(TInteger, "an integer"))
 	case TName:
-		n.Sized = p.expect(TName, "a name").Text
+		n.Sized = p.text(p.expect(TName, "a name"))
 		p.expect(TDot, "'.'")
-		n.Limit = p.expect(TName, "a name").Text
+		n.Limit = p.text(p.expect(TName, "a name"))
 	default:
 		panic(p.expected("an integer or a name"))
 	}
@@ -351,13 +351,13 @@ func (p *Parser) parseTypeRef() *ast.TypeRef {
 	n := ast.NewTypeRef()
 	place(p, n, t)
 	for p.at(TName) && p.peekIs(TDot) {
-		n.Qualifier = append(n.Qualifier, p.expect(TName, "a name").Text)
+		n.Qualifier = append(n.Qualifier, p.text(p.expect(TName, "a name")))
 		p.expect(TDot, "'.'")
 	}
 	if !p.in(&lookahead11) {
 		panic(p.expected("'Self' or a name"))
 	}
-	n.Name = p.next().Text
+	n.Name = p.text(p.next())
 	return n
 }
 
@@ -365,7 +365,7 @@ func (p *Parser) parseEndLabel() *ast.EndLabel {
 	t := p.cur()
 	n := ast.NewEndLabel()
 	place(p, n, t)
-	n.Name = p.expect(TLabel, "a label").Text
+	n.Name = p.text(p.expect(TLabel, "a label"))
 	return n
 }
 
@@ -403,7 +403,7 @@ func (p *Parser) parseStmt() ast.Stmt {
 		return p.parseContinueStmt()
 	} else if p.in(&lookahead13) {
 		first := p.parseExpr()
-		switch p.cur().Kind {
+		switch p.cur().Kind() {
 		case TAssign:
 			return p.parseAssignStmtAfter(t, first)
 		case TNewline:
@@ -420,7 +420,7 @@ func (p *Parser) parseLetStmt() *ast.LetStmt {
 	t := p.cur()
 	n := ast.NewLetStmt()
 	place(p, n, t)
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TKw_let:
 		p.expect(TKw_let, "'let'")
 	case TKw_var:
@@ -429,7 +429,7 @@ func (p *Parser) parseLetStmt() *ast.LetStmt {
 	default:
 		panic(p.expected("'let' or 'var'"))
 	}
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TAssign, "'='")
 	n.Init = p.parseExpr()
 	return n
@@ -477,7 +477,7 @@ func (p *Parser) parseIfStmt() *ast.IfStmt {
 	place(p, n, t)
 	p.expect(TKw_if, "'if'")
 	n.Cond = p.parseExpr()
-	n.Label = p.expect(TLabel, "a label").Text
+	n.Label = p.text(p.expect(TLabel, "a label"))
 	n.Then = p.parseBlock()
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
@@ -486,11 +486,11 @@ func (p *Parser) parseIfStmt() *ast.IfStmt {
 	if p.at(TKw_else) {
 		p.expect(TKw_else, "'else'")
 		n.HasElse = true
-		switch p.cur().Kind {
+		switch p.cur().Kind() {
 		case TKw_if:
 			n.Else = append(n.Else, p.parseIfStmt())
 		case TLabel:
-			n.ElseLabel = p.expect(TLabel, "a label").Text
+			n.ElseLabel = p.text(p.expect(TLabel, "a label"))
 			n.Else = p.parseBlock()
 			p.expect(TKw_end, "'end'")
 			if p.at(TLabel) {
@@ -509,7 +509,7 @@ func (p *Parser) parseWhileStmt() *ast.WhileStmt {
 	place(p, n, t)
 	p.expect(TKw_while, "'while'")
 	n.Cond = p.parseExpr()
-	n.Label = p.expect(TLabel, "a label").Text
+	n.Label = p.text(p.expect(TLabel, "a label"))
 	n.Body = p.parseBlock()
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
@@ -526,10 +526,10 @@ func (p *Parser) parseForStmt() *ast.ForStmt {
 	if !p.in(&lookahead6) {
 		panic(p.expected("'_' or a name"))
 	}
-	n.Var = p.next().Text
+	n.Var = p.text(p.next())
 	p.expect(TKw_in, "'in'")
 	n.From = p.parseExpr()
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TKw_to:
 		p.expect(TKw_to, "'to'")
 		n.Inclusive = true
@@ -539,7 +539,7 @@ func (p *Parser) parseForStmt() *ast.ForStmt {
 		panic(p.expected("'to' or 'upto'"))
 	}
 	n.To = p.parseExpr()
-	n.Label = p.expect(TLabel, "a label").Text
+	n.Label = p.text(p.expect(TLabel, "a label"))
 	n.Body = p.parseBlock()
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
@@ -565,7 +565,7 @@ func (p *Parser) parseBreakStmt() *ast.BreakStmt {
 	place(p, n, t)
 	p.expect(TKw_break, "'break'")
 	if p.at(TLabel) {
-		n.Label = p.expect(TLabel, "a label").Text
+		n.Label = p.text(p.expect(TLabel, "a label"))
 	}
 	return n
 }
@@ -576,7 +576,7 @@ func (p *Parser) parseContinueStmt() *ast.ContinueStmt {
 	place(p, n, t)
 	p.expect(TKw_continue, "'continue'")
 	if p.at(TLabel) {
-		n.Label = p.expect(TLabel, "a label").Text
+		n.Label = p.text(p.expect(TLabel, "a label"))
 	}
 	return n
 }
@@ -595,7 +595,7 @@ func (p *Parser) parseMatchCore() *ast.MatchCore {
 	place(p, n, t)
 	p.expect(TKw_match, "'match'")
 	n.Subject = p.parseExpr()
-	n.Label = p.expect(TLabel, "a label").Text
+	n.Label = p.text(p.expect(TLabel, "a label"))
 	p.expect(TNewline, "the end of the line")
 	for p.in(&lookahead14) {
 		n.Arms = append(n.Arms, p.parseMatchArm())
@@ -612,7 +612,7 @@ func (p *Parser) parseMatchArm() *ast.MatchArm {
 	t := p.cur()
 	n := ast.NewMatchArm()
 	place(p, n, t)
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TKw_default:
 		p.expect(TKw_default, "'default'")
 		n.IsDefault = true
@@ -626,7 +626,7 @@ func (p *Parser) parseMatchArm() *ast.MatchArm {
 	default:
 		panic(p.expected("an integer, 'default', 'false', 'true', '-', a name or a string"))
 	}
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TKw_then:
 		p.expect(TKw_then, "'then'")
 		n.Action = p.parseStmt()
@@ -646,9 +646,9 @@ func (p *Parser) parsePattern() *ast.Pattern {
 	t := p.cur()
 	n := ast.NewPattern()
 	place(p, n, t)
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TName:
-		n.CaseName = p.expect(TName, "a name").Text
+		n.CaseName = p.text(p.expect(TName, "a name"))
 		if p.at(TLParen) {
 			p.expect(TLParen, "'('")
 			n.HasBindings = true
@@ -656,13 +656,13 @@ func (p *Parser) parsePattern() *ast.Pattern {
 				if !p.in(&lookahead6) {
 					panic(p.expected("'_' or a name"))
 				}
-				n.Bindings = append(n.Bindings, p.next().Text)
+				n.Bindings = append(n.Bindings, p.text(p.next()))
 				for p.at(TComma) {
 					p.expect(TComma, "','")
 					if !p.in(&lookahead6) {
 						panic(p.expected("'_' or a name"))
 					}
-					n.Bindings = append(n.Bindings, p.next().Text)
+					n.Bindings = append(n.Bindings, p.text(p.next()))
 				}
 			}
 			p.expect(TRParen, "')'")
@@ -670,7 +670,7 @@ func (p *Parser) parsePattern() *ast.Pattern {
 	case TInteger, TKw_false, TKw_true, TMinus, TString:
 		n.Value = p.parsePatternValue()
 		if p.in(&lookahead16) {
-			switch p.cur().Kind {
+			switch p.cur().Kind() {
 			case TKw_to:
 				p.expect(TKw_to, "'to'")
 				n.Inclusive = true
@@ -689,7 +689,7 @@ func (p *Parser) parsePattern() *ast.Pattern {
 
 func (p *Parser) parsePatternValue() ast.Expr {
 	var value ast.Expr
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TInteger, TMinus:
 		value = p.parseIntLit()
 	case TString:
@@ -735,14 +735,14 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		if !p.in(&lookahead18) {
 			panic(p.expected("'not' or '-'"))
 		}
-		n.Op = p.next().Text
+		n.Op = p.text(p.next())
 		n.E = p.parseExprPrec(10)
 		left = n
 	} else {
 		panic(p.expected("an expression"))
 	}
 	for {
-		switch p.cur().Kind {
+		switch p.cur().Kind() {
 		case TDot:
 			if 12 < minPrec {
 				return left
@@ -751,7 +751,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			place(p, n, p.cur())
 			n.Obj = left
 			p.expect(TDot, "'.'")
-			n.Name = p.expect(TName, "a name").Text
+			n.Name = p.text(p.expect(TName, "a name"))
 			left = n
 		case TLParen:
 			if 11 < minPrec {
@@ -790,7 +790,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if !p.in(&lookahead19) {
 				panic(p.expected("'mod', '/' or '*'"))
 			}
-			n.Op = p.next().Text
+			n.Op = p.text(p.next())
 			n.R = p.parseExprPrec(9)
 			left = n
 		case TMinus, TPlus:
@@ -803,7 +803,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if !p.in(&lookahead20) {
 				panic(p.expected("'-' or '+'"))
 			}
-			n.Op = p.next().Text
+			n.Op = p.text(p.next())
 			n.R = p.parseExprPrec(8)
 			left = n
 		case TKw_shl, TKw_shr:
@@ -816,7 +816,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if !p.in(&lookahead21) {
 				panic(p.expected("'shl' or 'shr'"))
 			}
-			n.Op = p.next().Text
+			n.Op = p.text(p.next())
 			n.R = p.parseExprPrec(7)
 			left = n
 		case TEqEq, TGe, TGt, TLe, TLt, TNotEq:
@@ -829,7 +829,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if !p.in(&lookahead22) {
 				panic(p.expected("'==', '>=', '>', '<=', '<' or '!='"))
 			}
-			n.Op = p.next().Text
+			n.Op = p.text(p.next())
 			n.R = p.parseExprPrec(6)
 			left = n
 		case TKw_and:
@@ -839,7 +839,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n := ast.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
-			n.Op = p.expect(TKw_and, "'and'").Text
+			n.Op = p.text(p.expect(TKw_and, "'and'"))
 			n.R = p.parseExprPrec(5)
 			left = n
 		case TKw_xor:
@@ -849,7 +849,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n := ast.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
-			n.Op = p.expect(TKw_xor, "'xor'").Text
+			n.Op = p.text(p.expect(TKw_xor, "'xor'"))
 			n.R = p.parseExprPrec(4)
 			left = n
 		case TKw_or:
@@ -859,7 +859,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n := ast.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
-			n.Op = p.expect(TKw_or, "'or'").Text
+			n.Op = p.text(p.expect(TKw_or, "'or'"))
 			n.R = p.parseExprPrec(3)
 			left = n
 		case TKw_if:
@@ -904,7 +904,7 @@ func (p *Parser) parseBoolLit() *ast.BoolLit {
 	t := p.cur()
 	n := ast.NewBoolLit()
 	place(p, n, t)
-	switch p.cur().Kind {
+	switch p.cur().Kind() {
 	case TKw_true:
 		p.expect(TKw_true, "'true'")
 		n.Value = true
@@ -923,7 +923,7 @@ func (p *Parser) parseNameExpr() *ast.NameExpr {
 	if !p.in(&lookahead11) {
 		panic(p.expected("'Self' or a name"))
 	}
-	n.Name = p.next().Text
+	n.Name = p.text(p.next())
 	return n
 }
 
@@ -942,7 +942,7 @@ func (p *Parser) parseStructLitExpr() *ast.StructLitExpr {
 	if !p.in(&lookahead11) {
 		panic(p.expected("'Self' or a name"))
 	}
-	n.TypeName = p.next().Text
+	n.TypeName = p.text(p.next())
 	p.expect(TLBrace, "'{'")
 	if p.at(TName) {
 		n.Fields = append(n.Fields, p.parseStructField())
@@ -959,7 +959,7 @@ func (p *Parser) parseStructField() *ast.StructField {
 	t := p.cur()
 	n := ast.NewStructField()
 	place(p, n, t)
-	n.Name = p.expect(TName, "a name").Text
+	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TColon, "':'")
 	n.Value = p.parseExpr()
 	return n
@@ -970,7 +970,7 @@ func (p *Parser) parseArg() *ast.Arg {
 	n := ast.NewArg()
 	place(p, n, t)
 	if p.at(TName) && p.peekIs(TColon) {
-		n.Label = p.expect(TName, "a name").Text
+		n.Label = p.text(p.expect(TName, "a name"))
 		p.expect(TColon, "':'")
 	}
 	n.Value = p.parseExpr()

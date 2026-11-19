@@ -92,7 +92,7 @@ func TestParserConvertsAndClimbs(t *testing.T) {
 	for _, want := range []string{
 		"n.Side = p.squareSide(p.expect(TInteger, \"an integer\"))",
 		"n.Named = true",
-		"n.Tags = append(n.Tags, p.expect(TName, \"a name\").Text)",
+		"n.Tags = append(n.Tags, p.text(p.expect(TName, \"a name\")))",
 		"func (p *Parser) parseShapePrec(minPrec int) ast.Shape {",
 		"n.R = p.parseShapePrec(2)",
 	} {

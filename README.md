@@ -166,7 +166,7 @@ unit per item). Results are merged in source order, which keeps the output deter
 | Phase | Package | Work per module |
 |---|---|---|
 | discover | `project` | walks the directory tree, one goroutine per subdirectory |
-| parse | `syntax` | reads the module's files into one buffer, strips comments, lexes the whole buffer in one pass and parses the token stream into the AST; anything the grammar does not allow is a syntax error |
+| parse | `syntax` | reads the module's files into one buffer, lexes the whole buffer in one pass and parses the token stream into the AST; anything the grammar does not allow is a syntax error |
 | tables | `project` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
 | resolve | `resolve` | binds every name to its declaration and records module dependencies |
 | declare | `check` | the module's fields, cases and function signatures |
@@ -182,20 +182,22 @@ is the import-cycle check between resolve and declare, a walk over the module gr
 
 ### Reading a module
 
-A module's files are read into one buffer, a string allocated once at the sum of their sizes, with their comments
-removed. Every token's text is a substring of it, so lexing allocates no text and needs no intern table. A string
-cannot be edited in place, so each file is first read into a scratch buffer sized for the module's largest file,
-stripped there, and appended. Comments are stripped like this:
+A module's files are read into one buffer, a string allocated once at the sum of their sizes, as they are written:
+offsets in it are the files' own byte offsets, less any byte order mark. Every token's text is a substring of it, so
+lexing allocates no text and needs no intern table. A string cannot be read into, so each file is read into a
+scratch buffer sized for the module's largest file and copied from there. The lexer skips comments; a `///` doc
+comment stays in the buffer for the LSP to use later.
 
-- a `///` doc comment that starts its line is kept, for the LSP to use later; the lexer skips it;
-- a `//` comment is dropped;
-- a block comment keeps its newlines, and spaces on its last line when code follows, so every line and column
-  after it is unchanged;
-- an unterminated block comment is left as written, so the lexer reports it.
+A token is 8 bytes: its kind and length packed into one 32-bit word (8 bits of kind, 24 of length, so a token is
+at most 16 MB) and its start offset in the buffer. Offsets are 32-bit, so a module's source is at most 4 GB. A
+token carries no text, value or position; the parser reads them from the buffer when it needs them. Its text is a
+substring of the buffer, an integer's value is read again from its digits, and a string's text runs are substrings
+unless an escape forces a copy. A line and column comes from the offset and an index of where each line starts,
+which the parser walks from the last line it asked about, so placing a node costs a step or two. Storing the
+length is about 15% faster than re-lexing a token to find it, and the packing keeps it at 8 bytes.
 
 The lexer works on the raw UTF-8 bytes, so a column counts bytes. One lexer pass covers the whole buffer. At each
-file boundary it resets the line, column and bracket depth, so no token spans two files, and emits a `FileEnd`
-token. One parser reads the module's stream, naming each file in its diagnostics. A declaration left open at the
+file boundary it resets the bracket depth, so no token spans two files, and emits a `FileEnd` token. One parser reads the module's stream, naming each file in its diagnostics. A declaration left open at the
 end of a file fails there with `E2007`, and parsing resumes at the next file, so each file reports its own first
 syntax error.
 
@@ -207,8 +209,8 @@ outgrows it still collects. With the collector off no memory is reused, so every
 operating system commits and zeroes: on Windows that costs about 0.2 s per GB, a large share of a compile. What
 allocates is therefore what costs, and the phases avoid it:
 
-- the lexer reuses token buffers and takes token text from the source string, and an interpolation's parser
-  borrows a spare token buffer;
+- the lexer reuses token buffers of 8-byte tokens and takes token text from the source string, and an
+  interpolation's parser borrows a spare token buffer;
 - codegen sizes each unit's code buffer from its instruction count, and reuses its block labels between
   functions, because Go grows a large slice by about a quarter at a time, allocating several times its final size;
 - the PE writer sizes the image before writing it, and the linker reads each unit's data in place;

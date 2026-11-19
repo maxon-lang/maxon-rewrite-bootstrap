@@ -15,34 +15,40 @@ type TextPart struct {
 	Text string
 }
 
+// ExprPart is an interpolation: the offsets of its expression in the module text.
 type ExprPart struct {
-	Source string
-	Line   int
-	Col    int
+	Begin int
+	End   int
 }
 
 func (TextPart) strPart() {}
 func (ExprPart) strPart() {}
 
+// Token is a token's kind and where it is in the module text: the kind in the low bits of kindLength and the length
+// above them, so a token is 8 bytes. Its text, value and position are read from the text when they are needed. A
+// label's token covers the text between its quotes.
 type Token struct {
-	Kind    T
-	Text    string
-	Line    int
-	Col     int
-	Payload any
+	kindLength uint32
+	Start      uint32
 }
 
-func (t Token) IntValue() ast.I128 { return t.Payload.(ast.I128) }
+const (
+	tokenKindBits = 8
+	tokenKindMask = 1<<tokenKindBits - 1
+	// MaxTokenLength is the longest token the length bits hold.
+	MaxTokenLength = 1<<(32-tokenKindBits) - 1
+)
 
-func (t Token) Parts() []StrPart {
-	parts, _ := t.Payload.([]StrPart)
-	return parts
-}
+func (t Token) Kind() T { return T(t.kindLength & tokenKindMask) }
 
-type FileSlice struct {
-	File  string
-	Begin int
-	End   int
+func (t Token) Len() int { return int(t.kindLength >> tokenKindBits) }
+
+func (t Token) End() int { return int(t.Start) + t.Len() }
+
+func init() {
+	if numTokens > tokenKindMask+1 {
+		panic(diag.Internal("%d token kinds do not fit in %d bits", numTokens, tokenKindBits))
+	}
 }
 
 const (
@@ -52,54 +58,51 @@ const (
 	stringText  = "\"...\""
 )
 
-type Lexer struct {
-	slices []FileSlice
-	file   string
-	src    string
-	end    int
-	pos    int
-	line   int
-	col    int
-	depth  int
-	toks   []Token
+type lexer struct {
+	src   *Source
+	text  string
+	file  int
+	pos   int
+	end   int
+	depth int
+	toks  []Token
 }
 
-func newLexer(src string, slices []FileSlice, buffer []Token, startLine, startCol int) *Lexer {
-	lx := &Lexer{src: src, slices: slices, line: startLine, col: startCol}
-	if len(slices) > 0 {
-		lx.file = slices[0].File
+// Lex lexes every file of src into buffer, ending each file with a TFileEnd and the module with a TEof.
+func Lex(src *Source, buffer []Token) []Token {
+	lx := &lexer{src: src, text: src.Text, toks: buffer[:0]}
+	for i, f := range src.Files {
+		lx.lexRange(i, f.Begin, f.End)
 	}
-	lx.toks = buffer[:0]
-	return lx
+	return lx.finish(len(src.Text))
 }
 
-func Lex(src string, slices []FileSlice, buffer []Token) []Token {
-	return newLexer(src, slices, buffer, 1, 1).lex()
+// LexInterpolation lexes the expression of an interpolation at text[begin:end] of file.
+func LexInterpolation(src *Source, file, begin, end int, buffer []Token) []Token {
+	lx := &lexer{src: src, text: src.Text, toks: buffer[:0]}
+	lx.lexRange(file, begin, end)
+	return lx.finish(end)
 }
 
-// LexText lexes source that starts at line:col of file, such as an interpolation inside a string literal.
-func LexText(file, text string, line, col int, buffer []Token) []Token {
-	return newLexer(text, []FileSlice{{File: file, Begin: 0, End: len(text)}}, buffer, line, col).lex()
-}
-
-func (lx *Lexer) lex() []Token {
-	for i, slice := range lx.slices {
-		lx.file = slice.File
-		lx.pos = slice.Begin
-		lx.end = slice.End
-		lx.depth = 0
-		if i > 0 {
-			lx.line = 1
-			lx.col = 1
-		}
-		lx.lexSlice()
-		if n := len(lx.toks); n > 0 && lx.toks[n-1].Kind != TNewline && lx.toks[n-1].Kind != TFileEnd {
-			lx.toks = append(lx.toks, Token{Kind: TNewline, Text: newlineText, Line: lx.line, Col: lx.col})
-		}
-		lx.toks = append(lx.toks, Token{Kind: TFileEnd, Text: fileEndText, Line: lx.line, Col: lx.col})
-	}
-	lx.toks = append(lx.toks, Token{Kind: TEof, Text: eofText, Line: lx.line, Col: lx.col})
+func (lx *lexer) finish(at int) []Token {
+	lx.emit(TEof, at, at)
 	return lx.toks
+}
+
+func (lx *lexer) lexRange(file, begin, end int) {
+	lx.file, lx.pos, lx.end, lx.depth = file, begin, end, 0
+	lx.lexSlice()
+	if n := len(lx.toks); n > 0 && lx.toks[n-1].Kind() != TNewline && lx.toks[n-1].Kind() != TFileEnd {
+		lx.emit(TNewline, end, end)
+	}
+	lx.emit(TFileEnd, end, end)
+}
+
+func (lx *lexer) emit(kind T, start, end int) {
+	if end-start > MaxTokenLength {
+		panic(lx.fail(diag.ErrUnexpectedToken, "a token is longer than 16 MB; split it", start))
+	}
+	lx.toks = append(lx.toks, Token{kindLength: uint32(kind) | uint32(end-start)<<tokenKindBits, Start: uint32(start)})
 }
 
 func isAsciiLetter(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' }
@@ -110,124 +113,131 @@ func isAsciiHexDigit(c byte) bool {
 	return isAsciiDigit(c) || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 
-func (lx *Lexer) lexSlice() {
+func (lx *lexer) lexSlice() {
 	for {
 		lx.skipSpaceAndComments()
 		if lx.pos >= lx.end {
 			break
 		}
 
-		c := lx.src[lx.pos]
-		l := lx.line
-		cl := lx.col
+		start := lx.pos
+		c := lx.text[start]
 
 		if c == '\n' {
-			lx.advance()
-			if n := len(lx.toks); lx.depth == 0 && n > 0 && lx.toks[n-1].Kind != TNewline {
-				lx.toks = append(lx.toks, Token{Kind: TNewline, Text: newlineText, Line: l, Col: cl})
+			lx.pos++
+			if n := len(lx.toks); lx.depth == 0 && n > 0 && lx.toks[n-1].Kind() != TNewline {
+				lx.emit(TNewline, start, start)
 			}
 			continue
 		}
 
 		if isAsciiLetter(c) || c == '_' {
-			start := lx.pos
-			for lx.pos < lx.end && (isAsciiLetter(lx.src[lx.pos]) || isAsciiDigit(lx.src[lx.pos]) || lx.src[lx.pos] == '_') {
-				lx.advance()
+			for lx.pos < lx.end && (isAsciiLetter(lx.text[lx.pos]) || isAsciiDigit(lx.text[lx.pos]) || lx.text[lx.pos] == '_') {
+				lx.pos++
 			}
-			text := lx.src[start:lx.pos]
 			kind := TName
-			if k, ok := keywordKinds[text]; ok {
+			if k, ok := keywordKinds[lx.text[start:lx.pos]]; ok {
 				kind = k
 			}
-			lx.toks = append(lx.toks, Token{Kind: kind, Text: text, Line: l, Col: cl})
+			lx.emit(kind, start, lx.pos)
 			continue
 		}
 
 		if isAsciiDigit(c) {
-			lx.lexNumber(l, cl)
+			_, lx.pos = lx.src.readInteger(lx.file, start, lx.end)
+			if lx.pos < lx.end && lx.text[lx.pos] == '.' && lx.pos+1 < lx.end && isAsciiDigit(lx.text[lx.pos+1]) {
+				panic(lx.fail(diag.ErrUnsupported, "float literals are not supported by minimaxon", start))
+			}
+			lx.emit(TInteger, start, lx.pos)
 			continue
 		}
 
 		if c == '"' {
-			lx.lexString(l, cl)
+			lx.pos = lx.src.readString(lx.file, start, nil)
+			lx.emit(TString, start, lx.pos)
 			continue
 		}
 
 		if c == '\'' {
-			lx.lexQuote(l, cl)
+			lx.lexLabel(start)
 			continue
 		}
 
-		lx.lexPunct(c, l, cl)
+		lx.lexPunct(c, start)
 	}
 }
 
-func (lx *Lexer) fail(code, msg string, l, c int) *diag.CompileError {
-	return diag.NewError(code, msg, lx.file, l, c)
+func (lx *lexer) fail(code, msg string, at int) *diag.CompileError {
+	return lx.src.errorAt(code, msg, lx.file, at)
 }
 
-func (lx *Lexer) advance() {
-	if lx.pos >= len(lx.src) {
-		return
-	}
-	if lx.src[lx.pos] == '\n' {
-		lx.line++
-		lx.col = 1
-	} else {
-		lx.col++
-	}
-	lx.pos++
-}
-
-func (lx *Lexer) peek(ahead int) byte {
-	if lx.pos+ahead < lx.end {
-		return lx.src[lx.pos+ahead]
-	}
-	return 0
-}
-
-func (lx *Lexer) runeAt(at int) rune {
-	if at >= lx.end {
-		return 0
-	}
-	r, _ := utf8.DecodeRuneInString(lx.src[at:lx.end])
-	return r
-}
-
-func (lx *Lexer) skipSpaceAndComments() {
+func (lx *lexer) skipSpaceAndComments() {
 	for lx.pos < lx.end {
-		c := lx.src[lx.pos]
+		c := lx.text[lx.pos]
 		switch {
 		case c == ' ' || c == '\t' || c == '\r':
-			lx.advance()
-		case c == '/' && lx.peek(1) == '/':
-			for lx.pos < lx.end && lx.src[lx.pos] != '\n' {
-				lx.advance()
+			lx.pos++
+		case c == '/' && lx.pos+1 < lx.end && lx.text[lx.pos+1] == '/':
+			for lx.pos < lx.end && lx.text[lx.pos] != '\n' {
+				lx.pos++
 			}
-		case c == '/' && lx.peek(1) == '*':
-			l := lx.line
-			cl := lx.col
-			lx.advance()
-			lx.advance()
-			for lx.pos < lx.end && !(lx.src[lx.pos] == '*' && lx.peek(1) == '/') {
-				lx.advance()
+		case c == '/' && lx.pos+1 < lx.end && lx.text[lx.pos+1] == '*':
+			start := lx.pos
+			lx.pos += 2
+			for lx.pos < lx.end && !(lx.text[lx.pos] == '*' && lx.pos+1 < lx.end && lx.text[lx.pos+1] == '/') {
+				lx.pos++
 			}
 			if lx.pos >= lx.end {
-				panic(lx.fail(diag.ErrUnexpectedToken, "unterminated block comment", l, cl))
+				panic(lx.fail(diag.ErrUnexpectedToken, "unterminated block comment", start))
 			}
-			lx.advance()
-			lx.advance()
+			lx.pos += 2
 		default:
 			return
 		}
 	}
 }
 
-func (lx *Lexer) lexNumber(l, cl int) {
-	literal := lx.pos
+func (lx *lexer) lexLabel(quote int) {
+	start := quote + 1
+	lx.pos = start
+	for lx.pos < lx.end && lx.text[lx.pos] != '\'' && lx.text[lx.pos] != '\n' {
+		lx.pos++
+	}
+	if lx.pos >= lx.end || lx.text[lx.pos] != '\'' {
+		panic(lx.fail(diag.ErrUnexpectedToken, "unterminated label", quote))
+	}
+	lx.emit(TLabel, start, lx.pos)
+	lx.pos++
+}
+
+func (lx *lexer) lexPunct(c byte, start int) {
+	var next byte
+	if start+1 < lx.end {
+		next = lx.text[start+1]
+	}
+	kind, length, ok := matchPunctuation(c, next)
+	if !ok {
+		r, _ := utf8.DecodeRuneInString(lx.text[start:lx.end])
+		panic(lx.fail(diag.ErrUnexpectedToken, "unexpected character '"+string(r)+"'", start))
+	}
+	switch kind {
+	case TLParen, TLBrace:
+		lx.depth++
+	case TRParen, TRBrace:
+		lx.depth = max(0, lx.depth-1)
+	}
+	lx.pos = start + length
+	lx.emit(kind, start, lx.pos)
+}
+
+// readInteger reads the integer literal at text[at:], returning its value and its end. The lexer reads it to find
+// where it ends and to report a malformed one; the parser reads it again for its value.
+func (s *Source) readInteger(file, at, end int) (ast.I128, int) {
+	text := s.Text
+	pos := at
 	radix := uint64(10)
-	if lx.src[lx.pos] == '0' {
-		switch lx.peek(1) {
+	if text[pos] == '0' && pos+1 < end {
+		switch text[pos+1] {
 		case 'x':
 			radix = 16
 		case 'b':
@@ -236,25 +246,18 @@ func (lx *Lexer) lexNumber(l, cl int) {
 			radix = 8
 		}
 		if radix != 10 {
-			lx.advance()
-			lx.advance()
+			pos += 2
 		}
 	}
 
 	var value ast.I128
 	digits := 0
-	for lx.pos < lx.end && (isAsciiHexDigit(lx.src[lx.pos]) || lx.src[lx.pos] == '_') {
-		ch := lx.src[lx.pos]
+	for ; pos < end && (isAsciiHexDigit(text[pos]) || text[pos] == '_'); pos++ {
+		ch := text[pos]
 		if ch == '_' {
-			lx.advance()
 			continue
 		}
-		var d uint64
-		if isAsciiDigit(ch) {
-			d = uint64(ch - '0')
-		} else {
-			d = uint64(ch|0x20-'a') + 10
-		}
+		d := hexDigit(ch)
 		if d >= radix {
 			break
 		}
@@ -262,173 +265,182 @@ func (lx *Lexer) lexNumber(l, cl int) {
 		lo, carry := bits.Add64(lo, d, 0)
 		value = ast.I128{Hi: int64(hi + carry), Lo: lo}
 		if value.Gt(ast.U64Max) {
-			panic(lx.fail(diag.ErrExpressionError, "integer literal is larger than u64.max", l, cl))
+			panic(s.errorAt(diag.ErrExpressionError, "integer literal is larger than u64.max", file, at))
 		}
 		digits++
-		lx.advance()
 	}
-
 	if digits == 0 {
-		panic(lx.fail(diag.ErrExpressionError, "malformed integer literal", l, cl))
+		panic(s.errorAt(diag.ErrExpressionError, "malformed integer literal", file, at))
 	}
-	if lx.pos < lx.end && lx.src[lx.pos] == '.' && isAsciiDigit(lx.peek(1)) {
-		panic(lx.fail(diag.ErrUnsupported, "float literals are not supported by minimaxon", l, cl))
-	}
-
-	lx.toks = append(lx.toks, Token{Kind: TInteger, Text: lx.src[literal:lx.pos], Line: l, Col: cl, Payload: value})
+	return value, pos
 }
 
-func (lx *Lexer) readEscape(l, cl int) rune {
-	lx.advance()
-	at := lx.pos
-	e := lx.peek(0)
-	lx.advance()
+func hexDigit(ch byte) uint64 {
+	if isAsciiDigit(ch) {
+		return uint64(ch - '0')
+	}
+	return uint64(ch|0x20-'a') + 10
+}
+
+// stringReader reads one string literal; the lexer uses it to find the literal's end and report its errors, and the
+// parser to take its parts.
+type stringReader struct {
+	src   *Source
+	text  string
+	file  int
+	open  int
+	pos   int
+	end   int
+	parts *[]StrPart
+	// The current text part is text[run:pos] until an escape forces it into buf.
+	run     int
+	buf     []byte
+	escaped bool
+}
+
+// readString reads the string literal at text[open], returning its end. When parts is not nil it also appends the
+// literal's text runs and interpolations to it.
+func (s *Source) readString(file, open int, parts *[]StrPart) int {
+	r := stringReader{src: s, text: s.Text, file: file, open: open, pos: open + 1, end: s.Files[file].End, parts: parts}
+	return r.read()
+}
+
+func (r *stringReader) fail(msg string, at int) *diag.CompileError {
+	return r.src.errorAt(diag.ErrUnexpectedToken, msg, r.file, at)
+}
+
+func (r *stringReader) read() int {
+	r.run = r.pos
+	added := false
+	for {
+		if r.pos >= r.end || r.text[r.pos] == '\n' {
+			panic(r.fail("unterminated string literal", r.open))
+		}
+		c := r.text[r.pos]
+		switch c {
+		case '"':
+			if r.pos > r.run || r.escaped || !added {
+				r.flushText()
+			}
+			r.pos++
+			return r.pos
+		case '\\':
+			r.escape()
+		case '}':
+			panic(r.fail("a '}' in a string is written '\\}'", r.pos))
+		case '{':
+			if r.pos > r.run || r.escaped {
+				r.flushText()
+			}
+			r.interpolation()
+			added = true
+		default:
+			if r.escaped {
+				r.buf = append(r.buf, c)
+			}
+			r.pos++
+		}
+	}
+}
+
+func (r *stringReader) flushText() {
+	if r.parts != nil {
+		text := r.text[r.run:r.pos]
+		if r.escaped {
+			text = string(r.buf)
+		}
+		*r.parts = append(*r.parts, TextPart{Text: text})
+	}
+	r.escaped = false
+	r.buf = r.buf[:0]
+}
+
+func (r *stringReader) escape() {
+	if !r.escaped && r.parts != nil {
+		r.buf = append(r.buf[:0], r.text[r.run:r.pos]...)
+	}
+	r.escaped = true
+	r.pos++
+	at := r.pos
+	var e byte
+	if r.pos < r.end {
+		e = r.text[r.pos]
+	}
+	r.pos++
+	var ch rune
 	switch e {
 	case 'n':
-		return '\n'
+		ch = '\n'
 	case 't':
-		return '\t'
+		ch = '\t'
 	case 'r':
-		return '\r'
+		ch = '\r'
 	case '0':
-		return 0
-	case '\\':
-		return '\\'
-	case '"':
-		return '"'
-	case '\'':
-		return '\''
-	case '{':
-		return '{'
-	case '}':
-		return '}'
+		ch = 0
+	case '\\', '"', '\'', '{', '}':
+		ch = rune(e)
 	case 'x':
-		return rune(lx.readHex(2, l, cl))
+		ch = rune(r.readHex(2))
 	case 'u':
-		return rune(lx.readHex(4, l, cl))
+		ch = rune(r.readHex(4))
+	default:
+		var escaped rune
+		if at < r.end {
+			escaped, _ = utf8.DecodeRuneInString(r.text[at:r.end])
+		}
+		panic(r.fail("unknown escape sequence '\\"+string(escaped)+"'", r.open))
 	}
-	panic(lx.fail(diag.ErrUnexpectedToken, "unknown escape sequence '\\"+string(lx.runeAt(at))+"'", l, cl))
+	if r.parts != nil {
+		r.buf = utf8.AppendRune(r.buf, ch)
+	}
 }
 
-func (lx *Lexer) readHex(n, l, cl int) int {
+func (r *stringReader) readHex(n int) int {
 	v := 0
 	for range n {
-		ch := lx.peek(0)
-		if !isAsciiHexDigit(ch) {
-			panic(lx.fail(diag.ErrUnexpectedToken, "malformed hex escape", l, cl))
+		if r.pos >= r.end || !isAsciiHexDigit(r.text[r.pos]) {
+			panic(r.fail("malformed hex escape", r.open))
 		}
-		var d int
-		if isAsciiDigit(ch) {
-			d = int(ch - '0')
-		} else {
-			d = int(ch|0x20-'a') + 10
-		}
-		v = v*16 + d
-		lx.advance()
+		v = v*16 + int(hexDigit(r.text[r.pos]))
+		r.pos++
 	}
 	return v
 }
 
-func (lx *Lexer) lexString(l, cl int) {
-	lx.advance()
-	var parts []StrPart
-	var text []byte
-
-	for {
-		if lx.pos >= lx.end || lx.src[lx.pos] == '\n' {
-			panic(lx.fail(diag.ErrUnexpectedToken, "unterminated string literal", l, cl))
-		}
-		c := lx.src[lx.pos]
-		if c == '"' {
-			lx.advance()
-			break
-		}
-		if c == '\\' {
-			text = utf8.AppendRune(text, lx.readEscape(l, cl))
-			continue
-		}
-		if c == '}' {
-			panic(lx.fail(diag.ErrUnexpectedToken, "a '}' in a string is written '\\}'", lx.line, lx.col))
-		}
-		if c == '{' {
-			if len(text) > 0 {
-				parts = append(parts, TextPart{Text: string(text)})
-				text = text[:0]
-			}
-			lx.advance()
-			el := lx.line
-			ec := lx.col
-			start := lx.pos
-			nest := 0
-			parens := 0
-			for lx.pos < lx.end && lx.src[lx.pos] != '\n' && !(lx.src[lx.pos] == '}' && nest == 0) {
-				switch ch := lx.src[lx.pos]; {
-				case ch == '{':
-					nest++
-				case ch == '}':
-					nest--
-				case ch == '(' || ch == '[':
-					parens++
-				case ch == ')' || ch == ']':
-					parens--
-				case ch == ':' && parens == 0 && nest == 0:
-					panic(lx.fail(diag.ErrUnsupported, "format specifiers are not supported by minimaxon", lx.line, lx.col))
-				case ch == '"':
-					lx.advance()
-					for lx.pos < lx.end && lx.src[lx.pos] != '"' && lx.src[lx.pos] != '\n' {
-						if lx.src[lx.pos] == '\\' {
-							lx.advance()
-						}
-						lx.advance()
-					}
+func (r *stringReader) interpolation() {
+	r.pos++
+	start := r.pos
+	nest := 0
+	parens := 0
+	for r.pos < r.end && r.text[r.pos] != '\n' && !(r.text[r.pos] == '}' && nest == 0) {
+		switch ch := r.text[r.pos]; {
+		case ch == '{':
+			nest++
+		case ch == '}':
+			nest--
+		case ch == '(' || ch == '[':
+			parens++
+		case ch == ')' || ch == ']':
+			parens--
+		case ch == ':' && parens == 0 && nest == 0:
+			panic(r.src.errorAt(diag.ErrUnsupported, "format specifiers are not supported by minimaxon", r.file, r.pos))
+		case ch == '"':
+			r.pos++
+			for r.pos < r.end && r.text[r.pos] != '"' && r.text[r.pos] != '\n' {
+				if r.text[r.pos] == '\\' {
+					r.pos++
 				}
-				lx.advance()
+				r.pos++
 			}
-			if lx.pos >= lx.end || lx.src[lx.pos] != '}' {
-				panic(lx.fail(diag.ErrUnexpectedToken, "unterminated interpolation in string literal", el, ec))
-			}
-			parts = append(parts, ExprPart{Source: lx.src[start:lx.pos], Line: el, Col: ec})
-			lx.advance()
-			continue
 		}
-		text = append(text, c)
-		lx.advance()
+		r.pos++
 	}
-
-	if len(text) > 0 || len(parts) == 0 {
-		parts = append(parts, TextPart{Text: string(text)})
+	if r.pos >= r.end || r.text[r.pos] != '}' {
+		panic(r.fail("unterminated interpolation in string literal", start))
 	}
-	lx.toks = append(lx.toks, Token{Kind: TString, Text: stringText, Line: l, Col: cl, Payload: parts})
-}
-
-func (lx *Lexer) lexQuote(l, cl int) {
-	lx.advance()
-	start := lx.pos
-	for lx.pos < lx.end && lx.src[lx.pos] != '\'' && lx.src[lx.pos] != '\n' {
-		lx.advance()
+	if r.parts != nil {
+		*r.parts = append(*r.parts, ExprPart{Begin: start, End: r.pos})
 	}
-	if lx.pos >= lx.end || lx.src[lx.pos] != '\'' {
-		panic(lx.fail(diag.ErrUnexpectedToken, "unterminated label", l, cl))
-	}
-	text := lx.src[start:lx.pos]
-	lx.advance()
-	lx.toks = append(lx.toks, Token{Kind: TLabel, Text: text, Line: l, Col: cl})
-}
-
-func (lx *Lexer) lexPunct(c byte, l, cl int) {
-	kind, length, ok := matchPunctuation(c, lx.peek(1))
-	if !ok {
-		panic(lx.fail(diag.ErrUnexpectedToken, "unexpected character '"+string(lx.runeAt(lx.pos))+"'", l, cl))
-	}
-	switch kind {
-	case TLParen, TLBrace:
-		lx.depth++
-	case TRParen, TRBrace:
-		lx.depth = max(0, lx.depth-1)
-	}
-	text := lx.src[lx.pos : lx.pos+length]
-	for range length {
-		lx.advance()
-	}
-	lx.toks = append(lx.toks, Token{Kind: kind, Text: text, Line: l, Col: cl})
+	r.pos++
+	r.run = r.pos
 }

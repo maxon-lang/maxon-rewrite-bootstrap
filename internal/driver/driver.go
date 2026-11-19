@@ -105,16 +105,12 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 	phase(func(m *ast.Module) {
 		diag.Guard(&m.Errors, func() {
 			a0 := stepAllocated(timings)
-			buffer, slices := syntax.LoadModuleSource(m.Files)
+			src := syntax.LoadModuleSource(m.Files)
 			a1 := stepAllocated(timings)
 			scratch := tokenBuffers.Get().(*[]syntax.Token)
-			tokens := syntax.Lex(buffer, slices, *scratch)
+			tokens := syntax.Lex(src, *scratch)
 			a2 := stepAllocated(timings)
-			files := make([]string, len(slices))
-			for i, s := range slices {
-				files[i] = s.File
-			}
-			parser := syntax.NewParser(tokens, files)
+			parser := syntax.NewParser(src, tokens)
 			m.Decls = append(m.Decls, parser.ParseProgram().Decls...)
 			m.Errors = append(m.Errors, parser.Errors...)
 			a3 := stepAllocated(timings)
