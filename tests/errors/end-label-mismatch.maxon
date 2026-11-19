@@ -1,0 +1,5 @@
+function main() returns ExitCode
+	print("x\n")
+end 'mian'
+
+// expect-error: E2008

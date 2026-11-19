@@ -1,0 +1,9 @@
+typealias Score = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let s = 5 as Score
+	print("{s / 0}\n")
+	return 0
+end 'main'
+
+// expect-error: E3103

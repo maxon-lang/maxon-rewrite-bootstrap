@@ -1,0 +1,27 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box
+	export var v as Score
+
+	static function create(v Score) returns Box
+		return Box{v: v}
+	end 'create'
+end 'Box'
+
+function choose(flag bool)
+	var a = Box.create(1)
+	if flag 'take'
+		let b = a
+		print("{b.v}\n")
+	end 'take'
+	print("{a.v}\n")
+	a = Box.create(2)
+	print("{a.v}\n")
+end 'choose'
+
+function main() returns ExitCode
+	choose(true)
+	return 0
+end 'main'
+
+// expect-error: E3102

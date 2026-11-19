@@ -1,0 +1,14 @@
+enum Color
+	red
+	green
+end 'Color'
+
+function main() returns ExitCode
+	let c = Color.red
+	match c 'm'
+		red then print("r\n")
+	end 'm'
+	return 0
+end 'main'
+
+// expect-error: E2026

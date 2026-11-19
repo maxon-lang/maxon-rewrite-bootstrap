@@ -1,0 +1,13 @@
+typealias Score = int(i64.min to i64.max)
+
+function f(n Score) returns Score
+	n = n + 1
+	return n
+end 'f'
+
+function main() returns ExitCode
+	print("{f(1)}\n")
+	return 0
+end 'main'
+
+// expect-error: E2013

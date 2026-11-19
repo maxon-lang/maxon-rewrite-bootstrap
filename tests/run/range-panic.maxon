@@ -1,0 +1,12 @@
+typealias Small = int(0 to 10)
+
+function main() returns ExitCode
+	var s = 5 as Small
+	for _ in 1 to 10 'grow'
+		s = s + 1
+	end 'grow'
+	print("{s}\n")
+	return 0
+end 'main'
+
+// expect-exit: 1

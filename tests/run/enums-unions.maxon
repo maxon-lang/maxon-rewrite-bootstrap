@@ -1,0 +1,70 @@
+typealias Amount = int(i64.min to i64.max)
+typealias Code = int(0 to 999)
+
+enum Color
+	red
+	green
+	blue
+end 'Color'
+
+enum HttpStatus
+	ok = 200
+	notFound = 404
+end 'HttpStatus'
+
+union Result
+	success(value Amount)
+	failure(code Code, message String)
+	pending
+end 'Result'
+
+function describe(r Result) returns String
+	return match r 'd'
+		success(v) gives "ok {v}"
+		failure(c, msg) gives "error {c}: {msg}"
+		pending gives "waiting"
+	end 'd'
+end 'describe'
+
+function main() returns ExitCode
+	let c = Color.green
+	print("{c} {c.ordinal}\n")
+	match c 'm'
+		red then print("R\n")
+		green or
+		blue then print("GB\n")
+	end 'm'
+
+	let s = HttpStatus.notFound
+	print("{s.name} {s.rawValue} {s == HttpStatus.ok}\n")
+
+	print("{describe(Result.success(42))}\n")
+	print("{describe(Result.failure(404, message: "not found"))}\n")
+	let p = Result.pending
+	print("{describe(p)} {p.name}\n")
+
+	let n = 7
+	let size = match n 's'
+		0 gives "zero"
+		1 to 5 gives "small"
+		default gives "big"
+	end 's'
+	print("{size}\n")
+
+	let word = "beta"
+	match word 'w'
+		"alpha" then print("first\n")
+		"beta" then print("second\n")
+		default then print("other\n")
+	end 'w'
+	return 0
+end 'main'
+
+//> green 1
+//> GB
+//> notFound 404 false
+//> ok 42
+//> error 404: not found
+//> waiting pending
+//> big
+//> second

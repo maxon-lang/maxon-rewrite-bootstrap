@@ -1,0 +1,8 @@
+function main() returns ExitCode
+	let x = 1
+	x = 2
+	print("{x}\n")
+	return 0
+end 'main'
+
+// expect-error: E2013

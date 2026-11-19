@@ -1,0 +1,10 @@
+type Node
+	export var next as Node
+end 'Node'
+
+function main() returns ExitCode
+	print("x\n")
+	return 0
+end 'main'
+
+// expect-error: E4014

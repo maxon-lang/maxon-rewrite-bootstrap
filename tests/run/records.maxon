@@ -1,0 +1,42 @@
+typealias Coord = int(i64.min to i64.max)
+
+type Point
+	export var x as Coord
+	export var y as Coord
+	export let name = "point"
+
+	function sum() returns Coord
+		return x + y
+	end 'sum'
+
+	function move(dx Coord)
+		x = x + dx
+	end 'move'
+
+	function describe() returns String
+		return "{name}({x}, {y})"
+	end 'describe'
+
+	static function create(x Coord, y Coord) returns Point
+		return Point{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let p = Point.create(1, y: 2)
+	p.move(10)
+	print("{p.x} {p.y} {p.sum()}\n")
+	let q = p
+	q.x = 5
+	print("{p.describe()}\n")
+
+	var r = Point.create(0, y: 0)
+	let s = r
+	r = Point.create(7, y: 8)
+	print("{s.describe()} {r.describe()}\n")
+	return 0
+end 'main'
+
+//> 11 2 13
+//> point(5, 2)
+//> point(0, 0) point(7, 8)

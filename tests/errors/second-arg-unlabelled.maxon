@@ -1,0 +1,12 @@
+typealias Score = int(i64.min to i64.max)
+
+function add(a Score, b Score) returns Score
+	return a + b
+end 'add'
+
+function main() returns ExitCode
+	print("{add(1, 2)}\n")
+	return 0
+end 'main'
+
+// expect-error: E2053

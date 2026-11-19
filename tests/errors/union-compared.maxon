@@ -1,0 +1,13 @@
+union U
+	a
+	b
+end 'U'
+
+function main() returns ExitCode
+	let x = U.a
+	let y = U.b
+	print("{x == y}\n")
+	return 0
+end 'main'
+
+// expect-error: E3066

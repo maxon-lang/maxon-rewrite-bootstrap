@@ -1,0 +1,51 @@
+typealias Score = int(i64.min to i64.max)
+typealias Tally = int(0 to u64.max)
+
+function add(a Score, b Score) returns Score
+	return a + b
+end 'add'
+
+function fib(n Score) returns Score
+	if n < 2 'base'
+		return n
+	end 'base'
+	return fib(n - 1) + fib(n - 2)
+end 'fib'
+
+function main() returns ExitCode
+	let x = add(40, b: 2)
+	print("x = {x}\n")
+	print("neg {-x * 3}\n")
+	print("div {x / 5} mod {x mod 5}\n")
+	print("bits {x and 15} {x or 1} {x xor 2} {x shl 2} {x shr 1}\n")
+
+	var total = 0 as Score
+	for i in 1 to 10 'sum'
+		total = total + i
+	end 'sum'
+	print("total {total}\n")
+
+	var count = 0 as Tally
+	for _ in 0 upto 5 'count'
+		count = count + 1
+	end 'count'
+	print("count {count}\n")
+
+	print("fib {fib(20)}\n")
+	print("const {3 * 4 + 1} {-9223372036854775807 - 1} {18446744073709551615}\n")
+	print("flag {x > 10 and x < 50} {not (x == 42)}\n")
+	let label = "big" if x > 10 else "small"
+	print("{label}\n")
+	return 0
+end 'main'
+
+//> x = 42
+//> neg -126
+//> div 8 mod 2
+//> bits 10 43 40 168 21
+//> total 55
+//> count 5
+//> fib 6765
+//> const 13 -9223372036854775808 18446744073709551615
+//> flag true false
+//> big

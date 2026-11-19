@@ -1,0 +1,9 @@
+typealias Port = int(0 to 65535)
+
+function main() returns ExitCode
+	let p = 70000 as Port
+	print("{p}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005

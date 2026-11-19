@@ -1,0 +1,5 @@
+function main()
+	print("x\n")
+end 'main'
+
+// expect-error: E3002

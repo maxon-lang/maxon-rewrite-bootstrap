@@ -1,0 +1,9 @@
+typealias Tally = int(0 to u64.max)
+
+function main() returns ExitCode
+	let t = 5 as Tally
+	print("{-t}\n")
+	return 0
+end 'main'
+
+// expect-error: E3218
