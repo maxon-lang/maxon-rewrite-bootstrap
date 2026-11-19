@@ -1,0 +1,7 @@
+export function label() returns String
+	return "lib"
+end 'label'
+
+export function describe() returns String
+	return label()
+end 'describe'

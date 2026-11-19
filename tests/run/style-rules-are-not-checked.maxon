@@ -1,0 +1,30 @@
+typealias Score = int(i64.min to i64.max)
+
+union Pair
+	both(left Score, right Score)
+end 'Pair'
+
+function main() returns ExitCode
+	let unused = 1
+	var neverReassigned = 2 as Score
+	var same = 3 as Score
+	same = same
+	let cast = neverReassigned as Score
+	_ = 4
+	while true 'loop'
+		break 'loop'
+	end 'loop'
+	let p = Pair.both(5, right: 6)
+	match p 'm'
+		both(_, _) then print("{cast} {same}\n")
+	end 'm'
+	let n = 7
+	match n 'one'
+		7 to 7 then print("seven\n")
+		default then print("other\n")
+	end 'one'
+	return 0
+end 'main'
+
+//> 2 3
+//> seven

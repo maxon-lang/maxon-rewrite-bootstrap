@@ -9,7 +9,18 @@ public static class Cli {
       minimaxon run <file.maxon|dir>                  compile and run
       minimaxon check <file.maxon|dir>                report diagnostics only
       minimaxon test [dir]                            run the test corpus (default: tests/)
+
+    A directory is a project: each directory under it is a module. --jobs=N sets how many modules
+    compile at once (default: one fewer than the processor count).
     """;
+
+  static int jobs = Driver.DefaultJobs;
+
+  static List<CompileError> Compile(string path, string? output) => Driver.Compile(path, output, jobs);
+
+  const int InternalErrorExitCode = 3;
+
+  static string DescribeInternal(Exception e) => $"internal compiler error (a bug in minimaxon, not in the program): {e}";
 
   public static int Main(string[] args) {
     if (args.Length == 0) {
@@ -17,6 +28,24 @@ public static class Cli {
       return 2;
     }
 
+    var jobsFlag = args.FirstOrDefault(a => a.StartsWith("--jobs=", StringComparison.Ordinal));
+    if (jobsFlag is not null) {
+      if (!int.TryParse(jobsFlag["--jobs=".Length..], out jobs) || jobs < 1) {
+        Console.Error.WriteLine("--jobs takes a positive number");
+        return 2;
+      }
+      args = [.. args.Where(a => a != jobsFlag)];
+    }
+
+    try {
+      return Run(args);
+    } catch (Exception e) when (e is not CompileError) {
+      Console.Error.WriteLine(DescribeInternal(e));
+      return InternalErrorExitCode;
+    }
+  }
+
+  static int Run(string[] args) {
     switch (args[0]) {
       case "build" when args.Length >= 2: {
         var output = args.Length >= 4 && args[2] == "-o" ? args[3] : Path.ChangeExtension(args[1].TrimEnd('/', '\\'), ".exe");
@@ -54,67 +83,35 @@ public static class Cli {
     return errors.Count == 0;
   }
 
-  public static List<CompileError> Compile(string path, string? output) {
-    var files = Directory.Exists(path)
-      ? Directory.GetFiles(path, "*.maxon").Order(StringComparer.Ordinal).ToArray()
-      : [path];
+  sealed record Expectation(string? Error, int Exit, string Stdout);
 
-    var program = new Program();
-    var errors = new List<CompileError>();
-    foreach (var file in files) {
-      try {
-        program.Decls.AddRange(Parser.ParseFile(file, File.ReadAllText(file)).Decls);
-      } catch (CompileError e) {
-        errors.Add(e);
-      }
-    }
-    if (errors.Count > 0) {
-      return errors;
-    }
+  const string ModulesDir = "modules";
 
-    var checker = new Checker();
-    checker.Check(program);
-    errors.AddRange(checker.Errors);
-    if (errors.Count == 0) {
-      var ownership = new Ownership();
-      foreach (var f in checker.Functions) {
-        ownership.Check(f);
-      }
-      errors.AddRange(ownership.Errors);
-    }
-
-    errors = [.. errors.OrderBy(e => e.File, StringComparer.Ordinal).ThenBy(e => e.Line).ThenBy(e => e.Col)];
-    if (errors.Count == 0 && output is not null) {
-      Codegen.Compile(checker, output);
-    }
-    return errors;
-  }
-
-  sealed record Expectation(string? Error, List<string> Absent, int Exit, string Stdout);
-
-  static Expectation ReadExpectation(string file) {
+  static Expectation ReadExpectation(string program) {
     string? error = null;
-    var absent = new List<string>();
     var exit = 0;
     var stdout = new System.Text.StringBuilder();
-    foreach (var raw in File.ReadLines(file)) {
+    string[] files = Directory.Exists(program) ? [.. Directory.GetFiles(program, "*.maxon").Order(StringComparer.Ordinal)] : [program];
+    foreach (var raw in files.SelectMany(File.ReadLines)) {
       var line = raw.TrimStart().TrimEnd('\r');
       if (line.StartsWith("// expect-error:", StringComparison.Ordinal)) {
         error = line["// expect-error:".Length..].Trim();
-      } else if (line.StartsWith("// expect-no-error:", StringComparison.Ordinal)) {
-        absent.Add(line["// expect-no-error:".Length..].Trim());
       } else if (line.StartsWith("// expect-exit:", StringComparison.Ordinal)) {
         exit = int.Parse(line["// expect-exit:".Length..].Trim());
       } else if (line.StartsWith("//>", StringComparison.Ordinal)) {
         stdout.Append(line.Length > 3 && line[3] == ' ' ? line[4..] : line[3..]).Append('\n');
       }
     }
-    return new Expectation(error, absent, exit, stdout.ToString());
+    return new Expectation(error, exit, stdout.ToString());
   }
 
   static int RunTests(string dir) {
     dir = Path.GetFullPath(dir);
-    var files = Directory.GetFiles(dir, "*.maxon", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToList();
+    var modulesRoot = Path.Combine(dir, ModulesDir);
+    var files = Directory.GetFiles(dir, "*.maxon", SearchOption.AllDirectories)
+      .Where(f => !f.StartsWith(modulesRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+      .Concat(Directory.Exists(modulesRoot) ? Directory.GetDirectories(modulesRoot) : [])
+      .Order(StringComparer.Ordinal).ToList();
     var failures = new List<string>();
 
     foreach (var file in files) {
@@ -141,11 +138,7 @@ public static class Cli {
     try {
       errors = Compile(file, expect.Error is null ? exe : null);
     } catch (Exception e) when (e is not CompileError) {
-      return $"compiler crashed: {e}";
-    }
-
-    if (errors.FirstOrDefault(e => expect.Absent.Contains(e.Code)) is { } unwanted) {
-      return $"unexpected {unwanted}";
+      return DescribeInternal(e);
     }
     if (expect.Error is not null) {
       if (errors.Any(e => e.Code == expect.Error)) {

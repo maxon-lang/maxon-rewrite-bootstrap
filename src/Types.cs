@@ -50,8 +50,9 @@ public abstract class NominalTy(string name) : Ty {
   public Dictionary<string, FuncDecl> Methods { get; } = [];
 }
 
-public sealed class FieldInfo(string name, Ty type, bool isVar, Expr? @default, int index) {
+public sealed class FieldInfo(string name, Ty type, bool isVar, Expr? @default, int index, bool exported) {
   public string Name { get; } = name;
+  public bool Exported { get; } = exported;
   public Ty Type { get; set; } = type;
   public bool IsVar { get; } = isVar;
   public Expr? Default { get; } = @default;
@@ -85,11 +86,10 @@ public sealed class UnionTy(UnionDecl decl) : NominalTy(decl.Name) {
   public override bool IsManaged => true;
 }
 
-public sealed class Local(string name, Ty type, bool isVar, Node site) {
+public sealed class Local(string name, Ty type, bool isVar) {
   public string Name { get; } = name;
   public Ty Type { get; set; } = type;
   public bool IsVar { get; } = isVar;
-  public Node Site { get; } = site;
   public bool IsParam { get; init; }
   public bool IsSelf { get; init; }
   public bool ByRef { get; init; }

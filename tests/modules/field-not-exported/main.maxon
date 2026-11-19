@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let b = lib.Box.create()
+	print("{b.secret}\n")
+	return 0
+end 'main'
+
+// expect-error: E3014

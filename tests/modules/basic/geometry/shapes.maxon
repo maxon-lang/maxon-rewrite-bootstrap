@@ -1,0 +1,22 @@
+export typealias Length = int(0 to 1000)
+
+export function area(width Length, height Length) returns Length
+	return width * height
+end 'area'
+
+export function perimeter(width Length, height Length) returns Length
+	return double(width + height)
+end 'perimeter'
+
+function double(n Length) returns Length
+	return n * 2
+end 'double'
+
+export function grow(n mutable Length)
+	n = n + 1
+end 'grow'
+
+export enum Corner
+	topLeft
+	bottomRight
+end 'Corner'

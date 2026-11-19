@@ -1,0 +1,7 @@
+export function ping() returns String
+	return "ping {beta.pong()}"
+end 'ping'
+
+export function tag() returns String
+	return "a"
+end 'tag'

@@ -1,9 +1,0 @@
-typealias Score = int(i64.min to i64.max)
-
-function main() returns ExitCode
-	var x = 1 as Score
-	print("{x}\n")
-	return 0
-end 'main'
-
-// expect-error: E3077

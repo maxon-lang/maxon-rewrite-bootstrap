@@ -1,0 +1,10 @@
+function helper() returns String
+	return "one"
+end 'helper'
+
+function main() returns ExitCode
+	print("{helper()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3006

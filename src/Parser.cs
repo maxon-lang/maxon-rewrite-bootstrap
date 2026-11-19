@@ -22,6 +22,8 @@ public sealed class Parser(List<Token> toks) {
 
   public static Program ParseFile(string file, string source) => new Parser(new Lexer(file, source).Lex()).ParseProgram();
 
+  public static bool IsReserved(string word) => Reserved.Contains(word);
+
   Token Cur => toks[p];
 
   Token PeekTok(int n = 1) => toks[Math.Min(p + n, toks.Count - 1)];
@@ -217,8 +219,9 @@ public sealed class Parser(List<Token> toks) {
       throw ErrorAt(Cur, Err.ExpectedType, $"expected a type, found '{Cur.Text}'");
     }
     tr.Name = Next().Text;
-    if (At(T.Dot)) {
-      throw Unsupported("a qualified type name");
+    while (Accept(T.Dot)) {
+      tr.Qualifier.Add(tr.Name);
+      tr.Name = ExpectName("a type name");
     }
     if (AtWord("with")) {
       throw Unsupported("a generic type");

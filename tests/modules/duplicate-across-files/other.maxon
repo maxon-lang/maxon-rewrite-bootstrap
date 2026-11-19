@@ -1,0 +1,3 @@
+function helper() returns String
+	return "two"
+end 'helper'

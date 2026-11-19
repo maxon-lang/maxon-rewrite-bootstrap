@@ -1,0 +1,3 @@
+function secret() returns String
+	return "hidden"
+end 'secret'

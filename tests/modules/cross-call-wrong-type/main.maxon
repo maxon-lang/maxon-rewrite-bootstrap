@@ -1,0 +1,9 @@
+typealias Apples = int(0 to 100)
+
+function main() returns ExitCode
+	let a = 3 as Apples
+	print("{lib.half(a)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005

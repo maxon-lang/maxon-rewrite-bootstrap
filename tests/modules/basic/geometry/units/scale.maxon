@@ -1,0 +1,5 @@
+export typealias Factor = int(i64.min to i64.max)
+
+export function scale(n Factor) returns Factor
+	return n * 5
+end 'scale'

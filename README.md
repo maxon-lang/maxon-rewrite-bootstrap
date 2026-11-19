@@ -1,7 +1,8 @@
 # minimaxon
 
 A small Maxon compiler for trying out language changes. It is written in C#, targets x64 Windows only, and
-is about 4,000 lines. It writes a PE executable directly, with no assembler, linker or C runtime.
+is about 5,000 lines. It compiles modules in parallel and writes a PE executable directly, with no external
+assembler, linker or C runtime.
 
 It is not the real compiler and does not share code with `maxon-bin/`. It accepts a core subset of Maxon,
 using the same syntax and, where it implements a rule, the same error code as the real compiler. That
@@ -21,34 +22,67 @@ dotnet bin/Release/net10.0/minimaxon.dll run tests/run/enums-unions.maxon
 
 | Command | What it does |
 |---|---|
-| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory compiles every `*.maxon` in it as one program |
+| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory |
 | `minimaxon run <file\|dir>` | compile to `%TEMP%\minimaxon\` and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only |
 | `minimaxon test [dir]` | run the corpus (default `tests/`) |
 
+`--jobs=N` sets how many modules compile at once. The default is one fewer than the processor count. The
+executable is byte-identical whatever the value.
+
 ### Tests
 
-Each `tests/**/*.maxon` is one program. Directives in comments say what it must do:
+Each `tests/**/*.maxon` is one program, except under `tests/modules/`, where each directory is a project
+and its root files carry the directives. Directives in comments say what the program must do:
 
 | Directive | Meaning |
 |---|---|
 | `//> text` | one expected line of stdout, in order (none means stdout must be empty) |
 | `// expect-exit: N` | expected exit code (default 0; a panic exits 1) |
 | `// expect-error: E3102` | compiling must fail with this code |
-| `// expect-no-error: E3077` | this code must not be reported |
+
+### Errors
+
+A diagnostic is `file:line:col: error E….: message`, and compiling stops at the first error in each
+function. Anything else the compiler throws is a bug in minimaxon, not in the program. It prints
+`internal compiler error` with a stack trace and exits 3.
+
+## Modules
+
+A module is a directory. The project root is the root module, which holds `main`, and every directory
+under it that holds source, at any depth, is a module of its own. Names follow Maxon's rules:
+
+- **Qualified:** `geometry.area()`, `7 as geometry.Length`, `geometry.units.scale(3)`. A path is read
+  from the root. `export.X` names the root module's `X` and `stdlib.X` a built-in.
+- **Bare:** the module's own declaration, else the root's, else the one exported declaration anywhere.
+  Two candidates is `E3095` for a function or binding and `E3063` for a type.
+- **Visibility is flat:** an unmarked declaration, field or method is visible only inside its own module.
+  `export` and `public` make it visible everywhere. Naming a hidden one is `E3008` (`E3014` for a field).
+- **One namespace per module:** a name declared twice across the module's files is `E3006`.
+- **No import cycles:** module A depends on B when A names one of B's declarations. A cycle is `E9001`.
+- A directory whose name is not an identifier, or a top-level one named `export`, `stdlib`, `runtime` or
+  `scriptlib`, is `E3182`.
 
 ## Pipeline
 
-| File | Stage |
-|---|---|
-| `src/Lexer.cs` | tokens; drops newlines inside brackets; splits string interpolation into parts |
-| `src/Parser.cs` | recursive descent → `src/Ast.cs`; anything outside the subset is `E9000` |
-| `src/Checker.cs` | names, types, ranged integers, calls, matches; writes its results onto the AST nodes |
-| `src/Ownership.cs` | a flow-sensitive pass: moves (`E3102`), unused names (`E3012`), a never-reassigned `var` (`E3077`) |
-| `src/Codegen.cs` | AST → x64, plus the runtime routines, hand-assembled |
-| `src/X64.cs` | instruction encoder, labels, the data section |
-| `src/PeWriter.cs` | PE32+ image: `.text`, `.data`, `.idata` (kernel32 only) |
-| `src/Program.cs` | CLI and test runner |
+[`src/Driver.cs`](src/Driver.cs) runs the phases below in order. Each phase runs every module in parallel
+and completes before the next starts, so a module only reads another module's results from an earlier
+phase, and needs no locks.
+
+| Phase | File | Work per module |
+|---|---|---|
+| parse | `src/Lexer.cs`, `src/Parser.cs` | tokens and AST (`src/Ast.cs`); anything outside the subset is `E9000` |
+| tables | `src/Modules.cs` | serial: the declaration tables, and an empty type object for every type |
+| resolve | `src/Resolver.cs` | binds every name to its declaration and records module dependencies |
+| declare | `src/Checker.cs` | the module's fields, cases and function signatures |
+| constants | `src/Checker.cs` | serial: top-level `let` types, in dependency order across modules |
+| bodies | `src/Checker.cs` | types every function body; a call into another module takes the callee's declared return type and is recorded, not checked |
+| verify | `src/Checker.cs`, `src/Ownership.cs` | checks the recorded cross-module calls, then moves (`E3102`) |
+| codegen | `src/Codegen.cs` | one code unit per module; calls between units are symbolic |
+| link | `src/Linker.cs`, `src/PeWriter.cs` | serial: joins the units in module-path order, plus a runtime unit, into a PE32+ image |
+
+`src/X64.cs` is the instruction encoder, and `src/Program.cs` is the CLI and test runner. A phase that
+reports an error stops the compile, so later phases never see a broken module.
 
 Codegen is deliberately naive. Every expression leaves its value in `rax`, operands go through the stack,
 and every local has a frame slot. Calls use an internal convention: arguments are pushed left to right and
@@ -85,19 +119,28 @@ checked where the result is computed. `as` checks at compile time for a constant
 - `/` and `mod` panic on a zero divisor instead of throwing `DivisionByZero` under `try`.
 - No alias subtyping (`implements`), floats, characters, arrays, tuples, generics, interfaces, closures,
   `try`/`throws`, async, services, region capabilities (`isolated`, `immutable`, `modify`, `freeze`), static
-  fields, default parameters, format specifiers, `#if`, or visibility checks. Each of these is parsed far
-  enough to report `E9000`.
-- The lint rules (`E3064`, `E3065`, `E3092`, `E3219`) are not implemented.
+  fields, default parameters, format specifiers, or `#if`. Each of these is parsed far enough to report
+  `E9000`.
+- Modules differ from Maxon in three ways. Visibility is flat, not "the directory and its subdirectories".
+  Import cycles are refused. And the rule that an exported signature may not name a less visible type
+  (`E3167`) is not checked.
+- It checks only the rules that the generated code depends on. The style rules are left out: an unused
+  name (`E3012`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
+  an unneeded cast (`E3010`), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
+  (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3092`, `E3219`).
 
 ## Adding a feature
 
 A typical change touches one file per stage:
 
 1. **Syntax:** a node in `Ast.cs` and a branch in `Parser.cs`. If the word was an `Unsupported(...)`
-   refusal, that call is where the new production goes.
+   refusal, that call is where the new production goes. A node holding names needs a case in `Resolver.cs`
+   too, which raises an internal compiler error on a node it does not know.
 2. **Typing:** a case in `Checker.CheckExpr` or `Checker.CheckStmt`. Store what codegen needs on the node.
-3. **Ownership:** a case in `Ownership.Stmt` or `Ownership.Expr`. The pass throws on a node it does not
-   know, so it cannot be skipped by accident.
+   Read another module's types and signatures freely, but never write them: only the declare phase writes
+   a module's own declarations.
+3. **Ownership:** a case in `Ownership.Stmt` or `Ownership.Expr`. The pass, like codegen, raises an internal
+   compiler error on a node it does not know, so it cannot be skipped by accident.
 4. **Codegen:** a case in `Codegen.EmitExpr` or `Codegen.EmitStmt`.
 5. **Tests:** a `tests/run/` program for the behaviour, and a `tests/errors/` program for each diagnostic.
 

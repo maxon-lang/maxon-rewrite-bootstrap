@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("{lib.join("a", with: "b")}\n")
+	return 0
+end 'main'
+
+// expect-error: E3037

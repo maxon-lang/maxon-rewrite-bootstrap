@@ -1,6 +1,6 @@
 namespace MiniMaxon;
 
-public sealed class Ownership {
+public sealed class Ownership(List<CompileError> errors) {
   sealed class State {
     public Dictionary<Local, Node> Moved { get; private init; } = [];
     public bool Dead { get; private init; }
@@ -31,32 +31,11 @@ public sealed class Ownership {
     public List<State> Continues { get; } = [];
   }
 
-  public List<CompileError> Errors { get; } = [];
-
-  HashSet<Local> used = [];
-  HashSet<Local> reassigned = [];
   Dictionary<Node, Exits> exits = [];
 
   public void Check(FuncDecl f) {
-    used = [];
-    reassigned = [];
     exits = [];
-    try {
-      Walk(f.Body, new State());
-    } catch (CompileError e) {
-      Errors.Add(e);
-    }
-
-    foreach (var l in f.Locals) {
-      if (l.IsSelf || l.Name == "_") {
-        continue;
-      }
-      if (!used.Contains(l)) {
-        Errors.Add(l.Site.Error(Err.UnusedVariable, $"'{l.Name}' is never used; name it '_' to discard it"));
-      } else if (l.IsVar && !reassigned.Contains(l)) {
-        Errors.Add(l.Site.Error(Err.VarShouldBeLet, $"'{l.Name}' is a var that is never reassigned: make it a let"));
-      }
-    }
+    Walk(f.Body, new State());
   }
 
   State Walk(List<Stmt> body, State s) {
@@ -76,7 +55,6 @@ public sealed class Ownership {
       case AssignStmt a:
         Expr(a.Value, s);
         if (a.Target is NameExpr { Kind: NameKind.Local, Local: var target }) {
-          reassigned.Add(target!);
           Move(a.Value, target!.Name, s);
           if (!s.Dead) {
             s.Moved.Remove(target);
@@ -127,7 +105,7 @@ public sealed class Ownership {
         return State.Unreachable;
 
       default:
-        throw st.Error(Err.Unsupported, $"ownership: unhandled statement {st.GetType().Name}");
+        throw new InternalError($"ownership: unhandled statement {st.GetType().Name}");
     }
   }
 
@@ -179,10 +157,9 @@ public sealed class Ownership {
 
   void Read(NameExpr n, State s) {
     var l = n.Local!;
-    used.Add(l);
     if (!s.Dead && s.Moved.TryGetValue(l, out var site)) {
       var into = moveTargets.GetValueOrDefault(site, "another variable");
-      Errors.Add(n.Error(Err.UseAfterMove,
+      errors.Add(n.Error(Err.UseAfterMove,
         $"'{n.Name}' was moved into '{into}' at line {site.Line}; assign it again before reading it, or bind a clone"));
       s.Moved.Remove(l);
     }
@@ -218,11 +195,8 @@ public sealed class Ownership {
         if (c.Receiver is not null) {
           Expr(c.Receiver, s);
         }
-        for (var i = 0; i < c.Ordered.Count; i++) {
-          Expr(c.Ordered[i], s);
-          if (c.Target is not null && c.Target.Params[i].Mutable && c.Ordered[i] is NameExpr { Kind: NameKind.Local, Local: var l }) {
-            reassigned.Add(l!);
-          }
+        foreach (var arg in c.Ordered) {
+          Expr(arg, s);
         }
         break;
       case MemberExpr m:
@@ -245,7 +219,7 @@ public sealed class Ownership {
         Expr(p.Message, s);
         break;
       default:
-        throw e.Error(Err.Unsupported, $"ownership: unhandled expression {e.GetType().Name}");
+        throw new InternalError($"ownership: unhandled expression {e.GetType().Name}");
     }
   }
 }

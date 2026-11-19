@@ -1,8 +1,0 @@
-function main() returns ExitCode
-	while true 'loop'
-		break 'loop'
-	end 'loop'
-	return 0
-end 'main'
-
-// expect-error: E2048

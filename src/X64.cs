@@ -9,6 +9,24 @@ public enum Cc { O = 0, NO = 1, B = 2, AE = 3, E = 4, NE = 5, BE = 6, A = 7, S =
 public sealed class Label {
   public int Pos = -1;
   public readonly List<int> Uses = [];
+  public object? Symbol { get; private init; }
+
+  public static Label Extern(object symbol) => new() { Symbol = symbol };
+}
+
+public sealed class CodeUnit {
+  public Asm Asm { get; } = new();
+  public DataSection Data { get; } = new();
+  public Dictionary<object, int> CodeSymbols { get; } = [];
+  public Dictionary<object, int> DataSymbols { get; } = [];
+
+  public void DefineCode(object symbol) {
+    if (!CodeSymbols.TryAdd(symbol, Asm.Pos)) {
+      throw new InternalError($"code symbol {symbol} is defined twice");
+    }
+  }
+
+  public void DefineData(object symbol, int size) => DataSymbols.Add(symbol, Data.Reserve(size));
 }
 
 public sealed class DataSection {
@@ -48,6 +66,7 @@ public sealed class Asm {
   public readonly List<byte> Code = [];
   public readonly List<(int Pos, int DataOffset)> DataFixups = [];
   public readonly List<(int Pos, int Import)> ImportFixups = [];
+  public readonly List<(int Pos, object Symbol)> SymbolFixups = [];
 
   public int Pos => Code.Count;
 
@@ -245,6 +264,22 @@ public sealed class Asm {
     D32(0);
   }
 
+  public void LoadSymbol(R dst, object symbol) {
+    Rex(true, (int)dst, 0);
+    Code.Add(0x8B);
+    RipMem((int)dst);
+    SymbolFixups.Add((Pos, symbol));
+    D32(0);
+  }
+
+  public void StoreSymbol(object symbol, R src) {
+    Rex(true, (int)src, 0);
+    Code.Add(0x89);
+    RipMem((int)src);
+    SymbolFixups.Add((Pos, symbol));
+    D32(0);
+  }
+
   public void CallImport(int index) {
     Raw(0xFF, 0x15);
     ImportFixups.Add((Pos, index));
@@ -252,7 +287,10 @@ public sealed class Asm {
   }
 
   void Rel32(Label l) {
-    if (l.Pos >= 0) {
+    if (l.Symbol is not null) {
+      SymbolFixups.Add((Pos, l.Symbol));
+      D32(0);
+    } else if (l.Pos >= 0) {
       D32(l.Pos - (Pos + 4));
     } else {
       l.Uses.Add(Pos);
@@ -276,6 +314,9 @@ public sealed class Asm {
   }
 
   public void Bind(Label l) {
+    if (l.Symbol is not null) {
+      throw new InternalError($"external label {l.Symbol} cannot be bound in a unit");
+    }
     l.Pos = Pos;
     foreach (var use in l.Uses) {
       var rel = BitConverter.GetBytes(l.Pos - (use + 4));

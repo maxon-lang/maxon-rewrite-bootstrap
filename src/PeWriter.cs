@@ -10,19 +10,13 @@ public static class PeWriter {
 
   static uint AlignUp(uint v, uint a) => (v + a - 1) & ~(a - 1);
 
-  public static void Write(string path, Asm asm, byte[] data, string dll, IReadOnlyList<string> imports, int entryOffset) {
-    var code = asm.Code.ToArray();
+  public static void Write(string path, byte[] code, byte[] data, string dll, IReadOnlyList<string> imports, int entryOffset,
+    Action<uint, uint, uint> patch) {
     var dataRva = TextRva + AlignUp((uint)Math.Max(code.Length, 1), SectionAlignment);
     var idataRva = dataRva + AlignUp((uint)Math.Max(data.Length, 1), SectionAlignment);
 
     var (idata, iatOffset, iatSize) = BuildImports(idataRva, dll, imports);
-
-    foreach (var (pos, off) in asm.DataFixups) {
-      WriteI32(code, pos, (int)(dataRva + off - (TextRva + pos + 4)));
-    }
-    foreach (var (pos, index) in asm.ImportFixups) {
-      WriteI32(code, pos, (int)(idataRva + iatOffset + 8 * index - (TextRva + pos + 4)));
-    }
+    patch(TextRva, dataRva, idataRva + iatOffset);
 
     var sections = new (string Name, byte[] Bytes, uint Rva, uint Flags)[] {
       (".text", code, TextRva, 0x60000020),
@@ -120,8 +114,6 @@ public static class PeWriter {
       w.Write(new byte[AlignUp((uint)bytes.Length, FileAlignment) - bytes.Length]);
     }
   }
-
-  static void WriteI32(byte[] buf, int pos, int v) => BitConverter.GetBytes(v).CopyTo(buf, pos);
 
   static (byte[] Bytes, uint IatOffset, uint IatSize) BuildImports(uint rva, string dll, IReadOnlyList<string> imports) {
     var n = (uint)imports.Count;

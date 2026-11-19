@@ -1,0 +1,3 @@
+export function greet() returns String
+	return "bonjour"
+end 'greet'

@@ -1,0 +1,5 @@
+export typealias Pears = int(0 to 100)
+
+export function half(n Pears) returns Pears
+	return n / 2
+end 'half'

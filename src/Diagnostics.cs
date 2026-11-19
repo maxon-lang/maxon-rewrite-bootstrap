@@ -9,6 +9,8 @@ public sealed class CompileError(string code, string message, string file, int l
   public override string ToString() => $"{File}:{Line}:{Col}: error {Code}: {Message}";
 }
 
+public sealed class InternalError(string message) : Exception(message);
+
 public static class Err {
   public const string UnexpectedToken = "E2001";
   public const string ExpectedType = "E2003";
@@ -19,7 +21,6 @@ public static class Err {
   public const string AssignToImmutable = "E2013";
   public const string MatchNotExhaustive = "E2026";
   public const string MatchDefaultEnumMustThrow = "E2046";
-  public const string RedundantControlLabel = "E2048";
   public const string MatchBlockStatement = "E2049";
   public const string CallFirstArgNamed = "E2052";
   public const string CallArgMissingLabel = "E2053";
@@ -28,9 +29,7 @@ public static class Err {
   public const string UnknownFunction = "E3004";
   public const string TypeMismatch = "E3005";
   public const string DuplicateDefinition = "E3006";
-  public const string UnneededCast = "E3010";
   public const string UnknownType = "E3011";
-  public const string UnusedVariable = "E3012";
   public const string MissingReturn = "E3013";
   public const string UnknownField = "E3018";
   public const string EnumDuplicateCase = "E3030";
@@ -40,10 +39,7 @@ public static class Err {
   public const string CallUnknownArgLabel = "E3037";
   public const string CallDuplicateArg = "E3038";
   public const string EnumNotComparable = "E3066";
-  public const string SelfAssignment = "E3067";
   public const string ConstructorRestriction = "E3076";
-  public const string VarShouldBeLet = "E3077";
-  public const string MatchDiscardedBindings = "E3081";
   public const string EmptyBlock = "E3082";
   public const string FieldNotInitialized = "E3086";
   public const string UseAfterMove = "E3102";

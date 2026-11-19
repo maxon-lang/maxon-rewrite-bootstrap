@@ -1,0 +1,10 @@
+function label() returns String
+	return "root"
+end 'label'
+
+function main() returns ExitCode
+	print("{label()} {lib.label()} {lib.describe()}\n")
+	return 0
+end 'main'
+
+//> root lib lib

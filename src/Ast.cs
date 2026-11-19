@@ -9,13 +9,22 @@ public abstract class Node {
 }
 
 public sealed class TypeRef : Node {
+  public List<string> Qualifier = [];
   public string Name = "";
   public string? Capability;
+  public Decl? Target;
 }
 
 public abstract class Decl : Node {
   public string Name = "";
   public string Visibility = "";
+  public Module Module = null!;
+
+  public bool IsExported => Visibility is "export" or "public";
+}
+
+public abstract class TypeDeclBase : Decl {
+  public Ty? Ty;
 }
 
 public sealed class Param : Node {
@@ -49,7 +58,7 @@ public sealed class FieldDecl : Node {
   public Expr? Default;
 }
 
-public sealed class TypeDecl : Decl {
+public sealed class TypeDecl : TypeDeclBase {
   public List<FieldDecl> Fields = [];
   public List<FuncDecl> Methods = [];
 }
@@ -59,7 +68,7 @@ public sealed class EnumCaseDecl : Node {
   public Int128? Raw;
 }
 
-public sealed class EnumDecl : Decl {
+public sealed class EnumDecl : TypeDeclBase {
   public List<EnumCaseDecl> Cases = [];
   public List<FuncDecl> Methods = [];
 }
@@ -69,12 +78,12 @@ public sealed class UnionCaseDecl : Node {
   public List<Param> Fields = [];
 }
 
-public sealed class UnionDecl : Decl {
+public sealed class UnionDecl : TypeDeclBase {
   public List<UnionCaseDecl> Cases = [];
   public List<FuncDecl> Methods = [];
 }
 
-public sealed class AliasDecl : Decl {
+public sealed class AliasDecl : TypeDeclBase {
   public Int128 Min;
   public Int128 Max;
 }
@@ -201,6 +210,7 @@ public enum NameKind { Unresolved, Local, Const, SelfField }
 
 public sealed class NameExpr : Expr {
   public string Name = "";
+  public Decl? Target;
   public NameKind Kind;
   public Local? Local;
   public ConstDecl? Const;
@@ -261,6 +271,7 @@ public sealed class MemberExpr : Expr {
 
 public sealed class StructLitExpr : Expr {
   public string TypeName = "";
+  public Decl? Target;
   public List<(string Name, Expr Value, Node Site)> Fields = [];
   public RecordTy? Record;
   public List<Expr?> Ordered = [];

@@ -1,7 +1,26 @@
 namespace MiniMaxon;
 
+public static class Rt {
+  public const string Entry = "rt.entry";
+  public const string Alloc = "rt.alloc";
+  public const string Write = "rt.write";
+  public const string Panic = "rt.panic";
+  public const string Concat = "rt.concat";
+  public const string Itoa = "rt.itoa";
+  public const string Streq = "rt.streq";
+  public const string PanicRange = "rt.panicRange";
+  public const string PanicOverflow = "rt.panicOverflow";
+  public const string PanicDiv = "rt.panicDiv";
+  public const string PanicShift = "rt.panicShift";
+  public const string Heap = "g.heap";
+  public const string Stdout = "g.stdout";
+  public const string Stderr = "g.stderr";
+
+  public static readonly string[] Imports = ["GetProcessHeap", "HeapAlloc", "GetStdHandle", "WriteFile", "ExitProcess"];
+  public const string Dll = "kernel32.dll";
+}
+
 public sealed class Codegen {
-  static readonly string[] Imports = ["GetProcessHeap", "HeapAlloc", "GetStdHandle", "WriteFile", "ExitProcess"];
   const int ImpGetProcessHeap = 0;
   const int ImpHeapAlloc = 1;
   const int ImpGetStdHandle = 2;
@@ -13,37 +32,36 @@ public sealed class Codegen {
   const int PanicExitCode = 1;
   const int Word = 8;
 
-  readonly Asm a = new();
-  readonly DataSection data = new();
-  readonly int gHeap;
-  readonly int gStdout;
-  readonly int gStderr;
-  readonly Dictionary<FuncDecl, Label> fnLabels = [];
-  readonly Label rtAlloc = new(), rtWrite = new(), rtPanic = new(), rtConcat = new(), rtItoa = new(), rtStreq = new();
-  readonly Label panicRange = new(), panicOverflow = new(), panicDiv = new(), panicShift = new();
+  readonly CodeUnit u = new();
+  readonly Label rtAlloc = Label.Extern(Rt.Alloc), rtWrite = Label.Extern(Rt.Write), rtPanic = Label.Extern(Rt.Panic);
+  readonly Label rtConcat = Label.Extern(Rt.Concat), rtItoa = Label.Extern(Rt.Itoa), rtStreq = Label.Extern(Rt.Streq);
+  readonly Label panicRange = Label.Extern(Rt.PanicRange), panicOverflow = Label.Extern(Rt.PanicOverflow);
+  readonly Label panicDiv = Label.Extern(Rt.PanicDiv), panicShift = Label.Extern(Rt.PanicShift);
 
   FuncDecl fn = null!;
   int slotCount;
   Label epilogue = new();
   readonly Dictionary<Node, (Label Break, Label? Continue)> jumps = [];
 
-  Codegen() {
-    gHeap = data.Reserve(Word);
-    gStdout = data.Reserve(Word);
-    gStderr = data.Reserve(Word);
-  }
+  Asm a => u.Asm;
+  DataSection data => u.Data;
 
-  public static void Compile(Checker checker, string outPath) {
+  public static CodeUnit EmitModule(IEnumerable<FuncDecl> functions) {
     var g = new Codegen();
-    foreach (var f in checker.Functions) {
-      g.fnLabels[f] = new Label();
-    }
-    var entry = g.EmitEntry(checker.Main!);
-    foreach (var f in checker.Functions) {
+    foreach (var f in functions) {
       g.EmitFunction(f);
     }
+    return g.u;
+  }
+
+  public static CodeUnit EmitRuntimeUnit(FuncDecl main) {
+    var g = new Codegen();
+    g.u.DefineData(Rt.Heap, Word);
+    g.u.DefineData(Rt.Stdout, Word);
+    g.u.DefineData(Rt.Stderr, Word);
+    g.EmitEntry(main);
     g.EmitRuntime();
-    PeWriter.Write(outPath, g.a, g.data.ToArray(), "kernel32.dll", Imports, entry);
+    return g.u;
   }
 
   static long Bits(Int128 v) => v > IntTy.I64Max ? (long)(ulong)v : (long)v;
@@ -54,21 +72,20 @@ public sealed class Codegen {
 
   int NewTemp() => -Word * (++slotCount);
 
-  int EmitEntry(FuncDecl main) {
-    var at = a.Pos;
+  void EmitEntry(FuncDecl main) {
+    u.DefineCode(Rt.Entry);
     a.SubImm(R.Rsp, 40);
     a.CallImport(ImpGetProcessHeap);
-    a.StoreData(gHeap, R.Rax);
+    a.StoreSymbol(Rt.Heap, R.Rax);
     a.MovImm(R.Rcx, StdOutputHandle);
     a.CallImport(ImpGetStdHandle);
-    a.StoreData(gStdout, R.Rax);
+    a.StoreSymbol(Rt.Stdout, R.Rax);
     a.MovImm(R.Rcx, StdErrorHandle);
     a.CallImport(ImpGetStdHandle);
-    a.StoreData(gStderr, R.Rax);
-    a.Call(fnLabels[main]);
+    a.StoreSymbol(Rt.Stderr, R.Rax);
+    a.Call(Label.Extern(main));
     a.Mov(R.Rcx, R.Rax);
     a.CallImport(ImpExitProcess);
-    return at;
   }
 
   void EmitFunction(FuncDecl f) {
@@ -77,7 +94,7 @@ public sealed class Codegen {
     epilogue = new Label();
     jumps.Clear();
 
-    a.Bind(fnLabels[f]);
+    u.DefineCode(f);
     a.Push(R.Rbp);
     a.Mov(R.Rbp, R.Rsp);
     var frameAt = a.SubRspPlaceholder();
@@ -169,7 +186,7 @@ public sealed class Codegen {
         a.Jmp(jumps[c.Target!].Continue!);
         break;
       default:
-        throw s.Error(Err.Unsupported, $"codegen: unhandled statement {s.GetType().Name}");
+        throw new InternalError($"codegen: unhandled statement {s.GetType().Name}");
     }
   }
 
@@ -197,7 +214,7 @@ public sealed class Codegen {
         a.Store(R.Rcx, Word * m.Field!.Index, R.Rax);
         break;
       default:
-        throw asg.Error(Err.Unsupported, "codegen: unhandled assignment target");
+        throw new InternalError("codegen: unhandled assignment target");
     }
   }
 
@@ -303,7 +320,7 @@ public sealed class Codegen {
         a.Call(rtPanic);
         break;
       default:
-        throw e.Error(Err.Unsupported, $"codegen: unhandled expression {e.GetType().Name}");
+        throw new InternalError($"codegen: unhandled expression {e.GetType().Name}");
     }
   }
 
@@ -330,7 +347,7 @@ public sealed class Codegen {
         EmitExpr(n.Const!.Value);
         break;
       default:
-        throw n.Error(Err.Unsupported, $"codegen: unresolved name '{n.Name}'");
+        throw new InternalError($"codegen: unresolved name '{n.Name}'");
     }
   }
 
@@ -352,7 +369,7 @@ public sealed class Codegen {
         a.Lea(R.Rax, R.Rax, Word * m.Field!.Index);
         break;
       default:
-        throw e.Error(Err.Unsupported, "codegen: no address for this expression");
+        throw new InternalError("codegen: no address for this expression");
     }
   }
 
@@ -360,7 +377,7 @@ public sealed class Codegen {
     switch (c.Kind) {
       case CallKind.Print or CallKind.PrintError:
         EmitExpr(c.Ordered[0]);
-        a.LoadData(R.Rcx, c.Kind == CallKind.Print ? gStdout : gStderr);
+        a.LoadSymbol(R.Rcx, c.Kind == CallKind.Print ? Rt.Stdout : Rt.Stderr);
         a.Push(R.Rcx);
         a.Push(R.Rax);
         CallRuntime(rtWrite, 2);
@@ -381,14 +398,14 @@ public sealed class Codegen {
           }
           a.Push(R.Rax);
         }
-        CallRuntime(fnLabels[target], n);
+        CallRuntime(Label.Extern(target), n);
         break;
       }
       case CallKind.UnionCtor:
         EmitRecord(c.Ordered, tag: c.CaseIndex);
         break;
       default:
-        throw c.Error(Err.Unsupported, "codegen: unresolved call");
+        throw new InternalError("codegen: unresolved call");
     }
   }
 
@@ -448,7 +465,7 @@ public sealed class Codegen {
         EmitSelect(((UnionTy)m.Obj.Type).Cases.Select(c => c.Name).ToList(), name => a.LeaData(R.Rax, data.String(name)));
         break;
       default:
-        throw m.Error(Err.Unsupported, "codegen: unresolved member");
+        throw new InternalError("codegen: unresolved member");
     }
   }
 
@@ -513,7 +530,7 @@ public sealed class Codegen {
         EmitSelect(ut.Cases.Select(c => c.Name).ToList(), name => a.LeaData(R.Rax, data.String(name)));
         break;
       default:
-        throw e.Error(Err.Unsupported, $"codegen: cannot interpolate {e.Type}");
+        throw new InternalError($"codegen: cannot interpolate {e.Type}");
     }
   }
 
@@ -607,7 +624,7 @@ public sealed class Codegen {
         EmitShift(b.Op == "shl", unsigned);
         break;
       default:
-        throw b.Error(Err.Unsupported, $"codegen: operator '{b.Op}'");
+        throw new InternalError($"codegen: operator '{b.Op}'");
     }
     EmitRangeCheck((IntTy)b.Type);
   }
@@ -808,15 +825,15 @@ public sealed class Codegen {
   }
 
   void EmitRuntime() {
-    a.Bind(rtAlloc);
+    u.DefineCode(Rt.Alloc);
     Prologue(0, callsWindows: true);
-    a.LoadData(R.Rcx, gHeap);
+    a.LoadSymbol(R.Rcx, Rt.Heap);
     a.MovImm(R.Rdx, HeapZeroMemory);
     a.Load(R.R8, R.Rbp, 16);
     a.CallImport(ImpHeapAlloc);
     Epilogue();
 
-    a.Bind(rtWrite);
+    u.DefineCode(Rt.Write);
     Prologue(0, callsWindows: true);
     a.Load(R.Rcx, R.Rbp, 24);
     a.Load(R.Rdx, R.Rbp, 16);
@@ -828,10 +845,10 @@ public sealed class Codegen {
     a.CallImport(ImpWriteFile);
     Epilogue();
 
-    a.Bind(rtPanic);
+    u.DefineCode(Rt.Panic);
     Prologue(0, callsWindows: false);
     foreach (var piece in new int?[] { data.String("panic: "), null, data.String("\n") }) {
-      a.LoadData(R.Rax, gStderr);
+      a.LoadSymbol(R.Rax, Rt.Stderr);
       a.Push(R.Rax);
       if (piece is int off) {
         a.LeaData(R.Rax, off);
@@ -846,7 +863,7 @@ public sealed class Codegen {
     a.MovImm(R.Rcx, PanicExitCode);
     a.CallImport(ImpExitProcess);
 
-    a.Bind(rtConcat);
+    u.DefineCode(Rt.Concat);
     Prologue(0, callsWindows: false);
     a.Load(R.Rsi, R.Rbp, 24);
     a.Load(R.Rdi, R.Rbp, 16);
@@ -868,7 +885,7 @@ public sealed class Codegen {
     a.Mov(R.Rax, R.R12);
     Epilogue();
 
-    a.Bind(rtItoa);
+    u.DefineCode(Rt.Itoa);
     Prologue(64, callsWindows: false);
     var digits = new Label();
     var loop = new Label();
@@ -911,7 +928,7 @@ public sealed class Codegen {
     a.Mov(R.Rax, R.R12);
     Epilogue();
 
-    a.Bind(rtStreq);
+    u.DefineCode(Rt.Streq);
     Prologue(0, callsWindows: false);
     var yes = new Label();
     var no = new Label();
@@ -936,13 +953,13 @@ public sealed class Codegen {
     a.Bind(done);
     Epilogue();
 
-    foreach (var (label, message) in new[] {
-      (panicRange, "integer value out of range"),
-      (panicOverflow, "integer overflow"),
-      (panicDiv, "division by zero"),
-      (panicShift, "negative shift count"),
+    foreach (var (symbol, message) in new[] {
+      (Rt.PanicRange, "integer value out of range"),
+      (Rt.PanicOverflow, "integer overflow"),
+      (Rt.PanicDiv, "division by zero"),
+      (Rt.PanicShift, "negative shift count"),
     }) {
-      a.Bind(label);
+      u.DefineCode(symbol);
       a.LeaData(R.Rax, data.String(message));
       a.Push(R.Rax);
       a.Call(rtPanic);
