@@ -163,6 +163,13 @@ func TestSyntaxErrorNamesWhatWasExpected(t *testing.T) {
 	}
 }
 
+func TestSyntaxErrorDescribesATokenByItsDescription(t *testing.T) {
+	_, errs := parseFiles(t, "function f()\n\treturn 1 2\nend 'f'\n")
+	if len(errs) != 1 || errs[0].Message != "expected the end of the line, found '2'" {
+		t.Fatalf("errors: %v", errs)
+	}
+}
+
 func TestParseRecoversAtTheNextFile(t *testing.T) {
 	prog, errs := parseFiles(t,
 		"function broken() returns ExitCode\n\treturn 1\n",

@@ -124,14 +124,21 @@ nodes, such as `stmt` or `expr`, is a closed set of them. `internal/grammargen` 
 | File | Holds |
 |---|---|
 | `internal/syntax/parser_gen.go` | a recursive-descent parser with one function per rule; operator precedence comes from the order of `expr`'s alternatives |
-| `internal/syntax/tokens_gen.go` | the token kinds, the keyword table and the punctuation matcher the lexer uses |
+| `internal/syntax/tokens_gen.go` | the token kinds and the lexer's DFA: every token rule and keyword compiled into one table over byte classes |
 | `internal/ast/nodes_gen.go` | the node structs and constructors, the reserved words, and three visitors per set |
 
 The parser decides with one token of lookahead, or two where one is not enough. Where two alternatives start with
 the same rule, as an assignment and an expression statement both start with an expression, it parses that rule once
 and the token after it decides. A syntax error names what the grammar allows at that point, such as
-`expected an expression, found ')'`. The lexer, the loop over a module's declarations, and the conversion of a
-token to a field that is not its text (`intLitMagnitude`, `strLitParts`, `boundValue`) are hand-written in `syntax`.
+`expected an expression, found ')'`. The loop that runs the DFA, the scanner for a string literal (`-> scan`, since
+interpolations nest), the loop over a module's declarations, and the conversion of a token to a field that is not
+its text (`intLitMagnitude`, `strLitParts`, `boundValue`) are hand-written in `syntax`.
+
+The lexer takes the longest token at each position: a keyword wins over a name of the same length, and an earlier
+token rule over a later one. It never backs off to a shorter match, so input that stops partway through a token,
+such as `0x` or an unclosed `/*`, is an error naming the token from its `/** */` description ("incomplete
+integer"). The generator rejects a token rule that matches the empty string or that an earlier token always beats.
+Looking keywords up in the DFA instead of a map makes lexing about 1.4 times as fast.
 
 Each set gets three visitor interfaces with one method per member, and a dispatch function for each:
 
@@ -185,8 +192,8 @@ is the import-cycle check between resolve and declare, a walk over the module gr
 A module's files are read into one buffer, a string allocated once at the sum of their sizes, as they are written:
 offsets in it are the files' own byte offsets, less any byte order mark. Every token's text is a substring of it, so
 lexing allocates no text and needs no intern table. A string cannot be read into, so each file is read into a
-scratch buffer sized for the module's largest file and copied from there. The lexer skips comments; a `///` doc
-comment stays in the buffer for the LSP to use later.
+scratch buffer sized for the module's largest file and copied from there. Comments are `-> skip` token rules, so the
+lexer drops them; a `///` doc comment stays in the buffer for the LSP to use later.
 
 A token is 8 bytes: its kind and length packed into one 32-bit word (8 bits of kind, 24 of length, so a token is
 at most 16 MB) and its start offset in the buffer. Offsets are 32-bit, so a module's source is at most 4 GB. A
@@ -197,7 +204,8 @@ which the parser walks from the last line it asked about, so placing a node cost
 length is about 15% faster than re-lexing a token to find it, and the packing keeps it at 8 bytes.
 
 The lexer works on the raw UTF-8 bytes, so a column counts bytes. One lexer pass covers the whole buffer. At each
-file boundary it resets the bracket depth, so no token spans two files, and emits a `FileEnd` token. One parser reads the module's stream, naming each file in its diagnostics. A declaration left open at the
+file boundary it resets the bracket depth, so no token spans two files, and emits a `FileEnd` token. One parser
+reads the module's stream, naming each file in its diagnostics. A declaration left open at the
 end of a file fails there with `E2007`, and parsing resumes at the next file, so each file reports its own first
 syntax error.
 

@@ -1,0 +1,5 @@
+function main() returns ExitCode
+	return 18446744073709551616
+end 'main'
+
+// expect-error: E2004 at 2:9

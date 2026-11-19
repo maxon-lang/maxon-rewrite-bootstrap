@@ -105,133 +105,74 @@ func (lx *lexer) emit(kind T, start, end int) {
 	lx.toks = append(lx.toks, Token{kindLength: uint32(kind) | uint32(end-start)<<tokenKindBits, Start: uint32(start)})
 }
 
-func isAsciiLetter(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' }
-
 func isAsciiDigit(c byte) bool { return c >= '0' && c <= '9' }
 
 func isAsciiHexDigit(c byte) bool {
 	return isAsciiDigit(c) || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 
+// lexSlice runs the generated DFA (tokens_gen.go) from each position to the longest token there. It never backs
+// off: a match that stops in a state accepting no token is an error naming the unfinished token.
 func (lx *lexer) lexSlice() {
-	for {
-		lx.skipSpaceAndComments()
-		if lx.pos >= lx.end {
-			break
-		}
-
+	text := lx.text[:lx.end]
+	for lx.pos < len(text) {
 		start := lx.pos
-		c := lx.text[start]
-
-		if c == '\n' {
-			lx.pos++
-			if n := len(lx.toks); lx.depth == 0 && n > 0 && lx.toks[n-1].Kind() != TNewline {
-				lx.emit(TNewline, start, start)
+		state := dfaStart
+		i := start
+		for i < len(text) {
+			next := int(dfaNext[state+int(dfaClass[text[i]])])
+			if next == 0 {
+				break
 			}
-			continue
+			state = next
+			i++
 		}
-
-		if isAsciiLetter(c) || c == '_' {
-			for lx.pos < lx.end && (isAsciiLetter(lx.text[lx.pos]) || isAsciiDigit(lx.text[lx.pos]) || lx.text[lx.pos] == '_') {
-				lx.pos++
+		kind := dfaAccept[state/dfaClasses]
+		switch kind {
+		case skipToken:
+			lx.pos = i
+			continue
+		case noToken:
+			panic(lx.unfinished(state, start))
+		}
+		if tokenScanned[kind] {
+			i = lx.scanRest(kind, start)
+		}
+		lx.pos = i
+		switch kind {
+		case TNewline:
+			if n := len(lx.toks); lx.depth > 0 || n == 0 || lx.toks[n-1].Kind() == TNewline {
+				continue
 			}
-			kind := TName
-			if k, ok := keywordKinds[lx.text[start:lx.pos]]; ok {
-				kind = k
-			}
-			lx.emit(kind, start, lx.pos)
-			continue
+		case TLParen, TLBrace:
+			lx.depth++
+		case TRParen, TRBrace:
+			lx.depth = max(0, lx.depth-1)
+		case TLabel:
+			// A label's token is the text between its quotes.
+			start, i = start+1, i-1
 		}
-
-		if isAsciiDigit(c) {
-			_, lx.pos = lx.src.readInteger(lx.file, start, lx.end)
-			if lx.pos < lx.end && lx.text[lx.pos] == '.' && lx.pos+1 < lx.end && isAsciiDigit(lx.text[lx.pos+1]) {
-				panic(lx.fail(diag.ErrUnsupported, "float literals are not supported by minimaxon", start))
-			}
-			lx.emit(TInteger, start, lx.pos)
-			continue
-		}
-
-		if c == '"' {
-			lx.pos = lx.src.readString(lx.file, start, nil)
-			lx.emit(TString, start, lx.pos)
-			continue
-		}
-
-		if c == '\'' {
-			lx.lexLabel(start)
-			continue
-		}
-
-		lx.lexPunct(c, start)
+		lx.emit(kind, start, i)
 	}
 }
+
+// unfinished is the error for input that stops in a state accepting no token.
+func (lx *lexer) unfinished(state, start int) *diag.CompileError {
+	if msg := dfaIncomplete[state/dfaClasses]; msg != "" {
+		return lx.fail(diag.ErrUnexpectedToken, msg, start)
+	}
+	r, _ := utf8.DecodeRuneInString(lx.text[start:lx.end])
+	return lx.fail(diag.ErrUnexpectedToken, "unexpected character '"+string(r)+"'", start)
+}
+
+func (lx *lexer) scanString(start int) int { return lx.src.readString(lx.file, start, nil) }
 
 func (lx *lexer) fail(code, msg string, at int) *diag.CompileError {
 	return lx.src.errorAt(code, msg, lx.file, at)
 }
 
-func (lx *lexer) skipSpaceAndComments() {
-	for lx.pos < lx.end {
-		c := lx.text[lx.pos]
-		switch {
-		case c == ' ' || c == '\t' || c == '\r':
-			lx.pos++
-		case c == '/' && lx.pos+1 < lx.end && lx.text[lx.pos+1] == '/':
-			for lx.pos < lx.end && lx.text[lx.pos] != '\n' {
-				lx.pos++
-			}
-		case c == '/' && lx.pos+1 < lx.end && lx.text[lx.pos+1] == '*':
-			start := lx.pos
-			lx.pos += 2
-			for lx.pos < lx.end && !(lx.text[lx.pos] == '*' && lx.pos+1 < lx.end && lx.text[lx.pos+1] == '/') {
-				lx.pos++
-			}
-			if lx.pos >= lx.end {
-				panic(lx.fail(diag.ErrUnexpectedToken, "unterminated block comment", start))
-			}
-			lx.pos += 2
-		default:
-			return
-		}
-	}
-}
-
-func (lx *lexer) lexLabel(quote int) {
-	start := quote + 1
-	lx.pos = start
-	for lx.pos < lx.end && lx.text[lx.pos] != '\'' && lx.text[lx.pos] != '\n' {
-		lx.pos++
-	}
-	if lx.pos >= lx.end || lx.text[lx.pos] != '\'' {
-		panic(lx.fail(diag.ErrUnexpectedToken, "unterminated label", quote))
-	}
-	lx.emit(TLabel, start, lx.pos)
-	lx.pos++
-}
-
-func (lx *lexer) lexPunct(c byte, start int) {
-	var next byte
-	if start+1 < lx.end {
-		next = lx.text[start+1]
-	}
-	kind, length, ok := matchPunctuation(c, next)
-	if !ok {
-		r, _ := utf8.DecodeRuneInString(lx.text[start:lx.end])
-		panic(lx.fail(diag.ErrUnexpectedToken, "unexpected character '"+string(r)+"'", start))
-	}
-	switch kind {
-	case TLParen, TLBrace:
-		lx.depth++
-	case TRParen, TRBrace:
-		lx.depth = max(0, lx.depth-1)
-	}
-	lx.pos = start + length
-	lx.emit(kind, start, lx.pos)
-}
-
-// readInteger reads the integer literal at text[at:], returning its value and its end. The lexer reads it to find
-// where it ends and to report a malformed one; the parser reads it again for its value.
+// readInteger reads the integer literal at text[at:end], which the lexer's DFA matched, returning its value and its
+// end.
 func (s *Source) readInteger(file, at, end int) (ast.I128, int) {
 	text := s.Text
 	pos := at
@@ -270,7 +211,7 @@ func (s *Source) readInteger(file, at, end int) (ast.I128, int) {
 		digits++
 	}
 	if digits == 0 {
-		panic(s.errorAt(diag.ErrExpressionError, "malformed integer literal", file, at))
+		panic(diag.Internal("the integer literal at %d has no digits, but the lexer matched it", at))
 	}
 	return value, pos
 }

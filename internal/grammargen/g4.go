@@ -77,14 +77,7 @@ func lexGrammar(file, src string) []gtok {
 					break
 				}
 				if src[i] == '\\' && i+1 < len(src) {
-					switch src[i+1] {
-					case 'n':
-						text.WriteByte('\n')
-					case 't':
-						text.WriteByte('\t')
-					default:
-						text.WriteByte(src[i+1])
-					}
+					text.WriteByte(unescape(src[i+1]))
 					i += 2
 					continue
 				}
@@ -137,7 +130,7 @@ func lexGrammar(file, src string) []gtok {
 	return append(toks, gtok{tkEnd, "end of file", line})
 }
 
-var grammarPunctuation = []string{"+=", "::", ":", ";", "|", "(", ")", "?", "*", "+", "=", "#", "~", ".", "<", ">", ",", "@"}
+var grammarPunctuation = []string{"->", "+=", "::", ":", ";", "|", "(", ")", "?", "*", "+", "=", "#", "~", ".", "<", ">", ",", "@"}
 
 func punctAt(s string) (string, bool) {
 	for _, p := range grammarPunctuation {
@@ -166,10 +159,15 @@ type grammar struct {
 
 type tokenDef struct {
 	name string
-	// literal is the token's text when its rule is a single literal; the lexer matches it by that text.
+	// literal is the token's text when its rule is a single literal; a literal in a parser rule names it.
 	literal string
 	desc    string
 	line    int
+	// body is the rule's regular expression; nil for a token in the tokens {} block, which the lexer makes itself.
+	body *rx
+	// skip drops what the rule matches; scan has the DFA only start the token and lexer.scan<Name> finish it.
+	skip bool
+	scan bool
 }
 
 type rule struct {
@@ -355,15 +353,21 @@ func (p *grammarParser) lexerRule() *tokenDef {
 	t := &tokenDef{line: p.cur().line, name: p.ident(), desc: p.takeDoc()}
 	p.expectPunct(":")
 	if p.cur().kind == tkLiteral && p.peek().kind == tkPunct && p.peek().text == ";" {
-		t.literal = p.next().text
+		t.literal = p.cur().text
 	}
-	for !p.isPunct(";") {
-		if p.cur().kind == tkEnd {
-			p.fail(t.line, "token '%s' has no ';'", t.name)
-		}
+	t.body = p.lexAlts(t)
+	if p.isPunct("->") {
 		p.next()
+		switch command := p.ident(); command {
+		case "skip":
+			t.skip = true
+		case "scan":
+			t.scan = true
+		default:
+			p.fail(t.line, "token '%s' has the command '%s'; a token takes '-> skip' or '-> scan'", t.name, command)
+		}
 	}
-	p.next()
+	p.expectPunct(";")
 	return t
 }
 

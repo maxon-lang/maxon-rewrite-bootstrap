@@ -80,9 +80,6 @@ func buildModel(g *grammar) *model {
 		}
 		m.tokenByName[t.name] = t
 		if t.literal != "" {
-			if len(t.literal) > 2 {
-				m.fail(t.line, "the lexer matches punctuation of one or two characters, not '%s'", t.literal)
-			}
 			m.punctuation[t.literal] = t
 		}
 	}
@@ -129,6 +126,9 @@ func (m *model) checkReferences() {
 			case ekToken:
 				if e.text != "EOF" && m.tokenByName[e.text] == nil {
 					m.fail(e.line, "token '%s' is not declared", e.text)
+				}
+				if t := m.tokenByName[e.text]; t != nil && t.skip {
+					m.fail(e.line, "token '%s' is skipped, so no rule can use it", e.text)
 				}
 			case ekLiteral:
 				if m.punctuation[e.text] == nil && !isWord(e.text) {
@@ -527,10 +527,10 @@ func (m *model) describeTerminal(id string) string {
 	}
 	t := m.tokenByName[strings.TrimPrefix(id, "T")]
 	switch {
-	case t.literal != "":
-		return "'" + t.literal + "'"
 	case t.desc != "":
 		return t.desc
+	case t.literal != "":
+		return "'" + t.literal + "'"
 	}
 	return t.name
 }

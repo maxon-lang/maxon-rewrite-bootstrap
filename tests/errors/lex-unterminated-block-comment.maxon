@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	return 0 /* never
+closed
+end 'main'
+
+// expect-error: E2001 at 2:11

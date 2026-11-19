@@ -127,13 +127,72 @@ func TestGrammarErrorsNameTheLine(t *testing.T) {
 		"grammar G;\na : 'p' | 'p' ;\n":               "g.g4:2: alternative 2 can never be chosen: every way it can start, an earlier alternative starts",
 		"grammar G;\na : x=a 'p' ;\n":                 "g.g4:2: only a set rule may be left-recursive, and 'a' is not one",
 		"grammar G;\na : 'p' ;\n@ast::Nothing {\n}\n": "g.g4:3: @ast::Nothing names no node and no set base",
-		"grammar G;\nT : 'abc' ;\n":                   "g.g4:2: the lexer matches punctuation of one or two characters, not 'abc'",
 		"grammar G;\nh returns [int v] : w='p' ;\n":   "g.g4:2: helper rule 'h' returns 'v'; label 'w' names nothing",
+		"grammar G;\nA : 'x' ;\nB : 'x' ;\n":          "g.g4:3: token 'B' can never be matched: an earlier token always wins",
+		"grammar G;\nA : 'x'* ;\n":                    "g.g4:2: token 'A' matches the empty string, so the lexer would never move on",
+		"grammar G;\nA : 'x' .*? 'y' ;\n":             "g.g4:2: the DFA lexer takes the longest match; a non-greedy loop cannot be compiled",
+		"grammar G;\na : W ;\nW : ' ' -> skip ;\n":    "g.g4:2: token 'W' is skipped, so no rule can use it",
+		"grammar G;\nA : 'x' -> more ;\n":             "g.g4:2: token 'A' has the command 'more'; a token takes '-> skip' or '-> scan'",
 	}
 	for src, want := range cases {
 		_, err := generate("g.g4", []byte(src))
 		if err == nil || err.Error() != want {
 			t.Errorf("%q: got %v, want %q", src, err, want)
+		}
+	}
+}
+
+// run matches the longest token at the start of s the way the generated lexer does: it returns the accepted
+// token's name and length, or the incomplete message of the state the match stopped in.
+func (a *dfa) run(s string) (string, int, string) {
+	state, i := 1, 0
+	for i < len(s) && a.next[state][a.classes[s[i]]] != 0 {
+		state = a.next[state][a.classes[s[i]]]
+		i++
+	}
+	if t := a.accept[state]; t != noAccept {
+		name := a.tokens[t].name
+		if name == "" {
+			name = "skip " + a.tokens[t].def.name
+		}
+		return name, i, ""
+	}
+	return "", i, a.incomplete[state]
+}
+
+func TestDfaTakesTheLongestMatchAndNeverBacksOff(t *testing.T) {
+	g := parseGrammar("g.g4", `grammar G;
+a : 'if' 'in' n=Name i=Integer '=' '==' ;
+/** a name */
+Name : [a-z]+ ;
+/** an integer */
+Integer : [0-9]+ | '0x' [0-9a-f]+ ;
+Assign : '=' ;
+EqEq : '==' ;
+/** a comment */
+Comment : '/*' (~'*' | '*'+ ~[*/])* '*'+ '/' -> skip ;
+Slash : '/' ;
+`)
+	a := buildDfa(buildModel(g))
+	cases := []struct {
+		in, token  string
+		n          int
+		incomplete string
+	}{
+		{"if ", "TKw_if", 2, ""},
+		{"iffy", "TName", 4, ""},
+		{"i", "TName", 1, ""},
+		{"===", "TEqEq", 2, ""},
+		{"0x1f;", "TInteger", 4, ""},
+		{"0x;", "", 2, "incomplete integer"},
+		{"/* a **/b", "skip Comment", 8, ""},
+		{"/* open", "", 7, "incomplete comment"},
+		{"/ x", "TSlash", 1, ""},
+	}
+	for _, c := range cases {
+		token, n, incomplete := a.run(c.in)
+		if token != c.token || n != c.n || incomplete != c.incomplete {
+			t.Errorf("%q: got %q %d %q, want %q %d %q", c.in, token, n, incomplete, c.token, c.n, c.incomplete)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 // The syntax of the language minimaxon compiles, and the AST it parses into. internal/grammargen turns this file
-// into the parser (parser_gen.go), the token kinds (tokens_gen.go), and the AST nodes, keywords and visitors
-// (internal/ast/nodes_gen.go). Regenerate with `go generate ./internal/syntax` after editing it.
+// into the parser (parser_gen.go), the token kinds and the lexer's DFA (tokens_gen.go), and the AST nodes,
+// keywords and visitors (internal/ast/nodes_gen.go). Regenerate with `go generate ./internal/syntax` after editing it.
 //
 // The notation is a subset of ANTLR 4. What each construct means here:
 //
@@ -18,10 +18,18 @@
 //                      a field with a label's name gives that label its type instead. @ast::SetBase holds the
 //                      fields every member of the set shares. A token label whose field is not a string is
 //                      converted by the hand-written parser method <node><Field>(Token).
-//   /** text */        Describes the rule or token after it in syntax errors: "expected a statement".
+//   /** text */        Describes the rule or token after it in syntax errors: "expected a statement", and in
+//                      the lexer's error for input that stops partway through it: "incomplete label".
+//   Token : regex ;    A token rule: literals, [sets] with ranges, ~ to negate a set or one character, . for any
+//                      byte, groups, and ? * +. `-> skip` drops what it matches; `-> scan` has the DFA match only
+//                      the token's first byte and the hand-written lexer method scan<Token> read the rest, for a
+//                      token that is not regular.
 //
 // Lookahead is one token, or two where one does not decide; where two alternatives share a leading rule, it is
 // parsed once and the token after it decides. Otherwise the earlier alternative wins, as in ANTLR.
+//
+// The lexer takes the longest match at each position, a keyword before a token rule and an earlier token rule
+// before a later one. It never backs off to a shorter match: input that stops partway through a token is an error.
 
 grammar Maxon;
 
@@ -406,22 +414,35 @@ matchExpr
     : match=matchCore
     ;
 
-// Tokens. The lexer is hand-written; a token with a literal body is matched by its text, longest first.
+// Tokens. The token rules below and the keywords the rules above use compile into one DFA (tokens_gen.go).
 
 /** a name */
 Name : [A-Za-z_] [A-Za-z0-9_]* ;
 
 /** an integer */
-Integer : [0-9] [0-9_]* | '0x' [0-9A-Fa-f_]+ | '0b' [01_]+ | '0o' [0-7_]+ ;
+Integer
+    : [0-9] [0-9_]*
+    | '0x' '_'* [0-9A-Fa-f] [0-9A-Fa-f_]*
+    | '0b' '_'* [01] [01_]*
+    | '0o' '_'* [0-7] [0-7_]*
+    ;
 
 /** a string */
-String : '"' (~["\\{}\n] | '\\' . | '{' ~[}\n]* '}')* '"' ;
+String : '"' (~["\\{}\n] | '\\' . | '{' ~[}\n]* '}')* '"' -> scan ;
 
 /** a label */
 Label : '\'' ~['\n]* '\'' ;
 
 /** the end of the line */
-Newline : '\r'? '\n' ;
+Newline : '\n' ;
+
+Whitespace : [ \t\r]+ -> skip ;
+
+/** a comment */
+LineComment : '//' ~[\n]* -> skip ;
+
+/** a block comment */
+BlockComment : '/*' (~'*' | '*'+ ~[*/])* '*'+ '/' -> skip ;
 
 LParen : '(' ;
 RParen : ')' ;

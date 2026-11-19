@@ -148,11 +148,16 @@ func emitVisitors(w *writer, s *set) {
 
 func emitTokens(m *model) string {
 	w := &writer{}
-	header(w, "syntax")
+	header(w, "syntax", "minimaxon/internal/diag")
 	w.p("type T int\n\nconst (\n")
-	for i, t := range m.g.tokens {
-		if i == 0 {
+	first := true
+	for _, t := range m.g.tokens {
+		if t.skip {
+			continue
+		}
+		if first {
 			w.p("\tT%s T = iota\n", t.name)
+			first = false
 		} else {
 			w.p("\tT%s\n", t.name)
 		}
@@ -162,45 +167,6 @@ func emitTokens(m *model) string {
 		w.p("\t%s\n", keywordConst(k))
 	}
 	w.p("\tnumTokens\n)\n\n")
-
-	w.p("var keywordKinds = map[string]T{\n")
-	for _, k := range m.keywords {
-		w.p("\t%q: %s,\n", k, keywordConst(k))
-	}
-	w.p("}\n\n")
-
-	// Punctuation is matched longest first: a two-character token wins over its first character.
-	type punct struct {
-		text string
-		kind string
-	}
-	byFirst := map[byte][]punct{}
-	var firsts []byte
-	for _, t := range m.g.tokens {
-		if t.literal == "" {
-			continue
-		}
-		c := t.literal[0]
-		if byFirst[c] == nil {
-			firsts = append(firsts, c)
-		}
-		byFirst[c] = append(byFirst[c], punct{t.literal, "T" + t.name})
-	}
-	w.p("func matchPunctuation(c, next byte) (T, int, bool) {\n\tswitch c {\n")
-	for _, c := range firsts {
-		w.p("\tcase %q:\n", c)
-		var single *punct
-		for i, p := range byFirst[c] {
-			if len(p.text) == 2 {
-				w.p("\t\tif next == %q {\n\t\t\treturn %s, 2, true\n\t\t}\n", p.text[1], p.kind)
-			} else {
-				single = &byFirst[c][i]
-			}
-		}
-		if single != nil {
-			w.p("\t\treturn %s, 1, true\n", single.kind)
-		}
-	}
-	w.p("\t}\n\treturn 0, 0, false\n}\n")
+	emitDfa(w, m)
 	return w.b.String()
 }
