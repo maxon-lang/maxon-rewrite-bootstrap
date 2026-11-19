@@ -64,6 +64,7 @@ typeDeclNode
     | enumDecl
     | unionDecl
     | aliasDecl
+    | interfaceDecl
     ;
 
 @ast::TypeDeclNodeBase {
@@ -71,8 +72,8 @@ typeDeclNode
 }
 
 funcDecl
-    : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name
-      ^'(' ( receiver=('mutable' | 'immutable' | 'isolated' | 'consuming') 'self' (',' params+=param)*
+    : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name typeParams=typeParamList?
+      ^'(' ( receiver=('inout' | 'sink') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
       ')' ('returns' returns=typeRef)?
@@ -81,10 +82,16 @@ funcDecl
     ;
 
 @ast::FuncDecl {
+	Intrinsic Intrinsic
 	Owner NominalTy
+	Generics []*TypeParamTy
+	Generic *FuncDecl
+	TypeArgs []Ty
+	Instances *InstanceTable
+	Uses []*CallExpr
 
+	Pass Passing
 	ParamTypes []Ty
-	Specs []ParamSpec
 	ReturnType Ty = VoidTy
 	SelfLocal *Local
 	Locals []*Local
@@ -92,7 +99,7 @@ funcDecl
 
 /** a parameter */
 param
-    : name=(Name | '_') mutable='mutable'? type=typeRef
+    : name=(Name | '_') convention=('inout' | 'sink' | 'set')? type=typeRef
     ;
 
 @ast::Param {
@@ -108,7 +115,7 @@ constDecl
 }
 
 typeDecl
-    : visibility=('export' | 'public')? 'type' name=Name Newline
+    : visibility=('export' | 'public')? 'type' name=Name typeParams=typeParamList? conforms=conformsClause? Newline
       (Indent ((fields+=fieldDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -118,7 +125,7 @@ fieldDecl
     ;
 
 enumDecl
-    : visibility=('export' | 'public')? 'enum' name=Name Newline
+    : visibility=('export' | 'public')? 'enum' name=Name conforms=conformsClause? Newline
       (Indent ((cases+=enumCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -128,7 +135,7 @@ enumCaseDecl
     ;
 
 unionDecl
-    : visibility=('export' | 'public')? 'union' name=Name Newline
+    : visibility=('export' | 'public')? 'union' name=Name typeParams=typeParamList? conforms=conformsClause? Newline
       (Indent ((cases+=unionCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -153,11 +160,51 @@ bound
 
 /** a type */
 typeRef
-    : (qualifier+=Name '.')* name=(Name | 'Self')
+    : (qualifier+=Name '.')* name=(Name | 'Self') typeArgs=typeArgList?
     ;
 
 @ast::TypeRef {
 	Target Decl
+	Param *TypeParam
+}
+
+typeArgList
+    : '[' args+=typeRef (',' args+=typeRef)* ']'
+    ;
+
+typeParamList
+    : '[' params+=typeParam (',' params+=typeParam)* ']'
+    ;
+
+typeParam
+    : name=Name ('is' bounds+=typeRef ('and' bounds+=typeRef)*)?
+    ;
+
+@ast::TypeParam {
+	Ty *TypeParamTy
+}
+
+conformsClause returns [[]*TypeRef interfaces]
+    : 'is' interfaces+=typeRef ('and' interfaces+=typeRef)*
+    ;
+
+interfaceDecl
+    : visibility=('export' | 'public')? 'interface' name=Name Newline
+      (Indent (methods+=funcSig Newline)+ Dedent)?
+      'end' end=endLabel?
+    ;
+
+funcSig
+    : 'function' name=Name
+      ^'(' ( receiver=('inout' | 'sink') 'self' (',' params+=param)*
+          | params+=param (',' params+=param)*
+          )?
+      ')' ('returns' returns=typeRef)?
+    ;
+
+@ast::FuncSig {
+	Pass Passing
+	ReturnType Ty = VoidTy
 }
 
 endLabel
@@ -179,6 +226,7 @@ stmt
     | whileStmt
     | forStmt
     | matchStmt
+    | whenStmt
     | returnStmt
     | breakStmt
     | continueStmt
@@ -187,7 +235,8 @@ stmt
     ;
 
 letStmt
-    : ('let' | isVar='var') name=Name '=' init=expr
+    : 'let' name=Name '=' init=expr
+    | isVar='var' name=Name ('=' init=expr | 'as' type=typeRef)
     ;
 
 @ast::LetStmt {
@@ -261,6 +310,17 @@ matchStmt
     : match=matchCore
     ;
 
+whenStmt
+    : 'when' cowns+=nameExpr (',' cowns+=nameExpr)* 'as' names+=Name (',' names+=Name)* label=Label
+      body=block
+      'end' end=endLabel?
+    ;
+
+@ast::WhenStmt {
+	Fn *FuncDecl
+	Captures []*Capture
+}
+
 // Match
 
 matchCore
@@ -316,6 +376,7 @@ expr
     | matchExpr
     | '(' expr ')'
     | obj=expr '.' name=Name                                         # MemberExpr
+    | obj=expr '[' args+=expr (',' args+=expr)* ']'                  # IndexExpr
     | callee=expr ^'(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
     | op=('-'^ | 'not') e=expr                                       # UnaryExpr
     | e=expr 'as' target=typeRef                                     # CastExpr
@@ -331,6 +392,7 @@ expr
 
 @ast::ExprBase {
 	Type Ty = VoidTy
+	Consumed bool
 }
 
 @ast::MemberExpr {
@@ -342,6 +404,8 @@ expr
 @ast::CallExpr {
 	Kind CallKind
 	Target *FuncDecl
+	Pass *Passing
+	Generic *GenericCall
 	Receiver Expr
 	Union *UnionTy
 	CaseIndex int = -1
@@ -380,6 +444,7 @@ nameExpr
     ;
 
 @ast::NameExpr {
+	TypeArgs *TypeArgList
 	Target Decl
 	Kind NameKind
 	Local *Local
@@ -459,6 +524,8 @@ RBrace : '}' -> noSpaceBefore ;
 Comma : ',' -> noSpaceBefore ;
 Colon : ':' -> noSpaceBefore ;
 Dot : '.' -> noSpace ;
+LBracket : '[' -> noSpace ;
+RBracket : ']' -> noSpaceBefore ;
 Plus : '+' ;
 Minus : '-' ;
 Star : '*' ;

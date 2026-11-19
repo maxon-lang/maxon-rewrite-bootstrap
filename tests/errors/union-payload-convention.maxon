@@ -1,0 +1,12 @@
+typealias Amount = int(0 to 100)
+
+union Result
+	ok(value inout Amount)
+	failed
+end 'Result'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2001 at 4:5

@@ -1,0 +1,6 @@
+// expect-error: E2013 at 4:2
+function main() returns ExitCode
+	let a = array[Count].new()
+	a[0] = 1
+	return 0
+end 'main'

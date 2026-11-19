@@ -1,0 +1,47 @@
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function bump(c inout Cell)
+	c.n = c.n + 1
+end 'bump'
+
+function main() returns ExitCode
+	var p = pool[Cell].new()
+	let a = p.insert(Cell.make(1))
+	let b = p.insert(Cell.make(2))
+	print("{p.count()} {p.contains(a)} {p.contains(b)} {a == b}\n")
+	p[a].n = 10
+	bump(p[b])
+	print("{p[a].n} {p[b].n}\n")
+	let gone = p.remove(a)
+	print("{gone.isSome()} {p.contains(a)} {p.count()}\n")
+	let c = p.insert(Cell.make(3))
+	print("{p.contains(a)} {p.contains(c)} {a == c} {p[c].n} {p.count()}\n")
+	let again = p.remove(a)
+	print("{again.isSome()} {p.count()}\n")
+	let taken = gone.unwrap()
+	print("{taken.n}\n")
+	let first = p.remove(b)
+	let second = p.remove(c)
+	print("{first.isSome()} {second.isSome()} {p.isEmpty()}\n")
+	let late = p.insert(Cell.make(4))
+	print("{p.contains(b)} {p.contains(c)} {p.contains(late)} {p[late].n}\n")
+	let copied = p.copy()
+	p[late].n = 5
+	print("{p[late].n} {copied[late].n} {copied.contains(late)}\n")
+	return 0
+end 'main'
+
+//> 2 true true false
+//> 10 3
+//> true false 1
+//> false true false 3 2
+//> false 2
+//> 10
+//> true true true
+//> false false true 4
+//> 5 4 true

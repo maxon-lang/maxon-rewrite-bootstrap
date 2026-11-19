@@ -1,0 +1,15 @@
+// expect-error: E3102 at 13:10
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function main() returns ExitCode
+	var a = array[Cell].new()
+	let o = a.pop()
+	let c = o.unwrap()
+	print("{o.isSome()} {c.n}")
+	return 0
+end 'main'

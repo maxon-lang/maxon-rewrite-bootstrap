@@ -1,0 +1,21 @@
+// expect-error: E3112 at 19:29
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function drop(xs inout array[Cell]) returns Count
+	return xs.count()
+end 'drop'
+
+function look(c Cell, n Count) returns Count
+	return c.n + n
+end 'look'
+
+function main() returns ExitCode
+	var a = array[Cell].new()
+	print("{look(a[0], n: drop(a))}")
+	return 0
+end 'main'

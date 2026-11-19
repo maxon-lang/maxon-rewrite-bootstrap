@@ -42,6 +42,9 @@ func (t *TypeDeclNodeBase) TypeBase() *TypeDeclNodeBase { return t }
 
 func (f *FuncDecl) Symbol() string {
 	if f.Owner == nil {
+		if f.Generic != nil {
+			return instanceName(f.Name, f.TypeArgs)
+		}
 		return f.Name
 	}
 	return f.Owner.Name() + "." + f.Name
@@ -60,10 +63,20 @@ type Expr interface {
 	Node
 	Ty() Ty
 	SetTy(Ty)
+	IsConsumed() bool
+	MarkConsumed()
 }
 
 func (e *ExprBase) Ty() Ty     { return e.Type }
 func (e *ExprBase) SetTy(t Ty) { e.Type = t }
+
+// IsConsumed is whether the ownership pass found the expression in a position that takes ownership of its value: a
+// binding, an assignment, a sink argument, a return, a field or payload, or a branch of a conditional or a match. A
+// place there is moved out of; a fresh value there needs no one to drop it. Lowering reads this to place drops, so the
+// pass is the only place that decides what a move is.
+func (e *ExprBase) IsConsumed() bool { return e.Consumed }
+
+func (e *ExprBase) MarkConsumed() { e.Consumed = true }
 
 func (l *IntLit) Value() I128 {
 	if l.Negative {
@@ -99,4 +112,19 @@ func (a *MatchArm) Kind() ArmKind {
 		return ArmGives
 	}
 	return ArmPanic
+}
+
+// IsStorage is whether an expression reads a value that already lives somewhere, in a variable, a field or an element,
+// and so borrows it, as opposed to making a new value. It asks about four members of Expr, so it is a type switch
+// and not a visitor.
+func IsStorage(e Expr) bool {
+	switch e := e.(type) {
+	case *NameExpr:
+		return e.Kind == NameLocal || e.Kind == NameSelfField
+	case *SelfExpr, *IndexExpr:
+		return true
+	case *MemberExpr:
+		return e.Kind == MemberField
+	}
+	return false
 }

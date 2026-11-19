@@ -1,0 +1,50 @@
+typealias Score = int(i64.min to i64.max)
+
+type Point
+	export var x as Score
+	export var y as Score
+	function add(inout self, amount Score)
+		x = x + amount
+	end 'add'
+	static function create(x Score, y Score) returns Point
+		return Point{x: x, y: y}
+	end 'create'
+end 'Point'
+
+type Segment
+	export var start as Point
+	export var finish as Point
+	static function create(start sink Point, finish sink Point) returns Segment
+		return Segment{start: start, finish: finish}
+	end 'create'
+end 'Segment'
+
+function bump(n inout Score, by Score)
+	n = n + by
+end 'bump'
+
+function swap(a inout Score, b inout Score)
+	let t = a
+	a = b
+	b = t
+end 'swap'
+
+function main() returns ExitCode
+	var p = Point.create(1, y: 2)
+	swap(p.x, b: p.y)
+	print("{p.x} {p.y}\n")
+	var s = Segment.create(Point.create(1, y: 1), finish: Point.create(5, y: 5))
+	swap(s.start.x, b: s.finish.x)
+	bump(s.start.y, by: s.finish.y.copy())
+	print("{s.start.x} {s.start.y} {s.finish.x} {s.finish.y}\n")
+	s.start.add(s.finish.y)
+	print("{s.start.x}\n")
+	p.add(p.y.copy())
+	print("{p.x}\n")
+	return 0
+end 'main'
+
+//> 2 1
+//> 5 6 1 5
+//> 10
+//> 3

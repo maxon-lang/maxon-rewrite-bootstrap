@@ -1,0 +1,60 @@
+union Node
+	leaf(value Count, note String)
+	branch(label String, kids array[Node])
+	function size() returns Count
+		return match self 'm'
+			leaf(v, note) gives 1
+			branch(label, kids) gives 1 + sizeOf(kids)
+		end 'm'
+	end 'size'
+	function text() returns String
+		return match self 'm'
+			leaf(v, note) gives "{v}{note}"
+			branch(label, kids) gives "{label}[{join(kids)}]"
+		end 'm'
+	end 'text'
+end 'Node'
+
+function sizeOf(kids array[Node]) returns Count
+	var total = 0 as Count
+	for i in 0 upto kids.count() 'each'
+		total = total + kids[i].size()
+	end 'each'
+	return total
+end 'sizeOf'
+
+function join(kids array[Node]) returns String
+	var out = ""
+	for i in 0 upto kids.count() 'each'
+		out = "{out} {kids[i].text()}"
+	end 'each'
+	return out
+end 'join'
+
+function tree(depth Count) returns Node
+	if depth == 0 'base'
+		return Node.leaf(7, note: "!")
+	end 'base'
+	var kids = array[Node].new()
+	kids.append(tree(depth - 1))
+	kids.append(Node.leaf(depth, note: "{depth}?"))
+	kids.append(tree(depth - 1))
+	return Node.branch("d{depth}", kids: kids)
+end 'tree'
+
+function main() returns ExitCode
+	let a = tree(2)
+	let b = a.copy()
+	print("{a.size()} {b.size()}\n{a.text()}\n{b.text()}\n")
+	var kept = array[Node].new()
+	kept.append(b.copy())
+	kept.append(a)
+	let c = kept.copy()
+	print("{sizeOf(c)} {sizeOf(kept)}\n")
+	return 0
+end 'main'
+
+//> 10 10
+//> d2[ d1[ 7! 11? 7!] 22? d1[ 7! 11? 7!]]
+//> d2[ d1[ 7! 11? 7!] 22? d1[ 7! 11? 7!]]
+//> 20 20

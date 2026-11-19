@@ -1,0 +1,13 @@
+// expect-error: E3117 at 11:15
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+function total[T is Shape](x T) returns Count
+	return x.area()
+end 'total'
+
+function main() returns ExitCode
+	print("{total(array[Count].new())}")
+	return 0
+end 'main'

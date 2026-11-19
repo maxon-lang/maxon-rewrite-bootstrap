@@ -1,0 +1,6 @@
+// expect-error: E3005 at 4:12
+function main() returns ExitCode
+	var a = array[Count].new()
+	print("{a[true]}")
+	return 0
+end 'main'

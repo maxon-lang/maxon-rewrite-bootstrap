@@ -1,0 +1,65 @@
+type Cell
+	export var n as Count
+	export var label as String
+	static function make(n Count, label sink String) returns Cell
+		return Cell{n: n, label: label}
+	end 'make'
+end 'Cell'
+
+function bump(c inout Cell)
+	c.n = c.n + 1
+end 'bump'
+
+enum Color
+	red
+	green
+end 'Color'
+
+function main() returns ExitCode
+	var m = map[String, Cell].new()
+	m.insert("one", value: Cell.make(1, label: "first"))
+	m.insert("two", value: Cell.make(2, label: "second"))
+	print("{m.count()} {m.has("one")} {m.has("three")} {m.isEmpty()}\n")
+	m["one"].n = 10
+	bump(m["two"])
+	print("{m["one"].n} {m["one"].label} {m["two"].n}\n")
+	m.insert("one", value: Cell.make(100, label: "replaced"))
+	print("{m.count()} {m["one"].n} {m["one"].label}\n")
+	let key = "t{m.count()}o"
+	m.insert(key, value: Cell.make(3, label: "interpolated key"))
+	print("{m.count()} {m.has("t2o")}\n")
+	m.insert("t2o", value: Cell.make(4, label: "same key again"))
+	print("{m.count()} {m["t2o"].n}\n")
+	let copied = m.copy()
+	m["one"].n = 0
+	print("{m["one"].n} {copied["one"].n} {copied.count()}\n")
+	let taken = m.remove("two")
+	print("{taken.isSome()} {m.has("two")} {m.count()}\n")
+	let missing = m.remove("two")
+	print("{missing.isSome()}\n")
+	let cell = taken.unwrap()
+	print("{cell.n} {cell.label}\n")
+	var counts = map[Color, Count].new()
+	counts.insert(Color.red, value: 1)
+	counts.insert(Color.green, value: 2)
+	counts[Color.red] = counts[Color.red] + counts[Color.green]
+	print("{counts[Color.red]} {counts[Color.green]}\n")
+	var handles = pool[String].new()
+	let h = handles.insert("pooled")
+	var byHandle = map[Handle[String], Count].new()
+	byHandle.insert(h, value: 7)
+	print("{byHandle[h]} {byHandle.has(h)}\n")
+	return 0
+end 'main'
+
+//> 2 true false false
+//> 10 first 3
+//> 2 100 replaced
+//> 3 true
+//> 3 4
+//> 0 100 3
+//> true false 2
+//> false
+//> 3 second
+//> 3 2
+//> 7 true

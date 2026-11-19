@@ -1,0 +1,21 @@
+// expect-exit: 1
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function main() returns ExitCode
+	var p = pool[Cell].new()
+	let old = p.insert(Cell.make(1))
+	let gone = p.remove(old)
+	print("removed {gone.isSome()}\n")
+	let fresh = p.insert(Cell.make(2))
+	print("reused {p[fresh].n} {p.contains(old)}\n")
+	print("{p[old].n}\n")
+	return 0
+end 'main'
+
+//> removed true
+//> reused 2 false

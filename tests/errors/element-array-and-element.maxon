@@ -1,0 +1,10 @@
+// expect-error: E3112 at 8:14
+function grow(xs inout array[Count], n Count)
+	xs.append(n)
+end 'grow'
+
+function main() returns ExitCode
+	var a = array[Count].new()
+	grow(a, n: a[0])
+	return 0
+end 'main'

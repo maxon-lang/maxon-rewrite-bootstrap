@@ -1,0 +1,52 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box[T]
+	var item as T
+	let tag as Score
+	static function make(item sink T, tag Score) returns Self
+		return Self{item: item, tag: tag}
+	end 'make'
+	function peek() returns T
+		return item.copy()
+	end 'peek'
+	function replace(inout self, next sink T)
+		item = next
+	end 'replace'
+	function bump(inout self, by Score)
+		var next = by
+		next = next + 1
+	end 'bump'
+end 'Box'
+
+union Slot[T]
+	full(value T)
+	empty
+end 'Slot'
+
+function swap[T](a inout T, b inout T)
+	var tmp = a.copy()
+	a = b.copy()
+	b = tmp
+end 'swap'
+
+function join[T](a inout T, b sink T)
+	a = b
+end 'join'
+
+function fill[T](out set T, from T)
+	out = from.copy()
+end 'fill'
+
+function consume[T](a sink T) returns Score
+	return 1
+end 'consume'
+
+function change[T](b inout Box[T])
+	b.tag = 3
+end 'change'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2013 at 45:2

@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"fmt"
+	"maps"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"strings"
@@ -15,10 +16,11 @@ type lookup struct {
 var primitiveTypes = map[string]bool{"bool": true, "String": true, "Self": true, "int": true, "float": true}
 
 type Resolver struct {
-	project *ast.Project
-	module  *ast.Module
-	scopes  []map[string]bool
-	fields  map[string]bool
+	project    *ast.Project
+	module     *ast.Module
+	scopes     []map[string]bool
+	fields     map[string]bool
+	typeParams map[string]*ast.TypeParam
 }
 
 func NewResolver(p *ast.Project, m *ast.Module) *Resolver {
@@ -27,6 +29,7 @@ func NewResolver(p *ast.Project, m *ast.Module) *Resolver {
 
 func (r *Resolver) Run() {
 	for _, d := range r.module.Decls {
+		r.typeParams = nil
 		diag.Guard(&r.module.Errors, func() { r.resolveDecl(d) })
 	}
 }
@@ -41,6 +44,8 @@ func (r *Resolver) VisitFuncDecl(d *ast.FuncDecl) {
 
 func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
 	checkEnd(d.Name, d.End)
+	outer := r.enterTypeParams(d.TypeParams.Items())
+	r.resolveConforms(d.Conforms)
 	for _, f := range d.Fields {
 		if f.Type != nil {
 			r.resolveType(f.Type)
@@ -57,10 +62,12 @@ func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
 			r.resolveFunction(m, d)
 		}
 	}
+	r.typeParams = outer
 }
 
 func (r *Resolver) VisitEnumDecl(d *ast.EnumDecl) {
 	checkEnd(d.Name, d.End)
+	r.resolveConforms(d.Conforms)
 	for _, m := range d.Methods {
 		r.resolveFunction(m, nil)
 	}
@@ -68,6 +75,8 @@ func (r *Resolver) VisitEnumDecl(d *ast.EnumDecl) {
 
 func (r *Resolver) VisitUnionDecl(d *ast.UnionDecl) {
 	checkEnd(d.Name, d.End)
+	outer := r.enterTypeParams(d.TypeParams.Items())
+	r.resolveConforms(d.Conforms)
 	for _, c := range d.Cases {
 		for _, p := range c.Fields {
 			r.resolveType(p.Type)
@@ -75,6 +84,51 @@ func (r *Resolver) VisitUnionDecl(d *ast.UnionDecl) {
 	}
 	for _, m := range d.Methods {
 		r.resolveFunction(m, nil)
+	}
+	r.typeParams = outer
+}
+
+func (r *Resolver) VisitInterfaceDecl(d *ast.InterfaceDecl) {
+	checkEnd(d.Name, d.End)
+	for _, m := range d.Methods {
+		for _, p := range m.Params {
+			r.resolveType(p.Type)
+		}
+		if m.Returns != nil {
+			r.resolveType(m.Returns)
+		}
+	}
+}
+
+// enterTypeParams puts the type parameters in scope and returns the scope to restore afterwards. Their bounds are
+// resolved with the parameters in scope.
+func (r *Resolver) enterTypeParams(params []*ast.TypeParam) map[string]*ast.TypeParam {
+	outer := r.typeParams
+	if len(params) == 0 {
+		return outer
+	}
+	r.typeParams = make(map[string]*ast.TypeParam, len(outer)+len(params))
+	maps.Copy(r.typeParams, outer)
+	for _, p := range params {
+		r.typeParams[p.Name] = p
+	}
+	for _, p := range params {
+		for _, b := range p.Bounds {
+			r.resolveType(b)
+		}
+	}
+	return outer
+}
+
+func (r *Resolver) resolveConforms(interfaces []*ast.TypeRef) {
+	for _, tr := range interfaces {
+		r.resolveType(tr)
+	}
+}
+
+func (r *Resolver) resolveTypeArgs(args *ast.TypeArgList) {
+	for _, a := range args.Items() {
+		r.resolveType(a)
 	}
 }
 
@@ -98,6 +152,12 @@ func (r *Resolver) enter(fieldNames map[string]bool) {
 }
 
 func (r *Resolver) resolveFunction(f *ast.FuncDecl, instanceOf *ast.TypeDecl) {
+	outer := r.enterTypeParams(f.TypeParams.Items())
+	r.resolveBody(f, instanceOf)
+	r.typeParams = outer
+}
+
+func (r *Resolver) resolveBody(f *ast.FuncDecl, instanceOf *ast.TypeDecl) {
 	checkEnd(f.Name, f.End)
 	for _, p := range f.Params {
 		r.resolveType(p.Type)
@@ -152,7 +212,11 @@ func (r *Resolver) stmt(s ast.Stmt) {
 }
 
 func (r *Resolver) VisitLetStmt(s *ast.LetStmt) {
-	s.Init = r.expr(s.Init)
+	if s.Init != nil {
+		s.Init = r.expr(s.Init)
+	} else {
+		r.resolveType(s.Type)
+	}
 	r.scopes[len(r.scopes)-1][s.Name] = true
 }
 
@@ -196,6 +260,18 @@ func (r *Resolver) VisitForStmt(s *ast.ForStmt) {
 
 func (r *Resolver) VisitMatchStmt(s *ast.MatchStmt) {
 	r.match(s.Match)
+}
+
+// VisitWhenStmt resolves the cowns the behaviour names where it is written, and its body with the names that give
+// access to their values in scope.
+func (r *Resolver) VisitWhenStmt(s *ast.WhenStmt) {
+	checkEnd(s.Label, s.End)
+	for _, c := range s.Cowns {
+		r.VisitNameExpr(c)
+	}
+	r.pushScope(s.Names...)
+	r.block(s.Body)
+	r.popScope()
 }
 
 func (r *Resolver) VisitReturnStmt(s *ast.ReturnStmt) {
@@ -246,6 +322,75 @@ func (r *Resolver) VisitNameExpr(e *ast.NameExpr) ast.Expr {
 
 func (r *Resolver) VisitMemberExpr(e *ast.MemberExpr) ast.Expr {
 	return r.member(e)
+}
+
+// VisitIndexExpr reads brackets after an expression as a subscript, or as the type arguments of a generic type or
+// function when the expression names one: the parser cannot tell them apart, because 'a[i]' and 'Box[Count]' are
+// written alike, and this is the first phase that knows what each name stands for.
+func (r *Resolver) VisitIndexExpr(e *ast.IndexExpr) ast.Expr {
+	e.Obj = r.expr(e.Obj)
+	if head, ok := e.Obj.(*ast.NameExpr); ok && head.TypeArgs == nil && takesTypeArgs(head.Target) {
+		head.TypeArgs = r.typeArgsOf(e)
+		return head
+	}
+	for i, a := range e.Args {
+		e.Args[i] = r.expr(a)
+	}
+	return e
+}
+
+// takesTypeArgs is whether a declaration that a name resolved to is one that brackets after the name can apply: a
+// type or a function. A constant or a variable is subscripted instead.
+func takesTypeArgs(d ast.Decl) bool {
+	switch d.(type) {
+	case ast.TypeDeclNode, *ast.FuncDecl:
+		return true
+	}
+	return false
+}
+
+// typeArgsOf reads the expressions between the brackets as type references and resolves them.
+func (r *Resolver) typeArgsOf(e *ast.IndexExpr) *ast.TypeArgList {
+	list := ast.NewTypeArgList()
+	list.File, list.Line, list.Col = e.File, e.Line, e.Col
+	for _, a := range e.Args {
+		ref := typeRefOf(a)
+		r.resolveType(ref)
+		list.Args = append(list.Args, ref)
+	}
+	return list
+}
+
+// typeRefOf reads an expression as the type reference it spells: a name, a name qualified by modules, or either one
+// with type arguments in brackets.
+func typeRefOf(e ast.Expr) *ast.TypeRef {
+	ref := ast.NewTypeRef()
+	switch x := e.(type) {
+	case *ast.NameExpr:
+		ref.Name = x.Name
+	case *ast.MemberExpr:
+		outer := typeRefOf(x.Obj)
+		if outer.TypeArgs != nil {
+			panic(e.P().Error(diag.ErrUnknownType, "a qualifier of a type cannot take type arguments"))
+		}
+		ref.Qualifier = append(outer.Qualifier, outer.Name)
+		ref.Name = x.Name
+	case *ast.IndexExpr:
+		ref = typeRefOf(x.Obj)
+		if ref.TypeArgs != nil {
+			panic(e.P().Error(diag.ErrUnknownType, "a type takes its type arguments once"))
+		}
+		ref.TypeArgs = ast.NewTypeArgList()
+		ref.TypeArgs.File, ref.TypeArgs.Line, ref.TypeArgs.Col = x.File, x.Line, x.Col
+		for _, a := range x.Args {
+			ref.TypeArgs.Args = append(ref.TypeArgs.Args, typeRefOf(a))
+		}
+		return ref
+	default:
+		panic(e.P().Error(diag.ErrUnknownType, "type arguments are types: a name, a qualified name, or either with its own type arguments in brackets"))
+	}
+	ref.File, ref.Line, ref.Col = e.P().File, e.P().Line, e.P().Col
+	return ref
 }
 
 func (r *Resolver) VisitStrLit(e *ast.StrLit) ast.Expr {
@@ -349,6 +494,8 @@ func (memberDeclarations) VisitUnionDecl(d *ast.UnionDecl, name string) bool {
 	return false
 }
 
+func (memberDeclarations) VisitInterfaceDecl(*ast.InterfaceDecl, string) bool { return false }
+
 func (memberDeclarations) VisitFuncDecl(*ast.FuncDecl, string) bool { return false }
 
 func (memberDeclarations) VisitConstDecl(*ast.ConstDecl, string) bool { return false }
@@ -387,7 +534,6 @@ func (r *Resolver) member(m *ast.MemberExpr) ast.Expr {
 		m.Obj = r.expr(m.Obj)
 		return m
 	}
-
 	bare := r.bare(head.Name)
 	decl := bare.Decl
 	if decl != nil {
@@ -457,7 +603,12 @@ func (r *Resolver) qualified(head string, headSite ast.Node, rest []string, site
 }
 
 func (r *Resolver) resolveType(tr *ast.TypeRef) {
+	r.resolveTypeArgs(tr.TypeArgs)
 	if len(tr.Qualifier) == 0 {
+		if p, ok := r.typeParams[tr.Name]; ok {
+			tr.Param = p
+			return
+		}
 		if primitiveTypes[tr.Name] {
 			return
 		}

@@ -1,0 +1,44 @@
+type Tree
+	var value as Count
+	var kids = array[Tree].new()
+	static function make(value Count) returns Tree
+		return Tree{value: value}
+	end 'make'
+	function sum() returns Count
+		var total = value
+		for i in 0 upto kids.count() 'each'
+			total = total + kids[i].sum()
+		end 'each'
+		return total
+	end 'sum'
+	function add(inout self, kid sink Tree)
+		kids.append(kid)
+	end 'add'
+	function depth() returns Count
+		var deepest = 0 as Count
+		for i in 0 upto kids.count() 'each'
+			let d = kids[i].depth()
+			if d > deepest 'deeper'
+				deepest = d
+			end 'deeper'
+		end 'each'
+		return deepest + 1
+	end 'depth'
+end 'Tree'
+
+function main() returns ExitCode
+	var root = Tree.make(1)
+	var left = Tree.make(2)
+	left.add(Tree.make(4))
+	left.add(Tree.make(5))
+	root.add(left)
+	root.add(Tree.make(3))
+	print("{root.sum()} {root.depth()} {root.kids[0].kids.count()}\n")
+	root.kids[0].kids[1].value = 50
+	root.kids[1].add(Tree.make(7))
+	print("{root.sum()} {root.depth()}\n")
+	return 0
+end 'main'
+
+//> 15 3 2
+//> 67 3

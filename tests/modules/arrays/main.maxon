@@ -1,0 +1,24 @@
+function main() returns ExitCode
+	var items = array[inventory.Item].new()
+	items.append(inventory.Item.make(1, weight: 5))
+	items.append(inventory.Item.make(2, weight: 7))
+	print("{inventory.heaviest(items)} {inventory.length(items)}\n")
+	var shelf = inventory.Shelf.make()
+	shelf.add(inventory.Item.make(3, weight: 9))
+	shelf.add(inventory.Item.make(4, weight: 2))
+	print("{shelf.total()} {shelf.size()}\n")
+	let moved = inventory.drain(shelf)
+	print("{moved.count()} {shelf.size()} {inventory.heaviest(moved)}\n")
+	var numbers = array[Count].new()
+	numbers.append(3)
+	print("{inventory.firstOr(numbers, fallback: 9)} {inventory.firstOr(array[Count].new(), fallback: 9)}\n")
+	let names = array[String].filled(2, value: "ab")
+	print("{inventory.firstOr(names, fallback: "none")} {inventory.length(names)}\n")
+	return 0
+end 'main'
+
+//> 7 2
+//> 11 2
+//> 2 0 9
+//> 3 9
+//> ab 2

@@ -1,0 +1,632 @@
+// Package interp runs the lowered IR of a whole program while it tracks the heap the way the memory model describes
+// it, and reports a violation where the program breaks a rule: a value used after it was freed, freed twice, leaked,
+// used after it moved, owned twice, or reached through two overlapping borrows. A program that the checker accepted
+// must run clean, so a violation is a hole in the checker or in lowering. It is for tests and development, and never
+// part of a compiled program.
+//
+// It also gives the primitives that the backend has no code for (map, list and pool) their meaning, and a trap in
+// the program behaves as it does natively: the same standard output and the same exit code.
+package interp
+
+import (
+	"minimaxon/internal/ast"
+	"minimaxon/internal/diag"
+	"minimaxon/internal/ir"
+	"strconv"
+	"strings"
+)
+
+const (
+	// panicExitCode is what a panic, and every check that the compiled code makes, exits with.
+	panicExitCode = 1
+	// illegalInstructionExitCode is what a program that reaches a trap terminator exits with when compiled: the
+	// ud2 instruction raises STATUS_ILLEGAL_INSTRUCTION.
+	illegalInstructionExitCode = -1073741795
+	// integerOverflowExitCode is the exit code of the x64 division that overflows, STATUS_INTEGER_OVERFLOW.
+	integerOverflowExitCode = -1073741675
+	// stackOverflowExitCode is STATUS_STACK_OVERFLOW.
+	stackOverflowExitCode = -1073741571
+	maxCallDepth          = 100000
+	// DefaultStepLimit is how many instructions a program may run before it is called a timeout.
+	DefaultStepLimit = 500_000_000
+	// maxLeaksReported keeps a report of a program that leaks everything short.
+	maxLeaksReported = 8
+
+	stdoutHandle = 1
+	stderrHandle = 2
+	heapHandle   = 3
+	wordBytes    = 8
+)
+
+// Program is the lowered IR of a whole program.
+type Program struct {
+	Functions map[*ast.FuncDecl]*ir.IrFunction
+	Main      *ast.FuncDecl
+}
+
+// NewProgram indexes the functions of a program by their declarations.
+func NewProgram(fns []*ir.IrFunction, main *ast.FuncDecl) *Program {
+	p := &Program{Functions: make(map[*ast.FuncDecl]*ir.IrFunction, len(fns)), Main: main}
+	for _, f := range fns {
+		p.Functions[f.Decl] = f
+	}
+	return p
+}
+
+// Result is what a run did. A program that panics or traps has an exit code like the executable's; a violation is
+// separate from that, and a run that has one stops there.
+type Result struct {
+	Stdout     []byte
+	Stderr     []byte
+	ExitCode   int
+	TimedOut   bool
+	Violations []Violation
+	// Steps is how many instructions ran.
+	Steps int64
+	// Frees is every value freed, in the order it was freed: a string by its text, anything else by its kind.
+	Frees []string
+	// Behaviours is how many behaviours the program scheduled, so a caller knows whether the schedule mattered.
+	Behaviours int
+}
+
+// exitSignal ends the program: a panic, a trap, or main returning.
+type exitSignal struct{ code int }
+
+type timeoutSignal struct{}
+
+// window is a borrow that a call holds while the arguments after it are evaluated: the address or pointer is taken
+// when its argument is, and used when the call runs.
+type window struct {
+	call   *ir.CallInstr
+	frame  *frame
+	region region
+	at     site
+	taken  string
+}
+
+type vm struct {
+	prog    *Program
+	top     *frame
+	depth   int
+	steps   int64
+	limit   int64
+	nextID  int
+	all     []*object
+	strs    map[string]*object
+	stdout  []byte
+	stderr  []byte
+	frees   []string
+	windows []window
+	infos   map[*ir.IrFunction]*info
+	sched
+}
+
+// info is what a function's IR says before it runs: for each instruction, the calls that hold its result as an argument
+// while the arguments after it are evaluated.
+type info struct {
+	windowAt [][][]*ir.CallInstr
+}
+
+// Options say how a program runs. The scheduler of behaviours is random, and a seed makes one schedule: the same seed
+// always gives the same interleaving.
+type Options struct {
+	// StepLimit is how many instructions the program may run, all threads together, before it is called a timeout.
+	StepLimit int64
+	Seed      int64
+}
+
+// Run executes the program from main under the schedule of seed 0. A run that goes on for more than stepLimit
+// instructions is stopped.
+func Run(p *Program, stepLimit int64) *Result {
+	return RunWith(p, Options{StepLimit: stepLimit})
+}
+
+// RunWith executes the program from main. main is the first thread; a behaviour it schedules is another, which runs once
+// it has every cown it names, interleaved with the others where the seed says. The program ends when main has returned and
+// every behaviour has run, with main's exit code, unless a trap or a violation ends it sooner.
+func RunWith(p *Program, o Options) (result *Result) {
+	vm := &vm{prog: p, limit: o.StepLimit, strs: map[string]*object{}, infos: map[*ir.IrFunction]*info{}}
+	vm.sched = newSched(o.Seed)
+	result = &Result{}
+	defer func() {
+		result.Stdout, result.Stderr, result.Steps, result.Frees, result.Behaviours = vm.stdout, vm.stderr, vm.steps, vm.frees, vm.scheduled
+		switch sig := vm.fatal.(type) {
+		case nil:
+		case *exitSignal:
+			result.ExitCode = sig.code
+		case *violationSignal:
+			result.Violations = append(result.Violations, sig.v)
+		case *timeoutSignal:
+			result.TimedOut = true
+		case *threadPanic:
+			// run is already raising it again.
+		default:
+			panic(sig)
+		}
+	}()
+	main, ok := p.Functions[p.Main]
+	if !ok {
+		panic(diag.Internal("interp: main has no IR"))
+	}
+	vm.run(main)
+	if vm.fatal != nil {
+		return result
+	}
+	result.ExitCode = vm.mainExit
+	result.Violations = vm.leaks()
+	return result
+}
+
+// leaks are the values still live when the program has ended, which no owner freed.
+func (vm *vm) leaks() []Violation {
+	var out []Violation
+	count := 0
+	for _, o := range vm.all {
+		if o.freed || o.immortal {
+			continue
+		}
+		count++
+		if count <= maxLeaksReported {
+			out = append(out, Violation{Kind: Leak, Message: describeLeak(o)})
+		}
+	}
+	if count > maxLeaksReported {
+		out = append(out, Violation{Kind: Leak, Message: "and " + strconv.Itoa(count-maxLeaksReported) + " more values leaked"})
+	}
+	return out
+}
+
+func (vm *vm) infoOf(fn *ir.IrFunction) *info {
+	if in, ok := vm.infos[fn]; ok {
+		return in
+	}
+	in := &info{windowAt: make([][][]*ir.CallInstr, len(fn.Blocks))}
+	type position struct{ block, pc int }
+	defs := map[ir.V]position{}
+	for bi, b := range fn.Blocks {
+		in.windowAt[bi] = make([][]*ir.CallInstr, len(b.Instrs))
+		for pc, ins := range b.Instrs {
+			if dst, ok := destination(ins); ok {
+				defs[dst] = position{bi, pc}
+			}
+		}
+	}
+	for _, b := range fn.Blocks {
+		for _, ins := range b.Instrs {
+			call, ok := ins.(*ir.CallInstr)
+			if !ok || len(call.Args) < 2 {
+				continue
+			}
+			for i, arg := range call.Args[:len(call.Args)-1] {
+				if argumentConv(call.Target, i) == ast.ConvSink {
+					continue
+				}
+				if def, ok := defs[arg]; ok && borrowsStorage(fn.Blocks[def.block].Instrs[def.pc]) {
+					in.windowAt[def.block][def.pc] = append(in.windowAt[def.block][def.pc], call)
+				}
+			}
+		}
+	}
+	vm.infos[fn] = in
+	return in
+}
+
+// borrowsStorage is whether an instruction gives a pointer or an address into storage that already exists, which a
+// change would leave dangling, and not a value that is new and only being built.
+func borrowsStorage(i ir.Instr) bool {
+	switch x := i.(type) {
+	case *ir.LoadSlot, *ir.LoadParam, *ir.LoadField, *ir.LoadAt, *ir.SlotAddr, *ir.FieldAddr:
+		return true
+	case *ir.CallRuntimeInstr:
+		return strings.HasSuffix(x.Symbol, ".elem")
+	}
+	return false
+}
+
+// argumentConv is how a callee takes its i-th argument, the receiver of a method counting as the first.
+
+func argumentConv(target *ast.FuncDecl, i int) ast.Convention {
+	if target.IsMethod() {
+		if i == 0 {
+			return target.Pass.SelfConv
+		}
+		i--
+	}
+	return target.Pass.Specs[i].Conv
+}
+
+// destination is the register an instruction writes.
+func destination(i ir.Instr) (ir.V, bool) {
+	switch x := i.(type) {
+	case *ir.ConstInstr:
+		return x.Dst, true
+	case *ir.StrInstr:
+		return x.Dst, true
+	case *ir.LoadSlot:
+		return x.Dst, true
+	case *ir.SlotAddr:
+		return x.Dst, true
+	case *ir.LoadParam:
+		return x.Dst, true
+	case *ir.LoadField:
+		return x.Dst, true
+	case *ir.FieldAddr:
+		return x.Dst, true
+	case *ir.LoadAt:
+		return x.Dst, true
+	case *ir.LoadGlobal:
+		return x.Dst, true
+	case *ir.BinInstr:
+		return x.Dst, true
+	case *ir.CmpInstr:
+		return x.Dst, true
+	case *ir.NegInstr:
+		return x.Dst, true
+	case *ir.NotInstr:
+		return x.Dst, true
+	case *ir.AllocInstr:
+		return x.Dst, true
+	case *ir.CopyInstr:
+		return x.Dst, true
+	case *ir.MoveSlotInstr:
+		return x.Dst, true
+	case *ir.MoveAtInstr:
+		return x.Dst, true
+	case *ir.CallInstr:
+		if x.Dst != nil {
+			return *x.Dst, true
+		}
+		return 0, false
+	case *ir.CallRuntimeInstr:
+		if x.Dst != nil {
+			return *x.Dst, true
+		}
+		return 0, false
+	case *ir.StoreSlot, *ir.StoreField, *ir.StoreAt, *ir.GuardInstr, *ir.DropInstr, *ir.DropSlotInstr, *ir.DropAtInstr, *ir.WhenInstr:
+		return 0, false
+	}
+	panic(diag.Internal("interp: unhandled instruction %T", i))
+}
+
+func (vm *vm) call(fn *ir.IrFunction, args []value) value {
+	if vm.depth >= maxCallDepth {
+		vm.stderr = append(vm.stderr, "stack overflow\n"...)
+		panic(&exitSignal{code: stackOverflowExitCode})
+	}
+	in := vm.infoOf(fn)
+	fr := &frame{fn: fn, thread: vm.cur, params: args, slots: make([]cell, len(fn.Slots)), regs: make([]value, len(fn.Regs)), active: true}
+	for i := range fr.slots {
+		fr.slots[i].frame = fr
+		fr.slots[i].index = i
+	}
+	caller := vm.top
+	vm.top = fr
+	vm.depth++
+	defer func() {
+		fr.active = false
+		vm.depth--
+		vm.top = caller
+	}()
+	block := 0
+	for {
+		fr.block = block
+		b := fn.Blocks[block]
+		for pc, ins := range b.Instrs {
+			fr.pc = pc
+			vm.tick()
+			vm.exec(fr, ins)
+			for _, call := range in.windowAt[block][pc] {
+				vm.openWindow(fr, ins, call)
+			}
+		}
+		fr.pc = -1
+		vm.tick()
+		switch t := b.Term.(type) {
+		case *ir.JumpTerm:
+			block = t.Target.ID
+		case *ir.BranchTerm:
+			if fr.regs[t.Cond].n != 0 {
+				block = t.Then.ID
+			} else {
+				block = t.Else.ID
+			}
+		case *ir.SwitchTerm:
+			block = t.Default.ID
+			for i, v := range t.Values {
+				if fr.regs[t.Value].n == v {
+					block = t.Targets[i].ID
+					break
+				}
+			}
+		case *ir.RetTerm:
+			return vm.ret(fr, t)
+		case *ir.TrapTerm:
+			vm.stderr = append(vm.stderr, "trap\n"...)
+			panic(&exitSignal{code: illegalInstructionExitCode})
+		default:
+			panic(diag.Internal("interp: block b%d of %s has no terminator", b.ID, fn.Symbol()))
+		}
+	}
+}
+
+func (vm *vm) tick() {
+	vm.steps++
+	if vm.steps > vm.limit {
+		panic(&timeoutSignal{})
+	}
+	if vm.concurrent {
+		vm.cur.burst--
+		if vm.cur.burst <= 0 {
+			vm.yield()
+		}
+	}
+}
+
+// ret hands the result to the caller. It must be a value that nothing owns, and no slot may still own anything: an
+// owner that dies without dropping what it holds leaks it.
+func (vm *vm) ret(fr *frame, t *ir.RetTerm) value {
+	v := fr.regs[t.Value]
+	if fr.fn.Regs[t.Value] == ir.KindManaged {
+		if v.ref == nil {
+			vm.violate(MovedUse, "the function returns a value that was moved out or never assigned")
+		}
+		vm.requireLive(v.ref, "returned")
+		if !v.ref.immortal && v.ref.owner != nil {
+			vm.violate(Ownership, "the function returns %s, which %s still owns: a return moves its value", v.ref, v.ref.owner)
+		}
+	}
+	for i := range fr.slots {
+		c := &fr.slots[i]
+		if o := c.v.ref; o != nil && !o.immortal && !o.freed && o.heldBy(c) {
+			vm.violate(Leak, "slot s%d still owns %s when the function returns: no drop frees it", i, o)
+		}
+	}
+	return v
+}
+
+func (vm *vm) openWindow(fr *frame, ins ir.Instr, call *ir.CallInstr) {
+	dst, _ := destination(ins)
+	v := fr.regs[dst]
+	var r region
+	switch {
+	case v.adr != nil:
+		r = region{cell: v.adr.cell}
+	case v.ref != nil && !v.ref.immortal && !v.ref.shared():
+		r = region{obj: v.ref}
+	default:
+		return
+	}
+	vm.windows = append(vm.windows, window{call: call, frame: fr, region: r, at: fr.site(), taken: ir.InstrString(ins)})
+}
+
+func (vm *vm) closeWindows(fr *frame, call *ir.CallInstr) {
+	n := len(vm.windows)
+	for n > 0 && vm.windows[n-1].call == call && vm.windows[n-1].frame == fr {
+		n--
+	}
+	vm.windows = vm.windows[:n]
+}
+
+// changed is called wherever a place is written or a structure changes: no borrow that a call is waiting to use may
+// reach it, because the call would then use what moved.
+func (vm *vm) changed(r region) {
+	if vm.tracking {
+		vm.requireMutable(r)
+	}
+	for i := range vm.windows {
+		w := &vm.windows[i]
+		if overlaps(w.region, r) {
+			vm.violate(Exclusivity, "%s is borrowed by an argument (`%s` at %s) that a call is still waiting to use, and this changes %s",
+				w.region, w.taken, w.at, r)
+		}
+	}
+}
+
+func (vm *vm) requireLive(o *object, what string) {
+	if o.freed {
+		vm.violate(UseAfterFree, "%s is %s after it was freed at %s", o, what, o.freedAt)
+	}
+}
+
+// live is the object a managed register points to, which must exist and must not have been freed.
+func (vm *vm) live(v value, what string) *object {
+	if v.ref == nil {
+		vm.violate(MovedUse, "%s uses a value that was moved out or never assigned", what)
+	}
+	vm.requireLive(v.ref, what)
+	if vm.tracking {
+		vm.requireReachable(v.ref, what)
+	}
+	return v.ref
+}
+
+func (vm *vm) newObject(kind objectKind) *object {
+	vm.nextID++
+	o := &object{id: vm.nextID, kind: kind, allocated: vm.top.site()}
+	if kind == kindFrozen || kind == kindCown {
+		o.count = 1
+		o.holders = map[*cell]bool{}
+	}
+	vm.all = append(vm.all, o)
+	return o
+}
+
+func (vm *vm) newBox(words int) *object {
+	o := vm.newObject(kindBox)
+	o.fields = make([]cell, words)
+	for i := range o.fields {
+		o.fields[i].holder = o
+		o.fields[i].index = i
+	}
+	return o
+}
+
+func (vm *vm) newString(text string) *object {
+	o := vm.newObject(kindString)
+	o.text = text
+	return o
+}
+
+// literal is a string in the executable: it is never freed, and no one owns it.
+func (vm *vm) literal(text string) *object {
+	if o, ok := vm.strs[text]; ok {
+		return o
+	}
+	o := vm.newString(text)
+	o.immortal = true
+	vm.strs[text] = o
+	return o
+}
+
+// adopt stores a value into a place that owns what it holds. The value must be in flight, owned by no one: a value
+// that has an owner is moved first, and one that is stored twice would be freed twice. What the place held must be
+// gone already, or it is leaked.
+func (vm *vm) adopt(c *cell, v value, what string) {
+	if old := c.v.ref; old != nil && !old.immortal && !old.freed && old.heldBy(c) {
+		vm.violate(Leak, "%s overwrites %s, which %s still owns: the old value is lost without being dropped", what, old, c)
+	}
+	o := v.ref
+	if o == nil {
+		vm.violate(MovedUse, "%s stores a value that was moved out or never assigned", what)
+	}
+	vm.requireLive(o, "stored")
+	switch {
+	case o.immortal:
+	case o.shared():
+		o.holders[c] = true
+	default:
+		if o.owner != nil {
+			vm.violate(Ownership, "%s stores %s into %s, but %s still owns it: a value has one owner, so it must be moved first", what, o, c, o.owner)
+		}
+		o.owner = c
+	}
+	c.v = v
+}
+
+// store puts a register's value in a place, as an owner when the register is managed.
+func (vm *vm) store(fr *frame, c *cell, src ir.V, what string) {
+	if fr.fn.Regs[src] == ir.KindManaged {
+		vm.adopt(c, fr.regs[src], what)
+		return
+	}
+	c.v = fr.regs[src]
+}
+
+// release takes the value out of a place and leaves it empty, as its owner gives it away or frees it.
+func (vm *vm) release(c *cell, what string) *object {
+	o := c.v.ref
+	if o == nil {
+		return nil
+	}
+	c.v = value{}
+	if o.immortal {
+		return o
+	}
+	if o.freed {
+		vm.violate(UseAfterFree, "%s: %s was freed at %s but %s still holds it", what, o, o.freedAt, c)
+	}
+	if !o.heldBy(c) {
+		vm.violate(Ownership, "%s: %s holds %s, but it is not that place's to give up: %s owns it", what, c, o, ownerText(o))
+	}
+	if o.shared() {
+		delete(o.holders, c)
+	} else {
+		o.owner = nil
+	}
+	return o
+}
+
+func ownerText(o *object) string {
+	if o.owner == nil {
+		return "no one"
+	}
+	return o.owner.String()
+}
+
+// drop frees a value and everything it owns, or lowers the count of a shared value by the one owner that is dropping it.
+// The value must be in flight: its owner has given it up.
+func (vm *vm) drop(o *object) {
+	if o.immortal {
+		return
+	}
+	if o.shared() {
+		vm.unref(o)
+		return
+	}
+	if o.freed {
+		vm.violate(DoubleFree, "%s was already freed at %s", o, o.freedAt)
+	}
+	if o.owner != nil {
+		vm.violate(Ownership, "%s is dropped while %s still owns it", o, o.owner)
+	}
+	vm.changed(region{obj: o})
+	vm.free(o)
+}
+
+// unref is one owner of a frozen value or a cown letting go: the value is freed when the last one does.
+func (vm *vm) unref(o *object) {
+	if o.freed {
+		vm.violate(DoubleFree, "%s was already freed at %s", o, o.freedAt)
+	}
+	o.count--
+	switch {
+	case o.count < 0:
+		vm.violate(Count, "the count of %s fell below 0", o)
+	case o.count == 0:
+		vm.free(o)
+	}
+}
+
+func (vm *vm) free(o *object) {
+	if o.freed {
+		vm.violate(DoubleFree, "%s was already freed at %s while freeing what contains it", o, o.freedAt)
+	}
+	if o.shared() && (len(o.holders) > 0 || len(o.queue) > 0 || o.running != nil) {
+		vm.violate(Count, "%s is freed while it is still referenced: %d place(s) hold it and %d behaviour(s) wait for it", o, len(o.holders), len(o.queue))
+	}
+	o.freed = true
+	o.freedAt = vm.top.site()
+	o.owner = nil
+	vm.frees = append(vm.frees, o.freeLabel())
+	switch o.kind {
+	case kindString:
+	case kindBox:
+		for i := range o.fields {
+			vm.freeCell(&o.fields[i])
+		}
+	case kindFrozen, kindCown:
+		vm.freeCell(&o.fields[0])
+	case kindArray:
+		for _, c := range o.elems {
+			vm.freeCell(c)
+		}
+	case kindMap:
+		for _, e := range o.mapped.entries {
+			vm.freeCell(&e.key)
+			vm.freeCell(&e.val)
+		}
+	case kindList:
+		for _, slot := range o.table.order {
+			vm.freeCell(o.table.cells[slot])
+		}
+	case kindPool:
+		for slot, live := range o.table.live {
+			if live {
+				vm.freeCell(o.table.cells[slot])
+			}
+		}
+	default:
+		panic(diag.Internal("interp: unknown object kind %d", int(o.kind)))
+	}
+}
+
+// freeCell frees what a place owns, as part of freeing the object the place belongs to.
+func (vm *vm) freeCell(c *cell) {
+	if o := vm.release(c, "freeing its owner"); o != nil && !o.immortal {
+		if o.shared() {
+			vm.unref(o)
+		} else {
+			vm.free(o)
+		}
+	}
+}

@@ -1,0 +1,44 @@
+type Stage
+	export var value as Count
+	static function make(value Count) returns Stage
+		return Stage{value: value}
+	end 'make'
+end 'Stage'
+
+function third(c cown[Stage], carried Count)
+	when c as s 'third'
+		s.value = s.value + carried
+		print("third {s.value}\n")
+	end 'third'
+end 'third'
+
+function second(b cown[Stage], c cown[Stage], carried Count)
+	let next = share(c)
+	when b as s 'second'
+		s.value = s.value * carried
+		print("second {s.value}\n")
+		third(next, carried: s.value)
+	end 'second'
+end 'second'
+
+function first(a cown[Stage], b cown[Stage], c cown[Stage])
+	let nextB = share(b)
+	let nextC = share(c)
+	when a as s 'first'
+		s.value = s.value + 1
+		print("first {s.value}\n")
+		second(nextB, c: nextC, carried: s.value)
+	end 'first'
+end 'first'
+
+function main() returns ExitCode
+	let a = cown(Stage.make(1))
+	let b = cown(Stage.make(10))
+	let c = cown(Stage.make(100))
+	first(a, b: b, c: c)
+	return 0
+end 'main'
+
+//> first 2
+//> second 20
+//> third 120

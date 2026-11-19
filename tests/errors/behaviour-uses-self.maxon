@@ -1,0 +1,13 @@
+// expect-error: E3126 at 6:8
+type Meter
+	export var reading as Count
+	function watch(c cown[Count])
+		when c as x 'watch'
+			x = self.reading
+		end 'watch'
+	end 'watch'
+end 'Meter'
+
+function main() returns ExitCode
+	return 0
+end 'main'

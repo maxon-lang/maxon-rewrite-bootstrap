@@ -18,6 +18,9 @@ type Module struct {
 
 	Functions []*FuncDecl
 	Pending   []PendingCall
+	Bounds    []PendingBound
+	// Callers are the functions that call a generic or go through a bound, which instances start from.
+	Callers []*FuncDecl
 }
 
 func NewModule(path, dir string, isStdlib bool) *Module {
@@ -52,11 +55,21 @@ type PendingCall struct {
 	Params []ParamSpec
 }
 
+// PendingBound is a type argument that its type parameter's bounds have not yet been checked against. The bounds
+// belong to a declaration that another module may still be declaring, so the check waits for the verify phase.
+type PendingBound struct {
+	Site  Node
+	Param *TypeParamTy
+	Arg   Ty
+}
+
 type Project struct {
-	Root    *Module
-	Stdlib  *Module
-	Modules []*Module
-	ByName  map[string][]Decl
+	Root   *Module
+	Stdlib *Module
+	// Builtins are the runtime primitives and Option, declared in Stdlib.
+	Builtins *Builtins
+	Modules  []*Module
+	ByName   map[string][]Decl
 }
 
 func NewProject(root *Module) *Project {
@@ -78,6 +91,7 @@ func NewProject(root *Module) *Project {
 		p.Stdlib.Decls = append(p.Stdlib.Decls, alias)
 		p.Stdlib.Names[b.name] = alias
 	}
+	p.Builtins = NewBuiltins(p.Stdlib, p.Stdlib.Names["Count"].(*AliasDecl).Ty.(*IntTy))
 	return p
 }
 
@@ -98,3 +112,5 @@ func (methods) VisitFuncDecl(*FuncDecl) []*FuncDecl { return nil }
 func (methods) VisitConstDecl(*ConstDecl) []*FuncDecl { return nil }
 
 func (methods) VisitAliasDecl(*AliasDecl) []*FuncDecl { return nil }
+
+func (methods) VisitInterfaceDecl(*InterfaceDecl) []*FuncDecl { return nil }

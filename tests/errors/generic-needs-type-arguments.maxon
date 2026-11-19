@@ -1,0 +1,55 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Score
+end 'Shape'
+
+interface Other
+	function area() returns Score
+end 'Other'
+
+type Square is Shape
+	var side as Score
+	static function make(side Score) returns Square
+		return Square{side: side}
+	end 'make'
+	function area() returns Score
+		return side * side
+	end 'area'
+end 'Square'
+
+type Plain
+	var n as Score
+	static function make(n Score) returns Plain
+		return Plain{n: n}
+	end 'make'
+end 'Plain'
+
+type Box[T is Shape]
+	var item as T
+end 'Box'
+
+type Wrap[T]
+	var inner as T
+	static function make(inner sink T) returns Self
+		return Self{inner: inner}
+	end 'make'
+end 'Wrap'
+
+function sizeOf[T is Shape](a T) returns Score
+	return a.area()
+end 'sizeOf'
+
+function id[T](a sink T) returns T
+	return a
+end 'id'
+
+function bare(b Box)
+	print("never\n")
+end 'bare'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3116 at 47:17

@@ -1,0 +1,42 @@
+type Label
+	export var text as String
+	static function make(text sink String) returns Label
+		return Label{text: text}
+	end 'make'
+end 'Label'
+
+enum Color
+	red
+	green
+end 'Color'
+
+union Mark
+	text(value String)
+	none
+end 'Mark'
+
+let greeting = "hello"
+
+function pass(text sink String) returns String
+	return text
+end 'pass'
+
+function main() returns ExitCode
+	var a = "literal"
+	let b = a.copy()
+	a = "replaced"
+	let label = Label.make("field")
+	let again = label.copy()
+	var words = array[String].new()
+	words.append("one")
+	words.append(greeting)
+	words.append(Color.green.name)
+	words[0] = "uno"
+	let moved = pass("passed")
+	let mark = Mark.text("payload").copy()
+	let named = mark.name
+	print("{a} {b} {label.text} {again.text} {words[0]} {words[1]} {words[2]} {moved} {named} {greeting}\n")
+	return 0
+end 'main'
+
+//> replaced literal field field uno hello green passed text hello

@@ -1,0 +1,6 @@
+// expect-error: E9000 at 4:11
+function main() returns ExitCode
+	var a = array[Count].new()
+	print("{a.count}")
+	return 0
+end 'main'

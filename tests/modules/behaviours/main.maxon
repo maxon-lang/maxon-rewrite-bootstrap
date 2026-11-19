@@ -1,0 +1,11 @@
+function main() returns ExitCode
+	let savings = cown(ledger.Account.open(10))
+	let again = share(savings)
+	ledger.credit(savings, amount: 5)
+	ledger.credit(again, amount: 7)
+	let last = share(savings)
+	ledger.report(last, label: "savings")
+	return 0
+end 'main'
+
+//> savings: 22

@@ -1,0 +1,14 @@
+// expect-error: E3111 at 11:11
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function main() returns ExitCode
+	var m = map[Count, Cell].new()
+	let c = m[1]
+	print("{c.n}")
+	return 0
+end 'main'

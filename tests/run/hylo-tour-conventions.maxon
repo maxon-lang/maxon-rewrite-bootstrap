@@ -1,0 +1,73 @@
+typealias Number = int(i64.min to i64.max)
+
+type Pair
+	export var first as Number
+	export var second as Number
+	static function create(first Number, second Number) returns Pair
+		return Pair{first: first, second: second}
+	end 'create'
+end 'Pair'
+
+type Wrapper
+	export var pair as Pair
+	static function wrap(pair sink Pair) returns Wrapper
+		return Wrapper{pair: pair}
+	end 'wrap'
+end 'Wrapper'
+
+function total(p Pair) returns Number
+	return p.first + p.second
+end 'total'
+
+function double(p inout Pair)
+	p.first = p.first * 2
+	p.second = p.second * 2
+end 'double'
+
+function replace(p inout Pair, with sink Pair)
+	p = with
+end 'replace'
+
+function consume(p sink Pair) returns Number
+	let wrapper = Wrapper.wrap(p)
+	return total(wrapper.pair)
+end 'consume'
+
+function make(p set Pair, first Number, second Number)
+	p = Pair.create(first, second: second)
+end 'make'
+
+function makeOrdered(p set Pair, ascending bool)
+	if ascending 'order'
+		make(p, first: 1, second: 2)
+	end 'order' else 'other'
+		make(p, first: 2, second: 1)
+	end 'other'
+end 'makeOrdered'
+
+function main() returns ExitCode
+	var pair = Pair.create(3, second: 4)
+	print("{total(pair)}\n")
+	double(pair)
+	print("{pair.first} {pair.second}\n")
+	replace(pair, with: Pair.create(7, second: 8))
+	print("{pair.first} {pair.second}\n")
+	print("{consume(pair)}\n")
+	pair = Pair.create(1, second: 1)
+	print("{pair.first}\n")
+	var made as Pair
+	make(made, first: 5, second: 6)
+	print("{made.first} {made.second}\n")
+	var ordered as Pair
+	makeOrdered(ordered, ascending: false)
+	print("{ordered.first} {ordered.second}\n")
+	return 0
+end 'main'
+
+//> 7
+//> 6 8
+//> 7 8
+//> 15
+//> 1
+//> 5 6
+//> 2 1

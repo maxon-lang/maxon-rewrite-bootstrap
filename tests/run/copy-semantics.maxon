@@ -1,0 +1,60 @@
+typealias Score = int(i64.min to i64.max)
+
+type Inner
+	export var n as Score
+	static function create(n Score) returns Inner
+		return Inner{n: n}
+	end 'create'
+end 'Inner'
+
+type Outer
+	export var inner as Inner
+	export var label as String
+	static function create(n Score, label sink String) returns Outer
+		return Outer{inner: Inner.create(n), label: label}
+	end 'create'
+end 'Outer'
+
+union Shape
+	circle(radius Score)
+	named(inner Inner, name String)
+	empty
+end 'Shape'
+
+function main() returns ExitCode
+	var original = Outer.create(1, label: "first")
+	var duplicate = original.copy()
+	duplicate.inner.n = 99
+	duplicate.label = "second"
+	print("{original.inner.n} {original.label} {duplicate.inner.n} {duplicate.label}\n")
+	var n = 5 as Score
+	var m = n.copy()
+	m = 6
+	print("{n} {m}\n")
+	let shape = Shape.named(Inner.create(3), name: "tri")
+	let again = shape.copy()
+	match again 'm1'
+		circle(r) then print("circle {r}\n")
+		named(i, name) then print("named {i.n} {name}\n")
+		empty then print("empty\n")
+	end 'm1'
+	let round = Shape.circle(8).copy()
+	match round 'm2'
+		circle(r) then print("circle {r}\n")
+		named(i, name) then print("named {i.n} {name}\n")
+		empty then print("empty\n")
+	end 'm2'
+	let none = Shape.empty.copy()
+	print("{none.name} {shape.name}\n")
+	let kept = original.inner.copy()
+	original.inner.n = 7
+	print("{kept.n} {original.inner.n}\n")
+	return 0
+end 'main'
+
+//> 1 first 99 second
+//> 5 6
+//> named 3 tri
+//> circle 8
+//> empty named
+//> 1 7

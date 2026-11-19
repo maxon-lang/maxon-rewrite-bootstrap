@@ -1,0 +1,116 @@
+type Note
+	export var text as String
+	export var tags = array[String].new()
+	static function make(text sink String) returns Note
+		return Note{text: text}
+	end 'make'
+end 'Note'
+
+union Slot
+	filled(note Note, rank Count)
+	named(label String)
+	vacant
+end 'Slot'
+
+function label(n Count) returns String
+	return "label {n}"
+end 'label'
+
+function early(flag bool, n Count) returns Count
+	let first = Note.make(label(n))
+	if flag 'quick'
+		let second = Note.make("{n} quick")
+		print("{second.text.copy()} ")
+		return first.tags.count()
+	end 'quick'
+	let third = Note.make("slow")
+	return n
+end 'early'
+
+function loops(limit Count) returns Count
+	var kept = 0 as Count
+	for i in 0 upto limit 'each'
+		let a = Note.make(label(i))
+		if i == 2 'skip'
+			continue
+		end 'skip'
+		let b = Note.make("kept {i}")
+		if i == 7 'stop'
+			break
+		end 'stop'
+		kept = kept + 1
+	end 'each'
+	return kept
+end 'loops'
+
+function grow(n Count) returns Count
+	var notes = array[Note].new()
+	for i in 0 upto n 'fill'
+		notes.append(Note.make(label(i)))
+	end 'fill'
+	notes.insert(Note.make("front"), at: 0)
+	let removed = notes.remove(3)
+	var kept = array[Note].new()
+	kept.append(removed)
+	notes[1] = Note.make("replaced")
+	notes[2].tags.append("one")
+	notes[2].tags.append("two")
+	notes[2].tags.append(label(9))
+	let last = notes.pop()
+	match last 'm'
+		some(note) then print("{note.text} ")
+		none then print("none ")
+	end 'm'
+	let again = notes.pop().unwrap()
+	print("{again.text} {kept[0].text} {notes.count()}\n")
+	return notes.count() + kept.count()
+end 'grow'
+
+function slots() returns Count
+	var held = array[Slot].new()
+	held.append(Slot.filled(Note.make("a"), rank: 1))
+	held.append(Slot.named(label(2)))
+	held.append(Slot.vacant)
+	held[0] = Slot.named("b")
+	held[2] = Slot.filled(Note.make("c"), rank: 3)
+	let copy = held.copy()
+	var total = 0 as Count
+	for i in 0 upto copy.count() 'each'
+		match copy[i] 'm'
+			filled(note, rank) then total = total + rank
+			named(text) then total = total + 10
+			vacant then total = total + 100
+		end 'm'
+	end 'each'
+	return total + held.count()
+end 'slots'
+
+function nested() returns Count
+	var grid = array[array[String]].new()
+	for i in 0 upto 3 'rows'
+		var row = array[String].new()
+		for j in 0 upto 6 'cols'
+			row.append("{i}{j}")
+		end 'cols'
+		grid.append(row)
+	end 'rows'
+	let copy = grid.copy()
+	print("{copy[2][5]} ")
+	return grid.count()
+end 'nested'
+
+function choose(flag bool) returns Count
+	let note = Note.make("a") if flag else Note.make("longer")
+	print("{note.text} ")
+	return 0
+end 'choose'
+
+function main() returns ExitCode
+	print("{early(true, n: 1)} {early(false, n: 5)} {loops(10)}\n")
+	print("{grow(6)} {slots()} {nested()} {choose(true)} {choose(false)}\n")
+	return 0
+end 'main'
+
+//> 1 quick 0 5 6
+//> label 5 label 4 label 2 4
+//> 25 a longer 5 26 3 0 0

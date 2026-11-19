@@ -84,10 +84,13 @@ type LoadSlot struct {
 	Slot int
 }
 
+// StoreSlot puts a value in a slot. A slot owns what it holds unless Borrow is set, which a match binding of a payload
+// uses: the slot names a part of the match subject for the arm, and nothing drops it.
 type StoreSlot struct {
 	InstrBase
-	Slot int
-	Src  V
+	Slot   int
+	Src    V
+	Borrow bool
 }
 
 type SlotAddr struct {
@@ -199,6 +202,74 @@ type CallRuntimeInstr struct {
 	Args   []V
 }
 
+// WhenInstr schedules a behaviour: the body of a `when`, which runs later, in another thread, once it has exclusive access
+// to every cown it names (README, "Behaviours"). The cowns are references that the instruction only reads, and each gains
+// a count of its own, held until the behaviour has run. Each capture is a value that moves into the behaviour: a managed
+// one has been moved out of its owner, so it is in flight, and a scalar is copied. The body is a function of its own
+// whose parameters are the access to the value of each cown, an address as an inout parameter has, and then the
+// captures, which it owns as a sink parameter does. The behaviour returns nothing and nothing waits for it.
+type WhenInstr struct {
+	InstrBase
+	Body     *IrFunction
+	Cowns    []V
+	Captures []V
+}
+
+// The instructions below say where an owner dies or gives its value away (README, "The IR"). Each names the type of
+// the value, with the type arguments of an instance already applied, so codegen can call the drop routine of that
+// type. Dropping a value drops what it owns, deeply by type: the fields of a record, the payload of a union, the
+// elements of a primitive. A place that holds no value, because it was moved from or never assigned, is dropped as a
+// no-op, so a drop at the end of a scope needs no knowledge of the path that led there.
+
+// DropInstr drops the owned value in a register, such as a temporary that nothing took, a removed element, or the old
+// value of a place just read.
+type DropInstr struct {
+	InstrBase
+	Src V
+	Ty  ast.Ty
+}
+
+// DropSlotInstr drops what a slot owns, if anything, and leaves it empty.
+type DropSlotInstr struct {
+	InstrBase
+	Slot int
+	Ty   ast.Ty
+}
+
+// DropAtInstr drops what the address holds, if anything, and leaves it empty: the old value of a field, an element or an
+// inout parameter that is about to be assigned.
+type DropAtInstr struct {
+	InstrBase
+	Addr V
+	Ty   ast.Ty
+}
+
+// MoveSlotInstr reads a slot and leaves it empty: the value now belongs to whoever receives it.
+type MoveSlotInstr struct {
+	InstrBase
+	Dst  V
+	Slot int
+}
+
+// MoveAtInstr reads the value at an address and leaves it empty, which is how a payload leaves the box of a union that
+// is consumed.
+type MoveAtInstr struct {
+	InstrBase
+	Dst  V
+	Addr V
+}
+
+// CopyInstr is a deep copy of the owned value in Src, which is left as it is: a new box for each record, union and array
+// inside it, and a new string for each string that is not in the executable, so every part of the copy has an owner of its
+// own to free it. A frozen value or a cown reference copies as another owner of the same box. Ty is the type of the value,
+// with an instance's type arguments applied, which is what tells the copy where the managed words of each box are.
+type CopyInstr struct {
+	InstrBase
+	Dst V
+	Src V
+	Ty  ast.Ty
+}
+
 type Terminator interface{ term() }
 
 type TermBase struct{}
@@ -240,12 +311,39 @@ type IrBlock struct {
 	Term   Terminator
 }
 
+// Refusal is a place in the source that lowered to something the backend cannot run yet. Lowering still completes, so
+// the IR stays whole for the interpreter, and the driver turns the first refusal of each function into an error before
+// any code is generated.
+type Refusal struct {
+	Site    ast.Node
+	Code    string
+	Message string
+}
+
 type IrFunction struct {
-	Decl       *ast.FuncDecl
+	Decl *ast.FuncDecl
+	// Name is what the function is called when that is not its declaration's symbol: a behaviour body is named for the
+	// function it is in, and an instance of a generic function that holds one has one for each instance.
+	Name       string
 	ParamCount int
 	Slots      []IrKind
 	Regs       []IrKind
 	Blocks     []*IrBlock
+	// Refusals are the places in the source that cannot be compiled yet, in source order.
+	Refusals []Refusal
+	// UsesArrays is whether the function calls an array entry, which the backend then links the array runtime for.
+	UsesArrays bool
+	// Behaviours are the bodies of the `when` statements in the function, in source order. A `when` in one of them has its
+	// body in that one.
+	Behaviours []*IrFunction
+}
+
+// Symbol is the name of the function in the IR text and in a report.
+func (f *IrFunction) Symbol() string {
+	if f.Name != "" {
+		return f.Name
+	}
+	return f.Decl.Symbol()
 }
 
 func (f *IrFunction) NewReg(kind IrKind) V {
@@ -331,7 +429,7 @@ func dstPrefix(d *V) string {
 }
 
 func PrintIr(f *IrFunction, sb *strings.Builder) {
-	fmt.Fprintf(sb, "function %s params %d", f.Decl.Symbol(), f.ParamCount)
+	fmt.Fprintf(sb, "function %s params %d", f.Symbol(), f.ParamCount)
 	if len(f.Slots) > 0 {
 		parts := make([]string, len(f.Slots))
 		for i, k := range f.Slots {
@@ -348,6 +446,9 @@ func PrintIr(f *IrFunction, sb *strings.Builder) {
 		sb.WriteString("  " + termText(b.Term) + "\n")
 	}
 	sb.WriteByte('\n')
+	for _, body := range f.Behaviours {
+		PrintIr(body, sb)
+	}
 }
 
 func instrText(i Instr) string {
@@ -359,6 +460,9 @@ func instrText(i Instr) string {
 	case *LoadSlot:
 		return fmt.Sprintf("%s = load s%d", x.Dst, x.Slot)
 	case *StoreSlot:
+		if x.Borrow {
+			return fmt.Sprintf("store s%d, %s borrow", x.Slot, x.Src)
+		}
 		return fmt.Sprintf("store s%d, %s", x.Slot, x.Src)
 	case *SlotAddr:
 		return fmt.Sprintf("%s = addr s%d", x.Dst, x.Slot)
@@ -403,6 +507,20 @@ func instrText(i Instr) string {
 		return fmt.Sprintf("%scall %s(%s)", dstPrefix(x.Dst), x.Target.Symbol(), argList(x.Args))
 	case *CallRuntimeInstr:
 		return fmt.Sprintf("%sruntime %s(%s)", dstPrefix(x.Dst), x.Symbol, argList(x.Args))
+	case *WhenInstr:
+		return fmt.Sprintf("when %s cowns [%s] captures [%s]", x.Body.Symbol(), argList(x.Cowns), argList(x.Captures))
+	case *DropInstr:
+		return fmt.Sprintf("drop %s %s", x.Src, x.Ty.Name())
+	case *DropSlotInstr:
+		return fmt.Sprintf("dropslot s%d %s", x.Slot, x.Ty.Name())
+	case *DropAtInstr:
+		return fmt.Sprintf("dropat %s %s", x.Addr, x.Ty.Name())
+	case *CopyInstr:
+		return fmt.Sprintf("%s = copy %s %s", x.Dst, x.Src, x.Ty.Name())
+	case *MoveSlotInstr:
+		return fmt.Sprintf("%s = move s%d", x.Dst, x.Slot)
+	case *MoveAtInstr:
+		return fmt.Sprintf("%s = moveat %s", x.Dst, x.Addr)
 	}
 	panic(diag.Internal("printer: unhandled instruction %T", i))
 }
@@ -426,3 +544,9 @@ func termText(t Terminator) string {
 	}
 	panic(diag.Internal("printer: a block has no terminator"))
 }
+
+// InstrString is the text the printer gives an instruction, for a tool that reports a place in a function.
+func InstrString(i Instr) string { return instrText(i) }
+
+// TermString is the text the printer gives a terminator.
+func TermString(t Terminator) string { return termText(t) }

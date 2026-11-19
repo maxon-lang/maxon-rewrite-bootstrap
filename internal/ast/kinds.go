@@ -35,6 +35,8 @@ const (
 	CallUnionCtor
 	CallPrint
 	CallPrintError
+	CallCopy
+	CallBound
 )
 
 type MemberKind int

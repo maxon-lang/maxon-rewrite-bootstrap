@@ -1,0 +1,6 @@
+// expect-error: E9002 at 3:25
+function main() returns ExitCode
+	var l = list[Count].new()
+	print("{l.count()}")
+	return 0
+end 'main'

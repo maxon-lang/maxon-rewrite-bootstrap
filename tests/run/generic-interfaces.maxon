@@ -1,0 +1,94 @@
+typealias Count = int(0 to 1000)
+
+interface Shape
+	function area() returns Count
+	function grow(inout self, by Count)
+	function scaled(by Count) returns Self
+end 'Shape'
+
+interface Named
+	function label() returns String
+end 'Named'
+
+type Square is Shape and Named
+	var side as Count
+	static function make(side Count) returns Square
+		return Square{side: side}
+	end 'make'
+	function area() returns Count
+		return side * side
+	end 'area'
+	function grow(inout self, by Count)
+		side = side + by
+	end 'grow'
+	function scaled(by Count) returns Square
+		return Square{side: side * by}
+	end 'scaled'
+	function label() returns String
+		return "square {side}"
+	end 'label'
+end 'Square'
+
+type Pair[A, B is Shape]
+	var first as A
+	var second as B
+	static function make(first sink A, second sink B) returns Self
+		return Self{first: first, second: second}
+	end 'make'
+	function secondArea() returns Count
+		return second.area()
+	end 'secondArea'
+end 'Pair'
+
+union Option[T]
+	some(value T)
+	none
+	function isSome() returns bool
+		return match self 'm'
+			some(v) gives true
+			none gives false
+		end 'm'
+	end 'isSome'
+end 'Option'
+
+function total[T is Shape](a T, b T) returns Count
+	return a.area() + b.area()
+end 'total'
+
+function describe[T is Shape and Named](item inout T) returns String
+	item.grow(1)
+	let bigger = item.scaled(2)
+	return "{item.label()} {bigger.label()} {bigger.area()}"
+end 'describe'
+
+function pick[T](flag bool, a T, b T) returns Option[T]
+	if flag 'f'
+		return Option.some(a.copy())
+	end 'f'
+	return Option[T].none
+end 'pick'
+
+function main() returns ExitCode
+	var s = Square.make(3)
+	let t = Square.make(4)
+	print("{total(s, b: t)}\n")
+	print("{describe(s)}\n")
+	let p = Pair[Square, Square].make(Square.make(1), second: Square.make(5))
+	print("{p.secondArea()}\n")
+	let o = pick(true, a: s, b: t)
+	print("{o.isSome()}\n")
+	let n = pick(false, a: s, b: t)
+	print("{n.isSome()}\n")
+	match o 'm'
+		some(sq) then print("{sq.area()}\n")
+		none then print("none\n")
+	end 'm'
+	return 0
+end 'main'
+
+//> 25
+//> square 4 square 8 64
+//> 25
+//> true
+//> false
+//> 16

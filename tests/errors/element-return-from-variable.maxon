@@ -1,0 +1,16 @@
+// expect-error: E3111 at 11:10
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function f() returns Cell
+	var a = array[Cell].new()
+	return a[0]
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

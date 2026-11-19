@@ -1,0 +1,19 @@
+export type Account
+	export var balance as Count
+	export static function open(balance Count) returns Account
+		return Account{balance: balance}
+	end 'open'
+end 'Account'
+
+export function credit(into cown[Account], amount Count)
+	when into as a 'credit'
+		a.balance = a.balance + amount
+	end 'credit'
+end 'credit'
+
+export function report(from cown[Account], label String)
+	let note = label.copy()
+	when from as a 'report'
+		print("{note}: {a.balance}\n")
+	end 'report'
+end 'report'

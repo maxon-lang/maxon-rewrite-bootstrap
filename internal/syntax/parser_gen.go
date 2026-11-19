@@ -5,28 +5,29 @@ package syntax
 import "minimaxon/internal/ast"
 
 var lookahead0 = [numTokens]bool{TKw_function: true, TKw_static: true}
-var lookahead1 = [numTokens]bool{TKw_enum: true, TKw_export: true, TKw_public: true, TKw_type: true, TKw_typealias: true, TKw_union: true}
-var lookahead2 = [numTokens]bool{TKw_export: true, TKw_public: true, TKw_typealias: true}
+var lookahead1 = [numTokens]bool{TKw_enum: true, TKw_export: true, TKw_interface: true, TKw_public: true, TKw_type: true, TKw_typealias: true, TKw_union: true}
+var lookahead2 = [numTokens]bool{TKw_export: true, TKw_interface: true, TKw_public: true}
 var lookahead3 = [numTokens]bool{TKw_export: true, TKw_public: true}
-var lookahead4 = [numTokens]bool{TKw__: true, TKw_consuming: true, TKw_immutable: true, TKw_isolated: true, TKw_mutable: true, TName: true}
-var lookahead5 = [numTokens]bool{TKw_consuming: true, TKw_immutable: true, TKw_isolated: true, TKw_mutable: true}
+var lookahead4 = [numTokens]bool{TKw__: true, TKw_inout: true, TKw_sink: true, TName: true}
+var lookahead5 = [numTokens]bool{TKw_inout: true, TKw_sink: true}
 var lookahead6 = [numTokens]bool{TKw__: true, TName: true}
-var lookahead7 = [numTokens]bool{TKw_let: true, TKw_var: true}
-var lookahead8 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true}
-var lookahead9 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: true, TKw_public: true, TKw_static: true, TKw_var: true}
-var lookahead10 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true, TName: true}
-var lookahead11 = [numTokens]bool{TKw_Self: true, TName: true}
-var lookahead12 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_break: true, TKw_continue: true, TKw_false: true, TKw_for: true, TKw_if: true, TKw_let: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_var: true, TKw_while: true, TLParen: true, TMinus: true, TName: true, TString: true}
-var lookahead13 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TLParen: true, TMinus: true, TName: true, TString: true}
-var lookahead14 = [numTokens]bool{TInteger: true, TKw_default: true, TKw_false: true, TKw_true: true, TMinus: true, TName: true, TString: true}
-var lookahead15 = [numTokens]bool{TAssign: true, TComma: true, TDot: true, TEof: true, TEqEq: true, TGe: true, TGt: true, TKw_and: true, TKw_as: true, TKw_else: true, TKw_if: true, TKw_mod: true, TKw_or: true, TKw_shl: true, TKw_shr: true, TKw_to: true, TKw_upto: true, TKw_xor: true, TLParen: true, TLabel: true, TLe: true, TLt: true, TMinus: true, TNewline: true, TNotEq: true, TPlus: true, TRBrace: true, TRParen: true, TSlash: true, TStar: true}
-var lookahead16 = [numTokens]bool{TKw_to: true, TKw_upto: true}
-var lookahead17 = [numTokens]bool{TKw_false: true, TKw_true: true}
-var lookahead18 = [numTokens]bool{TKw_not: true, TMinus: true}
-var lookahead19 = [numTokens]bool{TKw_mod: true, TSlash: true, TStar: true}
-var lookahead20 = [numTokens]bool{TMinus: true, TPlus: true}
-var lookahead21 = [numTokens]bool{TKw_shl: true, TKw_shr: true}
-var lookahead22 = [numTokens]bool{TEqEq: true, TGe: true, TGt: true, TLe: true, TLt: true, TNotEq: true}
+var lookahead7 = [numTokens]bool{TKw_inout: true, TKw_set: true, TKw_sink: true}
+var lookahead8 = [numTokens]bool{TKw_let: true, TKw_var: true}
+var lookahead9 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true}
+var lookahead10 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: true, TKw_public: true, TKw_static: true, TKw_var: true}
+var lookahead11 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true, TName: true}
+var lookahead12 = [numTokens]bool{TKw_Self: true, TName: true}
+var lookahead13 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_break: true, TKw_continue: true, TKw_false: true, TKw_for: true, TKw_if: true, TKw_let: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_var: true, TKw_when: true, TKw_while: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead14 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead15 = [numTokens]bool{TInteger: true, TKw_default: true, TKw_false: true, TKw_true: true, TMinus: true, TName: true, TString: true}
+var lookahead16 = [numTokens]bool{TAssign: true, TComma: true, TDot: true, TEof: true, TEqEq: true, TGe: true, TGt: true, TKw_and: true, TKw_as: true, TKw_else: true, TKw_if: true, TKw_mod: true, TKw_or: true, TKw_shl: true, TKw_shr: true, TKw_to: true, TKw_upto: true, TKw_xor: true, TLBracket: true, TLParen: true, TLabel: true, TLe: true, TLt: true, TMinus: true, TNewline: true, TNotEq: true, TPlus: true, TRBrace: true, TRBracket: true, TRParen: true, TSlash: true, TStar: true}
+var lookahead17 = [numTokens]bool{TKw_to: true, TKw_upto: true}
+var lookahead18 = [numTokens]bool{TKw_false: true, TKw_true: true}
+var lookahead19 = [numTokens]bool{TKw_not: true, TMinus: true}
+var lookahead20 = [numTokens]bool{TKw_mod: true, TSlash: true, TStar: true}
+var lookahead21 = [numTokens]bool{TMinus: true, TPlus: true}
+var lookahead22 = [numTokens]bool{TKw_shl: true, TKw_shr: true}
+var lookahead23 = [numTokens]bool{TEqEq: true, TGe: true, TGt: true, TLe: true, TLt: true, TNotEq: true}
 
 func (p *Parser) parseDecl() ast.Decl {
 	if p.in(&lookahead0) || (p.at(TKw_export) && p.peekIn(&lookahead0)) || (p.at(TKw_public) && p.peekIn(&lookahead0)) {
@@ -47,8 +48,10 @@ func (p *Parser) parseTypeDeclNode() ast.TypeDeclNode {
 		return p.parseEnumDecl()
 	} else if p.at(TKw_union) || (p.at(TKw_export) && p.peekIs(TKw_union)) || (p.at(TKw_public) && p.peekIs(TKw_union)) {
 		return p.parseUnionDecl()
-	} else if p.in(&lookahead2) {
+	} else if p.at(TKw_typealias) || (p.at(TKw_export) && p.peekIs(TKw_typealias)) || (p.at(TKw_public) && p.peekIs(TKw_typealias)) {
 		return p.parseAliasDecl()
+	} else if p.in(&lookahead2) {
+		return p.parseInterfaceDecl()
 	} else {
 		panic(p.expected("a type declaration"))
 	}
@@ -70,13 +73,16 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	}
 	p.expect(TKw_function, "'function'")
 	n.Name = p.text(p.expect(TName, "a name"))
+	if p.at(TLBracket) {
+		n.TypeParams = p.parseTypeParamList()
+	}
 	p.joinNext = true
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
 		switch p.cur().Kind() {
-		case TKw_consuming, TKw_immutable, TKw_isolated, TKw_mutable:
+		case TKw_inout, TKw_sink:
 			if !p.in(&lookahead5) {
-				panic(p.expected("'consuming', 'immutable', 'isolated' or 'mutable'"))
+				panic(p.expected("'inout' or 'sink'"))
 			}
 			n.Receiver = p.text(p.next())
 			p.expect(TKw_self, "'self'")
@@ -91,7 +97,7 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 				n.Params = append(n.Params, p.parseParam())
 			}
 		default:
-			panic(p.expected("'_', 'consuming', 'immutable', 'isolated', 'mutable' or a name"))
+			panic(p.expected("'_', 'inout', 'sink' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")
@@ -115,9 +121,11 @@ func (p *Parser) parseParam() *ast.Param {
 		panic(p.expected("'_' or a name"))
 	}
 	n.Name = p.text(p.next())
-	if p.at(TKw_mutable) {
-		p.expect(TKw_mutable, "'mutable'")
-		n.Mutable = true
+	if p.in(&lookahead7) {
+		if !p.in(&lookahead7) {
+			panic(p.expected("'inout', 'set' or 'sink'"))
+		}
+		n.Convention = p.text(p.next())
 	}
 	n.Type = p.parseTypeRef()
 	return n
@@ -152,21 +160,27 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	}
 	p.expect(TKw_type, "'type'")
 	n.Name = p.text(p.expect(TName, "a name"))
+	if p.at(TLBracket) {
+		n.TypeParams = p.parseTypeParamList()
+	}
+	if p.at(TKw_is) {
+		n.Conforms = p.parseConformsClause()
+	}
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
 		p.expect(TIndent, "an indented line")
-		if p.in(&lookahead7) || (p.at(TKw_export) && p.peekIn(&lookahead7)) || (p.at(TKw_public) && p.peekIn(&lookahead7)) {
+		if p.in(&lookahead8) || (p.at(TKw_export) && p.peekIn(&lookahead8)) || (p.at(TKw_public) && p.peekIn(&lookahead8)) {
 			n.Fields = append(n.Fields, p.parseFieldDecl())
-		} else if p.in(&lookahead8) {
+		} else if p.in(&lookahead9) {
 			n.Methods = append(n.Methods, p.parseFuncDecl())
 		} else {
 			panic(p.expected("'export', 'function', 'let', 'public', 'static' or 'var'"))
 		}
 		p.expect(TNewline, "the end of the line")
-		for p.in(&lookahead9) {
-			if p.in(&lookahead7) || (p.at(TKw_export) && p.peekIn(&lookahead7)) || (p.at(TKw_public) && p.peekIn(&lookahead7)) {
+		for p.in(&lookahead10) {
+			if p.in(&lookahead8) || (p.at(TKw_export) && p.peekIn(&lookahead8)) || (p.at(TKw_public) && p.peekIn(&lookahead8)) {
 				n.Fields = append(n.Fields, p.parseFieldDecl())
-			} else if p.in(&lookahead8) {
+			} else if p.in(&lookahead9) {
 				n.Methods = append(n.Methods, p.parseFuncDecl())
 			} else {
 				panic(p.expected("'export', 'function', 'let', 'public', 'static' or 'var'"))
@@ -227,6 +241,9 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	}
 	p.expect(TKw_enum, "'enum'")
 	n.Name = p.text(p.expect(TName, "a name"))
+	if p.at(TKw_is) {
+		n.Conforms = p.parseConformsClause()
+	}
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
 		p.expect(TIndent, "an indented line")
@@ -239,7 +256,7 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 			panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 		}
 		p.expect(TNewline, "the end of the line")
-		for p.in(&lookahead10) {
+		for p.in(&lookahead11) {
 			switch p.cur().Kind() {
 			case TName:
 				n.Cases = append(n.Cases, p.parseEnumCaseDecl())
@@ -283,6 +300,12 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 	}
 	p.expect(TKw_union, "'union'")
 	n.Name = p.text(p.expect(TName, "a name"))
+	if p.at(TLBracket) {
+		n.TypeParams = p.parseTypeParamList()
+	}
+	if p.at(TKw_is) {
+		n.Conforms = p.parseConformsClause()
+	}
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
 		p.expect(TIndent, "an indented line")
@@ -295,7 +318,7 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 			panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 		}
 		p.expect(TNewline, "the end of the line")
-		for p.in(&lookahead10) {
+		for p.in(&lookahead11) {
 			switch p.cur().Kind() {
 			case TName:
 				n.Cases = append(n.Cases, p.parseUnionCaseDecl())
@@ -396,10 +419,136 @@ func (p *Parser) parseTypeRef() *ast.TypeRef {
 		n.Qualifier = append(n.Qualifier, p.text(p.expect(TName, "a name")))
 		p.expect(TDot, "'.'")
 	}
-	if !p.in(&lookahead11) {
+	if !p.in(&lookahead12) {
 		panic(p.expected("'Self' or a name"))
 	}
 	n.Name = p.text(p.next())
+	if p.at(TLBracket) && p.peekIn(&lookahead12) {
+		n.TypeArgs = p.parseTypeArgList()
+	}
+	return n
+}
+
+func (p *Parser) parseTypeArgList() *ast.TypeArgList {
+	t := p.cur()
+	n := ast.NewTypeArgList()
+	place(p, n, t)
+	p.expect(TLBracket, "'['")
+	n.Args = append(n.Args, p.parseTypeRef())
+	for p.at(TComma) {
+		p.expect(TComma, "','")
+		n.Args = append(n.Args, p.parseTypeRef())
+	}
+	p.expect(TRBracket, "']'")
+	return n
+}
+
+func (p *Parser) parseTypeParamList() *ast.TypeParamList {
+	t := p.cur()
+	n := ast.NewTypeParamList()
+	place(p, n, t)
+	p.expect(TLBracket, "'['")
+	n.Params = append(n.Params, p.parseTypeParam())
+	for p.at(TComma) {
+		p.expect(TComma, "','")
+		n.Params = append(n.Params, p.parseTypeParam())
+	}
+	p.expect(TRBracket, "']'")
+	return n
+}
+
+func (p *Parser) parseTypeParam() *ast.TypeParam {
+	t := p.cur()
+	n := ast.NewTypeParam()
+	place(p, n, t)
+	n.Name = p.text(p.expect(TName, "a name"))
+	if p.at(TKw_is) {
+		p.expect(TKw_is, "'is'")
+		n.Bounds = append(n.Bounds, p.parseTypeRef())
+		for p.at(TKw_and) {
+			p.expect(TKw_and, "'and'")
+			n.Bounds = append(n.Bounds, p.parseTypeRef())
+		}
+	}
+	return n
+}
+
+func (p *Parser) parseConformsClause() []*ast.TypeRef {
+	var interfaces []*ast.TypeRef
+	p.expect(TKw_is, "'is'")
+	interfaces = append(interfaces, p.parseTypeRef())
+	for p.at(TKw_and) {
+		p.expect(TKw_and, "'and'")
+		interfaces = append(interfaces, p.parseTypeRef())
+	}
+	return interfaces
+}
+
+func (p *Parser) parseInterfaceDecl() *ast.InterfaceDecl {
+	t := p.cur()
+	n := ast.NewInterfaceDecl()
+	place(p, n, t)
+	if p.in(&lookahead3) {
+		if !p.in(&lookahead3) {
+			panic(p.expected("'export' or 'public'"))
+		}
+		n.Visibility = p.text(p.next())
+	}
+	p.expect(TKw_interface, "'interface'")
+	n.Name = p.text(p.expect(TName, "a name"))
+	p.expect(TNewline, "the end of the line")
+	if p.at(TIndent) {
+		p.expect(TIndent, "an indented line")
+		n.Methods = append(n.Methods, p.parseFuncSig())
+		p.expect(TNewline, "the end of the line")
+		for p.at(TKw_function) {
+			n.Methods = append(n.Methods, p.parseFuncSig())
+			p.expect(TNewline, "the end of the line")
+		}
+		p.expect(TDedent, "the end of the indented lines")
+	}
+	p.expect(TKw_end, "'end'")
+	if p.at(TLabel) {
+		n.End = p.parseEndLabel()
+	}
+	return n
+}
+
+func (p *Parser) parseFuncSig() *ast.FuncSig {
+	t := p.cur()
+	n := ast.NewFuncSig()
+	place(p, n, t)
+	p.expect(TKw_function, "'function'")
+	n.Name = p.text(p.expect(TName, "a name"))
+	p.joinNext = true
+	p.expect(TLParen, "'('")
+	if p.in(&lookahead4) {
+		switch p.cur().Kind() {
+		case TKw_inout, TKw_sink:
+			if !p.in(&lookahead5) {
+				panic(p.expected("'inout' or 'sink'"))
+			}
+			n.Receiver = p.text(p.next())
+			p.expect(TKw_self, "'self'")
+			for p.at(TComma) {
+				p.expect(TComma, "','")
+				n.Params = append(n.Params, p.parseParam())
+			}
+		case TKw__, TName:
+			n.Params = append(n.Params, p.parseParam())
+			for p.at(TComma) {
+				p.expect(TComma, "','")
+				n.Params = append(n.Params, p.parseParam())
+			}
+		default:
+			panic(p.expected("'_', 'inout', 'sink' or a name"))
+		}
+	}
+	p.expect(TRParen, "')'")
+	if p.at(TKw_returns) {
+		p.expect(TKw_returns, "'returns'")
+		n.Returns = p.parseTypeRef()
+	}
 	return n
 }
 
@@ -417,7 +566,7 @@ func (p *Parser) parseBlock() []ast.Stmt {
 	p.expect(TIndent, "an indented line")
 	stmts = append(stmts, p.parseStmt())
 	p.expect(TNewline, "the end of the line")
-	for p.in(&lookahead12) {
+	for p.in(&lookahead13) {
 		stmts = append(stmts, p.parseStmt())
 		p.expect(TNewline, "the end of the line")
 	}
@@ -427,7 +576,7 @@ func (p *Parser) parseBlock() []ast.Stmt {
 
 func (p *Parser) parseStmt() ast.Stmt {
 	t := p.cur()
-	if p.in(&lookahead7) {
+	if p.in(&lookahead8) {
 		return p.parseLetStmt()
 	} else if p.at(TKw__) {
 		return p.parseDiscardStmt()
@@ -437,15 +586,17 @@ func (p *Parser) parseStmt() ast.Stmt {
 		return p.parseWhileStmt()
 	} else if p.at(TKw_for) {
 		return p.parseForStmt()
-	} else if p.at(TKw_match) && p.peekIn(&lookahead13) {
+	} else if p.at(TKw_match) && p.peekIn(&lookahead14) {
 		return p.parseMatchStmt()
+	} else if p.at(TKw_when) {
+		return p.parseWhenStmt()
 	} else if p.at(TKw_return) {
 		return p.parseReturnStmt()
 	} else if p.at(TKw_break) {
 		return p.parseBreakStmt()
 	} else if p.at(TKw_continue) {
 		return p.parseContinueStmt()
-	} else if p.in(&lookahead13) {
+	} else if p.in(&lookahead14) {
 		first := p.parseExpr()
 		switch p.cur().Kind() {
 		case TAssign:
@@ -467,15 +618,26 @@ func (p *Parser) parseLetStmt() *ast.LetStmt {
 	switch p.cur().Kind() {
 	case TKw_let:
 		p.expect(TKw_let, "'let'")
+		n.Name = p.text(p.expect(TName, "a name"))
+		p.expect(TAssign, "'='")
+		n.Init = p.parseExpr()
 	case TKw_var:
 		p.expect(TKw_var, "'var'")
 		n.IsVar = true
+		n.Name = p.text(p.expect(TName, "a name"))
+		switch p.cur().Kind() {
+		case TAssign:
+			p.expect(TAssign, "'='")
+			n.Init = p.parseExpr()
+		case TKw_as:
+			p.expect(TKw_as, "'as'")
+			n.Type = p.parseTypeRef()
+		default:
+			panic(p.expected("'=' or 'as'"))
+		}
 	default:
 		panic(p.expected("'let' or 'var'"))
 	}
-	n.Name = p.text(p.expect(TName, "a name"))
-	p.expect(TAssign, "'='")
-	n.Init = p.parseExpr()
 	return n
 }
 
@@ -597,7 +759,7 @@ func (p *Parser) parseReturnStmt() *ast.ReturnStmt {
 	n := ast.NewReturnStmt()
 	place(p, n, t)
 	p.expect(TKw_return, "'return'")
-	if p.in(&lookahead13) {
+	if p.in(&lookahead14) {
 		n.Value = p.parseExpr()
 	}
 	return n
@@ -633,6 +795,31 @@ func (p *Parser) parseMatchStmt() *ast.MatchStmt {
 	return n
 }
 
+func (p *Parser) parseWhenStmt() *ast.WhenStmt {
+	t := p.cur()
+	n := ast.NewWhenStmt()
+	place(p, n, t)
+	p.expect(TKw_when, "'when'")
+	n.Cowns = append(n.Cowns, p.parseNameExpr())
+	for p.at(TComma) {
+		p.expect(TComma, "','")
+		n.Cowns = append(n.Cowns, p.parseNameExpr())
+	}
+	p.expect(TKw_as, "'as'")
+	n.Names = append(n.Names, p.text(p.expect(TName, "a name")))
+	for p.at(TComma) {
+		p.expect(TComma, "','")
+		n.Names = append(n.Names, p.text(p.expect(TName, "a name")))
+	}
+	n.Label = p.text(p.expect(TLabel, "a label"))
+	n.Body = p.parseBlock()
+	p.expect(TKw_end, "'end'")
+	if p.at(TLabel) {
+		n.End = p.parseEndLabel()
+	}
+	return n
+}
+
 func (p *Parser) parseMatchCore() *ast.MatchCore {
 	t := p.cur()
 	n := ast.NewMatchCore()
@@ -645,14 +832,14 @@ func (p *Parser) parseMatchCore() *ast.MatchCore {
 		p.expect(TIndent, "an indented line")
 		n.Arms = append(n.Arms, p.parseMatchArm())
 		p.expect(TNewline, "the end of the line")
-		for p.in(&lookahead14) {
+		for p.in(&lookahead15) {
 			n.Arms = append(n.Arms, p.parseMatchArm())
 			p.expect(TNewline, "the end of the line")
 		}
 		p.expect(TDedent, "the end of the indented lines")
 	}
 	p.expect(TKw_end, "'end'")
-	if p.at(TLabel) && p.peekIn(&lookahead15) {
+	if p.at(TLabel) && p.peekIn(&lookahead16) {
 		n.End = p.parseEndLabel()
 	}
 	return n
@@ -720,7 +907,7 @@ func (p *Parser) parsePattern() *ast.Pattern {
 		}
 	case TInteger, TKw_false, TKw_true, TMinus, TString:
 		n.Value = p.parsePatternValue()
-		if p.in(&lookahead16) {
+		if p.in(&lookahead17) {
 			switch p.cur().Kind() {
 			case TKw_to:
 				p.expect(TKw_to, "'to'")
@@ -764,13 +951,13 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		left = p.parseIntLit()
 	} else if p.at(TString) {
 		left = p.parseStrLit()
-	} else if p.in(&lookahead17) {
+	} else if p.in(&lookahead18) {
 		left = p.parseBoolLit()
 	} else if (p.at(TKw_Self) && p.peekIs(TLBrace)) || (p.at(TName) && p.peekIs(TLBrace)) {
 		left = p.parseStructLitExpr()
 	} else if p.at(TKw_self) {
 		left = p.parseSelfExpr()
-	} else if p.in(&lookahead11) {
+	} else if p.in(&lookahead12) {
 		left = p.parseNameExpr()
 	} else if p.at(TKw_panic) {
 		left = p.parsePanicExpr()
@@ -780,10 +967,10 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		p.expect(TLParen, "'('")
 		left = p.parseExpr()
 		p.expect(TRParen, "')'")
-	} else if p.in(&lookahead18) {
+	} else if p.in(&lookahead19) {
 		n := ast.NewUnaryExpr()
 		place(p, n, t)
-		if !p.in(&lookahead18) {
+		if !p.in(&lookahead19) {
 			panic(p.expected("'not' or '-'"))
 		}
 		{
@@ -799,7 +986,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 	for {
 		switch p.cur().Kind() {
 		case TDot:
-			if 12 < minPrec {
+			if 13 < minPrec {
 				return left
 			}
 			n := ast.NewMemberExpr()
@@ -807,6 +994,21 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n.Obj = left
 			p.expect(TDot, "'.'")
 			n.Name = p.text(p.expect(TName, "a name"))
+			left = n
+		case TLBracket:
+			if 12 < minPrec {
+				return left
+			}
+			n := ast.NewIndexExpr()
+			place(p, n, p.cur())
+			n.Obj = left
+			p.expect(TLBracket, "'['")
+			n.Args = append(n.Args, p.parseExpr())
+			for p.at(TComma) {
+				p.expect(TComma, "','")
+				n.Args = append(n.Args, p.parseExpr())
+			}
+			p.expect(TRBracket, "']'")
 			left = n
 		case TLParen:
 			if 11 < minPrec {
@@ -817,7 +1019,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n.Callee = left
 			p.joinNext = true
 			p.expect(TLParen, "'('")
-			if p.in(&lookahead13) {
+			if p.in(&lookahead14) {
 				n.Args = append(n.Args, p.parseArg())
 				for p.at(TComma) {
 					p.expect(TComma, "','")
@@ -843,7 +1045,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n := ast.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
-			if !p.in(&lookahead19) {
+			if !p.in(&lookahead20) {
 				panic(p.expected("'mod', '/' or '*'"))
 			}
 			n.Op = p.text(p.next())
@@ -856,7 +1058,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n := ast.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
-			if !p.in(&lookahead20) {
+			if !p.in(&lookahead21) {
 				panic(p.expected("'-' or '+'"))
 			}
 			n.Op = p.text(p.next())
@@ -869,7 +1071,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n := ast.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
-			if !p.in(&lookahead21) {
+			if !p.in(&lookahead22) {
 				panic(p.expected("'shl' or 'shr'"))
 			}
 			n.Op = p.text(p.next())
@@ -882,7 +1084,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n := ast.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
-			if !p.in(&lookahead22) {
+			if !p.in(&lookahead23) {
 				panic(p.expected("'==', '>=', '>', '<=', '<' or '!='"))
 			}
 			n.Op = p.text(p.next())
@@ -977,7 +1179,7 @@ func (p *Parser) parseNameExpr() *ast.NameExpr {
 	t := p.cur()
 	n := ast.NewNameExpr()
 	place(p, n, t)
-	if !p.in(&lookahead11) {
+	if !p.in(&lookahead12) {
 		panic(p.expected("'Self' or a name"))
 	}
 	n.Name = p.text(p.next())
@@ -996,7 +1198,7 @@ func (p *Parser) parseStructLitExpr() *ast.StructLitExpr {
 	t := p.cur()
 	n := ast.NewStructLitExpr()
 	place(p, n, t)
-	if !p.in(&lookahead11) {
+	if !p.in(&lookahead12) {
 		panic(p.expected("'Self' or a name"))
 	}
 	n.TypeName = p.text(p.next())

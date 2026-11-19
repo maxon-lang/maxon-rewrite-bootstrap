@@ -1,0 +1,113 @@
+type Part
+	export var name as String
+	export var weight as Count
+	static function make(name sink String, weight Count) returns Part
+		return Part{name: name, weight: weight}
+	end 'make'
+end 'Part'
+
+type Crate
+	export var label as String
+	export var parts as array[Part]
+	static function make(label sink String) returns Crate
+		return Crate{label: label, parts: array[Part].new()}
+	end 'make'
+	function total() returns Count
+		var sum = 0 as Count
+		for i in 0 upto parts.count() 'each'
+			sum = sum + parts[i].weight
+		end 'each'
+		return sum
+	end 'total'
+	function add(inout self, name sink String, weight Count)
+		parts.append(Part.make(name, weight: weight))
+	end 'add'
+	function take(sink self) returns Count
+		return self.total()
+	end 'take'
+end 'Crate'
+
+union Shape
+	whole(crate Crate)
+	pair(left String, right String)
+	none
+end 'Shape'
+
+function describe(shape Shape) returns String
+	return match shape 'd'
+		whole(c) gives "crate {c.label} {c.total()}"
+		pair(l, r) gives "{l}+{r}"
+		none gives "nothing"
+	end 'd'
+end 'describe'
+
+function early(n Count) returns String
+	let a = "a{n}"
+	for i in 0 upto 5 'l'
+		let b = "b{i}"
+		if i == n 'hit'
+			let c = "c{i}"
+			return "{a}{b}{c}"
+		end 'hit'
+		if i == 1 'skip'
+			continue
+		end 'skip'
+	end 'l'
+	return a
+end 'early'
+
+function choose(first sink String, second sink String, pickFirst bool) returns String
+	if pickFirst 'f'
+		return first
+	end 'f'
+	return second
+end 'choose'
+
+function reassign() returns String
+	var text = "one{1}"
+	var other = "two{2}"
+	text = "three{3}"
+	other = text.copy()
+	text = "{other}!"
+	return text
+end 'reassign'
+
+function main() returns ExitCode
+	var crate = Crate.make("c{1}")
+	crate.add("bolt", weight: 3)
+	crate.add("nut{2}", weight: 4)
+	print("{crate.label} {crate.total()}\n")
+	let copied = crate.copy()
+	crate.add("washer", weight: 1)
+	print("{copied.total()} {crate.total()}\n")
+	let shape = Shape.whole(copied)
+	let other = Shape.pair("x{1}", right: "y{2}")
+	print("{describe(shape)} {describe(other)} {describe(Shape.none)}\n")
+	print("{early(0)} {early(1)} {early(3)} {early(9)}\n")
+	print("{choose("p{1}", second: "q{2}", pickFirst: true)} {choose("p{1}", second: "q{2}", pickFirst: false)}\n")
+	print("{reassign()}\n")
+	var popped = crate.parts.pop()
+	print("{popped.isSome()}\n")
+	let part = popped.unwrap()
+	print("{part.name} {part.weight}\n")
+	let removed = crate.parts.remove(0)
+	_ = crate.parts.remove(0)
+	print("{removed.name} {crate.parts.count()}\n")
+	var filled = array[String].filled(3, value: "f{7}")
+	filled[1] = "g{8}"
+	print("{filled[0]} {filled[1]} {filled[2]}\n")
+	print("{crate.take()}\n")
+	return 0
+end 'main'
+
+//> c1 7
+//> 7 8
+//> crate c1 7 x1+y2 nothing
+//> a0b0c0 a1b1c1 a3b3c3 a9
+//> p1 q2
+//> three3!
+//> true
+//> washer 1
+//> bolt 0
+//> f7 g8 f7
+//> 0

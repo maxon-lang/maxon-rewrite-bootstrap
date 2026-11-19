@@ -1,0 +1,6 @@
+// expect-error: E3005 at 4:12
+function main() returns ExitCode
+	var m = map[String, Count].new()
+	print("{m[1]}")
+	return 0
+end 'main'

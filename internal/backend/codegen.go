@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/ir"
 )
@@ -12,6 +13,10 @@ const (
 	signBitShift    = 63
 	trapOpcodeFirst = 0x0F
 	trapOpcodeNext  = 0x0B
+
+	// zeroInlineSlots is how many managed slots a frame clears with one store each; a frame with more clears all its slots
+	// with one string instruction, which is shorter from there on.
+	zeroInlineSlots = 6
 
 	// estimatedCodeBytesPerInstr sizes a unit's code buffer before codegen. Go grows a large slice by about
 	// a quarter at a time, so a buffer left to grow allocates several times its final size; this is the
@@ -91,6 +96,7 @@ func (g *codegen) function(fn *ir.IrFunction) {
 	a.Push(Rbp)
 	a.Mov(Rbp, Rsp)
 	g.allocateFrame((len(fn.Slots) + len(fn.Regs)) * wordBytes)
+	g.zeroManagedSlots()
 
 	for i, b := range fn.Blocks {
 		a.Bind(&g.labels[i])
@@ -105,6 +111,35 @@ func (g *codegen) function(fn *ir.IrFunction) {
 			next = fn.Blocks[i+1]
 		}
 		g.term(b.Term, next)
+	}
+}
+
+// zeroManagedSlots empties every slot that can own a value, so a drop of a slot that was moved from, or never assigned, finds
+// 0 and does nothing. A scalar slot is never dropped and is left as it is, and so is a register, which is always written
+// before it is read.
+func (g *codegen) zeroManagedSlots() {
+	a := g.asm
+	managed := 0
+	for _, kind := range g.f.Slots {
+		if kind == ir.KindManaged {
+			managed++
+		}
+	}
+	if managed == 0 {
+		return
+	}
+	a.Xor(Rax, Rax)
+	if managed > zeroInlineSlots {
+		slots := len(g.f.Slots)
+		a.Lea(Rdi, Rbp, slotOffset(slots-1))
+		a.MovImm(Rcx, int64(slots))
+		a.RepStosq()
+		return
+	}
+	for slot, kind := range g.f.Slots {
+		if kind == ir.KindManaged {
+			a.Store(Rbp, slotOffset(slot), Rax)
+		}
 	}
 }
 
@@ -136,6 +171,14 @@ func (g *codegen) call(target *Label, args []ir.V, dst *ir.V) {
 	}
 }
 
+// callRoutine calls the drop or copy routine of a type with the value in rax. The routine is generated once for the
+// program, after every module, from the list each unit keeps of the ones it asked for.
+func (g *codegen) callRoutine(kind routineKind, t ast.Ty) {
+	g.asm.Push(Rax)
+	g.asm.CallSymbol(g.u.needed.symbol(kind, t))
+	g.asm.AddImm(Rsp, wordBytes)
+}
+
 func (g *codegen) instr(i ir.Instr) {
 	a := g.asm
 	switch x := i.(type) {
@@ -148,6 +191,11 @@ func (g *codegen) instr(i ir.Instr) {
 	case *ir.LoadSlot:
 		a.Load(Rax, Rbp, slotOffset(x.Slot))
 		g.put(x.Dst, Rax)
+	case *ir.MoveSlotInstr:
+		a.Load(Rax, Rbp, slotOffset(x.Slot))
+		g.put(x.Dst, Rax)
+		a.Xor(Rcx, Rcx)
+		a.Store(Rbp, slotOffset(x.Slot), Rcx)
 	case *ir.StoreSlot:
 		g.get(Rax, x.Src)
 		a.Store(Rbp, slotOffset(x.Slot), Rax)
@@ -172,6 +220,30 @@ func (g *codegen) instr(i ir.Instr) {
 	case *ir.LoadAt:
 		g.get(Rax, x.Addr)
 		a.Load(Rax, Rax, 0)
+		g.put(x.Dst, Rax)
+	case *ir.MoveAtInstr:
+		g.get(Rcx, x.Addr)
+		a.Load(Rax, Rcx, 0)
+		g.put(x.Dst, Rax)
+		a.Xor(Rdx, Rdx)
+		a.Store(Rcx, 0, Rdx)
+	case *ir.DropInstr:
+		g.get(Rax, x.Src)
+		g.callRoutine(dropRoutine, x.Ty)
+	case *ir.DropSlotInstr:
+		a.Load(Rax, Rbp, slotOffset(x.Slot))
+		a.Xor(Rcx, Rcx)
+		a.Store(Rbp, slotOffset(x.Slot), Rcx)
+		g.callRoutine(dropRoutine, x.Ty)
+	case *ir.DropAtInstr:
+		g.get(Rcx, x.Addr)
+		a.Load(Rax, Rcx, 0)
+		a.Xor(Rdx, Rdx)
+		a.Store(Rcx, 0, Rdx)
+		g.callRoutine(dropRoutine, x.Ty)
+	case *ir.CopyInstr:
+		g.get(Rax, x.Src)
+		g.callRoutine(copyRoutine, x.Ty)
 		g.put(x.Dst, Rax)
 	case *ir.StoreAt:
 		g.get(Rcx, x.Addr)
@@ -212,6 +284,8 @@ func (g *codegen) instr(i ir.Instr) {
 		g.call(ExternLabel(x.Target), x.Args, x.Dst)
 	case *ir.CallRuntimeInstr:
 		g.call(ExternLabel(x.Symbol), x.Args, x.Dst)
+	case *ir.WhenInstr:
+		panic(diag.Internal("codegen: a behaviour has no native code, and the driver refuses it before code is generated"))
 	default:
 		panic(diag.Internal("codegen: unhandled instruction %T", i))
 	}

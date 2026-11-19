@@ -1,0 +1,14 @@
+// expect-error: E3132 at 12:11
+type Acct
+	export var balance as Count
+	export var tag as String
+	static function make(balance Count) returns Acct
+		return Acct{balance: balance, tag: "t"}
+	end 'make'
+end 'Acct'
+
+function main() returns ExitCode
+	let c = cown(array[Count].new())
+	print("{c[0]}")
+	return 0
+end 'main'

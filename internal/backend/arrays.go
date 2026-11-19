@@ -1,0 +1,149 @@
+package backend
+
+import "minimaxon/internal/ir"
+
+// An array is a box of three words: its length, its capacity and the address of its elements, which are words of 8
+// bytes each (a scalar, or the address of a box). It starts empty with no elements, and grows by doubling; the buffer it
+// leaves is freed, and the elements are not, because they moved to the new one.
+const (
+	arrayHeaderBytes    = 3 * wordBytes
+	arrayLengthOffset   = 0
+	arrayCapacityOffset = wordBytes
+	arrayDataOffset     = 2 * wordBytes
+	arrayFirstCapacity  = 4
+	indexOutOfRange     = "index out of range"
+)
+
+// EmitArrayRuntime is the unit with the array's runtime entries. It is linked only into a program that calls one, so
+// the executable of any other program does not hold it.
+func EmitArrayRuntime() *CodeUnit {
+	u := NewCodeUnit()
+	a := u.Asm
+	g := &runtimeUnit{u: u, rtAlloc: ExternLabel(ir.RtAlloc), rtFree: ExternLabel(ir.RtFree), rtPanic: ExternLabel(ir.RtPanic), asm: a, dataBytes: u.Data}
+	outOfRange := ExternLabel(ir.RtPanicIndex)
+
+	u.DefineCode(ir.RtPanicIndex)
+	a.LeaData(Rax, g.dataBytes.String(indexOutOfRange))
+	a.Push(Rax)
+	a.Call(g.rtPanic)
+
+	u.DefineCode(ir.RtArrayNew)
+	g.prologue(0, false)
+	a.MovImm(Rax, arrayHeaderBytes)
+	a.Push(Rax)
+	g.callRuntime(g.rtAlloc, 1)
+	g.epilogue()
+
+	u.DefineCode(ir.RtArrayLen)
+	g.prologue(0, false)
+	a.Load(Rax, Rbp, 16)
+	a.Load(Rax, Rax, arrayLengthOffset)
+	g.epilogue()
+
+	// elem(array, index): the address of the element, after checking the index against the length.
+	u.DefineCode(ir.RtArrayElem)
+	g.prologue(0, false)
+	a.Load(Rax, Rbp, 24)
+	a.Load(Rcx, Rbp, 16)
+	a.Load(Rdx, Rax, arrayLengthOffset)
+	a.Cmp(Rcx, Rdx)
+	a.Jcc(CcAE, outOfRange)
+	a.Load(Rax, Rax, arrayDataOffset)
+	a.MovImm(Rdx, wordBytes)
+	a.Imul(Rcx, Rdx)
+	a.Add(Rax, Rcx)
+	g.epilogue()
+
+	// insert(array, index, element): moves the element in at index, which may be the length, shifting what follows.
+	u.DefineCode(ir.RtArrayInsert)
+	g.prologue(0, false)
+	room := NewLabel()
+	sized := NewLabel()
+	shift := NewLabel()
+	shifted := NewLabel()
+	a.Load(Rbx, Rbp, 32)
+	a.Load(R12, Rbp, 24)
+	a.Load(R13, Rbp, 16)
+	a.Load(R14, Rbx, arrayLengthOffset)
+	a.Cmp(R12, R14)
+	a.Jcc(CcA, outOfRange)
+	a.Load(Rax, Rbx, arrayCapacityOffset)
+	a.Cmp(R14, Rax)
+	a.Jcc(CcB, room)
+	a.Add(Rax, Rax)
+	a.Test(Rax, Rax)
+	a.Jcc(CcNE, sized)
+	a.MovImm(Rax, arrayFirstCapacity)
+	a.Bind(sized)
+	a.Mov(R15, Rax)
+	a.MovImm(Rcx, wordBytes)
+	a.Imul(Rax, Rcx)
+	a.Push(Rax)
+	g.callRuntime(g.rtAlloc, 1)
+	a.Mov(Rdi, Rax)
+	a.Load(Rsi, Rbx, arrayDataOffset)
+	a.Mov(Rcx, R14)
+	a.MovImm(Rdx, wordBytes)
+	a.Imul(Rcx, Rdx)
+	a.RepMovsb()
+	a.Load(Rcx, Rbx, arrayDataOffset)
+	a.Store(Rbx, arrayDataOffset, Rax)
+	a.Store(Rbx, arrayCapacityOffset, R15)
+	a.Push(Rcx)
+	g.callRuntime(g.rtFree, 1)
+	a.Bind(room)
+	a.Load(Rdx, Rbx, arrayDataOffset)
+	a.MovImm(Rax, wordBytes)
+	a.Mov(Rcx, R14)
+	a.Imul(Rcx, Rax)
+	a.Add(Rcx, Rdx)
+	a.Mov(R8, R12)
+	a.Imul(R8, Rax)
+	a.Add(R8, Rdx)
+	a.Bind(shift)
+	a.Cmp(Rcx, R8)
+	a.Jcc(CcBE, shifted)
+	a.Load(Rax, Rcx, -wordBytes)
+	a.Store(Rcx, 0, Rax)
+	a.SubImm(Rcx, wordBytes)
+	a.Jmp(shift)
+	a.Bind(shifted)
+	a.Store(R8, 0, R13)
+	a.AddImm(R14, 1)
+	a.Store(Rbx, arrayLengthOffset, R14)
+	g.epilogue()
+
+	// remove(array, index) -> element: moves it out, shifting what follows down.
+	u.DefineCode(ir.RtArrayRemove)
+	g.prologue(0, false)
+	closeUp := NewLabel()
+	closed := NewLabel()
+	a.Load(Rbx, Rbp, 24)
+	a.Load(R12, Rbp, 16)
+	a.Load(R14, Rbx, arrayLengthOffset)
+	a.Cmp(R12, R14)
+	a.Jcc(CcAE, outOfRange)
+	a.Load(Rdx, Rbx, arrayDataOffset)
+	a.MovImm(Rax, wordBytes)
+	a.Mov(R8, R12)
+	a.Imul(R8, Rax)
+	a.Add(R8, Rdx)
+	a.Load(R13, R8, 0)
+	a.Mov(Rcx, R14)
+	a.Imul(Rcx, Rax)
+	a.Add(Rcx, Rdx)
+	a.Bind(closeUp)
+	a.Lea(R9, R8, wordBytes)
+	a.Cmp(R9, Rcx)
+	a.Jcc(CcAE, closed)
+	a.Load(Rax, R9, 0)
+	a.Store(R8, 0, Rax)
+	a.Mov(R8, R9)
+	a.Jmp(closeUp)
+	a.Bind(closed)
+	a.SubImm(R14, 1)
+	a.Store(Rbx, arrayLengthOffset, R14)
+	a.Mov(Rax, R13)
+	g.epilogue()
+	return u
+}

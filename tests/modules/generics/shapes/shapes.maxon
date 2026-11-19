@@ -1,0 +1,12 @@
+export type Square is containers.Shape
+	export var side as containers.Score
+	export static function make(side containers.Score) returns Square
+		return Square{side: side}
+	end 'make'
+	export function area() returns containers.Score
+		return side * side
+	end 'area'
+	function grow(inout self, by containers.Score)
+		side = side + by
+	end 'grow'
+end 'Square'

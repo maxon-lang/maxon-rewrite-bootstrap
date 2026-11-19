@@ -1,0 +1,15 @@
+// expect-error: E3005 at 13:12
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function main() returns ExitCode
+	var p = pool[Cell].new()
+	var q = pool[Count].new()
+	let h = q.insert(1)
+	print("{p[h].n}")
+	return 0
+end 'main'

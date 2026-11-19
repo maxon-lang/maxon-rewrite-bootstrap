@@ -1,0 +1,37 @@
+type Note
+	export var name as String
+	static function make(name sink String) returns Note
+		return Note{name: name}
+	end 'make'
+end 'Note'
+
+type Log
+	export var lines as array[String]
+	static function make() returns Log
+		return Log{lines: array[String].new()}
+	end 'make'
+end 'Log'
+
+function main() returns ExitCode
+	let log = cown(Log.make())
+	let config = freeze(Note.make("config"))
+	for i in 0 upto 3 'each'
+		let mine = share(config)
+		let note = Note.make("note{i}")
+		let label = "step{i}"
+		when log as l 'record'
+			l.lines.append("{mine.name} {note.name} {label} {i}")
+		end 'record'
+	end 'each'
+	let last = share(log)
+	when last as l 'show'
+		for i in 0 upto l.lines.count() 'lines'
+			print("{l.lines[i]}\n")
+		end 'lines'
+	end 'show'
+	return 0
+end 'main'
+
+//> config note0 step0 0
+//> config note1 step1 1
+//> config note2 step2 2

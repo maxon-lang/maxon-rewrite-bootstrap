@@ -108,6 +108,8 @@ type CodeUnit struct {
 	Data        *DataSection
 	CodeSymbols map[any]int
 	DataSymbols map[any]int
+	// needed are the drop and copy routines this unit's code calls, in the order its code first does.
+	needed routineSet
 }
 
 func NewCodeUnit() *CodeUnit {
@@ -125,8 +127,10 @@ func SymbolText(symbol any) string {
 		return s
 	case *ast.FuncDecl:
 		return s.Symbol()
+	case typeRoutine:
+		return s.String()
 	}
-	panic(diag.Internal("symbol %T is neither a function nor a name", symbol))
+	panic(diag.Internal("symbol %T is neither a function, a name nor a routine", symbol))
 }
 
 func (u *CodeUnit) DefineCode(symbol any) {
@@ -370,6 +374,9 @@ func (a *Asm) Ret() { a.Code = append(a.Code, opRet) }
 
 func (a *Asm) RepMovsb() { a.Raw(0xF3, 0xA4) }
 
+// RepStosq stores rax in rcx words from rdi.
+func (a *Asm) RepStosq() { a.Raw(0xF3, 0x48, 0xAB) }
+
 func (a *Asm) ripRelativeData(op byte, reg R, dataOffset int) {
 	a.rex(true, int(reg), 0)
 	a.Code = append(a.Code, op)
@@ -391,6 +398,7 @@ func (a *Asm) LoadData(dst R, dataOffset int)  { a.ripRelativeData(0x8B, dst, da
 func (a *Asm) StoreData(dataOffset int, src R) { a.ripRelativeData(0x89, src, dataOffset) }
 func (a *Asm) LoadSymbol(dst R, symbol any)    { a.ripRelativeSymbol(0x8B, dst, symbol) }
 func (a *Asm) StoreSymbol(symbol any, src R)   { a.ripRelativeSymbol(0x89, src, symbol) }
+func (a *Asm) LeaSymbol(dst R, symbol any)     { a.ripRelativeSymbol(0x8D, dst, symbol) }
 
 func (a *Asm) CallImport(index int) {
 	a.Raw(0xFF, 0x15)
@@ -418,6 +426,13 @@ func (a *Asm) Jmp(l *Label) {
 func (a *Asm) Jcc(cc Cc, l *Label) {
 	a.Raw(opPrefixTwo, byte(opJccBase+int(cc)))
 	a.rel32(l)
+}
+
+// CallSymbol calls a function that another unit, or this one, defines, which the linker finds by its symbol.
+func (a *Asm) CallSymbol(symbol any) {
+	a.Code = append(a.Code, opCallRel32)
+	a.SymbolFixups = append(a.SymbolFixups, SymbolFixup{a.Pos(), symbol})
+	a.d32(0)
 }
 
 func (a *Asm) Call(l *Label) {

@@ -1,0 +1,5 @@
+// expect-error: E9002 at 3:25
+function main() returns ExitCode
+	var p = pool[Count].new()
+	return 0
+end 'main'

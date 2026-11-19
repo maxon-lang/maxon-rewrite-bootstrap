@@ -1,0 +1,34 @@
+type Counter
+	export var n as Count
+	static function make() returns Counter
+		return Counter{n: 0}
+	end 'make'
+end 'Counter'
+
+function bump(c cown[Counter], times Count)
+	for i in 0 upto times 'each'
+		let mine = share(c)
+		when mine as x 'bump'
+			x.n = x.n + 1
+		end 'bump'
+	end 'each'
+end 'bump'
+
+function total(a cown[Counter], b cown[Counter], c cown[Counter])
+	when a, b, c as x, y, z 'total'
+		print("{x.n} {y.n} {z.n} {x.n + y.n + z.n}\n")
+	end 'total'
+end 'total'
+
+function main() returns ExitCode
+	let a = cown(Counter.make())
+	let b = cown(Counter.make())
+	let c = cown(Counter.make())
+	bump(a, times: 3)
+	bump(b, times: 5)
+	bump(c, times: 7)
+	total(a, b: b, c: c)
+	return 0
+end 'main'
+
+//> 3 5 7 15

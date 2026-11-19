@@ -1,0 +1,22 @@
+// expect-error: E3112 at 20:17
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function pair(a inout Cell, b inout Cell)
+	a.n = b.n
+end 'pair'
+
+function make() returns array[Cell]
+	return array[Cell].new()
+end 'make'
+
+function main() returns ExitCode
+	var p = pool[Cell].new()
+	let h = p.insert(Cell.make(1))
+	pair(p[h], b: p[h])
+	return 0
+end 'main'

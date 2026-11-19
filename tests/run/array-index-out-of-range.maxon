@@ -1,0 +1,9 @@
+// expect-exit: 1
+function main() returns ExitCode
+	var a = array[Count].filled(3, value: 1)
+	print("before\n")
+	print("{a[a.count()]}\n")
+	return 0
+end 'main'
+
+//> before

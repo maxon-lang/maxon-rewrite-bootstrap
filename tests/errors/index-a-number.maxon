@@ -1,0 +1,6 @@
+// expect-error: E3005 at 4:11
+function main() returns ExitCode
+	let n = 3 as Count
+	print("{n[0]}")
+	return 0
+end 'main'

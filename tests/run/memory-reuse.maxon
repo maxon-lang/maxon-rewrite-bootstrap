@@ -1,0 +1,36 @@
+// A loop that makes half a million short-lived records, strings and arrays, and copies them, in a process that may use 48 MB:
+// it ends only if every value is freed when its owner dies and the memory is reused. Left out of the interpreter, which is
+// far slower than the executable at this.
+// memory-limit: 48
+// native-only
+type Point
+	export var x as Count
+	export var y as Count
+	static function make(x Count, y Count) returns Point
+		return Point{x: x, y: y}
+	end 'make'
+end 'Point'
+
+type Entry
+	export var label as String
+	export var points = array[Point].new()
+	static function make(n Count) returns Entry
+		var e = Entry{label: "entry {n}"}
+		e.points.append(Point.make(n, y: n))
+		e.points.append(Point.make(n, y: 1))
+		return e
+	end 'make'
+end 'Entry'
+
+function main() returns ExitCode
+	var total = 0 as Count
+	for i in 0 upto 500000 'loop'
+		let e = Entry.make(i)
+		let copied = e.copy()
+		total = total + copied.points[1].y + e.points[0].x
+	end 'loop'
+	print("{total}\n")
+	return 0
+end 'main'
+
+//> 125000250000

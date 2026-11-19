@@ -1,0 +1,12 @@
+// expect-error: E3124 at 10:10
+type Cell
+	export var n as Count
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function main() returns ExitCode
+	var m = map[Cell, Count].new()
+	return 0
+end 'main'

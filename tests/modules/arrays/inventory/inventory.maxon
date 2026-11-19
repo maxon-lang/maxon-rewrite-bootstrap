@@ -1,0 +1,56 @@
+export type Item
+	export var id as Count
+	export var weight as Count
+	export static function make(id Count, weight Count) returns Item
+		return Item{id: id, weight: weight}
+	end 'make'
+end 'Item'
+
+export type Shelf
+	var items as array[Item]
+	export static function make() returns Shelf
+		return Shelf{items: array[Item].new()}
+	end 'make'
+	export function add(inout self, item sink Item)
+		items.append(item)
+	end 'add'
+	export function total() returns Count
+		var sum = 0 as Count
+		for i in 0 upto items.count() 'each'
+			sum = sum + items[i].weight
+		end 'each'
+		return sum
+	end 'total'
+	export function size() returns Count
+		return items.count()
+	end 'size'
+end 'Shelf'
+
+export function heaviest(items array[Item]) returns Count
+	var best = 0 as Count
+	for i in 0 upto items.count() 'scan'
+		if items[i].weight > best 'bigger'
+			best = items[i].weight
+		end 'bigger'
+	end 'scan'
+	return best
+end 'heaviest'
+
+export function length[T](items array[T]) returns Count
+	return items.count()
+end 'length'
+
+export function firstOr[T](items array[T], fallback sink T) returns T
+	if items.isEmpty() 'none'
+		return fallback
+	end 'none'
+	return items[0].copy()
+end 'firstOr'
+
+export function drain(shelf inout Shelf) returns array[Item]
+	var out = array[Item].new()
+	while not shelf.items.isEmpty() 'each'
+		out.append(shelf.items.remove(0))
+	end 'each'
+	return out
+end 'drain'

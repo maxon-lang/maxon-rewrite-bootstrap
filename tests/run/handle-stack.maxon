@@ -1,0 +1,64 @@
+type Node
+	var value as Count
+	var next as Option[Handle[Node]]
+	static function make(value Count, next sink Option[Handle[Node]]) returns Node
+		return Node{value: value, next: next}
+	end 'make'
+end 'Node'
+
+type Stack
+	var nodes as pool[Node]
+	var top as Option[Handle[Node]]
+	static function make() returns Stack
+		return Stack{nodes: pool[Node].new(), top: Option[Handle[Node]].none}
+	end 'make'
+	function push(inout self, value Count)
+		let node = Node.make(value, next: top.copy())
+		top = Option.some(nodes.insert(node))
+	end 'push'
+	function pop(inout self) returns Option[Count]
+		if not top.isSome() 'empty'
+			return Option[Count].none
+		end 'empty'
+		let handle = top.copy().unwrap()
+		let node = nodes.remove(handle).unwrap()
+		top = node.next.copy()
+		return Option.some(node.value)
+	end 'pop'
+	function peek() returns Option[Count]
+		if not top.isSome() 'empty'
+			return Option[Count].none
+		end 'empty'
+		return Option.some(nodes[top.copy().unwrap()].value)
+	end 'peek'
+	function size() returns Count
+		return nodes.count()
+	end 'size'
+end 'Stack'
+
+function show(o Option[Count]) returns String
+	return match o 'm'
+		some(v) gives "{v}"
+		none gives "none"
+	end 'm'
+end 'show'
+
+function main() returns ExitCode
+	var s = Stack.make()
+	print("{show(s.peek())} {show(s.pop())} {s.size()}\n")
+	s.push(1)
+	s.push(2)
+	s.push(3)
+	print("{show(s.peek())} {s.size()}\n")
+	print("{show(s.pop())} {show(s.pop())} {s.size()}\n")
+	s.push(4)
+	print("{show(s.peek())} {s.size()}\n")
+	print("{show(s.pop())} {show(s.pop())} {show(s.pop())} {s.size()}\n")
+	return 0
+end 'main'
+
+//> none none 0
+//> 3 3
+//> 3 2 1
+//> 4 2
+//> 4 1 none 0

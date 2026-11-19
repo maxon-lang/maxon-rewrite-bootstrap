@@ -1,0 +1,47 @@
+union Shape
+	circle(radius Count)
+	label(text String, weight Count)
+	empty
+end 'Shape'
+
+function weigh[T](shared frozen[T]) returns frozen[T]
+	return share(shared)
+end 'weigh'
+
+function describe(s Shape) returns String
+	match s 'which'
+		circle(r) then return "circle {r}"
+		label(text, weight) then return "{text} {weight}"
+		empty then return "nothing"
+	end 'which'
+end 'describe'
+
+function main() returns ExitCode
+	let shape = freeze(Shape.label("wide", weight: 4))
+	match shape 'look'
+		circle(r) then print("circle {r}\n")
+		label(text, weight) then print("label {text} {weight}\n")
+		empty then print("empty\n")
+	end 'look'
+	print("{describe(shape)}\n")
+	let word = freeze("frozen text")
+	print("{word}\n")
+	var numbers = array[Count].new()
+	numbers.append(7)
+	numbers.append(9)
+	let counts = freeze(numbers)
+	print("{counts.count()} {counts[0]} {counts[1]}\n")
+	let again = weigh(counts)
+	let words = freeze(array[String].filled(2, value: "w"))
+	print("{again[1]} {words[0]} {words.isEmpty()}\n")
+	let nested = freeze(share(shape))
+	print("{describe(nested)}\n")
+	return 0
+end 'main'
+
+//> label wide 4
+//> wide 4
+//> frozen text
+//> 2 7 9
+//> 9 w false
+//> wide 4

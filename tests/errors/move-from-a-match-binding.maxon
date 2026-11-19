@@ -1,0 +1,36 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box
+	export var v as Score
+	export var name as String
+	function describe() returns String
+		return name.copy()
+	end 'describe'
+	function rename(inout self, value sink String)
+		name = value
+	end 'rename'
+	function bump(inout self, by Score)
+		v = v + by
+	end 'bump'
+	static function create(v Score, name sink String) returns Box
+		return Box{v: v, name: name}
+	end 'create'
+end 'Box'
+
+union Item
+	named(name String)
+	anonymous
+end 'Item'
+
+function label(item Item) returns String
+	return match item 'm'
+		named(n) gives n
+		anonymous gives "none"
+	end 'm'
+end 'label'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3110 at 27:18

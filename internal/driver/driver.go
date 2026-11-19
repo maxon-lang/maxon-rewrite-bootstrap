@@ -6,7 +6,9 @@ import (
 	"minimaxon/internal/backend"
 	"minimaxon/internal/check"
 	"minimaxon/internal/diag"
+	"minimaxon/internal/interp"
 	"minimaxon/internal/ir"
+
 	"minimaxon/internal/par"
 	"minimaxon/internal/project"
 	"minimaxon/internal/resolve"
@@ -43,20 +45,61 @@ func heapAllocated() uint64 {
 	return sample[0].Value.Uint64()
 }
 
-func Compile(path, output string, jobs int, timings, emitIr bool) (errs []*diag.CompileError) {
-	defer func() {
-		if r := recover(); r != nil {
-			ce, ok := r.(*diag.CompileError)
-			if !ok {
-				panic(r)
-			}
-			errs = []*diag.CompileError{ce}
-		}
-	}()
-	return compileProject(path, output, jobs, timings, emitIr)
+// Options say how a program is compiled to an executable.
+type Options struct {
+	// Jobs is how many modules compile at once; the executable is the same for any value.
+	Jobs int
+	// Timings prints each phase's wall time and allocation to standard error.
+	Timings bool
+	// EmitIr writes the IR of every function beside the executable, as <output>.ir.
+	EmitIr bool
+	// CountAllocations makes the executable count its live heap boxes and fail at exit if any is left (README, "Counting
+	// allocations"): a development flag, so a normal executable pays nothing for it.
+	CountAllocations bool
 }
 
-func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag.CompileError {
+func Compile(path, output string, o Options) (errs []*diag.CompileError) {
+	defer recoverCompileError(&errs)
+	return compileProject(path, output, o, nil)
+}
+
+func recoverCompileError(errs *[]*diag.CompileError) {
+	if r := recover(); r != nil {
+		ce, ok := r.(*diag.CompileError)
+		if !ok {
+			panic(r)
+		}
+		*errs = []*diag.CompileError{ce}
+	}
+}
+
+// Prepare compiles a program as far as IR, which the tracking interpreter (internal/interp) runs. The program can be run
+// more than once, under different schedules of its behaviours.
+func Prepare(path string, jobs int) (program *interp.Program, errs []*diag.CompileError) {
+	defer recoverCompileError(&errs)
+	errs = compileProject(path, "", Options{Jobs: jobs}, &program)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	return program, nil
+}
+
+// Interpret compiles a program as far as IR and runs it under the tracking interpreter, which gives a map, a list, a
+// pool, a frozen value, a cown and a behaviour their meaning and reports a violation of the memory model. It is for
+// tests and development: the interpreter is never part of a compiled program. A program that does not compile has errors
+// and no result. It runs under one schedule; a caller that wants more runs the program from Prepare.
+func Interpret(path string, jobs int, stepLimit int64) (result *interp.Result, errs []*diag.CompileError) {
+	program, errs := Prepare(path, jobs)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	return interp.Run(program, stepLimit), nil
+}
+
+// compileProject runs the phases. With a non-empty output it generates an executable; with capture it lowers the program
+// and hands the IR to the interpreter instead.
+func compileProject(path, output string, o Options, capture **interp.Program) []*diag.CompileError {
+	jobs, timings, emitIr := o.Jobs, o.Timings, o.EmitIr
 	var errors []*diag.CompileError
 	clock := time.Now()
 	var stats runtime.MemStats
@@ -151,6 +194,7 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 		for _, d := range m.Decls {
 			m.Functions = append(m.Functions, checker.Declare(d)...)
 		}
+		m.Bounds = append(m.Bounds, checker.Bounds...)
 		if m == proj.Root {
 			main = checker.CheckMain()
 		}
@@ -170,7 +214,7 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 		checker := check.NewChecker(proj, m, &m.Errors)
 		for _, d := range m.Decls {
 			switch d.(type) {
-			case *ast.TypeDecl, *ast.UnionDecl:
+			case *ast.TypeDecl, *ast.UnionDecl, *ast.EnumDecl:
 				checker.CheckBody(d)
 			}
 		}
@@ -178,6 +222,8 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 			checker.CheckBody(f)
 		}
 		m.Pending = append(m.Pending, checker.Pending...)
+		m.Bounds = append(m.Bounds, checker.Bounds...)
+		m.Callers = append(m.Callers, checker.Callers...)
 	})
 	mark("bodies")
 	if bodyErrors := failed(); bodyErrors != nil {
@@ -185,9 +231,14 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 	}
 
 	phase(func(m *ast.Module) {
-		check.NewChecker(proj, m, &m.Errors).Verify(m.Pending)
+		verifier := check.NewChecker(proj, m, &m.Errors)
+		verifier.Verify(m.Pending)
+		verifier.VerifyBounds(m.Bounds)
 		if len(m.Errors) == 0 {
 			ownership := check.NewOwnership(&m.Errors)
+			for _, d := range m.Decls {
+				ownership.CheckValues(d)
+			}
 			for _, f := range m.Functions {
 				ownership.Check(f)
 			}
@@ -198,12 +249,24 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 		return verifyErrors
 	}
 
-	if output != "" {
+	var instances [][]*ast.FuncDecl
+	diag.Guard(&errors, func() { instances = ir.Instances(modules) })
+	mark("instances")
+	if len(errors) > 0 {
+		return sortedErrors(errors)
+	}
+
+	if output != "" || capture != nil {
 		irs := make([][]*ir.IrFunction, len(modules))
 		par.ForEachIndex(len(modules), jobs, func(i int) {
-			fns := make([]*ir.IrFunction, len(modules[i].Functions))
-			for k, f := range modules[i].Functions {
-				fns[k] = ir.Lower(f)
+			fns := make([]*ir.IrFunction, 0, len(modules[i].Functions)+len(instances[i]))
+			for _, f := range modules[i].Functions {
+				if len(f.Generics) == 0 {
+					fns = append(fns, ir.Lower(f))
+				}
+			}
+			for _, inst := range instances[i] {
+				fns = append(fns, ir.Lower(inst))
 			}
 			irs[i] = fns
 		})
@@ -219,17 +282,31 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 				panic(diag.Internal("cannot write %s.ir: %v", output, err))
 			}
 		}
+		if capture != nil {
+			if blocked := refusals(irs, func(code string) bool { return code != diag.ErrInterpreterOnly }); len(blocked) > 0 {
+				return sortedErrors(blocked)
+			}
+			var all []*ir.IrFunction
+			for _, fns := range irs {
+				all = append(all, fns...)
+			}
+			*capture = interp.NewProgram(all, main)
+			return nil
+		}
+		if blocked := refusals(irs, func(string) bool { return true }); len(blocked) > 0 {
+			return sortedErrors(blocked)
+		}
 		units := make([]*backend.CodeUnit, len(modules)+1)
 		emitModules := func() { par.ForEachIndex(len(modules), jobs, func(i int) { units[i+1] = backend.EmitModule(irs[i]) }) }
 		if jobs <= 1 {
-			units[0] = backend.EmitRuntime(main)
+			units[0] = backend.EmitRuntime(main, backend.RuntimeOptions{CountAllocations: o.CountAllocations})
 			emitModules()
 		} else {
 			var failure any
 			var done sync.WaitGroup
 			done.Go(func() {
 				defer func() { failure = recover() }()
-				units[0] = backend.EmitRuntime(main)
+				units[0] = backend.EmitRuntime(main, backend.RuntimeOptions{CountAllocations: o.CountAllocations})
 			})
 			emitModules()
 			done.Wait()
@@ -238,10 +315,44 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 			}
 		}
 		mark("codegen")
+		units = append(units, backend.EmitTypeRoutines(units, jobs)...)
+		if usesArrays(irs) {
+			units = append(units, backend.EmitArrayRuntime())
+		}
+		mark("routines")
 		backend.Link(output, units, ir.RtEntry, jobs)
 		mark("link")
 	}
 	return nil
+}
+
+// refusals are the places where a program needs something the backend cannot run yet, such as a map, a list, a pool, a
+// frozen value, a cown or a behaviour, which only the interpreter runs. One is reported for each function, at its first that matters, so the errors are a
+// property of the program and not of how many modules compile at once.
+func refusals(irs [][]*ir.IrFunction, matters func(code string) bool) []*diag.CompileError {
+	var errs []*diag.CompileError
+	for _, fns := range irs {
+		for _, fn := range fns {
+			for _, r := range fn.Refusals {
+				if matters(r.Code) {
+					errs = append(errs, r.Site.P().Error(r.Code, r.Message))
+					break
+				}
+			}
+		}
+	}
+	return errs
+}
+
+func usesArrays(irs [][]*ir.IrFunction) bool {
+	for _, fns := range irs {
+		for _, fn := range fns {
+			if fn.UsesArrays {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func stepAllocated(timings bool) uint64 {
@@ -385,6 +496,14 @@ func (constRefs) VisitCondExpr(e *ast.CondExpr, into constList) constList {
 
 func (constRefs) VisitCastExpr(e *ast.CastExpr, into constList) constList {
 	return referencedConsts(e.E, into)
+}
+
+func (constRefs) VisitIndexExpr(e *ast.IndexExpr, into constList) constList {
+	into = referencedConsts(e.Obj, into)
+	for _, a := range e.Args {
+		into = referencedConsts(a, into)
+	}
+	return into
 }
 
 func (constRefs) VisitMemberExpr(e *ast.MemberExpr, into constList) constList {

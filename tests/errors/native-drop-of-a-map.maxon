@@ -1,0 +1,8 @@
+// expect-error: E9002 at 2:1
+function consume(m sink map[Count, Count]) returns Count
+	return 0
+end 'consume'
+
+function main() returns ExitCode
+	return 0
+end 'main'

@@ -1,0 +1,51 @@
+type Tree
+	var value as Count
+	var name as String
+	var kids = array[Tree].new()
+	static function make(value Count, name sink String) returns Tree
+		return Tree{value: value, name: name}
+	end 'make'
+	function sum() returns Count
+		var total = value
+		for i in 0 upto kids.count() 'each'
+			total = total + kids[i].sum()
+		end 'each'
+		return total
+	end 'sum'
+	function add(inout self, kid sink Tree)
+		kids.append(kid)
+	end 'add'
+	function describe() returns String
+		var text = "{name}({value}"
+		for i in 0 upto kids.count() 'each'
+			text = "{text} {kids[i].describe()}"
+		end 'each'
+		return "{text})"
+	end 'describe'
+end 'Tree'
+
+function build() returns Tree
+	var root = Tree.make(1, name: "root")
+	var left = Tree.make(2, name: "{1 + 1}")
+	left.add(Tree.make(4, name: "leaf"))
+	left.add(Tree.make(5, name: "{4 + 1}"))
+	root.add(left)
+	root.add(Tree.make(3, name: "right"))
+	return root
+end 'build'
+
+function main() returns ExitCode
+	let original = build()
+	var copied = original.copy()
+	copied.kids[0].kids[1].value = 50
+	copied.kids[0].name = "changed"
+	copied.add(Tree.make(9, name: "extra"))
+	print("{original.describe()}\n{copied.describe()}\n")
+	let again = copied.copy()
+	print("{again.sum()} {original.sum()}\n")
+	return 0
+end 'main'
+
+//> root(1 2(2 leaf(4) 5(5)) right(3))
+//> root(1 changed(2 leaf(4) 5(50)) right(3) extra(9))
+//> 69 15

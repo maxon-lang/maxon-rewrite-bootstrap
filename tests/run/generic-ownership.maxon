@@ -1,0 +1,123 @@
+typealias Score = int(i64.min to i64.max)
+
+type Pair[A, B]
+	var first as A
+	var second as B
+	static function make(first sink A, second sink B) returns Self
+		return Self{first: first, second: second}
+	end 'make'
+	function describe() returns String
+		return "pair"
+	end 'describe'
+	function trade(inout self, with sink A)
+		first = with
+	end 'trade'
+end 'Pair'
+
+union Slot[T]
+	full(value T)
+	empty
+end 'Slot'
+
+function swap[T](a inout T, b inout T)
+	var tmp = a.copy()
+	a = b.copy()
+	b = tmp
+end 'swap'
+
+function fill[T](out set T, from T)
+	out = from.copy()
+end 'fill'
+
+function count[T](a T) returns Score
+	return 1
+end 'count'
+
+function eat[T](a sink T) returns Score
+	return 1
+end 'eat'
+
+function hold[T](a sink T) returns Pair[T, T]
+	let keep = a.copy()
+	return Pair.make(a, second: keep)
+end 'hold'
+
+function reuse[T](a sink T, b T) returns Score
+	var held = a
+	var total = eat(held)
+	held = b.copy()
+	total = total + eat(held)
+	return total
+end 'reuse'
+
+function later[T](a T, b T, flag bool) returns T
+	var chosen = a.copy()
+	if flag 'f'
+		chosen = b.copy()
+	end 'f'
+	return chosen
+end 'later'
+
+function either[T](a sink T, b sink T, flag bool) returns T
+	return a if flag else b
+end 'either'
+
+function inspect[T](slot Slot[T]) returns Score
+	return match slot 'm'
+		full(v) gives count(v)
+		empty gives 0
+	end 'm'
+end 'inspect'
+
+function reopen[T](slot Slot[T]) returns Slot[T]
+	return match slot 'm'
+		full(v) gives Slot[T].full(v.copy())
+		empty gives Slot[T].empty
+	end 'm'
+end 'reopen'
+
+function disjoint[T](p inout Pair[T, T])
+	swap(p.first, b: p.second)
+end 'disjoint'
+
+function uninit[T](a T) returns T
+	var x as T
+	fill(x, from: a)
+	return x
+end 'uninit'
+
+function main() returns ExitCode
+	let h = hold("kept")
+	print("{h.first} {h.second}\n")
+	print("{reuse("a", b: "b")}\n")
+	print("{later("x", b: "y", flag: true)} {later("x", b: "y", flag: false)}\n")
+	print("{either("p", b: "q", flag: false)}\n")
+	print("{inspect(Slot[String].full("s"))} {inspect(Slot[String].empty)}\n")
+	let r = reopen(Slot[Score].full(5))
+	match r 'm'
+		full(n) then print("score {n}\n")
+		empty then print("empty\n")
+	end 'm'
+	var p = Pair[String, String].make("one", second: "two")
+	disjoint(p)
+	print("{p.first} {p.second}\n")
+	p.trade("three")
+	print("{p.first} {p.second}\n")
+	print("{uninit("made")}\n")
+	var n = 1 as Score
+	var m = 2 as Score
+	swap(n, b: m)
+	print("{n} {m}\n")
+	return 0
+end 'main'
+
+//> kept kept
+//> 2
+//> y x
+//> q
+//> 1 0
+//> score 5
+//> two one
+//> three one
+//> made
+//> 2 1

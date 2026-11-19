@@ -18,17 +18,24 @@ type TypeDeclNodeBase struct {
 
 type FuncDecl struct {
 	DeclBase
-	IsStatic bool
-	Receiver string
-	Params   []*Param
-	Returns  *TypeRef
-	Body     []Stmt
-	End      *EndLabel
+	IsStatic   bool
+	TypeParams *TypeParamList
+	Receiver   string
+	Params     []*Param
+	Returns    *TypeRef
+	Body       []Stmt
+	End        *EndLabel
 
-	Owner NominalTy
+	Intrinsic Intrinsic
+	Owner     NominalTy
+	Generics  []*TypeParamTy
+	Generic   *FuncDecl
+	TypeArgs  []Ty
+	Instances *InstanceTable
+	Uses      []*CallExpr
 
+	Pass       Passing
 	ParamTypes []Ty
-	Specs      []ParamSpec
 	ReturnType Ty
 	SelfLocal  *Local
 	Locals     []*Local
@@ -36,9 +43,9 @@ type FuncDecl struct {
 
 type Param struct {
 	Pos
-	Name    string
-	Mutable bool
-	Type    *TypeRef
+	Name       string
+	Convention string
+	Type       *TypeRef
 
 	Sym *Local
 }
@@ -52,9 +59,11 @@ type ConstDecl struct {
 
 type TypeDecl struct {
 	TypeDeclNodeBase
-	Fields  []*FieldDecl
-	Methods []*FuncDecl
-	End     *EndLabel
+	TypeParams *TypeParamList
+	Conforms   []*TypeRef
+	Fields     []*FieldDecl
+	Methods    []*FuncDecl
+	End        *EndLabel
 }
 
 type FieldDecl struct {
@@ -68,9 +77,10 @@ type FieldDecl struct {
 
 type EnumDecl struct {
 	TypeDeclNodeBase
-	Cases   []*EnumCaseDecl
-	Methods []*FuncDecl
-	End     *EndLabel
+	Conforms []*TypeRef
+	Cases    []*EnumCaseDecl
+	Methods  []*FuncDecl
+	End      *EndLabel
 }
 
 type EnumCaseDecl struct {
@@ -81,9 +91,11 @@ type EnumCaseDecl struct {
 
 type UnionDecl struct {
 	TypeDeclNodeBase
-	Cases   []*UnionCaseDecl
-	Methods []*FuncDecl
-	End     *EndLabel
+	TypeParams *TypeParamList
+	Conforms   []*TypeRef
+	Cases      []*UnionCaseDecl
+	Methods    []*FuncDecl
+	End        *EndLabel
 }
 
 type UnionCaseDecl struct {
@@ -111,8 +123,45 @@ type TypeRef struct {
 	Pos
 	Qualifier []string
 	Name      string
+	TypeArgs  *TypeArgList
 
 	Target Decl
+	Param  *TypeParam
+}
+
+type TypeArgList struct {
+	Pos
+	Args []*TypeRef
+}
+
+type TypeParamList struct {
+	Pos
+	Params []*TypeParam
+}
+
+type TypeParam struct {
+	Pos
+	Name   string
+	Bounds []*TypeRef
+
+	Ty *TypeParamTy
+}
+
+type InterfaceDecl struct {
+	TypeDeclNodeBase
+	Methods []*FuncSig
+	End     *EndLabel
+}
+
+type FuncSig struct {
+	Pos
+	Name     string
+	Receiver string
+	Params   []*Param
+	Returns  *TypeRef
+
+	Pass       Passing
+	ReturnType Ty
 }
 
 type EndLabel struct {
@@ -126,9 +175,10 @@ type StmtBase struct {
 
 type LetStmt struct {
 	StmtBase
-	IsVar bool
 	Name  string
 	Init  Expr
+	IsVar bool
+	Type  *TypeRef
 
 	Sym *Local
 }
@@ -206,6 +256,18 @@ type MatchStmt struct {
 	Match *MatchCore
 }
 
+type WhenStmt struct {
+	StmtBase
+	Cowns []*NameExpr
+	Names []string
+	Label string
+	Body  []Stmt
+	End   *EndLabel
+
+	Fn       *FuncDecl
+	Captures []*Capture
+}
+
 type MatchCore struct {
 	Pos
 	Subject Expr
@@ -238,7 +300,8 @@ type Pattern struct {
 
 type ExprBase struct {
 	Pos
-	Type Ty
+	Type     Ty
+	Consumed bool
 }
 
 type MemberExpr struct {
@@ -251,6 +314,12 @@ type MemberExpr struct {
 	CaseIndex int
 }
 
+type IndexExpr struct {
+	ExprBase
+	Obj  Expr
+	Args []Expr
+}
+
 type CallExpr struct {
 	ExprBase
 	Callee Expr
@@ -258,6 +327,8 @@ type CallExpr struct {
 
 	Kind      CallKind
 	Target    *FuncDecl
+	Pass      *Passing
+	Generic   *GenericCall
 	Receiver  Expr
 	Union     *UnionTy
 	CaseIndex int
@@ -312,11 +383,12 @@ type NameExpr struct {
 	ExprBase
 	Name string
 
-	Target Decl
-	Kind   NameKind
-	Local  *Local
-	Const  *ConstDecl
-	Field  *FieldInfo
+	TypeArgs *TypeArgList
+	Target   Decl
+	Kind     NameKind
+	Local    *Local
+	Const    *ConstDecl
+	Field    *FieldInfo
 }
 
 type SelfExpr struct {
@@ -406,6 +478,28 @@ func NewTypeRef() *TypeRef {
 	return &TypeRef{}
 }
 
+func NewTypeArgList() *TypeArgList {
+	return &TypeArgList{}
+}
+
+func NewTypeParamList() *TypeParamList {
+	return &TypeParamList{}
+}
+
+func NewTypeParam() *TypeParam {
+	return &TypeParam{}
+}
+
+func NewInterfaceDecl() *InterfaceDecl {
+	return &InterfaceDecl{}
+}
+
+func NewFuncSig() *FuncSig {
+	n := &FuncSig{}
+	n.ReturnType = VoidTy
+	return n
+}
+
 func NewEndLabel() *EndLabel {
 	return &EndLabel{}
 }
@@ -454,6 +548,10 @@ func NewMatchStmt() *MatchStmt {
 	return &MatchStmt{}
 }
 
+func NewWhenStmt() *WhenStmt {
+	return &WhenStmt{}
+}
+
 func NewMatchCore() *MatchCore {
 	return &MatchCore{}
 }
@@ -472,6 +570,12 @@ func NewMemberExpr() *MemberExpr {
 	n := &MemberExpr{}
 	n.Type = VoidTy
 	n.CaseIndex = -1
+	return n
+}
+
+func NewIndexExpr() *IndexExpr {
+	n := &IndexExpr{}
+	n.Type = VoidTy
 	return n
 }
 
@@ -568,14 +672,13 @@ var reservedWords = map[string]bool{
 	"public":    true,
 	"static":    true,
 	"function":  true,
-	"mutable":   true,
-	"immutable": true,
-	"isolated":  true,
-	"consuming": true,
+	"inout":     true,
+	"sink":      true,
 	"self":      true,
 	"returns":   true,
 	"end":       true,
 	"_":         true,
+	"set":       true,
 	"let":       true,
 	"type":      true,
 	"var":       true,
@@ -587,6 +690,9 @@ var reservedWords = map[string]bool{
 	"to":        true,
 	"upto":      true,
 	"Self":      true,
+	"is":        true,
+	"and":       true,
+	"interface": true,
 	"if":        true,
 	"else":      true,
 	"while":     true,
@@ -595,6 +701,7 @@ var reservedWords = map[string]bool{
 	"return":    true,
 	"break":     true,
 	"continue":  true,
+	"when":      true,
 	"match":     true,
 	"default":   true,
 	"or":        true,
@@ -604,7 +711,6 @@ var reservedWords = map[string]bool{
 	"mod":       true,
 	"shl":       true,
 	"shr":       true,
-	"and":       true,
 	"xor":       true,
 	"true":      true,
 	"false":     true,
@@ -620,6 +726,7 @@ var (
 	_ Decl = (*EnumDecl)(nil)
 	_ Decl = (*UnionDecl)(nil)
 	_ Decl = (*AliasDecl)(nil)
+	_ Decl = (*InterfaceDecl)(nil)
 )
 
 type DeclVisitor interface {
@@ -629,6 +736,7 @@ type DeclVisitor interface {
 	VisitEnumDecl(n *EnumDecl)
 	VisitUnionDecl(n *UnionDecl)
 	VisitAliasDecl(n *AliasDecl)
+	VisitInterfaceDecl(n *InterfaceDecl)
 }
 
 func VisitDecl(v DeclVisitor, n Decl) {
@@ -651,6 +759,9 @@ func VisitDecl(v DeclVisitor, n Decl) {
 	case *AliasDecl:
 		v.VisitAliasDecl(n)
 		return
+	case *InterfaceDecl:
+		v.VisitInterfaceDecl(n)
+		return
 	}
 	panic(diag.Internal("unhandled Decl %T", n))
 }
@@ -662,6 +773,7 @@ type DeclResultVisitor[R any] interface {
 	VisitEnumDecl(n *EnumDecl) R
 	VisitUnionDecl(n *UnionDecl) R
 	VisitAliasDecl(n *AliasDecl) R
+	VisitInterfaceDecl(n *InterfaceDecl) R
 }
 
 func VisitDeclResult[R any](v DeclResultVisitor[R], n Decl) R {
@@ -678,6 +790,8 @@ func VisitDeclResult[R any](v DeclResultVisitor[R], n Decl) R {
 		return v.VisitUnionDecl(n)
 	case *AliasDecl:
 		return v.VisitAliasDecl(n)
+	case *InterfaceDecl:
+		return v.VisitInterfaceDecl(n)
 	}
 	panic(diag.Internal("unhandled Decl %T", n))
 }
@@ -689,6 +803,7 @@ type DeclStateVisitor[S, R any] interface {
 	VisitEnumDecl(n *EnumDecl, s S) R
 	VisitUnionDecl(n *UnionDecl, s S) R
 	VisitAliasDecl(n *AliasDecl, s S) R
+	VisitInterfaceDecl(n *InterfaceDecl, s S) R
 }
 
 func VisitDeclState[S, R any](v DeclStateVisitor[S, R], n Decl, s S) R {
@@ -705,6 +820,8 @@ func VisitDeclState[S, R any](v DeclStateVisitor[S, R], n Decl, s S) R {
 		return v.VisitUnionDecl(n, s)
 	case *AliasDecl:
 		return v.VisitAliasDecl(n, s)
+	case *InterfaceDecl:
+		return v.VisitInterfaceDecl(n, s)
 	}
 	panic(diag.Internal("unhandled Decl %T", n))
 }
@@ -714,6 +831,7 @@ var (
 	_ TypeDeclNode = (*EnumDecl)(nil)
 	_ TypeDeclNode = (*UnionDecl)(nil)
 	_ TypeDeclNode = (*AliasDecl)(nil)
+	_ TypeDeclNode = (*InterfaceDecl)(nil)
 )
 
 type TypeDeclNodeVisitor interface {
@@ -721,6 +839,7 @@ type TypeDeclNodeVisitor interface {
 	VisitEnumDecl(n *EnumDecl)
 	VisitUnionDecl(n *UnionDecl)
 	VisitAliasDecl(n *AliasDecl)
+	VisitInterfaceDecl(n *InterfaceDecl)
 }
 
 func VisitTypeDeclNode(v TypeDeclNodeVisitor, n TypeDeclNode) {
@@ -737,6 +856,9 @@ func VisitTypeDeclNode(v TypeDeclNodeVisitor, n TypeDeclNode) {
 	case *AliasDecl:
 		v.VisitAliasDecl(n)
 		return
+	case *InterfaceDecl:
+		v.VisitInterfaceDecl(n)
+		return
 	}
 	panic(diag.Internal("unhandled TypeDeclNode %T", n))
 }
@@ -746,6 +868,7 @@ type TypeDeclNodeResultVisitor[R any] interface {
 	VisitEnumDecl(n *EnumDecl) R
 	VisitUnionDecl(n *UnionDecl) R
 	VisitAliasDecl(n *AliasDecl) R
+	VisitInterfaceDecl(n *InterfaceDecl) R
 }
 
 func VisitTypeDeclNodeResult[R any](v TypeDeclNodeResultVisitor[R], n TypeDeclNode) R {
@@ -758,6 +881,8 @@ func VisitTypeDeclNodeResult[R any](v TypeDeclNodeResultVisitor[R], n TypeDeclNo
 		return v.VisitUnionDecl(n)
 	case *AliasDecl:
 		return v.VisitAliasDecl(n)
+	case *InterfaceDecl:
+		return v.VisitInterfaceDecl(n)
 	}
 	panic(diag.Internal("unhandled TypeDeclNode %T", n))
 }
@@ -767,6 +892,7 @@ type TypeDeclNodeStateVisitor[S, R any] interface {
 	VisitEnumDecl(n *EnumDecl, s S) R
 	VisitUnionDecl(n *UnionDecl, s S) R
 	VisitAliasDecl(n *AliasDecl, s S) R
+	VisitInterfaceDecl(n *InterfaceDecl, s S) R
 }
 
 func VisitTypeDeclNodeState[S, R any](v TypeDeclNodeStateVisitor[S, R], n TypeDeclNode, s S) R {
@@ -779,6 +905,8 @@ func VisitTypeDeclNodeState[S, R any](v TypeDeclNodeStateVisitor[S, R], n TypeDe
 		return v.VisitUnionDecl(n, s)
 	case *AliasDecl:
 		return v.VisitAliasDecl(n, s)
+	case *InterfaceDecl:
+		return v.VisitInterfaceDecl(n, s)
 	}
 	panic(diag.Internal("unhandled TypeDeclNode %T", n))
 }
@@ -790,6 +918,7 @@ var (
 	_ Stmt = (*WhileStmt)(nil)
 	_ Stmt = (*ForStmt)(nil)
 	_ Stmt = (*MatchStmt)(nil)
+	_ Stmt = (*WhenStmt)(nil)
 	_ Stmt = (*ReturnStmt)(nil)
 	_ Stmt = (*BreakStmt)(nil)
 	_ Stmt = (*ContinueStmt)(nil)
@@ -804,6 +933,7 @@ type StmtVisitor interface {
 	VisitWhileStmt(n *WhileStmt)
 	VisitForStmt(n *ForStmt)
 	VisitMatchStmt(n *MatchStmt)
+	VisitWhenStmt(n *WhenStmt)
 	VisitReturnStmt(n *ReturnStmt)
 	VisitBreakStmt(n *BreakStmt)
 	VisitContinueStmt(n *ContinueStmt)
@@ -831,6 +961,9 @@ func VisitStmt(v StmtVisitor, n Stmt) {
 	case *MatchStmt:
 		v.VisitMatchStmt(n)
 		return
+	case *WhenStmt:
+		v.VisitWhenStmt(n)
+		return
 	case *ReturnStmt:
 		v.VisitReturnStmt(n)
 		return
@@ -857,6 +990,7 @@ type StmtResultVisitor[R any] interface {
 	VisitWhileStmt(n *WhileStmt) R
 	VisitForStmt(n *ForStmt) R
 	VisitMatchStmt(n *MatchStmt) R
+	VisitWhenStmt(n *WhenStmt) R
 	VisitReturnStmt(n *ReturnStmt) R
 	VisitBreakStmt(n *BreakStmt) R
 	VisitContinueStmt(n *ContinueStmt) R
@@ -878,6 +1012,8 @@ func VisitStmtResult[R any](v StmtResultVisitor[R], n Stmt) R {
 		return v.VisitForStmt(n)
 	case *MatchStmt:
 		return v.VisitMatchStmt(n)
+	case *WhenStmt:
+		return v.VisitWhenStmt(n)
 	case *ReturnStmt:
 		return v.VisitReturnStmt(n)
 	case *BreakStmt:
@@ -899,6 +1035,7 @@ type StmtStateVisitor[S, R any] interface {
 	VisitWhileStmt(n *WhileStmt, s S) R
 	VisitForStmt(n *ForStmt, s S) R
 	VisitMatchStmt(n *MatchStmt, s S) R
+	VisitWhenStmt(n *WhenStmt, s S) R
 	VisitReturnStmt(n *ReturnStmt, s S) R
 	VisitBreakStmt(n *BreakStmt, s S) R
 	VisitContinueStmt(n *ContinueStmt, s S) R
@@ -920,6 +1057,8 @@ func VisitStmtState[S, R any](v StmtStateVisitor[S, R], n Stmt, s S) R {
 		return v.VisitForStmt(n, s)
 	case *MatchStmt:
 		return v.VisitMatchStmt(n, s)
+	case *WhenStmt:
+		return v.VisitWhenStmt(n, s)
 	case *ReturnStmt:
 		return v.VisitReturnStmt(n, s)
 	case *BreakStmt:
@@ -944,6 +1083,7 @@ var (
 	_ Expr = (*PanicExpr)(nil)
 	_ Expr = (*MatchExpr)(nil)
 	_ Expr = (*MemberExpr)(nil)
+	_ Expr = (*IndexExpr)(nil)
 	_ Expr = (*CallExpr)(nil)
 	_ Expr = (*UnaryExpr)(nil)
 	_ Expr = (*CastExpr)(nil)
@@ -961,6 +1101,7 @@ type ExprVisitor interface {
 	VisitPanicExpr(n *PanicExpr)
 	VisitMatchExpr(n *MatchExpr)
 	VisitMemberExpr(n *MemberExpr)
+	VisitIndexExpr(n *IndexExpr)
 	VisitCallExpr(n *CallExpr)
 	VisitUnaryExpr(n *UnaryExpr)
 	VisitCastExpr(n *CastExpr)
@@ -997,6 +1138,9 @@ func VisitExpr(v ExprVisitor, n Expr) {
 	case *MemberExpr:
 		v.VisitMemberExpr(n)
 		return
+	case *IndexExpr:
+		v.VisitIndexExpr(n)
+		return
 	case *CallExpr:
 		v.VisitCallExpr(n)
 		return
@@ -1026,6 +1170,7 @@ type ExprResultVisitor[R any] interface {
 	VisitPanicExpr(n *PanicExpr) R
 	VisitMatchExpr(n *MatchExpr) R
 	VisitMemberExpr(n *MemberExpr) R
+	VisitIndexExpr(n *IndexExpr) R
 	VisitCallExpr(n *CallExpr) R
 	VisitUnaryExpr(n *UnaryExpr) R
 	VisitCastExpr(n *CastExpr) R
@@ -1053,6 +1198,8 @@ func VisitExprResult[R any](v ExprResultVisitor[R], n Expr) R {
 		return v.VisitMatchExpr(n)
 	case *MemberExpr:
 		return v.VisitMemberExpr(n)
+	case *IndexExpr:
+		return v.VisitIndexExpr(n)
 	case *CallExpr:
 		return v.VisitCallExpr(n)
 	case *UnaryExpr:
@@ -1077,6 +1224,7 @@ type ExprStateVisitor[S, R any] interface {
 	VisitPanicExpr(n *PanicExpr, s S) R
 	VisitMatchExpr(n *MatchExpr, s S) R
 	VisitMemberExpr(n *MemberExpr, s S) R
+	VisitIndexExpr(n *IndexExpr, s S) R
 	VisitCallExpr(n *CallExpr, s S) R
 	VisitUnaryExpr(n *UnaryExpr, s S) R
 	VisitCastExpr(n *CastExpr, s S) R
@@ -1104,6 +1252,8 @@ func VisitExprState[S, R any](v ExprStateVisitor[S, R], n Expr, s S) R {
 		return v.VisitMatchExpr(n, s)
 	case *MemberExpr:
 		return v.VisitMemberExpr(n, s)
+	case *IndexExpr:
+		return v.VisitIndexExpr(n, s)
 	case *CallExpr:
 		return v.VisitCallExpr(n, s)
 	case *UnaryExpr:

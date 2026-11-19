@@ -181,3 +181,73 @@ func TestParseRecoversAtTheNextFile(t *testing.T) {
 		t.Fatalf("decls: %+v", prog.Decls)
 	}
 }
+
+func TestParsesGenericDeclarationsAndUses(t *testing.T) {
+	prog, errs := parseFiles(t, `interface Shape
+	function area() returns Score
+	function grow(inout self, by Score)
+end 'Shape'
+
+type Box[T is Shape and Named, U] is Shape
+	var item as T
+end 'Box'
+
+function pick[T](a T) returns Box[T, lib.Other[T]]
+	let b = Box[T].make(a)
+	return swap[T](a, b: b)
+end 'pick'
+`)
+	if len(errs) > 0 {
+		t.Fatalf("errors: %v", errs)
+	}
+	iface := prog.Decls[0].(*ast.InterfaceDecl)
+	if len(iface.Methods) != 2 || iface.Methods[1].Receiver != "inout" || len(iface.Methods[1].Params) != 1 {
+		t.Fatalf("interface methods: %+v", iface.Methods)
+	}
+	box := prog.Decls[1].(*ast.TypeDecl)
+	params := box.TypeParams.Items()
+	if len(params) != 2 || len(params[0].Bounds) != 2 || params[0].Bounds[1].Name != "Named" || len(params[1].Bounds) != 0 {
+		t.Fatalf("type parameters: %+v", params)
+	}
+	if len(box.Conforms) != 1 || box.Conforms[0].Name != "Shape" {
+		t.Fatalf("conforms: %+v", box.Conforms)
+	}
+	pick := prog.Decls[2].(*ast.FuncDecl)
+	result := pick.Returns.TypeArgs.Items()
+	if len(result) != 2 || result[1].Name != "Other" || result[1].Qualifier[0] != "lib" || len(result[1].TypeArgs.Items()) != 1 {
+		t.Fatalf("return type arguments: %+v", result)
+	}
+	// In an expression, brackets after a value are parsed alike whether they apply type arguments or subscript it;
+	// the resolver tells them apart.
+	call := pick.Body[0].(*ast.LetStmt).Init.(*ast.CallExpr).Callee.(*ast.MemberExpr).Obj.(*ast.IndexExpr)
+	if name, ok := call.Obj.(*ast.NameExpr); !ok || name.Name != "Box" || len(call.Args) != 1 {
+		t.Fatalf("type application: %+v", call)
+	}
+	ret := pick.Body[1].(*ast.ReturnStmt).Value.(*ast.CallExpr).Callee.(*ast.IndexExpr)
+	if name, ok := ret.Obj.(*ast.NameExpr); !ok || name.Name != "swap" || len(ret.Args) != 1 {
+		t.Fatalf("callee type arguments: %+v", ret)
+	}
+}
+
+func TestParsesSubscripts(t *testing.T) {
+	prog, errs := parseFiles(t, `function f()
+	a[0] = b[i + 1].count
+	f(a[a.count() - 1], m[k])
+end 'f'
+`)
+	if len(errs) > 0 {
+		t.Fatalf("errors: %v", errs)
+	}
+	body := prog.Decls[0].(*ast.FuncDecl).Body
+	assign := body[0].(*ast.AssignStmt)
+	if target, ok := assign.Target.(*ast.IndexExpr); !ok || len(target.Args) != 1 {
+		t.Fatalf("assignment target: %T", assign.Target)
+	}
+	if member, ok := assign.Value.(*ast.MemberExpr); !ok || member.Obj.(*ast.IndexExpr).Args[0].(*ast.BinaryExpr).Op != "+" {
+		t.Fatalf("assignment value: %T", assign.Value)
+	}
+	call := body[1].(*ast.ExprStmt).E.(*ast.CallExpr)
+	if len(call.Args) != 2 || call.Args[0].Value.(*ast.IndexExpr).Args[0].(*ast.BinaryExpr).Op != "-" {
+		t.Fatalf("call arguments: %+v", call.Args)
+	}
+}

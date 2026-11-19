@@ -1,0 +1,36 @@
+type Account
+	export var balance as Count
+	static function make(balance Count) returns Account
+		return Account{balance: balance}
+	end 'make'
+end 'Account'
+
+function transfer(from cown[Account], dest cown[Account], amount Count)
+	when from, dest as f, t 'move'
+		if f.balance >= amount 'enough'
+			f.balance = f.balance - amount
+			t.balance = t.balance + amount
+		end 'enough'
+	end 'move'
+end 'transfer'
+
+function report(a cown[Account], b cown[Account], c cown[Account])
+	when a, b, c as x, y, z 'report'
+		print("a {x.balance} b {y.balance} c {z.balance} total {x.balance + y.balance + z.balance}\n")
+	end 'report'
+end 'report'
+
+function main() returns ExitCode
+	let a = cown(Account.make(100))
+	let b = cown(Account.make(50))
+	let c = cown(Account.make(0))
+	transfer(a, dest: b, amount: 30)
+	transfer(b, dest: c, amount: 70)
+	transfer(c, dest: a, amount: 500)
+	transfer(a, dest: c, amount: 20)
+	transfer(b, dest: a, amount: 5)
+	report(a, b: b, c: c)
+	return 0
+end 'main'
+
+//> a 55 b 5 c 90 total 150

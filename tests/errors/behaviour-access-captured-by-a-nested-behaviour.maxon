@@ -1,0 +1,19 @@
+// expect-error: E3126 at 15:12
+type Acct
+	export var balance as Count
+	export var tag as String
+	static function make(balance Count) returns Acct
+		return Acct{balance: balance, tag: "t"}
+	end 'make'
+end 'Acct'
+
+function main() returns ExitCode
+	let c = cown(Acct.make(1))
+	let d = cown(Acct.make(2))
+	when c as x 'outer'
+		when d as y 'inner'
+			print("{x.tag}")
+		end 'inner'
+	end 'outer'
+	return 0
+end 'main'

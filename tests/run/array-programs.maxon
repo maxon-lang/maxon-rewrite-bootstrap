@@ -1,0 +1,111 @@
+type Counter
+	var n as Count
+	static function make() returns Counter
+		return Counter{n: 0}
+	end 'make'
+	function bump(inout self)
+		n = n + 1
+	end 'bump'
+	function value() returns Count
+		return n
+	end 'value'
+end 'Counter'
+
+type Stack
+	var items = array[Count].new()
+	static function make() returns Stack
+		return Stack{}
+	end 'make'
+	function push(inout self, n Count)
+		items.append(n)
+	end 'push'
+	function pop(inout self) returns Count
+		return items.pop().unwrap()
+	end 'pop'
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Stack'
+
+union Shape
+	row(cells array[Count])
+	empty
+end 'Shape'
+
+function primesBelow(limit Count) returns Count
+	var prime = array[bool].filled(limit, value: true)
+	var found = 0 as Count
+	for i in 2 upto limit 'candidates'
+		if prime[i] 'is'
+			found = found + 1
+			var j = i * i
+			while j < limit 'strike'
+				prime[j] = false
+				j = j + i
+			end 'strike'
+		end 'is'
+	end 'candidates'
+	return found
+end 'primesBelow'
+
+function sort(a inout array[Count])
+	var swapped = true
+	while swapped 'passes'
+		swapped = false
+		for i in 1 upto a.count() 'scan'
+			if a[i - 1] > a[i] 'out'
+				let t = a[i]
+				a[i] = a[i - 1]
+				a[i - 1] = t
+				swapped = true
+			end 'out'
+		end 'scan'
+	end 'passes'
+end 'sort'
+
+function main() returns ExitCode
+	print("{primesBelow(100)} {primesBelow(1000)}\n")
+	var a = array[Count].new()
+	for i in 0 upto 8 'fill'
+		a.append(((i * 5) mod 8) as Count)
+	end 'fill'
+	sort(a)
+	var line = ""
+	for i in 0 upto a.count() 'show'
+		line = "{line}{a[i]},"
+	end 'show'
+	print("{line}\n")
+	var counters = array[Counter].new()
+	for i in 0 upto 3 'make'
+		counters.append(Counter.make())
+	end 'make'
+	counters[1].bump()
+	counters[1].bump()
+	counters[2].bump()
+	print("{counters[0].value()} {counters[1].value()} {counters[2].value()}\n")
+	var stack = Stack.make()
+	stack.push(10)
+	stack.push(20)
+	print("{stack.pop()} {stack.size()} {stack.pop()} {stack.size()}\n")
+	var fib = array[Count].new()
+	fib.append(0)
+	fib.append(1)
+	let rounds = 30 as Count
+	for i in 2 upto rounds 'memo'
+		fib.append(fib[i - 1] + fib[i - 2])
+	end 'memo'
+	print("{fib[29]} {fib.count()}\n")
+	let shape = Shape.row(a)
+	match shape 'm'
+		row(cells) then print("row of {cells.count()} starting {cells[0]}\n")
+		empty then print("empty\n")
+	end 'm'
+	return 0
+end 'main'
+
+//> 25 168
+//> 0,1,2,3,4,5,6,7,
+//> 0 2 1
+//> 20 1 10 0
+//> 514229 30
+//> row of 8 starting 0

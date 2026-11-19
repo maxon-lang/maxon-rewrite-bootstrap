@@ -1,0 +1,77 @@
+type Entry
+	export var key as Count
+	export var value as String
+	static function make(key Count, value sink String) returns Entry
+		return Entry{key: key, value: value}
+	end 'make'
+end 'Entry'
+
+type Cache
+	var order as list[Entry]
+	var index as map[Count, Handle[Entry]]
+	var capacity as Count
+	static function make(capacity Count) returns Cache
+		return Cache{order: list[Entry].new(), index: map[Count, Handle[Entry]].new(), capacity: capacity}
+	end 'make'
+	function get(inout self, key Count) returns Option[String]
+		if not index.has(key) 'miss'
+			return Option[String].none
+		end 'miss'
+		let node = index[key]
+		order.moveToFront(node)
+		return Option.some(order[node].value.copy())
+	end 'get'
+	function put(inout self, key Count, value sink String)
+		if index.has(key) 'hit'
+			let node = index[key]
+			order[node].value = value
+			order.moveToFront(node)
+			return
+		end 'hit'
+		if index.count() == capacity 'full'
+			match order.popBack() 'evict'
+				some(oldest) then _ = index.remove(oldest.key)
+				none then return
+			end 'evict'
+		end 'full'
+		let node = order.pushFront(Entry.make(key, value: value))
+		index.insert(key, value: node)
+	end 'put'
+	function size() returns Count
+		return order.count()
+	end 'size'
+end 'Cache'
+
+function show(cache inout Cache, key Count)
+	match cache.get(key) 'm'
+		some(v) then print("{key} -> {v}\n")
+		none then print("{key} missing\n")
+	end 'm'
+end 'show'
+
+function main() returns ExitCode
+	var cache = Cache.make(2)
+	cache.put(1, value: "one")
+	cache.put(2, value: "two")
+	show(cache, key: 1)
+	cache.put(3, value: "three")
+	show(cache, key: 2)
+	show(cache, key: 1)
+	show(cache, key: 3)
+	cache.put(1, value: "uno")
+	cache.put(4, value: "four")
+	show(cache, key: 3)
+	show(cache, key: 1)
+	show(cache, key: 4)
+	print("{cache.size()}\n")
+	return 0
+end 'main'
+
+//> 1 -> one
+//> 2 missing
+//> 1 -> one
+//> 3 -> three
+//> 3 missing
+//> 1 -> uno
+//> 4 -> four
+//> 2

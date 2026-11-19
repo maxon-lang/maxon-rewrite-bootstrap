@@ -1,0 +1,6 @@
+// expect-error: E3112 at 4:12
+function main() returns ExitCode
+	var a = array[Count].new()
+	a.insert(a[0], at: 0)
+	return 0
+end 'main'

@@ -1,0 +1,16 @@
+// expect-error: E3110 at 13:14
+type Acct
+	export var balance as Count
+	export var tag as String
+	static function make(balance Count) returns Acct
+		return Acct{balance: balance, tag: "t"}
+	end 'make'
+end 'Acct'
+
+function main() returns ExitCode
+	let c = cown(Acct.make(1))
+	when c as x 'outer'
+		let mine = x
+	end 'outer'
+	return 0
+end 'main'

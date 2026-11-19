@@ -1,0 +1,12 @@
+// expect-error: E3131 at 2:1
+type Left
+	export var other as cown[Right]
+end 'Left'
+
+type Right
+	export var other as array[cown[Left]]
+end 'Right'
+
+function main() returns ExitCode
+	return 0
+end 'main'

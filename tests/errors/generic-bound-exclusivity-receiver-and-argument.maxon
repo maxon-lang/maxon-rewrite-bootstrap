@@ -1,0 +1,18 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Score
+	function grow(inout self, by Score)
+	function dispose(sink self)
+	function absorb(inout self, other Self)
+end 'Shape'
+
+function twice[T is Shape](a inout T)
+	a.absorb(a)
+end 'twice'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3112 at 11:11

@@ -1,0 +1,8 @@
+// expect-error: E3116 at 2:14
+function f(a array) returns Count
+	return 0
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

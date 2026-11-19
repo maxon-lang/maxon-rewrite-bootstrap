@@ -1,0 +1,24 @@
+// expect-error: E3132 at 22:17
+type Acct
+	export var balance as Count
+	export var tag as String
+	static function make(balance Count) returns Acct
+		return Acct{balance: balance, tag: "t"}
+	end 'make'
+end 'Acct'
+
+type Wallet
+	export var coins as Count
+	static function make() returns Wallet
+		return Wallet{coins: 1}
+	end 'make'
+	function count() returns Count
+		return coins
+	end 'count'
+end 'Wallet'
+
+function main() returns ExitCode
+	let c = cown(Wallet.make())
+	print("{c.count()}")
+	return 0
+end 'main'

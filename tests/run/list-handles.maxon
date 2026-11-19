@@ -1,0 +1,50 @@
+type Item
+	export var name as String
+	export var weight as Count
+	static function make(name sink String, weight Count) returns Item
+		return Item{name: name, weight: weight}
+	end 'make'
+end 'Item'
+
+function describe(l list[Item]) returns String
+	var text = ""
+	var at = l.first()
+	while at.isSome() 'walk'
+		let handle = at.unwrap()
+		text = "{text}{l[handle].name}:{l[handle].weight};"
+		at = l.next(handle)
+	end 'walk'
+	return text
+end 'describe'
+
+function main() returns ExitCode
+	var l = list[Item].new()
+	let b = l.pushBack(Item.make("b", weight: 2))
+	let a = l.pushFront(Item.make("a", weight: 1))
+	let c = l.pushBack(Item.make("c", weight: 3))
+	print("{describe(l)}\n")
+	print("{l.count()} {l.contains(a)} {l.contains(b)} {l.contains(c)}\n")
+	l.moveToFront(c)
+	print("{describe(l)}\n")
+	l[b].weight = 20
+	print("{describe(l)}\n")
+	let removed = l.remove(b)
+	print("{removed.isSome()} {l.contains(b)} {l.count()} {describe(l)}\n")
+	let d = l.pushBack(Item.make("d", weight: 4))
+	print("{l.contains(b)} {l.contains(d)} {b == d} {describe(l)}\n")
+	let again = l.remove(b)
+	print("{again.isSome()}\n")
+	let front = l.popFront()
+	let back = l.popBack()
+	print("{front.unwrap().name} {back.unwrap().name} {l.count()} {describe(l)}\n")
+	return 0
+end 'main'
+
+//> a:1;b:2;c:3;
+//> 3 true true true
+//> c:3;a:1;b:2;
+//> c:3;a:1;b:20;
+//> true false 2 c:3;a:1;
+//> false true false c:3;a:1;d:4;
+//> false
+//> c d 1 a:1;

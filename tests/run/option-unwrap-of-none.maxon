@@ -1,0 +1,10 @@
+// expect-exit: 1
+function main() returns ExitCode
+	var a = array[Count].new()
+	let first = a.pop()
+	print("{first.isSome()}\n")
+	print("{first.unwrap()}\n")
+	return 0
+end 'main'
+
+//> false

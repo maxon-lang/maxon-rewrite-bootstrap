@@ -1,0 +1,6 @@
+// expect-error: E2053 at 4:14
+function main() returns ExitCode
+	var a = array[Count].new()
+	a.insert(1, 0)
+	return 0
+end 'main'

@@ -1,0 +1,25 @@
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+type Square is Shape
+	var side as Count
+	static function make(side Count) returns Square
+		return Square{side: side}
+	end 'make'
+	function area() returns Count
+		return side * side
+	end 'area'
+end 'Square'
+
+function measure[T is Shape](f frozen[T]) returns Count
+	return f.area()
+end 'measure'
+
+function main() returns ExitCode
+	let sq = freeze(Square.make(3))
+	print("{measure(sq)}\n")
+	return 0
+end 'main'
+
+//> 9

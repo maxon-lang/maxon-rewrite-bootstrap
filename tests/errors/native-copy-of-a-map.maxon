@@ -1,0 +1,9 @@
+// expect-error: E9002 at 3:16
+function f(m map[Count, Count]) returns Count
+	let c = m.copy()
+	return 0
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

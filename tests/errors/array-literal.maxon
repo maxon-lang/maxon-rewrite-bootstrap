@@ -1,0 +1,5 @@
+// expect-error: E3011 at 3:10
+function main() returns ExitCode
+	let a = array{}
+	return 0
+end 'main'

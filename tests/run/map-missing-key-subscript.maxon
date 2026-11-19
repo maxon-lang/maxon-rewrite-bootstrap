@@ -1,0 +1,13 @@
+// expect-exit: 1
+function main() returns ExitCode
+	var m = map[String, Count].new()
+	m.insert("a", value: 1)
+	print("{m["a"]} {m.has("b")}\n")
+	let gone = m.remove("a")
+	print("{gone.isSome()} {m.has("a")}\n")
+	print("{m["a"]}\n")
+	return 0
+end 'main'
+
+//> 1 false
+//> true false

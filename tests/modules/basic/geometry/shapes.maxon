@@ -12,7 +12,7 @@ function double(n Length) returns Length
 	return n * 2
 end 'double'
 
-export function grow(n mutable Length)
+export function grow(n inout Length)
 	n = n + 1
 end 'grow'
 

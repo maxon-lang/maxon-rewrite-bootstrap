@@ -63,15 +63,53 @@ func (t *PrimTy) IsManaged() bool { return t.managed }
 type NominalTy interface {
 	Ty
 	MethodTable() map[string]*FuncDecl
+	Base() *NominalBase
 }
 
+// NominalBase is what the nominal types share. A generic declaration has Params and its instances, one for each
+// list of type arguments, have Args instead: an instance reads its members and conformances through the
+// declaration, substituting its Args for the declaration's Params.
 type NominalBase struct {
 	name    string
 	Methods map[string]*FuncDecl
+	// Params are the type parameters of a generic declaration.
+	Params []*TypeParamTy
+	// Args are the type arguments of an instance.
+	Args []Ty
+	// Conforms are the interfaces the declaration says it implements.
+	Conforms  []*InterfaceTy
+	declaring *NominalBase
+	instances *InstanceTable
 }
 
 func (n *NominalBase) Name() string                      { return n.name }
 func (n *NominalBase) MethodTable() map[string]*FuncDecl { return n.Methods }
+func (n *NominalBase) Base() *NominalBase                { return n }
+
+// Declaration is the base of the declaration this type is an instance of, or the base itself for any other type.
+func (n *NominalBase) Declaration() *NominalBase {
+	if n.declaring != nil {
+		return n.declaring
+	}
+	return n
+}
+
+// IsGeneric is whether the type is a generic declaration, which needs type arguments before it names a type.
+func (n *NominalBase) IsGeneric() bool { return len(n.Params) > 0 }
+
+func (n *NominalBase) newInstanceBase(args []Ty) NominalBase {
+	return NominalBase{name: instanceName(n.name, args), Methods: n.Methods, Args: args, declaring: n}
+}
+
+func (n *NominalBase) initGeneric(params []*TypeParam) {
+	for _, p := range params {
+		p.Ty = NewTypeParamOf(p)
+		n.Params = append(n.Params, p.Ty)
+	}
+	if len(params) > 0 {
+		n.instances = &InstanceTable{}
+	}
+}
 
 type FieldInfo struct {
 	Name     string
@@ -80,27 +118,49 @@ type FieldInfo struct {
 	IsVar    bool
 	Default  Expr
 	Index    int
+	// Uses are the calls to generic functions in the default, which a literal that takes the default also makes.
+	Uses []*CallExpr
 }
 
 type RecordTy struct {
 	NominalBase
 	Decl   *TypeDecl
 	Fields []*FieldInfo
+	origin *RecordTy
 }
 
 func NewRecordTy(d *TypeDecl) *RecordTy {
-	return &RecordTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
+	r := &RecordTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
+	r.initGeneric(d.TypeParams.Items())
+	return r
 }
 
 func (r *RecordTy) IsManaged() bool { return true }
 
+// FieldList is the fields of the record; an instance has the declaration's.
+func (r *RecordTy) FieldList() []*FieldInfo {
+	if r.origin != nil {
+		return r.origin.Fields
+	}
+	return r.Fields
+}
+
 func (r *RecordTy) Field(name string) *FieldInfo {
-	for _, f := range r.Fields {
+	for _, f := range r.FieldList() {
 		if f.Name == name {
 			return f
 		}
 	}
 	return nil
+}
+
+// FieldType is the type of a field as this record has it: an instance has the declaration's type with its own type
+// arguments substituted.
+func (r *RecordTy) FieldType(f *FieldInfo) Ty {
+	if r.origin == nil {
+		return f.Type
+	}
+	return subst(f.Type, r.origin.Params, r.Args)
 }
 
 type EnumTy struct {
@@ -138,18 +198,29 @@ type UnionCase struct {
 
 type UnionTy struct {
 	NominalBase
-	Decl  *UnionDecl
-	Cases []*UnionCase
+	Decl   *UnionDecl
+	Cases  []*UnionCase
+	origin *UnionTy
 }
 
 func NewUnionTy(d *UnionDecl) *UnionTy {
-	return &UnionTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
+	u := &UnionTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
+	u.initGeneric(d.TypeParams.Items())
+	return u
 }
 
 func (u *UnionTy) IsManaged() bool { return true }
 
+// CaseList is the cases of the union; an instance has the declaration's.
+func (u *UnionTy) CaseList() []*UnionCase {
+	if u.origin != nil {
+		return u.origin.Cases
+	}
+	return u.Cases
+}
+
 func (u *UnionTy) CaseIndex(name string) int {
-	for i, c := range u.Cases {
+	for i, c := range u.CaseList() {
 		if c.Name == name {
 			return i
 		}
@@ -157,19 +228,104 @@ func (u *UnionTy) CaseIndex(name string) int {
 	return -1
 }
 
+// Payload is the payload of a case as this union has it, with an instance's type arguments substituted.
+func (u *UnionTy) Payload(caseIndex int) []PayloadField {
+	payload := u.CaseList()[caseIndex].Payload
+	if u.origin == nil {
+		return payload
+	}
+	b := Binding{Params: u.origin.Params, Args: u.Args}
+	var out []PayloadField
+	for i, p := range payload {
+		t := b.Apply(p.Type)
+		if t != p.Type && out == nil {
+			out = append(make([]PayloadField, 0, len(payload)), payload[:i]...)
+		}
+		if out != nil {
+			out = append(out, PayloadField{Name: p.Name, Type: t})
+		}
+	}
+	if out == nil {
+		return payload
+	}
+	return out
+}
+
+// Convention says how a parameter takes its argument.
+type Convention int
+
+const (
+	// ConvLet is the default: an immutable borrow.
+	ConvLet Convention = iota
+	// ConvInout is a mutable borrow: the caller sees the callee's changes.
+	ConvInout
+	// ConvSink moves the argument into the callee, which owns it.
+	ConvSink
+	// ConvSet takes an uninitialised variable that the callee must initialise.
+	ConvSet
+)
+
+// ConventionOf reads the keyword a parameter or receiver is written with; none means a let.
+func ConventionOf(word string) Convention {
+	switch word {
+	case "":
+		return ConvLet
+	case "inout":
+		return ConvInout
+	case "sink":
+		return ConvSink
+	case "set":
+		return ConvSet
+	}
+	panic(diag.Internal("unknown parameter convention '%s'", word))
+}
+
+// ByAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
+func (c Convention) ByAddress() bool { return c == ConvInout || c == ConvSet }
+
+func (c Convention) String() string {
+	switch c {
+	case ConvLet:
+		return "let"
+	case ConvInout:
+		return "inout"
+	case ConvSink:
+		return "sink"
+	case ConvSet:
+		return "set"
+	}
+	panic(diag.Internal("unknown convention %d", int(c)))
+}
+
 type Local struct {
-	Name       string
-	Type       Ty
-	IsVar      bool
-	IsParam    bool
-	IsSelf     bool
-	ByRef      bool
+	Name    string
+	Type    Ty
+	IsVar   bool
+	IsParam bool
+	IsSelf  bool
+	// Conv is how a parameter (or the receiver) takes its argument; it means nothing for other locals.
+	Conv Convention
+	// Projected marks a match binding of a payload that is not a scalar: a borrow of part of the subject.
+	Projected  bool
 	ParamIndex int
 	Slot       int
 }
 
 func NewLocal(name string, t Ty, isVar bool) *Local {
 	return &Local{Name: name, Type: t, IsVar: isVar, ParamIndex: -1, Slot: -1}
+}
+
+// ByRef is whether the local is the address of the caller's storage.
+func (l *Local) ByRef() bool { return l.IsParam && !l.IsSelf && l.Conv.ByAddress() }
+
+// Borrowed is whether the local only borrows its value, so the value cannot be moved out of it.
+func (l *Local) Borrowed() bool {
+	return l.Projected || (l.IsParam && l.Conv != ConvSink)
+}
+
+// Mutable is whether the local, and the fields reached through it, may be assigned.
+func (l *Local) Mutable() bool {
+	return l.IsVar || (l.IsParam && l.Conv.ByAddress())
 }
 
 func Shell(d TypeDeclNode) Ty {
@@ -228,9 +384,9 @@ func (b *Bound) value() I128 {
 
 // ParamSpec is a parameter as the checker resolved it.
 type ParamSpec struct {
-	Name  string
-	Type  Ty
-	ByRef bool
+	Name string
+	Type Ty
+	Conv Convention
 }
 
 func (shell) VisitTypeDecl(t *TypeDecl) Ty { return NewRecordTy(t) }
@@ -238,3 +394,5 @@ func (shell) VisitTypeDecl(t *TypeDecl) Ty { return NewRecordTy(t) }
 func (shell) VisitEnumDecl(t *EnumDecl) Ty { return NewEnumTy(t) }
 
 func (shell) VisitUnionDecl(t *UnionDecl) Ty { return NewUnionTy(t) }
+
+func (shell) VisitInterfaceDecl(t *InterfaceDecl) Ty { return NewInterfaceTy(t) }

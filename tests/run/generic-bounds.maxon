@@ -1,0 +1,87 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Describe
+	function describe() returns String
+	function twin() returns Self
+end 'Describe'
+
+enum Color is Describe
+	red
+	green
+	function describe() returns String
+		return "color {self.name}"
+	end 'describe'
+	function twin() returns Color
+		return Color.green
+	end 'twin'
+end 'Color'
+
+type Wrapper[T is Describe] is Describe
+	var inner as T
+	var uses = 0 as Score
+	static function make(inner sink T) returns Self
+		return Self{inner: inner}
+	end 'make'
+	function describe() returns String
+		return "wrapper of {inner.describe()}"
+	end 'describe'
+	function twin() returns Wrapper[T]
+		return Self.make(inner.twin())
+	end 'twin'
+end 'Wrapper'
+
+type Tally
+	var total = Wrapper[Color].make(Color.red)
+	var count = 3 as Score
+	static function create() returns Tally
+		return Tally{}
+	end 'create'
+end 'Tally'
+
+function show[T is Describe](item T) returns String
+	return item.describe()
+end 'show'
+
+function showTwin[T is Describe](item T) returns String
+	return show(item.twin())
+end 'showTwin'
+
+function depth[T](x T, n Score) returns Score
+	if n == 0 'done'
+		return 0
+	end 'done'
+	return 1 + depth(x.copy(), n: n - 1)
+end 'depth'
+
+function ping[T](x T, n Score) returns Score
+	if n == 0 'done'
+		return 0
+	end 'done'
+	return pong(x.copy(), n: n - 1)
+end 'ping'
+
+function pong[T](x T, n Score) returns Score
+	return 1 + ping(x.copy(), n: n)
+end 'pong'
+
+function main() returns ExitCode
+	print("{show(Color.red)}\n")
+	print("{showTwin(Color.red)}\n")
+	let w = Wrapper[Color].make(Color.red)
+	print("{show(w)}\n")
+	print("{showTwin(w)}\n")
+	let w2 = Wrapper[Wrapper[Color]].make(w.copy())
+	print("{show(w2)}\n")
+	let t = Tally.create()
+	print("{t.total.describe()} {t.count}\n")
+	print("{depth("x", n: 4)} {depth(Color.red, n: 2)} {ping(3 as Score, n: 5)}\n")
+	return 0
+end 'main'
+
+//> color red
+//> color green
+//> wrapper of color red
+//> wrapper of color green
+//> wrapper of wrapper of color red
+//> wrapper of color red 3
+//> 4 2 5

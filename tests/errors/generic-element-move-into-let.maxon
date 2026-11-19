@@ -1,0 +1,8 @@
+// expect-error: E3111 at 3:11
+function f[T](a sink array[T])
+	let x = a[0]
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

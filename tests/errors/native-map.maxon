@@ -1,0 +1,6 @@
+// expect-error: E9002 at 3:31
+function main() returns ExitCode
+	var m = map[Count, Count].new()
+	m.insert(1, value: 2)
+	return 0
+end 'main'

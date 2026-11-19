@@ -11,6 +11,7 @@ const (
 	impGetStdHandle       = 2
 	impWriteFile          = 3
 	impExitProcess        = 4
+	impHeapFree           = 5
 	stdOutputHandle       = -11
 	stdErrorHandle        = -12
 	heapZeroMemory        = 8
@@ -21,22 +22,37 @@ const (
 	stackAlignMask        = -16
 	writeBytesWrittenSlot = 40
 	writeOverlappedSlot   = 32
+	// leakExitCode is what an executable built to count its allocations exits with when main returned and a box is still
+	// live. It differs from every code a program or a trap gives.
+	leakExitCode   = 99
+	leakMessage    = "leaked allocations: "
+	leakMessageEnd = "\n"
 )
+
+// RuntimeOptions say how the runtime unit is built.
+type RuntimeOptions struct {
+	// CountAllocations keeps the number of live heap boxes, and has the entry fail when main returns with any left.
+	CountAllocations bool
+}
 
 type runtimeUnit struct {
 	u         *CodeUnit
+	count     bool
 	rtAlloc   *Label
+	rtFree    *Label
 	rtWrite   *Label
 	rtPanic   *Label
 	asm       *Asm
 	dataBytes *DataSection
 }
 
-func EmitRuntime(main *ast.FuncDecl) *CodeUnit {
+func EmitRuntime(main *ast.FuncDecl, o RuntimeOptions) *CodeUnit {
 	u := NewCodeUnit()
 	g := &runtimeUnit{
 		u:         u,
+		count:     o.CountAllocations,
 		rtAlloc:   ExternLabel(ir.RtAlloc),
+		rtFree:    ExternLabel(ir.RtFree),
 		rtWrite:   ExternLabel(ir.RtWrite),
 		rtPanic:   ExternLabel(ir.RtPanic),
 		asm:       u.Asm,
@@ -45,6 +61,9 @@ func EmitRuntime(main *ast.FuncDecl) *CodeUnit {
 	u.DefineData(ir.RtHeap, wordBytes)
 	u.DefineData(ir.RtStdout, wordBytes)
 	u.DefineData(ir.RtStderr, wordBytes)
+	if o.CountAllocations {
+		u.DefineData(ir.RtLive, wordBytes)
+	}
 	g.emitEntry(main)
 	g.emitRuntime()
 	return u
@@ -70,8 +89,44 @@ func (g *runtimeUnit) emitEntry(main *ast.FuncDecl) {
 	a.CallImport(impGetStdHandle)
 	a.StoreSymbol(ir.RtStderr, Rax)
 	a.Call(ExternLabel(main))
+	if g.count {
+		g.exitIfLeaking()
+	}
 	a.Mov(Rcx, Rax)
 	a.CallImport(impExitProcess)
+}
+
+// exitIfLeaking is the end of main in an executable that counts its allocations: a box still live is a drop that the
+// program lacks, so it says so on standard error and exits with leakExitCode. rax, main's exit code, is untouched when none
+// is live. A panic or a trap exits without this check.
+func (g *runtimeUnit) exitIfLeaking() {
+	a := g.asm
+	clean := NewLabel()
+	a.LoadSymbol(Rcx, ir.RtLive)
+	a.Test(Rcx, Rcx)
+	a.Jcc(CcE, clean)
+	g.writeError(func() { a.LeaData(Rax, g.dataBytes.String(leakMessage)) })
+	a.LoadSymbol(Rax, ir.RtLive)
+	a.Push(Rax)
+	a.MovImm(Rax, 0)
+	a.Push(Rax)
+	g.callRuntime(ExternLabel(ir.RtItoa), 2)
+	a.Mov(Rbx, Rax)
+	g.writeError(func() { a.Mov(Rax, Rbx) })
+	g.writeError(func() { a.LeaData(Rax, g.dataBytes.String(leakMessageEnd)) })
+	a.MovImm(Rcx, leakExitCode)
+	a.CallImport(impExitProcess)
+	a.Bind(clean)
+}
+
+// writeError writes the string that text puts in rax to standard error.
+func (g *runtimeUnit) writeError(text func()) {
+	a := g.asm
+	a.LoadSymbol(Rax, ir.RtStderr)
+	a.Push(Rax)
+	text()
+	a.Push(Rax)
+	g.callRuntime(g.rtWrite, 2)
 }
 
 func (g *runtimeUnit) prologue(locals int, callsWindows bool) {
@@ -110,6 +165,26 @@ func (g *runtimeUnit) emitRuntime() {
 	a.MovImm(Rdx, heapZeroMemory)
 	a.Load(R8, Rbp, 16)
 	a.CallImport(impHeapAlloc)
+	if g.count {
+		g.countLive(1)
+	}
+	g.epilogue()
+
+	// free(box): gives a box back to the heap. A box that is 0 is a place that held no value, which HeapFree does not
+	// accept, so it is skipped.
+	u.DefineCode(ir.RtFree)
+	g.prologue(0, true)
+	freed := NewLabel()
+	a.Load(R8, Rbp, 16)
+	a.Test(R8, R8)
+	a.Jcc(CcE, freed)
+	if g.count {
+		g.countLive(-1)
+	}
+	a.LoadSymbol(Rcx, ir.RtHeap)
+	a.Xor(Rdx, Rdx)
+	a.CallImport(impHeapFree)
+	a.Bind(freed)
 	g.epilogue()
 
 	u.DefineCode(ir.RtWrite)
@@ -246,4 +321,12 @@ func (g *runtimeUnit) emitRuntime() {
 		a.Push(Rax)
 		a.Call(g.rtPanic)
 	}
+}
+
+// countLive adds to the number of live boxes, keeping every register but rcx.
+func (g *runtimeUnit) countLive(delta int) {
+	a := g.asm
+	a.LoadSymbol(Rcx, ir.RtLive)
+	a.AddImm(Rcx, delta)
+	a.StoreSymbol(ir.RtLive, Rcx)
 }

@@ -49,7 +49,7 @@ func Link(out string, units []*CodeUnit, entry any, jobs int) {
 	code := make([]byte, codeSize)
 	data := make([]byte, dataSize)
 	codeSymbols := make(map[any]int, codeSymbolCount)
-	dataSymbols := make(map[any]int, dataSymbolCount)
+	dataSymbols := make(map[any]int, dataSymbolCount+2)
 	var symbolLock sync.Mutex
 
 	par.ForEachIndex(len(units), jobs, func(i int) {
@@ -71,6 +71,11 @@ func Link(out string, units []*CodeUnit, entry any, jobs int) {
 			dataSymbols[sym] = dataBase[i] + off
 		}
 	})
+
+	// The data section is where every string literal lives, so the runtime tells one from a string on the heap by whether
+	// its address is between these.
+	dataSymbols[ir.RtImageDataStart] = 0
+	dataSymbols[ir.RtImageDataEnd] = dataSize
 
 	entryOffset, ok := codeSymbols[entry]
 	if !ok {

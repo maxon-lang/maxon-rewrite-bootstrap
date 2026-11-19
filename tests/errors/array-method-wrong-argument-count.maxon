@@ -1,0 +1,6 @@
+// expect-error: E3036 at 4:10
+function main() returns ExitCode
+	var a = array[Count].new()
+	a.append()
+	return 0
+end 'main'

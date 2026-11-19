@@ -1,0 +1,98 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box[T]
+	var item as T
+	static function make(item sink T) returns Self
+		return Self{item: item}
+	end 'make'
+	function peek() returns T
+		return item.copy()
+	end 'peek'
+	function replace(inout self, next sink T)
+		item = next
+	end 'replace'
+end 'Box'
+
+type Pair[A, B]
+	var first as A
+	var second as B
+	static function make(first sink A, second sink B) returns Self
+		return Self{first: first, second: second}
+	end 'make'
+	function swapped() returns Pair[B, A]
+		return Pair[B, A].make(second.copy(), second: first.copy())
+	end 'swapped'
+end 'Pair'
+
+union Option[T]
+	some(value T)
+	none
+	function isSome() returns bool
+		return match self 'm'
+			some(v) gives true
+			none gives false
+		end 'm'
+	end 'isSome'
+	function orElse(fallback T) returns T
+		return match self 'm'
+			some(v) gives v.copy()
+			none gives fallback.copy()
+		end 'm'
+	end 'orElse'
+end 'Option'
+
+function swap[T](a inout T, b inout T)
+	var tmp = a.copy()
+	a = b.copy()
+	b = tmp
+end 'swap'
+
+function twice[T](x T) returns Pair[T, T]
+	return Pair.make(x.copy(), second: x.copy())
+end 'twice'
+
+function find[T](flag bool, x T) returns Option[T]
+	if flag 'f'
+		return Option.some(x.copy())
+	end 'f'
+	return Option[T].none
+end 'find'
+
+function main() returns ExitCode
+	var a = 1 as Score
+	var b = 2 as Score
+	swap(a, b: b)
+	print("{a} {b}\n")
+	var p = Box[String].make("first")
+	var q = Box[String].make("second")
+	swap(p, b: q)
+	print("{p.peek()} {q.peek()}\n")
+	p.replace("third")
+	print("{p.peek()} {q.peek()}\n")
+	let pair = Pair[Score, String].make(7, second: "seven")
+	let flipped = pair.swapped()
+	print("{pair.first} {pair.second} {flipped.first} {flipped.second}\n")
+	let both = twice(Box[Score].make(4))
+	print("{both.first.peek()} {both.second.peek()}\n")
+	let nested = Box[Box[Score]].make(Box[Score].make(9))
+	var other = nested.copy()
+	other.item.replace(1)
+	print("{nested.peek().peek()} {other.peek().peek()}\n")
+	let found = find(true, x: "yes")
+	let missing = find(false, x: "no")
+	print("{found.isSome()} {missing.isSome()} {found.orElse("else")} {missing.orElse("else")}\n")
+	match found 'm'
+		some(s) then print("got {s}\n")
+		none then print("nothing\n")
+	end 'm'
+	return 0
+end 'main'
+
+//> 2 1
+//> second first
+//> third first
+//> 7 seven seven 7
+//> 4 4
+//> 9 1
+//> true false yes else
+//> got yes

@@ -1,0 +1,13 @@
+// expect-error: E3111 at 10:25
+type Outer
+	export var label as String
+	static function make(label sink String) returns Outer
+		return Outer{label: label}
+	end 'make'
+end 'Outer'
+
+function main() returns ExitCode
+	let s = Outer.make("a").label
+	print(s)
+	return 0
+end 'main'

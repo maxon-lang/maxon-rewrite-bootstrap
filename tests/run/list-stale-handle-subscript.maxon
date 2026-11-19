@@ -1,0 +1,14 @@
+// expect-exit: 1
+function main() returns ExitCode
+	var l = list[String].new()
+	let old = l.pushBack("first")
+	let gone = l.remove(old)
+	print("removed {gone.isSome()}\n")
+	let fresh = l.pushBack("second")
+	print("reused {l[fresh]} {l.contains(old)}\n")
+	print("{l[old]}\n")
+	return 0
+end 'main'
+
+//> removed true
+//> reused second false
