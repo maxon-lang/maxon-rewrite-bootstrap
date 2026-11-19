@@ -15,8 +15,11 @@ language subset, the pipeline, the packages and the IR; read it before changing 
   and done there quickly: a call to a function the module does not declare is assumed to exist elsewhere until the
   call is resolved, and only then is a missing or mismatched function an error. Correct programs pay nothing.
 - **Stay portable to Maxon.** Write plain Go: structs, interfaces over closed sets of types (they become Maxon
-  unions), slices, explicit passes. No reflection, no code generation, no dependency outside the standard library,
-  and no runtime-specific trick that the design depends on.
+  unions), slices, explicit passes. No reflection, no dependency outside the standard library, and no
+  runtime-specific trick that the design depends on.
+- **Generated code is allowed when its input is the source of truth** (for example the parser's dispatch generated
+  from the grammar). The generator is plain Go in this repository, its output is checked in and deterministic, and a
+  test regenerates it and fails if the checked-in file differs.
 - **Speed is a requirement.** Both the compiler's own build and its compile speed must stay fast. Measure with
   `--timings` on a large generated project before and after a change to a hot phase, and report the numbers.
 
