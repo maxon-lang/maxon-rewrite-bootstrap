@@ -4,8 +4,8 @@ A small Maxon compiler for trying out language changes, and the seed of the next
 written in Go, targets x64 Windows only, and is about 8,000 lines in ten packages. It compiles modules in parallel and writes a
 PE executable directly, with no external assembler, linker or C runtime.
 
-It is not the real compiler and does not share code with `maxon-bin/`. It started from a core subset of
-Maxon's syntax and error codes, but it does not track the real compiler: an experiment is free to change the
+It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it. It
+started from a core subset of Maxon's syntax and error codes, but it does not track the current compiler: an experiment is free to change the
 language, its rules and its diagnostics. Compatibility with current Maxon is not a criterion; anything changes
 when the change improves the compiler. It is the bootstrap for a compiler that will later be written in Maxon
 itself, so its code stays plain enough to port: structs, interfaces, slices, and no runtime-specific tricks the
