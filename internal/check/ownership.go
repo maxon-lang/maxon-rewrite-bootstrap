@@ -325,7 +325,7 @@ func (o *Ownership) requireDroppable(site ast.Node, t ast.Ty, d ownDrop) {
 		return
 	}
 	if why, fix, lacking := o.checker.whyNot(droppable, t); lacking {
-		o.fail(site, diag.ErrNotDroppable, "%s, but '%s' cannot be dropped (%s); %s", d, t.Name(), why, fix)
+		o.fail(site, diag.ErrNotDroppable, "%s, but '%s' cannot be dropped (%s); %s, or end it with one of its destructors or move it on", d, t.Name(), why, fix)
 	}
 }
 

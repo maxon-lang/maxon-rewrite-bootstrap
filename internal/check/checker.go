@@ -1647,7 +1647,7 @@ func (c *Checker) copyCall(call *ast.CallExpr, receiver ast.Expr, t ast.Ty) ast.
 		panic(call.Error(diag.ErrTypeMismatch, "an expression with no value cannot be copied"))
 	}
 	if why, fix, lacking := c.whyNot(copyable, t); lacking {
-		panic(call.Error(diag.ErrNotCopyable, fmt.Sprintf("a value of '%s' cannot be copied: %s; %s", t.Name(), why, fix)))
+		panic(call.Error(diag.ErrNotCopyable, fmt.Sprintf("a value of '%s' cannot be copied: %s; %s, or move the value instead of copying it", t.Name(), why, fix)))
 	}
 	call.Kind = ast.CallCopy
 	call.Receiver = receiver

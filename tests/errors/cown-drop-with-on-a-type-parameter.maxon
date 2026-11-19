@@ -1,0 +1,9 @@
+function share(consumes item T) uses T
+	let c = cown(item, dropWith: rollback)
+end 'share'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3138 at 2:21

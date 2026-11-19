@@ -85,14 +85,15 @@ func (l *lack) text(name string) string {
 	return strings.Join(sentences, "; ")
 }
 
-// fix says how to get the capability back, from the root cause. name is how the capability is spelled in source.
+// fix says how to give the type the capability back, from the root cause. name is how the capability is spelled in
+// source. What else the site could do instead (move the value, end it) depends on the site, which adds it.
 func (l *lack) fix(name string) string {
 	root := l.root()
 	switch root.reason {
 	case lackDeclared:
-		return fmt.Sprintf("remove 'is noncopyable' from '%s' if its values can be copied, or move the value instead of copying it", root.owner.Name())
+		return fmt.Sprintf("remove 'is noncopyable' from '%s' if its values can be copied", root.owner.Name())
 	case lackDestructor:
-		return fmt.Sprintf("end the '%s' by calling a destructor, or move it instead", root.owner.Name())
+		return fmt.Sprintf("a '%s' is ended only by calling one of its destructors; remove them if its values may be copied and dropped", root.owner.Name())
 	case lackUnbounded:
 		return fmt.Sprintf("add the bound 'where %s implements %s'", root.owner.Name(), name)
 	}
