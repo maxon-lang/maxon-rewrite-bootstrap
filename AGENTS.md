@@ -39,7 +39,8 @@ go test ./...
 .\minimaxon.exe test
 ```
 
-- **Every change keeps `go vet ./...` clean, the code `gofmt`-formatted, and both test suites green.**
+- **Every change keeps `go vet ./...` clean, `go fix -diff ./...` empty, the code `gofmt`-formatted, and both test
+  suites green.** `go fix` runs the modernizers the Go language server suggests; `go fix ./...` applies them.
 - **Unit tests** live beside the package they test (`internal/<package>/*_test.go`) and build only that package and
   its imports, so prefer them for anything a package can answer alone. `internal/check/check_test.go` runs the front
   end on a source string in memory; copy its helper for new front-end tests.

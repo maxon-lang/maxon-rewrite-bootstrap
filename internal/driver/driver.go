@@ -231,12 +231,10 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 		} else {
 			var failure any
 			var done sync.WaitGroup
-			done.Add(1)
-			go func() {
-				defer done.Done()
+			done.Go(func() {
 				defer func() { failure = recover() }()
 				units[0] = backend.EmitRuntime(main)
-			}()
+			})
 			emitModules()
 			done.Wait()
 			if failure != nil {

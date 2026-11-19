@@ -4,6 +4,7 @@ import (
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"sort"
+	"strings"
 )
 
 const lowerWord = 8
@@ -537,7 +538,7 @@ func (l *Lowerer) selectValue(index V, kind IrKind, count int, value func(int) V
 	result := l.f.NewSlot(kind)
 	end := l.f.NewBlock()
 	targets := make([]*IrBlock, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		targets[i] = l.f.NewBlock()
 	}
 	values := make([]int64, count-1)
@@ -545,7 +546,7 @@ func (l *Lowerer) selectValue(index V, kind IrKind, count int, value func(int) V
 		values[i] = int64(i)
 	}
 	l.cur.Term = &SwitchTerm{Value: index, Values: values, Targets: targets[:count-1], Default: targets[count-1]}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		l.cur = targets[i]
 		v := value(i)
 		l.emit(&StoreSlot{Slot: result, Src: v})
@@ -556,11 +557,11 @@ func (l *Lowerer) selectValue(index V, kind IrKind, count int, value func(int) V
 
 func (l *Lowerer) VisitStrLit(s *ast.StrLit) V {
 	if s.IsPlain() {
-		text := ""
+		var text strings.Builder
 		for _, p := range s.Parts {
-			text += p.(string)
+			text.WriteString(p.(string))
 		}
-		return l.str(text)
+		return l.str(text.String())
 	}
 	acc := l.part(s.Parts[0])
 	for i := 1; i < len(s.Parts); i++ {

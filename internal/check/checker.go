@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
+	"slices"
 	"strings"
 )
 
@@ -344,8 +345,8 @@ func (c *Checker) enterContext(f *ast.FuncDecl, nt ast.NominalTy, calls bool) {
 }
 
 func (c *Checker) lookupLocal(name string) *ast.Local {
-	for i := len(c.scopes) - 1; i >= 0; i-- {
-		if l, ok := c.scopes[i][name]; ok {
+	for _, v := range slices.Backward(c.scopes) {
+		if l, ok := v[name]; ok {
 			return l
 		}
 	}
@@ -1253,22 +1254,22 @@ func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.Node {
 		word = "break"
 	}
 	if label == "" {
-		for i := len(c.blocks) - 1; i >= 0; i-- {
-			if isBreak || c.blocks[i].Kind == checkerLoop {
-				return c.blocks[i].Node
+		for _, v := range slices.Backward(c.blocks) {
+			if isBreak || v.Kind == checkerLoop {
+				return v.Node
 			}
 		}
 		panic(s.P().Error(diag.ErrUnexpectedToken, fmt.Sprintf("'%s' outside a loop", word)))
 	}
 
-	for i := len(c.blocks) - 1; i >= 0; i-- {
-		if c.blocks[i].Label != label {
+	for _, v := range slices.Backward(c.blocks) {
+		if v.Label != label {
 			continue
 		}
-		if !isBreak && c.blocks[i].Kind != checkerLoop {
+		if !isBreak && v.Kind != checkerLoop {
 			panic(s.P().Error(diag.ErrUnexpectedToken, fmt.Sprintf("'continue' names '%s', which is not a loop", label)))
 		}
-		return c.blocks[i].Node
+		return v.Node
 	}
 	panic(s.P().Error(diag.ErrUnexpectedToken, fmt.Sprintf("no enclosing loop or match is labelled '%s'", label)))
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func TestRemoveUnreachableAndPrint(t *testing.T) {
-	decl := &ast.FuncDecl{DeclBase: ast.DeclBase{Name: "f"}}
+	decl := &ast.FuncDecl{Name: "f"}
 	f := &IrFunction{Decl: decl}
 	entry := f.NewBlock()
 	dead := f.NewBlock()

@@ -522,8 +522,8 @@ func (m *model) describeTerminal(id string) string {
 	if id == eofConst {
 		return "the end of the file"
 	}
-	if strings.HasPrefix(id, keywordPrefix) {
-		return "'" + strings.TrimPrefix(id, keywordPrefix) + "'"
+	if after, ok := strings.CutPrefix(id, keywordPrefix); ok {
+		return "'" + after + "'"
 	}
 	t := m.tokenByName[strings.TrimPrefix(id, "T")]
 	switch {

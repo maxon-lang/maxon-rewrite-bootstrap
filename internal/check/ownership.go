@@ -2,8 +2,10 @@ package check
 
 import (
 	"fmt"
+	"maps"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
+	"slices"
 )
 
 type ownState struct {
@@ -29,9 +31,7 @@ func (s *ownState) with(l *ast.Local, site ast.Node) *ownState {
 		return s
 	}
 	m := make(map[*ast.Local]ast.Node, len(s.moved)+1)
-	for k, v := range s.moved {
-		m[k] = v
-	}
+	maps.Copy(m, s.moved)
 	m[l] = site
 	return &ownState{moved: m}
 }
@@ -67,9 +67,7 @@ func mergeOwn(a, b *ownState) *ownState {
 		if _, ok := a.moved[k]; !ok {
 			if m == nil {
 				m = make(map[*ast.Local]ast.Node, len(a.moved)+1)
-				for ak, av := range a.moved {
-					m[ak] = av
-				}
+				maps.Copy(m, a.moved)
 			}
 			m[k] = v
 		}
@@ -124,9 +122,9 @@ func (o *Ownership) Check(f *ast.FuncDecl) {
 }
 
 func (o *Ownership) frameOf(target ast.Node) *ownFrame {
-	for i := len(o.frames) - 1; i >= 0; i-- {
-		if o.frames[i].target == target {
-			return o.frames[i]
+	for _, v := range slices.Backward(o.frames) {
+		if v.target == target {
+			return v
 		}
 	}
 	panic(diag.Internal("ownership: a jump has no enclosing frame"))
@@ -219,7 +217,7 @@ func (o *Ownership) loop(loop ast.Node, s *ownState, body []ast.Stmt, cond ast.E
 		entry = o.expr(cond, s)
 	}
 	end := ownUnreachable
-	for pass := 0; pass < 2; pass++ {
+	for range 2 {
 		end = o.walk(body, entry)
 		entry = mergeOwn(mergeOwn(entry, end), frame.continues)
 		if cond != nil {

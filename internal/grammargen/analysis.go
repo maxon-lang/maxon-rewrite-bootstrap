@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
@@ -197,8 +198,8 @@ func (a *analysis) firstOne(e *elem) (map[string]bool, bool) {
 func (a *analysis) walkFollow(elems []*elem, after map[string]bool) bool {
 	changed := false
 	cur := after
-	for i := len(elems) - 1; i >= 0; i-- {
-		e := elems[i]
+	for _, e := range slices.Backward(elems) {
+
 		inner := cur
 		if e.suffix == '*' || e.suffix == '+' {
 			own, _ := a.firstOne(e)

@@ -325,7 +325,7 @@ func (lx *Lexer) readEscape(l, cl int) rune {
 
 func (lx *Lexer) readHex(n, l, cl int) int {
 	v := 0
-	for i := 0; i < n; i++ {
+	for range n {
 		ch := lx.peek(0)
 		if !isAsciiHexDigit(ch) {
 			panic(lx.fail(diag.ErrUnexpectedToken, "malformed hex escape", l, cl))
@@ -440,7 +440,7 @@ func (lx *Lexer) lexPunct(c byte, l, cl int) {
 		lx.depth = max(0, lx.depth-1)
 	}
 	text := lx.intern(lx.src[lx.pos : lx.pos+length])
-	for i := 0; i < length; i++ {
+	for range length {
 		lx.advance()
 	}
 	lx.toks = append(lx.toks, Token{Kind: kind, Text: text, Line: l, Col: cl})

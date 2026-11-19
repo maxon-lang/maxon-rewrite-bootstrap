@@ -89,7 +89,7 @@ type RecordTy struct {
 }
 
 func NewRecordTy(d *TypeDecl) *RecordTy {
-	return &RecordTy{NominalBase: NominalBase{name: d.Name, Methods: map[string]*FuncDecl{}}, Decl: d}
+	return &RecordTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
 }
 
 func (r *RecordTy) IsManaged() bool { return true }
@@ -112,7 +112,7 @@ type EnumTy struct {
 }
 
 func NewEnumTy(d *EnumDecl) *EnumTy {
-	return &EnumTy{NominalBase: NominalBase{name: d.Name, Methods: map[string]*FuncDecl{}}, Decl: d}
+	return &EnumTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
 }
 
 func (e *EnumTy) IsManaged() bool { return false }
@@ -143,7 +143,7 @@ type UnionTy struct {
 }
 
 func NewUnionTy(d *UnionDecl) *UnionTy {
-	return &UnionTy{NominalBase: NominalBase{name: d.Name, Methods: map[string]*FuncDecl{}}, Decl: d}
+	return &UnionTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
 }
 
 func (u *UnionTy) IsManaged() bool { return true }

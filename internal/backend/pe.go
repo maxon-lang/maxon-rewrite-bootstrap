@@ -134,7 +134,7 @@ func WritePe(path string, code, data []byte, dll string, imports []string, entry
 	w.u32(0)
 	w.u32(peDirectoryCount)
 
-	for i := 0; i < int(peDirectoryCount); i++ {
+	for i := range int(peDirectoryCount) {
 		switch i {
 		case peImportDirectory:
 			w.u32(idataRva)
@@ -204,7 +204,7 @@ func buildImports(rva uint32, dll string, imports []string) ([]byte, uint32, uin
 	w.u32(dllRva)
 	w.u32(rva + iatOffset)
 	w.zeros(20)
-	for table := 0; table < 2; table++ {
+	for range 2 {
 		for _, nr := range nameRvas {
 			w.u64(uint64(nr))
 		}

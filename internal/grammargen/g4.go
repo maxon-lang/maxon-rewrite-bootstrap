@@ -247,7 +247,7 @@ func parseGrammar(file, src string) *grammar {
 		case p.isIdent("tokens"):
 			p.next()
 			body := p.expect(tkBrace)
-			for _, name := range strings.Split(body.text, ",") {
+			for name := range strings.SplitSeq(body.text, ",") {
 				if name = strings.TrimSpace(name); name != "" {
 					g.tokens = append(g.tokens, &tokenDef{name: name, desc: p.takeDoc(), line: body.line})
 				}
