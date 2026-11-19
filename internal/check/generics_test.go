@@ -14,7 +14,7 @@ interface Shape
 	function grow(inout self, by Score)
 end 'Shape'
 
-type Square is Shape
+type Square implements Shape
 	export var side as Score
 	static function create(side Score) returns Square
 		return Square{side: side}
@@ -60,7 +60,7 @@ function consume[T](a sink T) returns Score
 	return 1
 end 'consume'
 
-function total[T is Shape](a T, b T) returns Score
+function total[T implements Shape](a T, b T) returns Score
 	return a.area() + b.area()
 end 'total'
 
@@ -110,7 +110,7 @@ func TestGenericsReject(t *testing.T) {
 		{"comparing type parameters", "function f[T](a T, b T) returns bool\n\treturn a == b\nend 'f'\n\n", "", diag.ErrTypeMismatch},
 		{"interpolating a type parameter", "function f[T](a T) returns String\n\treturn \"{a}\"\nend 'f'\n\n", "", diag.ErrTypeMismatch},
 		{"returning a different type parameter", "function f[T, U](a T, b U) returns T\n\treturn b.copy()\nend 'f'\n\n", "", diag.ErrTypeMismatch},
-		{"bound that is not an interface", "function f[T is Square](a T)\n\tprint(\"x\")\nend 'f'\n\n", "", diag.ErrGenericDeclaration},
+		{"bound that is not an interface", "function f[T implements Square](a T)\n\tprint(\"x\")\nend 'f'\n\n", "", diag.ErrGenericDeclaration},
 	} {
 		t.Run(tc.name, func(t *testing.T) { expectCodes(t, checkGeneric(t, tc.decls, tc.body), tc.code) })
 	}
@@ -120,7 +120,7 @@ func TestBoundIsCheckedAtTheInstance(t *testing.T) {
 	decls := "function f(p Plain) returns Score\n\treturn total(p, b: p)\nend 'f'\n\n"
 	errs := checkGeneric(t, decls, "")
 	expectCodes(t, errs, diag.ErrBoundNotMet)
-	for _, want := range []string{"Plain", "Shape", "type Plain is Shape", "area"} {
+	for _, want := range []string{"Plain", "Shape", "type Plain implements Shape", "area"} {
 		if !strings.Contains(errs[0].Message, want) {
 			t.Errorf("the message %q does not mention %q", errs[0].Message, want)
 		}
@@ -135,10 +135,10 @@ func TestBoundErrorInsideABodyIsReportedOnce(t *testing.T) {
 func TestConformanceIsCheckedAtTheDeclaration(t *testing.T) {
 	const area = "\tfunction area() returns Score\n\t\treturn r\n\tend 'area'\n"
 	for name, decl := range map[string]string{
-		"missing method":   "type Round is Shape\n\tvar r as Score\n" + area + "end 'Round'\n",
-		"wrong return":     "type Round is Shape\n\tvar r as Score\n\tfunction area() returns String\n\t\treturn \"r\"\n\tend 'area'\n\tfunction grow(inout self, by Score)\n\t\tr = r + by\n\tend 'grow'\nend 'Round'\n",
-		"wrong convention": "type Round is Shape\n\tvar r as Score\n" + area + "\tfunction grow(by Score)\n\t\tprint(\"x\")\n\tend 'grow'\nend 'Round'\n",
-		"wrong parameter":  "type Round is Shape\n\tvar r as Score\n" + area + "\tfunction grow(inout self, by String)\n\t\tprint(by)\n\tend 'grow'\nend 'Round'\n",
+		"missing method":   "type Round implements Shape\n\tvar r as Score\n" + area + "end 'Round'\n",
+		"wrong return":     "type Round implements Shape\n\tvar r as Score\n\tfunction area() returns String\n\t\treturn \"r\"\n\tend 'area'\n\tfunction grow(inout self, by Score)\n\t\tr = r + by\n\tend 'grow'\nend 'Round'\n",
+		"wrong convention": "type Round implements Shape\n\tvar r as Score\n" + area + "\tfunction grow(by Score)\n\t\tprint(\"x\")\n\tend 'grow'\nend 'Round'\n",
+		"wrong parameter":  "type Round implements Shape\n\tvar r as Score\n" + area + "\tfunction grow(inout self, by String)\n\t\tprint(by)\n\tend 'grow'\nend 'Round'\n",
 	} {
 		t.Run(name, func(t *testing.T) { expectCodes(t, checkGeneric(t, decl+"\n", ""), diag.ErrConformance) })
 	}
@@ -149,7 +149,7 @@ func TestSelfInAnInterfaceIsTheImplementingType(t *testing.T) {
 	function doubled() returns Self
 end 'Scale'
 
-type Mark is Scale
+type Mark implements Scale
 	export var n as Score
 	static function create(n Score) returns Mark
 		return Mark{n: n}
@@ -159,7 +159,7 @@ type Mark is Scale
 	end 'doubled'
 end 'Mark'
 
-function twice[T is Scale](a T) returns T
+function twice[T implements Scale](a T) returns T
 	return a.doubled().doubled()
 end 'twice'
 

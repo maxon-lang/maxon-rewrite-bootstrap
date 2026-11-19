@@ -135,7 +135,7 @@ func (c *Checker) VerifyBounds(bounds []ast.PendingBound) {
 func (c *Checker) resolve(tr *ast.TypeRef, self ast.Ty) ast.Ty {
 	t := c.resolveNamed(tr, self)
 	if _, isInterface := t.(*ast.InterfaceTy); isInterface {
-		panic(tr.Error(diag.ErrInterfaceAsType, fmt.Sprintf("'%s' is an interface, which only bounds a type parameter: write a type parameter 'T is %s' and use T as the type", tr.Name, tr.Name)))
+		panic(tr.Error(diag.ErrInterfaceAsType, fmt.Sprintf("'%s' is an interface, which only bounds a type parameter: write a type parameter 'T implements %s' and use T as the type", tr.Name, tr.Name)))
 	}
 	return t
 }
@@ -1498,17 +1498,17 @@ func (c *Checker) requireConforms(site ast.Node, arg ast.Ty, iface *ast.Interfac
 		if slices.Contains(t.Interfaces, iface) {
 			return
 		}
-		panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("the type parameter '%s' is not known to be %s, which the type argument for '%s' must be: add the bound, '%s is %s'",
+		panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("the type parameter '%s' is not known to be %s, which the type argument for '%s' must be: add the bound, '%s implements %s'",
 			t.Name(), iface.Name(), param.Name(), t.Name(), iface.Name())))
 	case ast.NominalTy:
 		if slices.Contains(t.Base().Declaration().Conforms, iface) {
 			return
 		}
 		if c.project.Builtins.Is(t) {
-			panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' is built in and implements no interface, so it cannot be %s for '%s'; wrap it in a type of your own that declares 'is %s'",
+			panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' is built in and implements no interface, so it cannot be %s for '%s'; wrap it in a type of your own that declares 'implements %s'",
 				t.Name(), iface.Name(), param.Name(), c.spelled(iface))))
 		}
-		panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' must be %s for '%s': declare '%s %s is %s'%s",
+		panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' must be %s for '%s': declare '%s %s implements %s'%s",
 			t.Name(), iface.Name(), param.Name(), declarationWord(t), t.Base().Declaration().Name(), c.spelled(iface), missingMethods(t, iface))))
 	}
 	panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' must be %s for '%s', but only a type, enum or union implements an interface",
@@ -1569,7 +1569,7 @@ func (c *Checker) requireImplements(site ast.Node, nt ast.NominalTy, iface *ast.
 		if found {
 			problem = "has it as '" + signatureText(m.Name, m.Pass.SelfConv, m.Pass.Specs, m.ReturnType) + "'"
 		}
-		panic(site.P().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it is %s, which needs '%s', but '%s' %s: add or change the method to match it",
+		panic(site.P().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it implements %s, which needs '%s', but '%s' %s: add or change the method to match it",
 			nt.Name(), iface.Name(), signatureText(sig.Name, sig.Pass.SelfConv, wantSpecs, wantReturn), nt.Name(), problem)))
 	}
 }

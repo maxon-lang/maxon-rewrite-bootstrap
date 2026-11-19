@@ -188,7 +188,7 @@ func TestParsesGenericDeclarationsAndUses(t *testing.T) {
 	function grow(inout self, by Score)
 end 'Shape'
 
-type Box[T is Shape and Named, U] is Shape
+type Box[T implements Shape and Named, U] implements Shape
 	var item as T
 end 'Box'
 
@@ -249,5 +249,24 @@ end 'f'
 	call := body[1].(*ast.ExprStmt).E.(*ast.CallExpr)
 	if len(call.Args) != 2 || call.Args[0].Value.(*ast.IndexExpr).Args[0].(*ast.BinaryExpr).Op != "-" {
 		t.Fatalf("call arguments: %+v", call.Args)
+	}
+}
+
+func TestKeywordEditsRenameOnlyTheKeyword(t *testing.T) {
+	src := sourceOf("// an end comment\nfunction main() returns ExitCode\n\tlet end2 = \"end {f(end2)}\"\n\treturn 0\nend 'end'\n",
+		"function f() returns ExitCode\n\treturn 0\nend 'f'\n")
+	got := ApplyEdits(src.Text, KeywordEdits(src, "end", "fin"))
+	want := "// an end comment\nfunction main() returns ExitCode\n\tlet end2 = \"end {f(end2)}\"\n\treturn 0\nfin 'end'\n" +
+		"function f() returns ExitCode\n\treturn 0\nfin 'f'\n"
+	if got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestKeywordEditsLookIntoInterpolations(t *testing.T) {
+	src := sourceOf("function main() returns ExitCode\n\tprint(\"{1 if true else 2}\")\n\treturn 0\nend 'main'\n")
+	got := ApplyEdits(src.Text, KeywordEdits(src, "true", "false"))
+	if !strings.Contains(got, "{1 if false else 2}") {
+		t.Errorf("the interpolation was not renamed:\n%s", got)
 	}
 }

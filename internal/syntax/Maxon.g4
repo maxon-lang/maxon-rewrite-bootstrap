@@ -177,7 +177,7 @@ typeParamList
     ;
 
 typeParam
-    : name=Name ('is' bounds+=typeRef ('and' bounds+=typeRef)*)?
+    : name=Name ('implements' bounds+=typeRef ('and' bounds+=typeRef)*)?
     ;
 
 @ast::TypeParam {
@@ -185,7 +185,7 @@ typeParam
 }
 
 conformsClause returns [[]*TypeRef interfaces]
-    : 'is' interfaces+=typeRef ('and' interfaces+=typeRef)*
+    : 'implements' interfaces+=typeRef ('and' interfaces+=typeRef)*
     ;
 
 interfaceDecl

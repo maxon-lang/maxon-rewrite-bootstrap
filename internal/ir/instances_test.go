@@ -63,7 +63,7 @@ interface Shape
 	function area() returns Score
 end 'Shape'
 
-type Square is Shape
+type Square implements Shape
 	var side as Score
 	static function create(side Score) returns Square
 		return Square{side: side}
@@ -89,11 +89,11 @@ function swap[T](a inout T, b inout T)
 	b = tmp
 end 'swap'
 
-function total[T is Shape](a T, b T) returns Score
+function total[T implements Shape](a T, b T) returns Score
 	return a.area() + b.area()
 end 'total'
 
-function both[T is Shape](a T) returns Score
+function both[T implements Shape](a T) returns Score
 	var b = a.copy()
 	var c = a.copy()
 	swap(b, b: c)

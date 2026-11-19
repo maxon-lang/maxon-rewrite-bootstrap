@@ -503,7 +503,7 @@ interface Growable
 	function grow(inout self, by Count)
 end 'Growable'
 
-type Meter is Scorable and Growable
+type Meter implements Scorable and Growable
 	var n as Count
 	static function make(n Count) returns Meter
 		return Meter{n: n}
@@ -551,15 +551,15 @@ function overwrite[T](target inout T, with T)
 	target = with.copy()
 end 'overwrite'
 
-function total[T is Scorable](x T) returns Count
+function total[T implements Scorable](x T) returns Count
 	return x.score()
 end 'total'
 
-function totalFrozen[T is Scorable](x frozen[T]) returns Count
+function totalFrozen[T implements Scorable](x frozen[T]) returns Count
 	return x.score()
 end 'totalFrozen'
 
-function growTwice[T is Growable](x inout T)
+function growTwice[T implements Growable](x inout T)
 	x.grow(1)
 	x.grow(2)
 end 'growTwice'

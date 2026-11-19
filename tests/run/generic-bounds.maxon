@@ -5,7 +5,7 @@ interface Describe
 	function twin() returns Self
 end 'Describe'
 
-enum Color is Describe
+enum Color implements Describe
 	red
 	green
 	function describe() returns String
@@ -16,7 +16,7 @@ enum Color is Describe
 	end 'twin'
 end 'Color'
 
-type Wrapper[T is Describe] is Describe
+type Wrapper[T implements Describe] implements Describe
 	var inner as T
 	var uses = 0 as Score
 	static function make(inner sink T) returns Self
@@ -38,11 +38,11 @@ type Tally
 	end 'create'
 end 'Tally'
 
-function show[T is Describe](item T) returns String
+function show[T implements Describe](item T) returns String
 	return item.describe()
 end 'show'
 
-function showTwin[T is Describe](item T) returns String
+function showTwin[T implements Describe](item T) returns String
 	return show(item.twin())
 end 'showTwin'
 

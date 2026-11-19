@@ -66,7 +66,7 @@ function make() returns array[Cell]
 	return array[Cell].new()
 end 'make'
 
-function total[T is Shape](x T) returns Count
+function total[T implements Shape](x T) returns Count
 	return x.area()
 end 'total'
 

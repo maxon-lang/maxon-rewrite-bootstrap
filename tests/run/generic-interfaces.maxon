@@ -10,7 +10,7 @@ interface Named
 	function label() returns String
 end 'Named'
 
-type Square is Shape and Named
+type Square implements Shape and Named
 	var side as Count
 	static function make(side Count) returns Square
 		return Square{side: side}
@@ -29,7 +29,7 @@ type Square is Shape and Named
 	end 'label'
 end 'Square'
 
-type Pair[A, B is Shape]
+type Pair[A, B implements Shape]
 	var first as A
 	var second as B
 	static function make(first sink A, second sink B) returns Self
@@ -51,11 +51,11 @@ union Option[T]
 	end 'isSome'
 end 'Option'
 
-function total[T is Shape](a T, b T) returns Count
+function total[T implements Shape](a T, b T) returns Count
 	return a.area() + b.area()
 end 'total'
 
-function describe[T is Shape and Named](item inout T) returns String
+function describe[T implements Shape and Named](item inout T) returns String
 	item.grow(1)
 	let bigger = item.scaled(2)
 	return "{item.label()} {bigger.label()} {bigger.area()}"

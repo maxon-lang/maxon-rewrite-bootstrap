@@ -34,6 +34,7 @@ go test ./...
 | `minimaxon run <file\|dir>` | compile to `%TEMP%\minimaxon\` and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only |
 | `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
+| `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword in every `.maxon` file under the paths, by token (see "Changing the language") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many
@@ -41,7 +42,8 @@ modules compile at once. The default is one fewer than the processor count, and 
 whatever the value. `--timings` prints each phase's wall time, allocation, garbage collections and GC pause time
 to stderr. `--seed=N` picks the schedule of behaviours that `interp` runs (default 0). `--count-allocations` builds an
 executable that counts its live heap boxes (see "Counting allocations"); it is for development, and `minimaxon test` always
-uses it.
+uses it. `--update-positions` makes `test` rewrite the `at L:C` of an `expect-error` whose code was reported at another
+place, and count the test as passed.
 
 ### Tests
 
@@ -118,7 +120,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines | — |
 | `ast` | the program model: AST nodes, keywords and visitors (generated), semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project` | `diag` |
 | `project` | loading a project: discovery, declaration tables, the import-cycle check | `ast`, `diag`, `par` |
-| `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, and the parser generated from the grammar | `ast`, `diag` |
+| `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar, and refactorings as edits to the source | `ast`, `diag` |
 | `resolve` | name resolution, and telling a subscript from type arguments | `ast`, `diag` |
 | `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture | `ast`, `diag` |
 | `ir` | the IR, its printer, collecting generic instances, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), and the runtime's symbol names | `ast`, `diag` |
@@ -554,7 +556,7 @@ interface Shape
 	function grow(inout self, by Count)
 end 'Shape'
 
-type Square is Shape
+type Square implements Shape
 	var side as Count
 	function area() returns Count
 		return side * side
@@ -571,14 +573,14 @@ type Box[T]
 	end 'make'
 end 'Box'
 
-function total[T is Shape](a T, b T) returns Count
+function total[T implements Shape](a T, b T) returns Count
 	return a.area() + b.area()
 end 'total'
 ```
 
-- **Declaring.** A function, a `type` or a `union` takes type parameters in brackets, `[T, U is Shape and Other]`;
-  `is` names the bounds a parameter must meet. A type, an enum or a union says which interfaces it implements with
-  `is` too: `type Square is Shape and Named`. An interface lists method signatures, each with its receiver convention
+- **Declaring.** A function, a `type` or a `union` takes type parameters in brackets, `[T, U implements Shape and Other]`;
+  `implements` names the bounds a parameter must meet. A type, an enum or a union says which interfaces it implements with
+  `implements` too: `type Square implements Shape and Named`. An interface lists method signatures, each with its receiver convention
   (`inout self`, `sink self`, or none for a `let` receiver), and may name `Self`. It is a bound and nothing else: it
   is not the type of a value (`E3119`), has no type parameters, no static function and no parent interface, and an
   alias, `String` or `bool` cannot implement one. A method uses its type's parameters and takes none of its own
@@ -602,7 +604,7 @@ end 'total'
   `copy()` keeps one. So a generic container gives its element out with `.copy()`, or takes it out of a primitive
   with `remove`, `pop` or `unwrap` (see "Primitives"): no value is moved out of a field or a payload.
 - **Bounds at the instance.** Writing a type argument is the only place an instance is judged: it must implement
-  each interface its parameter is bounded by, which is a declaration (`type Round is Shape`) and not a structural
+  each interface its parameter is bounded by, which is a declaration (`type Round implements Shape`) and not a structural
   match, and the error names the declaration to write and the methods missing (`E3117`). A declaration that says
   `is Shape` is checked once, for every method with the signature `Shape` gives (`E3120`), so a bound never fails
   later. Inside another generic, a type parameter meets a bound only if it is declared with it. Bounds belong to
@@ -788,7 +790,7 @@ bench at the same 49–50 ms as without the checks.
   behaviours, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.
 - `/` and `mod` panic on a zero divisor instead of throwing `DivisionByZero` under `try`.
-- No alias subtyping (`implements`), floats, characters, tuples, closures,
+- No alias subtyping (an alias implementing another), floats, characters, tuples, closures,
   `try`/`throws`, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
   parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented up to
   regions: owned values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
@@ -810,6 +812,24 @@ bench at the same 49–50 ms as without the checks.
   name (`E3012`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
   an unneeded cast (`E3010`), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
   (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3092`, `E3219`).
+
+## Changing the language
+
+A change to the syntax touches many programs, so two commands do the mechanical part:
+
+- **`minimaxon rewrite --keyword=old=new <path>...`** renames a keyword. It lexes each file and changes only keyword
+  tokens, so a name, a label, a comment or a string's text that reads the same is left alone, and a keyword inside an
+  interpolation is renamed. Run it before editing `Maxon.g4`: once the grammar stops reserving the word, a use of it
+  cannot be told from a name, and the command refuses. A file the lexer refuses, such as a test of a lexer error, is
+  left alone and listed if it contains the word. Maxon source inside Go strings (unit tests, the generator) is not
+  reached; the Go tests find it.
+- **`minimaxon test --update-positions`** moves each `expect-error` whose code is now reported at another line or column,
+  as after a rename that changes a line's length. It never changes the code a test expects, so a test that now fails
+  with another error still fails.
+
+A refactoring is a list of `syntax.Edit`s (a byte range and its new text), applied by `syntax.ApplyEdits`, so a language
+server can send the same edits to an editor. `.claude/skills/language-change` holds the checklist for a change to the
+language.
 
 ## Adding a feature
 

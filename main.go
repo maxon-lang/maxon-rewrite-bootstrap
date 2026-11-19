@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/driver"
 	"minimaxon/internal/interp"
+	"minimaxon/internal/syntax"
 
 	"os"
 	"os/exec"
@@ -27,11 +29,13 @@ const usage = `usage:
   minimaxon check <file.maxon|dir>                report diagnostics only
   minimaxon test [dir]                            run the test corpus (default: tests/)
   minimaxon interp <file.maxon|dir>               run under the tracking interpreter (development only)
+  minimaxon rewrite --keyword=old=new <path>...   rename a keyword in every .maxon file under the paths
 
 A directory is a project: each directory under it is a module. --jobs=N sets how many modules
 compile at once (default: one fewer than the processor count). --timings prints each phase's time; --emit-ir writes the IR beside the executable, as <out>.ir.
 --seed=N picks the schedule of behaviours that interp runs. --count-allocations builds executables that count their live
-heap boxes and fail at exit with code 99 if any is left (development only).`
+heap boxes and fail at exit with code 99 if any is left (development only). --update-positions makes test rewrite
+the position of an expect-error whose code was reported at another place.`
 
 const (
 	internalErrorExitCode = 3
@@ -43,6 +47,8 @@ const (
 	timingsFlag           = "--timings"
 	emitIrFlag            = "--emit-ir"
 	countAllocationsFlag  = "--count-allocations"
+	updatePositionsFlag   = "--update-positions"
+	keywordFlagPrefix     = "--keyword="
 	modulesDir            = "modules"
 	sourceExtension       = ".maxon"
 	executableExtension   = ".exe"
@@ -67,7 +73,10 @@ var (
 	emitIR  bool
 	// countAllocations builds executables that count their live heap boxes (see the README, "Counting allocations").
 	countAllocations bool
-	seed             int64
+	// updatePositions makes the test runner rewrite an expect-error's position when the expected code was reported
+	// somewhere else, as it is after a change that only moves code, such as renaming a keyword.
+	updatePositions bool
+	seed            int64
 )
 
 func compileWithFlags(path, output string) []*diag.CompileError {
@@ -122,8 +131,11 @@ func runMain(args []string) (code int) {
 		timings = timings || a == timingsFlag
 		emitIR = emitIR || a == emitIrFlag
 		countAllocations = countAllocations || a == countAllocationsFlag
+		updatePositions = updatePositions || a == updatePositionsFlag
 	}
-	args = filterArgs(args, func(a string) bool { return a != timingsFlag && a != emitIrFlag && a != countAllocationsFlag })
+	args = filterArgs(args, func(a string) bool {
+		return a != timingsFlag && a != emitIrFlag && a != countAllocationsFlag && a != updatePositionsFlag
+	})
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, usage)
 		return usageExitCode
@@ -181,6 +193,13 @@ func run(args []string) int {
 		return exitCodeOf(cmd.ProcessState)
 	case args[0] == "interp" && len(args) >= 2:
 		return interpret(args[1])
+	case args[0] == "rewrite" && len(args) >= 3 && strings.HasPrefix(args[1], keywordFlagPrefix):
+		old, new, ok := strings.Cut(args[1][len(keywordFlagPrefix):], "=")
+		if !ok || old == "" || new == "" {
+			fmt.Fprintln(os.Stderr, usage)
+			return usageExitCode
+		}
+		return renameKeyword(old, new, args[2:])
 	case args[0] == "test":
 		if len(args) >= 2 {
 			return runTests(args[1])
@@ -387,8 +406,16 @@ func runTest(file string, expect expectation) (string, bool) {
 	if expect.HasError {
 		code, at, hasAt := strings.Cut(expect.Error, errorLocationSplit)
 		for _, e := range errs {
-			if e.Code == code && (!hasAt || at == strconv.Itoa(e.Line)+":"+strconv.Itoa(e.Col)) {
+			if e.Code == code && (!hasAt || at == positionText(e)) {
 				return "", false
+			}
+		}
+		if updatePositions && hasAt {
+			for _, e := range errs {
+				if e.Code == code {
+					moveExpectedError(file, expect.Error, code+errorLocationSplit+positionText(e))
+					return "", false
+				}
 			}
 		}
 		if len(errs) == 0 {
@@ -508,4 +535,88 @@ func runLimited(cmd *exec.Cmd, limitMB int) error {
 	}
 	defer release()
 	return cmd.Wait()
+}
+
+func positionText(e *diag.CompileError) string {
+	return strconv.Itoa(e.Line) + ":" + strconv.Itoa(e.Col)
+}
+
+// moveExpectedError rewrites the expect-error directive of program, a file or a project directory, from old to new.
+func moveExpectedError(program, old, new string) {
+	files := []string{program}
+	if info, err := os.Stat(program); err == nil && info.IsDir() {
+		files, _ = filepath.Glob(filepath.Join(program, "*"+sourceExtension))
+	}
+	oldLine, newLine := expectErrorPrefix+" "+old, expectErrorPrefix+" "+new
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			panic(diag.Internal("cannot read %s: %v", file, err))
+		}
+		text := string(data)
+		if !strings.Contains(text, oldLine) {
+			continue
+		}
+		if err := os.WriteFile(file, []byte(strings.Replace(text, oldLine, newLine, 1)), 0o644); err != nil {
+			panic(diag.Internal("cannot write %s: %v", file, err))
+		}
+		fmt.Printf("moved  %s: %s -> %s\n", file, old, new)
+		return
+	}
+	panic(diag.Internal("no file of %s holds '%s'", program, oldLine))
+}
+
+// renameKeyword is the rewrite command: it renames the keyword old to new in every .maxon file under paths, by token,
+// and reports the files it could not lex, which it leaves alone. It runs before Maxon.g4 changes, while old is still
+// a keyword.
+func renameKeyword(old, new string, paths []string) int {
+	if !ast.IsReserved(old) {
+		fmt.Fprintf(os.Stderr, "'%s' is not a keyword of the current grammar: rename it before changing Maxon.g4\n", old)
+		return usageExitCode
+	}
+	var files []string
+	for _, root := range paths {
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err == nil && !d.IsDir() && strings.HasSuffix(path, sourceExtension) {
+				files = append(files, path)
+			}
+			return err
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", root, err)
+			return 1
+		}
+	}
+	sort.Strings(files)
+	renamed, changedFiles, skipped := 0, 0, 0
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			panic(diag.Internal("cannot read %s: %v", file, err))
+		}
+		text := string(data)
+		var edits []syntax.Edit
+		var errs []*diag.CompileError
+		diag.Guard(&errs, func() {
+			edits = syntax.KeywordEdits(syntax.NewSource(text, []syntax.FileSlice{{File: file, Begin: 0, End: len(text)}}), old, new)
+		})
+		if len(errs) > 0 {
+			// A file the lexer refuses, such as a test of a lexer error, matters only if it may hold the keyword.
+			if strings.Contains(text, old) {
+				fmt.Printf("skipped  %s\n", errs[0])
+				skipped++
+			}
+			continue
+		}
+		if len(edits) == 0 {
+			continue
+		}
+		if err := os.WriteFile(file, []byte(syntax.ApplyEdits(text, edits)), 0o644); err != nil {
+			panic(diag.Internal("cannot write %s: %v", file, err))
+		}
+		renamed += len(edits)
+		changedFiles++
+	}
+	fmt.Printf("renamed %d uses of '%s' in %d files; %d files that may hold it could not be lexed\n", renamed, old, changedFiles, skipped)
+	return 0
 }

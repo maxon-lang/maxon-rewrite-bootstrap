@@ -163,7 +163,7 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	if p.at(TLBracket) {
 		n.TypeParams = p.parseTypeParamList()
 	}
-	if p.at(TKw_is) {
+	if p.at(TKw_implements) {
 		n.Conforms = p.parseConformsClause()
 	}
 	p.expect(TNewline, "the end of the line")
@@ -241,7 +241,7 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	}
 	p.expect(TKw_enum, "'enum'")
 	n.Name = p.text(p.expect(TName, "a name"))
-	if p.at(TKw_is) {
+	if p.at(TKw_implements) {
 		n.Conforms = p.parseConformsClause()
 	}
 	p.expect(TNewline, "the end of the line")
@@ -303,7 +303,7 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 	if p.at(TLBracket) {
 		n.TypeParams = p.parseTypeParamList()
 	}
-	if p.at(TKw_is) {
+	if p.at(TKw_implements) {
 		n.Conforms = p.parseConformsClause()
 	}
 	p.expect(TNewline, "the end of the line")
@@ -462,8 +462,8 @@ func (p *Parser) parseTypeParam() *ast.TypeParam {
 	n := ast.NewTypeParam()
 	place(p, n, t)
 	n.Name = p.text(p.expect(TName, "a name"))
-	if p.at(TKw_is) {
-		p.expect(TKw_is, "'is'")
+	if p.at(TKw_implements) {
+		p.expect(TKw_implements, "'implements'")
 		n.Bounds = append(n.Bounds, p.parseTypeRef())
 		for p.at(TKw_and) {
 			p.expect(TKw_and, "'and'")
@@ -475,7 +475,7 @@ func (p *Parser) parseTypeParam() *ast.TypeParam {
 
 func (p *Parser) parseConformsClause() []*ast.TypeRef {
 	var interfaces []*ast.TypeRef
-	p.expect(TKw_is, "'is'")
+	p.expect(TKw_implements, "'implements'")
 	interfaces = append(interfaces, p.parseTypeRef())
 	for p.at(TKw_and) {
 		p.expect(TKw_and, "'and'")

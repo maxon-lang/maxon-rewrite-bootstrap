@@ -32,11 +32,11 @@ export function swap[T](a inout T, b inout T)
 	b = tmp
 end 'swap'
 
-export function total[T is Shape](a T, b T) returns Score
+export function total[T implements Shape](a T, b T) returns Score
 	return a.area() + b.area()
 end 'total'
 
-export function enlarge[T is Shape](item inout T, by Score) returns Box[T]
+export function enlarge[T implements Shape](item inout T, by Score) returns Box[T]
 	item.grow(by)
 	return Box[T].make(item.copy())
 end 'enlarge'

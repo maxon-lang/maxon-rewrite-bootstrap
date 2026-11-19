@@ -2,7 +2,7 @@ interface Shape
 	function area() returns Count
 end 'Shape'
 
-type Square is Shape
+type Square implements Shape
 	var side as Count
 	static function make(side Count) returns Square
 		return Square{side: side}
@@ -12,7 +12,7 @@ type Square is Shape
 	end 'area'
 end 'Square'
 
-function measure[T is Shape](f frozen[T]) returns Count
+function measure[T implements Shape](f frozen[T]) returns Count
 	return f.area()
 end 'measure'
 

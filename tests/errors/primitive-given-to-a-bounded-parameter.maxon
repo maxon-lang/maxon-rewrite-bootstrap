@@ -3,7 +3,7 @@ interface Shape
 	function area() returns Count
 end 'Shape'
 
-function total[T is Shape](x T) returns Count
+function total[T implements Shape](x T) returns Count
 	return x.area()
 end 'total'
 

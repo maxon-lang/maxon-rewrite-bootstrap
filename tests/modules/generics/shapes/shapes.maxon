@@ -1,4 +1,4 @@
-export type Square is containers.Shape
+export type Square implements containers.Shape
 	export var side as containers.Score
 	export static function make(side containers.Score) returns Square
 		return Square{side: side}

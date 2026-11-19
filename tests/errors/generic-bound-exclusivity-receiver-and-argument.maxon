@@ -7,7 +7,7 @@ interface Shape
 	function absorb(inout self, other Self)
 end 'Shape'
 
-function twice[T is Shape](a inout T)
+function twice[T implements Shape](a inout T)
 	a.absorb(a)
 end 'twice'
 

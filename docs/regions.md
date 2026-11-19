@@ -468,7 +468,7 @@ Where this document was open, minimaxon does the following.
   is that a generic body cannot unwrap: giving a field or a payload out is `x.copy()`, or, since step 3, taking it
   out of a primitive with `remove`, `pop` or `unwrap`.
 - **What a bound is.** An interface: method signatures with their receiver conventions, naming `Self`. A type
-  implements one only by declaring it (`type Square is Shape`), and the declaration is checked once, at the type,
+  implements one only by declaring it (`type Square implements Shape`), and the declaration is checked once, at the type,
   for every method with the signature the interface gives. So an instance is judged by one fact, a declaration the
   type argument carries, and a bound can never fail at an instance after it passed at the declaration. Inside a
   body, a parameter meets a bound only if it is declared with it, and its methods are the bounds' methods

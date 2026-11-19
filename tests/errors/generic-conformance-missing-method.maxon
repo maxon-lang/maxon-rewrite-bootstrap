@@ -8,7 +8,7 @@ interface Other
 	function area() returns Score
 end 'Other'
 
-type Square is Shape
+type Square implements Shape
 	var side as Score
 	static function make(side Score) returns Square
 		return Square{side: side}
@@ -25,7 +25,7 @@ type Plain
 	end 'make'
 end 'Plain'
 
-type Box[T is Shape]
+type Box[T implements Shape]
 	var item as T
 end 'Box'
 
@@ -36,7 +36,7 @@ type Wrap[T]
 	end 'make'
 end 'Wrap'
 
-function sizeOf[T is Shape](a T) returns Score
+function sizeOf[T implements Shape](a T) returns Score
 	return a.area()
 end 'sizeOf'
 
@@ -44,7 +44,7 @@ function id[T](a sink T) returns T
 	return a
 end 'id'
 
-type Round is Shape
+type Round implements Shape
 	var radius as Score
 end 'Round'
 

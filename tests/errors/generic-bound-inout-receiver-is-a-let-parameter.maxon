@@ -7,7 +7,7 @@ interface Shape
 	function absorb(inout self, other Self)
 end 'Shape'
 
-function change[T is Shape](a T)
+function change[T implements Shape](a T)
 	a.grow(1)
 end 'change'
 

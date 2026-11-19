@@ -7,7 +7,7 @@ interface Shape
 	function absorb(inout self, other Self)
 end 'Shape'
 
-function drop[T is Shape](a T)
+function drop[T implements Shape](a T)
 	a.dispose()
 end 'drop'
 
