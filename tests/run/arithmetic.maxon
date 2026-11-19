@@ -32,7 +32,7 @@ function main() returns ExitCode
 	print("count {count}\n")
 
 	print("fib {fib(20)}\n")
-	print("const {3 * 4 + 1} {-9223372036854775807 - 1} {18446744073709551615}\n")
+	print("const {3 * 4 + 1} {-9223372036854775807 - 1} {18446744073709551615 as Tally}\n")
 	print("flag {x > 10 and x < 50} {not (x == 42)}\n")
 	let label = "big" if x > 10 else "small"
 	print("{label}\n")

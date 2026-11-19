@@ -14,6 +14,7 @@ public static class Err {
   public const string ExpectedType = "E2003";
   public const string ExpressionError = "E2004";
   public const string MismatchedEndLabel = "E2008";
+  public const string IntegerLiteralRange = "E2011";
   public const string ExpectedToken = "E2010";
   public const string AssignToImmutable = "E2013";
   public const string MatchNotExhaustive = "E2026";

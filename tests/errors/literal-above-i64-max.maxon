@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("{18446744073709551615}\n")
+	return 0
+end 'main'
+
+// expect-error: E2011

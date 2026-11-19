@@ -346,6 +346,13 @@ public sealed class Checker {
     _ => throw new InvalidOperationException($"{t} is not an integer"),
   };
 
+  static void RequireSigned64(Node site, Ty t) {
+    if (t is ConstIntTy c && c.Value > IntTy.I64Max) {
+      throw site.Error(Err.IntegerLiteralRange,
+        $"Integer literal '{c.Value}' is above i64.max, so it needs an alias whose range admits it: write '{c.Value} as <alias>'");
+    }
+  }
+
   IntTy UnifyInts(Node site, Ty l, Ty r) {
     var la = l is IntTy { IsAnonymous: false } x ? x : null;
     var ra = r is IntTy { IsAnonymous: false } y ? y : null;
@@ -354,6 +361,8 @@ public sealed class Checker {
     }
     var alias = la ?? ra;
     if (alias is null) {
+      RequireSigned64(site, l);
+      RequireSigned64(site, r);
       return IntTy.Anonymous64;
     }
     var other = la is null ? l : r;
@@ -405,6 +414,7 @@ public sealed class Checker {
   Ty CheckStr(StrLit s) {
     foreach (var part in s.Parts.OfType<Expr>()) {
       var t = CheckExpr(part);
+      RequireSigned64(part, t);
       if (!(IsInt(t) || t == PrimTy.String || t == PrimTy.Bool || t is EnumTy or UnionTy)) {
         throw part.Error(Err.TypeMismatch, $"a value of {t} cannot be interpolated");
       }
@@ -832,6 +842,7 @@ public sealed class Checker {
       throw l.Error(Err.UnexpectedToken, "write '_ = call()' to discard a result");
     }
     var t = CheckExpr(l.Init);
+    RequireSigned64(l.Init, t);
     if (t == PrimTy.Void || t == PrimTy.Never) {
       throw l.Init.Error(Err.TypeMismatch, $"'{l.Name}' is bound to an expression with no value");
     }
@@ -886,6 +897,8 @@ public sealed class Checker {
     if (from is IntTy { IsAnonymous: false } || to is IntTy { IsAnonymous: false }) {
       varType = UnifyInts(f, from, to);
     } else {
+      RequireSigned64(f.From, from);
+      RequireSigned64(f.To, to);
       var lo = RangeOf(from).Min;
       var hi = RangeOf(to).Max - (f.Inclusive ? 0 : 1);
       varType = new IntTy(null, lo, Int128.Max(lo, hi));
@@ -944,6 +957,7 @@ public sealed class Checker {
 
   Ty CheckMatch(MatchCore m, bool isExpr) {
     var st = CheckExpr(m.Subject);
+    RequireSigned64(m.Subject, st);
     var isCases = st is EnumTy or UnionTy;
     if (!(IsInt(st) || st == PrimTy.String || st == PrimTy.Bool || isCases)) {
       throw m.Subject.Error(Err.TypeMismatch, $"cannot match on a value of {st}");

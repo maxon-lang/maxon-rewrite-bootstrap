@@ -499,7 +499,7 @@ public sealed class Codegen {
         EmitSelect(["false", "true"], v => a.LeaData(R.Rax, data.String(v)));
         break;
       case ConstIntTy or IntTy:
-        var unsigned = e.Type is IntTy { Unsigned: true } || (e.Type is ConstIntTy k && k.Value > IntTy.I64Max);
+        var unsigned = e.Type is IntTy { Unsigned: true };
         a.Push(R.Rax);
         a.MovImm(R.Rax, unsigned ? 1 : 0);
         a.Push(R.Rax);

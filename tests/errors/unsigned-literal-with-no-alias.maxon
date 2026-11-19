@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let x = 9223372036854775808
+	print("{x as Count}\n")
+	return 0
+end 'main'
+
+// expect-error: E2011
