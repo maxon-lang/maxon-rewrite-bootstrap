@@ -47,6 +47,16 @@ func (p accessPath) crossesFrozen() bool {
 	return false
 }
 
+// crossesElement is whether a place is, or lies inside, an element of a primitive, which only the primitive owns.
+func (p accessPath) crossesElement() bool {
+	for _, st := range p.steps {
+		if st.isElement() {
+			return true
+		}
+	}
+	return false
+}
+
 // accessPath names a place: a local or parameter followed by selections from it.
 type accessPath struct {
 	root  *ast.Local

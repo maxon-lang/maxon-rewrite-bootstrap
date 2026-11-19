@@ -1,0 +1,19 @@
+typealias TxnBox = ledger.Box with ledger.Txn
+
+typealias TxnArray = array with ledger.Txn
+
+function main() returns ExitCode
+	ledger.Txn.begin(1).commit()
+	TxnBox.of(ledger.Txn.begin(2)).take().rollback()
+	var pending = TxnArray.new()
+	pending.append(ledger.Txn.begin(3))
+	pending.remove(0).commit()
+	pending.dropEmpty()
+	let held = cown(ledger.Txn.begin(4), dropWith: rollback)
+	return 0
+end 'main'
+
+//> commit 1
+//> rollback 2
+//> commit 3
+//> rollback 4

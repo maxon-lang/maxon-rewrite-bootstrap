@@ -1,0 +1,181 @@
+// case: a noncopyable type
+// expect-error: E3135
+function main() returns ExitCode
+	let a = Socket.open().copy()
+	return 0
+end 'main'
+
+// case: through a field
+// expect-error: E3135
+function main() returns ExitCode
+	let a = Conn.open().copy()
+	return 0
+end 'main'
+
+// case: through an instance
+// expect-error: E3135
+function main() returns ExitCode
+	let a = Box.make(Socket.open()).copy()
+	return 0
+end 'main'
+
+// case: a parameter without the bound
+// expect-error: E3135
+function dup(a T) uses T returns T
+	return a.copy()
+end 'dup'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a type argument for a Copyable bound
+// expect-error: E3117
+function f(n Needs with Socket)
+	print("x")
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: thaw copies what the frozen value holds
+// expect-error: E3117
+function open(x frozen with Socket) returns Socket
+	return thaw(x)
+end 'open'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a parameter bounded by Droppable alone is not copyable
+// expect-error: E3135
+function dup(a T) uses T returns T where T implements Droppable
+	return a.copy()
+end 'dup'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: Copyable is structural
+// expect-error: E3138
+type Claims implements Copyable
+	var n as Score
+end 'Claims'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a method's where is checked at the call
+// expect-error: E3117
+function main() returns ExitCode
+	let p = Stack.make(Socket.open()).peek()
+	return 0
+end 'main'
+
+// case: a method's bounds hold in its own body only, whatever was checked before
+// expect-error: E3135
+type Pair uses T
+	var item as T
+
+	function copied() returns Box with T where T implements Copyable
+		return Box.make(item.copy()).copy()
+	end 'copied'
+
+	function unboxed(consumes x T) returns Box with T
+		return Box.make(x).copy()
+	end 'unboxed'
+end 'Pair'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: filled needs a Copyable element
+// expect-error: E3117
+function main() returns ExitCode
+	let a = SocketArray.filled(2, value: Socket.open())
+	return 0
+end 'main'
+
+// case: a conditional method cannot implement an interface
+// expect-error: E3120
+type Cell uses T implements Peekable
+	var item as T
+
+	function size() returns Score where T implements Copyable
+		return 1
+	end 'size'
+end 'Cell'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a destructor removes Copyable
+// expect-error: E3135
+function main() returns ExitCode
+	let t = Txn.begin().copy()
+	return 0
+end 'main'
+
+// case: a destructor removes Copyable from a type that holds it
+// expect-error: E3135
+function main() returns ExitCode
+	let b = Box.make(Txn.begin()).copy()
+	return 0
+end 'main'
+
+// case: an enum has nothing to destruct
+// expect-error: E3137
+enum Light
+	red
+
+	function close(destructs self)
+		print("x")
+	end 'close'
+end 'Light'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: freeze needs Droppable
+// expect-error: E3117
+function wrap(consumes x T) uses T returns frozen with T
+	return freeze(x)
+end 'wrap'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: cown needs Droppable
+// expect-error: E3117
+function hold(consumes x T) uses T returns cown with T
+	return cown(x)
+end 'hold'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: map.insert needs a Droppable value
+// expect-error: E3117
+function store(mutates m map with (String, V), consumes value V) uses V
+	m.insert("key", value: value)
+end 'store'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a Txn is not Droppable, so neither is a frozen one
+// expect-error: E3117
+function main() returns ExitCode
+	let f = freeze(Txn.begin())
+	return 0
+end 'main'

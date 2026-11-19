@@ -1,7 +1,8 @@
 # minimaxon — instructions for agents
 
 minimaxon is the Go bootstrap of the next Maxon compiler. Today it is a small compiler for trying out language
-changes; if it succeeds it grows into the full Maxon compiler, which will later be rewritten in Maxon itself.
+changes; if it succeeds it grows into the full Maxon compiler, which will later be ported to Maxon by hand,
+checked by the port producing byte-identical output to this compiler.
 Treat every design choice as the foundation of that compiler, not as experiment code. `README.md` describes the
 language subset, the pipeline, the packages and the IR; read it before changing the compiler.
 
@@ -14,9 +15,12 @@ language subset, the pipeline, the packages and the IR; read it before changing 
   A check that needs another module's results is deferred to the latest point where the answer is actually needed,
   and done there quickly: a call to a function the module does not declare is assumed to exist elsewhere until the
   call is resolved, and only then is a missing or mismatched function an error. Correct programs pay nothing.
-- **Stay portable to Maxon.** Write plain Go: structs, interfaces over closed sets of types (they become Maxon
-  unions), slices, explicit passes. No reflection, no dependency outside the standard library, and no
-  runtime-specific trick that the design depends on.
+- **Keep the compiler Maxon-shaped.** The port to Maxon carries over the architecture, not the Go: phases as barriers,
+  interfaces over closed sets of types (they become Maxon unions), explicit passes, and data a Maxon program can own.
+  A reference that is not an owner's hold on its part (a declaration, a caller, an instance, an IR block) is a handle
+  or an index, never a shared pointer; code that still shares pointers is converted when it is next changed. No
+  reflection, no dependency outside the standard library, and no runtime-specific trick that the design depends on.
+  Otherwise write idiomatic Go.
 - **Generated code is allowed when its input is the source of truth** (for example the parser's dispatch generated
   from the grammar). The generator is plain Go in this repository, its output is checked in and deterministic, and a
   test regenerates it and fails if the checked-in file differs.

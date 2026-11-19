@@ -200,6 +200,9 @@ type CallRuntimeInstr struct {
 	Dst    *V
 	Symbol string
 	Args   []V
+	// Routine is the function that the entry stores to call later: the destructor that a cown ends its content with
+	// (RtCownNew). It is nil for every other entry.
+	Routine *ast.FuncDecl
 }
 
 // WhenInstr schedules a behaviour: the body of a `when`, which runs later, in another thread, once it has exclusive access
@@ -506,7 +509,11 @@ func instrText(i Instr) string {
 	case *CallInstr:
 		return fmt.Sprintf("%scall %s(%s)", dstPrefix(x.Dst), x.Target.Symbol(), argList(x.Args))
 	case *CallRuntimeInstr:
-		return fmt.Sprintf("%sruntime %s(%s)", dstPrefix(x.Dst), x.Symbol, argList(x.Args))
+		text := fmt.Sprintf("%sruntime %s(%s)", dstPrefix(x.Dst), x.Symbol, argList(x.Args))
+		if x.Routine != nil {
+			text += " routine " + x.Routine.Symbol()
+		}
+		return text
 	case *WhenInstr:
 		return fmt.Sprintf("when %s cowns [%s] captures [%s]", x.Body.Symbol(), argList(x.Cowns), argList(x.Captures))
 	case *DropInstr:

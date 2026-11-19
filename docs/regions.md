@@ -2,7 +2,7 @@
 
 Status: steps 1 to 5 (layer 1 checks, generics, the primitives' signatures, the tracking interpreter with the
 program generator, and immutable values, cowns and behaviours, see "Steps") and native freeing are implemented in
-minimaxon; regions, and native code for `map`, `list`, `pool`, frozen values and behaviours, are not. It combines published designs, each where it fits best:
+minimaxon; native code for `map`, `list`, `pool`, frozen values and behaviours, are not. It combines published designs, each where it fits best:
 
 - **Inside a green thread: owned values, as in Hylo's mutable value semantics.** Racordon et al.,
   "Implementation Strategies for Mutable Value Semantics" (JOT 2022), the Hylo language tour
@@ -11,8 +11,6 @@ minimaxon; regions, and native code for `map`, `list`, `pool`, frozen values and
   plus a pool with generational handles, after Rust's `slotmap`.
 - **Between threads: Verona's behaviours.** Cheeseman et al., "When Concurrency Matters: Behaviour-Oriented
   Concurrency" (OOPSLA 2023).
-- **Later, if needed: Verona regions**, as arenas for data built up and freed together. Arvidsson et al.,
-  "Reference Capabilities for Flexible Memory Management" (OOPSLA 2023; extended version arXiv 2309.02983).
 
 Where a source leaves something open, or where following it would need a run-time check, this document says so
 and gives minimaxon's choice. Changes to the borrowed designs wait until they work here.
@@ -54,7 +52,7 @@ that the rules are Hylo's, not grown case by case. Hylo's own laws for projectio
 | Structures with internal pointers | Runtime primitives that own their elements; handles to elements are keys | an element when it is removed, exactly |
 | Between threads | Owned values move; immutable data is shared and counted; cowns and behaviours (Verona) | shared immutable data at its last owner |
 
-Why primitives and not regions for lists and graphs: inside a Verona region objects point to each other freely,
+Why primitives and not Verona regions for lists and graphs: inside a region objects point to each other freely,
 so the compiler cannot tell when an unlinked node becomes unreachable; it is freed only with the whole region. A
 long-lived structure that adds and removes nodes (a cache, a queue, a document) would grow until it is dropped,
 unless a collector or reference counting ran inside the thread, which the goals rule out. A primitive frees each
@@ -126,13 +124,20 @@ Where this document was open, minimaxon does the following. Hylo's rules decide 
   to a `let` or `mutates` parameter, matching and interpolating only borrow. A conditional or match arm always gives
   a fresh value, so a place in a branch is moved even where the whole expression is only borrowed; write
   `.copy()` there when a borrow is meant.
-- **No partial moves.** A field is never moved out of a value, whether the value is owned or borrowed: the rule is
-  that only a whole local that owns its value moves, and `copy()` is the way to take a field. Hylo allows a partial
-  move when the whole is consumed or reinitialised; refusing it keeps the state to "whole value present or
-  moved", which is one fact per local.
+- **Partial moves.** A field may be moved out of an owned value (a local, a `consumes` parameter, `consumes self`),
+  at any depth through fields, as Hylo allows when the whole is consumed or reinitialised; a field of a borrowed value,
+  an element and a part of a frozen value or of a temporary are never moved out, and `copy()` is the way to take
+  them. A fact about a local says which of its fields are gone, so a use of the whole is refused until they are
+  assigned again, and what is left is dropped where the local ends.
+- **Capabilities and destructors.** A type may be unable to be copied (`is noncopyable`) or dropped (it declares a
+  destructor, `function commit(destructs self)`), and a part that cannot be makes its owner unable too. A value that
+  cannot be dropped must be ended explicitly: forgetting it at the end of a scope, over an assignment or in a discard
+  is `E3136`, and only the type's own destructors take it apart (`E3139`). This is the compile-time form of Vale's
+  linear types, and it lets a value that must be closed (a transaction, a socket) travel through the same moves as
+  any other. The README's "Capabilities and destructors" has the rules.
 - **Receivers.** An instance method is `function m(self…)` with no marker for a `let` receiver, `mutates self` for a
   mutable one and `consumes self` for one that consumes the value. The region keywords the grammar had (`mutable`,
-  `immutable`, `isolated`, `consuming`) are gone; regions bring their own back if they come.
+  `immutable`, `isolated`, `consuming`) are gone.
 - **`consumes` is owned, not mutable.** A `consumes` parameter, like a `let` local, cannot be assigned or have a field
   assigned; it is moved into a `var` to change it. This needs no copy of the argument and no slot for the
   parameter, and Hylo's rule that a `sink` can be changed adds nothing to the soundness argument.
@@ -283,7 +288,7 @@ Where this document was open, minimaxon does the following.
 - **Checker holes found.** Three, each with a test in `tests/errors/` that failed first.
   1. A field or an element of a temporary could be moved out of it (`let s = make().label`): the pass treated an
      expression that is not a place as fresh and moved nothing, so the temporary and the binding both owned the string
-     and both would free it. Found by reading the pass while placing drops. It is `E3111` now, like any field.
+     and both would free it. Found by reading the pass while placing drops. It is `E3111` now: a part of a temporary is never moved out.
   2.  `self` of a `mutates self` method could be passed to a `mutates` parameter, which may assign the whole value and
      so replace the caller's: but `self` is the receiver, a pointer the caller still owns, not a place that can be
      replaced. Found by the generator, as an internal error in lowering ("no address for this expression"). It is
@@ -451,10 +456,6 @@ values, cowns and behaviours"); these are the decisions behind them.
 - **Layer 1:** a generic body is checked once against its bounds (as Hylo, Swift and Rust do), never per
   instance. Ownership and conventions are the same for every type, so `T` needs no capability. Implemented; see
   "Choices made in step 2".
-- **Regions, if they come:** a type argument for region code carries a capability (`List with imm Employee`).
-  Its bound names the capabilities allowed, and the body is checked once for each of them, at most five per type
-  parameter. That avoids symbolic viewpoint adaptation over `T`, where Pony's soundness holes have been. The
-  Reggio paper does not formalise generics, so this part would be minimaxon's.
 
 ### Choices made in step 2
 
@@ -463,7 +464,7 @@ Where this document was open, minimaxon does the following.
 - **What `T` is.** A value of a type parameter is owned, movable and not a scalar, whatever the parameter is
   instantiated with. Every rule of step 1 then applies to it as it applies to a record: binding, passing to `consumes`,
   returning and storing move it; a `let`, `mutates` or `sets` parameter of type `T` and a payload of one are borrowed,
-  and a field of a generic value is part of its owner, so moving them is `E3110` or `E3111`; exclusivity counts a
+  and a field of a generic value is part of its owner, so moving one out of a borrowed owner is `E3110`; exclusivity counts a
   `T` argument like any other; `copy()` is allowed. This is the strictest reading, and it is sound for every instance
   because an instance only makes a move cheaper (a scalar is copied) and never makes an access broader. The cost
   is that a generic body cannot unwrap: giving a field or a payload out is `x.copy()`, or, since step 3, taking it
@@ -497,8 +498,6 @@ Where this document was open, minimaxon does the following.
   one write the parallel phases share, and nothing reads an instance's members before the declare phase ends.
 - **Limits.** Nesting of instances is capped at depth 16: a generic type that contains itself with a larger
   argument, or a generic function that calls itself with one, is an error instead of an endless expansion.
-- **Regions, if they come.** Unchanged: capabilities on type arguments would be checked once per capability, on top
-  of this.
 
 ## Native freeing
 
@@ -576,124 +575,5 @@ implements the rules completely and the runtime only as far as testing them need
    (see "Choices made in step 6"). **Done**, in `internal/backend` and `internal/ir`.
 
 Not built here, because they teach nothing about soundness: green threads, a scheduler, atomic counts and cowns
-in generated code; native implementations of `map`, `list` and `pool` (the array is native, since corpus programs need it);
-regions. These belong to the full compiler.
-
-## Later, if needed: regions
-
-Verona regions remain the plan for data that is built up and then freed together (per-request scratch data, a
-compiler's syntax trees, a parsed document), where an arena beats freeing objects one by one. They are not the
-answer for long-lived structures that churn (see "The layers"). A region would itself be an owned value (its
-`iso`), so layer 1 owns it, moves it between threads, and frees it when its owner dies. Inside, it would follow
-Reggio, as below. Its examples (Reggio's Listings 1 to 5) would become corpus tests, with the departure below
-applied to Listing 3.
-
-### Regions
-
-- A **region** is a set of mutable objects freed together. One object is its **bridge object**; a closed region is
-  reached only through one reference to it, its `iso`. Objects in a region point to objects in the same region, to
-  immutable values, or to the bridge objects of regions nested in it. Inside a region, pointers are unrestricted.
-- A region is **closed**, **active** or **suspended**. Open regions form a stack: the top one is active, the
-  others suspended. Only the active region may be mutated or allocated in: the **single window of mutability**.
-- Objects inside a region are allocated from its arena and freed with it. An object dropped inside a region
-  stays until the region is freed: that is the programmer's choice of granularity, not a leak.
-- **`merge`** moves a closed region's objects into the active region. **`freeze`** makes a closed region and the
-  regions nested in it immutable, as one frozen value.
-
-An owned value stored into a region is isolated (layer 1), so it goes into an `iso` field as a nested region.
-
-### Capabilities
-
-References into regions carry a capability:
-
-| Capability | Meaning |
-|---|---|
-| `mut` | a reference into the active region |
-| `tmp` | like `mut`, but the object lives only as long as the `enter` block that made it, and may hold `paused` references |
-| `imm` | a reference to an immutable value |
-| `iso` | the one reference to the bridge object of a closed region |
-| `paused` | a reference into a suspended region, so immutable while it is suspended |
-
-Aliases usable at the same time have the same capability: `mut` and `paused` never alias, nor do `paused` and
-`imm`. Reading `x.f` adapts the capability to `x` (paper, Table 2):
-
-| `x` \ field | `mut` | `tmp` | `imm` | `iso` | `paused` |
-|---|---|---|---|---|---|
-| `mut` | `mut` | — | `imm` | — / iso | — |
-| `tmp` | `mut` | `tmp` | `imm` | — / iso | `paused` |
-| `imm` | `imm` | `imm` | `imm` | `imm` | `imm` |
-| `iso` | — | — | — | — | — |
-| `paused` | `paused` | `paused` | `imm` | — / iso | `paused` |
-
-"—" is not typeable. "— / iso": an `iso` field is not read through `mut`, `tmp` or `paused`; it is swapped, buried
-or borrowed. An `iso` is not dereferenced at all: its region is entered.
-
-| Keeping `iso` unique | Rule |
-|---|---|
-| Swap | A `var` or field holding an `iso` is read only by replacing it: an assignment's value is the previous contents, so `let old = (x = other)` moves the old value out. |
-| Bury | Reading a `let` holding an `iso` uses it up; `f(x, x)` cannot be typed. |
-| Borrow | Dereferencing an `iso` means entering its region. |
-
-`new iso T(…)` makes a new region with a `T` as its bridge object; its arguments are `iso` or `imm`. Inside an
-active region, `new mut T(…)` and `new tmp T(…)` allocate in it.
-
-### Opening regions
-
-```
-enter a as r
-	let c = new mut Link
-	r.next = c
-	c.next = r
-end
-```
-
-`enter x as y` makes `x`'s region active and runs the block with `y`, a `mut` reference to its bridge object:
-
-- `x` is buried, so the region cannot be opened twice.
-- Every outer `mut`, `tmp` and `var` binding is seen as `paused`: the enclosing scope is immutable and its
-  variables cannot be assigned. Outer `iso` bindings stay `iso`, so nested regions can be opened.
-- Assigning `y` another object of the region changes the bridge object (when entered from a variable).
-- When the block ends, every binding into the region and every `tmp` object made in it goes out of scope. The
-  block's value is `iso`, `imm`, or a value without identity.
-
-`explore x as y` opens the region as suspended (`y` is `paused`): `enter x` followed by entering a new empty
-region.
-
-Locals and fields inside region code are storage locations, `Store[κ₁, κ₂]` (κ₁ the capability of the frame or
-object holding it, κ₂ of its value), updatable only when κ₁ is `mut`, `tmp` or `var`. A method declares the
-capability of `self` (`function set(self mut, v Score)`) and is called only on a receiver with that capability; a
-type may overload a method on it.
-
-### Entering through a field: no run-time check
-
-Verona allows entering a region through a location in a suspended region (`paused Store[iso T]`), and checks at
-run time that it is not already open, raising an exception if it is. minimaxon allows `enter` only on an `iso`
-binding (which is buried) or on a location whose holder is `mut` or `tmp`. That is sound statically: if a region
-below an active location were open, the location's region would have been suspended when it opened, and stays
-suspended until it closes.
-
-Why Verona checks instead, as far as the paper shows: Verona is not static-only, the check is one bit per
-`enter`, and its key–value store looks values up with `explore` (so lookups do no reference counting) before
-entering the element it changes. The cost here:
-
-- **To change an element region, its container is opened with `enter`, not `explore`.** No performance is lost:
-  there is no reference counting to avoid.
-- **A function that changes element regions takes the container `mut`.**
-- **Two sibling regions cannot be open at once.** One is swapped out into an `iso` local first and put back:
-
-  ```
-  enter store as s
-  	let bv = (s.find(id2).value = new iso Value)
-  	enter s.find(id1).value as va
-  		explore bv as b
-  			va.total = va.total + b.count
-  		end
-  	end
-  	s.find(id2).value = bv
-  end
-  ```
-
-- **A static relaxation, if needed.** Inside `explore store`, the first `enter` through a `paused` location
-  cannot meet an open region; only a second one while the first is open could. "At most one `enter` through a
-  `paused` location open at a time" recovers the key–value pattern without a check. Across calls, a function's
-  signature declares that it enters through a `paused` parameter.
+in generated code; native implementations of `map`, `list` and `pool` (the array is native, since corpus programs need it).
+These belong to the full compiler.

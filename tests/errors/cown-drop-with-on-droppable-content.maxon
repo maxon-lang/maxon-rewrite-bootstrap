@@ -1,0 +1,14 @@
+type Note
+	var text as String
+
+	static function make() returns Note
+		return Note{text: "a"}
+	end 'make'
+end 'Note'
+
+function main() returns ExitCode
+	let c = cown(Note.make(), dropWith: rollback)
+	return 0
+end 'main'
+
+// expect-error: E3138 at 10:28

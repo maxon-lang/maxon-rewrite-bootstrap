@@ -46,7 +46,7 @@ func frontEnd(t *testing.T, path string) *ast.Module {
 	c.VerifyBounds(append(root.Bounds, c.Bounds...))
 	root.Callers = c.Callers
 	if len(root.Errors) == 0 {
-		o := check.NewOwnership(&root.Errors)
+		o := check.NewOwnership(&root.Errors, c)
 		for _, d := range root.Decls {
 			o.CheckValues(d)
 		}
@@ -100,6 +100,13 @@ func TestInstancesAreLoweredWithTheirOwnKinds(t *testing.T) {
 
 func TestNothingIsInstantiatedForAProgramWithoutGenerics(t *testing.T) {
 	m := frontEnd(t, "testdata/no-generics.maxon")
+	if found := Instances([]*ast.Module{m}); len(found[0]) != 0 {
+		t.Fatalf("found %v", instanceNames(found[0]))
+	}
+}
+
+func TestStatementsAfterATerminatingStatementInstantiateNothing(t *testing.T) {
+	m := frontEnd(t, "testdata/dead-statements.maxon")
 	if found := Instances([]*ast.Module{m}); len(found[0]) != 0 {
 		t.Fatalf("found %v", instanceNames(found[0]))
 	}

@@ -8,6 +8,7 @@ import (
 
 const (
 	unwrapNoneMessage      = "unwrap of an Option that holds no value"
+	dropEmptyMessage       = "dropEmpty of a collection that still holds an element"
 	interpreterOnlyMessage = "a map, a list, a pool, a frozen value, a cown or a behaviour runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
 
 	// optionPayloadOffset is where an Option's value sits in its box, after the case index.
@@ -166,6 +167,9 @@ func (l *Lowerer) assignElement(t *ast.IndexExpr, value ast.Expr) {
 
 // intrinsic lowers a call of a built-in method into the runtime entries of its primitive.
 func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
+	if c.Target.Intrinsic == ast.IntrinsicExchange {
+		return l.exchange(c)
+	}
 	var recv V
 	if c.Receiver != nil {
 		recv = l.read(c.Receiver)
@@ -191,6 +195,8 @@ func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
 		return l.konst(0)
 	case ast.IntrinsicArrayRemove:
 		return l.entry(c, RtArrayRemove, l.kind(c.Ty()), recv, args[0])
+	case ast.IntrinsicArrayDropEmpty:
+		return l.dropEmpty(c, RtArrayLen, recv)
 	case ast.IntrinsicArrayPop:
 		n := l.entry(c, RtArrayLen, KindScalar, recv)
 		return l.optional(l.nonZero(n), func() V {
@@ -210,6 +216,10 @@ func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
 	case ast.IntrinsicMapInsert:
 		l.entryVoid(c, RtMapInsert, recv, args[0], args[1])
 		return l.konst(0)
+	case ast.IntrinsicMapReplace:
+		return l.mapReplace(c, recv, args[0], args[1])
+	case ast.IntrinsicMapDropEmpty:
+		return l.dropEmpty(c, RtMapLen, recv)
 	case ast.IntrinsicMapRemove:
 		return l.optional(l.entry(c, RtMapHas, KindScalar, recv, args[0]), func() V {
 			return l.entry(c, RtMapRemove, l.payloadKind(c.Ty()), recv, args[0])
@@ -243,6 +253,8 @@ func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
 		return l.optional(l.entry(c, RtListContains, KindScalar, recv, args[0]), func() V {
 			return l.entry(c, RtListRemove, l.payloadKind(c.Ty()), recv, args[0])
 		})
+	case ast.IntrinsicListDropEmpty:
+		return l.dropEmpty(c, RtListLen, recv)
 	case ast.IntrinsicListMoveToFront:
 		l.entryVoid(c, RtListMoveToFront, recv, args[0])
 		return l.konst(0)
@@ -257,6 +269,8 @@ func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
 		return l.entry(c, RtPoolContains, KindScalar, recv, args[0])
 	case ast.IntrinsicPoolInsert:
 		return l.entry(c, RtPoolInsert, KindScalar, recv, args[0])
+	case ast.IntrinsicPoolDropEmpty:
+		return l.dropEmpty(c, RtPoolLen, recv)
 	case ast.IntrinsicPoolRemove:
 		return l.optional(l.entry(c, RtPoolContains, KindScalar, recv, args[0]), func() V {
 			return l.entry(c, RtPoolRemove, l.payloadKind(c.Ty()), recv, args[0])
@@ -288,6 +302,49 @@ func (l *Lowerer) unwrap(c *ast.CallExpr, option V) V {
 	}
 	l.dropValue(option, c.Receiver.Ty())
 	return d
+}
+
+// dropEmpty ends a collection that the call consumes, and traps if an element is left: dropping it would drop the
+// element, which a type with a destructor must never be left to do.
+func (l *Lowerer) dropEmpty(c *ast.CallExpr, length string, collection V) V {
+	l.requireOrTrap(l.isZero(l.entry(c, length, KindScalar, collection)), dropEmptyMessage)
+	l.dropValue(collection, c.Receiver.Ty())
+	return l.konst(0)
+}
+
+// moveOutAt reads the value at an address of the type t and leaves the place empty when t is owned, so that the place
+// can be written without dropping what was there.
+func (l *Lowerer) moveOutAt(addr V, t ast.Ty) V {
+	d := l.reg(l.kind(t))
+	if l.kind(t) == KindManaged {
+		l.emit(&MoveAtInstr{Dst: d, Addr: addr})
+	} else {
+		l.emit(&LoadAt{Dst: d, Addr: addr})
+	}
+	return d
+}
+
+// exchange moves the new value into a place and gives the value that was there to the caller, so the place is never
+// dropped and a type without Droppable can be replaced. The value is computed before the place is addressed, so that
+// computing it cannot leave the address stale.
+func (l *Lowerer) exchange(c *ast.CallExpr) V {
+	value := l.converted(c.Ordered[1], c.Pass.Specs[1].Type)
+	addr := l.address(c.Ordered[0])
+	old := l.moveOutAt(addr, c.Ty())
+	l.emit(&StoreAt{Addr: addr, Src: value})
+	return old
+}
+
+// mapReplace is map.insert that gives back the value the key had: it moves that value out of its entry, and the insert
+// then finds the entry empty, keeps its place and drops nothing.
+func (l *Lowerer) mapReplace(c *ast.CallExpr, m, key, value V) V {
+	elem := ast.Content(l.binding.Apply(c.Receiver.Ty())).(*ast.BuiltinTy).Element()
+	old := l.optional(l.entry(c, RtMapHas, KindScalar, m, key), func() V {
+		addr := l.entry(c, RtMapElem, KindScalar, m, key)
+		return l.moveOutAt(addr, elem)
+	})
+	l.entryVoid(c, RtMapInsert, m, key, value)
+	return old
 }
 
 func (l *Lowerer) isZero(v V) V { return l.compare(CmpEq, v, l.konst(0), false) }

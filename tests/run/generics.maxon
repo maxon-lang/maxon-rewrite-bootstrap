@@ -8,14 +8,14 @@ typealias ScoreStringPair = Pair with (Score, String)
 
 typealias StringBox = Box with String
 
-type Box uses T
+type Box uses T where T implements Droppable
 	var item as T
 
 	static function make(consumes item T) returns Self
 		return Self{item: item}
 	end 'make'
 
-	function peek() returns T
+	function peek() returns T where T implements Copyable
 		return item.copy()
 	end 'peek'
 
@@ -24,7 +24,7 @@ type Box uses T
 	end 'replace'
 end 'Box'
 
-type Pair uses A, B
+type Pair uses A, B where B implements Copyable, A implements Copyable
 	var first as A
 	var second as B
 
@@ -37,7 +37,7 @@ type Pair uses A, B
 	end 'swapped'
 end 'Pair'
 
-union Option uses T
+union Option uses T where T implements Copyable
 	some(value T)
 	none
 
@@ -56,17 +56,17 @@ union Option uses T
 	end 'orElse'
 end 'Option'
 
-function swap(mutates a T, mutates b T) uses T
+function swap(mutates a T, mutates b T) uses T where T implements Copyable
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function twice(x T) uses T returns Pair with (T, T)
+function twice(x T) uses T returns Pair with (T, T) where T implements Copyable
 	return Pair.make(x.copy(), second: x.copy())
 end 'twice'
 
-function find(flag bool, x T) uses T returns Option with T
+function find(flag bool, x T) uses T returns Option with T where T implements Copyable
 	if flag 'f'
 		return Option.some(x.copy())
 	end 'f'

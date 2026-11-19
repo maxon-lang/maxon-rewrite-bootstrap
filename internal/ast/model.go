@@ -61,6 +61,11 @@ type PendingBound struct {
 	Site  Node
 	Param *TypeParamTy
 	Arg   Ty
+	// Method is the method whose own bounds on Param apply, or nil where Param's bounds do.
+	Method *FuncDecl
+	// Within is the function the site is in when it has bounds of its own on its type's parameters, which the site may
+	// rely on, or nil.
+	Within *FuncDecl
 }
 
 type Project struct {

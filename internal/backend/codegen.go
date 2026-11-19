@@ -92,6 +92,7 @@ func (g *codegen) function(fn *ir.IrFunction) {
 		g.labels[i].Pos = -1
 		g.labels[i].Uses = g.labels[i].Uses[:0]
 	}
+	g.u.BeginSection()
 	g.u.DefineCode(fn.Decl)
 	a.Push(Rbp)
 	a.Mov(Rbp, Rsp)

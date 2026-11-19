@@ -1,0 +1,26 @@
+// expect-error: E3117 at 24:18
+type Socket is noncopyable
+	var fd as Count
+
+	static function open() returns Socket
+		return Socket{fd: 3}
+	end 'open'
+end 'Socket'
+
+type Stack uses T
+	var item as T
+
+	static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+
+	function peek() returns T where T implements Copyable
+		return item.copy()
+	end 'peek'
+end 'Stack'
+
+function main() returns ExitCode
+	let s = Stack.make(Socket.open())
+	let top = s.peek()
+	return 0
+end 'main'

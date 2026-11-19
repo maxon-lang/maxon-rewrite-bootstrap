@@ -100,6 +100,9 @@ type object struct {
 	// runs once it has every cown it names; running is the behaviour that has the cown now.
 	queue   []*behaviour
 	running *behaviour
+	// ending is the destructor a cown ends its value with when its count reaches 0, instead of dropping the value; nil for
+	// any other object.
+	ending *ir.IrFunction
 }
 
 // shared is whether the object is a frozen value or a cown, which owners count instead of owning alone.

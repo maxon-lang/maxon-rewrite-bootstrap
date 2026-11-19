@@ -14,7 +14,7 @@ type Mark implements Scale
 	end 'doubled'
 end 'Mark'
 
-function twice(a T) uses T returns T where T implements Scale
+function twice(a T) uses T returns T where T implements Scale and Droppable
 	return a.doubled().doubled()
 end 'twice'
 

@@ -1,0 +1,9 @@
+function wrap(consumes x T) uses T returns frozen with T
+	return freeze(x)
+end 'wrap'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3117 at 2:15

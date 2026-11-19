@@ -223,6 +223,7 @@ func (vm *vm) finish(b *behaviour) {
 		c.running = nil
 		vm.unref(c)
 	}
+	vm.runEndings()
 }
 
 // yield gives the turn back to the scheduler and waits for the next one. The interpreter's registers belong to the thread

@@ -1,0 +1,27 @@
+export type Txn
+	export var id as Count
+
+	export static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	export function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+
+	export function rollback(destructs self)
+		print("rollback {id}\n")
+	end 'rollback'
+end 'Txn'
+
+export type Box uses T
+	export var item as T
+
+	export static function of(consumes item T) returns Self
+		return Self{item: item}
+	end 'of'
+
+	export function take(consumes self) returns T
+		return self.item
+	end 'take'
+end 'Box'

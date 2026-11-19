@@ -1,0 +1,13 @@
+type Socket is noncopyable
+	var fd as Count
+end 'Socket'
+
+function open(x frozen with Socket) returns Socket
+	return thaw(x)
+end 'open'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3117 at 6:13

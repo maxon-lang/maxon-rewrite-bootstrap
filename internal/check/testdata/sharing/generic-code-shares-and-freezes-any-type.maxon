@@ -1,4 +1,4 @@
-function wrap(consumes x T) uses T returns frozen with T
+function wrap(consumes x T) uses T returns frozen with T where T implements Droppable
 	return freeze(x)
 end 'wrap'
 
@@ -6,11 +6,11 @@ function again(x frozen with T) uses T returns frozen with T
 	return share(x)
 end 'again'
 
-function open(x frozen with T) uses T returns T
+function open(x frozen with T) uses T returns T where T implements Copyable
 	return thaw(x)
 end 'open'
 
-function hold(consumes x T) uses T returns cown with T
+function hold(consumes x T) uses T returns cown with T where T implements Droppable
 	return cown(x)
 end 'hold'
 

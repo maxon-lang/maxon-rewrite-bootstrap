@@ -47,7 +47,7 @@ export function length(items array with T) uses T returns Count
 	return items.count()
 end 'length'
 
-export function firstOr(items array with T, consumes fallback T) uses T returns T
+export function firstOr(items array with T, consumes fallback T) uses T returns T where T implements Copyable
 	if items.isEmpty() 'none'
 		return fallback
 	end 'none'

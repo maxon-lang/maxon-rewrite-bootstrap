@@ -1,0 +1,79 @@
+// case: the whole value after a field moved out
+// expect-error: E3102
+function main() returns ExitCode
+	let p = Pair.make("l", right: "r")
+	let l = p.left
+	let q = p
+	print("{l}")
+	return 0
+end 'main'
+
+// case: a field inside one that moved out
+// expect-error: E3102
+function main() returns ExitCode
+	let w = Wrapper.make(Pair.make("a", right: "b"), tag: "t")
+	let pair = w.pair
+	let left = w.pair.left
+	return 0
+end 'main'
+
+// case: a field of a type with destructors, outside them
+// expect-error: E3139
+function main() returns ExitCode
+	let t = Txn.begin(1)
+	let note = t.note
+	t.commit()
+	return 0
+end 'main'
+
+// case: self moved whole inside a destructor to anything but a destructor
+// expect-error: E3137
+type Leaky
+	var id as Score
+
+	function leak(destructs self) returns Leaky
+		return self
+	end 'leak'
+end 'Leaky'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a destructor leaves a field that cannot be dropped
+// expect-error: E3136
+type Leftover
+	var conn as Txn
+	var name as String
+
+	function close(destructs self) returns String
+		return name
+	end 'close'
+end 'Leftover'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a part that cannot be dropped moved on one path only
+// expect-error: E3136
+function main() returns ExitCode
+	let h = Holder.make(Txn.begin(1), label: "h")
+	if h.label == "h" 'f'
+		let t = h.txn
+		t.commit()
+	end 'f'
+	return 0
+end 'main'
+
+// case: a field moved on one path is gone after the branches
+// expect-error: E3102
+function main() returns ExitCode
+	let p = Pair.make("l", right: "r")
+	if p.right == "r" 'f'
+		let l = p.left
+		print(l)
+	end 'f'
+	let q = p
+	return 0
+end 'main'

@@ -1,0 +1,16 @@
+// expect-error: E3120 at 6:1
+interface Sized
+	function size() returns Count
+end 'Sized'
+
+type Cell uses T implements Sized
+	var item as T
+
+	function size() returns Count where T implements Copyable
+		return 1
+	end 'size'
+end 'Cell'
+
+function main() returns ExitCode
+	return 0
+end 'main'

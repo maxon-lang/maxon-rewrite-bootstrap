@@ -241,7 +241,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 		verifier.Verify(m.Pending)
 		verifier.VerifyBounds(m.Bounds)
 		if len(m.Errors) == 0 {
-			ownership := check.NewOwnership(&m.Errors)
+			ownership := check.NewOwnership(&m.Errors, verifier)
 			for _, d := range m.Decls {
 				ownership.CheckValues(d)
 			}

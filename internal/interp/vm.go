@@ -85,20 +85,30 @@ type window struct {
 }
 
 type vm struct {
-	prog    *Program
-	top     *frame
-	depth   int
-	steps   int64
-	limit   int64
-	nextID  int
-	all     []*object
-	strs    map[string]*object
-	stdout  []byte
-	stderr  []byte
-	frees   []string
+	prog   *Program
+	top    *frame
+	depth  int
+	steps  int64
+	limit  int64
+	nextID int
+	all    []*object
+	strs   map[string]*object
+	stdout []byte
+	stderr []byte
+	frees  []string
+	// endings are the destructors of cowns that were freed and still have to run, with the values they end, in the order
+	// the cowns were freed. A cown can be freed deep inside the free of a record or an array, where a call cannot be made,
+	// so the thread that dropped runs them once the instruction that dropped has finished.
+	endings []ending
 	windows []window
 	infos   map[*ir.IrFunction]*info
 	sched
+}
+
+// ending is a call of the destructor of a freed cown, with the value that was in the cown, which the destructor owns.
+type ending struct {
+	destructor *ir.IrFunction
+	value      value
 }
 
 // info is what a function's IR says before it runs: for each instruction, the calls that hold its result as an argument
@@ -198,7 +208,7 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 				continue
 			}
 			for i, arg := range call.Args[:len(call.Args)-1] {
-				if argumentConv(call.Target, i) == ast.ConvConsumes {
+				if argumentConv(call.Target, i).Owns() {
 					continue
 				}
 				if def, ok := defs[arg]; ok && borrowsStorage(fn.Blocks[def.block].Instrs[def.pc]) {
@@ -315,6 +325,7 @@ func (vm *vm) call(fn *ir.IrFunction, args []value) value {
 			fr.pc = pc
 			vm.tick()
 			vm.exec(fr, ins)
+			vm.runEndings()
 			for _, call := range in.windowAt[block][pc] {
 				vm.openWindow(fr, ins, call)
 			}
@@ -594,8 +605,18 @@ func (vm *vm) free(o *object) {
 		for i := range o.fields {
 			vm.freeCell(&o.fields[i])
 		}
-	case kindFrozen, kindCown:
+	case kindFrozen:
 		vm.freeCell(&o.fields[0])
+	case kindCown:
+		if o.ending == nil {
+			vm.freeCell(&o.fields[0])
+			break
+		}
+		// The value leaves the cown and is in flight until its destructor takes it.
+		if v := o.fields[0].v; v.ref != nil {
+			vm.release(&o.fields[0], "freeing a cown")
+			vm.endings = append(vm.endings, ending{destructor: o.ending, value: v})
+		}
 	case kindArray:
 		for _, c := range o.elems {
 			vm.freeCell(c)
@@ -617,6 +638,19 @@ func (vm *vm) free(o *object) {
 		}
 	default:
 		panic(diag.Internal("interp: unknown object kind %d", int(o.kind)))
+	}
+}
+
+// runEndings calls the destructors of the cowns that the last instruction freed, in the order they were freed. A
+// destructor that frees more cowns runs their destructors in its own instructions, so the list is taken before any runs.
+func (vm *vm) runEndings() {
+	if len(vm.endings) == 0 {
+		return
+	}
+	due := vm.endings
+	vm.endings = nil
+	for _, e := range due {
+		vm.call(e.destructor, []value{e.value})
 	}
 }
 

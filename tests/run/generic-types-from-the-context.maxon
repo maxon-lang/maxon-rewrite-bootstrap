@@ -19,7 +19,7 @@ function emptyLike(x T) uses T returns Slot with T
 	return Slot.empty
 end 'emptyLike'
 
-function pick(flag bool, x T) uses T returns Slot with T
+function pick(flag bool, x T) uses T returns Slot with T where T implements Copyable
 	return Slot.full(x.copy()) if flag else Slot.empty
 end 'pick'
 
@@ -30,7 +30,7 @@ function describe(s Slot with Score) returns String
 	end 'm'
 end 'describe'
 
-function reset(flag bool, s Slot with T) uses T returns Slot with T
+function reset(flag bool, s Slot with T) uses T returns Slot with T where T implements Copyable
 	return match flag 'm'
 		true gives Slot.empty
 		false gives s.copy()

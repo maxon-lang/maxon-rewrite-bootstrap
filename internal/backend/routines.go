@@ -212,6 +212,7 @@ func (e *routineEmitter) allocate(bytes int) {
 
 // routine emits the code of one routine.
 func (e *routineEmitter) routine(r typeRoutine) {
+	e.u.BeginSection()
 	e.u.DefineCode(r)
 	switch r.kind {
 	case dropRoutine:

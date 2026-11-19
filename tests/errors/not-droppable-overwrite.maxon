@@ -1,0 +1,20 @@
+type Txn
+	var id as Count
+
+	static function begin() returns Txn
+		return Txn{id: 1}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit\n")
+	end 'commit'
+end 'Txn'
+
+function main() returns ExitCode
+	var t = Txn.begin()
+	t = Txn.begin()
+	t.commit()
+	return 0
+end 'main'
+
+// expect-error: E3136 at 15:2

@@ -1,11 +1,11 @@
 // expect-error: E3112 at 9:18
-function swap2(mutates x T, mutates y T) uses T
+function swap2(mutates x T, mutates y T) uses T where T implements Copyable
 	let t = x.copy()
 	x = y.copy()
 	y = t
 end 'swap2'
 
-function f(mutates a array with T) uses T
+function f(mutates a array with T) uses T where T implements Copyable
 	swap2(a[0], y: a[1])
 end 'f'
 

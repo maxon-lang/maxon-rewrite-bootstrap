@@ -55,7 +55,11 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 		set(value{ref: vm.newShared(fr, kindFrozen, c.Args[0], "the freeze")})
 	case ir.RtCownNew:
 		vm.tracking = true
-		set(value{ref: vm.newShared(fr, kindCown, c.Args[0], "the new cown")})
+		cown := vm.newShared(fr, kindCown, c.Args[0], "the new cown")
+		if c.Routine != nil {
+			cown.ending = vm.function(c.Routine)
+		}
+		set(value{ref: cown})
 	case ir.RtFrozenGet:
 		set(vm.shared(arg(0), kindFrozen, "reading a frozen value").fields[0].v)
 	case ir.RtShare:

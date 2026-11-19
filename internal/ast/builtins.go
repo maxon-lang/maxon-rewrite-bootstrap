@@ -72,6 +72,19 @@ func IsCown(t Ty) bool {
 	return ok && bt.Kind == BuiltinCown
 }
 
+// DropWithLabel is the label of the argument that names the destructor a cown ends its content with.
+const DropWithLabel = "dropWith"
+
+// IsCownConstructor is whether a name refers to the cown type, which a call constructs.
+func IsCownConstructor(d Decl) bool {
+	td, ok := d.(*TypeDecl)
+	if !ok {
+		return false
+	}
+	bt, ok := td.Ty.(*BuiltinTy)
+	return ok && bt.Kind == BuiltinCown
+}
+
 // Content is the type that reading through a value of type t sees: what a frozen value holds, however many frozen
 // values are nested, and t itself for anything else. The contents of a frozen value are lent as they are, immutable.
 func Content(t Ty) Ty {
@@ -137,12 +150,15 @@ const (
 	IntrinsicArrayInsert
 	IntrinsicArrayRemove
 	IntrinsicArrayPop
+	IntrinsicArrayDropEmpty
 	IntrinsicMapNew
 	IntrinsicMapCount
 	IntrinsicMapIsEmpty
 	IntrinsicMapHas
 	IntrinsicMapInsert
 	IntrinsicMapRemove
+	IntrinsicMapReplace
+	IntrinsicMapDropEmpty
 	IntrinsicListNew
 	IntrinsicListCount
 	IntrinsicListIsEmpty
@@ -157,18 +173,21 @@ const (
 	IntrinsicListPrev
 	IntrinsicListRemove
 	IntrinsicListMoveToFront
+	IntrinsicListDropEmpty
 	IntrinsicPoolNew
 	IntrinsicPoolCount
 	IntrinsicPoolIsEmpty
 	IntrinsicPoolContains
 	IntrinsicPoolInsert
 	IntrinsicPoolRemove
+	IntrinsicPoolDropEmpty
 	IntrinsicOptionIsSome
 	IntrinsicOptionUnwrap
 	IntrinsicFreeze
 	IntrinsicShare
 	IntrinsicThaw
 	IntrinsicCown
+	IntrinsicExchange
 )
 
 // Option cases, in the order the union declares them.
@@ -183,8 +202,13 @@ const (
 type Builtins struct {
 	Array, Map, List, Pool, Handle, Frozen, Cown *BuiltinTy
 	Option                                       *UnionTy
-	// CownNew is the function that cown(x) calls: the constructor of the cown type.
-	CownNew *FuncDecl
+	// Copyable and Droppable are the capabilities every type has unless it opts out or holds a part that lacks them.
+	// They are interfaces only so a bound can name them: no declaration implements them, and the checker answers
+	// whether a type has one from the type's own parts.
+	Copyable, Droppable *InterfaceTy
+	// CownNew is the function that cown(x) calls: the constructor of the cown type. CownNewDropWith is the one that
+	// cown(x, dropWith: d) calls: its content needs no Droppable bound, because the destructor d ends it.
+	CownNew, CownNewDropWith *FuncDecl
 	// Count is the type of a length and of a position in an array.
 	Count  *IntTy
 	stdlib *Module
@@ -225,6 +249,8 @@ func NewBuiltins(stdlib *Module, count *IntTy) *Builtins {
 	b.Frozen = b.newPrimitive(BuiltinFrozen, "T")
 	b.Cown = b.newPrimitive(BuiltinCown, "T")
 	b.declareOption()
+	b.Copyable = b.declareCapability("Copyable")
+	b.Droppable = b.declareCapability("Droppable")
 	b.declareArray()
 	b.declareMap()
 	b.declareList()
@@ -255,6 +281,24 @@ func (b *Builtins) declareOption() {
 	t := u.Params[0]
 	b.method(u, IntrinsicOptionIsSome, "isSome", ConvLet, BoolTy)
 	b.method(u, IntrinsicOptionUnwrap, "unwrap", ConvConsumes, t)
+}
+
+func (b *Builtins) declareCapability(name string) *InterfaceTy {
+	d := NewInterfaceDecl()
+	d.Name = name
+	d.Visibility = "public"
+	d.Module = b.stdlib
+	d.File = "<stdlib>"
+	t := NewInterfaceTy(d)
+	d.Ty = t
+	b.stdlib.Decls = append(b.stdlib.Decls, d)
+	b.stdlib.Names[name] = d
+	return t
+}
+
+// IsCapability is whether iface is Copyable or Droppable, which a type has by its parts and never by saying so.
+func (b *Builtins) IsCapability(iface *InterfaceTy) bool {
+	return iface == b.Copyable || iface == b.Droppable
 }
 
 // Is is whether t is a type that the builtins declare.
@@ -315,18 +359,26 @@ func (b *Builtins) declare(owner NominalTy, op Intrinsic, name string, static bo
 	owner.MethodTable()[name] = f
 }
 
+// bound adds a bound on the owner's parameter to a method that is already declared.
+func (b *Builtins) bound(owner NominalTy, method string, p *TypeParamTy, iface *InterfaceTy) {
+	f := owner.MethodTable()[method]
+	f.Bounds = append(f.Bounds, ParamBound{Param: p, Iface: iface})
+}
+
 func (b *Builtins) declareArray() {
 	a := b.Array
 	t := a.Params[0]
 	self := SelfType(a)
 	b.static(a, IntrinsicArrayNew, "new", self)
 	b.static(a, IntrinsicArrayFilled, "filled", self, param("count", b.Count, ConvLet), param("value", t, ConvConsumes))
+	b.bound(a, "filled", t, b.Copyable)
 	b.method(a, IntrinsicArrayCount, "count", ConvLet, b.Count)
 	b.method(a, IntrinsicArrayIsEmpty, "isEmpty", ConvLet, BoolTy)
 	b.method(a, IntrinsicArrayAppend, "append", ConvMutates, VoidTy, param("item", t, ConvConsumes))
 	b.method(a, IntrinsicArrayInsert, "insert", ConvMutates, VoidTy, param("item", t, ConvConsumes), param("at", b.Count, ConvLet))
 	b.method(a, IntrinsicArrayRemove, "remove", ConvMutates, t, param("at", b.Count, ConvLet))
 	b.method(a, IntrinsicArrayPop, "pop", ConvMutates, b.OptionOf(t))
+	b.method(a, IntrinsicArrayDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
 }
 
 func (b *Builtins) declareMap() {
@@ -337,7 +389,10 @@ func (b *Builtins) declareMap() {
 	b.method(m, IntrinsicMapIsEmpty, "isEmpty", ConvLet, BoolTy)
 	b.method(m, IntrinsicMapHas, "has", ConvLet, BoolTy, param("key", k, ConvLet))
 	b.method(m, IntrinsicMapInsert, "insert", ConvMutates, VoidTy, param("key", k, ConvConsumes), param("value", v, ConvConsumes))
+	b.bound(m, "insert", v, b.Droppable)
+	b.method(m, IntrinsicMapReplace, "replace", ConvMutates, b.OptionOf(v), param("key", k, ConvConsumes), param("value", v, ConvConsumes))
 	b.method(m, IntrinsicMapRemove, "remove", ConvMutates, b.OptionOf(v), param("key", k, ConvLet))
+	b.method(m, IntrinsicMapDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
 }
 
 func (b *Builtins) declareList() {
@@ -358,6 +413,7 @@ func (b *Builtins) declareList() {
 	b.method(l, IntrinsicListPrev, "prev", ConvLet, b.OptionOf(h), param("handle", h, ConvLet))
 	b.method(l, IntrinsicListRemove, "remove", ConvMutates, b.OptionOf(t), param("handle", h, ConvLet))
 	b.method(l, IntrinsicListMoveToFront, "moveToFront", ConvMutates, VoidTy, param("handle", h, ConvLet))
+	b.method(l, IntrinsicListDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
 }
 
 func (b *Builtins) declarePool() {
@@ -370,34 +426,43 @@ func (b *Builtins) declarePool() {
 	b.method(p, IntrinsicPoolContains, "contains", ConvLet, BoolTy, param("handle", h, ConvLet))
 	b.method(p, IntrinsicPoolInsert, "insert", ConvMutates, h, param("item", t, ConvConsumes))
 	b.method(p, IntrinsicPoolRemove, "remove", ConvMutates, b.OptionOf(t), param("handle", h, ConvLet))
+	b.method(p, IntrinsicPoolDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
 }
 
 // declareSharing declares the functions that make and use the values which cross between threads:
 //
-//	freeze(x)  takes a value and gives an immutable frozen with T
+//	freeze(x)  takes a value and gives an immutable frozen with T, which the last owner drops, so T must be Droppable
 //	share(x)   gives another owner of the same frozen value or cown
-//	thaw(x)    gives an owned copy of what a frozen value holds
-//	cown(x)    takes a value and gives a reference to a cown that owns it
+//	thaw(x)    gives an owned copy of what a frozen value holds, so what it holds must be Copyable
+//	cown(x)    takes a value and gives a reference to a cown that owns it, and drops it with the last reference
+//	cown(x, dropWith: d)  does the same for a value that is not Droppable, and ends it with its destructor d instead
+//
+// exchange is declared here as well: it is no sharing function, but it is a generic function with a type parameter of
+// its own, which only these are.
 //
 // share is declared over any type, because it takes a frozen value or a cown reference alike; the checker refuses
 // the others. cown is the constructor of the type of the same name, so it is not a name of its own: calling the type
 // calls CownNew.
 func (b *Builtins) declareSharing() {
-	freezeT := newTypeParamTy("T")
+	freezeT := newBoundedTypeParamTy("T", b.Droppable)
 	shareT := newTypeParamTy("T")
-	thawT := newTypeParamTy("T")
-	cownT := newTypeParamTy("T")
-	b.declareGeneric(IntrinsicFreeze, "freeze", freezeT, param("x", freezeT, ConvConsumes), b.FrozenOf(freezeT))
-	b.declareGeneric(IntrinsicShare, "share", shareT, param("x", shareT, ConvLet), shareT)
-	b.declareGeneric(IntrinsicThaw, "thaw", thawT, param("x", b.FrozenOf(thawT), ConvLet), thawT)
-	b.CownNew = b.makeGeneric(IntrinsicCown, "cown", cownT, param("x", cownT, ConvConsumes), b.CownOf(cownT))
+	thawT := newBoundedTypeParamTy("T", b.Copyable)
+	cownT := newBoundedTypeParamTy("T", b.Droppable)
+	cownDropWithT := newTypeParamTy("T")
+	exchangeT := newTypeParamTy("T")
+	b.declareGeneric(IntrinsicFreeze, "freeze", freezeT, b.FrozenOf(freezeT), param("x", freezeT, ConvConsumes))
+	b.declareGeneric(IntrinsicShare, "share", shareT, shareT, param("x", shareT, ConvLet))
+	b.declareGeneric(IntrinsicThaw, "thaw", thawT, thawT, param("x", b.FrozenOf(thawT), ConvLet))
+	b.CownNew = b.makeGeneric(IntrinsicCown, "cown", cownT, b.CownOf(cownT), param("x", cownT, ConvConsumes))
+	b.CownNewDropWith = b.makeGeneric(IntrinsicCown, "cown", cownDropWithT, b.CownOf(cownDropWithT), param("x", cownDropWithT, ConvConsumes))
+	b.declareGeneric(IntrinsicExchange, "exchange", exchangeT, exchangeT, param("place", exchangeT, ConvMutates), param("value", exchangeT, ConvConsumes))
 }
 
-func (b *Builtins) declareGeneric(op Intrinsic, name string, t *TypeParamTy, p ParamSpec, ret Ty) {
-	b.stdlib.Names[name] = b.makeGeneric(op, name, t, p, ret)
+func (b *Builtins) declareGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) {
+	b.stdlib.Names[name] = b.makeGeneric(op, name, t, ret, params...)
 }
 
-func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, p ParamSpec, ret Ty) *FuncDecl {
+func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) *FuncDecl {
 	f := NewFuncDecl()
 	f.Name = name
 	f.Visibility = "public"
@@ -406,8 +471,11 @@ func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, p Para
 	f.Generics = []*TypeParamTy{t}
 	f.Instances = &InstanceTable{}
 	f.Intrinsic = op
-	f.Pass = Passing{Specs: []ParamSpec{p}}
-	f.ParamTypes = []Ty{p.Type}
+	f.Pass = Passing{Specs: params}
+	f.ParamTypes = make([]Ty, len(params))
+	for i, p := range params {
+		f.ParamTypes[i] = p.Type
+	}
 	f.ReturnType = ret
 	return f
 }

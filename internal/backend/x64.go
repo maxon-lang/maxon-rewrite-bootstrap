@@ -108,6 +108,9 @@ type CodeUnit struct {
 	Data        *DataSection
 	CodeSymbols map[any]int
 	DataSymbols map[any]int
+	// Sections are the parts of the code that the link keeps or drops whole, in order: a function or a routine each. A
+	// unit that starts none is one section, so its code may jump between its own symbols.
+	Sections []Section
 	// needed are the drop and copy routines this unit's code calls, in the order its code first does.
 	needed routineSet
 }
@@ -140,6 +143,19 @@ func (u *CodeUnit) DefineCode(symbol any) {
 	u.CodeSymbols[symbol] = u.Asm.Pos()
 }
 
+// Section is where a part of a unit's code begins, and where its fixups of each kind begin, which are in the order of
+// their positions.
+type Section struct {
+	Code, SymbolFixups, DataFixups, ImportFixups int
+}
+
+// BeginSection starts a part of the code that the link keeps only if the entry reaches it. Code in it reaches other
+// sections only through symbols.
+func (u *CodeUnit) BeginSection() {
+	a := u.Asm
+	u.Sections = append(u.Sections, Section{a.Pos(), len(a.SymbolFixups), len(a.DataFixups), len(a.ImportFixups)})
+}
+
 func (u *CodeUnit) DefineData(symbol any, size int) {
 	if _, ok := u.DataSymbols[symbol]; ok {
 		panic(diag.Internal("data symbol %s is defined twice", SymbolText(symbol)))
@@ -150,6 +166,8 @@ func (u *CodeUnit) DefineData(symbol any, size int) {
 type DataSection struct {
 	bytes   []byte
 	strings map[string]int
+	// pieces are the offsets where each string and each reserved value begins, which the link keeps or drops whole.
+	pieces []int
 }
 
 func (d *DataSection) Bytes() []byte { return d.bytes }
@@ -163,6 +181,7 @@ func (d *DataSection) align8() {
 func (d *DataSection) Reserve(size int) int {
 	d.align8()
 	off := len(d.bytes)
+	d.pieces = append(d.pieces, off)
 	d.bytes = append(d.bytes, make([]byte, size)...)
 	return off
 }
@@ -173,6 +192,7 @@ func (d *DataSection) String(s string) int {
 	}
 	d.align8()
 	off := len(d.bytes)
+	d.pieces = append(d.pieces, off)
 	d.bytes = binary.LittleEndian.AppendUint64(d.bytes, uint64(len(s)))
 	d.bytes = append(d.bytes, s...)
 	d.strings[s] = off

@@ -18,12 +18,41 @@ type TypeParamTy struct {
 
 func newTypeParamTy(name string) *TypeParamTy { return &TypeParamTy{name: name} }
 
+// newBoundedTypeParamTy is the type parameter of a built-in whose signature states a bound, as a declaration does with
+// 'where'.
+func newBoundedTypeParamTy(name string, bounds ...*InterfaceTy) *TypeParamTy {
+	return &TypeParamTy{name: name, Interfaces: bounds, bounded: true}
+}
+
 // NewTypeParamOf is the type of a declared type parameter, given the constraints of its declaration. Whether it has
 // bounds is known from the syntax, before the bounds themselves are resolved, so a use of the declaration can tell
 // whether it has anything to check.
 func NewTypeParamOf(p *TypeParam, where []*Constraint) *TypeParamTy {
 	bounded := slices.ContainsFunc(where, func(c *Constraint) bool { return c.Param == p.Name })
 	return &TypeParamTy{name: p.Name, bounded: bounded}
+}
+
+// ParamBound is a bound that a method adds to a parameter of its type. The parameter's own bounds are shared by every
+// method and every instance, so this one belongs to the method's signature: a call of the method needs its receiver's
+// type argument to meet it, and the body of the method may rely on it.
+type ParamBound struct {
+	Param *TypeParamTy
+	Iface *InterfaceTy
+}
+
+// HasOwnBounds is whether the method bounds its type's parameters beyond what the type does. The syntax says so before
+// the bounds are resolved, so a call can tell whether it has anything to check while another module still declares them.
+func (f *FuncDecl) HasOwnBounds() bool { return len(f.Where) > 0 || len(f.Bounds) > 0 }
+
+// BoundsOn are the interfaces the method adds to the type parameter.
+func (f *FuncDecl) BoundsOn(p *TypeParamTy) []*InterfaceTy {
+	var out []*InterfaceTy
+	for _, b := range f.Bounds {
+		if b.Param == p {
+			out = append(out, b.Iface)
+		}
+	}
+	return out
 }
 
 // Bounded is whether the parameter declares any bound.

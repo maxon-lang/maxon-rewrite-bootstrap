@@ -51,7 +51,7 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 	c.VerifyBounds(append(root.Bounds, c.Bounds...))
 	root.Callers = c.Callers
 	if len(root.Errors) == 0 {
-		o := check.NewOwnership(&root.Errors)
+		o := check.NewOwnership(&root.Errors, c)
 		for _, d := range root.Decls {
 			o.CheckValues(d)
 		}

@@ -14,7 +14,7 @@ export type Box uses T
 		return Self{item: item}
 	end 'make'
 
-	export function peek() returns T
+	export function peek() returns T where T implements Copyable
 		return item.copy()
 	end 'peek'
 end 'Box'
@@ -31,7 +31,7 @@ export union Option uses T
 	end 'isSome'
 end 'Option'
 
-export function swap(mutates a T, mutates b T) uses T
+export function swap(mutates a T, mutates b T) uses T where T implements Copyable
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
@@ -41,11 +41,11 @@ export function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() + b.area()
 end 'total'
 
-export function enlarge(mutates item T, by Score) uses T returns Box with T where T implements Shape
+export function enlarge(mutates item T, by Score) uses T returns Box with T where T implements Shape and Copyable
 	item.grow(by)
 	return Box.make(item.copy())
 end 'enlarge'
 
-export function wrap(consumes item T) uses T returns Option with (Box with T)
+export function wrap(consumes item T) uses T returns Option with (Box with T) where T implements Copyable
 	return Option.some(Box.make(item))
 end 'wrap'

@@ -195,3 +195,17 @@ func TestOnlyAnExecutableBuiltToCountHoldsTheCount(t *testing.T) {
 		t.Errorf("the two executables give different output: %q and %q (%v)", out, want, err)
 	}
 }
+
+// The link keeps only the code and the data that the entry reaches, so a function that nothing calls, the instance only
+// it needs, and the strings only they use are compiled but not in the executable.
+func TestTheLinkDropsWhatTheEntryDoesNotReach(t *testing.T) {
+	exe, ir := requireSameForAnyJobCount(t, filepath.Join("..", "..", "tests", "modules", "dead-code"))
+	if !bytes.Contains(ir, []byte("function keep[")) {
+		t.Error("the IR has no instance of keep: it should still be compiled")
+	}
+	for _, text := range []string{"dead main literal", "dead lib literal"} {
+		if bytes.Contains(exe, []byte(text)) {
+			t.Errorf("the executable holds %q", text)
+		}
+	}
+}

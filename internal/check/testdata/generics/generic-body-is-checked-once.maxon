@@ -1,6 +1,6 @@
 typealias ScoreBox = Box with Score
 
-function twice(consumes a T) uses T returns Score
+function twice(consumes a T) uses T returns Score where T implements Droppable
 	let n = consume(a)
 	return consume(a)
 end 'twice'

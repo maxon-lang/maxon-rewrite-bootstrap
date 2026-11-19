@@ -1,0 +1,15 @@
+type Socket is noncopyable
+	var fd as Count
+
+	static function open() returns Socket
+		return Socket{fd: 3}
+	end 'open'
+end 'Socket'
+
+function main() returns ExitCode
+	let a = Socket.open()
+	let b = a.copy()
+	return 0
+end 'main'
+
+// expect-error: E3135 at 11:16

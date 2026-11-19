@@ -1,0 +1,24 @@
+typealias Count = int(i64.min to i64.max)
+
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+
+	function leak(destructs self) returns Txn
+		return self
+	end 'leak'
+end 'Txn'
+
+function main() returns ExitCode
+	Txn.begin(1).leak().commit()
+	return 0
+end 'main'
+
+// expect-error: E3137 at 15:10

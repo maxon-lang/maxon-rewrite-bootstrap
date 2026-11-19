@@ -55,6 +55,9 @@ func (f *FuncDecl) Symbol() string {
 
 func (f *FuncDecl) IsMethod() bool { return f.Owner != nil && !f.IsStatic }
 
+// IsDestructor is whether the method ends its receiver: it is written 'destructs self', so the signature alone says so.
+func (f *FuncDecl) IsDestructor() bool { return ConventionOf(f.Receiver) == ConvDestructs }
+
 type Stmt interface {
 	Node
 	stmt()

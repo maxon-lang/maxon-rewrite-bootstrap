@@ -25,7 +25,7 @@ type Ledger
 	end 'show'
 end 'Ledger'
 
-type Slot uses T
+type Slot uses T where T implements Droppable
 	var held as T
 
 	static function put(into cown with (Slot with T), consumes value T)

@@ -103,7 +103,7 @@ func lowerBody(l *Lowerer) *IrFunction {
 // adoptParams moves each consumes parameter into a slot, which owns it from there on. A parameter the body does not name
 // (`_`) is dropped all the same, because the caller gave it away.
 func (l *Lowerer) adoptParams() {
-	if l.fn.IsMethod() && l.fn.SelfLocal.Conv == ast.ConvConsumes && l.kind(l.fn.SelfLocal.Type) == KindManaged {
+	if l.fn.IsMethod() && l.fn.SelfLocal.Conv.Owns() && l.kind(l.fn.SelfLocal.Type) == KindManaged {
 		l.selfOwner = l.adopt(l.fn.SelfLocal.ParamIndex, l.fn.SelfLocal.Type)
 	}
 	first := 0
@@ -216,10 +216,10 @@ func (l *Lowerer) runtime(symbol string, kind IrKind, args ...V) V {
 	return d
 }
 
-// block lowers the statements of a block, which owns the locals they declare.
+// block lowers the live statements of a block, which owns the locals they declare.
 func (l *Lowerer) block(body []ast.Stmt) {
 	l.pushScope(true)
-	for _, s := range body {
+	for _, s := range ast.Live(body) {
 		l.stmt(s)
 	}
 	l.popScope()
@@ -422,8 +422,8 @@ func (l *Lowerer) compare(op CmpOp, a, b V, unsigned bool) V {
 
 // expr lowers an expression to the register that holds its value, and settles who owns that value. One that the
 // ownership pass marked consumed passes to its new owner, and a place that is consumed is moved out of (a whole
-// local; the pass refuses every other). One that is not consumed only lends its value: a fresh value there is a
-// temporary, dropped when the statement or branch ends.
+// local or a field of an owned one; the pass refuses every other). One that is not consumed only lends its value: a
+// fresh value there is a temporary, dropped when the statement or branch ends.
 func (l *Lowerer) expr(e ast.Expr) V {
 	if c, ok := e.Ty().(*ast.ConstIntTy); ok {
 		return l.konst(c.Value.Bits())
@@ -437,8 +437,8 @@ func (l *Lowerer) expr(e ast.Expr) V {
 		if !e.IsConsumed() && !isImmortal(e) {
 			l.ownTemp(v, e.Ty())
 		}
-	case e.IsConsumed() && !isWholeLocal(e):
-		panic(diag.Internal("lower: a field or an element is moved out at %d:%d; the ownership pass should have refused it", e.P().Line, e.P().Col))
+	case e.IsConsumed() && !isWholeLocal(e) && !isField(e):
+		panic(diag.Internal("lower: an element or a part of a temporary is moved out at %d:%d; the ownership pass should have refused it", e.P().Line, e.P().Col))
 	}
 	return v
 }
@@ -449,6 +449,17 @@ func isWholeLocal(e ast.Expr) bool {
 		return e.Kind == ast.NameLocal
 	case *ast.SelfExpr:
 		return true
+	}
+	return false
+}
+
+// isField is whether a place is a field of a record, which a move leaves empty.
+func isField(e ast.Expr) bool {
+	switch e := e.(type) {
+	case *ast.NameExpr:
+		return e.Kind == ast.NameSelfField
+	case *ast.MemberExpr:
+		return e.Kind == ast.MemberField
 	}
 	return false
 }
@@ -570,13 +581,24 @@ func (l *Lowerer) VisitNameExpr(n *ast.NameExpr) V {
 		return d
 	case ast.NameSelfField:
 		d := l.reg(l.kind(n.Ty()))
-		obj := l.self()
-		l.emit(&LoadField{Dst: d, Obj: obj, Offset: WordBytes * n.Field.Index})
+		l.loadField(d, l.self(), n, n.Field.Index)
 		return d
 	case ast.NameConst:
 		return l.expr(n.Const.Value)
 	}
 	panic(diag.Internal("lower: unresolved name '%s'", n.Name))
+}
+
+// loadField is the value of a field of a record: a move out of it when the ownership pass found the expression consuming
+// it, which leaves 0 in the field for the drop of the record to skip, and a borrow otherwise.
+func (l *Lowerer) loadField(d, obj V, e ast.Expr, index int) {
+	if e.IsConsumed() && l.f.Regs[d] == KindManaged {
+		addr := l.reg(KindScalar)
+		l.emit(&FieldAddr{Dst: addr, Obj: obj, Offset: WordBytes * index})
+		l.emit(&MoveAtInstr{Dst: d, Addr: addr})
+		return
+	}
+	l.emit(&LoadField{Dst: d, Obj: obj, Offset: WordBytes * index})
 }
 
 func (l *Lowerer) address(e ast.Expr) V {
@@ -733,7 +755,7 @@ func (l *Lowerer) VisitMemberExpr(m *ast.MemberExpr) V {
 	case ast.MemberField:
 		obj := l.read(m.Obj)
 		d := l.reg(l.kind(m.Ty()))
-		l.emit(&LoadField{Dst: d, Obj: obj, Offset: WordBytes * m.Field.Index})
+		l.loadField(d, obj, m, m.Field.Index)
 		return d
 	case ast.MemberEnumCase:
 		return l.konst(int64(m.CaseIndex))
@@ -994,16 +1016,11 @@ func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 			l.goTo(next)
 		}
 		l.cur = body
-
-		for _, pat := range arm.Patterns {
-			for i, local := range pat.BindingLocals {
-				if local != nil {
-					kind := l.kind(local.Type)
-					d := l.reg(kind)
-					l.emit(&LoadField{Dst: d, Obj: subject, Offset: WordBytes + WordBytes*i})
-					l.emit(&StoreSlot{Slot: local.Slot, Src: d, Borrow: kind == KindManaged})
-				}
-			}
+		if m.Consumes {
+			l.pushScope(true)
+			l.takeApart(arm, subject, st)
+		} else {
+			l.borrowPayloads(arm, subject)
 		}
 
 		switch arm.Kind() {
@@ -1016,6 +1033,9 @@ func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 		default:
 			panic(diag.Internal("lower: unhandled match arm kind"))
 		}
+		if m.Consumes {
+			l.popScope()
+		}
 		l.goTo(end)
 		l.cur = next
 	}
@@ -1027,6 +1047,46 @@ func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 		return l.konst(0)
 	}
 	return l.fetch(result)
+}
+
+// borrowPayloads binds the payload an arm names to a borrow of the subject's box.
+func (l *Lowerer) borrowPayloads(arm *ast.MatchArm, subject V) {
+	for _, pat := range arm.Patterns {
+		for i, local := range pat.BindingLocals {
+			if local != nil {
+				kind := l.kind(local.Type)
+				d := l.reg(kind)
+				l.emit(&LoadField{Dst: d, Obj: subject, Offset: WordBytes + WordBytes*i})
+				l.emit(&StoreSlot{Slot: local.Slot, Src: d, Borrow: kind == KindManaged})
+			}
+		}
+	}
+}
+
+// takeApart is the start of an arm of a match that consumes its subject: each payload the arm names moves out of the
+// box into a local that owns it, which leaves the field empty, and then the box is dropped, which skips the empty fields
+// and drops the payloads the arm does not name.
+func (l *Lowerer) takeApart(arm *ast.MatchArm, subject V, st ast.Ty) {
+	for _, pat := range arm.Patterns {
+		for i, local := range pat.BindingLocals {
+			if local == nil {
+				continue
+			}
+			offset := WordBytes + WordBytes*i
+			kind := l.kind(local.Type)
+			d := l.reg(kind)
+			if kind == KindManaged {
+				addr := l.reg(KindScalar)
+				l.emit(&FieldAddr{Dst: addr, Obj: subject, Offset: offset})
+				l.emit(&MoveAtInstr{Dst: d, Addr: addr})
+			} else {
+				l.emit(&LoadField{Dst: d, Obj: subject, Offset: offset})
+			}
+			l.emit(&StoreSlot{Slot: local.Slot, Src: d})
+			l.ownLocal(local.Slot, local.Type)
+		}
+	}
+	l.dropValue(subject, st)
 }
 
 func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body *IrBlock) {

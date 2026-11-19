@@ -1,0 +1,48 @@
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+
+	function rollback(destructs self)
+		print("rollback {id}\n")
+	end 'rollback'
+end 'Txn'
+
+type Pair
+	var first as cown with Txn
+	var second as cown with Txn
+
+	static function of(a Count, b Count) returns Pair
+		return Pair{first: cown(Txn.begin(a), dropWith: rollback), second: cown(Txn.begin(b), dropWith: rollback)}
+	end 'of'
+end 'Pair'
+
+function touch(c cown with Txn)
+	when c as t 'touch'
+		print("touch {t.id}\n")
+	end 'touch'
+end 'touch'
+
+function dropPair()
+	let pair = Pair.of(2, b: 3)
+end 'dropPair'
+
+function main() returns ExitCode
+	dropPair()
+	let t = cown(Txn.begin(1), dropWith: rollback)
+	touch(t)
+	touch(t)
+	return 0
+end 'main'
+
+//> rollback 2
+//> rollback 3
+//> touch 1
+//> touch 1
+//> rollback 1

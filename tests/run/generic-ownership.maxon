@@ -6,7 +6,7 @@ typealias StringSlot = Slot with String
 
 typealias StringStringPair = Pair with (String, String)
 
-type Pair uses A, B
+type Pair uses A, B where A implements Droppable
 	var first as A
 	var second as B
 
@@ -28,13 +28,13 @@ union Slot uses T
 	empty
 end 'Slot'
 
-function swap(mutates a T, mutates b T) uses T
+function swap(mutates a T, mutates b T) uses T where T implements Copyable
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function fill(sets out T, from T) uses T
+function fill(sets out T, from T) uses T where T implements Copyable
 	out = from.copy()
 end 'fill'
 
@@ -42,16 +42,16 @@ function count(a T) uses T returns Score
 	return 1
 end 'count'
 
-function eat(consumes a T) uses T returns Score
+function eat(consumes a T) uses T returns Score where T implements Droppable
 	return 1
 end 'eat'
 
-function hold(consumes a T) uses T returns Pair with (T, T)
+function hold(consumes a T) uses T returns Pair with (T, T) where T implements Copyable
 	let keep = a.copy()
 	return Pair.make(a, second: keep)
 end 'hold'
 
-function reuse(consumes a T, b T) uses T returns Score
+function reuse(consumes a T, b T) uses T returns Score where T implements Copyable
 	var held = a
 	var total = eat(held)
 	held = b.copy()
@@ -59,7 +59,7 @@ function reuse(consumes a T, b T) uses T returns Score
 	return total
 end 'reuse'
 
-function later(a T, b T, flag bool) uses T returns T
+function later(a T, b T, flag bool) uses T returns T where T implements Copyable
 	var chosen = a.copy()
 	if flag 'f'
 		chosen = b.copy()
@@ -67,7 +67,7 @@ function later(a T, b T, flag bool) uses T returns T
 	return chosen
 end 'later'
 
-function either(consumes a T, consumes b T, flag bool) uses T returns T
+function either(consumes a T, consumes b T, flag bool) uses T returns T where T implements Droppable
 	return a if flag else b
 end 'either'
 
@@ -78,18 +78,18 @@ function inspect(slot Slot with T) uses T returns Score
 	end 'm'
 end 'inspect'
 
-function reopen(slot Slot with T) uses T returns Slot with T
+function reopen(slot Slot with T) uses T returns Slot with T where T implements Copyable
 	return match slot 'm'
 		full(v) gives Slot.full(v.copy())
 		empty gives Slot.empty
 	end 'm'
 end 'reopen'
 
-function disjoint(mutates p Pair with (T, T)) uses T
+function disjoint(mutates p Pair with (T, T)) uses T where T implements Copyable
 	swap(p.first, b: p.second)
 end 'disjoint'
 
-function uninit(a T) uses T returns T
+function uninit(a T) uses T returns T where T implements Copyable
 	var x as T
 	fill(x, from: a)
 	return x

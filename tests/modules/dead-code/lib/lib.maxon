@@ -1,0 +1,23 @@
+typealias Count = int(0 to 100)
+
+type Tag
+	var name as String
+
+	static function make(consumes name String) returns Tag
+		return Tag{name: name}
+	end 'make'
+end 'Tag'
+
+function keep(a T) uses T returns T where T implements Copyable
+	return a.copy()
+end 'keep'
+
+export function used() returns Count
+	return 3
+end 'used'
+
+export function unused() returns Count
+	let t = keep(Tag.make("dead lib literal"))
+	print("{t.name}\n")
+	return 4
+end 'unused'

@@ -48,7 +48,7 @@ function id(consumes a T) uses T returns T
 	return a
 end 'id'
 
-function nest(consumes x T, depth Score) uses T returns Score
+function nest(consumes x T, depth Score) uses T returns Score where T implements Droppable
 	if depth > 0 'more'
 		return nest(Wrap.make(x), depth: depth - 1)
 	end 'more'

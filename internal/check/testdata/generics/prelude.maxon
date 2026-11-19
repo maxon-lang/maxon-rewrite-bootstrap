@@ -25,7 +25,7 @@ type Plain
 	export var n as Score
 end 'Plain'
 
-type Box uses T
+type Box uses T where T implements Droppable
 	export var item as T
 	export let tag as Score
 
@@ -33,7 +33,7 @@ type Box uses T
 		return Self{item: item, tag: tag}
 	end 'make'
 
-	function peek() returns T
+	function peek() returns T where T implements Copyable
 		return item.copy()
 	end 'peek'
 
@@ -47,13 +47,13 @@ union Slot uses T
 	empty
 end 'Slot'
 
-function swap(mutates a T, mutates b T) uses T
+function swap(mutates a T, mutates b T) uses T where T implements Copyable
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function consume(consumes a T) uses T returns Score
+function consume(consumes a T) uses T returns Score where T implements Droppable
 	return 1
 end 'consume'
 

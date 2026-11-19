@@ -1,0 +1,10 @@
+function neverCalled()
+	print("dead main literal\n")
+end 'neverCalled'
+
+function main() returns ExitCode
+	print("{lib.used()}\n")
+	return 0
+end 'main'
+
+//> 3

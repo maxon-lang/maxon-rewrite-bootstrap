@@ -1,0 +1,54 @@
+// case: a field assigned again makes the value whole
+function main() returns ExitCode
+	var p = Pair.make("l", right: "r")
+	let l = p.left
+	print("{l} {p.right}")
+	p.left = "again"
+	let q = p
+	print("{q.left}")
+	return 0
+end 'main'
+
+// case: a field of a field
+function main() returns ExitCode
+	var w = Wrapper.make(Pair.make("a", right: "b"), tag: "t")
+	let inner = w.pair.left
+	print("{inner} {w.pair.right} {w.tag}")
+	w.pair.left = "c"
+	let whole = w
+	print("{whole.tag}")
+	return 0
+end 'main'
+
+// case: a destructor moves its fields out and delegates to another destructor
+function main() returns ExitCode
+	Txn.begin(1).rollback()
+	let note = Txn.begin(2).take()
+	print(note)
+	return 0
+end 'main'
+
+// case: a destructor ends the fields that it does not move on
+function main() returns ExitCode
+	let s = Session.open(Txn.begin(1), name: "s")
+	print(s.close())
+	return 0
+end 'main'
+
+// case: a loop that only break leaves
+function main() returns ExitCode
+	let t = Txn.begin(1)
+	while true 'w'
+		t.commit()
+		break
+	end 'w'
+	return 0
+end 'main'
+
+// case: a type that holds a Txn is taken apart by moving the Txn on, and what is left drops
+function main() returns ExitCode
+	let h = Holder.make(Txn.begin(1), label: "h")
+	let t = h.txn
+	t.commit()
+	return 0
+end 'main'

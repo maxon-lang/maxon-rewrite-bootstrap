@@ -263,6 +263,8 @@ const (
 	ConvConsumes
 	// ConvSets takes an uninitialised variable that the callee must initialise.
 	ConvSets
+	// ConvDestructs is the receiver of a destructor: it moves into the method like ConvConsumes, and ends the value.
+	ConvDestructs
 )
 
 // ConventionOf reads the keyword a parameter or receiver is written with; none means a let.
@@ -276,12 +278,17 @@ func ConventionOf(word string) Convention {
 		return ConvConsumes
 	case "sets":
 		return ConvSets
+	case "destructs":
+		return ConvDestructs
 	}
 	panic(diag.Internal("unknown parameter convention '%s'", word))
 }
 
 // ByAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
 func (c Convention) ByAddress() bool { return c == ConvMutates || c == ConvSets }
+
+// Owns is whether the callee owns what it is given: the caller's value moves in.
+func (c Convention) Owns() bool { return c == ConvConsumes || c == ConvDestructs }
 
 func (c Convention) String() string {
 	switch c {
@@ -293,6 +300,8 @@ func (c Convention) String() string {
 		return "consumes"
 	case ConvSets:
 		return "sets"
+	case ConvDestructs:
+		return "destructs"
 	}
 	panic(diag.Internal("unknown convention %d", int(c)))
 }
@@ -320,7 +329,7 @@ func (l *Local) ByRef() bool { return l.IsParam && !l.IsSelf && l.Conv.ByAddress
 
 // Borrowed is whether the local only borrows its value, so the value cannot be moved out of it.
 func (l *Local) Borrowed() bool {
-	return l.Projected || (l.IsParam && l.Conv != ConvConsumes)
+	return l.Projected || (l.IsParam && !l.Conv.Owns())
 }
 
 // Mutable is whether the local, and the fields reached through it, may be assigned.

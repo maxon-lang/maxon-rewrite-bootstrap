@@ -1,0 +1,32 @@
+type Socket is noncopyable
+	var fd as Count
+
+	static function open(fd Count) returns Socket
+		return Socket{fd: fd}
+	end 'open'
+
+	function describe() returns Count
+		return fd
+	end 'describe'
+end 'Socket'
+
+type Conn
+	var sock as Socket
+
+	static function open(fd Count) returns Conn
+		return Conn{sock: Socket.open(fd)}
+	end 'open'
+
+	function fd() returns Count
+		return sock.describe()
+	end 'fd'
+end 'Conn'
+
+function main() returns ExitCode
+	let c = Conn.open(7)
+	let moved = c
+	print("fd {moved.fd()}\n")
+	return 0
+end 'main'
+
+//> fd 7

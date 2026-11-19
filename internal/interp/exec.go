@@ -191,11 +191,17 @@ func addressOf(c *cell) value {
 	return value{adr: &address{cell: c, version: c.holder.version}}
 }
 
-func (vm *vm) execCall(fr *frame, c *ir.CallInstr) {
-	callee, ok := vm.prog.Functions[c.Target]
+// function is the IR of a function that the program calls.
+func (vm *vm) function(f *ast.FuncDecl) *ir.IrFunction {
+	fn, ok := vm.prog.Functions[f]
 	if !ok {
-		panic(diag.Internal("interp: %s has no IR", c.Target.Symbol()))
+		panic(diag.Internal("interp: %s has no IR", f.Symbol()))
 	}
+	return fn
+}
+
+func (vm *vm) execCall(fr *frame, c *ir.CallInstr) {
+	callee := vm.function(c.Target)
 	args := make([]value, len(c.Args))
 	for i, r := range c.Args {
 		args[i] = fr.regs[r]

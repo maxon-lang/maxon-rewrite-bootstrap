@@ -119,7 +119,7 @@ func (c *Checker) requireCapturable(site ast.Node, outer *ast.Local) {
 	if bt, ok := outer.Type.(*ast.BuiltinTy); ok && bt.Shared() {
 		fix = fmt.Sprintf("take an owner of it first: 'let own = share(%s)', and use 'own' in the behaviour", outer.Name)
 	} else {
-		fix = fmt.Sprintf("give the behaviour a copy: 'let own = %s.copy()' before the 'when', and use 'own'", outer.Name)
+		fix = c.copyAdvice(outer.Type, fmt.Sprintf("give the behaviour a copy: 'let own = %s.copy()' before the 'when', and use 'own'", outer.Name), "pass what the behaviour needs through a cown")
 	}
 	panic(site.P().Error(diag.ErrBehaviourBorrow,
 		fmt.Sprintf("'%s' is %s, so it only borrows its value, and a behaviour runs later in another thread and cannot keep a borrow; %s", outer.Name, what, fix)))
@@ -139,21 +139,25 @@ func (c *Checker) isAccess(l *ast.Local) bool {
 }
 
 // refuseBehaviourSelf is the error for 'self', or a field of it, used inside a behaviour: the receiver is borrowed, and
-// a field is a part of it.
-func (c *Checker) refuseBehaviourSelf(site ast.Node, what string) {
+// a field is a part of it. t is the type of what was named.
+func (c *Checker) refuseBehaviourSelf(site ast.Node, what string, t ast.Ty) {
 	panic(site.P().Error(diag.ErrBehaviourBorrow,
-		fmt.Sprintf("%s belongs to the receiver, which a method only borrows, and a behaviour runs later in another thread; copy what it needs into a variable before the 'when': 'let own = ....copy()'", what)))
+		fmt.Sprintf("%s belongs to the receiver, which a method only borrows, and a behaviour runs later in another thread; %s", what,
+			c.copyAdvice(t, "copy what it needs into a variable before the 'when': 'let own = ....copy()'", "pass what the behaviour needs through a cown"))))
 }
 
-// selfFieldInBehaviour is the field of the enclosing method's record that a bare name stands for, if any, so that a
-// behaviour naming it is told why it cannot.
-func (c *Checker) selfFieldInBehaviour(name string) bool {
+// selfFieldInBehaviour is the type of the field of the enclosing method's record that a bare name stands for, if there
+// is one, so that a behaviour naming it is told why it cannot.
+func (c *Checker) selfFieldInBehaviour(name string) (ast.Ty, bool) {
 	root := c.outers[0].fn
 	if root == nil || !root.IsMethod() {
-		return false
+		return nil, false
 	}
 	rt, ok := c.owner.(*ast.RecordTy)
-	return ok && rt.Field(name) != nil
+	if !ok || rt.Field(name) == nil {
+		return nil, false
+	}
+	return rt.FieldType(rt.Field(name)), true
 }
 
 // enterBehaviour starts checking the body of a behaviour as a function of its own, whose first parameters give access
@@ -293,14 +297,75 @@ func (c *Checker) checkIntrinsicArgs(call *ast.CallExpr, target *ast.FuncDecl, o
 	case ast.IntrinsicShare:
 		if bt, ok := t.(*ast.BuiltinTy); !ok || !bt.Shared() {
 			panic(arg.P().Error(diag.ErrShareTarget,
-				fmt.Sprintf("share takes a frozen value or a cown reference, found %s; a value that is not shared has one owner, so move it, or copy it with '.copy()'", t.Name())))
+				fmt.Sprintf("share takes a frozen value or a cown reference, found %s; a value that is not shared has one owner, so %s", t.Name(), c.copyAdvice(t, "move it, or copy it with '.copy()'", "move it"))))
 		}
 	case ast.IntrinsicThaw:
 		if !ast.IsFrozen(t) {
 			panic(arg.P().Error(diag.ErrShareTarget,
-				fmt.Sprintf("thaw takes a frozen value, found %s; a value that is not frozen is already owned: use '.copy()' for another one", t.Name())))
+				fmt.Sprintf("thaw takes a frozen value, found %s; a value that is not frozen is already owned: %s", t.Name(), c.copyAdvice(t, "use '.copy()' for another one", "move it"))))
 		}
 	}
+}
+
+// cownCall types cown(x) and cown(x, dropWith: d). The content of the first is dropped with the last reference, so it
+// must be Droppable. The content of the second is ended by its destructor d, which is a method name and no value, so
+// the argument is taken out of the call before the ordinary arguments are checked.
+func (c *Checker) cownCall(call *ast.CallExpr) ast.Ty {
+	b := c.project.Builtins
+	at := slices.IndexFunc(call.Args, func(a *ast.Arg) bool { return a.Label == ast.DropWithLabel })
+	if at <= 0 {
+		return c.callFunction(call, ast.CallFunction, b.CownNew, nil, nil)
+	}
+	all, drop := call.Args, call.Args[at]
+	call.Args = slices.Delete(slices.Clone(all), at, at+1)
+	defer func() { call.Args = all }()
+	t := c.callFunction(call, ast.CallFunction, b.CownNewDropWith, nil, nil)
+	call.Drop = c.dropWithCall(call, drop, call.Ordered[0].Ty())
+	c.recordUses(call.Drop)
+	return t
+}
+
+// dropWithCall is the call of the destructor that a cown of content ends it with. Only content that is not Droppable
+// has something to decide, and the destructor takes nothing else, because the cown has nothing else to give it.
+func (c *Checker) dropWithCall(site *ast.CallExpr, arg *ast.Arg, content ast.Ty) *ast.CallExpr {
+	if c.lacks(droppable, content) == nil {
+		panic(arg.Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is Droppable, so the cown drops it with its last reference and there is nothing to decide: remove 'dropWith:'", content.Name())))
+	}
+	name, isName := arg.Value.(*ast.NameExpr)
+	if !isName {
+		panic(arg.Error(diag.ErrCapabilityMisuse, "'dropWith:' names a destructor of the content by its name alone, as 'dropWith: rollback'"))
+	}
+	nt, isNominal := content.(ast.NominalTy)
+	if !isNominal {
+		panic(arg.Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is a type parameter and has no destructor to name: a value that is not Droppable cannot go into a cown in generic code; add the bound 'where %s implements Droppable'", content.Name(), content.Name())))
+	}
+	method, found := nt.MethodTable()[name.Name]
+	if !found || method.IsStatic || !method.IsDestructor() || len(method.Pass.Specs) > 0 || method.ReturnType != ast.Ty(ast.VoidTy) {
+		panic(arg.Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is not a destructor of '%s' that takes no other argument and returns nothing%s", name.Name, nt.Name(), c.dropWithCandidates(nt))))
+	}
+	c.requireExported(arg, method)
+	c.queueMethodBounds(site, method, nt.Base().Args)
+	drop := &ast.CallExpr{Kind: ast.CallMethod, Target: method, Pass: &method.Pass}
+	drop.Pos = *site.P()
+	if len(method.Generics) > 0 {
+		drop.Generic = &ast.GenericCall{TypeArgs: nt.Base().Args}
+	}
+	return drop
+}
+
+// dropWithCandidates names the destructors that dropWith: may name, in declaration order, for the error that names
+// another.
+func (c *Checker) dropWithCandidates(t ast.NominalTy) string {
+	var names []string
+	for _, m := range declaredMethods(t) {
+		if m.IsDestructor() && len(m.Pass.Specs) == 0 && m.ReturnType == ast.Ty(ast.VoidTy) {
+			names = append(names, m.Name)
+		}
+	}
+	if len(names) == 0 {
+		return fmt.Sprintf(": '%s' has no such destructor; declare one, as 'function rollback(destructs self)'", t.Name())
+	}
+	return ": name " + strings.Join(names, " or ")
 }
 
 // checkCownCycle refuses a type that can reach itself through a cown. A cown owns a mutable value, and a behaviour can

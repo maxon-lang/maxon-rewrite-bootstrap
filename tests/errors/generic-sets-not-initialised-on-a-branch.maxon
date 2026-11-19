@@ -8,7 +8,7 @@ type Box uses T
 		return Self{item: item, tag: tag}
 	end 'make'
 
-	function peek() returns T
+	function peek() returns T where T implements Copyable
 		return item.copy()
 	end 'peek'
 
@@ -27,7 +27,7 @@ union Slot uses T
 	empty
 end 'Slot'
 
-function swap(mutates a T, mutates b T) uses T
+function swap(mutates a T, mutates b T) uses T where T implements Copyable
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
@@ -37,7 +37,7 @@ function join(mutates a T, consumes b T) uses T
 	a = b
 end 'join'
 
-function fill(sets out T, from T) uses T
+function fill(sets out T, from T) uses T where T implements Copyable
 	out = from.copy()
 end 'fill'
 
@@ -45,7 +45,7 @@ function consume(consumes a T) uses T returns Score
 	return 1
 end 'consume'
 
-function sometimes(sets out T, from T, flag bool) uses T
+function sometimes(sets out T, from T, flag bool) uses T where T implements Copyable
 	if flag 'f'
 		out = from.copy()
 	end 'f'

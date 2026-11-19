@@ -33,7 +33,7 @@ function length(items array with T) uses T returns Count
 	return items.count()
 end 'length'
 
-function duplicate(mutates items array with T, at Count) uses T
+function duplicate(mutates items array with T, at Count) uses T where T implements Copyable
 	items.insert(items[at].copy(), at: at)
 end 'duplicate'
 

@@ -103,7 +103,7 @@ func (r *Resolver) VisitInterfaceDecl(d *ast.InterfaceDecl) {
 
 // enterTypeParams puts the type parameters of the declaration named owner in scope and returns the scope to restore
 // afterwards. Each constraint of its 'where' clause binds one of them, and its bounds are resolved with the
-// parameters in scope.
+// parameters in scope. A method's constraint may also bind a parameter of its type, which is in scope already.
 func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where []*ast.Constraint) map[string]*ast.TypeParam {
 	outer := r.typeParams
 	if len(params) > 0 {
@@ -114,7 +114,7 @@ func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where 
 		}
 	}
 	for _, c := range where {
-		c.Target = constrained(owner, params, where, c)
+		c.Target = constrained(owner, params, outer, where, c)
 		for _, b := range c.Bounds {
 			r.resolveType(b)
 		}
@@ -122,17 +122,20 @@ func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where 
 	return outer
 }
 
-// constrained is the type parameter a constraint binds: one the declaration itself declares, and constrains once.
-func constrained(owner string, params []*ast.TypeParam, where []*ast.Constraint, c *ast.Constraint) *ast.TypeParam {
-	i := slices.IndexFunc(params, func(p *ast.TypeParam) bool { return p.Name == c.Param })
-	if i < 0 {
+// constrained is the type parameter a constraint binds: one the declaration itself declares, or one of the type the
+// declaration is a method of (enclosing), and constrains once.
+func constrained(owner string, params []*ast.TypeParam, enclosing map[string]*ast.TypeParam, where []*ast.Constraint, c *ast.Constraint) *ast.TypeParam {
+	var target *ast.TypeParam
+	if i := slices.IndexFunc(params, func(p *ast.TypeParam) bool { return p.Name == c.Param }); i >= 0 {
+		target = params[i]
+	} else if target = enclosing[c.Param]; target == nil {
 		panic(c.Error(diag.ErrUnknownTypeParam, fmt.Sprintf("'%s' is not a type parameter of '%s': declare it with 'uses %s', or constrain one that '%s' declares",
 			c.Param, owner, c.Param, owner)))
 	}
 	if first := slices.IndexFunc(where, func(o *ast.Constraint) bool { return o.Param == c.Param }); where[first] != c {
 		panic(c.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is constrained twice: join its bounds with 'and', as 'where %s implements A and B'", c.Param, c.Param)))
 	}
-	return params[i]
+	return target
 }
 
 func (r *Resolver) resolveConforms(interfaces []*ast.TypeRef) {
@@ -374,7 +377,15 @@ func (r *Resolver) VisitCondExpr(e *ast.CondExpr) ast.Expr {
 
 func (r *Resolver) VisitCallExpr(e *ast.CallExpr) ast.Expr {
 	e.Callee = r.expr(e.Callee)
+	constructsCown := false
+	if n, ok := e.Callee.(*ast.NameExpr); ok {
+		constructsCown = ast.IsCownConstructor(n.Target)
+	}
 	for _, a := range e.Args {
+		// The argument of dropWith: is the name of a method of the content's type, which only its type can resolve.
+		if constructsCown && a.Label == ast.DropWithLabel {
+			continue
+		}
 		a.Value = r.expr(a.Value)
 	}
 	return e

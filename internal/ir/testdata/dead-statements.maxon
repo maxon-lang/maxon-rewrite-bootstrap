@@ -1,0 +1,41 @@
+typealias Score = int(i64.min to i64.max)
+
+function keep(a T) uses T returns T where T implements Copyable
+	return a.copy()
+end 'keep'
+
+function afterReturn() returns Score
+	return 1
+	return keep(2 as Score)
+end 'afterReturn'
+
+function afterPanic() returns Score
+	panic("stop")
+	return keep(3 as Score)
+end 'afterPanic'
+
+function afterBothBranches(c bool) returns Score
+	if c 'pick'
+		return 4
+	end 'pick' else 'other'
+		return 5
+	end 'other'
+	return keep(6 as Score)
+end 'afterBothBranches'
+
+function afterBreak() returns Score
+	var n = 0 as Score
+	while n < 3 'loop'
+		n = n + 1
+		break
+		n = keep(n)
+	end 'loop'
+	return n
+end 'afterBreak'
+
+function main() returns ExitCode
+	_ = afterReturn()
+	_ = afterBothBranches(true)
+	_ = afterBreak()
+	return 0
+end 'main'

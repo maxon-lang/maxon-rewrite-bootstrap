@@ -1,0 +1,101 @@
+// case: ended on the only path
+function main() returns ExitCode
+	let t = Txn.begin()
+	t.commit()
+	return 0
+end 'main'
+
+// case: ended on both branches
+function pick(flag bool)
+	let t = Txn.begin()
+	if flag 'f'
+		t.commit()
+	end 'f' else 'g'
+		t.rollback()
+	end 'g'
+end 'pick'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a local declared and ended inside a branch
+function inner(flag bool)
+	if flag 'f'
+		let t = Txn.begin()
+		t.commit()
+	end 'f'
+end 'inner'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: moved on by a return
+function make() returns Txn
+	let t = Txn.begin()
+	return t
+end 'make'
+
+function main() returns ExitCode
+	make().commit()
+	return 0
+end 'main'
+
+// case: a loop that ends its local before break and continue
+function spin(n Score)
+	var i = 0 as Score
+	while i < n 'w'
+		i = i + 1
+		let t = Txn.begin()
+		if i == 2 'skip'
+			t.rollback()
+			continue
+		end 'skip'
+		if i == 3 'stop'
+			t.commit()
+			break
+		end 'stop'
+		t.commit()
+	end 'w'
+end 'spin'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: declared without a value and assigned on every path
+function late(flag bool)
+	var t as Txn
+	if flag 'f'
+		t = Txn.begin()
+	end 'f' else 'g'
+		t = Txn.begin()
+	end 'g'
+	t.commit()
+end 'late'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a match that consumes ends each payload in its arm
+function finish(consumes step Step)
+	match consumes step 'which'
+		done(t) then t.commit()
+		failed(t, note) then t.rollback()
+	end 'which'
+end 'finish'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a type parameter with the bound dies freely
+function ignore(consumes x T) uses T where T implements Droppable
+	print("x")
+end 'ignore'
+
+function main() returns ExitCode
+	return 0
+end 'main'

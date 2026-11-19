@@ -1,0 +1,77 @@
+typealias Count = int(i64.min to i64.max)
+
+type Pair
+	export var left as String
+	export var right as String
+
+	static function make(consumes left String, consumes right String) returns Pair
+		return Pair{left: left, right: right}
+	end 'make'
+end 'Pair'
+
+type Wrapper
+	export var pair as Pair
+	export var tag as String
+
+	static function make(consumes pair Pair, consumes tag String) returns Wrapper
+		return Wrapper{pair: pair, tag: tag}
+	end 'make'
+end 'Wrapper'
+
+type Txn
+	var id as Count
+	var note as String
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id, note: "n{id}"}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id} {note}\n")
+	end 'commit'
+
+	function abort(destructs self, reason String)
+		let n = note
+		print("abort {id} {n} {reason}\n")
+	end 'abort'
+
+	function rollback(destructs self)
+		let r = "rolled back"
+		self.abort(r)
+	end 'rollback'
+
+	function finish(destructs self) returns String
+		let kept = self.note
+		return kept
+	end 'finish'
+end 'Txn'
+
+function main() returns ExitCode
+	var p = Pair.make("l", right: "r")
+	let l = p.left
+	print("{l} {p.right}\n")
+	p.left = "again"
+	print("{p.left} {p.right}\n")
+	let q = p
+	print("{q.left}\n")
+	var w = Wrapper.make(Pair.make("a", right: "b"), tag: "t")
+	let inner = w.pair.left
+	print("{inner} {w.pair.right} {w.tag}\n")
+	w.pair.left = "c"
+	print("{w.pair.left}\n")
+	Txn.begin(1).commit()
+	Txn.begin(2).rollback()
+	let t = Txn.begin(3)
+	let note = t.finish()
+	print("{note}\n")
+	return 0
+end 'main'
+
+//> l r
+//> again r
+//> again
+//> a b t
+//> c
+//> commit 1 n1
+//> abort 2 n2 rolled back
+//> n3

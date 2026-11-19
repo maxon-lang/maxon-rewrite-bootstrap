@@ -29,7 +29,7 @@ type Box uses T
 		return Self{item: item}
 	end 'make'
 
-	function peek() returns T
+	function peek() returns T where T implements Copyable
 		return item.copy()
 	end 'peek'
 
@@ -37,12 +37,12 @@ type Box uses T
 		item = next
 	end 'replace'
 
-	function take(consumes self) returns T
+	function take(consumes self) returns T where T implements Copyable
 		return item.copy()
 	end 'take'
 end 'Box'
 
-function dup(x T) uses T returns T
+function dup(x T) uses T returns T where T implements Copyable
 	return x.copy()
 end 'dup'
 
@@ -50,14 +50,14 @@ function put(mutates items array with T, consumes x T) uses T
 	items.append(x)
 end 'put'
 
-function firstOf(items array with T) uses T returns Option with T
+function firstOf(items array with T) uses T returns Option with T where T implements Copyable
 	if items.isEmpty() 'e'
 		return Option.none
 	end 'e'
 	return Option.some(items[0].copy())
 end 'firstOf'
 
-function overwrite(mutates target T, value T) uses T
+function overwrite(mutates target T, value T) uses T where T implements Copyable
 	target = value.copy()
 end 'overwrite'
 
@@ -85,7 +85,7 @@ function pass2(consumes a T, consumes b T, first bool) uses T returns T
 	return b
 end 'pass2'
 
-function both(a A, mutates b B) uses A, B
+function both(a A, mutates b B) uses A, B where B implements Copyable, A implements Copyable
 	b = b.copy()
 	let c = a.copy()
 end 'both'
@@ -94,12 +94,12 @@ function consume(consumes x T) uses T
 	let kept = x
 end 'consume'
 
-function both2(a A, consumes b B) uses A, B
+function both2(a A, consumes b B) uses A, B where A implements Copyable
 	consume(b)
 	let c = a.copy()
 end 'both2'
 
-function fill(sets out T, from T) uses T
+function fill(sets out T, from T) uses T where T implements Copyable
 	out = from.copy()
 end 'fill'
 

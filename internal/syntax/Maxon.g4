@@ -74,7 +74,7 @@ typeDeclNode
 
 funcDecl
     : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name
-      ^'(' ( receiver=('mutates' | 'consumes') 'self' (',' params+=param)*
+      ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
       ')' typeParams=usesClause? ('returns' returns=typeRef)? where=whereClause?
@@ -86,6 +86,7 @@ funcDecl
 	Intrinsic Intrinsic
 	Owner NominalTy
 	Generics []*TypeParamTy
+	Bounds []ParamBound
 	Generic *FuncDecl
 	TypeArgs []Ty
 	Instances *InstanceTable
@@ -116,7 +117,7 @@ constDecl
 }
 
 typeDecl
-    : visibility=('export' | 'public')? 'type' name=Name typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
+    : visibility=('export' | 'public')? 'type' name=Name ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
       (Indent ((fields+=fieldDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -136,7 +137,7 @@ enumCaseDecl
     ;
 
 unionDecl
-    : visibility=('export' | 'public')? 'union' name=Name typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
+    : visibility=('export' | 'public')? 'union' name=Name ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
       (Indent ((cases+=unionCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -214,7 +215,7 @@ interfaceDecl
 
 funcSig
     : 'function' name=Name
-      ^'(' ( receiver=('mutates' | 'consumes') 'self' (',' params+=param)*
+      ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
       ')' ('returns' returns=typeRef)?
@@ -342,7 +343,7 @@ whenStmt
 // Match
 
 matchCore
-    : 'match' subject=expr label=Label Newline
+    : 'match' consumes='consumes'? subject=expr label=Label Newline
       (Indent (arms+=matchArm Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -428,6 +429,7 @@ expr
 	Union *UnionTy
 	CaseIndex int = -1
 	Ordered []Expr
+	Drop *CallExpr
 }
 
 @ast::BinaryExpr {

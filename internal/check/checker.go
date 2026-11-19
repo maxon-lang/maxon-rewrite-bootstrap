@@ -50,6 +50,8 @@ type Checker struct {
 	blocks     []checkerBlock
 	nextSlot   int
 	uses       *[]*ast.CallExpr
+	// dead is whether the statement being checked comes after its block's live statements.
+	dead bool
 	// expect is the type the context of the expression being checked needs, or nil where it needs none in particular:
 	// a call on a bare generic type takes from it the type arguments its own arguments do not fix.
 	expect ast.Ty
@@ -62,6 +64,12 @@ type Checker struct {
 	// that enclose it, outermost first.
 	behaviour *behaviourBuild
 	outers    []fnLevel
+	// bounded is the function being checked when its signature bounds its type's parameters beyond what the type does, or
+	// nil. Those bounds hold in its body and nowhere else, so what the checker knows about a type parameter, bounds and
+	// capabilities alike, depends on it.
+	bounded *ast.FuncDecl
+	// caps remembers which types have which capabilities.
+	caps capabilities
 }
 
 func NewChecker(p *ast.Project, m *ast.Module, errs *[]*diag.CompileError) *Checker {
@@ -139,7 +147,12 @@ func (c *Checker) Verify(calls []ast.PendingCall) {
 func (c *Checker) VerifyBounds(bounds []ast.PendingBound) {
 	for _, b := range bounds {
 		c.guard(func() {
-			for _, iface := range b.Param.Interfaces {
+			c.bounded = b.Within
+			interfaces := b.Param.Interfaces
+			if b.Method != nil {
+				interfaces = b.Method.BoundsOn(b.Param)
+			}
+			for _, iface := range interfaces {
 				c.requireConforms(b.Site, b.Arg, iface, b.Param)
 			}
 		})
@@ -256,9 +269,41 @@ func paramNames(params []*ast.TypeParamTy) []string {
 func (c *Checker) queueBounds(site ast.Node, params []*ast.TypeParamTy, args []ast.Ty) {
 	for i, p := range params {
 		if p.Bounded() {
-			c.Bounds = append(c.Bounds, ast.PendingBound{Site: site, Param: p, Arg: args[i]})
+			c.Bounds = append(c.Bounds, ast.PendingBound{Site: site, Param: p, Arg: args[i], Within: c.bounded})
 		}
 	}
+}
+
+// queueMethodBounds queues the check of a call's type arguments against the bounds that the method adds to its type's
+// parameters. Which parameters those are is known only once the method's module has declared it, so each parameter is
+// queued and the verify phase looks at what the method says about it.
+func (c *Checker) queueMethodBounds(site ast.Node, method *ast.FuncDecl, args []ast.Ty) {
+	if !method.HasOwnBounds() {
+		return
+	}
+	for i, p := range method.Generics {
+		c.Bounds = append(c.Bounds, ast.PendingBound{Site: site, Param: p, Arg: args[i], Method: method, Within: c.bounded})
+	}
+}
+
+// enterBounds makes the function's own bounds on its type's parameters the ones that hold.
+func (c *Checker) enterBounds(f *ast.FuncDecl) {
+	c.bounded = nil
+	if f != nil && len(f.Bounds) > 0 {
+		c.bounded = f
+	}
+}
+
+// boundsOf are the bounds a type parameter has in the code being checked: its own, and those the function adds.
+func (c *Checker) boundsOf(p *ast.TypeParamTy) []*ast.InterfaceTy {
+	if c.bounded == nil {
+		return p.Interfaces
+	}
+	extra := c.bounded.BoundsOn(p)
+	if len(extra) == 0 {
+		return p.Interfaces
+	}
+	return append(slices.Clip(p.Interfaces), extra...)
 }
 
 // resolveBound is the interface a bound or a conformance names.
@@ -299,7 +344,12 @@ func (c *Checker) declareTypeParams(params []*ast.TypeParam, where []*ast.Constr
 func (c *Checker) declareConforms(interfaces []*ast.TypeRef, nt ast.NominalTy) {
 	base := nt.Base()
 	for _, tr := range interfaces {
-		base.Conforms = append(base.Conforms, c.resolveBound(tr))
+		iface := c.resolveBound(tr)
+		if c.project.Builtins.IsCapability(iface) {
+			c.guard(func() { panic(c.structuralCapability(tr, iface)) })
+			continue
+		}
+		base.Conforms = append(base.Conforms, iface)
 	}
 }
 
@@ -435,13 +485,19 @@ func (c *Checker) returnOf(returns *ast.TypeRef, self ast.Ty) ast.Ty {
 	return c.resolve(returns, self)
 }
 
-// declareGenerics gives a function its type parameters: its own, or for a method the ones of its type.
+// declareGenerics gives a function its type parameters: its own, or for a method the ones of its type, which its
+// 'where' may bound further.
 func (c *Checker) declareGenerics(f *ast.FuncDecl, nt ast.NominalTy) {
 	switch {
 	case len(f.TypeParams) > 0 && nt != nil:
 		panic(f.Error(diag.ErrGenericDeclaration, fmt.Sprintf("the method '%s' takes no type parameters of its own: use the type's, or write a function", f.Name)))
 	case nt != nil && nt.Base().IsGeneric():
 		f.Generics = nt.Base().Params
+		for _, cs := range f.Where {
+			for _, b := range cs.Bounds {
+				f.Bounds = append(f.Bounds, ast.ParamBound{Param: cs.Target.Ty, Iface: c.resolveBound(b)})
+			}
+		}
 	case len(f.TypeParams) > 0:
 		c.declareTypeParams(f.TypeParams, f.Where)
 		for _, p := range f.TypeParams {
@@ -466,6 +522,9 @@ func (c *Checker) addFunction(f *ast.FuncDecl, nt ast.NominalTy, declared *[]*as
 		self = f.Owner
 	}
 	c.declareGenerics(f, nt)
+	if _, isEnum := nt.(*ast.EnumTy); isEnum && f.IsDestructor() {
+		panic(f.Error(diag.ErrDestructorMisuse, fmt.Sprintf("'%s' is an enum, whose values are plain numbers with nothing to end; remove 'destructs', or make '%s' a type or a union", nt.Name(), nt.Name())))
+	}
 	f.Pass.SelfConv = ast.ConventionOf(f.Receiver)
 	f.ParamTypes, f.Pass.Specs = c.paramSpecs(f.Params, self)
 	f.ReturnType = c.returnOf(f.Returns, self)
@@ -572,6 +631,10 @@ func (c *Checker) CheckConst(cd *ast.ConstDecl) {
 				}
 			}
 		}
+		if why, fix, lacking := c.whyNot(copyable, t); lacking {
+			panic(cd.Error(diag.ErrNotCopyable, fmt.Sprintf("constant '%s' has type '%s', which is not Copyable, and a constant is read any number of times: %s; %s",
+				cd.Name, t.Name(), why, fix)))
+		}
 		cd.Type = t
 	})
 }
@@ -579,6 +642,7 @@ func (c *Checker) CheckConst(cd *ast.ConstDecl) {
 func (c *Checker) enterContext(f *ast.FuncDecl, nt ast.NominalTy, calls bool) {
 	c.fn = f
 	c.root = f
+	c.enterBounds(f)
 	c.whens = 0
 	c.behaviour = nil
 	c.outers = nil
@@ -588,6 +652,7 @@ func (c *Checker) enterContext(f *ast.FuncDecl, nt ast.NominalTy, calls bool) {
 	c.blocks = nil
 	c.nextSlot = 0
 	c.uses = nil
+	c.dead = false
 }
 
 func (c *Checker) selfRecord() *ast.RecordTy {
@@ -666,61 +731,28 @@ func (c *Checker) checkFunction(f *ast.FuncDecl) {
 	}
 
 	c.checkBlock(f.Body)
-	if c.returnType(f) != ast.VoidTy && !terminatesBody(f.Body) {
+	if c.returnType(f) != ast.VoidTy && !ast.TerminatesBody(f.Body) {
 		panic(f.Error(diag.ErrMissingReturn, fmt.Sprintf("'%s' must return a %s on every path", f.Name, c.returnType(f).Name())))
 	}
 }
 
 func (c *Checker) checkBlock(body []ast.Stmt) {
 	c.pushScope()
-	for _, s := range body {
-		c.guard(func() { c.checkStmt(s) })
-	}
+	c.checkStmts(body)
 	c.popScope()
 }
 
-func terminatesBody(body []ast.Stmt) bool {
-	return len(body) > 0 && ast.VisitStmtResult[bool](termination{}, body[len(body)-1])
-}
-
-// termination answers whether a statement never completes normally, so the code after it is unreachable.
-type termination struct{}
-
-func (termination) VisitReturnStmt(*ast.ReturnStmt) bool { return true }
-
-func (termination) VisitExprStmt(t *ast.ExprStmt) bool {
-	_, isPanic := t.E.(*ast.PanicExpr)
-	return isPanic
-}
-
-func (termination) VisitIfStmt(t *ast.IfStmt) bool {
-	return t.HasElse && terminatesBody(t.Then) && terminatesBody(t.Else)
-}
-
-func (termination) VisitMatchStmt(t *ast.MatchStmt) bool {
-	for _, a := range t.Match.Arms {
-		if !(a.Kind() == ast.ArmPanic || (a.Action != nil && ast.VisitStmtResult[bool](termination{}, a.Action))) {
-			return false
-		}
+// checkStmts types the statements of a block. Those after the block's live statements are typed too, but are never
+// lowered, so the calls they make record no instance.
+func (c *Checker) checkStmts(body []ast.Stmt) {
+	live := len(ast.Live(body))
+	outer := c.dead
+	for i, s := range body {
+		c.dead = outer || i >= live
+		c.guard(func() { c.checkStmt(s) })
 	}
-	return true
+	c.dead = outer
 }
-
-func (termination) VisitLetStmt(*ast.LetStmt) bool { return false }
-
-func (termination) VisitAssignStmt(*ast.AssignStmt) bool { return false }
-
-func (termination) VisitDiscardStmt(*ast.DiscardStmt) bool { return false }
-
-func (termination) VisitWhileStmt(*ast.WhileStmt) bool { return false }
-
-func (termination) VisitWhenStmt(*ast.WhenStmt) bool { return false }
-
-func (termination) VisitForStmt(*ast.ForStmt) bool { return false }
-
-func (termination) VisitBreakStmt(*ast.BreakStmt) bool { return false }
-
-func (termination) VisitContinueStmt(*ast.ContinueStmt) bool { return false }
 
 func (c *Checker) assignable(src, dst ast.Ty) bool {
 	if src == dst || src == ast.NeverTy {
@@ -882,8 +914,10 @@ func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
 			return rt.FieldType(field)
 		}
 	}
-	if c.behaviour != nil && c.selfFieldInBehaviour(n.Name) {
-		c.refuseBehaviourSelf(n, "the field '"+n.Name+"'")
+	if c.behaviour != nil {
+		if ft, ok := c.selfFieldInBehaviour(n.Name); ok {
+			c.refuseBehaviourSelf(n, "the field '"+n.Name+"'", ft)
+		}
 	}
 	switch d := n.Target.(type) {
 	case *ast.ConstDecl:
@@ -906,7 +940,7 @@ func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
 
 func (c *Checker) VisitSelfExpr(s *ast.SelfExpr) ast.Ty {
 	if c.behaviour != nil {
-		c.refuseBehaviourSelf(s, "'self'")
+		c.refuseBehaviourSelf(s, "'self'", c.owner)
 	}
 	if c.fn == nil || !c.fn.IsMethod() {
 		panic(s.Error(diag.ErrUnexpectedToken, "'self' is used only inside an instance method"))
@@ -1232,6 +1266,9 @@ func (c *Checker) recordUses(calls ...*ast.CallExpr) {
 	if c.uses == nil {
 		panic(diag.Internal("check: a call is checked outside a function or a field default"))
 	}
+	if c.dead {
+		return
+	}
 	if c.root != nil && len(*c.uses) == 0 && len(calls) > 0 {
 		c.Callers = append(c.Callers, c.root)
 	}
@@ -1262,6 +1299,7 @@ func (c *Checker) callGeneric(call *ast.CallExpr, target *ast.FuncDecl, given []
 		c.queueBounds(call, target.Generics, args)
 		specs = ast.Binding{Params: target.Generics, Args: args}.ApplySpecs(target.Pass.Specs)
 	}
+	c.queueMethodBounds(call, target, args)
 	call.Generic = &ast.GenericCall{SelfConv: target.Pass.SelfConv, Specs: specs, TypeArgs: args}
 	call.Pass = &call.Generic.Passing
 	call.Ordered = ordered
@@ -1285,10 +1323,15 @@ func (c *Checker) declares(f *ast.FuncDecl) bool {
 	return f.Module == c.module || f.Intrinsic != ast.NotIntrinsic
 }
 
-func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, receiver ast.Expr, given []ast.Ty) ast.Ty {
+// requireExported refuses a function of another module that the module does not export.
+func (c *Checker) requireExported(site ast.Node, target *ast.FuncDecl) {
 	if !c.declares(target) && !target.IsExported() {
-		panic(call.Error("E3008", fmt.Sprintf("'%s' is not exported from module %s", target.Symbol(), target.Module.Display())))
+		panic(site.P().Error("E3008", fmt.Sprintf("'%s' is not exported from module %s", target.Symbol(), target.Module.Display())))
 	}
+}
+
+func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, receiver ast.Expr, given []ast.Ty) ast.Ty {
+	c.requireExported(call, target)
 	call.Kind = kind
 	call.Target = target
 	call.Receiver = receiver
@@ -1365,9 +1408,8 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 		if f, isFunc := n.Target.(*ast.FuncDecl); isFunc {
 			return c.callFunction(call, ast.CallFunction, f, nil, nil)
 		}
-		if td, isType := n.Target.(*ast.TypeDecl); isType && td.Ty == ast.Ty(c.project.Builtins.Cown) {
-			// cown(x) is the constructor of the cown type.
-			return c.callFunction(call, ast.CallFunction, c.project.Builtins.CownNew, nil, nil)
+		if ast.IsCownConstructor(n.Target) {
+			return c.cownCall(call)
 		}
 		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name)))
 	}
@@ -1446,7 +1488,7 @@ func (c *Checker) unionConstructor(call *ast.CallExpr, ut *ast.UnionTy, caseInde
 func (c *Checker) boundCall(call *ast.CallExpr, m *ast.MemberExpr, param *ast.TypeParamTy, receiver ast.Ty) ast.Ty {
 	var iface *ast.InterfaceTy
 	var sig *ast.FuncSig
-	for _, candidate := range param.Interfaces {
+	for _, candidate := range c.boundsOf(param) {
 		s, found := candidate.Methods[m.Name]
 		if !found || candidate == iface {
 			continue
@@ -1458,7 +1500,7 @@ func (c *Checker) boundCall(call *ast.CallExpr, m *ast.MemberExpr, param *ast.Ty
 		iface, sig = candidate, s
 	}
 	if sig == nil {
-		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'%s", param.Name(), m.Name, boundsText(param))))
+		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'%s", param.Name(), m.Name, c.boundsText(param))))
 	}
 	requireNotFrozenChange(call, receiver, sig.Pass.SelfConv, m.Name)
 	b := ast.Binding{Params: []*ast.TypeParamTy{iface.Self}, Args: []ast.Ty{param}}
@@ -1475,12 +1517,13 @@ func (c *Checker) boundCall(call *ast.CallExpr, m *ast.MemberExpr, param *ast.Ty
 }
 
 // boundsText says what a type parameter can call, for the error that names a method it cannot.
-func boundsText(param *ast.TypeParamTy) string {
-	if len(param.Interfaces) == 0 {
+func (c *Checker) boundsText(param *ast.TypeParamTy) string {
+	bounds := c.boundsOf(param)
+	if len(bounds) == 0 {
 		return fmt.Sprintf(": a type parameter has only the methods of its bounds, and '%s' has none; constrain it with 'where %s implements <Interface>'", param.Name(), param.Name())
 	}
-	names := make([]string, len(param.Interfaces))
-	for i, iface := range param.Interfaces {
+	names := make([]string, len(bounds))
+	for i, iface := range bounds {
 		names[i] = iface.Name()
 	}
 	return fmt.Sprintf(": a type parameter has only the methods of its bounds (%s)", strings.Join(names, ", "))
@@ -1488,9 +1531,15 @@ func boundsText(param *ast.TypeParamTy) string {
 
 // requireConforms checks one type argument against one bound of its parameter.
 func (c *Checker) requireConforms(site ast.Node, arg ast.Ty, iface *ast.InterfaceTy, param *ast.TypeParamTy) {
+	if k, structural := c.capabilityOf(iface); structural {
+		if why, fix, lacking := c.whyNot(k, arg); lacking {
+			panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("the type argument '%s' for '%s' must be %s, but %s: %s", arg.Name(), param.Name(), iface.Name(), why, fix)))
+		}
+		return
+	}
 	switch t := arg.(type) {
 	case *ast.TypeParamTy:
-		if slices.Contains(t.Interfaces, iface) {
+		if slices.Contains(c.boundsOf(t), iface) {
 			return
 		}
 		panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("the type parameter '%s' is not known to be %s, which the type argument for '%s' must be: add the bound, '%s implements %s'",
@@ -1559,6 +1608,10 @@ func (c *Checker) checkConformance(site ast.Node, nt ast.NominalTy) {
 func (c *Checker) requireImplements(site ast.Node, nt ast.NominalTy, iface *ast.InterfaceTy, sig *ast.FuncSig, b ast.Binding) {
 	wantSpecs, wantReturn := b.ApplySpecs(sig.Pass.Specs), b.Apply(sig.ReturnType)
 	m, found := nt.MethodTable()[sig.Name]
+	if found && m.HasOwnBounds() {
+		panic(site.P().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it implements %s, but its method '%s' adds a 'where' on the type's parameters, so '%s' would implement %s only for some instances: remove the 'where' from the method, or put the bound on the type",
+			nt.Name(), iface.Name(), sig.Name, nt.Name(), iface.Name())))
+	}
 	if !found || m.IsStatic || m.Pass.SelfConv != sig.Pass.SelfConv || !slices.Equal(m.Pass.Specs, wantSpecs) || m.ReturnType != wantReturn {
 		problem := "does not have it"
 		if found {
@@ -1592,6 +1645,9 @@ func signatureText(name string, selfConv ast.Convention, specs []ast.ParamSpec, 
 func (c *Checker) copyCall(call *ast.CallExpr, receiver ast.Expr, t ast.Ty) ast.Ty {
 	if t == ast.VoidTy || t == ast.NeverTy {
 		panic(call.Error(diag.ErrTypeMismatch, "an expression with no value cannot be copied"))
+	}
+	if why, fix, lacking := c.whyNot(copyable, t); lacking {
+		panic(call.Error(diag.ErrNotCopyable, fmt.Sprintf("a value of '%s' cannot be copied: %s; %s", t.Name(), why, fix)))
 	}
 	call.Kind = ast.CallCopy
 	call.Receiver = receiver
@@ -1866,9 +1922,7 @@ func (c *Checker) VisitForStmt(f *ast.ForStmt) {
 	c.pushBlock(f.Label, checkerLoop, f)
 	c.pushScope()
 	f.Sym = c.declareLocal(f.Var, varType, false, f)
-	for _, st := range f.Body {
-		c.guard(func() { c.checkStmt(st) })
-	}
+	c.checkStmts(f.Body)
 	c.popScope()
 	c.popBlock()
 }
@@ -1918,7 +1972,11 @@ func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.Node {
 }
 
 func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
-	st := ast.Content(c.checkExpr(m.Subject))
+	subjectTy := c.checkExpr(m.Subject)
+	st := ast.Content(subjectTy)
+	if m.Consumes && ast.IsFrozen(subjectTy) {
+		panic(m.Subject.P().Error(diag.ErrMoveOutOfField, "the contents of a frozen value are shared with its other owners, so 'match consumes' cannot take them apart; match without 'consumes', or use 'thaw(...)' for an owned copy"))
+	}
 	requireNotCown(m.Subject, st, "matching on it", "")
 	c.requireSigned64(m.Subject, st)
 	_, isEnum := st.(*ast.EnumTy)
@@ -1946,7 +2004,7 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 
 			c.pushScope()
 			defer c.popScope()
-			c.checkArm(arm, st, isExpr, seen, seenBools, &result, expect)
+			c.checkArm(arm, st, m.Consumes, isExpr, seen, seenBools, &result, expect)
 		})
 	}
 	c.popBlock()
@@ -1960,9 +2018,11 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 	return result
 }
 
-func (c *Checker) checkArm(arm *ast.MatchArm, st ast.Ty, isExpr bool, seen map[int]bool, seenBools map[bool]bool, result *ast.Ty, expect ast.Ty) {
+// checkArm checks one arm of a match. owned is whether the match consumes its subject, so each payload the arm binds is
+// owned by the arm instead of borrowed from the subject.
+func (c *Checker) checkArm(arm *ast.MatchArm, st ast.Ty, owned, isExpr bool, seen map[int]bool, seenBools map[bool]bool, result *ast.Ty, expect ast.Ty) {
 	for _, pat := range arm.Patterns {
-		c.checkPattern(pat, st, len(arm.Patterns), seen, seenBools)
+		c.checkPattern(pat, st, owned, len(arm.Patterns), seen, seenBools)
 	}
 
 	switch arm.Kind() {
@@ -2020,7 +2080,7 @@ func (c *Checker) checkExhaustive(m *ast.MatchCore, st ast.Ty, hasDefault bool, 
 	}
 }
 
-func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, altCount int, seen map[int]bool, seenBools map[bool]bool) {
+func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, owned bool, altCount int, seen map[int]bool, seenBools map[bool]bool) {
 	switch pat.Kind() {
 	case ast.PatternCase:
 		switch t := st.(type) {
@@ -2049,7 +2109,7 @@ func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, altCount int, seen m
 					var bound *ast.Local
 					if pat.Bindings[i] != "_" {
 						bound = c.declareLocal(pat.Bindings[i], payload[i].Type, false, pat)
-						bound.Projected = payload[i].Type.IsManaged()
+						bound.Projected = payload[i].Type.IsManaged() && !owned
 					}
 					pat.BindingLocals = append(pat.BindingLocals, bound)
 				}

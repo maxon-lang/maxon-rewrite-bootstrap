@@ -82,7 +82,7 @@ const (
 	RtFrozenFreeze = "rt.frozen.freeze" // (value) -> frozen: moves the value into a new box with a count of 1
 	RtFrozenGet    = "rt.frozen.get"    // (frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is
 	RtShare        = "rt.share"         // (frozen or cown) -> the same box: another owner, with the count raised by 1
-	RtCownNew      = "rt.cown.new"      // (value) -> cown: moves the value into a new cown with a count of 1
+	RtCownNew      = "rt.cown.new"      // (value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop
 )
 
 // IsNativeEntry is whether the backend implements a primitive's runtime entry. Only the array has native code; the

@@ -1,0 +1,23 @@
+typealias Count = int(i64.min to i64.max)
+
+type Txn
+	export var id as Count
+	export var note as String
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id, note: "n"}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+end 'Txn'
+
+function main() returns ExitCode
+	let t = Txn.begin(1)
+	let note = t.note
+	t.commit()
+	return 0
+end 'main'
+
+// expect-error: E3139 at 18:14

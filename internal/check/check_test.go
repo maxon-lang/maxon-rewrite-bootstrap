@@ -48,7 +48,7 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 	c.Verify(c.Pending)
 	c.VerifyBounds(append(root.Bounds, c.Bounds...))
 	if len(root.Errors) == 0 {
-		o := NewOwnership(&root.Errors)
+		o := NewOwnership(&root.Errors, c)
 		for _, d := range root.Decls {
 			o.CheckValues(d)
 		}

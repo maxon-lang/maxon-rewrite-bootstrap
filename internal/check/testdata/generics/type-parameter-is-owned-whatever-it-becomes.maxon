@@ -1,4 +1,4 @@
-function twice(consumes a T) uses T returns Score
+function twice(consumes a T) uses T returns Score where T implements Droppable
 	let first = a
 	let second = a
 	return 1

@@ -14,7 +14,7 @@ function moveFirst(mutates source array with T, mutates target array with T) use
 	end 'some'
 end 'moveFirst'
 
-function store(mutates m map with (String, V), consumes value V) uses V
+function store(mutates m map with (String, V), consumes value V) uses V where V implements Droppable
 	m.insert("key", value: value)
 end 'store'
 
@@ -28,13 +28,13 @@ function back(mutates l list with T, consumes item T) uses T returns Handle with
 	return node
 end 'back'
 
-function swapFirst(mutates a array with T, mutates b array with T) uses T
+function swapFirst(mutates a array with T, mutates b array with T) uses T where T implements Copyable
 	let t = a[0].copy()
 	a[0] = b[0].copy()
 	b[0] = t
 end 'swapFirst'
 
-function find(p pool with T, handle Handle with T) uses T returns Option with T
+function find(p pool with T, handle Handle with T) uses T returns Option with T where T implements Copyable
 	if p.contains(handle) 'live'
 		return Option.some(p[handle].copy())
 	end 'live'

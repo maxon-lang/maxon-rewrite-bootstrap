@@ -60,7 +60,13 @@ func (l *Lowerer) intrinsicSharing(c *ast.CallExpr, args []V) V {
 		inner := l.entry(c, RtFrozenGet, kindOf(held), args[0])
 		return l.copyValue(c, inner, held)
 	case ast.IntrinsicCown:
-		return l.entry(c, RtCownNew, KindManaged, args[0])
+		d := l.reg(KindManaged)
+		call := &CallRuntimeInstr{Dst: &d, Symbol: RtCownNew, Args: args}
+		if c.Drop != nil {
+			call.Routine = l.callee(c.Drop)
+		}
+		l.emitEntry(c, call)
+		return d
 	}
 	panic(diag.Internal("lower: %d is not an intrinsic that shares", int(c.Target.Intrinsic)))
 }

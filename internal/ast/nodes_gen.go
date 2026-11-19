@@ -30,6 +30,7 @@ type FuncDecl struct {
 	Intrinsic Intrinsic
 	Owner     NominalTy
 	Generics  []*TypeParamTy
+	Bounds    []ParamBound
 	Generic   *FuncDecl
 	TypeArgs  []Ty
 	Instances *InstanceTable
@@ -60,12 +61,13 @@ type ConstDecl struct {
 
 type TypeDecl struct {
 	TypeDeclNodeBase
-	TypeParams []*TypeParam
-	Conforms   []*TypeRef
-	Where      []*Constraint
-	Fields     []*FieldDecl
-	Methods    []*FuncDecl
-	End        *EndLabel
+	Noncopyable bool
+	TypeParams  []*TypeParam
+	Conforms    []*TypeRef
+	Where       []*Constraint
+	Fields      []*FieldDecl
+	Methods     []*FuncDecl
+	End         *EndLabel
 }
 
 type FieldDecl struct {
@@ -93,12 +95,13 @@ type EnumCaseDecl struct {
 
 type UnionDecl struct {
 	TypeDeclNodeBase
-	TypeParams []*TypeParam
-	Conforms   []*TypeRef
-	Where      []*Constraint
-	Cases      []*UnionCaseDecl
-	Methods    []*FuncDecl
-	End        *EndLabel
+	Noncopyable bool
+	TypeParams  []*TypeParam
+	Conforms    []*TypeRef
+	Where       []*Constraint
+	Cases       []*UnionCaseDecl
+	Methods     []*FuncDecl
+	End         *EndLabel
 }
 
 type UnionCaseDecl struct {
@@ -271,10 +274,11 @@ type WhenStmt struct {
 
 type MatchCore struct {
 	Pos
-	Subject Expr
-	Label   string
-	Arms    []*MatchArm
-	End     *EndLabel
+	Consumes bool
+	Subject  Expr
+	Label    string
+	Arms     []*MatchArm
+	End      *EndLabel
 }
 
 type MatchArm struct {
@@ -334,6 +338,7 @@ type CallExpr struct {
 	Union     *UnionTy
 	CaseIndex int
 	Ordered   []Expr
+	Drop      *CallExpr
 }
 
 type UnaryExpr struct {
@@ -664,56 +669,59 @@ func NewMatchExpr() *MatchExpr {
 }
 
 var reservedWords = map[string]bool{
-	"export":     true,
-	"public":     true,
-	"static":     true,
-	"function":   true,
-	"mutates":    true,
-	"consumes":   true,
-	"self":       true,
-	"returns":    true,
-	"end":        true,
-	"sets":       true,
-	"_":          true,
-	"let":        true,
-	"type":       true,
-	"var":        true,
-	"as":         true,
-	"enum":       true,
-	"union":      true,
-	"typealias":  true,
-	"int":        true,
-	"to":         true,
-	"upto":       true,
-	"Self":       true,
-	"with":       true,
-	"uses":       true,
-	"where":      true,
-	"implements": true,
-	"and":        true,
-	"interface":  true,
-	"if":         true,
-	"else":       true,
-	"while":      true,
-	"for":        true,
-	"in":         true,
-	"return":     true,
-	"break":      true,
-	"continue":   true,
-	"when":       true,
-	"match":      true,
-	"default":    true,
-	"or":         true,
-	"then":       true,
-	"gives":      true,
-	"not":        true,
-	"mod":        true,
-	"shl":        true,
-	"shr":        true,
-	"xor":        true,
-	"true":       true,
-	"false":      true,
-	"panic":      true,
+	"export":      true,
+	"public":      true,
+	"static":      true,
+	"function":    true,
+	"mutates":     true,
+	"consumes":    true,
+	"destructs":   true,
+	"self":        true,
+	"returns":     true,
+	"end":         true,
+	"sets":        true,
+	"_":           true,
+	"let":         true,
+	"type":        true,
+	"is":          true,
+	"noncopyable": true,
+	"var":         true,
+	"as":          true,
+	"enum":        true,
+	"union":       true,
+	"typealias":   true,
+	"int":         true,
+	"to":          true,
+	"upto":        true,
+	"Self":        true,
+	"with":        true,
+	"uses":        true,
+	"where":       true,
+	"implements":  true,
+	"and":         true,
+	"interface":   true,
+	"if":          true,
+	"else":        true,
+	"while":       true,
+	"for":         true,
+	"in":          true,
+	"return":      true,
+	"break":       true,
+	"continue":    true,
+	"when":        true,
+	"match":       true,
+	"default":     true,
+	"or":          true,
+	"then":        true,
+	"gives":       true,
+	"not":         true,
+	"mod":         true,
+	"shl":         true,
+	"shr":         true,
+	"xor":         true,
+	"true":        true,
+	"false":       true,
+	"panic":       true,
 }
 
 func IsReserved(word string) bool { return reservedWords[word] }

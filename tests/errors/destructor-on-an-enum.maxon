@@ -1,0 +1,14 @@
+enum Light
+	red
+	green
+
+	function close(destructs self)
+		print("done\n")
+	end 'close'
+end 'Light'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3137 at 5:2

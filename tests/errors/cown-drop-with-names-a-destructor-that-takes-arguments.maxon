@@ -1,0 +1,22 @@
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self, receipt String)
+		print("commit {id} {receipt}\n")
+	end 'commit'
+
+	function rollback(destructs self)
+		print("rollback {id}\n")
+	end 'rollback'
+end 'Txn'
+
+function main() returns ExitCode
+	let c = cown(Txn.begin(1), dropWith: commit)
+	return 0
+end 'main'
+
+// expect-error: E3138 at 18:29

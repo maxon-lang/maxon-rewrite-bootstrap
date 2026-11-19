@@ -65,13 +65,13 @@ function total(a T, b T) uses T returns Count where T implements Shape
 	return a.area() + b.area()
 end 'total'
 
-function describe(mutates item T) uses T returns String where T implements Shape and Named
+function describe(mutates item T) uses T returns String where T implements Shape and Named and Droppable
 	item.grow(1)
 	let bigger = item.scaled(2)
 	return "{item.label()} {bigger.label()} {bigger.area()}"
 end 'describe'
 
-function pick(flag bool, a T, b T) uses T returns Option with T
+function pick(flag bool, a T, b T) uses T returns Option with T where T implements Copyable
 	if flag 'f'
 		return Option.some(a.copy())
 	end 'f'

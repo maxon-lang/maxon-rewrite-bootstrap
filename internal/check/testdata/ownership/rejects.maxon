@@ -103,11 +103,13 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// case: move a field out
+// case: move a field out of an element
 // expect-error: E3111
+typealias PairArray = array with Pair
+
 function main() returns ExitCode
-	let a = Pair.create(1, second: 2)
-	let l = a.label
+	var a = PairArray.new()
+	let l = a[0].label
 	print("{l}")
 	return 0
 end 'main'

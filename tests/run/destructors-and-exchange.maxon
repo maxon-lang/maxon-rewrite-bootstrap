@@ -1,0 +1,64 @@
+typealias TxnArray = array with Txn
+
+typealias CountStringMap = map with (Count, String)
+
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+
+	function rollback(destructs self, reason String)
+		print("rollback {id} {reason}\n")
+	end 'rollback'
+end 'Txn'
+
+union Step
+	done(txn Txn)
+	failed(txn Txn, reason String)
+end 'Step'
+
+function finish(consumes step Step)
+	match consumes step 'which'
+		done(t) then t.commit()
+		failed(t, reason) then t.rollback(reason)
+	end 'which'
+end 'finish'
+
+function main() returns ExitCode
+	finish(Step.done(Txn.begin(1)))
+	finish(Step.failed(Txn.begin(2), reason: "disk full"))
+	var pending = TxnArray.new()
+	pending.append(Txn.begin(3))
+	pending.append(Txn.begin(4))
+	pending.remove(0).commit()
+	pending.pop().unwrap().commit()
+	pending.dropEmpty()
+	var current = Txn.begin(5)
+	let old = exchange(current, value: Txn.begin(6))
+	old.commit()
+	current.commit()
+	var label = "a"
+	let before = exchange(label, value: "b")
+	print("{before} {label}\n")
+	var names = CountStringMap.new()
+	names.insert(1, value: "one")
+	let previous = names.replace(1, value: "uno")
+	let fresh = names.replace(2, value: "dos")
+	print("{previous.unwrap()} {fresh.isSome()} {names[1]} {names.count()}\n")
+	return 0
+end 'main'
+
+//> commit 1
+//> rollback 2 disk full
+//> commit 3
+//> commit 4
+//> commit 5
+//> commit 6
+//> a b
+//> one false uno 2
