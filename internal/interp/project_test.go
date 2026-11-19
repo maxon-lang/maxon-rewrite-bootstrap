@@ -34,15 +34,15 @@ func TestWriteProject(t *testing.T) {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		source = strings.Replace(source, "function main() returns ExitCode", "export function run() returns ExitCode", 1)
-		source = strings.Replace(source, "end 'main'", "end 'run'", 1)
+		source = strings.Replace(source, kwFunction+" main() "+kwReturns+" ExitCode", kwExport+" "+kwFunction+" run() "+kwReturns+" ExitCode", 1)
+		source = strings.Replace(source, kwEnd+" 'main'", kwEnd+" 'run'", 1)
 		if err := os.WriteFile(filepath.Join(dir, "lib.maxon"), []byte(source), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		calls = append(calls, fmt.Sprintf("\t_ = %s.run()", name))
 		written++
 	}
-	main := "function main() returns ExitCode\n" + strings.Join(calls, "\n") + "\n\treturn 0\nend 'main'\n"
+	main := kwFunction + " main() " + kwReturns + " ExitCode\n" + strings.Join(calls, "\n") + "\n\t" + kwReturn + " 0\n" + kwEnd + " 'main'\n"
 	if err := os.WriteFile(filepath.Join(root, "main.maxon"), []byte(main), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -1,8 +1,10 @@
 type Round
 	var radius as containers.Score
+
 	static function make(radius containers.Score) returns Round
 		return Round{radius: radius}
 	end 'make'
+
 	function area() returns containers.Score
 		return radius * radius
 	end 'area'
@@ -15,4 +17,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3117 at 14:26
+// expect-error: E3117 at 16:26

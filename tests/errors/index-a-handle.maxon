@@ -1,6 +1,7 @@
-// expect-error: E3005 at 16:11
+// expect-error: E3005 at 17:11
 type Cell
 	export var n as Count
+
 	static function make(n Count) returns Cell
 		return Cell{n: n}
 	end 'make'

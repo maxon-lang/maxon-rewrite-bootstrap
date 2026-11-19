@@ -1,0 +1,14 @@
+function main() returns ExitCode
+	let c = cown(Doc.make("a"))
+	let other = share(c)
+	let note = Doc.make("b")
+	let label = 3
+	when c as x 'run'
+		x.n = note.n + label
+		x.grow()
+	end 'run'
+	when other as y 'again'
+		bump(y.n)
+	end 'again'
+	return 0
+end 'main'

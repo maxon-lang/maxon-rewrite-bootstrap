@@ -1,0 +1,11 @@
+function f[T](a T) returns Score
+	return total(a, b: a)
+end 'f'
+
+function g() returns Score
+	return f(Square.create(1)) + f(Square.create(2))
+end 'g'
+
+function main() returns ExitCode
+	return 0
+end 'main'

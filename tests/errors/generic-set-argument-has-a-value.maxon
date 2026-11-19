@@ -3,16 +3,20 @@ typealias Score = int(i64.min to i64.max)
 type Box[T]
 	var item as T
 	let tag as Score
+
 	static function make(item sink T, tag Score) returns Self
 		return Self{item: item, tag: tag}
 	end 'make'
+
 	function peek() returns T
 		return item.copy()
 	end 'peek'
-	function replace(inout self, next sink T)
+
+	function replace(mutable self, next sink T)
 		item = next
 	end 'replace'
-	function bump(inout self, by Score)
+
+	function bump(mutable self, by Score)
 		var next = by
 		next = next + 1
 	end 'bump'
@@ -23,13 +27,13 @@ union Slot[T]
 	empty
 end 'Slot'
 
-function swap[T](a inout T, b inout T)
+function swap[T](a mutable T, b mutable T)
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
 end 'swap'
 
-function join[T](a inout T, b sink T)
+function join[T](a mutable T, b sink T)
 	a = b
 end 'join'
 
@@ -50,4 +54,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3115 at 46:7
+// expect-error: E3115 at 50:7

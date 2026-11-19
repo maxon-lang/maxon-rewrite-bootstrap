@@ -3,22 +3,26 @@ typealias Number = int(i64.min to i64.max)
 type Vector2
 	export var x as Number
 	export var y as Number
+
 	function dot(other Vector2) returns Number
 		return x * other.x + y * other.y
 	end 'dot'
-	function scale(inout self, by Number)
+
+	function scale(mutable self, by Number)
 		x = x * by
 		y = y * by
 	end 'scale'
+
 	function describe() returns String
 		return "({x}, {y})"
 	end 'describe'
+
 	static function create(x Number, y Number) returns Vector2
 		return Vector2{x: x, y: y}
 	end 'create'
 end 'Vector2'
 
-function swap(a inout Number, b inout Number)
+function swap(a mutable Number, b mutable Number)
 	let t = a
 	a = b
 	b = t

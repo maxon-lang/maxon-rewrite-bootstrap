@@ -1,9 +1,11 @@
 type Tree
 	var value as Count
 	var kids = array[Tree].new()
+
 	static function make(value Count) returns Tree
 		return Tree{value: value}
 	end 'make'
+
 	function sum() returns Count
 		var total = value
 		for i in 0 upto kids.count() 'each'
@@ -11,9 +13,11 @@ type Tree
 		end 'each'
 		return total
 	end 'sum'
-	function add(inout self, kid sink Tree)
+
+	function add(mutable self, kid sink Tree)
 		kids.append(kid)
 	end 'add'
+
 	function depth() returns Count
 		var deepest = 0 as Count
 		for i in 0 upto kids.count() 'each'

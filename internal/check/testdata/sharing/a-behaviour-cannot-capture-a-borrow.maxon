@@ -1,0 +1,9 @@
+function watch(note Doc, c cown[Doc])
+	when c as x 'run'
+		x.n = note.n
+	end 'run'
+end 'watch'
+
+function main() returns ExitCode
+	return 0
+end 'main'

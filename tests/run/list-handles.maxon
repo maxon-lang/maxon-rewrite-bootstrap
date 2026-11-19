@@ -1,6 +1,7 @@
 type Item
 	export var name as String
 	export var weight as Count
+
 	static function make(name sink String, weight Count) returns Item
 		return Item{name: name, weight: weight}
 	end 'make'

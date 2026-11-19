@@ -1,12 +1,14 @@
 type Doc
 	export var title as String
 	export var words as array[Count]
+
 	static function make(title sink String) returns Doc
 		var words = array[Count].new()
 		words.append(3)
 		words.append(5)
 		return Doc{title: title, words: words}
 	end 'make'
+
 	function total() returns Count
 		var sum = 0 as Count
 		for i in 0 upto words.count() 'each'
@@ -14,7 +16,8 @@ type Doc
 		end 'each'
 		return sum
 	end 'total'
-	function grow(inout self)
+
+	function grow(mutable self)
 		words.append(1)
 	end 'grow'
 end 'Doc'
@@ -22,6 +25,7 @@ end 'Doc'
 type Library
 	export var first as frozen[Doc]
 	export var name as String
+
 	static function make(first sink frozen[Doc], name sink String) returns Library
 		return Library{first: first, name: name}
 	end 'make'

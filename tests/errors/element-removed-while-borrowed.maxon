@@ -1,12 +1,13 @@
-// expect-error: E3112 at 19:29
+// expect-error: E3112 at 20:29
 type Cell
 	export var n as Count
+
 	static function make(n Count) returns Cell
 		return Cell{n: n}
 	end 'make'
 end 'Cell'
 
-function drop(xs inout array[Cell]) returns Count
+function drop(xs mutable array[Cell]) returns Count
 	return xs.count()
 end 'drop'
 

@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	var v = "v{1}"
+	var u = "u{3}"
+	v = "w{2}"
+	return 0
+end 'main'

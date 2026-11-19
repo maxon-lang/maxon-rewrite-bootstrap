@@ -1,5 +1,6 @@
 type Counter
 	export var n as Count
+
 	static function make() returns Counter
 		return Counter{n: 0}
 	end 'make'

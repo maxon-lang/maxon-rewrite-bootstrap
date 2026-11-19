@@ -1,24 +1,24 @@
 ---
 name: language-change
-description: Checklist for changing minimaxon's language — a keyword, syntax, a rule or a diagnostic. Use for any edit to Maxon.g4 or to what programs may say, however small (for example renaming `is` to `implements`).
+description: Checklist for changing minimaxon's language — a keyword, syntax, layout, a rule or a diagnostic. Use for any edit to Maxon.g4 or to what programs may say, however small (for example renaming `is` to `implements`).
 ---
 
 # Changing the language
 
-A language change reaches the grammar, the checker's messages, every program that uses the construct (corpus, Go
-test strings, the generator), and the docs. Work through the list; skip a step only when it clearly does not apply.
+A language change reaches the grammar, the checker's messages, every program that uses the construct (corpus, unit
+test `testdata`, the generator), and the docs. Work through the list; skip a step only when it clearly does not apply.
 
 ## 1. Programs first, while the old syntax still lexes
 
-- **A keyword rename:** run the token-aware rewrite before touching the grammar, over every place Maxon source lives
-  in files:
+- **A keyword rename:** run the token-aware rewrite before touching the grammar. It covers the corpus, the unit tests'
+  `testdata` files, and the code spans and untagged or `maxon` blocks of the docs:
 
   ```powershell
-  go build -o minimaxon.exe . ; .\minimaxon.exe rewrite --keyword=old=new tests docs README.md
+  go build -o minimaxon.exe . ; .\minimaxon.exe rewrite --keyword=old=new tests internal docs README.md
   ```
 
-  It changes only keyword tokens (not names, labels, comments or string text) and lists lexer-refused files that
-  contain the word: fix those by hand. It refuses once `old` is no longer reserved.
+  It changes only keyword tokens (not names, labels, comments, string text or Markdown prose) and names what it could
+  not lex but that contains the word: fix those by hand. It refuses once `old` is no longer reserved.
 - **Other syntax changes:** no tool yet. Edit by hand, or write a throwaway script in the scratchpad. Match on
   declaration shapes, never bare words, and read the diff for prose hits in `.md` files.
 
@@ -31,35 +31,33 @@ test strings, the generator), and the docs. Work through the list; skip a step o
 
 - Grep `internal/check` (and `internal/resolve`, `internal/ir`) for messages that spell the old syntax as a fix:
   `grep -rn "'[^']*old[^']*'" internal --include=*.go`. Diagnostics name the fix, so they quote syntax often.
+- Go identifiers named after a keyword (`ConvMutable`): rename them too, so the code reads like the language.
 - A new rule gets a new code in `internal/diag` and a `tests/errors` test with `at L:C`.
 
-## 4. Maxon inside Go
+## 4. Maxon built in Go
 
-- Unit tests and the generator (`internal/interp/generator_*_test.go`) hold Maxon in Go strings, often with `\n`
-  escapes. Grep for the old form (e.g. `grep -rn " is Shape" internal --include=*_test.go`) and fix them; the Go tests
-  catch what grep misses.
+- The program generator (`internal/interp/generator_*_test.go`) builds programs in Go; it spells each keyword through
+  one named constant, so a rename edits that constant.
+- Anything else that still builds Maxon in Go strings: grep for the old form; the Go tests catch what grep misses.
 
 ## 5. Tests
 
 - Watch a test fail before the change makes it pass (AGENTS.md).
-- Run the corpus with position updates, then read what moved:
-
-  ```powershell
-  .\minimaxon.exe test --update-positions
-  ```
-
-  Only positions move; a test expecting a different code still fails.
+- Test files named after the old syntax (`inout-argument-is-a-let.maxon`) are renamed with `git mv`.
 
 ## 6. Docs
 
-- `README.md`: the subset, "Where it differs from Maxon", examples, reserved words, commands.
+- `README.md`: the subset, layout, "Where it differs from Maxon", examples, reserved words, commands.
 - `docs/regions.md` when the memory model's syntax changes.
-- Reread every edited prose line: replacements in English text are the usual mistake.
+- Reread every edited prose line: articles ("a `mutable`", not "an `mutable`") and English uses of the word are the
+  usual mistakes.
 
 ## 7. Finish
 
 ```powershell
-go vet ./... ; go fix -diff ./... ; gofmt -l . ; go test ./... ; go build -o minimaxon.exe . ; .\minimaxon.exe test
+.\check.ps1 --update-positions
 ```
 
-All must be clean and green. Commit only when asked, on `main`.
+It formats and applies `go fix`, then runs vet, the unit tests, the build and the corpus, stopping at the first
+failure. `--update-positions` moves `expect-error` positions that a change of line length shifted; read what moved.
+Commit only when asked, on `main`.

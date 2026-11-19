@@ -1,0 +1,158 @@
+// case: use after move
+// expect-error: E3102
+function main() returns ExitCode
+	var a = Pair.create(1, second: 2)
+	let b = a
+	print("{a.first} {b.first}")
+	return 0
+end 'main'
+
+// case: use after sink
+// expect-error: E3102
+function main() returns ExitCode
+	let a = Pair.create(1, second: 2)
+	let n = take(a)
+	print("{a.first} {n}")
+	return 0
+end 'main'
+
+// case: let parameter assigned through a field
+// expect-error: E2013
+function f(p Pair)
+	p.first = 1
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: mutable argument is a let
+// expect-error: E2013
+function main() returns ExitCode
+	let a = Pair.create(1, second: 2)
+	change(a)
+	return 0
+end 'main'
+
+// case: mutable argument rooted at a let parameter
+// expect-error: E2013
+function f(p Pair)
+	change(p)
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: method changes self without mutable
+// expect-error: E2013
+type Cell
+	export var n as Score
+
+	function put()
+		n = 1
+	end 'put'
+end 'Cell'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: let field assigned
+// expect-error: E2013
+type Cell
+	export let n = 0 as Score
+end 'Cell'
+
+function f(c mutable Cell)
+	c.n = 1
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: return a borrow
+// expect-error: E3110
+function f(p Pair) returns Pair
+	return p
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: bind a borrow
+// expect-error: E3110
+function f(p mutable Pair)
+	let q = p
+	print("{q.first}")
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: sink a borrow
+// expect-error: E3110
+function f(p Pair) returns Score
+	return take(p)
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: move a field out
+// expect-error: E3111
+function main() returns ExitCode
+	let a = Pair.create(1, second: 2)
+	let l = a.label
+	print("{l}")
+	return 0
+end 'main'
+
+// case: swap a variable with itself
+// expect-error: E3112
+function main() returns ExitCode
+	var n = 1 as Score
+	swap(n, b: n)
+	return 0
+end 'main'
+
+// case: mutable argument and its field
+// expect-error: E3112
+function main() returns ExitCode
+	var a = Pair.create(1, second: 2)
+	change(a)
+	a.bump(a.first)
+	return 0
+end 'main'
+
+// case: read of an uninitialised variable
+// expect-error: E3113
+function main() returns ExitCode
+	var n as Score
+	print("{n}")
+	return 0
+end 'main'
+
+// case: set parameter left uninitialised
+// expect-error: E3114
+function f(n set Score, flag bool)
+	if flag 'x'
+		n = 1
+	end 'x'
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: set argument already has a value
+// expect-error: E3115
+function main() returns ExitCode
+	var n = 1 as Score
+	make(n, flag: true)
+	return 0
+end 'main'

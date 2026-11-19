@@ -1,0 +1,66 @@
+type Cell
+	export var n as Count
+
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+type Entry
+	export var key as Count
+	export var value as String
+
+	static function make(key Count, value sink String) returns Entry
+		return Entry{key: key, value: value}
+	end 'make'
+end 'Entry'
+
+type Rack
+	export var left as array[Cell]
+	export var right as array[Cell]
+	export var node as Handle[Cell]
+
+	static function make(node Handle[Cell]) returns Rack
+		return Rack{left: array[Cell].new(), right: array[Cell].new(), node: node}
+	end 'make'
+end 'Rack'
+
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+function touch(c mutable Cell)
+	c.n = c.n + 1
+end 'touch'
+
+function bump(n mutable Count)
+	n = n + 1
+end 'bump'
+
+function pair(a mutable Cell, b mutable Cell)
+	a.n = b.n
+end 'pair'
+
+function grow(xs mutable array[Count], n Count)
+	xs.append(n)
+end 'grow'
+
+function drop(xs mutable array[Cell]) returns Count
+	return xs.count()
+end 'drop'
+
+function look(c Cell, n Count) returns Count
+	return c.n + n
+end 'look'
+
+function take(c sink Cell) returns Count
+	return c.n
+end 'take'
+
+function make() returns array[Cell]
+	return array[Cell].new()
+end 'make'
+
+function total[T implements Shape](x T) returns Count
+	return x.area()
+end 'total'

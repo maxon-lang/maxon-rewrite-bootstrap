@@ -536,11 +536,11 @@ func (o *Ownership) requireWritable(site ast.Node, p accessPath) {
 		return
 	case root.IsSelf && !root.Mutable():
 		o.fail(site, diag.ErrAssignToImmutable,
-			"'%s' cannot be changed because 'self' is not inout here; declare the method with 'inout self'", p.text())
+			"'%s' cannot be changed because 'self' is not mutable here; declare the method with 'mutable self'", p.text())
 		return
 	case root.IsParam && root.Conv == ast.ConvLet:
 		o.fail(site, diag.ErrAssignToImmutable,
-			"'%s' cannot be changed because '%s' is a let parameter; declare it 'inout' to change the caller's value, or copy it into a var",
+			"'%s' cannot be changed because '%s' is a let parameter; declare it 'mutable' to change the caller's value, or copy it into a var",
 			p.text(), root.Name)
 		return
 	case root.IsParam && root.Conv == ast.ConvSink:
@@ -690,7 +690,7 @@ func (o *Ownership) userCall(e *ast.CallExpr, s *ownState) *ownState {
 	}
 	for i, arg := range e.Ordered {
 		spec := e.Pass.Specs[i]
-		if spec.Conv == ast.ConvInout {
+		if spec.Conv == ast.ConvMutable {
 			o.requireNotReceiver(arg, spec.Name)
 		}
 		s = o.argument(arg, spec.Conv, ownDest{kind: destParameter, name: spec.Name}, s)
@@ -704,12 +704,12 @@ func (o *Ownership) userCall(e *ast.CallExpr, s *ownState) *ownState {
 	return s
 }
 
-// requireNotReceiver refuses 'self' as an inout argument. An inout parameter may be assigned as a whole, which replaces
+// requireNotReceiver refuses 'self' as a mutable argument. A mutable parameter may be assigned as a whole, which replaces
 // the caller's value, and 'self' is the receiver of the call that is running, not a place that can be replaced.
 func (o *Ownership) requireNotReceiver(arg ast.Expr, param string) {
 	if self, ok := arg.(*ast.SelfExpr); ok && self.Local.Mutable() {
 		o.fail(arg, diag.ErrAssignToImmutable,
-			"'self' cannot be passed to the inout parameter '%s', which could replace the whole value; pass a field of it, or call a method on it", param)
+			"'self' cannot be passed to the mutable parameter '%s', which could replace the whole value; pass a field of it, or call a method on it", param)
 	}
 }
 
@@ -724,18 +724,18 @@ func (o *Ownership) hold(arg ast.Expr, conv ast.Convention, laterArguments bool)
 	o.projections = append(o.projections, ownProjection{place: arg, kind: projectArgument})
 }
 
-// argument passes an expression as the convention says: a let borrows it, an inout borrows it to change, a sink
+// argument passes an expression as the convention says: a let borrows it, a mutable borrows it to change, a sink
 // takes it, and a set initialises it.
 func (o *Ownership) argument(e ast.Expr, conv ast.Convention, dest ownDest, s *ownState) *ownState {
 	switch conv {
 	case ast.ConvLet:
 		return o.expr(e, s)
-	case ast.ConvInout:
+	case ast.ConvMutable:
 		s = o.expr(e, s)
 		p, ok := pathOf(e, o.fn.SelfLocal, o.steps[:0])
 		if !ok {
 			o.fail(e, diag.ErrAssignToImmutable,
-				"the inout parameter '%s' changes its argument, so pass a variable, or a field or an element of one", dest.name)
+				"the mutable parameter '%s' changes its argument, so pass a variable, or a field or an element of one", dest.name)
 			return s
 		}
 		o.requireWritable(e, p)
@@ -769,7 +769,7 @@ func (o *Ownership) initialise(e ast.Expr, dest ownDest, s *ownState) *ownState 
 	return s
 }
 
-// requireExclusive is the law of exclusivity for one call: an argument that is inout, sink or set must not overlap
+// requireExclusive is the law of exclusivity for one call: an argument that is mutable, sink or set must not overlap
 // any other argument, receiver included, because the callee would then reach one place through two names.
 func (o *Ownership) requireExclusive(call *ast.CallExpr) {
 	o.accesses = o.accesses[:0]

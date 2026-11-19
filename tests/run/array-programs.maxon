@@ -1,11 +1,14 @@
 type Counter
 	var n as Count
+
 	static function make() returns Counter
 		return Counter{n: 0}
 	end 'make'
-	function bump(inout self)
+
+	function bump(mutable self)
 		n = n + 1
 	end 'bump'
+
 	function value() returns Count
 		return n
 	end 'value'
@@ -13,15 +16,19 @@ end 'Counter'
 
 type Stack
 	var items = array[Count].new()
+
 	static function make() returns Stack
 		return Stack{}
 	end 'make'
-	function push(inout self, n Count)
+
+	function push(mutable self, n Count)
 		items.append(n)
 	end 'push'
-	function pop(inout self) returns Count
+
+	function pop(mutable self) returns Count
 		return items.pop().unwrap()
 	end 'pop'
+
 	function size() returns Count
 		return items.count()
 	end 'size'
@@ -48,7 +55,7 @@ function primesBelow(limit Count) returns Count
 	return found
 end 'primesBelow'
 
-function sort(a inout array[Count])
+function sort(a mutable array[Count])
 	var swapped = true
 	while swapped 'passes'
 		swapped = false

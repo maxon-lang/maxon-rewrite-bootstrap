@@ -1,5 +1,6 @@
 type Note
 	export var name as String
+
 	static function make(name sink String) returns Note
 		return Note{name: name}
 	end 'make'
@@ -7,6 +8,7 @@ end 'Note'
 
 type Log
 	export var lines as array[String]
+
 	static function make() returns Log
 		return Log{lines: array[String].new()}
 	end 'make'

@@ -8,10 +8,10 @@ var lookahead0 = [numTokens]bool{TKw_function: true, TKw_static: true}
 var lookahead1 = [numTokens]bool{TKw_enum: true, TKw_export: true, TKw_interface: true, TKw_public: true, TKw_type: true, TKw_typealias: true, TKw_union: true}
 var lookahead2 = [numTokens]bool{TKw_export: true, TKw_interface: true, TKw_public: true}
 var lookahead3 = [numTokens]bool{TKw_export: true, TKw_public: true}
-var lookahead4 = [numTokens]bool{TKw__: true, TKw_inout: true, TKw_sink: true, TName: true}
-var lookahead5 = [numTokens]bool{TKw_inout: true, TKw_sink: true}
+var lookahead4 = [numTokens]bool{TKw__: true, TKw_mutable: true, TKw_sink: true, TName: true}
+var lookahead5 = [numTokens]bool{TKw_mutable: true, TKw_sink: true}
 var lookahead6 = [numTokens]bool{TKw__: true, TName: true}
-var lookahead7 = [numTokens]bool{TKw_inout: true, TKw_set: true, TKw_sink: true}
+var lookahead7 = [numTokens]bool{TKw_mutable: true, TKw_set: true, TKw_sink: true}
 var lookahead8 = [numTokens]bool{TKw_let: true, TKw_var: true}
 var lookahead9 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true}
 var lookahead10 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: true, TKw_public: true, TKw_static: true, TKw_var: true}
@@ -80,9 +80,9 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
 		switch p.cur().Kind() {
-		case TKw_inout, TKw_sink:
+		case TKw_mutable, TKw_sink:
 			if !p.in(&lookahead5) {
-				panic(p.expected("'inout' or 'sink'"))
+				panic(p.expected("'mutable' or 'sink'"))
 			}
 			n.Receiver = p.text(p.next())
 			p.expect(TKw_self, "'self'")
@@ -97,7 +97,7 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 				n.Params = append(n.Params, p.parseParam())
 			}
 		default:
-			panic(p.expected("'_', 'inout', 'sink' or a name"))
+			panic(p.expected("'_', 'mutable', 'sink' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")
@@ -123,7 +123,7 @@ func (p *Parser) parseParam() *ast.Param {
 	n.Name = p.text(p.next())
 	if p.in(&lookahead7) {
 		if !p.in(&lookahead7) {
-			panic(p.expected("'inout', 'set' or 'sink'"))
+			panic(p.expected("'mutable', 'set' or 'sink'"))
 		}
 		n.Convention = p.text(p.next())
 	}
@@ -524,9 +524,9 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
 		switch p.cur().Kind() {
-		case TKw_inout, TKw_sink:
+		case TKw_mutable, TKw_sink:
 			if !p.in(&lookahead5) {
-				panic(p.expected("'inout' or 'sink'"))
+				panic(p.expected("'mutable' or 'sink'"))
 			}
 			n.Receiver = p.text(p.next())
 			p.expect(TKw_self, "'self'")
@@ -541,7 +541,7 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 				n.Params = append(n.Params, p.parseParam())
 			}
 		default:
-			panic(p.expected("'_', 'inout', 'sink' or a name"))
+			panic(p.expected("'_', 'mutable', 'sink' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")

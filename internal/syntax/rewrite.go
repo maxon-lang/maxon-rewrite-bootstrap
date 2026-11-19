@@ -65,3 +65,15 @@ func ApplyEdits(text string, edits []Edit) string {
 	out.WriteString(text[at:])
 	return out.String()
 }
+
+// KeywordEditsInLine is KeywordEdits for a fragment that is not a file: src.Text[begin:end], part of one line of
+// file, lexed with no layout of its own, as an interpolation is. A fragment the lexer refuses panics with its
+// CompileError.
+func KeywordEditsInLine(src *Source, file, begin, end int, old, new string) []Edit {
+	if !ast.IsReserved(old) {
+		panic(diag.Internal("'%s' is not a keyword of the current grammar: rename it before changing Maxon.g4", old))
+	}
+	var edits []Edit
+	collectKeyword(src, file, LexInterpolation(src, file, begin, end, nil), old, new, &edits)
+	return edits
+}

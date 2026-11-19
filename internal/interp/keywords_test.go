@@ -1,0 +1,38 @@
+package interp_test
+
+// The words of the language that the program generator and the tests that build programs write. Each is spelled here and
+// nowhere else, so that renaming a keyword of the language is a change to one line of this file.
+const (
+	kwAnd      = "and"
+	kwAs       = "as"
+	kwBreak    = "break"
+	kwContinue = "continue"
+	kwElse     = "else"
+	kwEnd      = "end"
+	kwExport   = "export"
+	kwFalse    = "false"
+	kwFor      = "for"
+	kwFunction = "function"
+	kwGives    = "gives"
+	kwIf       = "if"
+	kwIn       = "in"
+	kwLet      = "let"
+	kwMatch    = "match"
+	kwMutable  = "mutable"
+	kwNot      = "not"
+	kwOr       = "or"
+	kwReturn   = "return"
+	kwReturns  = "returns"
+	kwSelf     = "self"
+	kwSet      = "set"
+	kwSink     = "sink"
+	kwStatic   = "static"
+	kwThen     = "then"
+	kwTrue     = "true"
+	kwType     = "type"
+	kwUnion    = "union"
+	kwUpto     = "upto"
+	kwVar      = "var"
+	kwWhen     = "when"
+	kwWhile    = "while"
+)

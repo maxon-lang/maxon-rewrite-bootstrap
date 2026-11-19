@@ -1,0 +1,84 @@
+// case: copy is independent
+function main() returns ExitCode
+	var a = Pair.create(1, second: 2)
+	var b = a.copy()
+	b.first = 9
+	print("{a.first}")
+	return 0
+end 'main'
+
+// case: mutable of a var path
+function main() returns ExitCode
+	var a = Pair.create(1, second: 2)
+	change(a)
+	swap(a.first, b: a.second)
+	return 0
+end 'main'
+
+// case: mutable receiver of a var
+function main() returns ExitCode
+	var a = Pair.create(1, second: 2)
+	a.bump(a.second.copy())
+	return 0
+end 'main'
+
+// case: sink then reassign
+function main() returns ExitCode
+	var a = Pair.create(1, second: 2)
+	let n = take(a)
+	a = Pair.create(n, second: 2)
+	print("{a.first}")
+	return 0
+end 'main'
+
+// case: set a declared variable
+function main() returns ExitCode
+	var n as Score
+	make(n, flag: true)
+	print("{n}")
+	return 0
+end 'main'
+
+// case: move into a let and back
+function main() returns ExitCode
+	var a = Pair.create(1, second: 2)
+	let b = a
+	a = b.copy()
+	print("{a.first}")
+	return 0
+end 'main'
+
+// case: fresh value in a loop
+function main() returns ExitCode
+	for i in 0 upto 2 'each'
+		var a = Pair.create(i, second: 2)
+		let b = a
+		print("{b.first}")
+	end 'each'
+	return 0
+end 'main'
+
+// case: copy of a field out
+function main() returns ExitCode
+	let a = Pair.create(1, second: 2)
+	let l = a.label.copy()
+	print("{l}")
+	return 0
+end 'main'
+
+// case: scalars copy freely
+function main() returns ExitCode
+	let a = Pair.create(1, second: 2)
+	let n = a.first
+	let m = n
+	print("{n} {m}")
+	return 0
+end 'main'
+
+// case: conditional of fresh values
+function main() returns ExitCode
+	let a = Pair.create(1, second: 2)
+	let b = Pair.create(1, second: 1) if a.first == 1 else Pair.create(2, second: 2)
+	print("{b.first}")
+	return 0
+end 'main'

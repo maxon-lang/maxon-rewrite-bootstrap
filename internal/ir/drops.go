@@ -101,7 +101,7 @@ func (l *Lowerer) dropValue(v V, t ast.Ty) {
 }
 
 // dropAt drops the value held at an address that is about to be assigned: the old value of a field, an element or an
-// inout parameter.
+// mutable parameter.
 func (l *Lowerer) dropAt(addr V, t ast.Ty) {
 	if l.kind(t) == KindManaged {
 		l.emit(&DropAtInstr{Addr: addr, Ty: l.dropType(t)})

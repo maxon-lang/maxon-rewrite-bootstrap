@@ -2,6 +2,7 @@ typealias Score = int(i64.min to i64.max)
 
 type Inner
 	export var n as Score
+
 	static function create(n Score) returns Inner
 		return Inner{n: n}
 	end 'create'
@@ -10,6 +11,7 @@ end 'Inner'
 type Outer
 	export var inner as Inner
 	export var label as String
+
 	static function create(n Score, label sink String) returns Outer
 		return Outer{inner: Inner.create(n), label: label}
 	end 'create'

@@ -33,9 +33,9 @@ func (g *generator) guarded(body func()) {
 		return
 	}
 	label := g.label()
-	g.line("if %s %s", strings.Join(dedupe(conds), " and "), label)
+	g.line(kwIf+" %s %s", strings.Join(dedupe(conds), " "+kwAnd+" "), label)
 	g.out = append(g.out, lines...)
-	g.line("end %s", label)
+	g.line(kwEnd+" %s", label)
 }
 
 func dedupe(in []string) []string {
@@ -206,13 +206,13 @@ func (g *generator) actDeclare(depth int) bool {
 	}
 	name := g.fresh("v")
 	isVar := g.chance(55)
-	kw := "let"
+	kw := kwLet
 	if isVar {
-		kw = "var"
+		kw = kwVar
 	}
 	init := g.owned(t, 2)
 	if t.kind == kCount {
-		init = g.literal(g.pick(10)) + " as Count"
+		init = g.literal(g.pick(10)) + " " + kwAs + " Count"
 	}
 	g.line("%s %s = %s", kw, name, init)
 	g.declare(name, t, true, isVar)
@@ -225,23 +225,23 @@ func (g *generator) actUninit(depth int) bool {
 		return false
 	}
 	name := g.fresh("v")
-	g.line("var %s as %s", name, t.src())
+	g.line(kwVar+" %s "+kwAs+" %s", name, t.src())
 	v := g.declare(name, t, true, true)
 	v.moved = true
 	label := g.label()
 	label2 := g.label()
-	g.line("if %s %s", g.boolExpr(1), label)
+	g.line(kwIf+" %s %s", g.boolExpr(1), label)
 	state := g.moveState()
 	g.indent++
 	g.line("%s = %s", name, g.owned(t, 1))
 	g.indent--
 	stateA := g.moveState()
 	g.restoreMoves(state)
-	g.line("end %s else %s", label, label2)
+	g.line(kwEnd+" %s "+kwElse+" %s", label, label2)
 	g.indent++
 	g.line("%s = %s", name, g.owned(t, 1))
 	g.indent--
-	g.line("end %s", label2)
+	g.line(kwEnd+" %s", label2)
 	stateB := g.moveState()
 	g.mergeMoves(stateA, stateB)
 	v.moved = false
@@ -254,7 +254,7 @@ func (g *generator) actAssign(depth int) bool {
 		return false
 	}
 	p, ok := g.place(t, true)
-	if !ok || p.src == "self" {
+	if !ok || p.src == kwSelf {
 		return false
 	}
 	value := g.owned(t, 2)
@@ -304,9 +304,9 @@ func (g *generator) actMove(depth int) bool {
 	v := movable[g.pick(len(movable))]
 	name := g.fresh("v")
 	if g.chance(30) {
-		g.line("let %s = %s.copy()", name, v.name)
+		g.line(kwLet+" %s = %s.copy()", name, v.name)
 	} else {
-		g.line("let %s = %s", name, v.name)
+		g.line(kwLet+" %s = %s", name, v.name)
 		v.moved = true
 	}
 	g.declare(name, v.t, true, false)
@@ -368,10 +368,10 @@ func (g *generator) actMatchLet(depth int) bool {
 	}
 	name := g.fresh("v")
 	text := g.matchExpr(t, 2)
-	if !strings.HasPrefix(text, "match ") {
+	if !strings.HasPrefix(text, kwMatch+" ") {
 		return false
 	}
-	g.line("let %s = %s", name, text)
+	g.line(kwLet+" %s = %s", name, text)
 	g.declare(name, t, true, false)
 	return true
 }
@@ -391,13 +391,13 @@ func (g *generator) actMethod(depth int) bool {
 	var receiver string
 	var root *variable
 	switch m.recv {
-	case "inout":
+	case kwMutable:
 		p, ok := g.place(r.t, true)
 		if !ok {
 			return false
 		}
 		receiver, root = p.src, p.root
-	case "sink":
+	case kwSink:
 		moves := g.movable(r.t)
 		if len(moves) == 0 {
 			return false
@@ -429,20 +429,20 @@ func (g *generator) actIf(depth int) bool {
 		return false
 	}
 	label := g.label()
-	g.line("if %s %s", g.boolExpr(2), label)
+	g.line(kwIf+" %s %s", g.boolExpr(2), label)
 	state := g.moveState()
 	g.nonEmptyBlock(3, depth-1)
 	stateA := g.moveState()
 	if g.chance(50) {
 		g.mergeMoves(stateA, state)
-		g.line("end %s", label)
+		g.line(kwEnd+" %s", label)
 		return true
 	}
 	g.restoreMoves(state)
 	label2 := g.label()
-	g.line("end %s else %s", label, label2)
+	g.line(kwEnd+" %s "+kwElse+" %s", label, label2)
 	g.nonEmptyBlock(3, depth-1)
-	g.line("end %s", label2)
+	g.line(kwEnd+" %s", label2)
 	stateB := g.moveState()
 	g.mergeMoves(stateA, stateB)
 	return true
@@ -453,10 +453,10 @@ func (g *generator) actWhile(depth int) bool {
 		return false
 	}
 	counter := g.fresh("v")
-	g.line("var %s = 0 as Count", counter)
+	g.line(kwVar+" %s = 0 "+kwAs+" Count", counter)
 	g.declare(counter, tCount, true, false)
 	label := g.label()
-	g.line("while %s < %d %s", counter, 1+g.pick(3), label)
+	g.line(kwWhile+" %s < %d %s", counter, 1+g.pick(3), label)
 	g.indent++
 	g.line("%s = %s + 1", counter, counter)
 	g.indent--
@@ -465,7 +465,7 @@ func (g *generator) actWhile(depth int) bool {
 	g.nonEmptyBlock(3, depth-1)
 	g.loopTags = g.loopTags[:len(g.loopTags)-1]
 	g.loop--
-	g.line("end %s", label)
+	g.line(kwEnd+" %s", label)
 	return true
 }
 
@@ -481,7 +481,7 @@ func (g *generator) actFor(depth int) bool {
 			bound = v.name + ".count()"
 		}
 	}
-	g.line("for %s in 0 upto %s %s", index, bound, label)
+	g.line(kwFor+" %s "+kwIn+" 0 "+kwUpto+" %s %s", index, bound, label)
 	g.loop++
 	g.loopTags = append(g.loopTags, label)
 	g.push()
@@ -501,7 +501,7 @@ func (g *generator) actFor(depth int) bool {
 	g.pop()
 	g.loopTags = g.loopTags[:len(g.loopTags)-1]
 	g.loop--
-	g.line("end %s", label)
+	g.line(kwEnd+" %s", label)
 	return true
 }
 
@@ -510,15 +510,15 @@ func (g *generator) actLoopJump(depth int) bool {
 		return false
 	}
 	label := g.label()
-	g.line("if %s %s", g.boolExpr(1), label)
+	g.line(kwIf+" %s %s", g.boolExpr(1), label)
 	g.indent++
 	if g.chance(50) {
-		g.line("break")
+		g.line(kwBreak)
 	} else {
-		g.line("continue")
+		g.line(kwContinue)
 	}
 	g.indent--
-	g.line("end %s", label)
+	g.line(kwEnd+" %s", label)
 	return true
 }
 
@@ -527,13 +527,13 @@ func (g *generator) actReturn(depth int) bool {
 		return false
 	}
 	label := g.label()
-	g.line("if %s %s", g.boolExpr(1), label)
+	g.line(kwIf+" %s %s", g.boolExpr(1), label)
 	state := g.moveState()
 	g.indent++
-	g.line("return %s", g.owned(g.ret, 2))
+	g.line(kwReturn+" %s", g.owned(g.ret, 2))
 	g.indent--
 	g.restoreMoves(state)
-	g.line("end %s", label)
+	g.line(kwEnd+" %s", label)
 	return true
 }
 
@@ -543,7 +543,7 @@ func (g *generator) actMatch(depth int) bool {
 		return false
 	}
 	label := g.label()
-	g.line("match %s %s", subject, label)
+	g.line(kwMatch+" %s %s", subject, label)
 	var root *variable
 	for _, v := range g.visible() {
 		if strings.HasPrefix(subject, v.name) && (len(subject) == len(v.name) || subject[len(v.name)] == '.') {
@@ -563,7 +563,7 @@ func (g *generator) actMatch(depth int) bool {
 		for _, b := range bound {
 			g.declare(b.name, b.t, false, false)
 		}
-		g.line("%s then %s", pattern, g.armAction(bound))
+		g.line("%s "+kwThen+" %s", pattern, g.armAction(bound))
 		states = append(states, g.moveState())
 		g.pop()
 	}
@@ -572,7 +572,7 @@ func (g *generator) actMatch(depth int) bool {
 	if root != nil {
 		root.frozen--
 	}
-	g.line("end %s", label)
+	g.line(kwEnd+" %s", label)
 	return true
 }
 
@@ -585,7 +585,7 @@ func (g *generator) armAction(bound []param) string {
 		case b.t == tString:
 			return fmt.Sprintf("print(\"{%s}\\n\")", b.name)
 		case b.t.managed() && g.chance(50):
-			if target, ok := g.place(b.t, true); ok && target.src != "self" {
+			if target, ok := g.place(b.t, true); ok && target.src != kwSelf {
 				return fmt.Sprintf("%s = %s.copy()", target.src, b.name)
 			}
 			return fmt.Sprintf("_ = %s.copy()", b.name)
@@ -639,13 +639,13 @@ func (g *generator) actArray(depth int) bool {
 				g.line("_ = %s.remove(0)", v.name)
 			} else {
 				name := g.fresh("v")
-				g.line("let %s = %s.remove(0)", name, v.name)
+				g.line(kwLet+" %s = %s.remove(0)", name, v.name)
 				g.declare(name, elem, true, false)
 			}
 		})
 	case n < 5 && mutable:
 		name := g.fresh("v")
-		g.line("let %s = %s.pop()", name, v.name)
+		g.line(kwLet+" %s = %s.pop()", name, v.name)
 		g.declare(name, g.option(elem), true, false)
 	case n < 6:
 		g.guarded(func() { g.elementStatement(v) })
@@ -655,7 +655,7 @@ func (g *generator) actArray(depth int) bool {
 		g.line("put[%s](%s, x: %s)", elem.src(), v.name, g.owned(elem, 2))
 	default:
 		name := g.fresh("v")
-		g.line("let %s = %s.copy()", name, v.name)
+		g.line(kwLet+" %s = %s.copy()", name, v.name)
 		g.declare(name, v.t, true, false)
 	}
 	return true
@@ -672,7 +672,7 @@ func (g *generator) elementStatement(v *variable) {
 		g.line("%s = %s", p.src, g.owned(elem, 1))
 	case n < 3 && elem.managed():
 		name := g.fresh("v")
-		g.line("let %s = %s.copy()", name, p.src)
+		g.line(kwLet+" %s = %s.copy()", name, p.src)
 		g.declare(name, elem, true, false)
 	case n < 4 && v.mutable && elem.managed():
 		g.line("overwrite[%s](%s, with: %s)", elem.src(), p.src, g.owned(elem, 1))
@@ -737,12 +737,12 @@ func (g *generator) actPool(depth int) bool {
 	switch n := g.pick(6); {
 	case n < 2:
 		name := g.fresh("h")
-		g.line("let %s = %s.insert(%s)", name, v.name, g.owned(elem, 2))
+		g.line(kwLet+" %s = %s.insert(%s)", name, v.name, g.owned(elem, 2))
 		g.declare(name, g.handle(elem), false, false)
 	case n < 3:
 		if h, ok := g.place(g.handle(elem), false); ok {
 			name := g.fresh("v")
-			g.line("let %s = %s.remove(%s)", name, v.name, h.src)
+			g.line(kwLet+" %s = %s.remove(%s)", name, v.name, h.src)
 			g.declare(name, g.option(elem), true, false)
 			return true
 		}
@@ -774,7 +774,7 @@ func (g *generator) elementStatement2(v *variable) {
 		g.line("%s = %s", p.src, g.owned(elem, 1))
 	case n < 2 && elem.managed():
 		name := g.fresh("v")
-		g.line("let %s = %s.copy()", name, p.src)
+		g.line(kwLet+" %s = %s.copy()", name, p.src)
 		g.declare(name, elem, true, false)
 	case n < 3 && elem == tCount:
 		g.line("print(\"{%s}\\n\")", p.src)
@@ -792,16 +792,16 @@ func (g *generator) actList(depth int) bool {
 	switch n := g.pick(8); {
 	case n < 2:
 		name := g.fresh("h")
-		g.line("let %s = %s.%s(%s)", name, v.name, []string{"pushBack", "pushFront"}[g.pick(2)], g.owned(elem, 2))
+		g.line(kwLet+" %s = %s.%s(%s)", name, v.name, []string{"pushBack", "pushFront"}[g.pick(2)], g.owned(elem, 2))
 		g.declare(name, g.handle(elem), false, false)
 	case n < 3:
 		name := g.fresh("v")
-		g.line("let %s = %s.%s()", name, v.name, []string{"popFront", "popBack"}[g.pick(2)])
+		g.line(kwLet+" %s = %s.%s()", name, v.name, []string{"popFront", "popBack"}[g.pick(2)])
 		g.declare(name, g.option(elem), true, false)
 	case n < 4:
 		if h, ok := g.place(g.handle(elem), false); ok {
 			name := g.fresh("v")
-			g.line("let %s = %s.remove(%s)", name, v.name, h.src)
+			g.line(kwLet+" %s = %s.remove(%s)", name, v.name, h.src)
 			g.declare(name, g.option(elem), true, false)
 			return true
 		}
@@ -816,7 +816,7 @@ func (g *generator) actList(depth int) bool {
 		g.guarded(func() { g.elementStatement2(v) })
 	case n < 7:
 		name := g.fresh("v")
-		g.line("let %s = %s.first()", name, v.name)
+		g.line(kwLet+" %s = %s.first()", name, v.name)
 		g.declare(name, g.option(g.handle(elem)), true, false)
 	default:
 		g.line("print(\"{%s.count()}\\n\")", v.name)
@@ -835,7 +835,7 @@ func (g *generator) actMap(depth int) bool {
 		g.line("%s.insert(%s, value: %s)", v.name, g.keyLiteral(key), g.owned(value, 2))
 	case n < 3:
 		name := g.fresh("v")
-		g.line("let %s = %s.remove(%s)", name, v.name, g.keyLiteral(key))
+		g.line(kwLet+" %s = %s.remove(%s)", name, v.name, g.keyLiteral(key))
 		g.declare(name, g.option(value), true, false)
 	case n < 4:
 		g.guarded(func() { g.elementStatement2(v) })
@@ -873,7 +873,7 @@ func (g *generator) actBox(depth int) bool {
 func (g *generator) actGeneric(depth int) bool {
 	switch g.pick(4) {
 	case 0:
-		if m, ok := g.place(g.meterType(), true); ok && m.src != "self" {
+		if m, ok := g.place(g.meterType(), true); ok && m.src != kwSelf {
 			g.line("growTwice(%s)", m.src)
 			return true
 		}
@@ -883,7 +883,7 @@ func (g *generator) actGeneric(depth int) bool {
 			return false
 		}
 		a, ok := g.place(t, true)
-		if !ok || a.src == "self" {
+		if !ok || a.src == kwSelf {
 			return false
 		}
 		g.line("overwrite[%s](%s, with: %s)", t.src(), a.src, g.owned(t, 1))
@@ -894,7 +894,7 @@ func (g *generator) actGeneric(depth int) bool {
 			return false
 		}
 		name := g.fresh("v")
-		g.line("let %s = keep[%s](%s)", name, t.src(), g.owned(t, 2))
+		g.line(kwLet+" %s = keep[%s](%s)", name, t.src(), g.owned(t, 2))
 		g.declare(name, t, true, false)
 		return true
 	default:
@@ -903,7 +903,7 @@ func (g *generator) actGeneric(depth int) bool {
 			return false
 		}
 		name := g.fresh("v")
-		g.line("let %s = pass2[%s](%s, b: %s, first: %s)", name, t.src(), g.owned(t, 1), g.owned(t, 1), g.boolExpr(1))
+		g.line(kwLet+" %s = pass2[%s](%s, b: %s, first: %s)", name, t.src(), g.owned(t, 1), g.owned(t, 1), g.boolExpr(1))
 		g.declare(name, t, true, false)
 		return true
 	}
@@ -931,8 +931,8 @@ func (g *generator) function(index int) {
 		if t.kind == kHandle {
 			t = tCount
 		}
-		conv := []string{"", "", "inout", "sink", "set"}[g.pick(5)]
-		if t.scalar() && conv == "sink" {
+		conv := []string{"", "", kwMutable, kwSink, kwSet}[g.pick(5)]
+		if t.scalar() && conv == kwSink {
 			conv = ""
 		}
 		p := param{name: fmt.Sprintf("a%d", i), t: t, conv: conv}
@@ -942,18 +942,18 @@ func (g *generator) function(index int) {
 			text += conv + " "
 		}
 		parts = append(parts, text+t.src())
-		v := g.declare(p.name, t, conv == "sink" || conv == "set", conv == "inout" || conv == "set")
-		v.setParam = conv == "set"
-		if conv == "set" {
+		v := g.declare(p.name, t, conv == kwSink || conv == kwSet, conv == kwMutable || conv == kwSet)
+		v.setParam = conv == kwSet
+		if conv == kwSet {
 			// A set parameter starts with no value, and the function gives it one before it does anything else, except in
 			// a program that is careless about it.
 			v.moved = true
 			sets = append(sets, v)
 		}
 	}
-	header := fmt.Sprintf("function %s(%s)", f.name, strings.Join(parts, ", "))
+	header := fmt.Sprintf(kwFunction+" %s(%s)", f.name, strings.Join(parts, ", "))
 	if f.ret != nil {
-		header += " returns " + f.ret.src()
+		header += " " + kwReturns + " " + f.ret.src()
 	}
 	g.line("%s", header)
 	g.ret = f.ret
@@ -974,11 +974,11 @@ func (g *generator) function(index int) {
 		g.stmt(3)
 	}
 	if f.ret != nil {
-		g.line("return %s", g.owned(f.ret, 2))
+		g.line(kwReturn+" %s", g.owned(f.ret, 2))
 	}
 	g.pop()
 	g.indent--
-	g.line("end '%s'", f.name)
+	g.line(kwEnd+" '%s'", f.name)
 	g.blank()
 	g.pop()
 	g.fns = append(g.fns, f)
@@ -987,7 +987,7 @@ func (g *generator) function(index int) {
 func (g *generator) mainFunction() {
 	g.scopes = nil
 	g.push()
-	g.line("function main() returns ExitCode")
+	g.line(kwFunction + " main() " + kwReturns + " ExitCode")
 	g.ret = nil
 	g.loop = 0
 	g.budget = 40
@@ -997,10 +997,10 @@ func (g *generator) mainFunction() {
 	for g.budget > 0 {
 		g.stmt(3)
 	}
-	g.line("return 0")
+	g.line(kwReturn + " 0")
 	g.pop()
 	g.indent--
-	g.line("end 'main'")
+	g.line(kwEnd + " 'main'")
 }
 
 // preamble declares what the statements work on: variables of the program's own types and a collection of each kind with
@@ -1010,13 +1010,13 @@ func (g *generator) preamble() {
 	for i, n := 0, 2+g.pick(3); i < n; i++ {
 		t := managed[g.pick(len(managed))]
 		name := g.fresh("v")
-		g.line("var %s = %s", name, g.owned(t, 2))
+		g.line(kwVar+" %s = %s", name, g.owned(t, 2))
 		g.declare(name, t, true, true)
 	}
 	elem := g.elementType()
 	name := g.fresh("v")
 	arr := g.array(elem)
-	g.line("var %s = %s.new()", name, arr.src())
+	g.line(kwVar+" %s = %s.new()", name, arr.src())
 	g.declare(name, arr, true, true)
 	g.line("%s.append(%s)", name, g.owned(elem, 2))
 	g.line("%s.append(%s)", name, g.owned(elem, 2))
@@ -1024,27 +1024,27 @@ func (g *generator) preamble() {
 		elem = g.elementType()
 		p := g.fresh("v")
 		pt := g.pool(elem)
-		g.line("var %s = %s.new()", p, pt.src())
+		g.line(kwVar+" %s = %s.new()", p, pt.src())
 		g.declare(p, pt, true, true)
 		h := g.fresh("h")
-		g.line("let %s = %s.insert(%s)", h, p, g.owned(elem, 2))
+		g.line(kwLet+" %s = %s.insert(%s)", h, p, g.owned(elem, 2))
 		g.declare(h, g.handle(elem), false, false)
 	}
 	if g.chance(70) && !g.arraysOnly {
 		elem = g.elementType()
 		l := g.fresh("v")
 		lt := g.list(elem)
-		g.line("var %s = %s.new()", l, lt.src())
+		g.line(kwVar+" %s = %s.new()", l, lt.src())
 		g.declare(l, lt, true, true)
 		h := g.fresh("h")
-		g.line("let %s = %s.pushBack(%s)", h, l, g.owned(elem, 2))
+		g.line(kwLet+" %s = %s.pushBack(%s)", h, l, g.owned(elem, 2))
 		g.declare(h, g.handle(elem), false, false)
 	}
 	if g.chance(70) && !g.arraysOnly {
 		key, elem := g.keyType(), g.elementType()
 		m := g.fresh("v")
 		mt := g.mapOf(key, elem)
-		g.line("var %s = %s.new()", m, mt.src())
+		g.line(kwVar+" %s = %s.new()", m, mt.src())
 		g.declare(m, mt, true, true)
 		g.line("%s.insert(%s, value: %s)", m, g.keyLiteral(key), g.owned(elem, 2))
 	}
@@ -1088,7 +1088,7 @@ func (g *generator) anyPlace(mutable bool) (place, bool) {
 		if v.moved || !v.t.managed() || (mutable && !v.mutable) {
 			continue
 		}
-		if v.name != "self" || !mutable {
+		if v.name != kwSelf || !mutable {
 			found = append(found, place{src: v.name, t: v.t, root: v, whole: true})
 		}
 		if r := g.recordOf(v.t); r != nil {
@@ -1158,7 +1158,7 @@ func (g *generator) actSet(depth int) bool {
 		return false
 	}
 	name := g.fresh("v")
-	g.line("var %s as %s", name, t.src())
+	g.line(kwVar+" %s "+kwAs+" %s", name, t.src())
 	g.line("fill[%s](%s, from: %s)", t.src(), name, p.src)
 	g.declare(name, t, true, true)
 	return true

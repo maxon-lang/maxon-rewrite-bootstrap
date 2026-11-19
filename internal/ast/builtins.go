@@ -324,10 +324,10 @@ func (b *Builtins) declareArray() {
 	b.static(a, IntrinsicArrayFilled, "filled", self, param("count", b.Count, ConvLet), param("value", t, ConvSink))
 	b.method(a, IntrinsicArrayCount, "count", ConvLet, b.Count)
 	b.method(a, IntrinsicArrayIsEmpty, "isEmpty", ConvLet, BoolTy)
-	b.method(a, IntrinsicArrayAppend, "append", ConvInout, VoidTy, param("item", t, ConvSink))
-	b.method(a, IntrinsicArrayInsert, "insert", ConvInout, VoidTy, param("item", t, ConvSink), param("at", b.Count, ConvLet))
-	b.method(a, IntrinsicArrayRemove, "remove", ConvInout, t, param("at", b.Count, ConvLet))
-	b.method(a, IntrinsicArrayPop, "pop", ConvInout, b.OptionOf(t))
+	b.method(a, IntrinsicArrayAppend, "append", ConvMutable, VoidTy, param("item", t, ConvSink))
+	b.method(a, IntrinsicArrayInsert, "insert", ConvMutable, VoidTy, param("item", t, ConvSink), param("at", b.Count, ConvLet))
+	b.method(a, IntrinsicArrayRemove, "remove", ConvMutable, t, param("at", b.Count, ConvLet))
+	b.method(a, IntrinsicArrayPop, "pop", ConvMutable, b.OptionOf(t))
 }
 
 func (b *Builtins) declareMap() {
@@ -337,8 +337,8 @@ func (b *Builtins) declareMap() {
 	b.method(m, IntrinsicMapCount, "count", ConvLet, b.Count)
 	b.method(m, IntrinsicMapIsEmpty, "isEmpty", ConvLet, BoolTy)
 	b.method(m, IntrinsicMapHas, "has", ConvLet, BoolTy, param("key", k, ConvLet))
-	b.method(m, IntrinsicMapInsert, "insert", ConvInout, VoidTy, param("key", k, ConvSink), param("value", v, ConvSink))
-	b.method(m, IntrinsicMapRemove, "remove", ConvInout, b.OptionOf(v), param("key", k, ConvLet))
+	b.method(m, IntrinsicMapInsert, "insert", ConvMutable, VoidTy, param("key", k, ConvSink), param("value", v, ConvSink))
+	b.method(m, IntrinsicMapRemove, "remove", ConvMutable, b.OptionOf(v), param("key", k, ConvLet))
 }
 
 func (b *Builtins) declareList() {
@@ -349,16 +349,16 @@ func (b *Builtins) declareList() {
 	b.method(l, IntrinsicListCount, "count", ConvLet, b.Count)
 	b.method(l, IntrinsicListIsEmpty, "isEmpty", ConvLet, BoolTy)
 	b.method(l, IntrinsicListContains, "contains", ConvLet, BoolTy, param("handle", h, ConvLet))
-	b.method(l, IntrinsicListPushFront, "pushFront", ConvInout, h, param("item", t, ConvSink))
-	b.method(l, IntrinsicListPushBack, "pushBack", ConvInout, h, param("item", t, ConvSink))
-	b.method(l, IntrinsicListPopFront, "popFront", ConvInout, b.OptionOf(t))
-	b.method(l, IntrinsicListPopBack, "popBack", ConvInout, b.OptionOf(t))
+	b.method(l, IntrinsicListPushFront, "pushFront", ConvMutable, h, param("item", t, ConvSink))
+	b.method(l, IntrinsicListPushBack, "pushBack", ConvMutable, h, param("item", t, ConvSink))
+	b.method(l, IntrinsicListPopFront, "popFront", ConvMutable, b.OptionOf(t))
+	b.method(l, IntrinsicListPopBack, "popBack", ConvMutable, b.OptionOf(t))
 	b.method(l, IntrinsicListFirst, "first", ConvLet, b.OptionOf(h))
 	b.method(l, IntrinsicListLast, "last", ConvLet, b.OptionOf(h))
 	b.method(l, IntrinsicListNext, "next", ConvLet, b.OptionOf(h), param("handle", h, ConvLet))
 	b.method(l, IntrinsicListPrev, "prev", ConvLet, b.OptionOf(h), param("handle", h, ConvLet))
-	b.method(l, IntrinsicListRemove, "remove", ConvInout, b.OptionOf(t), param("handle", h, ConvLet))
-	b.method(l, IntrinsicListMoveToFront, "moveToFront", ConvInout, VoidTy, param("handle", h, ConvLet))
+	b.method(l, IntrinsicListRemove, "remove", ConvMutable, b.OptionOf(t), param("handle", h, ConvLet))
+	b.method(l, IntrinsicListMoveToFront, "moveToFront", ConvMutable, VoidTy, param("handle", h, ConvLet))
 }
 
 func (b *Builtins) declarePool() {
@@ -369,8 +369,8 @@ func (b *Builtins) declarePool() {
 	b.method(p, IntrinsicPoolCount, "count", ConvLet, b.Count)
 	b.method(p, IntrinsicPoolIsEmpty, "isEmpty", ConvLet, BoolTy)
 	b.method(p, IntrinsicPoolContains, "contains", ConvLet, BoolTy, param("handle", h, ConvLet))
-	b.method(p, IntrinsicPoolInsert, "insert", ConvInout, h, param("item", t, ConvSink))
-	b.method(p, IntrinsicPoolRemove, "remove", ConvInout, b.OptionOf(t), param("handle", h, ConvLet))
+	b.method(p, IntrinsicPoolInsert, "insert", ConvMutable, h, param("item", t, ConvSink))
+	b.method(p, IntrinsicPoolRemove, "remove", ConvMutable, b.OptionOf(t), param("handle", h, ConvLet))
 }
 
 // declareSharing declares the functions that make and use the values which cross between threads:

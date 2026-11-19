@@ -1,0 +1,16 @@
+// expect-error: E2013 at 6:11
+type Counter
+	export var n as Count
+
+	function reset(mutable self)
+		replace(self)
+	end 'reset'
+end 'Counter'
+
+function replace(c mutable Counter)
+	c.n = 0
+end 'replace'
+
+function main() returns ExitCode
+	return 0
+end 'main'

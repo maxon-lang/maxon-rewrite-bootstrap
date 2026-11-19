@@ -1,0 +1,10 @@
+function main() returns ExitCode
+	var a = array[String].new()
+	a.append("e{1}")
+	a.append("e{2}")
+	a.append("e{3}")
+	let taken = a.remove(1)
+	_ = a.remove(0)
+	let last = "z{4}"
+	return 0
+end 'main'

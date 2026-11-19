@@ -1,16 +1,17 @@
 type Point
 	export var x as Count
 	export var y as Count
+
 	static function make(x Count, y Count) returns Point
 		return Point{x: x, y: y}
 	end 'make'
 end 'Point'
 
-function bump(n inout Count)
+function bump(n mutable Count)
 	n = n + 1
 end 'bump'
 
-function shift(p inout Point)
+function shift(p mutable Point)
 	p.x = p.x + 10
 end 'shift'
 
@@ -26,11 +27,11 @@ function length[T](items array[T]) returns Count
 	return items.count()
 end 'length'
 
-function duplicate[T](items inout array[T], at Count)
+function duplicate[T](items mutable array[T], at Count)
 	items.insert(items[at].copy(), at: at)
 end 'duplicate'
 
-function popOr(items inout array[Count], fallback Count) returns Count
+function popOr(items mutable array[Count], fallback Count) returns Count
 	let last = items.pop()
 	if last.isSome() 'some'
 		return last.unwrap()

@@ -2,9 +2,11 @@ type Tree
 	var value as Count
 	var name as String
 	var kids = array[Tree].new()
+
 	static function make(value Count, name sink String) returns Tree
 		return Tree{value: value, name: name}
 	end 'make'
+
 	function sum() returns Count
 		var total = value
 		for i in 0 upto kids.count() 'each'
@@ -12,9 +14,11 @@ type Tree
 		end 'each'
 		return total
 	end 'sum'
-	function add(inout self, kid sink Tree)
+
+	function add(mutable self, kid sink Tree)
 		kids.append(kid)
 	end 'add'
+
 	function describe() returns String
 		var text = "{name}({value}"
 		for i in 0 upto kids.count() 'each'

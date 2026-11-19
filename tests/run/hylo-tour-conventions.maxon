@@ -3,6 +3,7 @@ typealias Number = int(i64.min to i64.max)
 type Pair
 	export var first as Number
 	export var second as Number
+
 	static function create(first Number, second Number) returns Pair
 		return Pair{first: first, second: second}
 	end 'create'
@@ -10,6 +11,7 @@ end 'Pair'
 
 type Wrapper
 	export var pair as Pair
+
 	static function wrap(pair sink Pair) returns Wrapper
 		return Wrapper{pair: pair}
 	end 'wrap'
@@ -19,12 +21,12 @@ function total(p Pair) returns Number
 	return p.first + p.second
 end 'total'
 
-function double(p inout Pair)
+function double(p mutable Pair)
 	p.first = p.first * 2
 	p.second = p.second * 2
 end 'double'
 
-function replace(p inout Pair, with sink Pair)
+function replace(p mutable Pair, with sink Pair)
 	p = with
 end 'replace'
 

@@ -1,0 +1,26 @@
+// case: a cycle through a cown
+// expect-error: E3131
+type Node
+	export var next as Option[cown[Node]]
+
+	static function make() returns Node
+		return Node{next: Option[cown[Node]].none}
+	end 'make'
+end 'Node'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: no cycle through an owned or frozen value
+type Link
+	export var rest as Option[frozen[Link]]
+
+	static function make() returns Link
+		return Link{rest: Option[frozen[Link]].none}
+	end 'make'
+end 'Link'
+
+function main() returns ExitCode
+	return 0
+end 'main'

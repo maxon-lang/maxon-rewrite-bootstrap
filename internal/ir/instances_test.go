@@ -8,12 +8,14 @@ import (
 	"minimaxon/internal/check"
 	"minimaxon/internal/project"
 	"minimaxon/internal/resolve"
+	"minimaxon/internal/srctest"
 	"minimaxon/internal/syntax"
 )
 
-// frontEnd runs the phases before lowering on a source string and returns its module.
-func frontEnd(t *testing.T, src string) *ast.Module {
+// frontEnd runs the phases before lowering on the program in a file of testdata and returns its module.
+func frontEnd(t *testing.T, path string) *ast.Module {
 	t.Helper()
+	src := srctest.Read(t, path)
 	source := syntax.NewSource(src, []syntax.FileSlice{{File: "t.maxon", Begin: 0, End: len(src)}})
 	parser := syntax.NewParser(source, syntax.Lex(source, nil))
 	prog := parser.ParseProgram()
@@ -57,63 +59,7 @@ func frontEnd(t *testing.T, src string) *ast.Module {
 	return root
 }
 
-const genericSource = `typealias Score = int(i64.min to i64.max)
-
-interface Shape
-	function area() returns Score
-end 'Shape'
-
-type Square implements Shape
-	var side as Score
-	static function create(side Score) returns Square
-		return Square{side: side}
-	end 'create'
-	function area() returns Score
-		return side * side
-	end 'area'
-end 'Square'
-
-type Box[T]
-	var item as T
-	static function make(item sink T) returns Self
-		return Self{item: item}
-	end 'make'
-	function peek() returns T
-		return item.copy()
-	end 'peek'
-end 'Box'
-
-function swap[T](a inout T, b inout T)
-	var tmp = a.copy()
-	a = b.copy()
-	b = tmp
-end 'swap'
-
-function total[T implements Shape](a T, b T) returns Score
-	return a.area() + b.area()
-end 'total'
-
-function both[T implements Shape](a T) returns Score
-	var b = a.copy()
-	var c = a.copy()
-	swap(b, b: c)
-	return total(a, b: b)
-end 'both'
-
-function main() returns ExitCode
-	var n = 1 as Score
-	var m = 2 as Score
-	swap(n, b: m)
-	swap(n, b: m)
-	var a = Square.create(1)
-	var b = Square.create(2)
-	swap(a, b: b)
-	let x = Box[Score].make(1)
-	let y = Box[Score].make(2)
-	print("{both(a)} {total(a, b: b)} {x.peek()} {y.peek()}\n")
-	return 0
-end 'main'
-`
+const genericsFile = "testdata/generics.maxon"
 
 func instanceNames(fns []*ast.FuncDecl) []string {
 	names := make([]string, len(fns))
@@ -124,7 +70,7 @@ func instanceNames(fns []*ast.FuncDecl) []string {
 }
 
 func TestEachInstanceIsFoundOnceInDiscoveryOrder(t *testing.T) {
-	m := frontEnd(t, genericSource)
+	m := frontEnd(t, genericsFile)
 	found := Instances([]*ast.Module{m})
 	got := strings.Join(instanceNames(found[0]), " ")
 	// main's calls come first, in the order they are written, then the calls inside each instance.
@@ -138,7 +84,7 @@ func TestEachInstanceIsFoundOnceInDiscoveryOrder(t *testing.T) {
 }
 
 func TestInstancesAreLoweredWithTheirOwnKinds(t *testing.T) {
-	m := frontEnd(t, genericSource)
+	m := frontEnd(t, genericsFile)
 	slots := map[string][]IrKind{}
 	for _, f := range Instances([]*ast.Module{m})[0] {
 		slots[f.Symbol()] = Lower(f).Slots
@@ -152,10 +98,7 @@ func TestInstancesAreLoweredWithTheirOwnKinds(t *testing.T) {
 }
 
 func TestNothingIsInstantiatedForAProgramWithoutGenerics(t *testing.T) {
-	m := frontEnd(t, `function main() returns ExitCode
-	return 0
-end 'main'
-`)
+	m := frontEnd(t, "testdata/no-generics.maxon")
 	if found := Instances([]*ast.Module{m}); len(found[0]) != 0 {
 		t.Fatalf("found %v", instanceNames(found[0]))
 	}

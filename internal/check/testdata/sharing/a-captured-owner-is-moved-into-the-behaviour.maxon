@@ -1,0 +1,9 @@
+function main() returns ExitCode
+	let c = cown(Doc.make("a"))
+	let note = Doc.make("b")
+	when c as x 'run'
+		x.n = note.n
+	end 'run'
+	print("{note.n}")
+	return 0
+end 'main'

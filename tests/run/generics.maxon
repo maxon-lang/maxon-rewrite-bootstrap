@@ -2,13 +2,16 @@ typealias Score = int(i64.min to i64.max)
 
 type Box[T]
 	var item as T
+
 	static function make(item sink T) returns Self
 		return Self{item: item}
 	end 'make'
+
 	function peek() returns T
 		return item.copy()
 	end 'peek'
-	function replace(inout self, next sink T)
+
+	function replace(mutable self, next sink T)
 		item = next
 	end 'replace'
 end 'Box'
@@ -16,9 +19,11 @@ end 'Box'
 type Pair[A, B]
 	var first as A
 	var second as B
+
 	static function make(first sink A, second sink B) returns Self
 		return Self{first: first, second: second}
 	end 'make'
+
 	function swapped() returns Pair[B, A]
 		return Pair[B, A].make(second.copy(), second: first.copy())
 	end 'swapped'
@@ -27,12 +32,14 @@ end 'Pair'
 union Option[T]
 	some(value T)
 	none
+
 	function isSome() returns bool
 		return match self 'm'
 			some(v) gives true
 			none gives false
 		end 'm'
 	end 'isSome'
+
 	function orElse(fallback T) returns T
 		return match self 'm'
 			some(v) gives v.copy()
@@ -41,7 +48,7 @@ union Option[T]
 	end 'orElse'
 end 'Option'
 
-function swap[T](a inout T, b inout T)
+function swap[T](a mutable T, b mutable T)
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp

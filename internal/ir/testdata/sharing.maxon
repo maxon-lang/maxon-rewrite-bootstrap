@@ -1,0 +1,54 @@
+type Doc
+	export var title as String
+	export var n as Count
+
+	static function make(title sink String) returns Doc
+		return Doc{title: title, n: 1}
+	end 'make'
+
+	function read() returns Count
+		return n
+	end 'read'
+end 'Doc'
+
+function glance(d Doc) returns Count
+	return d.n
+end 'glance'
+
+function frozenFields(f frozen[Doc]) returns Count
+	print(f.title)
+	return f.n + f.read() + glance(f)
+end 'frozenFields'
+
+function sharedAndThawed(f frozen[Doc]) returns Doc
+	let other = share(f)
+	return thaw(other)
+end 'sharedAndThawed'
+
+function copied(f frozen[Doc], c cown[Doc]) returns frozen[Doc]
+	let d = c.copy()
+	return f.copy()
+end 'copied'
+
+function schedule(c cown[Doc], note sink Doc, n Count)
+	when c as x 'run'
+		x.n = note.n + n
+	end 'run'
+end 'schedule'
+
+function nested(c cown[Doc], d cown[Doc])
+	let mine = share(d)
+	when c as x 'outer'
+		when mine as y 'inner'
+			y.n = 1
+		end 'inner'
+	end 'outer'
+end 'nested'
+
+function filled(c cown[Doc]) returns array[cown[Doc]]
+	return array[cown[Doc]].filled(2, value: share(c))
+end 'filled'
+
+function main() returns ExitCode
+	return 0
+end 'main'

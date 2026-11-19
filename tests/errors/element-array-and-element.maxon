@@ -1,5 +1,5 @@
 // expect-error: E3112 at 8:14
-function grow(xs inout array[Count], n Count)
+function grow(xs mutable array[Count], n Count)
 	xs.append(n)
 end 'grow'
 

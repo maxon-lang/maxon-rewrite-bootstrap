@@ -5,78 +5,11 @@ import (
 	"testing"
 )
 
-const dropSource = `type Pair
-	export var left as String
-	export var right as String
-	static function make(left sink String, right sink String) returns Pair
-		return Pair{left: left, right: right}
-	end 'make'
-end 'Pair'
-
-function text(n Count) returns String
-	return "{n}!"
-end 'text'
-
-function eat(p sink Pair, _ sink String) returns Count
-	return 1
-end 'eat'
-
-function scopes(flag bool) returns String
-	let a = text(1)
-	if flag 'f'
-		let b = text(2)
-		return b
-	end 'f'
-	let c = a
-	return text(3)
-end 'scopes'
-
-function loops(n Count)
-	for i in 0 upto n 'l'
-		let s = text(i)
-		if i == 1 'c'
-			continue
-		end 'c'
-		if i == 2 'b'
-			break
-		end 'b'
-	end 'l'
-end 'loops'
-
-function assigns(p inout Pair)
-	var local = text(1)
-	local = text(2)
-	p.left = local
-	p.right = text(3)
-end 'assigns'
-
-function temporaries() returns Count
-	print("{text(1)}\n")
-	_ = Pair.make("a", right: "b")
-	print(text(2))
-	return 1
-end 'temporaries'
-
-function unwrapped(o sink Option[String]) returns String
-	return o.unwrap()
-end 'unwrapped'
-
-function bound(o Option[String]) returns Count
-	match o 'm'
-		some(v) then print(v)
-		none then print("none")
-	end 'm'
-	return 0
-end 'bound'
-
-function main() returns ExitCode
-	return 0
-end 'main'
-`
+const dropsFile = "testdata/drops.maxon"
 
 func lowered(t *testing.T, name string) string {
 	t.Helper()
-	return irText(lowerNamed(t, frontEnd(t, dropSource), name))
+	return irText(lowerNamed(t, frontEnd(t, dropsFile), name))
 }
 
 // requireInOrder fails unless each fragment occurs after the one before it.
@@ -151,13 +84,7 @@ func TestAMatchBindingIsABorrow(t *testing.T) {
 }
 
 func TestScalarsAreNeverDropped(t *testing.T) {
-	m := frontEnd(t, `function main() returns ExitCode
-	var n = 0 as Count
-	let b = true
-	n = n + 1
-	return 0
-end 'main'
-`)
+	m := frontEnd(t, "testdata/scalars-are-never-dropped.maxon")
 	text := irText(lowerNamed(t, m, "main"))
 	if strings.Contains(text, "drop") || strings.Contains(text, "move") {
 		t.Errorf("nothing here has an owner:\n%s", text)
@@ -167,56 +94,19 @@ end 'main'
 // A field default is an expression the type's own code makes for each literal, so it is consumed by the field and never
 // dropped as a temporary.
 func TestAFieldDefaultIsOwnedByItsField(t *testing.T) {
-	m := frontEnd(t, `type Stack
-	var items = array[Count].new()
-	static function make() returns Stack
-		return Stack{}
-	end 'make'
-end 'Stack'
-
-function main() returns ExitCode
-	return 0
-end 'main'
-`)
+	m := frontEnd(t, "testdata/field-default-is-owned-by-its-field.maxon")
 	text := irText(lowerNamed(t, m, "make"))
 	if strings.Contains(text, "drop %") {
 		t.Errorf("the default array belongs to the field:\n%s", text)
 	}
 }
 
-const copySource = `type Tree
-	var value as Count
-	var name as String
-	var kids = array[Tree].new()
-	static function make() returns Tree
-		return Tree{value: 1, name: "n"}
-	end 'make'
-end 'Tree'
-
-function copies(t Tree, s String, n Count) returns Tree
-	let a = s.copy()
-	let b = n.copy()
-	let c = array[String].filled(3, value: s.copy())
-	return t.copy()
-end 'copies'
-
-function takesMap(m sink map[Count, Count]) returns Count
-	return 0
-end 'takesMap'
-
-function takesTreeOfPools(p sink pool[Count], t Tree) returns Count
-	return 0
-end 'takesTreeOfPools'
-
-function main() returns ExitCode
-	return 0
-end 'main'
-`
+const copiesFile = "testdata/copies.maxon"
 
 // A copy is one instruction that names the type, so the backend makes one routine for each type and a type that contains
 // itself needs no code written out where it is wanted. A scalar is copied as itself.
 func TestACopyIsOneInstructionThatNamesTheType(t *testing.T) {
-	text := irText(lowerNamed(t, frontEnd(t, copySource), "copies"))
+	text := irText(lowerNamed(t, frontEnd(t, copiesFile), "copies"))
 	for _, want := range []string{"= copy %", " String\n", " Tree\n"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("no %q in:\n%s", want, text)
@@ -236,7 +126,7 @@ func TestACopyIsOneInstructionThatNamesTheType(t *testing.T) {
 // A function that drops a value holding something that only the interpreter has is refused, though it makes none: the
 // backend has no routine to free one. The refusal is at the function, and only one.
 func TestDroppingAMapIsRefusedLikeMakingOne(t *testing.T) {
-	m := frontEnd(t, copySource)
+	m := frontEnd(t, copiesFile)
 	for _, name := range []string{"takesMap", "takesTreeOfPools"} {
 		f := lowerNamed(t, m, name)
 		if len(f.Refusals) != 1 || f.Refusals[0].Code != "E9002" {

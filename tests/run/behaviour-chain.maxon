@@ -1,5 +1,6 @@
 type Stage
 	export var value as Count
+
 	static function make(value Count) returns Stage
 		return Stage{value: value}
 	end 'make'

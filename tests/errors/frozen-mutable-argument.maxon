@@ -1,0 +1,32 @@
+// expect-error: E3125 at 30:8
+type Doc
+	export var title as String
+	export var n as Count
+	export var words as array[Count]
+
+	static function make(title sink String) returns Doc
+		return Doc{title: title, n: 1, words: array[Count].new()}
+	end 'make'
+
+	function grow(mutable self)
+		n = n + 1
+	end 'grow'
+
+	function peek() returns Count
+		return n
+	end 'peek'
+end 'Doc'
+
+function bump(x mutable Count)
+	x = x + 1
+end 'bump'
+
+function take(d sink Doc)
+	let kept = d
+end 'take'
+
+function main() returns ExitCode
+	let d = freeze(Doc.make("a"))
+	bump(d.n)
+	return 0
+end 'main'

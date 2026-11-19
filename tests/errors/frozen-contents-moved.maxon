@@ -1,20 +1,23 @@
-// expect-error: E3111 at 27:11
+// expect-error: E3111 at 30:11
 type Doc
 	export var title as String
 	export var n as Count
 	export var words as array[Count]
+
 	static function make(title sink String) returns Doc
 		return Doc{title: title, n: 1, words: array[Count].new()}
 	end 'make'
-	function grow(inout self)
+
+	function grow(mutable self)
 		n = n + 1
 	end 'grow'
+
 	function peek() returns Count
 		return n
 	end 'peek'
 end 'Doc'
 
-function bump(x inout Count)
+function bump(x mutable Count)
 	x = x + 1
 end 'bump'
 

@@ -1,0 +1,16 @@
+type Item
+	export var text as String
+	export var parts = array[String].new()
+
+	static function make(text sink String) returns Item
+		return Item{text: text}
+	end 'make'
+end 'Item'
+
+function main() returns ExitCode
+	var a = Item.make("a{1}")
+	a.parts.append("p{2}")
+	let b = a.copy()
+	let lit = "lit".copy()
+	return 0
+end 'main'

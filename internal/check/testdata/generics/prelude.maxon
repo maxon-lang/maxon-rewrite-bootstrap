@@ -1,0 +1,62 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Score
+	function grow(mutable self, by Score)
+end 'Shape'
+
+type Square implements Shape
+	export var side as Score
+
+	static function create(side Score) returns Square
+		return Square{side: side}
+	end 'create'
+
+	function area() returns Score
+		return side * side
+	end 'area'
+
+	function grow(mutable self, by Score)
+		side = side + by
+	end 'grow'
+end 'Square'
+
+type Plain
+	export var n as Score
+end 'Plain'
+
+type Box[T]
+	export var item as T
+	export let tag as Score
+
+	static function make(item sink T, tag Score) returns Self
+		return Self{item: item, tag: tag}
+	end 'make'
+
+	function peek() returns T
+		return item.copy()
+	end 'peek'
+
+	function replace(mutable self, next sink T)
+		item = next
+	end 'replace'
+end 'Box'
+
+union Slot[T]
+	full(value T)
+	empty
+end 'Slot'
+
+function swap[T](a mutable T, b mutable T)
+	var tmp = a.copy()
+	a = b.copy()
+	b = tmp
+end 'swap'
+
+function consume[T](a sink T) returns Score
+	return 1
+end 'consume'
+
+function total[T implements Shape](a T, b T) returns Score
+	return a.area() + b.area()
+end 'total'

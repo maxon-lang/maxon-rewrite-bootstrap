@@ -6,9 +6,11 @@ import (
 
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
+	"minimaxon/internal/srctest"
 )
 
-func sourceOf(files ...string) *Source {
+// sourceOfText is a source of files with the given texts, named a.maxon, b.maxon and so on.
+func sourceOfText(files ...string) *Source {
 	var buf []byte
 	var slices []FileSlice
 	for i, src := range files {
@@ -19,15 +21,25 @@ func sourceOf(files ...string) *Source {
 	return NewSource(string(buf), slices)
 }
 
-func parseFiles(t *testing.T, files ...string) (*ast.Program, []*diag.CompileError) {
+// sourceOf is a source of the files at paths in testdata, named a.maxon, b.maxon and so on, each a file of its own.
+func sourceOf(t *testing.T, paths ...string) *Source {
 	t.Helper()
-	src := sourceOf(files...)
+	texts := make([]string, len(paths))
+	for i, path := range paths {
+		texts[i] = srctest.Read(t, path)
+	}
+	return sourceOfText(texts...)
+}
+
+func parseFiles(t *testing.T, paths ...string) (*ast.Program, []*diag.CompileError) {
+	t.Helper()
+	src := sourceOf(t, paths...)
 	p := NewParser(src, Lex(src, nil))
 	return p.ParseProgram(), p.Errors
 }
 
 func TestLexKindsAndPositions(t *testing.T) {
-	src := sourceOf("let x = 0x1F\n")
+	src := sourceOf(t, "testdata/lex-kinds.maxon")
 	toks := Lex(src, nil)
 	p := NewParser(src, toks)
 	want := []struct {
@@ -35,7 +47,7 @@ func TestLexKindsAndPositions(t *testing.T) {
 		text string
 		col  int
 	}{
-		{TKw_let, "let", 1}, {TName, "x", 5}, {TAssign, "=", 7}, {TInteger, "0x1F", 9}, {TNewline, "", 13}, {TFileEnd, "", 1}, {TEof, "", 1},
+		{TKw_let, "", 1}, {TName, "x", 5}, {TAssign, "=", 7}, {TInteger, "0x1F", 9}, {TNewline, "", 13}, {TFileEnd, "", 1}, {TEof, "", 1},
 	}
 	if len(toks) != len(want) {
 		t.Fatalf("got %d tokens: %+v", len(toks), toks)
@@ -52,14 +64,14 @@ func TestLexKindsAndPositions(t *testing.T) {
 }
 
 func TestPositionsCountLinesPerFile(t *testing.T) {
-	_, errs := parseFiles(t, "let a = 1\n", "let b = 2\n\nlet c = )\n")
+	_, errs := parseFiles(t, "testdata/positions/a.maxon", "testdata/positions/b.maxon")
 	if len(errs) != 1 || errs[0].File != "b.maxon" || errs[0].Line != 3 || errs[0].Col != 9 {
 		t.Fatalf("errors: %v", errs)
 	}
 }
 
 func TestStringPartsAreSlicesOfTheSource(t *testing.T) {
-	src := sourceOf(`let s = "a{x}b\tc"` + "\n")
+	src := sourceOf(t, "testdata/string-parts.maxon")
 	p := NewParser(src, Lex(src, nil))
 	parts := p.strLitParts(p.toks[3])
 	if len(parts) != 3 || parts[0] != "a" || parts[2] != "b\tc" {
@@ -77,11 +89,11 @@ func TestTokenLongerThanTheLengthBitsIsAnError(t *testing.T) {
 			t.Fatalf("got %v, want the token length error at 1:5", ce)
 		}
 	}()
-	Lex(sourceOf("let "+strings.Repeat("x", MaxTokenLength+1)+" = 1\n"), nil)
+	Lex(sourceOfText("abc "+strings.Repeat("x", MaxTokenLength+1)+" = 1\n"), nil)
 }
 
 func TestCommentsAreSkippedAndKeepPositions(t *testing.T) {
-	prog, errs := parseFiles(t, "let a = 1 // trailing\n\n/// doc\nlet s = \"{f(\"//\")} // kept\"\n\n// one\n// two\nlet b = )\n")
+	prog, errs := parseFiles(t, "testdata/comments.maxon")
 	if len(errs) != 1 || errs[0].Line != 8 || errs[0].Col != 9 {
 		t.Fatalf("errors: %v", errs)
 	}
@@ -95,7 +107,7 @@ func TestCommentsAreSkippedAndKeepPositions(t *testing.T) {
 }
 
 func TestTokenTextDoesNotAllocate(t *testing.T) {
-	src := sourceOf("let name = 1\n")
+	src := sourceOf(t, "testdata/token-text.maxon")
 	p := NewParser(src, Lex(src, nil))
 	var text string
 	if n := testing.AllocsPerRun(100, func() { text = p.text(p.toks[1]) }); n != 0 || text != "name" {
@@ -104,7 +116,7 @@ func TestTokenTextDoesNotAllocate(t *testing.T) {
 }
 
 func TestParseFunction(t *testing.T) {
-	prog, errs := parseFiles(t, "function f() returns ExitCode\n\treturn 0\nend 'f'\n")
+	prog, errs := parseFiles(t, "testdata/parse-function.maxon")
 	if len(errs) != 0 {
 		t.Fatalf("errors: %v", errs)
 	}
@@ -115,7 +127,7 @@ func TestParseFunction(t *testing.T) {
 }
 
 func TestParseOperatorPrecedence(t *testing.T) {
-	prog, errs := parseFiles(t, "let c = -1 + 2 * 3 as T if a or b else 4\n")
+	prog, errs := parseFiles(t, "testdata/operator-precedence.maxon")
 	if len(errs) != 0 {
 		t.Fatalf("errors: %v", errs)
 	}
@@ -143,7 +155,7 @@ func TestParseOperatorPrecedence(t *testing.T) {
 }
 
 func TestParseAssignmentAndCallShareTheirStart(t *testing.T) {
-	prog, errs := parseFiles(t, "function f()\n\tx.y = 1\n\tg(x)\nend 'f'\n")
+	prog, errs := parseFiles(t, "testdata/assignment-and-call.maxon")
 	if len(errs) != 0 {
 		t.Fatalf("errors: %v", errs)
 	}
@@ -157,23 +169,21 @@ func TestParseAssignmentAndCallShareTheirStart(t *testing.T) {
 }
 
 func TestSyntaxErrorNamesWhatWasExpected(t *testing.T) {
-	_, errs := parseFiles(t, "function f()\n\treturn )\nend 'f'\n")
+	_, errs := parseFiles(t, "testdata/expected-token.maxon")
 	if len(errs) != 1 || errs[0].Code != diag.ErrExpectedToken || errs[0].Line != 2 || !strings.Contains(errs[0].Message, "found ')'") {
 		t.Fatalf("errors: %v", errs)
 	}
 }
 
 func TestSyntaxErrorDescribesATokenByItsDescription(t *testing.T) {
-	_, errs := parseFiles(t, "function f()\n\treturn 1 2\nend 'f'\n")
+	_, errs := parseFiles(t, "testdata/expected-end-of-line.maxon")
 	if len(errs) != 1 || errs[0].Message != "expected the end of the line, found '2'" {
 		t.Fatalf("errors: %v", errs)
 	}
 }
 
 func TestParseRecoversAtTheNextFile(t *testing.T) {
-	prog, errs := parseFiles(t,
-		"function broken() returns ExitCode\n\treturn 1\n",
-		"function fine() returns ExitCode\n\treturn 0\nend 'fine'\n")
+	prog, errs := parseFiles(t, "testdata/recover/broken.maxon", "testdata/recover/fine.maxon")
 	if len(errs) != 1 || errs[0].Code != diag.ErrUnexpectedEnd || errs[0].File != "a.maxon" {
 		t.Fatalf("errors: %v", errs)
 	}
@@ -182,26 +192,16 @@ func TestParseRecoversAtTheNextFile(t *testing.T) {
 	}
 }
 
+// mutableKeyword is the receiver convention of the second method of the interface in testdata/generics.maxon.
+const mutableKeyword = "mutable"
+
 func TestParsesGenericDeclarationsAndUses(t *testing.T) {
-	prog, errs := parseFiles(t, `interface Shape
-	function area() returns Score
-	function grow(inout self, by Score)
-end 'Shape'
-
-type Box[T implements Shape and Named, U] implements Shape
-	var item as T
-end 'Box'
-
-function pick[T](a T) returns Box[T, lib.Other[T]]
-	let b = Box[T].make(a)
-	return swap[T](a, b: b)
-end 'pick'
-`)
+	prog, errs := parseFiles(t, "testdata/generics.maxon")
 	if len(errs) > 0 {
 		t.Fatalf("errors: %v", errs)
 	}
 	iface := prog.Decls[0].(*ast.InterfaceDecl)
-	if len(iface.Methods) != 2 || iface.Methods[1].Receiver != "inout" || len(iface.Methods[1].Params) != 1 {
+	if len(iface.Methods) != 2 || iface.Methods[1].Receiver != mutableKeyword || len(iface.Methods[1].Params) != 1 {
 		t.Fatalf("interface methods: %+v", iface.Methods)
 	}
 	box := prog.Decls[1].(*ast.TypeDecl)
@@ -230,11 +230,7 @@ end 'pick'
 }
 
 func TestParsesSubscripts(t *testing.T) {
-	prog, errs := parseFiles(t, `function f()
-	a[0] = b[i + 1].count
-	f(a[a.count() - 1], m[k])
-end 'f'
-`)
+	prog, errs := parseFiles(t, "testdata/subscripts.maxon")
 	if len(errs) > 0 {
 		t.Fatalf("errors: %v", errs)
 	}
@@ -252,8 +248,10 @@ end 'f'
 	}
 }
 
+// The tests of the rewrite commands keep their source in Go strings: each names the keyword it renames and compares the
+// result, so a file of testdata that rewrite renamed would change what they test.
 func TestKeywordEditsRenameOnlyTheKeyword(t *testing.T) {
-	src := sourceOf("// an end comment\nfunction main() returns ExitCode\n\tlet end2 = \"end {f(end2)}\"\n\treturn 0\nend 'end'\n",
+	src := sourceOfText("// an end comment\nfunction main() returns ExitCode\n\tlet end2 = \"end {f(end2)}\"\n\treturn 0\nend 'end'\n",
 		"function f() returns ExitCode\n\treturn 0\nend 'f'\n")
 	got := ApplyEdits(src.Text, KeywordEdits(src, "end", "fin"))
 	want := "// an end comment\nfunction main() returns ExitCode\n\tlet end2 = \"end {f(end2)}\"\n\treturn 0\nfin 'end'\n" +
@@ -264,9 +262,24 @@ func TestKeywordEditsRenameOnlyTheKeyword(t *testing.T) {
 }
 
 func TestKeywordEditsLookIntoInterpolations(t *testing.T) {
-	src := sourceOf("function main() returns ExitCode\n\tprint(\"{1 if true else 2}\")\n\treturn 0\nend 'main'\n")
+	src := sourceOfText("function main() returns ExitCode\n\tprint(\"{1 if true else 2}\")\n\treturn 0\nend 'main'\n")
 	got := ApplyEdits(src.Text, KeywordEdits(src, "true", "false"))
 	if !strings.Contains(got, "{1 if false else 2}") {
 		t.Errorf("the interpolation was not renamed:\n%s", got)
+	}
+}
+
+func TestMarkdownKeywordEditsRenameOnlyCode(t *testing.T) {
+	doc := "A `let` binding; let prose stay.\n\n```maxon\nfunction f() returns ExitCode\n\tlet x = 1\n\treturn x\nend 'f'\n```\n\n" +
+		"```powershell\nlet\n```\n\nIR: `%r = let s0`, and `x if true else y`.\n"
+	edits, refused, _ := MarkdownKeywordEdits("d.md", doc, "let", "val")
+	got := ApplyEdits(doc, edits)
+	want := "A `val` binding; let prose stay.\n\n```maxon\nfunction f() returns ExitCode\n\tval x = 1\n\treturn x\nend 'f'\n```\n\n" +
+		"```powershell\nlet\n```\n\nIR: `%r = let s0`, and `x if true else y`.\n"
+	if got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+	if refused != 1 {
+		t.Errorf("refused %d spans holding the keyword, want 1 (the IR span)", refused)
 	}
 }

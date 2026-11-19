@@ -1,6 +1,7 @@
-// expect-error: E3126 at 6:8
+// expect-error: E3126 at 7:8
 type Meter
 	export var reading as Count
+
 	function watch(c cown[Count])
 		when c as x 'watch'
 			x = self.reading

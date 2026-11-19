@@ -1,6 +1,7 @@
 package interp_test
 
 import (
+	_ "embed"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -82,7 +83,7 @@ type fn struct {
 	name   string
 	params []param
 	ret    *ty
-	// recv is "", "inout" or "sink" for a method; self marks a method.
+	// recv is "", "mutable" or "sink" for a method; self marks a method.
 	recv   string
 	method bool
 	owner  *ty
@@ -303,7 +304,7 @@ func (g *generator) declareTypes() {
 		for i, f := range r.fields {
 			conv := ""
 			if f.t.managed() {
-				conv = "sink"
+				conv = kwSink
 			}
 			r.make.params = append(r.make.params, param{name: fmt.Sprintf("p%d", i), t: f.t, conv: conv})
 		}
@@ -313,7 +314,7 @@ func (g *generator) declareTypes() {
 		make: &fn{name: "make", owner: meter, ret: meter, params: []param{{name: "n", t: tCount}}},
 		methods: []*fn{
 			{name: "score", method: true, owner: meter, ret: tCount},
-			{name: "grow", method: true, recv: "inout", owner: meter, params: []param{{name: "by", t: tCount}}},
+			{name: "grow", method: true, recv: kwMutable, owner: meter, params: []param{{name: "by", t: tCount}}},
 		}})
 }
 
@@ -384,24 +385,24 @@ func (g *generator) writeTypes() {
 		if r.t.name == "Meter" || strings.HasPrefix(r.t.name, "Box") {
 			continue
 		}
-		g.line("type %s", r.t.name)
+		g.line(kwType+" %s", r.t.name)
 		g.indent++
 		for _, f := range r.fields {
-			g.line("export %s %s as %s", map[bool]string{true: "var", false: "let"}[f.isVar], f.name, f.t.src())
+			g.line(kwExport+" %s %s "+kwAs+" %s", map[bool]string{true: kwVar, false: kwLet}[f.isVar], f.name, f.t.src())
 		}
 		g.methods(r)
 		g.indent--
-		g.line("end '%s'", r.t.name)
+		g.line(kwEnd+" '%s'", r.t.name)
 		g.blank()
 	}
 	for _, u := range g.unions {
-		g.line("union %s", u.t.name)
+		g.line(kwUnion+" %s", u.t.name)
 		g.indent++
 		for _, c := range u.cases {
 			g.line("%s", caseSignature(c))
 		}
 		g.indent--
-		g.line("end '%s'", u.t.name)
+		g.line(kwEnd+" '%s'", u.t.name)
 		g.blank()
 	}
 }
@@ -424,16 +425,20 @@ func (g *generator) methods(r *record) {
 	for i, f := range r.fields {
 		conv := ""
 		if f.t.managed() {
-			conv = " sink"
+			conv = " " + kwSink
 		}
 		params[i] = fmt.Sprintf("p%d%s %s", i, conv, f.t.src())
 		inits[i] = fmt.Sprintf("%s: p%d", f.name, i)
 	}
-	g.line("static function make(%s) returns %s", strings.Join(params, ", "), r.t.name)
+	// A function in a declaration has a blank line before it, unless it is the body's first line.
+	if len(r.fields) > 0 {
+		g.blank()
+	}
+	g.line(kwStatic+" "+kwFunction+" make(%s) "+kwReturns+" %s", strings.Join(params, ", "), r.t.name)
 	g.indent++
-	g.line("return %s{%s}", r.t.name, strings.Join(inits, ", "))
+	g.line(kwReturn+" %s{%s}", r.t.name, strings.Join(inits, ", "))
 	g.indent--
-	g.line("end 'make'")
+	g.line(kwEnd + " 'make'")
 
 	specs := []struct {
 		name   string
@@ -442,12 +447,13 @@ func (g *generator) methods(r *record) {
 		ret    *ty
 	}{
 		{"read", "", nil, tCount},
-		{"bump", "inout", []param{{name: "by", t: tCount}}, nil},
-		{"finish", "sink", nil, tCount},
-		{"absorb", "inout", []param{{name: "other", t: r.t}}, nil},
+		{"bump", kwMutable, []param{{name: "by", t: tCount}}, nil},
+		{"finish", kwSink, nil, tCount},
+		{"absorb", kwMutable, []param{{name: "other", t: r.t}}, nil},
 	}
 	for _, spec := range specs {
 		m := &fn{name: spec.name, method: true, recv: spec.recv, owner: r.t, params: spec.params, ret: spec.ret}
+		g.blank()
 		g.method(r, m)
 		r.methods = append(r.methods, m)
 	}
@@ -458,20 +464,20 @@ func (g *generator) methods(r *record) {
 func (g *generator) method(r *record, m *fn) {
 	var parts []string
 	if m.recv != "" {
-		parts = append(parts, m.recv+" self")
+		parts = append(parts, m.recv+" "+kwSelf)
 	}
 	for _, p := range m.params {
 		parts = append(parts, p.name+" "+p.t.src())
 	}
-	header := fmt.Sprintf("function %s(%s)", m.name, strings.Join(parts, ", "))
+	header := fmt.Sprintf(kwFunction+" %s(%s)", m.name, strings.Join(parts, ", "))
 	if m.ret != nil {
-		header += " returns " + m.ret.src()
+		header += " " + kwReturns + " " + m.ret.src()
 	}
 	g.line("%s", header)
 	savedScopes, savedRet, savedLoop, savedBudget := g.scopes, g.ret, g.loop, g.budget
 	g.scopes = nil
 	g.push()
-	g.declare("self", r.t, m.recv == "sink", m.recv == "inout")
+	g.declare(kwSelf, r.t, m.recv == kwSink, m.recv == kwMutable)
 	for _, p := range m.params {
 		g.declare(p.name, p.t, false, false)
 	}
@@ -483,149 +489,18 @@ func (g *generator) method(r *record, m *fn) {
 		g.stmt(2)
 	}
 	if m.ret != nil {
-		g.line("return %s", g.owned(m.ret, 2))
+		g.line(kwReturn+" %s", g.owned(m.ret, 2))
 	}
 	if len(g.out) == start {
 		g.line("print(\"m\\n\")")
 	}
 	g.pop()
 	g.indent--
-	g.line("end '%s'", m.name)
+	g.line(kwEnd+" '%s'", m.name)
 	g.scopes, g.ret, g.loop, g.budget = savedScopes, savedRet, savedLoop, savedBudget
 }
 
 // library is the generic code every program has: functions generic over any type, a bounded one, and a generic record.
-const library = `interface Scorable
-	function score() returns Count
-end 'Scorable'
-
-interface Growable
-	function grow(inout self, by Count)
-end 'Growable'
-
-type Meter implements Scorable and Growable
-	var n as Count
-	static function make(n Count) returns Meter
-		return Meter{n: n}
-	end 'make'
-	function score() returns Count
-		return n
-	end 'score'
-	function grow(inout self, by Count)
-		n = n + by
-	end 'grow'
-end 'Meter'
-
-type Box[T]
-	var item as T
-	static function make(item sink T) returns Self
-		return Self{item: item}
-	end 'make'
-	function peek() returns T
-		return item.copy()
-	end 'peek'
-	function replace(inout self, next sink T)
-		item = next
-	end 'replace'
-	function take(sink self) returns T
-		return item.copy()
-	end 'take'
-end 'Box'
-
-function dup[T](x T) returns T
-	return x.copy()
-end 'dup'
-
-function put[T](items inout array[T], x sink T)
-	items.append(x)
-end 'put'
-
-function firstOf[T](items array[T]) returns Option[T]
-	if items.isEmpty() 'e'
-		return Option[T].none
-	end 'e'
-	return Option.some(items[0].copy())
-end 'firstOf'
-
-function overwrite[T](target inout T, with T)
-	target = with.copy()
-end 'overwrite'
-
-function total[T implements Scorable](x T) returns Count
-	return x.score()
-end 'total'
-
-function totalFrozen[T implements Scorable](x frozen[T]) returns Count
-	return x.score()
-end 'totalFrozen'
-
-function growTwice[T implements Growable](x inout T)
-	x.grow(1)
-	x.grow(2)
-end 'growTwice'
-
-function keep[T](x sink T) returns T
-	return x
-end 'keep'
-
-function pass2[T](a sink T, b sink T, first bool) returns T
-	if first 'f'
-		return a
-	end 'f'
-	return b
-end 'pass2'
-
-function both[A, B](a A, b inout B)
-	b = b.copy()
-	let c = a.copy()
-end 'both'
-
-function consume[T](x sink T)
-	let kept = x
-end 'consume'
-
-function both2[A, B](a A, b sink B)
-	consume[B](b)
-	let c = a.copy()
-end 'both2'
-
-function fill[T](out set T, from T)
-	out = from.copy()
-end 'fill'
-
-function churn[T](items inout array[T]) returns Count
-	let last = items.pop()
-	return items.count()
-end 'churn'
-
-function churnList[T](items inout list[T]) returns Count
-	let first = items.popFront()
-	return items.count()
-end 'churnList'
-
-function churnMap[V](m inout map[String, V]) returns Count
-	let gone = m.remove("k0")
-	return m.count()
-end 'churnMap'
-
-function churnPool[T](p inout pool[T], x sink T) returns Count
-	let h = p.insert(x)
-	return p.count()
-end 'churnPool'
-
-function shrink(items inout array[Count]) returns Count
-	let last = items.pop()
-	return items.count()
-end 'shrink'
-
-function bump(x inout Count)
-	x = x + 1
-end 'bump'
-
-function mint[T](x sink T) returns Handle[T]
-	var p = pool[T].new()
-	return p.insert(x)
-end 'mint'
-
-
-`
+//
+//go:embed testdata/library.maxon
+var library string

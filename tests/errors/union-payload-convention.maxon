@@ -1,7 +1,7 @@
 typealias Amount = int(0 to 100)
 
 union Result
-	ok(value inout Amount)
+	ok(value mutable Amount)
 	failed
 end 'Result'
 

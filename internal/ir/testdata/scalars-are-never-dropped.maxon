@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	var n = 0 as Count
+	let b = true
+	n = n + 1
+	return 0
+end 'main'

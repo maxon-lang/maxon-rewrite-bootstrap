@@ -672,7 +672,7 @@ var reservedWords = map[string]bool{
 	"public":     true,
 	"static":     true,
 	"function":   true,
-	"inout":      true,
+	"mutable":    true,
 	"sink":       true,
 	"self":       true,
 	"returns":    true,

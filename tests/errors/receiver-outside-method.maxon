@@ -1,4 +1,4 @@
-function helper(inout self) returns ExitCode
+function helper(mutable self) returns ExitCode
 	return 0
 end 'helper'
 

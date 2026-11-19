@@ -8,9 +8,11 @@ end 'Describe'
 enum Color implements Describe
 	red
 	green
+
 	function describe() returns String
 		return "color {self.name}"
 	end 'describe'
+
 	function twin() returns Color
 		return Color.green
 	end 'twin'
@@ -19,12 +21,15 @@ end 'Color'
 type Wrapper[T implements Describe] implements Describe
 	var inner as T
 	var uses = 0 as Score
+
 	static function make(inner sink T) returns Self
 		return Self{inner: inner}
 	end 'make'
+
 	function describe() returns String
 		return "wrapper of {inner.describe()}"
 	end 'describe'
+
 	function twin() returns Wrapper[T]
 		return Self.make(inner.twin())
 	end 'twin'
@@ -33,6 +38,7 @@ end 'Wrapper'
 type Tally
 	var total = Wrapper[Color].make(Color.red)
 	var count = 3 as Score
+
 	static function create() returns Tally
 		return Tally{}
 	end 'create'

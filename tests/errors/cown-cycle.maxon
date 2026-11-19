@@ -1,6 +1,7 @@
 // expect-error: E3131 at 2:1
 type Node
 	export var next as Option[cown[Node]]
+
 	static function make() returns Node
 		return Node{next: Option[cown[Node]].none}
 	end 'make'

@@ -1,5 +1,6 @@
 type Label
 	export var text as String
+
 	static function make(text sink String) returns Label
 		return Label{text: text}
 	end 'make'

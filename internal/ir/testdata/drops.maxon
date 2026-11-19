@@ -1,0 +1,68 @@
+type Pair
+	export var left as String
+	export var right as String
+
+	static function make(left sink String, right sink String) returns Pair
+		return Pair{left: left, right: right}
+	end 'make'
+end 'Pair'
+
+function text(n Count) returns String
+	return "{n}!"
+end 'text'
+
+function eat(p sink Pair, _ sink String) returns Count
+	return 1
+end 'eat'
+
+function scopes(flag bool) returns String
+	let a = text(1)
+	if flag 'f'
+		let b = text(2)
+		return b
+	end 'f'
+	let c = a
+	return text(3)
+end 'scopes'
+
+function loops(n Count)
+	for i in 0 upto n 'l'
+		let s = text(i)
+		if i == 1 'c'
+			continue
+		end 'c'
+		if i == 2 'b'
+			break
+		end 'b'
+	end 'l'
+end 'loops'
+
+function assigns(p mutable Pair)
+	var local = text(1)
+	local = text(2)
+	p.left = local
+	p.right = text(3)
+end 'assigns'
+
+function temporaries() returns Count
+	print("{text(1)}\n")
+	_ = Pair.make("a", right: "b")
+	print(text(2))
+	return 1
+end 'temporaries'
+
+function unwrapped(o sink Option[String]) returns String
+	return o.unwrap()
+end 'unwrapped'
+
+function bound(o Option[String]) returns Count
+	match o 'm'
+		some(v) then print(v)
+		none then print("none")
+	end 'm'
+	return 0
+end 'bound'
+
+function main() returns ExitCode
+	return 0
+end 'main'

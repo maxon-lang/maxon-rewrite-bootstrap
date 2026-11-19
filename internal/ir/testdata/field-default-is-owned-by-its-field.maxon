@@ -1,0 +1,11 @@
+type Stack
+	var items = array[Count].new()
+
+	static function make() returns Stack
+		return Stack{}
+	end 'make'
+end 'Stack'
+
+function main() returns ExitCode
+	return 0
+end 'main'

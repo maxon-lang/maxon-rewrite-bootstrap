@@ -1,0 +1,11 @@
+function main() returns ExitCode
+	let c = cown(Doc.make("a"))
+	let d = cown(Doc.make("b"))
+	let mine = share(d)
+	when c as x 'outer'
+		when mine as y 'inner'
+			y.n = 1
+		end 'inner'
+	end 'outer'
+	return 0
+end 'main'

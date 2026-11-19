@@ -1,0 +1,11 @@
+function twice[T](a sink T) returns Score
+	let n = consume(a)
+	return consume(a)
+end 'twice'
+
+function main() returns ExitCode
+	_ = twice("s")
+	_ = twice(Square.create(1))
+	_ = twice(Box[Score].make(1, tag: 1))
+	return 0
+end 'main'

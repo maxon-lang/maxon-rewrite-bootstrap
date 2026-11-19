@@ -1,12 +1,13 @@
 type Cell
 	export var n as Count
 	export var label as String
+
 	static function make(n Count, label sink String) returns Cell
 		return Cell{n: n, label: label}
 	end 'make'
 end 'Cell'
 
-function bump(c inout Cell)
+function bump(c mutable Cell)
 	c.n = c.n + 1
 end 'bump'
 

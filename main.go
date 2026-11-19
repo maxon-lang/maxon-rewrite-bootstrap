@@ -29,7 +29,7 @@ const usage = `usage:
   minimaxon check <file.maxon|dir>                report diagnostics only
   minimaxon test [dir]                            run the test corpus (default: tests/)
   minimaxon interp <file.maxon|dir>               run under the tracking interpreter (development only)
-  minimaxon rewrite --keyword=old=new <path>...   rename a keyword in every .maxon file under the paths
+  minimaxon rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths
 
 A directory is a project: each directory under it is a module. --jobs=N sets how many modules
 compile at once (default: one fewer than the processor count). --timings prints each phase's time; --emit-ir writes the IR beside the executable, as <out>.ir.
@@ -51,6 +51,7 @@ const (
 	keywordFlagPrefix     = "--keyword="
 	modulesDir            = "modules"
 	sourceExtension       = ".maxon"
+	markdownExtension     = ".md"
 	executableExtension   = ".exe"
 	testRunTimeout        = 10 * time.Second
 	testWaitDelay         = time.Second
@@ -577,7 +578,7 @@ func renameKeyword(old, new string, paths []string) int {
 	var files []string
 	for _, root := range paths {
 		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-			if err == nil && !d.IsDir() && strings.HasSuffix(path, sourceExtension) {
+			if err == nil && !d.IsDir() && (strings.HasSuffix(path, sourceExtension) || strings.HasSuffix(path, markdownExtension)) {
 				files = append(files, path)
 			}
 			return err
@@ -596,17 +597,27 @@ func renameKeyword(old, new string, paths []string) int {
 		}
 		text := string(data)
 		var edits []syntax.Edit
-		var errs []*diag.CompileError
-		diag.Guard(&errs, func() {
-			edits = syntax.KeywordEdits(syntax.NewSource(text, []syntax.FileSlice{{File: file, Begin: 0, End: len(text)}}), old, new)
-		})
-		if len(errs) > 0 {
-			// A file the lexer refuses, such as a test of a lexer error, matters only if it may hold the keyword.
-			if strings.Contains(text, old) {
-				fmt.Printf("skipped  %s\n", errs[0])
-				skipped++
+		if strings.HasSuffix(file, markdownExtension) {
+			var refused int
+			var first *diag.CompileError
+			edits, refused, first = syntax.MarkdownKeywordEdits(file, text, old, new)
+			if refused > 0 {
+				fmt.Printf("skipped  %d code spans or blocks that do not lex, first %s\n", refused, first)
+				skipped += refused
 			}
-			continue
+		} else {
+			var errs []*diag.CompileError
+			diag.Guard(&errs, func() {
+				edits = syntax.KeywordEdits(syntax.NewSource(text, []syntax.FileSlice{{File: file, Begin: 0, End: len(text)}}), old, new)
+			})
+			if len(errs) > 0 {
+				// A file the lexer refuses, such as a test of a lexer error, matters only if it may hold the keyword.
+				if strings.Contains(text, old) {
+					fmt.Printf("skipped  %s\n", errs[0])
+					skipped++
+				}
+				continue
+			}
 		}
 		if len(edits) == 0 {
 			continue
@@ -617,6 +628,6 @@ func renameKeyword(old, new string, paths []string) int {
 		renamed += len(edits)
 		changedFiles++
 	}
-	fmt.Printf("renamed %d uses of '%s' in %d files; %d files that may hold it could not be lexed\n", renamed, old, changedFiles, skipped)
+	fmt.Printf("renamed %d uses of '%s' in %d files; %d files or Markdown code spans that may hold it could not be lexed\n", renamed, old, changedFiles, skipped)
 	return 0
 }

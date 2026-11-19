@@ -1,0 +1,195 @@
+// case: a scalar element is a value
+function main() returns ExitCode
+	var a = array[Count].new()
+	a.append(1)
+	let n = a[0]
+	a[0] = n + a[0]
+	bump(a[0])
+	print("{a[0]}")
+	return 0
+end 'main'
+
+// case: change through an element
+function main() returns ExitCode
+	var a = array[Cell].new()
+	a.append(Cell.make(1))
+	a[0].n = 3
+	touch(a[0])
+	return 0
+end 'main'
+
+// case: an index that reads the array
+function main() returns ExitCode
+	var a = array[Count].new()
+	a.append(1)
+	a.append(a[a.count() - 1] + 1)
+	a[a.count() - 1] = 2
+	return 0
+end 'main'
+
+// case: elements of two arrays
+function main() returns ExitCode
+	var a = array[Cell].new()
+	var b = array[Cell].new()
+	a.append(Cell.make(1))
+	b.append(Cell.make(2))
+	pair(a[0], b: b[0])
+	return 0
+end 'main'
+
+// case: elements of two fields
+function main() returns ExitCode
+	var p = pool[Cell].new()
+	var r = Rack.make(p.insert(Cell.make(1)))
+	r.left.append(Cell.make(1))
+	r.right.append(Cell.make(2))
+	pair(r.left[0], b: r.right[0])
+	return 0
+end 'main'
+
+// case: copy an element out
+function main() returns ExitCode
+	var a = array[Cell].new()
+	a.append(Cell.make(1))
+	let c = a[0].copy()
+	print("{c.n}")
+	return 0
+end 'main'
+
+// case: take elements out
+function main() returns ExitCode
+	var a = array[Cell].new()
+	a.append(Cell.make(1))
+	a.append(Cell.make(2))
+	let c = a.remove(0)
+	let last = a.pop()
+	print("{c.n} {last.isSome()}")
+	let d = last.unwrap()
+	print("{d.n}")
+	return 0
+end 'main'
+
+// case: match what pop returns
+function main() returns ExitCode
+	var a = array[Cell].new()
+	match a.pop() 'm'
+		some(c) then print("{c.n}")
+		none then print("empty")
+	end 'm'
+	return 0
+end 'main'
+
+// case: swap two elements by copying
+function main() returns ExitCode
+	var a = array[Cell].new()
+	a.append(Cell.make(1))
+	a.append(Cell.make(2))
+	let t = a[0].copy()
+	a[0] = a[1].copy()
+	a[1] = t
+	return 0
+end 'main'
+
+// case: index in a loop
+function main() returns ExitCode
+	var a = array[Count].filled(3, value: 0)
+	for i in 0 upto a.count() 'l'
+		a[i] = a[i] + 1
+	end 'l'
+	return 0
+end 'main'
+
+// case: an array of arrays
+function main() returns ExitCode
+	var g = array[array[Count]].new()
+	g.append(array[Count].new())
+	g[0].append(1)
+	g[0][0] = g[0][0] + 1
+	return 0
+end 'main'
+
+// case: a map of cells
+function main() returns ExitCode
+	var m = map[String, Cell].new()
+	m.insert("a", value: Cell.make(1))
+	if m.has("a") 'h'
+		m["a"].n = 4
+		touch(m["a"])
+	end 'h'
+	let gone = m.remove("a")
+	print("{gone.isSome()} {m.count()} {m.isEmpty()}")
+	return 0
+end 'main'
+
+// case: a pool and its handles
+function main() returns ExitCode
+	var p = pool[Cell].new()
+	let h = p.insert(Cell.make(1))
+	p[h].n = 2
+	touch(p[h])
+	if p.contains(h) 'c'
+		let gone = p.remove(h)
+		print("{gone.isSome()}")
+	end 'c'
+	return 0
+end 'main'
+
+// case: a handle is a plain value
+function main() returns ExitCode
+	var p = pool[Cell].new()
+	let h = p.insert(Cell.make(1))
+	let h2 = h
+	let h3 = h2
+	var hs = array[Handle[Cell]].new()
+	hs.append(h)
+	hs.append(h2)
+	var by = map[Handle[Cell], Count].new()
+	by.insert(h3, value: 1)
+	print("{h == h2} {by[h]}")
+	return 0
+end 'main'
+
+// case: a list
+function main() returns ExitCode
+	var l = list[Cell].new()
+	let a = l.pushBack(Cell.make(1))
+	let b = l.pushFront(Cell.make(2))
+	l.moveToFront(a)
+	l[b].n = 5
+	touch(l[a])
+	print("{l.first().isSome()} {l.next(a).isSome()} {l.prev(b).isSome()} {l.last().isSome()} {l.contains(a)}")
+	let popped = l.popBack()
+	let gone = l.remove(a)
+	print("{popped.isSome()} {gone.isSome()} {l.count()}")
+	return 0
+end 'main'
+
+// case: a handle in a record
+function main() returns ExitCode
+	var p = pool[Cell].new()
+	let r = Rack.make(p.insert(Cell.make(1)))
+	touch(p[r.node])
+	return 0
+end 'main'
+
+// case: copy a primitive
+function main() returns ExitCode
+	var a = array[Cell].new()
+	var p = pool[Cell].new()
+	var m = map[Count, Cell].new()
+	var l = list[Cell].new()
+	let a2 = a.copy()
+	let p2 = p.copy()
+	let m2 = m.copy()
+	let l2 = l.copy()
+	print("{a2.count()} {p2.count()} {m2.count()} {l2.count()}")
+	return 0
+end 'main'
+
+// case: read an element as an argument
+function main() returns ExitCode
+	var a = array[Cell].new()
+	a.append(Cell.make(1))
+	print("{look(a[0], n: a[0].n)}")
+	return 0
+end 'main'

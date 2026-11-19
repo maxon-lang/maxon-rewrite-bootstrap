@@ -1,0 +1,25 @@
+interface Scale
+	function doubled() returns Self
+end 'Scale'
+
+type Mark implements Scale
+	export var n as Score
+
+	static function create(n Score) returns Mark
+		return Mark{n: n}
+	end 'create'
+
+	function doubled() returns Mark
+		return Mark{n: n * 2}
+	end 'doubled'
+end 'Mark'
+
+function twice[T implements Scale](a T) returns T
+	return a.doubled().doubled()
+end 'twice'
+
+function main() returns ExitCode
+	let m = twice(Mark.create(1))
+	print("{m.n}")
+	return 0
+end 'main'

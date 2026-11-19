@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	var a = array[String].new()
+	a.append("e{1}")
+	a.append("e{2}")
+	a.append("e{3}")
+	return 0
+end 'main'

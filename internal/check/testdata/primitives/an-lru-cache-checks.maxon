@@ -1,0 +1,55 @@
+type Entry
+	export var key as Count
+	export var value as String
+
+	static function make(key Count, value sink String) returns Entry
+		return Entry{key: key, value: value}
+	end 'make'
+end 'Entry'
+
+type Cache
+	var order as list[Entry]
+	var index as map[Count, Handle[Entry]]
+	var capacity as Count
+
+	static function make(capacity Count) returns Cache
+		return Cache{order: list[Entry].new(), index: map[Count, Handle[Entry]].new(), capacity: capacity}
+	end 'make'
+
+	function get(mutable self, key Count) returns Option[String]
+		if not index.has(key) 'miss'
+			return Option[String].none
+		end 'miss'
+		let node = index[key]
+		order.moveToFront(node)
+		return Option.some(order[node].value.copy())
+	end 'get'
+
+	function put(mutable self, key Count, value sink String)
+		if index.has(key) 'hit'
+			let node = index[key]
+			order[node].value = value
+			order.moveToFront(node)
+			return
+		end 'hit'
+		if index.count() == capacity 'full'
+			match order.popBack() 'evict'
+				some(oldest) then _ = index.remove(oldest.key)
+				none then return
+			end 'evict'
+		end 'full'
+		let node = order.pushFront(Entry.make(key, value: value))
+		index.insert(key, value: node)
+	end 'put'
+end 'Cache'
+
+function main() returns ExitCode
+	var cache = Cache.make(2)
+	cache.put(1, value: "one")
+	cache.put(2, value: "two")
+	match cache.get(1) 'm'
+		some(v) then print(v)
+		none then print("miss")
+	end 'm'
+	return 0
+end 'main'

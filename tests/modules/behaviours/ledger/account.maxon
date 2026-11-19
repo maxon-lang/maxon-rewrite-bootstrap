@@ -1,5 +1,6 @@
 export type Account
 	export var balance as Count
+
 	export static function open(balance Count) returns Account
 		return Account{balance: balance}
 	end 'open'

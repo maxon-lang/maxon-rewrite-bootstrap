@@ -1,0 +1,28 @@
+type Tree
+	var value as Count
+	var name as String
+	var kids = array[Tree].new()
+
+	static function make() returns Tree
+		return Tree{value: 1, name: "n"}
+	end 'make'
+end 'Tree'
+
+function copies(t Tree, s String, n Count) returns Tree
+	let a = s.copy()
+	let b = n.copy()
+	let c = array[String].filled(3, value: s.copy())
+	return t.copy()
+end 'copies'
+
+function takesMap(m sink map[Count, Count]) returns Count
+	return 0
+end 'takesMap'
+
+function takesTreeOfPools(p sink pool[Count], t Tree) returns Count
+	return 0
+end 'takesTreeOfPools'
+
+function main() returns ExitCode
+	return 0
+end 'main'

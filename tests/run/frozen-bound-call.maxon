@@ -4,9 +4,11 @@ end 'Shape'
 
 type Square implements Shape
 	var side as Count
+
 	static function make(side Count) returns Square
 		return Square{side: side}
 	end 'make'
+
 	function area() returns Count
 		return side * side
 	end 'area'

@@ -36,8 +36,9 @@
 // The layout is part of the syntax. A line is indented with one tab per level; the lexer makes the line after a
 // deeper one start with Indent, and a shallower one with a Dedent per level, which the rules below place. Tokens
 // on a line are separated by one space, or none where a join says so. A comment is a // line indented like the
-// line after it, or follows code after one space. One blank line separates top-level declarations, and there are
-// no others.
+// line after it, or follows code after one space. One blank line separates top-level declarations, and one comes
+// before each method or static function of a type, an enum or a union that is not the first line of its body (an
+// interface's signatures have none between them); there are no others.
 
 grammar Maxon;
 
@@ -73,7 +74,7 @@ typeDeclNode
 
 funcDecl
     : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name typeParams=typeParamList?
-      ^'(' ( receiver=('inout' | 'sink') 'self' (',' params+=param)*
+      ^'(' ( receiver=('mutable' | 'sink') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
       ')' ('returns' returns=typeRef)?
@@ -99,7 +100,7 @@ funcDecl
 
 /** a parameter */
 param
-    : name=(Name | '_') convention=('inout' | 'sink' | 'set')? type=typeRef
+    : name=(Name | '_') convention=('mutable' | 'sink' | 'set')? type=typeRef
     ;
 
 @ast::Param {
@@ -196,7 +197,7 @@ interfaceDecl
 
 funcSig
     : 'function' name=Name
-      ^'(' ( receiver=('inout' | 'sink') 'self' (',' params+=param)*
+      ^'(' ( receiver=('mutable' | 'sink') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
       ')' ('returns' returns=typeRef)?

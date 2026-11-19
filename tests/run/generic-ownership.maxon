@@ -3,13 +3,16 @@ typealias Score = int(i64.min to i64.max)
 type Pair[A, B]
 	var first as A
 	var second as B
+
 	static function make(first sink A, second sink B) returns Self
 		return Self{first: first, second: second}
 	end 'make'
+
 	function describe() returns String
 		return "pair"
 	end 'describe'
-	function trade(inout self, with sink A)
+
+	function trade(mutable self, with sink A)
 		first = with
 	end 'trade'
 end 'Pair'
@@ -19,7 +22,7 @@ union Slot[T]
 	empty
 end 'Slot'
 
-function swap[T](a inout T, b inout T)
+function swap[T](a mutable T, b mutable T)
 	var tmp = a.copy()
 	a = b.copy()
 	b = tmp
@@ -76,7 +79,7 @@ function reopen[T](slot Slot[T]) returns Slot[T]
 	end 'm'
 end 'reopen'
 
-function disjoint[T](p inout Pair[T, T])
+function disjoint[T](p mutable Pair[T, T])
 	swap(p.first, b: p.second)
 end 'disjoint'
 

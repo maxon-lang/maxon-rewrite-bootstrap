@@ -1,0 +1,32 @@
+type Tree
+	var value as Count
+	var name as String
+	var kids = array[Tree].new()
+
+	static function make() returns Tree
+		return Tree{value: 1, name: "n"}
+	end 'make'
+end 'Tree'
+
+type Plain
+	export var a as Count
+	export var b as Count
+
+	static function make() returns Plain
+		return Plain{a: 1, b: 2}
+	end 'make'
+end 'Plain'
+
+union Shape
+	circle(radius Count)
+	named(label String, tree Tree)
+	empty
+end 'Shape'
+
+function main() returns ExitCode
+	let t = Tree.make().copy()
+	let p = Plain.make()
+	let s = Shape.named("x", tree: Tree.make()).copy()
+	let q = Plain.make().copy()
+	return 0
+end 'main'

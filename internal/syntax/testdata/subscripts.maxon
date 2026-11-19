@@ -1,0 +1,4 @@
+function f()
+	a[0] = b[i + 1].count
+	f(a[a.count() - 1], m[k])
+end 'f'

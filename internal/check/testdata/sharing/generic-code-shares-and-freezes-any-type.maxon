@@ -1,0 +1,23 @@
+function wrap[T](x sink T) returns frozen[T]
+	return freeze(x)
+end 'wrap'
+
+function again[T](x frozen[T]) returns frozen[T]
+	return share(x)
+end 'again'
+
+function open[T](x frozen[T]) returns T
+	return thaw(x)
+end 'open'
+
+function hold[T](x sink T) returns cown[T]
+	return cown(x)
+end 'hold'
+
+function main() returns ExitCode
+	let f = wrap("a")
+	let g = again(f)
+	let s = open(g)
+	let c = hold(s)
+	return 0
+end 'main'

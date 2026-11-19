@@ -1,14 +1,17 @@
 type Ledger
 	export var entries as array[String]
+
 	static function make() returns Ledger
 		return Ledger{entries: array[String].new()}
 	end 'make'
-	function record(inout self, into cown[Ledger], text String)
+
+	function record(mutable self, into cown[Ledger], text String)
 		let note = text.copy()
 		when into as l 'append'
 			l.entries.append(note)
 		end 'append'
 	end 'record'
+
 	function show(into cown[Ledger])
 		when into as l 'show'
 			for i in 0 upto l.entries.count() 'lines'
@@ -20,11 +23,13 @@ end 'Ledger'
 
 type Slot[T]
 	var held as T
+
 	static function put(into cown[Slot[T]], value sink T)
 		when into as s 'put'
 			s.held = value
 		end 'put'
 	end 'put'
+
 	static function make(held sink T) returns Self
 		return Self{held: held}
 	end 'make'

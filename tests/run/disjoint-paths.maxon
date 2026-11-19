@@ -3,9 +3,11 @@ typealias Score = int(i64.min to i64.max)
 type Point
 	export var x as Score
 	export var y as Score
-	function add(inout self, amount Score)
+
+	function add(mutable self, amount Score)
 		x = x + amount
 	end 'add'
+
 	static function create(x Score, y Score) returns Point
 		return Point{x: x, y: y}
 	end 'create'
@@ -14,16 +16,17 @@ end 'Point'
 type Segment
 	export var start as Point
 	export var finish as Point
+
 	static function create(start sink Point, finish sink Point) returns Segment
 		return Segment{start: start, finish: finish}
 	end 'create'
 end 'Segment'
 
-function bump(n inout Score, by Score)
+function bump(n mutable Score, by Score)
 	n = n + by
 end 'bump'
 
-function swap(a inout Score, b inout Score)
+function swap(a mutable Score, b mutable Score)
 	let t = a
 	a = b
 	b = t

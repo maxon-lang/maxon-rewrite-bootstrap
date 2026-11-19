@@ -32,7 +32,8 @@ type Parser struct {
 	blanks   blankRule
 }
 
-// blankRule says which blank lines may come before a line: only ParseProgram allows any, between declarations.
+// blankRule says which blank lines may come before a line: ParseProgram sets the rule between declarations, and a
+// function inside a declaration has its own.
 type blankRule int
 
 const (
@@ -43,6 +44,9 @@ const (
 	// afterDecl requires one blank line right after the declaration before, and allows one between comment
 	// paragraphs.
 	afterDecl
+	// beforeFunction is afterDecl for a method or an interface's function that is not the first line of its body: a
+	// blank line sets each function apart, as between top-level declarations.
+	beforeFunction
 )
 
 func NewParser(src *Source, toks []Token) *Parser {
@@ -148,6 +152,9 @@ func (p *Parser) layoutError(t *Token, msg string) *diag.CompileError {
 func (p *Parser) checkBlankLines(lineStart int) {
 	rule := p.blanks
 	p.blanks = noBlanks
+	if rule == noBlanks && p.prevKind == TNewline && p.startsFunction() {
+		rule = beforeFunction
+	}
 	gap := p.src.Text[p.prevEnd:lineStart]
 	at := p.prevEnd
 	lastBlank := false
@@ -159,13 +166,15 @@ func (p *Parser) checkBlankLines(lineStart int) {
 		blank := end == 0
 		switch {
 		case blank && rule == noBlanks:
-			panic(p.src.errorAt(diag.ErrExpectedToken, "a blank line is only allowed between declarations", p.fileNumber(), at))
+			panic(p.src.errorAt(diag.ErrExpectedToken, "a blank line is only allowed between declarations, and before a function of a type, an enum or a union", p.fileNumber(), at))
 		case blank && i == 0 && rule == firstInFile:
 			panic(p.src.errorAt(diag.ErrExpectedToken, "the file starts with a blank line", p.fileNumber(), at))
 		case blank && lastBlank:
 			panic(p.src.errorAt(diag.ErrExpectedToken, "two blank lines in a row; keep one", p.fileNumber(), at))
 		case !blank && i == 0 && rule == afterDecl:
 			panic(p.src.errorAt(diag.ErrExpectedToken, "expected a blank line after the declaration above", p.fileNumber(), at))
+		case !blank && i == 0 && rule == beforeFunction:
+			panic(p.src.errorAt(diag.ErrExpectedToken, blankBeforeFunction, p.fileNumber(), at))
 		}
 		lastBlank = blank
 		gap, at = gap[end+1:], at+end+1
@@ -173,9 +182,39 @@ func (p *Parser) checkBlankLines(lineStart int) {
 	switch {
 	case rule == afterDecl && at == p.prevEnd && !p.at(TFileEnd):
 		panic(p.src.errorAt(diag.ErrExpectedToken, "expected a blank line after the declaration above", p.fileNumber(), at))
+	case rule == beforeFunction && at == p.prevEnd:
+		panic(p.src.errorAt(diag.ErrExpectedToken, blankBeforeFunction, p.fileNumber(), at))
 	case lastBlank && p.at(TFileEnd):
 		panic(p.src.errorAt(diag.ErrExpectedToken, "the file ends with a blank line", p.fileNumber(), at-1))
 	}
+}
+
+const blankBeforeFunction = "expected a blank line before this function, which is not the first line of its type, enum or union"
+
+// startsFunction is whether the line starting at the current token defines a function inside a declaration: a method
+// or a static function. No statement starts with these words, so inside a function body it is never true. An
+// interface's functions are signatures, one line each with no body, and are listed without blank lines between them.
+func (p *Parser) startsFunction() bool {
+	switch p.cur().Kind() {
+	case TKw_function, TKw_static:
+	case TKw_export, TKw_public:
+		if next := p.peekTok().Kind(); next != TKw_function && next != TKw_static {
+			return false
+		}
+	default:
+		return false
+	}
+	return p.lineOpensBody()
+}
+
+// lineOpensBody is whether the line starting at the current token is followed by an indented body.
+func (p *Parser) lineOpensBody() bool {
+	for i := p.p; i+1 < len(p.toks); i++ {
+		if p.toks[i].Kind() == TNewline {
+			return p.toks[i+1].Kind() == TIndent
+		}
+	}
+	return false
 }
 
 // describe is how a syntax error shows a token: its text, or a name for a token whose text is not shown.

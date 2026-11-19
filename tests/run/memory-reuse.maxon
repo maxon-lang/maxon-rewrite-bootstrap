@@ -6,6 +6,7 @@
 type Point
 	export var x as Count
 	export var y as Count
+
 	static function make(x Count, y Count) returns Point
 		return Point{x: x, y: y}
 	end 'make'
@@ -14,6 +15,7 @@ end 'Point'
 type Entry
 	export var label as String
 	export var points = array[Point].new()
+
 	static function make(n Count) returns Entry
 		var e = Entry{label: "entry {n}"}
 		e.points.append(Point.make(n, y: n))

@@ -1,0 +1,57 @@
+function moveFirst[T](source mutable array[T], target mutable array[T])
+	if not source.isEmpty() 'some'
+		target.append(source.remove(0))
+	end 'some'
+end 'moveFirst'
+
+function store[V](m mutable map[String, V], value sink V)
+	m.insert("key", value: value)
+end 'store'
+
+function put[T](p mutable pool[T], item sink T) returns Handle[T]
+	return p.insert(item)
+end 'put'
+
+function back[T](l mutable list[T], item sink T) returns Handle[T]
+	let node = l.pushBack(item)
+	l.moveToFront(node)
+	return node
+end 'back'
+
+function swapFirst[T](a mutable array[T], b mutable array[T])
+	let t = a[0].copy()
+	a[0] = b[0].copy()
+	b[0] = t
+end 'swapFirst'
+
+function find[T](p pool[T], handle Handle[T]) returns Option[T]
+	if p.contains(handle) 'live'
+		return Option.some(p[handle].copy())
+	end 'live'
+	return Option[T].none
+end 'find'
+
+function nested[T](grid mutable array[array[T]], item sink T)
+	grid[0].append(item)
+end 'nested'
+
+function main() returns ExitCode
+	var a = array[Count].new()
+	var b = array[Count].new()
+	a.append(1)
+	b.append(2)
+	moveFirst(a, target: b)
+	a.append(3)
+	swapFirst(a, b: b)
+	var m = map[String, Count].new()
+	store(m, value: 1)
+	var p = pool[Count].new()
+	let h = put(p, item: 4)
+	var l = list[Count].new()
+	let n = back(l, item: 5)
+	var grid = array[array[Count]].new()
+	grid.append(array[Count].new())
+	nested(grid, item: 6)
+	print("{find(p, handle: h).isSome()} {l.contains(n)}")
+	return 0
+end 'main'

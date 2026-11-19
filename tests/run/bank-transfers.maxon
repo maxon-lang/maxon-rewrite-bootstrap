@@ -1,5 +1,6 @@
 type Account
 	export var balance as Count
+
 	static function make(balance Count) returns Account
 		return Account{balance: balance}
 	end 'make'

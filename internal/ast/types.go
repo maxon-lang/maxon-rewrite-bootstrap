@@ -257,8 +257,8 @@ type Convention int
 const (
 	// ConvLet is the default: an immutable borrow.
 	ConvLet Convention = iota
-	// ConvInout is a mutable borrow: the caller sees the callee's changes.
-	ConvInout
+	// ConvMutable is a mutable borrow: the caller sees the callee's changes.
+	ConvMutable
 	// ConvSink moves the argument into the callee, which owns it.
 	ConvSink
 	// ConvSet takes an uninitialised variable that the callee must initialise.
@@ -270,8 +270,8 @@ func ConventionOf(word string) Convention {
 	switch word {
 	case "":
 		return ConvLet
-	case "inout":
-		return ConvInout
+	case "mutable":
+		return ConvMutable
 	case "sink":
 		return ConvSink
 	case "set":
@@ -281,14 +281,14 @@ func ConventionOf(word string) Convention {
 }
 
 // ByAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
-func (c Convention) ByAddress() bool { return c == ConvInout || c == ConvSet }
+func (c Convention) ByAddress() bool { return c == ConvMutable || c == ConvSet }
 
 func (c Convention) String() string {
 	switch c {
 	case ConvLet:
 		return "let"
-	case ConvInout:
-		return "inout"
+	case ConvMutable:
+		return "mutable"
 	case ConvSink:
 		return "sink"
 	case ConvSet:

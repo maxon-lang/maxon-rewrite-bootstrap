@@ -1,0 +1,17 @@
+interface Shape
+	function area() returns Count
+	function grow(mutable self, by Count)
+end 'Shape'
+
+type Box
+	var n as Count
+	function get() returns Count
+		return n
+	end 'get'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2010 at 8:1

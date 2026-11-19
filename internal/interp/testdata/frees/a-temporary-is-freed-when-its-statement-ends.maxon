@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	let a = "a{1}"
+	print("t{2}\n")
+	let b = "b{3}"
+	return 0
+end 'main'

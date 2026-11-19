@@ -2,9 +2,9 @@ typealias Score = int(i64.min to i64.max)
 
 interface Shape
 	function area() returns Score
-	function grow(inout self, by Score)
+	function grow(mutable self, by Score)
 	function dispose(sink self)
-	function absorb(inout self, other Self)
+	function absorb(mutable self, other Self)
 end 'Shape'
 
 function drop[T implements Shape](a T)

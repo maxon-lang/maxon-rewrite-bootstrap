@@ -98,14 +98,14 @@ func (g *generator) sharingPreamble() {
 	for i, n := 0, 1+g.pick(3); i < n; i++ {
 		t := g.cownOf(g.cownable())
 		name := g.fresh("k")
-		g.line("let %s = %s", name, g.sharedExpr(t, 1))
+		g.line(kwLet+" %s = %s", name, g.sharedExpr(t, 1))
 		g.declare(name, t, true, false)
 	}
 	if g.chance(60) {
 		t := g.frozenOf(g.freezable())
 		name := g.fresh("z")
 		isVar := g.chance(50)
-		g.line("%s %s = %s", map[bool]string{true: "var", false: "let"}[isVar], name, g.sharedExpr(t, 1))
+		g.line("%s %s = %s", map[bool]string{true: kwVar, false: kwLet}[isVar], name, g.sharedExpr(t, 1))
 		g.declare(name, t, true, isVar)
 	}
 	if g.sinful() {
@@ -118,7 +118,7 @@ func (g *generator) sharingPreamble() {
 		}
 		t := g.frozenOf(records[g.pick(len(records))])
 		name := g.fresh("z")
-		g.line("var %s = %s", name, g.sharedExpr(t, 1))
+		g.line(kwVar+" %s = %s", name, g.sharedExpr(t, 1))
 		g.declare(name, t, true, true)
 	}
 }
@@ -141,7 +141,7 @@ func (g *generator) actFreeze(depth int) bool {
 	t := g.frozenOf(g.freezable())
 	name := g.fresh("z")
 	isVar := g.chance(50)
-	g.line("%s %s = %s", map[bool]string{true: "var", false: "let"}[isVar], name, g.sharedExpr(t, 2))
+	g.line("%s %s = %s", map[bool]string{true: kwVar, false: kwLet}[isVar], name, g.sharedExpr(t, 2))
 	g.declare(name, t, true, isVar)
 	return true
 }
@@ -152,7 +152,7 @@ func (g *generator) actCown(depth int) bool {
 	}
 	t := g.cownOf(g.cownable())
 	name := g.fresh("k")
-	g.line("let %s = %s", name, g.sharedExpr(t, 2))
+	g.line(kwLet+" %s = %s", name, g.sharedExpr(t, 2))
 	g.declare(name, t, true, false)
 	return true
 }
@@ -171,7 +171,7 @@ func (g *generator) actShare(depth int) bool {
 	}
 	p := found[g.pick(len(found))]
 	name := g.fresh("sh")
-	g.line("let %s = share(%s)", name, p.src)
+	g.line(kwLet+" %s = share(%s)", name, p.src)
 	g.declare(name, p.t, true, false)
 	return true
 }
@@ -184,7 +184,7 @@ func (g *generator) actThaw(depth int) bool {
 	}
 	v := frozen[g.pick(len(frozen))]
 	name := g.fresh("v")
-	g.line("var %s = thaw(%s)", name, v.name)
+	g.line(kwVar+" %s = thaw(%s)", name, v.name)
 	g.declare(name, v.t.args[0], true, true)
 	return true
 }
@@ -275,7 +275,7 @@ func (g *generator) actWhen(depth int) bool {
 	if g.adversarial() && g.chance(30) {
 		// Two names for one cown: the checker cannot tell, and the behaviour traps when it is scheduled.
 		alias := g.fresh("al")
-		g.line("let %s = share(%s)", alias, operands[0].name)
+		g.line(kwLet+" %s = share(%s)", alias, operands[0].name)
 		aliasVar := g.declare(alias, operands[0].t, true, false)
 		operands = append(operands, aliasVar)
 	}
@@ -286,7 +286,7 @@ func (g *generator) actWhen(depth int) bool {
 			continue
 		}
 		switch {
-		case v.name == "self" && !g.careless():
+		case v.name == kwSelf && !g.careless():
 			continue
 		case v.t.scalar():
 		case v.owned && !v.setParam && v.frozen == 0 && v.loop == g.loop:
@@ -305,7 +305,7 @@ func (g *generator) actWhen(depth int) bool {
 		operandNames[i] = o.name
 	}
 	label := g.label()
-	g.line("when %s as %s %s", strings.Join(operandNames, ", "), strings.Join(names, ", "), label)
+	g.line(kwWhen+" %s "+kwAs+" %s %s", strings.Join(operandNames, ", "), strings.Join(names, ", "), label)
 
 	savedScopes, savedRet, savedLoop, savedBudget, savedGuards := g.scopes, g.ret, g.loop, g.budget, g.guards
 	g.scopes = [][]*variable{nil}
@@ -331,7 +331,7 @@ func (g *generator) actWhen(depth int) bool {
 	g.indent--
 	g.behaviours--
 	g.scopes, g.ret, g.loop, g.budget, g.guards = savedScopes, savedRet, savedLoop, savedBudget, savedGuards
-	g.line("end %s", label)
+	g.line(kwEnd+" %s", label)
 
 	for _, e := range exposures {
 		if mentions(body, e.outer.name) && e.outer.t.managed() && e.outer.owned {
@@ -360,11 +360,11 @@ func (g *generator) aCown() (*variable, bool) {
 // holding writes a behaviour on a cown whose body is one statement.
 func (g *generator) holding(c *variable, statement string) {
 	label := g.label()
-	g.line("when %s as %s %s", c.name, g.fresh("w"), label)
+	g.line(kwWhen+" %s "+kwAs+" %s %s", c.name, g.fresh("w"), label)
 	g.indent++
 	g.line("%s", statement)
 	g.indent--
-	g.line("end %s", label)
+	g.line(kwEnd+" %s", label)
 }
 
 // actBorrowedCapture has a behaviour use a variable that only borrows its value: a parameter that is not a sink, the
@@ -402,7 +402,7 @@ func (g *generator) actUseAfterCapture(depth int) bool {
 	}
 	var owners []*variable
 	for _, v := range g.visible() {
-		if v.owned && !v.setParam && !v.moved && v.t.managed() && v.frozen == 0 && v.loop == g.loop && v.name != "self" && v != c {
+		if v.owned && !v.setParam && !v.moved && v.t.managed() && v.frozen == 0 && v.loop == g.loop && v.name != kwSelf && v != c {
 			owners = append(owners, v)
 		}
 	}
@@ -449,7 +449,7 @@ func (g *generator) actFrozenAbuse(depth int) bool {
 				continue
 			}
 			name := g.fresh("v")
-			g.line("let %s = %s", name, target)
+			g.line(kwLet+" %s = %s", name, target)
 			g.declare(name, f.t, true, false)
 		default:
 			if !f.t.managed() {

@@ -1,6 +1,7 @@
 type Part
 	export var name as String
 	export var weight as Count
+
 	static function make(name sink String, weight Count) returns Part
 		return Part{name: name, weight: weight}
 	end 'make'
@@ -9,9 +10,11 @@ end 'Part'
 type Crate
 	export var label as String
 	export var parts as array[Part]
+
 	static function make(label sink String) returns Crate
 		return Crate{label: label, parts: array[Part].new()}
 	end 'make'
+
 	function total() returns Count
 		var sum = 0 as Count
 		for i in 0 upto parts.count() 'each'
@@ -19,9 +22,11 @@ type Crate
 		end 'each'
 		return sum
 	end 'total'
-	function add(inout self, name sink String, weight Count)
+
+	function add(mutable self, name sink String, weight Count)
 		parts.append(Part.make(name, weight: weight))
 	end 'add'
+
 	function take(sink self) returns Count
 		return self.total()
 	end 'take'

@@ -12,12 +12,15 @@ import (
 	"minimaxon/internal/ir"
 	"minimaxon/internal/project"
 	"minimaxon/internal/resolve"
+	"minimaxon/internal/srctest"
 	"minimaxon/internal/syntax"
 )
 
-// lowered runs the front end on a one-module program and lowers every function, which is what the code generator reads.
-func lowered(t *testing.T, src string) []*ir.IrFunction {
+// lowered runs the front end on a one-module program in a file of testdata and lowers every function, which is what the
+// code generator reads.
+func lowered(t *testing.T, path string) []*ir.IrFunction {
 	t.Helper()
+	src := srctest.Read(t, path)
 	source := syntax.NewSource(src, []syntax.FileSlice{{File: "t.maxon", Begin: 0, End: len(src)}})
 	parser := syntax.NewParser(source, syntax.Lex(source, nil))
 	prog := parser.ParseProgram()
@@ -70,37 +73,7 @@ func lowered(t *testing.T, src string) []*ir.IrFunction {
 	return fns
 }
 
-const routinesSource = `type Tree
-	var value as Count
-	var name as String
-	var kids = array[Tree].new()
-	static function make() returns Tree
-		return Tree{value: 1, name: "n"}
-	end 'make'
-end 'Tree'
-
-type Plain
-	export var a as Count
-	export var b as Count
-	static function make() returns Plain
-		return Plain{a: 1, b: 2}
-	end 'make'
-end 'Plain'
-
-union Shape
-	circle(radius Count)
-	named(label String, tree Tree)
-	empty
-end 'Shape'
-
-function main() returns ExitCode
-	let t = Tree.make().copy()
-	let p = Plain.make()
-	let s = Shape.named("x", tree: Tree.make()).copy()
-	let q = Plain.make().copy()
-	return 0
-end 'main'
-`
+const routinesFile = "testdata/routines.maxon"
 
 // routineNames is the text of every routine the units define.
 func routineNames(units []*CodeUnit) []string {
@@ -149,7 +122,7 @@ var outsideTheRoutines = map[any]bool{
 // Every type the program drops or copies has a routine, and so does every type those reach: a record that holds an array of
 // itself has routines that call each other, and a routine never calls one that no unit defines.
 func TestRoutinesAreMadeForEveryTypeTheCodeReaches(t *testing.T) {
-	module := EmitModule(lowered(t, routinesSource))
+	module := EmitModule(lowered(t, routinesFile))
 	routines := EmitTypeRoutines([]*CodeUnit{module}, 1)
 	for _, want := range []string{
 		"drop Tree", "copy Tree", "drop array[Tree]", "copy array[Tree]", "drop String", "copy String",
@@ -176,7 +149,7 @@ func TestRoutinesAreMadeForEveryTypeTheCodeReaches(t *testing.T) {
 // A box that holds nothing to drop is dropped by freeing it, so a record of integers has no drop routine, while a copy of
 // it still needs one to know its size.
 func TestDropOfABoxWithNothingInItIsTheFree(t *testing.T) {
-	module := EmitModule(lowered(t, routinesSource))
+	module := EmitModule(lowered(t, routinesFile))
 	routines := EmitTypeRoutines([]*CodeUnit{module}, 1)
 	if hasRoutine(routines, "drop Plain") {
 		t.Error("a record of integers has a drop routine")
@@ -196,7 +169,7 @@ func TestDropOfABoxWithNothingInItIsTheFree(t *testing.T) {
 // The routines are the same bytes for any number of jobs: they are made in waves, in the order they were asked for, and
 // split into units of a fixed size.
 func TestRoutinesAreIdenticalForAnyJobCount(t *testing.T) {
-	module := EmitModule(lowered(t, routinesSource))
+	module := EmitModule(lowered(t, routinesFile))
 	var first []*CodeUnit
 	for _, jobs := range []int{1, 2, 8} {
 		made := EmitTypeRoutines([]*CodeUnit{module}, jobs)
@@ -218,7 +191,7 @@ func TestRoutinesAreIdenticalForAnyJobCount(t *testing.T) {
 // A drop of a string compares its address with the bounds of the data section, where every literal lives, so a literal is
 // never given to the heap.
 func TestDroppingAStringChecksForAnImmortalOne(t *testing.T) {
-	module := EmitModule(lowered(t, routinesSource))
+	module := EmitModule(lowered(t, routinesFile))
 	for _, u := range EmitTypeRoutines([]*CodeUnit{module}, 1) {
 		if _, ok := u.CodeSymbols[typeRoutine{dropRoutine, ast.StringTy}]; !ok {
 			continue

@@ -10,9 +10,11 @@ end 'Other'
 
 type Square implements Shape
 	var side as Score
+
 	static function make(side Score) returns Square
 		return Square{side: side}
 	end 'make'
+
 	function area() returns Score
 		return side * side
 	end 'area'
@@ -20,6 +22,7 @@ end 'Square'
 
 type Plain
 	var n as Score
+
 	static function make(n Score) returns Plain
 		return Plain{n: n}
 	end 'make'
@@ -31,6 +34,7 @@ end 'Box'
 
 type Wrap[T]
 	var inner as T
+
 	static function make(inner sink T) returns Self
 		return Self{inner: inner}
 	end 'make'
@@ -53,4 +57,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3118 at 48:12
+// expect-error: E3118 at 52:12

@@ -1,7 +1,8 @@
-// expect-error: E3102 at 16:10
+// expect-error: E3102 at 17:10
 type Acct
 	export var balance as Count
 	export var tag as String
+
 	static function make(balance Count) returns Acct
 		return Acct{balance: balance, tag: "t"}
 	end 'make'

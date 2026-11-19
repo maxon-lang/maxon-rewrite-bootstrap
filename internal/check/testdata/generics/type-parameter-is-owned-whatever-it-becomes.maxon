@@ -1,0 +1,10 @@
+function twice[T](a sink T) returns Score
+	let first = a
+	let second = a
+	return 1
+end 'twice'
+
+function main() returns ExitCode
+	_ = twice(1 as Score)
+	return 0
+end 'main'

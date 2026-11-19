@@ -1,12 +1,14 @@
 union Node
 	leaf(value Count, note String)
 	branch(label String, kids array[Node])
+
 	function size() returns Count
 		return match self 'm'
 			leaf(v, note) gives 1
 			branch(label, kids) gives 1 + sizeOf(kids)
 		end 'm'
 	end 'size'
+
 	function text() returns String
 		return match self 'm'
 			leaf(v, note) gives "{v}{note}"

@@ -171,7 +171,7 @@ func (g *generator) countOfCollection() (string, bool) {
 func (g *generator) boolExpr(depth int) string {
 	if depth <= 0 || g.chance(30) {
 		if g.chance(30) {
-			return []string{"true", "false"}[g.pick(2)]
+			return []string{kwTrue, kwFalse}[g.pick(2)]
 		}
 		if p, ok := g.place(tBool, false); ok && g.chance(60) {
 			return p.src
@@ -182,9 +182,9 @@ func (g *generator) boolExpr(depth int) string {
 	case n < 3:
 		return fmt.Sprintf("%s %s %s", g.countExpr(depth-1), []string{"<", "<=", "==", "!=", ">"}[g.pick(5)], g.countExpr(depth-1))
 	case n < 4:
-		return fmt.Sprintf("not (%s)", g.boolExpr(depth-1))
+		return fmt.Sprintf(kwNot+" (%s)", g.boolExpr(depth-1))
 	case n < 5:
-		return fmt.Sprintf("(%s) %s (%s)", g.boolExpr(depth-1), []string{"and", "or"}[g.pick(2)], g.boolExpr(depth-1))
+		return fmt.Sprintf("(%s) %s (%s)", g.boolExpr(depth-1), []string{kwAnd, kwOr}[g.pick(2)], g.boolExpr(depth-1))
 	case n < 6:
 		if c, ok := g.queryExpr(); ok {
 			return c
@@ -194,7 +194,7 @@ func (g *generator) boolExpr(depth int) string {
 			return c
 		}
 	}
-	return "true"
+	return kwTrue
 }
 
 // queryExpr is a bool that asks a collection or an option a question.
@@ -355,7 +355,7 @@ func (g *generator) unionExpr(u *union, depth int) string {
 	}
 	params := make([]param, len(c.payload))
 	for i, p := range c.payload {
-		params[i] = param{name: p.name, t: p.t, conv: "sink"}
+		params[i] = param{name: p.name, t: p.t, conv: kwSink}
 	}
 	return g.callArgsText(u.t.name+"."+c.name, params, depth)
 }
@@ -432,9 +432,9 @@ func (g *generator) condExpr(t *ty, depth int) string {
 	g.mergeMoves(stateA, stateB)
 	if t == tCount {
 		// Two constants unify to a plain integer, which does not fit Count without a cast.
-		return fmt.Sprintf("((%s if %s else %s) as Count)", a, g.boolExpr(depth-1), b)
+		return fmt.Sprintf("((%s "+kwIf+" %s "+kwElse+" %s) "+kwAs+" Count)", a, g.boolExpr(depth-1), b)
 	}
-	return fmt.Sprintf("(%s if %s else %s)", a, g.boolExpr(depth-1), b)
+	return fmt.Sprintf("(%s "+kwIf+" %s "+kwElse+" %s)", a, g.boolExpr(depth-1), b)
 
 }
 
@@ -457,12 +457,12 @@ func (g *generator) matchExpr(t *ty, depth int) string {
 		for _, b := range bound {
 			g.declare(b.name, b.t, false, false)
 		}
-		arms = append(arms, fmt.Sprintf("%s gives %s", pattern, g.owned(t, depth-1)))
+		arms = append(arms, fmt.Sprintf("%s "+kwGives+" %s", pattern, g.owned(t, depth-1)))
 		states = append(states, g.moveState())
 		g.pop()
 	}
 	g.mergeMoves(states...)
-	return "match " + subject + " " + label + "\n" + g.armLines(arms) + "end " + label
+	return kwMatch + " " + subject + " " + label + "\n" + g.armLines(arms) + kwEnd + " " + label
 }
 
 func (g *generator) armLines(arms []string) string {
@@ -600,12 +600,12 @@ func (g *generator) callTextFirst(f *fn, first string, depth int) (string, bool)
 
 func (g *generator) lastPlace() (place, bool) { return g.recent, g.recentOK }
 
-// argument is an argument for a parameter: a read for a let, a place that can change for an inout, an owned value for a
+// argument is an argument for a parameter: a read for a let, a place that can change for a mutable, an owned value for a
 // sink. Sometimes it is a place the arguments before it already used, to try the exclusivity rule.
 func (g *generator) argument(p param, depth int, earlier []*variable) (string, bool) {
 	g.recentOK = false
 	switch p.conv {
-	case "inout":
+	case kwMutable:
 		ps := g.notSelf(g.places(p.t, true))
 		if len(ps) == 0 {
 			return "", false
@@ -621,12 +621,12 @@ func (g *generator) argument(p param, depth int, earlier []*variable) (string, b
 		}
 		g.recent, g.recentOK = pl, true
 		return pl.src, true
-	case "sink":
+	case kwSink:
 		return g.owned(p.t, depth-1), true
-	case "set":
+	case kwSet:
 		// A variable with no value, which the call gives one.
 		name := g.fresh("v")
-		g.line("var %s as %s", name, p.t.src())
+		g.line(kwVar+" %s "+kwAs+" %s", name, p.t.src())
 		v := g.declare(name, p.t, true, true)
 		v.moved = true
 		g.pendingInit = append(g.pendingInit, v)
@@ -668,7 +668,7 @@ func (g *generator) methodCall(t *ty, depth int) (string, bool) {
 		return "", false
 	}
 	switch m.recv {
-	case "sink":
+	case kwSink:
 		moves := g.movable(r.t)
 		if len(moves) == 0 || !g.chance(60) {
 			return fmt.Sprintf("%s.%s()", g.recordExpr(r, depth-1), m.name), true
@@ -759,14 +759,14 @@ func (g *generator) collectionOf(t *ty) (*variable, bool) {
 	return found[g.pick(len(found))], true
 }
 
-// notSelf leaves out 'self' itself: a method's receiver cannot be passed as an inout argument, and a field of it can.
+// notSelf leaves out 'self' itself: a method's receiver cannot be passed as a mutable argument, and a field of it can.
 func (g *generator) notSelf(ps []place) []place {
 	if g.careless() {
 		return ps
 	}
 	var out []place
 	for _, p := range ps {
-		if p.src != "self" {
+		if p.src != kwSelf {
 			out = append(out, p)
 		}
 	}

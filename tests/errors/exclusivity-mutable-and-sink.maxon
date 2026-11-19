@@ -1,0 +1,34 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box
+	export var v as Score
+	export var name as String
+
+	function describe() returns String
+		return name.copy()
+	end 'describe'
+
+	function rename(mutable self, value sink String)
+		name = value
+	end 'rename'
+
+	function bump(mutable self, by Score)
+		v = v + by
+	end 'bump'
+
+	static function create(v Score, name sink String) returns Box
+		return Box{v: v, name: name}
+	end 'create'
+end 'Box'
+
+function join(a mutable Box, b sink Box)
+	a.v = a.v + b.v
+end 'join'
+
+function main() returns ExitCode
+	var x = Box.create(1, name: "a")
+	join(x, b: x)
+	return 0
+end 'main'
+
+// expect-error: E3112 at 30:13

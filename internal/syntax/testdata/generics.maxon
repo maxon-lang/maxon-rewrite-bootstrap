@@ -1,0 +1,13 @@
+interface Shape
+	function area() returns Score
+	function grow(mutable self, by Score)
+end 'Shape'
+
+type Box[T implements Shape and Named, U] implements Shape
+	var item as T
+end 'Box'
+
+function pick[T](a T) returns Box[T, lib.Other[T]]
+	let b = Box[T].make(a)
+	return swap[T](a, b: b)
+end 'pick'

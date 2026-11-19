@@ -1,0 +1,25 @@
+union Slot
+	full(n Count)
+	empty
+
+	function isFull() returns bool
+		return true
+	end 'isFull'
+
+	static function make() returns Slot
+		return Slot.empty
+	end 'make'
+end 'Slot'
+
+type Box
+
+	function get() returns Count
+		return 1
+	end 'get'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2010 at 15:1

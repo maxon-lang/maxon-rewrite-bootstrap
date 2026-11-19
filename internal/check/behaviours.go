@@ -104,7 +104,7 @@ func (c *Checker) requireCapturable(site ast.Node, outer *ast.Local) {
 	if !outer.Type.IsManaged() || !outer.Borrowed() {
 		return
 	}
-	what := "a let or inout parameter"
+	what := "a let or mutable parameter"
 	switch {
 	case outer.Projected:
 		what = "a match binding"
@@ -112,7 +112,7 @@ func (c *Checker) requireCapturable(site ast.Node, outer *ast.Local) {
 		what = "the receiver"
 	case outer.IsParam && outer.Conv == ast.ConvSet:
 		what = "a set parameter"
-	case outer.IsParam && outer.Conv == ast.ConvInout && c.isAccess(outer):
+	case outer.IsParam && outer.Conv == ast.ConvMutable && c.isAccess(outer):
 		what = "the access that a behaviour has to a cown's value, for as long as it runs"
 	}
 	var fix string
@@ -173,7 +173,7 @@ func (c *Checker) enterBehaviour(w *ast.WhenStmt, values []ast.Ty) {
 	for i, name := range w.Names {
 		access := ast.NewLocal(name, values[i], false)
 		access.IsParam = true
-		access.Conv = ast.ConvInout
+		access.Conv = ast.ConvMutable
 		access.ParamIndex = i
 		c.bind(access, w)
 		b.accesses = append(b.accesses, access)
@@ -207,7 +207,7 @@ func (c *Checker) leaveBehaviour(w *ast.WhenStmt) {
 }
 
 // VisitWhenStmt types a behaviour: it names cowns, and its body runs once it has exclusive access to all of them, with
-// the names after 'as' giving inout access to their values.
+// the names after 'as' giving mutable access to their values.
 func (c *Checker) VisitWhenStmt(w *ast.WhenStmt) {
 	if len(w.Cowns) != len(w.Names) {
 		panic(w.Error(diag.ErrWhenCowns, fmt.Sprintf("the behaviour names %d cown(s) but gives %d name(s) to their values after 'as': one name for each", len(w.Cowns), len(w.Names))))
@@ -221,7 +221,7 @@ func (c *Checker) VisitWhenStmt(w *ast.WhenStmt) {
 		values[i] = t.(*ast.BuiltinTy).Held()
 		for _, other := range w.Cowns[:i] {
 			if sameName(other, cn) {
-				panic(cn.Error(diag.ErrWhenSameCown, fmt.Sprintf("'%s' is named twice by one behaviour, which would give it two inout names for one value; name each cown once", cn.Name)))
+				panic(cn.Error(diag.ErrWhenSameCown, fmt.Sprintf("'%s' is named twice by one behaviour, which would give it two mutable names for one value; name each cown once", cn.Name)))
 			}
 		}
 	}

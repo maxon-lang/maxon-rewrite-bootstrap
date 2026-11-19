@@ -1,0 +1,60 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Score
+end 'Shape'
+
+type Square implements Shape
+	var side as Score
+
+	static function create(side Score) returns Square
+		return Square{side: side}
+	end 'create'
+
+	function area() returns Score
+		return side * side
+	end 'area'
+end 'Square'
+
+type Box[T]
+	var item as T
+
+	static function make(item sink T) returns Self
+		return Self{item: item}
+	end 'make'
+
+	function peek() returns T
+		return item.copy()
+	end 'peek'
+end 'Box'
+
+function swap[T](a mutable T, b mutable T)
+	var tmp = a.copy()
+	a = b.copy()
+	b = tmp
+end 'swap'
+
+function total[T implements Shape](a T, b T) returns Score
+	return a.area() + b.area()
+end 'total'
+
+function both[T implements Shape](a T) returns Score
+	var b = a.copy()
+	var c = a.copy()
+	swap(b, b: c)
+	return total(a, b: b)
+end 'both'
+
+function main() returns ExitCode
+	var n = 1 as Score
+	var m = 2 as Score
+	swap(n, b: m)
+	swap(n, b: m)
+	var a = Square.create(1)
+	var b = Square.create(2)
+	swap(a, b: b)
+	let x = Box[Score].make(1)
+	let y = Box[Score].make(2)
+	print("{both(a)} {total(a, b: b)} {x.peek()} {y.peek()}\n")
+	return 0
+end 'main'
