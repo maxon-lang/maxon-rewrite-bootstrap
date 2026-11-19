@@ -12,6 +12,12 @@ const (
 	signBitShift    = 63
 	trapOpcodeFirst = 0x0F
 	trapOpcodeNext  = 0x0B
+
+	// estimatedCodeBytesPerInstr sizes a unit's code buffer before codegen. Go grows a large slice by about
+	// a quarter at a time, so a buffer left to grow allocates several times its final size; this is the
+	// measured average (15.2 bytes over a generated 200-module project), rounded up so the buffer rarely
+	// regrows.
+	estimatedCodeBytesPerInstr = 16
 )
 
 type codegen struct {
@@ -23,11 +29,18 @@ type codegen struct {
 	panicDiv      *Label
 	panicShift    *Label
 	f             *ir.IrFunction
-	labels        []*Label
+	labels        []Label
 }
 
 func EmitModule(fns []*ir.IrFunction) *CodeUnit {
 	u := NewCodeUnit()
+	instrs := 0
+	for _, f := range fns {
+		for _, b := range f.Blocks {
+			instrs += len(b.Instrs) + 1
+		}
+	}
+	u.Asm.Code = make([]byte, 0, instrs*estimatedCodeBytesPerInstr)
 	g := &codegen{
 		u:             u,
 		asm:           u.Asm,
@@ -66,9 +79,13 @@ func (g *codegen) put(v ir.V, r R) {
 func (g *codegen) function(fn *ir.IrFunction) {
 	a := g.asm
 	g.f = fn
-	g.labels = make([]*Label, len(fn.Blocks))
+	if cap(g.labels) < len(fn.Blocks) {
+		g.labels = make([]Label, len(fn.Blocks))
+	}
+	g.labels = g.labels[:len(fn.Blocks)]
 	for i := range g.labels {
-		g.labels[i] = NewLabel()
+		g.labels[i].Pos = -1
+		g.labels[i].Uses = g.labels[i].Uses[:0]
 	}
 	g.u.DefineCode(fn.Decl)
 	a.Push(Rbp)
@@ -76,7 +93,7 @@ func (g *codegen) function(fn *ir.IrFunction) {
 	g.allocateFrame((len(fn.Slots) + len(fn.Regs)) * wordBytes)
 
 	for i, b := range fn.Blocks {
-		a.Bind(g.labels[i])
+		a.Bind(&g.labels[i])
 		for _, instr := range b.Instrs {
 			g.instr(instr)
 		}
@@ -347,14 +364,14 @@ func (g *codegen) term(t ir.Terminator, next *ir.IrBlock) {
 	case *ir.BranchTerm:
 		g.get(Rax, x.Cond)
 		a.Test(Rax, Rax)
-		a.Jcc(CcE, g.labels[x.Else.ID])
+		a.Jcc(CcE, &g.labels[x.Else.ID])
 		g.jumpUnlessNext(x.Then, next)
 	case *ir.SwitchTerm:
 		g.get(Rax, x.Value)
 		for i, v := range x.Values {
 			a.MovImm(Rcx, v)
 			a.Cmp(Rax, Rcx)
-			a.Jcc(CcE, g.labels[x.Targets[i].ID])
+			a.Jcc(CcE, &g.labels[x.Targets[i].ID])
 		}
 		g.jumpUnlessNext(x.Default, next)
 	case *ir.RetTerm:
@@ -371,6 +388,6 @@ func (g *codegen) term(t ir.Terminator, next *ir.IrBlock) {
 
 func (g *codegen) jumpUnlessNext(target, next *ir.IrBlock) {
 	if target != next {
-		g.asm.Jmp(g.labels[target.ID])
+		g.asm.Jmp(&g.labels[target.ID])
 	}
 }

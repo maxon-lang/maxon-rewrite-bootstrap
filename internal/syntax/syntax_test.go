@@ -18,7 +18,7 @@ func lexFiles(files ...string) ([]Token, []string) {
 		buf = append(buf, src...)
 		names = append(names, name)
 	}
-	return Lex(buf, slices, nil, map[string]string{}), names
+	return Lex(string(buf), slices, nil), names
 }
 
 func parseFiles(t *testing.T, files ...string) (*ast.Program, []*diag.CompileError) {

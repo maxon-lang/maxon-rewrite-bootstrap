@@ -148,9 +148,7 @@ type DataSection struct {
 	strings map[string]int
 }
 
-func (d *DataSection) ToArray() []byte {
-	return append([]byte(nil), d.bytes...)
-}
+func (d *DataSection) Bytes() []byte { return d.bytes }
 
 func (d *DataSection) align8() {
 	for len(d.bytes)%8 != 0 {

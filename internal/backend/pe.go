@@ -90,7 +90,12 @@ func WritePe(path string, code, data []byte, dll string, imports []string, entry
 	headersSize := peAlignUp(headerBytes+peSectionHeader*uint32(len(sections)), peFileAlignment)
 	imageSize := idataRva + peAlignUp(uint32(len(idata)), peSectionAlignment)
 
+	fileSize := headersSize
+	for _, s := range sections {
+		fileSize += peAlignUp(uint32(len(s.bytes)), peFileAlignment)
+	}
 	var w peBuffer
+	w.Grow(int(fileSize))
 
 	w.u16(peDosMagic)
 	w.zeros(peDosHeaderPad)

@@ -4,33 +4,37 @@ import (
 	"bytes"
 	"minimaxon/internal/diag"
 	"os"
+	"strings"
 )
 
 const fileChangedMessage = "the file changed while it was being read"
 
 var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
 
-func LoadModuleSource(files []string) ([]byte, []FileSlice) {
-	var total int64
+// LoadModuleSource reads a module's files, without their comments, into one string. Every token's text is a
+// substring of it, so lexing allocates no text of its own.
+func LoadModuleSource(files []string) (string, []FileSlice) {
+	var total, largest int64
 	for _, f := range files {
 		info, err := os.Stat(f)
 		if err != nil {
 			panic(err)
 		}
 		total += info.Size()
+		largest = max(largest, info.Size())
 	}
 
-	buffer := make([]byte, total)
+	scratch := make([]byte, largest)
+	var src strings.Builder
+	src.Grow(int(total))
 	slices := make([]FileSlice, 0, len(files))
-	at := 0
-
 	for _, file := range files {
-		end := readSourceFile(file, buffer, at)
-		end = StripComments(buffer, at, end)
-		slices = append(slices, FileSlice{File: file, Begin: at, End: end})
-		at = end
+		end := StripComments(scratch, 0, readSourceFile(file, scratch, 0))
+		begin := src.Len()
+		src.Write(scratch[:end])
+		slices = append(slices, FileSlice{File: file, Begin: begin, End: src.Len()})
 	}
-	return buffer, slices
+	return src.String(), slices
 }
 
 func readSourceFile(file string, buffer []byte, at int) int {

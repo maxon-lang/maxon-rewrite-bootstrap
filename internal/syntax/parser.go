@@ -16,6 +16,8 @@ type Parser struct {
 	p         int
 	fileIndex int
 	Errors    []*diag.CompileError
+	// spare is a token buffer an interpolation's parser borrows, so each one does not allocate its own.
+	spare []Token
 }
 
 func NewParser(toks []Token, files []string) *Parser {
@@ -115,8 +117,12 @@ func (p *Parser) strLitParts(t Token) []any {
 		case TextPart:
 			parts = append(parts, part.Text)
 		case ExprPart:
-			sub := NewParser(LexText(p.file(), part.Source, part.Line, part.Col), []string{p.file()})
+			// The sub-parser borrows the spare buffer; an interpolation nested inside it finds none and allocates.
+			toks := LexText(p.file(), part.Source, part.Line, part.Col, p.spare)
+			p.spare = nil
+			sub := NewParser(toks, p.files[p.fileIndex:p.fileIndex+1])
 			parts = append(parts, sub.parseInterpolation())
+			p.spare = sub.toks[:0]
 		default:
 			panic(diag.Internal("unknown string part %T", part))
 		}

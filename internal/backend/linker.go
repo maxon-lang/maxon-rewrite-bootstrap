@@ -30,7 +30,9 @@ func linkOffsets(sizes []int, alignment int) ([]int, int) {
 
 func Link(out string, units []*CodeUnit, entry any, jobs int) {
 	unitData := make([][]byte, len(units))
-	par.ForEachIndex(len(units), jobs, func(i int) { unitData[i] = units[i].Data.ToArray() })
+	for i, u := range units {
+		unitData[i] = u.Data.Bytes()
+	}
 
 	codeSizes := make([]int, len(units))
 	dataSizes := make([]int, len(units))

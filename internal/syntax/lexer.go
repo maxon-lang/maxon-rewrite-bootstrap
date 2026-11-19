@@ -55,44 +55,31 @@ const (
 type Lexer struct {
 	slices []FileSlice
 	file   string
-	src    []byte
+	src    string
 	end    int
 	pos    int
 	line   int
 	col    int
 	depth  int
 	toks   []Token
-	pool   map[string]string
 }
 
-func newLexer(src []byte, slices []FileSlice, buffer []Token, pool map[string]string, startLine, startCol int) *Lexer {
+func newLexer(src string, slices []FileSlice, buffer []Token, startLine, startCol int) *Lexer {
 	lx := &Lexer{src: src, slices: slices, line: startLine, col: startCol}
 	if len(slices) > 0 {
 		lx.file = slices[0].File
 	}
 	lx.toks = buffer[:0]
-	if pool == nil {
-		pool = map[string]string{}
-	}
-	lx.pool = pool
 	return lx
 }
 
-func Lex(src []byte, slices []FileSlice, buffer []Token, pool map[string]string) []Token {
-	return newLexer(src, slices, buffer, pool, 1, 1).lex()
+func Lex(src string, slices []FileSlice, buffer []Token) []Token {
+	return newLexer(src, slices, buffer, 1, 1).lex()
 }
 
-func LexText(file, text string, line, col int) []Token {
-	return newLexer([]byte(text), []FileSlice{{File: file, Begin: 0, End: len(text)}}, nil, nil, line, col).lex()
-}
-
-func (lx *Lexer) intern(text []byte) string {
-	if s, ok := lx.pool[string(text)]; ok {
-		return s
-	}
-	s := string(text)
-	lx.pool[s] = s
-	return s
+// LexText lexes source that starts at line:col of file, such as an interpolation inside a string literal.
+func LexText(file, text string, line, col int, buffer []Token) []Token {
+	return newLexer(text, []FileSlice{{File: file, Begin: 0, End: len(text)}}, buffer, line, col).lex()
 }
 
 func (lx *Lexer) lex() []Token {
@@ -147,7 +134,7 @@ func (lx *Lexer) lexSlice() {
 			for lx.pos < lx.end && (isAsciiLetter(lx.src[lx.pos]) || isAsciiDigit(lx.src[lx.pos]) || lx.src[lx.pos] == '_') {
 				lx.advance()
 			}
-			text := lx.intern(lx.src[start:lx.pos])
+			text := lx.src[start:lx.pos]
 			kind := TName
 			if k, ok := keywordKinds[text]; ok {
 				kind = k
@@ -203,7 +190,7 @@ func (lx *Lexer) runeAt(at int) rune {
 	if at >= lx.end {
 		return 0
 	}
-	r, _ := utf8.DecodeRune(lx.src[at:lx.end])
+	r, _ := utf8.DecodeRuneInString(lx.src[at:lx.end])
 	return r
 }
 
@@ -288,7 +275,7 @@ func (lx *Lexer) lexNumber(l, cl int) {
 		panic(lx.fail(diag.ErrUnsupported, "float literals are not supported by minimaxon", l, cl))
 	}
 
-	lx.toks = append(lx.toks, Token{Kind: TInteger, Text: lx.intern(lx.src[literal:lx.pos]), Line: l, Col: cl, Payload: value})
+	lx.toks = append(lx.toks, Token{Kind: TInteger, Text: lx.src[literal:lx.pos], Line: l, Col: cl, Payload: value})
 }
 
 func (lx *Lexer) readEscape(l, cl int) rune {
@@ -400,7 +387,7 @@ func (lx *Lexer) lexString(l, cl int) {
 			if lx.pos >= lx.end || lx.src[lx.pos] != '}' {
 				panic(lx.fail(diag.ErrUnexpectedToken, "unterminated interpolation in string literal", el, ec))
 			}
-			parts = append(parts, ExprPart{Source: string(lx.src[start:lx.pos]), Line: el, Col: ec})
+			parts = append(parts, ExprPart{Source: lx.src[start:lx.pos], Line: el, Col: ec})
 			lx.advance()
 			continue
 		}
@@ -423,7 +410,7 @@ func (lx *Lexer) lexQuote(l, cl int) {
 	if lx.pos >= lx.end || lx.src[lx.pos] != '\'' {
 		panic(lx.fail(diag.ErrUnexpectedToken, "unterminated label", l, cl))
 	}
-	text := lx.intern(lx.src[start:lx.pos])
+	text := lx.src[start:lx.pos]
 	lx.advance()
 	lx.toks = append(lx.toks, Token{Kind: TLabel, Text: text, Line: l, Col: cl})
 }
@@ -439,7 +426,7 @@ func (lx *Lexer) lexPunct(c byte, l, cl int) {
 	case TRParen, TRBrace:
 		lx.depth = max(0, lx.depth-1)
 	}
-	text := lx.intern(lx.src[lx.pos : lx.pos+length])
+	text := lx.src[lx.pos : lx.pos+length]
 	for range length {
 		lx.advance()
 	}

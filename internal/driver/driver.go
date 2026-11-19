@@ -108,7 +108,7 @@ func compileProject(path, output string, jobs int, timings, emitIr bool) []*diag
 			buffer, slices := syntax.LoadModuleSource(m.Files)
 			a1 := stepAllocated(timings)
 			scratch := tokenBuffers.Get().(*[]syntax.Token)
-			tokens := syntax.Lex(buffer, slices, *scratch, map[string]string{})
+			tokens := syntax.Lex(buffer, slices, *scratch)
 			a2 := stepAllocated(timings)
 			files := make([]string, len(slices))
 			for i, s := range slices {

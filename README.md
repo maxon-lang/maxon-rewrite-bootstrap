@@ -182,8 +182,10 @@ is the import-cycle check between resolve and declare, a walk over the module gr
 
 ### Reading a module
 
-A module's files are read into one `[]byte`, allocated once at the sum of their sizes, and stripped of comments
-in place:
+A module's files are read into one buffer, a string allocated once at the sum of their sizes, with their comments
+removed. Every token's text is a substring of it, so lexing allocates no text and needs no intern table. A string
+cannot be edited in place, so each file is first read into a scratch buffer sized for the module's largest file,
+stripped there, and appended. Comments are stripped like this:
 
 - a `///` doc comment that starts its line is kept, for the LSP to use later; the lexer skips it;
 - a `//` comment is dropped;
@@ -199,11 +201,20 @@ syntax error.
 
 ### Allocation
 
-Parallel phases are only as fast as allocation allows. The lexer reuses token buffers and interns a module's
-repeated identifiers, and the ownership pass skips a function with no movable variable and shares its state
-until a move changes it. During a compile the driver turns the collector off (`debug.SetGCPercent(-1)`) under a
-memory limit of 100 bytes per source byte, at least 256 MB, so a compile that outgrows it still collects. Watch
-the MB and pause columns of `--timings` when changing a phase.
+Parallel phases are only as fast as allocation allows. During a compile the driver turns the collector off
+(`debug.SetGCPercent(-1)`) under a memory limit of 100 bytes per source byte, at least 256 MB, so a compile that
+outgrows it still collects. With the collector off no memory is reused, so every byte allocated is a fresh page the
+operating system commits and zeroes: on Windows that costs about 0.2 s per GB, a large share of a compile. What
+allocates is therefore what costs, and the phases avoid it:
+
+- the lexer reuses token buffers and takes token text from the source string, and an interpolation's parser
+  borrows a spare token buffer;
+- codegen sizes each unit's code buffer from its instruction count, and reuses its block labels between
+  functions, because Go grows a large slice by about a quarter at a time, allocating several times its final size;
+- the PE writer sizes the image before writing it, and the linker reads each unit's data in place;
+- the ownership pass skips a function with no movable variable and shares its state until a move changes it.
+
+Watch the MB column of `--timings` when changing a phase.
 
 ## The IR
 
