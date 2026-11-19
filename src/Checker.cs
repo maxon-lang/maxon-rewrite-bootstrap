@@ -161,6 +161,7 @@ public sealed class Checker(Project project, Module module, List<CompileError> e
       f.ParamTypes.Add(Resolve(prm.Type, nt));
     }
     f.ReturnType = f.Returns is null ? PrimTy.Void : Resolve(f.Returns, nt);
+    f.Specs = [.. f.Params.Select((prm, i) => new ParamSpec(prm.Name, f.ParamTypes[i], prm.Mutable))];
     declared.Add(f);
   }
 
@@ -620,7 +621,11 @@ public sealed class Checker(Project project, Module module, List<CompileError> e
         Coerce(value, ps[i].Type, $"argument '{ps[i].Name}' of '{callee}'");
       }
     }
-    return [.. ordered.Select(o => o!)];
+    var result = new List<Expr>(ordered.Length);
+    foreach (var o in ordered) {
+      result.Add(o!);
+    }
+    return result;
   }
 
   void CheckMutableArg(Expr value, ParamSpec ps) {
@@ -638,9 +643,6 @@ public sealed class Checker(Project project, Module module, List<CompileError> e
     }
   }
 
-  static List<ParamSpec> SpecsOf(FuncDecl f) =>
-    [.. f.Params.Select((prm, i) => new ParamSpec(prm.Name, f.ParamTypes[i], prm.Mutable))];
-
   Ty CallFunction(CallExpr c, CallKind kind, FuncDecl target, Expr? receiver) {
     if (target.Module != module && !target.IsExported) {
       throw c.Error("E3008", $"'{target.Symbol}' is not exported from module {target.Module.Display}");
@@ -649,12 +651,12 @@ public sealed class Checker(Project project, Module module, List<CompileError> e
     c.Target = target;
     c.Receiver = receiver;
     if (target.Module == module) {
-      c.Ordered = BindArgs(c, target.Symbol, SpecsOf(target));
+      c.Ordered = BindArgs(c, target.Symbol, target.Specs);
     } else {
       foreach (var a in c.Args) {
         CheckExpr(a.Value);
       }
-      Pending.Add(new PendingCall(c, target.Symbol, SpecsOf(target)));
+      Pending.Add(new PendingCall(c, target.Symbol, target.Specs));
     }
     return target.ReturnType;
   }

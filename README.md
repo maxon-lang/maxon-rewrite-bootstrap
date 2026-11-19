@@ -4,9 +4,9 @@ A small Maxon compiler for trying out language changes. It is written in C#, tar
 is about 5,000 lines. It compiles modules in parallel and writes a PE executable directly, with no external
 assembler, linker or C runtime.
 
-It is not the real compiler and does not share code with `maxon-bin/`. It accepts a core subset of Maxon,
-using the same syntax and, where it implements a rule, the same error code as the real compiler. That
-way an experiment's diagnostics read the same as the real thing's.
+It is not the real compiler and does not share code with `maxon-bin/`. It started from a core subset of
+Maxon's syntax and error codes, but it does not track the real compiler: an experiment is free to change the
+language, its rules and its diagnostics.
 
 ## Use
 
@@ -27,9 +27,9 @@ dotnet bin/Release/net10.0/minimaxon.dll run tests/run/enums-unions.maxon
 | `minimaxon check <file\|dir>` | diagnostics only |
 | `minimaxon test [dir]` | run the corpus (default `tests/`) |
 
-`--jobs=N` sets how many modules compile at once. The default is one fewer than the processor count. The
-executable is byte-identical whatever the value. `--timings` prints each phase's wall time, allocation and
-garbage collections to stderr.
+`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many modules compile at once. The default is one fewer than the processor count. The
+executable is byte-identical whatever the value. `--timings` prints each phase's wall time, allocation,
+garbage collections and GC pause time to stderr.
 
 ### Tests
 
@@ -40,7 +40,7 @@ and its root files carry the directives. Directives in comments say what the pro
 |---|---|
 | `//> text` | one expected line of stdout, in order (none means stdout must be empty) |
 | `// expect-exit: N` | expected exit code (default 0; a panic exits 1) |
-| `// expect-error: E3102` | compiling must fail with this code |
+| `// expect-error: E3102` | compiling must fail with this code; `E3102 at 7:5` also pins the line and column |
 
 ### Errors
 
@@ -68,34 +68,76 @@ under it that holds source, at any depth, is a module of its own. Names follow M
 
 [`src/Driver.cs`](src/Driver.cs) runs the phases below in order. Every phase is parallel, and each completes
 before the next starts, so a work item only reads another's results from an earlier phase and needs no
-locks. Within a module the work is serial; the module is the unit of parallelism, except for parsing (one
-file per item), constants (one per item) and the link (one code unit per item). Results are merged in
+locks. Within a module the work is serial; the module is the unit of parallelism, except for constants
+(one per item) and the link (one code unit per item). Results are merged in
 source order, which keeps the output deterministic.
 
 | Phase | File | Work per module |
 |---|---|---|
 | discover | `src/Modules.cs` | walks the directory tree, one subdirectory per item |
-| parse | `src/Lexer.cs`, `src/Parser.cs` | tokens and AST (`src/Ast.cs`), one file per item; anything outside the subset is `E9000` |
+| parse | `src/ModuleSource.cs`, `src/Lexer.cs`, `src/Parser.cs` | reads the module's files into one buffer, strips comments, lexes the whole buffer in one pass and parses the token stream into the AST (`src/Ast.cs`); anything outside the subset is `E9000` |
 | tables | `src/Modules.cs` | the module's declaration table and an empty type object for each of its types; then the project-wide name index |
 | resolve | `src/Resolver.cs` | binds every name to its declaration and records module dependencies |
 | declare | `src/Checker.cs` | the module's fields, cases and function signatures |
 | constants | `src/Driver.cs` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
 | bodies | `src/Checker.cs` | types every function body; a call into another module takes the callee's declared return type and is recorded, not checked |
 | verify | `src/Checker.cs`, `src/Ownership.cs` | checks the recorded cross-module calls, then moves (`E3102`) |
-| codegen | `src/Codegen.cs` | one code unit per module; calls between units are symbolic |
+| lower | `src/Lower.cs`, `src/Ir.cs` | the checked AST of each function becomes IR (below), and unreachable blocks are pruned |
+| codegen | `src/Codegen.cs`, `src/Runtime.cs` | IR → x64, one code unit per module, calls between units symbolic; the runtime is its own hand-written unit |
 | link | `src/Linker.cs`, `src/PeWriter.cs` | offsets by prefix sum, then each unit copied and patched in parallel; the units go in module-path order after a runtime unit |
 
 `src/X64.cs` is the instruction encoder, and `src/Program.cs` is the CLI and test runner. A phase that
 reports an error stops the compile, so later phases never see a broken module. The one serial step is the
 import-cycle check between resolve and declare, a walk over the module graph.
 
-Parallel phases are only as fast as allocation allows. The compiler uses server GC (`MiniMaxon.csproj`), and
-the lexer reuses one token buffer per thread and interns each file's repeated identifiers. Watch the MB column
-of `--timings` when changing a phase.
+### Reading a module
 
-Codegen is deliberately naive. Every expression leaves its value in `rax`, operands go through the stack,
-and every local has a frame slot. Calls use an internal convention: arguments are pushed left to right and
-the caller pops them. The Win64 ABI applies only inside the runtime routines that call kernel32.
+A module's files are read into one `char[]`, allocated once at the sum of their sizes, which bounds the decoded
+text. Each file is decoded straight into it and stripped of comments in place:
+
+- a `///` doc comment that starts its line is kept, for the LSP to use later; the lexer skips it;
+- a `//` comment is dropped;
+- a block comment keeps its newlines, and spaces on its last line when code follows, so every line and column
+  after it is unchanged;
+- an unterminated block comment is left as written, so the lexer reports it.
+
+One lexer pass covers the whole buffer. At each file boundary it resets the line, column and bracket depth, so no
+token spans two files, and emits a `FileEnd` token. One parser reads the module's stream, naming each file in
+its diagnostics. A declaration left open at the end of a file fails there with `E2007`, and parsing resumes at
+the next file, so each file reports its own first syntax error.
+
+### Allocation
+
+Parallel phases are only as fast as allocation allows. The compiler uses server GC with dynamic adaptation off
+(`MiniMaxon.csproj`): the adaptive mode starts with one heap, which serializes a short, allocation-heavy run.
+The lexer reuses one token buffer per thread and interns a module's repeated identifiers. The ownership pass skips
+a function with no movable variable, and its state is shared until a move changes it. Watch the MB and pause
+columns of `--timings` when changing a phase.
+
+A compile then suspends collection altogether. After discovery the driver opens a no-GC region of 100 bytes per
+source byte (at least 256 MB, at most half the available memory), which covers what a compile allocates, and closes
+it at the end. The runtime does not commit the budget up front, so peak memory is unchanged; a compile that
+outgrows it simply resumes collecting.
+
+## The IR
+
+The checker works on the AST, which mirrors what the author wrote. Everything after it works on the IR in
+`src/Ir.cs`, which is what a later pass such as reference counting, region lowering or an optimization changes.
+
+- A function is a list of basic blocks, each a list of instructions ending in one terminator (`jump`, `branch`,
+  `switch`, `ret`, `trap`).
+- Instructions read and write virtual registers (`%3`). Locals and temporaries live in numbered slots (`s0`).
+  It is not SSA.
+- Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
+- Checks are explicit: a range check is a `guard` with its bound, an allocation is `alloc`, and only overflow,
+  a zero divisor and a negative shift are left to codegen.
+- The instructions are closed record hierarchies over plain lists, which port directly to Maxon unions.
+
+Codegen is deliberately naive: every register and slot has its own frame slot, so each instruction loads its
+operands and stores its result. That makes executables about twice the size of keeping values in registers;
+register allocation is the next step there. A frame larger than a page touches each page as it grows, as Windows
+requires. Calls use an internal convention: arguments are pushed left to right and the caller pops them. The
+Win64 ABI applies only inside the runtime routines that call kernel32.
 
 Records and union values are heap boxes of 8-byte words (a union's first word is its case index), allocated
 with `HeapAlloc` and **never freed**. A string is a pointer to `[length][UTF-8 bytes]`. An enum value is its
@@ -150,7 +192,8 @@ A typical change touches one file per stage:
    a module's own declarations.
 3. **Ownership:** a case in `Ownership.Stmt` or `Ownership.Expr`. The pass, like codegen, raises an internal
    compiler error on a node it does not know, so it cannot be skipped by accident.
-4. **Codegen:** a case in `Codegen.EmitExpr` or `Codegen.EmitStmt`.
+4. **Lowering:** a case in `Lowerer.Expr` or `Lowerer.Stmt`, built from the existing instructions where it can.
+   A new instruction needs a case in `Codegen.Instr` and `IrPrinter` as well.
 5. **Tests:** a `tests/run/` program for the behaviour, and a `tests/errors/` program for each diagnostic.
 
 A rule that is only a diagnostic, such as a new ownership or region check, usually needs steps 2 or 3 and

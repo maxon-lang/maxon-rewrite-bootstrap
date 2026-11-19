@@ -15,6 +15,7 @@ public static class Err {
   public const string UnexpectedToken = "E2001";
   public const string ExpectedType = "E2003";
   public const string ExpressionError = "E2004";
+  public const string UnexpectedEnd = "E2007";
   public const string MismatchedEndLabel = "E2008";
   public const string IntegerLiteralRange = "E2011";
   public const string ExpectedToken = "E2010";

@@ -11,14 +11,16 @@ public static class Cli {
       minimaxon test [dir]                            run the test corpus (default: tests/)
 
     A directory is a project: each directory under it is a module. --jobs=N sets how many modules
-    compile at once (default: one fewer than the processor count). --timings prints each phase's time.
+    compile at once (default: one fewer than the processor count). --timings prints each phase's time; --emit-ir writes the IR beside the executable, as <out>.ir.
     """;
 
   static int jobs = Driver.DefaultJobs;
 
   static bool timings;
 
-  static List<CompileError> Compile(string path, string? output) => Driver.Compile(path, output, jobs, timings);
+  static bool emitIr;
+
+  static List<CompileError> Compile(string path, string? output) => Driver.Compile(path, output, jobs, timings, emitIr);
 
   const int InternalErrorExitCode = 3;
 
@@ -40,7 +42,8 @@ public static class Cli {
     }
 
     timings = args.Contains("--timings");
-    args = [.. args.Where(a => a != "--timings")];
+    emitIr = args.Contains("--emit-ir");
+    args = [.. args.Where(a => a is not ("--timings" or "--emit-ir"))];
 
     try {
       return Run(args);
@@ -146,7 +149,10 @@ public static class Cli {
       return DescribeInternal(e);
     }
     if (expect.Error is not null) {
-      if (errors.Any(e => e.Code == expect.Error)) {
+      var parts = expect.Error.Split(" at ", 2);
+      var code = parts[0];
+      var at = parts.Length == 2 ? parts[1] : null;
+      if (errors.Any(e => e.Code == code && (at is null || at == $"{e.Line}:{e.Col}"))) {
         return null;
       }
       return errors.Count == 0

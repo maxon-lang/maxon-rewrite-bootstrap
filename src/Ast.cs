@@ -43,6 +43,7 @@ public sealed class FuncDecl : Decl {
   public NominalTy? Owner;
 
   public List<Ty> ParamTypes = [];
+  public List<ParamSpec> Specs = [];
   public Ty ReturnType = PrimTy.Void;
   public Local? SelfLocal;
   public List<Local> Locals = [];

@@ -3,7 +3,7 @@ using System.Text;
 namespace MiniMaxon;
 
 public enum T {
-  Ident, Int, Str, Quote, Newline, Eof,
+  Ident, Int, Str, Quote, Newline, FileEnd, Eof,
   LParen, RParen, LBrace, RBrace, LBracket, RBracket,
   Comma, Colon, Dot, Plus, Minus, Star, Slash, Assign, EqEq, NotEq, Lt, Le, Gt, Ge, At,
 }
@@ -19,15 +19,34 @@ public readonly record struct Token(T Kind, string Text, int Line, int Col, obje
   public bool Is(string word) => Kind == T.Ident && Text == word;
 }
 
-public sealed class Lexer(string file, string src, int startLine = 1, int startCol = 1, List<Token>? buffer = null) {
+public sealed class Lexer {
   static readonly Int128 U64Max = ulong.MaxValue;
 
+  readonly IReadOnlyList<FileSlice> slices;
+  string file;
+  readonly char[] src;
+  int end;
   int pos;
-  int line = startLine;
-  int col = startCol;
+  int line;
+  int col;
   int depth;
-  readonly List<Token> toks = Fresh(buffer);
-  readonly Dictionary<string, string> pool = [];
+  readonly List<Token> toks;
+  readonly Dictionary<string, string> pool;
+
+  public Lexer(char[] src, IReadOnlyList<FileSlice> slices, List<Token>? buffer = null, Dictionary<string, string>? pool = null,
+    int startLine = 1, int startCol = 1) {
+    this.src = src;
+    this.slices = slices;
+    file = slices.Count > 0 ? slices[0].File : "";
+    line = startLine;
+    col = startCol;
+    toks = Fresh(buffer);
+    this.pool = pool ?? [];
+  }
+
+  public Lexer(string file, string text, int startLine = 1, int startCol = 1)
+    : this(text.ToCharArray(), [new FileSlice(file, 0, text.Length)], startLine: startLine, startCol: startCol) {
+  }
 
   static List<Token> Fresh(List<Token>? buffer) {
     if (buffer is null) {
@@ -48,9 +67,30 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
   }
 
   public List<Token> Lex() {
+    for (var i = 0; i < slices.Count; i++) {
+      var slice = slices[i];
+      file = slice.File;
+      pos = slice.Begin;
+      end = slice.End;
+      depth = 0;
+      if (i > 0) {
+        line = 1;
+        col = 1;
+      }
+      LexSlice();
+      if (toks.Count > 0 && toks[^1].Kind is not (T.Newline or T.FileEnd)) {
+        toks.Add(new Token(T.Newline, "\\n", line, col));
+      }
+      toks.Add(new Token(T.FileEnd, "<end of file>", line, col));
+    }
+    toks.Add(new Token(T.Eof, "<eof>", line, col));
+    return toks;
+  }
+
+  void LexSlice() {
     while (true) {
       SkipSpaceAndComments();
-      if (pos >= src.Length) {
+      if (pos >= end) {
         break;
       }
 
@@ -68,7 +108,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
 
       if (char.IsAsciiLetter(c) || c == '_') {
         var start = pos;
-        while (pos < src.Length && (char.IsAsciiLetterOrDigit(src[pos]) || src[pos] == '_')) {
+        while (pos < end && (char.IsAsciiLetterOrDigit(src[pos]) || src[pos] == '_')) {
           Advance();
         }
         toks.Add(new Token(T.Ident, Intern(src.AsSpan(start, pos - start)), l, cl));
@@ -92,12 +132,6 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
 
       LexPunct(c, l, cl);
     }
-
-    if (toks.Count > 0 && toks[^1].Kind != T.Newline) {
-      toks.Add(new Token(T.Newline, "\\n", line, col));
-    }
-    toks.Add(new Token(T.Eof, "<eof>", line, col));
-    return toks;
   }
 
   CompileError Error(string code, string msg, int l, int c) => new(code, msg, file, l, c);
@@ -112,15 +146,15 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
     pos++;
   }
 
-  char Peek(int ahead = 0) => pos + ahead < src.Length ? src[pos + ahead] : '\0';
+  char Peek(int ahead = 0) => pos + ahead < end ? src[pos + ahead] : '\0';
 
   void SkipSpaceAndComments() {
-    while (pos < src.Length) {
+    while (pos < end) {
       var c = src[pos];
       if (c == ' ' || c == '\t' || c == '\r') {
         Advance();
       } else if (c == '/' && Peek(1) == '/') {
-        while (pos < src.Length && src[pos] != '\n') {
+        while (pos < end && src[pos] != '\n') {
           Advance();
         }
       } else if (c == '/' && Peek(1) == '*') {
@@ -128,10 +162,10 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
         var cl = col;
         Advance();
         Advance();
-        while (pos < src.Length && !(src[pos] == '*' && Peek(1) == '/')) {
+        while (pos < end && !(src[pos] == '*' && Peek(1) == '/')) {
           Advance();
         }
-        if (pos >= src.Length) {
+        if (pos >= end) {
           throw Error(Err.UnexpectedToken, "unterminated block comment", l, cl);
         }
         Advance();
@@ -153,7 +187,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
     var start = pos;
     Int128 value = 0;
     var digits = 0;
-    while (pos < src.Length && (char.IsAsciiHexDigit(src[pos]) || src[pos] == '_')) {
+    while (pos < end && (char.IsAsciiHexDigit(src[pos]) || src[pos] == '_')) {
       var ch = src[pos];
       if (ch == '_') {
         Advance();
@@ -174,7 +208,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
     if (digits == 0) {
       throw Error(Err.ExpressionError, "malformed integer literal", l, cl);
     }
-    if (pos < src.Length && src[pos] == '.' && char.IsAsciiDigit(Peek(1))) {
+    if (pos < end && src[pos] == '.' && char.IsAsciiDigit(Peek(1))) {
       throw Error(Err.Unsupported, "float literals are not supported by minimaxon", l, cl);
     }
 
@@ -220,7 +254,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
     var text = new StringBuilder();
 
     while (true) {
-      if (pos >= src.Length || src[pos] == '\n') {
+      if (pos >= end || src[pos] == '\n') {
         throw Error(Err.UnexpectedToken, "unterminated string literal", l, cl);
       }
       var c = src[pos];
@@ -246,7 +280,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
         var start = pos;
         var nest = 0;
         var parens = 0;
-        while (pos < src.Length && src[pos] != '\n' && !(src[pos] == '}' && nest == 0)) {
+        while (pos < end && src[pos] != '\n' && !(src[pos] == '}' && nest == 0)) {
           if (src[pos] == '{') {
             nest++;
           } else if (src[pos] == '}') {
@@ -259,7 +293,7 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
             throw Error(Err.Unsupported, "format specifiers are not supported by minimaxon", line, col);
           } else if (src[pos] == '"') {
             Advance();
-            while (pos < src.Length && src[pos] != '"' && src[pos] != '\n') {
+            while (pos < end && src[pos] != '"' && src[pos] != '\n') {
               if (src[pos] == '\\') {
                 Advance();
               }
@@ -268,10 +302,10 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
           }
           Advance();
         }
-        if (pos >= src.Length || src[pos] != '}') {
+        if (pos >= end || src[pos] != '}') {
           throw Error(Err.UnexpectedToken, "unterminated interpolation in string literal", el, ec);
         }
-        parts.Add(new ExprPart(src[start..pos], el, ec));
+        parts.Add(new ExprPart(new string(src, start, pos - start), el, ec));
         Advance();
         continue;
       }
@@ -288,10 +322,10 @@ public sealed class Lexer(string file, string src, int startLine = 1, int startC
   void LexQuote(int l, int cl) {
     Advance();
     var start = pos;
-    while (pos < src.Length && src[pos] != '\'' && src[pos] != '\n') {
+    while (pos < end && src[pos] != '\'' && src[pos] != '\n') {
       Advance();
     }
-    if (pos >= src.Length || src[pos] != '\'') {
+    if (pos >= end || src[pos] != '\'') {
       throw Error(Err.UnexpectedToken, "unterminated label", l, cl);
     }
     var text = Intern(src.AsSpan(start, pos - start));

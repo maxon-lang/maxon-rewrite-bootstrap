@@ -1,6 +1,6 @@
 namespace MiniMaxon;
 
-public sealed class Parser(List<Token> toks, string file) {
+public sealed class Parser(List<Token> toks, IReadOnlyList<string> files) {
   static readonly HashSet<string> Reserved = [
     "and", "as", "async", "await", "bool", "break", "continue", "countof", "cstring", "default", "else", "end",
     "enum", "export", "extends", "extension", "fallthrough", "false", "float", "for", "from", "function", "gives",
@@ -20,7 +20,11 @@ public sealed class Parser(List<Token> toks, string file) {
 
   int p;
 
-  public static Program ParseFile(string file, string source) => new Parser(new Lexer(file, source).Lex(), file).ParseProgram();
+  int fileIndex;
+
+  public List<CompileError> Errors { get; } = [];
+
+  string file => files[Math.Min(fileIndex, files.Count - 1)];
 
   public static bool IsReserved(string word) => Reserved.Contains(word);
 
@@ -58,21 +62,24 @@ public sealed class Parser(List<Token> toks, string file) {
 
   CompileError ErrorAt(Token t, string code, string msg) => new(code, msg, file, t.Line, t.Col);
 
-  CompileError Unexpected(string expected) =>
-    ErrorAt(Cur, Err.UnexpectedToken, $"expected {expected}, found '{Cur.Text}'");
+  bool AtEndOfInput => Cur.Kind is T.FileEnd or T.Eof;
+
+  CompileError Unexpected(string expected) => AtEndOfInput
+    ? ErrorAt(Cur, Err.UnexpectedEnd, $"unexpected end of file, expected {expected}")
+    : ErrorAt(Cur, Err.UnexpectedToken, $"expected {expected}, found '{Cur.Text}'");
 
   CompileError Unsupported(string what) => ErrorAt(Cur, Err.Unsupported, $"{what} is not supported by minimaxon");
 
   Token Expect(T k, string what) {
     if (!At(k)) {
-      throw ErrorAt(Cur, Err.ExpectedToken, $"expected {what}, found '{Cur.Text}'");
+      throw AtEndOfInput ? Unexpected(what) : ErrorAt(Cur, Err.ExpectedToken, $"expected {what}, found '{Cur.Text}'");
     }
     return Next();
   }
 
   Token ExpectWord(string w) {
     if (!AtWord(w)) {
-      throw ErrorAt(Cur, Err.ExpectedToken, $"expected '{w}', found '{Cur.Text}'");
+      throw AtEndOfInput ? Unexpected($"'{w}'") : ErrorAt(Cur, Err.ExpectedToken, $"expected '{w}', found '{Cur.Text}'");
     }
     return Next();
   }
@@ -98,7 +105,7 @@ public sealed class Parser(List<Token> toks, string file) {
   }
 
   void ExpectNewline() {
-    if (At(T.Eof)) {
+    if (At(T.Eof) || At(T.FileEnd)) {
       return;
     }
     Expect(T.Newline, "end of line");
@@ -108,9 +115,21 @@ public sealed class Parser(List<Token> toks, string file) {
     var prog = new Program();
     SkipNewlines();
     while (!At(T.Eof)) {
-      prog.Decls.Add(ParseTopDecl());
-      ExpectNewline();
-      SkipNewlines();
+      if (Accept(T.FileEnd)) {
+        fileIndex++;
+        SkipNewlines();
+        continue;
+      }
+      try {
+        prog.Decls.Add(ParseTopDecl());
+        ExpectNewline();
+        SkipNewlines();
+      } catch (CompileError e) {
+        Errors.Add(e);
+        while (!At(T.FileEnd) && !At(T.Eof)) {
+          Next();
+        }
+      }
     }
     return prog;
   }
@@ -245,7 +264,7 @@ public sealed class Parser(List<Token> toks, string file) {
     var list = new List<Stmt>();
     SkipNewlines();
     while (!AtWord("end")) {
-      if (At(T.Eof)) {
+      if (At(T.Eof) || At(T.FileEnd)) {
         throw Unexpected("'end'");
       }
       list.Add(ParseStatement());
@@ -664,7 +683,7 @@ public sealed class Parser(List<Token> toks, string file) {
 
   Expr ParseStandaloneExpr() {
     var e = ParseExpr();
-    if (!At(T.Newline) && !At(T.Eof)) {
+    if (!At(T.Newline) && !At(T.Eof) && !At(T.FileEnd)) {
       throw Unexpected("the end of the interpolation");
     }
     return e;
@@ -826,7 +845,7 @@ public sealed class Parser(List<Token> toks, string file) {
           lit.Parts.Add(tp.Text);
         } else if (part is ExprPart ep) {
           var sub = new Lexer(file, ep.Source, ep.Line, ep.Col).Lex();
-          lit.Parts.Add(new Parser(sub, file).ParseStandaloneExpr());
+          lit.Parts.Add(new Parser(sub, [file]).ParseStandaloneExpr());
         }
       }
       return lit;

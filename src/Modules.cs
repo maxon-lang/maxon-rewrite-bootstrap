@@ -14,6 +14,7 @@ public sealed class Module(string path, string dir, bool isStdlib = false) {
   public List<CompileError> Errors { get; } = [];
   public List<FuncDecl> Functions { get; } = [];
   public List<PendingCall> Pending { get; } = [];
+  public List<IrFunction> Ir { get; set; } = [];
   public CodeUnit? Unit { get; set; }
 
   public string Display => IsStdlib ? "stdlib" : Path == "" ? "the project root" : Path;

@@ -8,16 +8,29 @@ public static class Driver {
   [ThreadStatic]
   static List<Token>? tokenBuffer;
 
-  public static List<CompileError> Compile(string path, string? output, int jobs, bool timings = false) {
+  public static List<CompileError> Compile(string path, string? output, int jobs, bool timings = false, bool emitIr = false) {
+    try {
+      return CompileProject(path, output, jobs, timings, emitIr);
+    } finally {
+      if (System.Runtime.GCSettings.LatencyMode == System.Runtime.GCLatencyMode.NoGCRegion) {
+        GC.EndNoGCRegion();
+      }
+    }
+  }
+
+  static List<CompileError> CompileProject(string path, string? output, int jobs, bool timings, bool emitIr) {
     var errors = new List<CompileError>();
     var clock = System.Diagnostics.Stopwatch.StartNew();
     var allocated = GC.GetTotalAllocatedBytes(precise: true);
     var collections = GC.CollectionCount(0);
+    var paused = GC.GetTotalPauseDuration();
     void Mark(string phase) {
       if (timings) {
         var nowAllocated = GC.GetTotalAllocatedBytes(precise: true);
         var nowCollections = GC.CollectionCount(0);
-        Console.Error.WriteLine($"{phase,-10} {clock.Elapsed.TotalMilliseconds,8:F1} ms {(nowAllocated - allocated) / 1048576.0,8:F1} MB {nowCollections - collections,4} GCs");
+        var nowPaused = GC.GetTotalPauseDuration();
+        Console.Error.WriteLine($"{phase,-10} {clock.Elapsed.TotalMilliseconds,8:F1} ms {(nowAllocated - allocated) / 1048576.0,8:F1} MB {nowCollections - collections,4} GCs {(nowPaused - paused).TotalMilliseconds,7:F1} ms paused");
+        paused = nowPaused;
         allocated = nowAllocated;
         collections = nowCollections;
       }
@@ -25,6 +38,10 @@ public static class Driver {
     }
     var options = new ParallelOptions { MaxDegreeOfParallelism = jobs };
     var project = Project.Discover(path, errors);
+    var budget = SuspendCollection(project, options);
+    if (timings) {
+      Console.Error.WriteLine(budget > 0 ? $"no-GC budget {budget >> 20} MB" : "no-GC region refused; collecting normally");
+    }
     Mark("discover");
     if (errors.Count > 0) {
       return Sorted(errors);
@@ -38,24 +55,23 @@ public static class Driver {
       return all.Count == 0 ? null : Sorted(all);
     }
 
-    var parsed = new ConcurrentDictionary<string, Program>();
     long readBytes = 0, lexBytes = 0, parseBytes = 0;
-    ForEach([.. modules.SelectMany(m => m.Files.Select(file => (m, file)))], options, item => {
+    Phase(m => {
       try {
         var a0 = GC.GetAllocatedBytesForCurrentThread();
-        var text = File.ReadAllText(item.file);
+        var (buffer, slices) = ModuleSource.Load(m.Files);
         var a1 = GC.GetAllocatedBytesForCurrentThread();
-        var tokens = new Lexer(item.file, text, buffer: tokenBuffer ??= []).Lex();
+        var tokens = new Lexer(buffer, slices, tokenBuffer ??= [], []).Lex();
         var a2 = GC.GetAllocatedBytesForCurrentThread();
-        parsed[item.file] = new Parser(tokens, item.file).ParseProgram();
+        var parser = new Parser(tokens, [.. slices.Select(s => s.File)]);
+        m.Decls.AddRange(parser.ParseProgram().Decls);
+        m.Errors.AddRange(parser.Errors);
         var a3 = GC.GetAllocatedBytesForCurrentThread();
         Interlocked.Add(ref readBytes, a1 - a0);
         Interlocked.Add(ref lexBytes, a2 - a1);
         Interlocked.Add(ref parseBytes, a3 - a2);
       } catch (CompileError e) {
-        lock (item.m.Errors) {
-          item.m.Errors.Add(e);
-        }
+        m.Errors.Add(e);
       }
     });
     if (timings) {
@@ -65,11 +81,6 @@ public static class Driver {
     if (Failed() is { } parseErrors) {
       return parseErrors;
     }
-    Phase(m => {
-      foreach (var file in m.Files) {
-        m.Decls.AddRange(parsed[file].Decls);
-      }
-    });
 
     project.BuildTables(options);
     Mark("tables");
@@ -138,10 +149,19 @@ public static class Driver {
     }
 
     if (output is not null) {
+      Phase(m => m.Ir = [.. m.Functions.Select(Lowerer.Lower)]);
+      Mark("lower");
+      if (emitIr) {
+        var text = new System.Text.StringBuilder();
+        foreach (var fn in modules.SelectMany(m => m.Ir)) {
+          IrPrinter.Print(fn, text);
+        }
+        File.WriteAllText(output + ".ir", text.ToString());
+      }
       CodeUnit runtime = null!;
       Parallel.Invoke(options,
-        () => runtime = Codegen.EmitRuntimeUnit(main!),
-        () => Phase(m => m.Unit = Codegen.EmitModule(m.Functions)));
+        () => runtime = RuntimeUnit.Emit(main!),
+        () => Phase(m => m.Unit = Codegen.EmitModule(m.Ir)));
       Mark("codegen");
       Linker.Link(output, [runtime, .. modules.Select(m => m.Unit!)], Rt.Entry, options);
       Mark("link");
@@ -204,6 +224,24 @@ public static class Driver {
     StrLit s => s.Parts.OfType<Expr>().SelectMany(ConstRefs),
     _ => [],
   };
+
+  const long BytesAllocatedPerSourceByte = 100;
+  const long MinNoGcBudget = 256L << 20;
+
+  static long SuspendCollection(Project project, ParallelOptions options) {
+    var source = project.Modules.SelectMany(m => m.Files).AsParallel().WithDegreeOfParallelism(options.MaxDegreeOfParallelism)
+      .Sum(f => new FileInfo(f).Length);
+    var ceiling = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 2;
+    var budget = Math.Min(Math.Max(source * BytesAllocatedPerSourceByte, MinNoGcBudget), ceiling);
+    if (System.Runtime.GCSettings.LatencyMode == System.Runtime.GCLatencyMode.NoGCRegion) {
+      return 0;
+    }
+    try {
+      return GC.TryStartNoGCRegion(budget) ? budget : 0;
+    } catch (ArgumentOutOfRangeException) {
+      return 0;
+    }
+  }
 
   public static void ForEach<T>(IReadOnlyList<T> items, ParallelOptions options, Action<T> work) =>
     Parallel.For(0, items.Count, options, i => work(items[i]));

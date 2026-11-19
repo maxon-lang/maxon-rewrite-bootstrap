@@ -1,0 +1,25 @@
+/* A block comment
+   over three lines. */
+typealias Score = int(i64.min to i64.max)
+
+/// A doc comment stays in the module buffer.
+/// So does this second line.
+function twice(n Score) returns Score
+	return n * 2 // a trailing comment
+end 'twice'
+
+function main() returns ExitCode
+	print("a // inside a string\n")
+	print("b /* inside a string */\n")
+	print("{"// in an interpolated string"} c\n")
+	let x = /* inline */ twice(21)
+	print("{x}\n") /* trailing block */
+	print("done\n")
+	return 0
+end 'main'
+
+//> a // inside a string
+//> b /* inside a string */
+//> // in an interpolated string c
+//> 42
+//> done

@@ -1,0 +1,14 @@
+/* Line 1
+   line 2
+   line 3 */
+typealias Apples = int(0 to 100)
+typealias Pears = int(0 to 100)
+
+function main() returns ExitCode
+	let a = 3 as Apples // a trailing comment
+	let p = /* wide inline comment */ 4 as Pears
+	print("{a + p}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005 at 10:12
