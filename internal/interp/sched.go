@@ -250,11 +250,12 @@ func (vm *vm) abort() {
 }
 
 // schedule is a `when`: the behaviour joins the queue of each cown it names and holds a count on each until it has run.
-func (vm *vm) schedule(fr *frame, w *ir.WhenInstr) {
+func (vm *vm) schedule(fr *frame, w *ir.Instr) {
 	vm.tracking = true
 	vm.concurrent = true
-	cowns := make([]*object, len(w.Cowns))
-	for i, r := range w.Cowns {
+	body, cownRegs, captureRegs := fr.fn.WhenParts(*w)
+	cowns := make([]*object, len(cownRegs))
+	for i, r := range cownRegs {
 		o := vm.live(fr.regs[r], "a behaviour's cown")
 		if o.kind != kindCown {
 			panic(diag.Internal("interp: a behaviour names %s, which is not a cown", o))
@@ -266,8 +267,8 @@ func (vm *vm) schedule(fr *frame, w *ir.WhenInstr) {
 		}
 		cowns[i] = o
 	}
-	captures := make([]value, len(w.Captures))
-	for i, r := range w.Captures {
+	captures := make([]value, len(captureRegs))
+	for i, r := range captureRegs {
 		v := fr.regs[r]
 		if fr.fn.Regs[r] == ir.KindManaged {
 			o := vm.live(v, "a captured value")
@@ -277,7 +278,7 @@ func (vm *vm) schedule(fr *frame, w *ir.WhenInstr) {
 		}
 		captures[i] = v
 	}
-	b := &behaviour{body: w.Body, captures: captures, cowns: cowns, seq: vm.scheduled}
+	b := &behaviour{body: body, captures: captures, cowns: cowns, seq: vm.scheduled}
 	vm.scheduled++
 	for _, o := range cowns {
 		o.count++

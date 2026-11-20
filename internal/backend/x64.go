@@ -5,6 +5,7 @@ import (
 	"math"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
+	"minimaxon/internal/ir"
 )
 
 type R int
@@ -134,6 +135,8 @@ func SymbolText(symbol any) string {
 	switch s := symbol.(type) {
 	case string:
 		return s
+	case ir.Rt:
+		return s.String()
 	case *ast.FuncDecl:
 		return s.Symbol()
 	case typeRoutine:

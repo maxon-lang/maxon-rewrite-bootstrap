@@ -127,14 +127,14 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | Package | Holds | Imports |
 |---|---|---|
 | `diag` | `CompileError`, `Guard`, the error codes | — |
-| `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines | — |
+| `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
 | `ast` | the program model: AST nodes, keywords and visitors (generated), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases | `diag` |
 | `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
 | `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
 | `resolve` | name resolution, and binding each `where` constraint to its type parameter | `ast`, `diag` |
 | `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture | `ast`, `diag` |
-| `ir` | the IR, its printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), and the runtime's symbol names | `ast`, `diag` |
+| `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), and the runtime's symbol names | `ast`, `diag` |
 | `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer | `ast`, `diag`, `ir`, `par` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives in Go and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `diag`, `ir` |
 | `driver` | `Compile`: runs the phases; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
@@ -211,7 +211,7 @@ unit per item). Results are merged in source order, which keeps the output deter
 | declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
 | check | `check` | two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3117`), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3110` to `E3115`, `E3125`, `E2013`) A module's verify stage runs only if its bodies had no errors, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
-| generate | `ir`, `backend` | two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below), with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules |
+| generate | `ir`, `backend` | two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules |
 | routines | `backend` | serial to start, then parallel: the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), made in waves of units of 256 routines; the order of the routines comes from the modules in source order, so it does not depend on `--jobs` |
 | link | `backend` | each function and routine is a section, each string and reserved value a piece of data, and only those the entry reaches through symbol and data references are kept (the runtime units are one section each). Every function is still compiled; what nothing calls is dropped here, as Go's linker does. Every step runs on all jobs: each unit enters its definitions into one table (a hash table of ids whose slots are claimed with a compare and swap, so it needs no lock; the ids count over the units in order, each definition having one). An instance is defined by every module that needs it, so the symbol of an instance may be defined more than once, and the table keeps the lowest id, which is the definition of the first unit, whichever job entered its own first: a definition that finds a lower id gives way and one that finds a higher id takes the slot. The other copies are never looked up, so the mark never reaches them and they are dropped like any dead section, as a C++ linker does with COMDAT "any". Any other symbol defined twice is an internal error; the mark follows the calls a round at a time, resolving a fixup only where live code uses it, with each round's sections shared out in chunks and the next round gathered in chunk order; each unit places its live parts from its own aligned start, and a running sum over the units in order gives each unit its base; each unit copies and patches its code into the image, which is the file in memory, while the file is created in the background and written in chunks as the code in front becomes final. The units go in module-path order after a runtime unit, then the routines, and the array runtime comes last. The layout depends only on which sections are live, so it is the same for any `--jobs` |
 
@@ -270,15 +270,20 @@ allocates is therefore what costs, and the phases avoid it:
 
 - the lexer reuses token buffers of 8-byte tokens and takes token text from the source string, and an
   interpolation's parser borrows a spare token buffer;
-- codegen sizes each unit's code buffer from its instruction count, and reuses its block labels between
-  functions, because Go grows a large slice by about a quarter at a time, allocating several times its final size; the
-  routines are sized the same way, and a call of a routine names it by an interface value that is made once for each type
-  in a unit, not once for each call;
+- codegen sizes each unit's code buffer and its symbol and data fixups from the IR it is about to emit, and reuses its
+  block labels between functions, because Go grows a large slice by about a quarter at a time, allocating several times
+  its final size; the routines are sized the same way, a call names its target by the symbol itself (a function, or an
+  `ir.Rt`, which is a byte and so makes no interface value) and a call of a routine names it by an interface value that
+  is made once for each type in a unit, not once for each call;
 - the link fills in the image that is the file, so the code and the data are copied once and nothing is built twice, and it
   reads each unit's data in place; a symbol is defined by a slice append in codegen and found by a table made once,
   not by a map in each unit and another for the link;
 - the ownership pass shares its state until a move or an initialisation changes it, and reuses its loop and
-  match frames.
+  match frames;
+- lowering builds each function in a worker's buffers (`ir.Lowering`: a builder, an arena, and the lowerer's own stacks
+  of scopes and jump targets) that every function and every module of that worker reuses, because an instruction is a
+  record in a slice and not a heap object, so lowering a project allocates a few megabytes instead of about a gigabyte
+  for sixty megabytes of source (`par.ForEachIndexWith` gives each worker its scratch, made on its own goroutine).
 
 Watch the MB column of `--timings` when changing a phase.
 
@@ -287,15 +292,30 @@ Watch the MB column of `--timings` when changing a phase.
 The checker works on the AST, which mirrors what the author wrote. Everything after it works on the IR in
 `internal/ir`, which is what a later pass such as reference counting or an optimization changes.
 
-- A function is a list of basic blocks, each a list of instructions ending in one terminator (`jump`, `branch`,
-  `switch`, `ret`, `trap`).
+- A function is a list of basic blocks, each a run of instructions ending in one terminator (`jump`, `branch`,
+  `switch`, `ret`, `trap`). The instructions of every block are one slice (`IrFunction.Instrs`), block after block,
+  and a block is the range of it that it holds (`Blocks[b].First`, `.End`) with its terminator beside the range.
 - Instructions read and write virtual registers (`%3`). Locals and temporaries live in numbered slots (`s0`).
   It is not SSA.
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
 - Checks are explicit: a range check is a `guard` with its bound, an allocation is `alloc`, and only overflow,
   a zero divisor and a negative shift are left to codegen.
-- Instructions and terminators are closed sets of structs behind an interface, which port directly to Maxon
-  unions.
+- An instruction is one fixed-size record (`ir.Instr`, 32 bytes): an opcode, three registers, a small index and an
+  immediate, whose meaning the opcode says (`internal/ir/ir.go` has the table), and a terminator is a record of its
+  own (`ir.Term`). What does not fit a record (a type, a callee, a string, the arguments of a call, the cases of a
+  switch) is in the function's pools, which an instruction indexes; a block, a register, a slot and a case are indexes
+  too. The opcodes are a closed set, and a pass that handles them all ends in a panic for an opcode it does not know.
+  A record per instruction, instead of a struct behind an interface, is what lets a function's IR be built in buffers
+  that the next function builds over (below): an interface value is a heap object for each instruction, which is
+  allocation the compiler cannot reuse, and with the collector off every allocated byte is a page the operating
+  system commits. The record ports to Maxon as a struct with an enum, and `Rt`, the runtime's symbols, as an enum.
+- The IR of a function lives in an `ir.Arena`. A worker lowers each function with one `ir.Builder`, which collects
+  the instructions in the order they are emitted, whichever block they are for, and `Finish` lays them out block
+  after block (a block nothing reaches is dropped and the others are numbered from 0), copies the pools, and gives
+  the function as views of the arena. A worker resets its arena before each module, so the IR is valid until the next
+  module and a worker allocates nothing for lowering once its buffers have grown to its largest module. The IR that
+  has to outlive its module, the interpreter's, is lowered in an arena that is never reset; `--emit-ir` prints a
+  module's IR before the arena is reused.
 
 Codegen is deliberately naive: every register and slot has its own frame slot, so each instruction loads its
 operands and stores its result. That makes executables about twice the size of keeping values in registers;

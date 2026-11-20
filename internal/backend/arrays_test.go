@@ -10,7 +10,7 @@ import (
 // that the runtime unit has, so linking it with that unit leaves nothing undefined.
 func TestArrayRuntimeDefinesItsEntries(t *testing.T) {
 	u := EmitArrayRuntime()
-	for _, entry := range []string{ir.RtArrayNew, ir.RtArrayLen, ir.RtArrayElem, ir.RtArrayInsert, ir.RtArrayRemove, ir.RtPanicIndex} {
+	for _, entry := range []ir.Rt{ir.RtArrayNew, ir.RtArrayLen, ir.RtArrayElem, ir.RtArrayInsert, ir.RtArrayRemove, ir.RtPanicIndex} {
 		if !definesCode(u, entry) {
 			t.Errorf("the array runtime does not define %s", entry)
 		}

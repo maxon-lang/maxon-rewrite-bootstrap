@@ -7,19 +7,20 @@ import (
 	"minimaxon/internal/ast"
 )
 
-func TestRemoveUnreachableAndPrint(t *testing.T) {
+func TestFinishDropsUnreachableBlocksAndNumbersTheRest(t *testing.T) {
 	decl := &ast.FuncDecl{Name: "f"}
-	f := &IrFunction{Decl: decl}
-	entry := f.NewBlock()
-	dead := f.NewBlock()
-	exit := f.NewBlock()
-	v := f.NewReg(KindScalar)
-	entry.Instrs = append(entry.Instrs, &ConstInstr{Dst: v, Value: 7})
-	entry.Term = &JumpTerm{Target: exit}
-	dead.Term = &TrapTerm{}
-	exit.Term = &RetTerm{Value: v}
-
-	f.RemoveUnreachable()
+	var b Builder
+	b.Start(decl, "", 0)
+	entry := b.NewBlock()
+	dead := b.NewBlock()
+	exit := b.NewBlock()
+	v := b.F.NewReg(KindScalar)
+	b.Emit(entry, Const(v, 7))
+	b.Emit(dead, Const(v, 8))
+	b.Terminate(entry, Jump(exit))
+	b.Terminate(dead, Trap())
+	b.Terminate(exit, Ret(v))
+	f := b.Finish(nil)
 
 	var sb strings.Builder
 	PrintIr(f, &sb)

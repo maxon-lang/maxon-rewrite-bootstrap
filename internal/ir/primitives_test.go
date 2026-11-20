@@ -72,12 +72,12 @@ func TestInterpreterOnlyEntriesAreRecordedAsRefusals(t *testing.T) {
 }
 
 func TestOnlyTheArrayEntriesAreNative(t *testing.T) {
-	for _, symbol := range []string{RtArrayNew, RtArrayLen, RtArrayElem, RtArrayInsert, RtArrayRemove} {
+	for _, symbol := range []Rt{RtArrayNew, RtArrayLen, RtArrayElem, RtArrayInsert, RtArrayRemove} {
 		if !IsNativeEntry(symbol) {
 			t.Errorf("%s should be native", symbol)
 		}
 	}
-	for _, symbol := range []string{RtMapElem, RtListPushBack, RtPoolInsert, RtPoolCopy, RtAlloc} {
+	for _, symbol := range []Rt{RtMapElem, RtListPushBack, RtPoolInsert, RtPoolCopy, RtAlloc} {
 		if IsNativeEntry(symbol) {
 			t.Errorf("%s should not be a native primitive entry", symbol)
 		}

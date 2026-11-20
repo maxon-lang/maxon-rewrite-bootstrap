@@ -77,7 +77,7 @@ type timeoutSignal struct{}
 // window is a borrow that a call holds while the arguments after it are evaluated: the address or pointer is taken
 // when its argument is, and used when the call runs.
 type window struct {
-	call   *ir.CallInstr
+	call   *ir.Instr
 	frame  *frame
 	region region
 	at     site
@@ -114,7 +114,7 @@ type ending struct {
 // info is what a function's IR says before it runs: for each instruction, the calls that hold its result as an argument
 // while the arguments after it are evaluated.
 type info struct {
-	windowAt [][][]*ir.CallInstr
+	windowAt [][][]*ir.Instr
 }
 
 // Options say how a program runs. The scheduler of behaviours is random, and a seed makes one schedule: the same seed
@@ -190,28 +190,32 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 	if in, ok := vm.infos[fn]; ok {
 		return in
 	}
-	in := &info{windowAt: make([][][]*ir.CallInstr, len(fn.Blocks))}
+	in := &info{windowAt: make([][][]*ir.Instr, len(fn.Blocks))}
 	type position struct{ block, pc int }
 	defs := map[ir.V]position{}
-	for bi, b := range fn.Blocks {
-		in.windowAt[bi] = make([][]*ir.CallInstr, len(b.Instrs))
-		for pc, ins := range b.Instrs {
+	for bi := range fn.Blocks {
+		instrs := fn.BlockInstrs(bi)
+		in.windowAt[bi] = make([][]*ir.Instr, len(instrs))
+		for pc, ins := range instrs {
 			if dst, ok := destination(ins); ok {
 				defs[dst] = position{bi, pc}
 			}
 		}
 	}
-	for _, b := range fn.Blocks {
-		for _, ins := range b.Instrs {
-			call, ok := ins.(*ir.CallInstr)
-			if !ok || len(call.Args) < 2 {
+	for bi := range fn.Blocks {
+		instrs := fn.BlockInstrs(bi)
+		for pc := range instrs {
+			call := &instrs[pc]
+			if call.Op != ir.OpCall || call.B < 2 {
 				continue
 			}
-			for i, arg := range call.Args[:len(call.Args)-1] {
-				if argumentConv(call.Target, i).Owns() {
+			args := fn.CallArgs(*call)
+			target := fn.Callee(*call)
+			for i, arg := range args[:len(args)-1] {
+				if argumentConv(target, i).Owns() {
 					continue
 				}
-				if def, ok := defs[arg]; ok && borrowsStorage(fn.Blocks[def.block].Instrs[def.pc]) {
+				if def, ok := defs[arg]; ok && borrowsStorage(fn.BlockInstrs(def.block)[def.pc]) {
 					in.windowAt[def.block][def.pc] = append(in.windowAt[def.block][def.pc], call)
 				}
 			}
@@ -224,11 +228,11 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 // borrowsStorage is whether an instruction gives a pointer or an address into storage that already exists, which a
 // change would leave dangling, and not a value that is new and only being built.
 func borrowsStorage(i ir.Instr) bool {
-	switch x := i.(type) {
-	case *ir.LoadSlot, *ir.LoadParam, *ir.LoadField, *ir.LoadAt, *ir.SlotAddr, *ir.FieldAddr:
+	switch i.Op {
+	case ir.OpLoadSlot, ir.OpLoadParam, ir.OpLoadField, ir.OpLoadAt, ir.OpSlotAddr, ir.OpFieldAddr:
 		return true
-	case *ir.CallRuntimeInstr:
-		return strings.HasSuffix(x.Symbol, ".elem")
+	case ir.OpCallRuntime:
+		return strings.HasSuffix(i.Symbol().String(), ".elem")
 	}
 	return false
 }
@@ -247,55 +251,16 @@ func argumentConv(target *ast.FuncDecl, i int) ast.Convention {
 
 // destination is the register an instruction writes.
 func destination(i ir.Instr) (ir.V, bool) {
-	switch x := i.(type) {
-	case *ir.ConstInstr:
-		return x.Dst, true
-	case *ir.StrInstr:
-		return x.Dst, true
-	case *ir.LoadSlot:
-		return x.Dst, true
-	case *ir.SlotAddr:
-		return x.Dst, true
-	case *ir.LoadParam:
-		return x.Dst, true
-	case *ir.LoadField:
-		return x.Dst, true
-	case *ir.FieldAddr:
-		return x.Dst, true
-	case *ir.LoadAt:
-		return x.Dst, true
-	case *ir.LoadGlobal:
-		return x.Dst, true
-	case *ir.BinInstr:
-		return x.Dst, true
-	case *ir.CmpInstr:
-		return x.Dst, true
-	case *ir.NegInstr:
-		return x.Dst, true
-	case *ir.NotInstr:
-		return x.Dst, true
-	case *ir.AllocInstr:
-		return x.Dst, true
-	case *ir.CopyInstr:
-		return x.Dst, true
-	case *ir.MoveSlotInstr:
-		return x.Dst, true
-	case *ir.MoveAtInstr:
-		return x.Dst, true
-	case *ir.CallInstr:
-		if x.Dst != nil {
-			return *x.Dst, true
-		}
-		return 0, false
-	case *ir.CallRuntimeInstr:
-		if x.Dst != nil {
-			return *x.Dst, true
-		}
-		return 0, false
-	case *ir.StoreSlot, *ir.StoreField, *ir.StoreAt, *ir.GuardInstr, *ir.DropInstr, *ir.DropSlotInstr, *ir.DropAtInstr, *ir.WhenInstr:
+	switch i.Op {
+	case ir.OpConst, ir.OpStr, ir.OpLoadSlot, ir.OpSlotAddr, ir.OpLoadParam, ir.OpLoadField, ir.OpFieldAddr, ir.OpLoadAt,
+		ir.OpLoadGlobal, ir.OpBin, ir.OpCmp, ir.OpNeg, ir.OpNot, ir.OpAlloc, ir.OpCopy, ir.OpMoveSlot, ir.OpMoveAt:
+		return i.Dst, true
+	case ir.OpCall, ir.OpCallRuntime:
+		return i.Dst, i.Dst != ir.NoReg
+	case ir.OpStoreSlot, ir.OpStoreField, ir.OpStoreAt, ir.OpGuard, ir.OpDrop, ir.OpDropSlot, ir.OpDropAt, ir.OpWhen:
 		return 0, false
 	}
-	panic(diag.Internal("interp: unhandled instruction %T", i))
+	panic(diag.Internal("interp: unhandled opcode %d", int(i.Op)))
 }
 
 func (vm *vm) call(fn *ir.IrFunction, args []value) value {
@@ -320,8 +285,9 @@ func (vm *vm) call(fn *ir.IrFunction, args []value) value {
 	block := 0
 	for {
 		fr.block = block
-		b := fn.Blocks[block]
-		for pc, ins := range b.Instrs {
+		instrs := fn.BlockInstrs(block)
+		for pc := range instrs {
+			ins := &instrs[pc]
 			fr.pc = pc
 			vm.tick()
 			vm.exec(fr, ins)
@@ -332,30 +298,30 @@ func (vm *vm) call(fn *ir.IrFunction, args []value) value {
 		}
 		fr.pc = -1
 		vm.tick()
-		switch t := b.Term.(type) {
-		case *ir.JumpTerm:
-			block = t.Target.ID
-		case *ir.BranchTerm:
-			if fr.regs[t.Cond].n != 0 {
-				block = t.Then.ID
+		switch t := fn.Blocks[block].Term; t.Kind {
+		case ir.TermJump:
+			block = int(t.Then)
+		case ir.TermBranch:
+			if fr.regs[t.Value].n != 0 {
+				block = int(t.Then)
 			} else {
-				block = t.Else.ID
+				block = int(t.Else)
 			}
-		case *ir.SwitchTerm:
-			block = t.Default.ID
-			for i, v := range t.Values {
-				if fr.regs[t.Value].n == v {
-					block = t.Targets[i].ID
+		case ir.TermSwitch:
+			block = int(t.Then)
+			for _, c := range fn.Cases[t.First : t.First+t.Count] {
+				if fr.regs[t.Value].n == c.Value {
+					block = int(c.Target)
 					break
 				}
 			}
-		case *ir.RetTerm:
+		case ir.TermRet:
 			return vm.ret(fr, t)
-		case *ir.TrapTerm:
+		case ir.TermTrap:
 			vm.stderr = append(vm.stderr, "trap\n"...)
 			panic(&exitSignal{code: illegalInstructionExitCode})
 		default:
-			panic(diag.Internal("interp: block b%d of %s has no terminator", b.ID, fn.Symbol()))
+			panic(diag.Internal("interp: block b%d of %s has no terminator", block, fn.Symbol()))
 		}
 	}
 }
@@ -375,7 +341,7 @@ func (vm *vm) tick() {
 
 // ret hands the result to the caller. It must be a value that nothing owns, and no slot may still own anything: an
 // owner that dies without dropping what it holds leaks it.
-func (vm *vm) ret(fr *frame, t *ir.RetTerm) value {
+func (vm *vm) ret(fr *frame, t ir.Term) value {
 	v := fr.regs[t.Value]
 	if fr.fn.Regs[t.Value] == ir.KindManaged {
 		if v.ref == nil {
@@ -395,8 +361,8 @@ func (vm *vm) ret(fr *frame, t *ir.RetTerm) value {
 	return v
 }
 
-func (vm *vm) openWindow(fr *frame, ins ir.Instr, call *ir.CallInstr) {
-	dst, _ := destination(ins)
+func (vm *vm) openWindow(fr *frame, ins *ir.Instr, call *ir.Instr) {
+	dst, _ := destination(*ins)
 	v := fr.regs[dst]
 	var r region
 	switch {
@@ -407,10 +373,10 @@ func (vm *vm) openWindow(fr *frame, ins ir.Instr, call *ir.CallInstr) {
 	default:
 		return
 	}
-	vm.windows = append(vm.windows, window{call: call, frame: fr, region: r, at: fr.site(), taken: ir.InstrString(ins)})
+	vm.windows = append(vm.windows, window{call: call, frame: fr, region: r, at: fr.site(), taken: fr.fn.InstrString(*ins)})
 }
 
-func (vm *vm) closeWindows(fr *frame, call *ir.CallInstr) {
+func (vm *vm) closeWindows(fr *frame, call *ir.Instr) {
 	n := len(vm.windows)
 	for n > 0 && vm.windows[n-1].call == call && vm.windows[n-1].frame == fr {
 		n--

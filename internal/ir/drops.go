@@ -58,9 +58,9 @@ func (l *Lowerer) unwind(depth int) {
 
 func (l *Lowerer) emitDrop(d pendingDrop) {
 	if d.inSlot {
-		l.emit(&DropSlotInstr{Slot: d.slot, Ty: d.ty})
+		l.emit(l.b.DropSlot(d.slot, d.ty))
 	} else {
-		l.emit(&DropInstr{Src: d.reg, Ty: d.ty})
+		l.emit(l.b.Drop(d.reg, d.ty))
 	}
 }
 
@@ -96,7 +96,7 @@ func (l *Lowerer) ownTemp(v V, t ast.Ty) {
 // dropValue drops an owned value now.
 func (l *Lowerer) dropValue(v V, t ast.Ty) {
 	if l.f.Regs[v] == KindManaged {
-		l.emit(&DropInstr{Src: v, Ty: l.dropType(t)})
+		l.emit(l.b.Drop(v, l.dropType(t)))
 	}
 }
 
@@ -104,7 +104,7 @@ func (l *Lowerer) dropValue(v V, t ast.Ty) {
 // mutates parameter.
 func (l *Lowerer) dropAt(addr V, t ast.Ty) {
 	if l.kind(t) == KindManaged {
-		l.emit(&DropAtInstr{Addr: addr, Ty: l.dropType(t)})
+		l.emit(l.b.DropAt(addr, l.dropType(t)))
 	}
 }
 
@@ -112,10 +112,10 @@ func (l *Lowerer) dropAt(addr V, t ast.Ty) {
 func (l *Lowerer) storeField(obj V, index int, t ast.Ty, v V) {
 	if l.kind(t) == KindManaged {
 		addr := l.reg(KindScalar)
-		l.emit(&FieldAddr{Dst: addr, Obj: obj, Offset: WordBytes * index})
+		l.emit(FieldAddr(addr, obj, WordBytes*index))
 		l.dropAt(addr, t)
 	}
-	l.emit(&StoreField{Obj: obj, Offset: WordBytes * index, Src: v})
+	l.emit(StoreField(obj, WordBytes*index, v))
 }
 
 // fetch reads a slot that held a value only on its way from one place to another, such as the result of a conditional.
@@ -123,9 +123,9 @@ func (l *Lowerer) storeField(obj V, index int, t ast.Ty, v V) {
 func (l *Lowerer) fetch(slot int) V {
 	d := l.reg(l.f.Slots[slot])
 	if l.f.Slots[slot] == KindManaged {
-		l.emit(&MoveSlotInstr{Dst: d, Slot: slot})
+		l.emit(MoveSlot(d, slot))
 	} else {
-		l.emit(&LoadSlot{Dst: d, Slot: slot})
+		l.emit(LoadSlot(d, slot))
 	}
 	return d
 }

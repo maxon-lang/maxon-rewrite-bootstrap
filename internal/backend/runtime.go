@@ -309,7 +309,10 @@ func (g *runtimeUnit) emitRuntime() {
 	a.Bind(done)
 	g.epilogue()
 
-	panics := []struct{ symbol, message string }{
+	panics := []struct {
+		symbol  ir.Rt
+		message string
+	}{
 		{ir.RtPanicRange, "integer value out of range"},
 		{ir.RtPanicOverflow, "integer overflow"},
 		{ir.RtPanicDiv, "division by zero"},

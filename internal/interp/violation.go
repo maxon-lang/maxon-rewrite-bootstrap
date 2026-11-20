@@ -2,7 +2,6 @@ package interp
 
 import (
 	"fmt"
-	"minimaxon/internal/ir"
 	"strings"
 )
 
@@ -78,13 +77,13 @@ func (vm *vm) here(kind ViolationKind, message string) Violation {
 	if f == nil {
 		return Violation{Kind: kind, Message: message}
 	}
-	v := Violation{Kind: kind, Function: f.fn.Symbol(), Block: f.fn.Blocks[f.block].ID, Instr: f.pc, Message: message}
-	b := f.fn.Blocks[f.block]
+	v := Violation{Kind: kind, Function: f.fn.Symbol(), Block: f.block, Instr: f.pc, Message: message}
+	instrs := f.fn.BlockInstrs(f.block)
 	switch {
-	case f.pc >= 0 && f.pc < len(b.Instrs):
-		v.Code = ir.InstrString(b.Instrs[f.pc])
-	case f.pc < 0 && b.Term != nil:
-		v.Code = ir.TermString(b.Term)
+	case f.pc >= 0 && f.pc < len(instrs):
+		v.Code = f.fn.InstrString(instrs[f.pc])
+	case f.pc < 0:
+		v.Code = f.fn.TermString(f.fn.Blocks[f.block].Term)
 	}
 	return v
 }

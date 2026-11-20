@@ -13,8 +13,10 @@ import (
 // interpreter has to catch, which is what makes it trustworthy on the programs the checker accepts.
 
 type builder struct {
-	f   *ir.IrFunction
-	cur *ir.IrBlock
+	ir  ir.Builder
+	cur ir.BlockID
+	// f is the finished function, once ret has been called.
+	f *ir.IrFunction
 }
 
 func newFunction(name string, conv ...ast.Convention) (*builder, *ast.FuncDecl) {
@@ -23,62 +25,63 @@ func newFunction(name string, conv ...ast.Convention) (*builder, *ast.FuncDecl) 
 	for _, c := range conv {
 		decl.Pass.Specs = append(decl.Pass.Specs, ast.ParamSpec{Conv: c})
 	}
-	f := &ir.IrFunction{Decl: decl, ParamCount: len(conv)}
-	b := &builder{f: f}
-	b.cur = f.NewBlock()
+	b := &builder{}
+	b.ir.Start(decl, "", len(conv))
+	b.cur = b.ir.NewBlock()
 	return b, decl
 }
 
-func (b *builder) reg(kind ir.IrKind) ir.V { return b.f.NewReg(kind) }
+func (b *builder) reg(kind ir.IrKind) ir.V { return b.ir.F.NewReg(kind) }
 
-func (b *builder) emit(i ir.Instr) { b.cur.Instrs = append(b.cur.Instrs, i) }
+func (b *builder) emit(i ir.Instr) { b.ir.Emit(b.cur, i) }
 
 func (b *builder) konst(n int64) ir.V {
 	d := b.reg(ir.KindScalar)
-	b.emit(&ir.ConstInstr{Dst: d, Value: n})
+	b.emit(ir.Const(d, n))
 	return d
 }
 
 func (b *builder) alloc(words int) ir.V {
 	d := b.reg(ir.KindManaged)
-	b.emit(&ir.AllocInstr{Dst: d, Bytes: 8 * words})
+	b.emit(ir.Alloc(d, 8*words))
 	return d
 }
 
-func (b *builder) slot(kind ir.IrKind) int { return b.f.NewSlot(kind) }
+func (b *builder) slot(kind ir.IrKind) int { return b.ir.F.NewSlot(kind) }
 
 func (b *builder) param(i int, kind ir.IrKind) ir.V {
 	d := b.reg(kind)
-	b.emit(&ir.LoadParam{Dst: d, Param: i})
+	b.emit(ir.LoadParam(d, i))
 	return d
 }
 
 func (b *builder) load(slot int) ir.V {
-	d := b.reg(b.f.Slots[slot])
-	b.emit(&ir.LoadSlot{Dst: d, Slot: slot})
+	d := b.reg(b.ir.F.Slots[slot])
+	b.emit(ir.LoadSlot(d, slot))
 	return d
 }
 
 func (b *builder) addr(slot int) ir.V {
 	d := b.reg(ir.KindScalar)
-	b.emit(&ir.SlotAddr{Dst: d, Slot: slot})
+	b.emit(ir.SlotAddr(d, slot))
 	return d
 }
 
-func (b *builder) store(slot int, v ir.V) { b.emit(&ir.StoreSlot{Slot: slot, Src: v}) }
+func (b *builder) store(slot int, v ir.V) { b.emit(ir.StoreSlot(slot, v, false)) }
 
-func (b *builder) runtime(symbol string, kind ir.IrKind, args ...ir.V) ir.V {
+func (b *builder) runtime(symbol ir.Rt, kind ir.IrKind, args ...ir.V) ir.V {
 	d := b.reg(kind)
-	b.emit(&ir.CallRuntimeInstr{Dst: &d, Symbol: symbol, Args: args})
+	b.emit(b.ir.CallRuntime(d, symbol, args, nil))
 	return d
 }
 
 func (b *builder) call(target *ast.FuncDecl, args ...ir.V) {
-	b.emit(&ir.CallInstr{Target: target, Args: args})
+	b.emit(b.ir.Call(ir.NoReg, target, args))
 }
 
 func (b *builder) ret(v ir.V) *ir.IrFunction {
-	b.cur.Term = &ir.RetTerm{Value: v}
+	b.ir.Terminate(b.cur, ir.Ret(v))
+	b.f = b.ir.Finish(nil)
 	return b.f
 }
 
@@ -108,7 +111,7 @@ func TestACleanProgramHasNoViolation(t *testing.T) {
 	b, _ := newFunction("main")
 	s := b.slot(ir.KindManaged)
 	b.store(s, b.alloc(2))
-	b.emit(&ir.DropSlotInstr{Slot: s, Ty: ast.StringTy})
+	b.emit(b.ir.DropSlot(s, ast.StringTy))
 	r := run(b.ret(b.konst(7)))
 	if len(r.Violations) != 0 || r.ExitCode != 7 {
 		t.Fatalf("%+v", r)
@@ -118,26 +121,26 @@ func TestACleanProgramHasNoViolation(t *testing.T) {
 func TestUseAfterFree(t *testing.T) {
 	b, _ := newFunction("main")
 	box := b.alloc(1)
-	b.emit(&ir.DropInstr{Src: box, Ty: ast.StringTy})
+	b.emit(b.ir.Drop(box, ast.StringTy))
 	d := b.reg(ir.KindScalar)
-	b.emit(&ir.LoadField{Dst: d, Obj: box})
+	b.emit(ir.LoadField(d, box, 0))
 	expectViolation(t, run(b.ret(b.konst(0))), interp.UseAfterFree, "function main", "block b0", "instruction #2", "freed at main b0 #1")
 }
 
 func TestDoubleFree(t *testing.T) {
 	b, _ := newFunction("main")
 	box := b.alloc(1)
-	b.emit(&ir.DropInstr{Src: box, Ty: ast.StringTy})
-	b.emit(&ir.DropInstr{Src: box, Ty: ast.StringTy})
+	b.emit(b.ir.Drop(box, ast.StringTy))
+	b.emit(b.ir.Drop(box, ast.StringTy))
 	expectViolation(t, run(b.ret(b.konst(0))), interp.DoubleFree, "instruction #2")
 }
 
 func TestFreeingAnOwnerFreesWhatItOwnsOnceAndNeverTwice(t *testing.T) {
 	b, _ := newFunction("main")
 	outer, inner := b.alloc(1), b.alloc(1)
-	b.emit(&ir.StoreField{Obj: outer, Src: inner})
-	b.emit(&ir.DropInstr{Src: outer, Ty: ast.StringTy})
-	b.emit(&ir.DropInstr{Src: inner, Ty: ast.StringTy})
+	b.emit(ir.StoreField(outer, 0, inner))
+	b.emit(b.ir.Drop(outer, ast.StringTy))
+	b.emit(b.ir.Drop(inner, ast.StringTy))
 	expectViolation(t, run(b.ret(b.konst(0))), interp.DoubleFree)
 }
 
@@ -159,8 +162,8 @@ func TestUsingAMovedValueThroughItsOldOwner(t *testing.T) {
 	s := b.slot(ir.KindManaged)
 	b.store(s, b.alloc(1))
 	moved := b.reg(ir.KindManaged)
-	b.emit(&ir.MoveSlotInstr{Dst: moved, Slot: s})
-	b.emit(&ir.DropInstr{Src: moved, Ty: ast.StringTy})
+	b.emit(ir.MoveSlot(moved, s))
+	b.emit(b.ir.Drop(moved, ast.StringTy))
 	b.load(s)
 	expectViolation(t, run(b.ret(b.konst(0))), interp.MovedUse, "moved out or never assigned")
 }
@@ -199,7 +202,7 @@ func TestOverlappingArgumentsAtACall(t *testing.T) {
 	s := b.slot(ir.KindManaged)
 	b.store(s, b.alloc(1))
 	b.call(calleeDecl, b.addr(s), b.load(s))
-	b.emit(&ir.DropSlotInstr{Slot: s, Ty: ast.StringTy})
+	b.emit(b.ir.DropSlot(s, ast.StringTy))
 	expectViolation(t, run(b.ret(b.konst(0)), callee.f), interp.Exclusivity, "arguments 0 and 1 of the call to touch")
 }
 
@@ -211,8 +214,8 @@ func TestDisjointArgumentsAtACallAreFine(t *testing.T) {
 	b.store(s, b.alloc(1))
 	b.store(u, b.alloc(1))
 	b.call(calleeDecl, b.addr(s), b.load(u))
-	b.emit(&ir.DropSlotInstr{Slot: s, Ty: ast.StringTy})
-	b.emit(&ir.DropSlotInstr{Slot: u, Ty: ast.StringTy})
+	b.emit(b.ir.DropSlot(s, ast.StringTy))
+	b.emit(b.ir.DropSlot(u, ast.StringTy))
 	if r := run(b.ret(b.konst(0)), callee.f); len(r.Violations) != 0 {
 		t.Fatal(r.Violations[0])
 	}
@@ -228,9 +231,9 @@ func TestChangingWhatAnArgumentBorrowsBeforeTheCallRuns(t *testing.T) {
 	box := b.alloc(1)
 	b.store(s, box)
 	first := b.load(s)
-	b.emit(&ir.StoreField{Obj: box, Src: b.konst(3)})
+	b.emit(ir.StoreField(box, 0, b.konst(3)))
 	b.call(calleeDecl, first, b.konst(0))
-	b.emit(&ir.DropSlotInstr{Slot: s, Ty: ast.StringTy})
+	b.emit(b.ir.DropSlot(s, ast.StringTy))
 	expectViolation(t, run(b.ret(b.konst(0)), callee.f), interp.Exclusivity, "still waiting to use")
 }
 
@@ -243,7 +246,7 @@ func TestAnAddressIsStaleOnceTheArrayChanges(t *testing.T) {
 	element := b.runtime(ir.RtArrayElem, ir.KindScalar, a, b.konst(0))
 	b.runtime(ir.RtArrayInsert, ir.KindScalar, a, b.konst(0), b.konst(2))
 	loaded := b.reg(ir.KindScalar)
-	b.emit(&ir.LoadAt{Dst: loaded, Addr: element})
+	b.emit(ir.LoadAt(loaded, element))
 	expectViolation(t, run(b.ret(b.konst(0))), interp.StaleBorrow, "before the structure changed")
 }
 
@@ -252,9 +255,9 @@ func TestAnArrayThatIsDroppedFreesItsElements(t *testing.T) {
 	a := b.runtime(ir.RtArrayNew, ir.KindManaged)
 	e := b.alloc(1)
 	b.runtime(ir.RtArrayInsert, ir.KindScalar, a, b.konst(0), e)
-	b.emit(&ir.DropInstr{Src: a, Ty: ast.StringTy})
+	b.emit(b.ir.Drop(a, ast.StringTy))
 	d := b.reg(ir.KindScalar)
-	b.emit(&ir.LoadField{Dst: d, Obj: e})
+	b.emit(ir.LoadField(d, e, 0))
 	expectViolation(t, run(b.ret(b.konst(0))), interp.UseAfterFree)
 }
 
@@ -263,7 +266,7 @@ func TestAMovedElementIsOwnedByTheCaller(t *testing.T) {
 	a := b.runtime(ir.RtArrayNew, ir.KindManaged)
 	b.runtime(ir.RtArrayInsert, ir.KindScalar, a, b.konst(0), b.alloc(1))
 	removed := b.runtime(ir.RtArrayRemove, ir.KindManaged, a, b.konst(0))
-	b.emit(&ir.DropInstr{Src: a, Ty: ast.StringTy})
+	b.emit(b.ir.Drop(a, ast.StringTy))
 	// The element is the caller's now and leaks unless dropped.
 	_ = removed
 	expectViolation(t, run(b.ret(b.konst(0))), interp.Leak)
@@ -278,22 +281,22 @@ func TestAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle(t *testing.T) {
 	b.store(pool, p)
 	old := b.runtime(ir.RtPoolInsert, ir.KindScalar, p, b.alloc(1))
 	gone := b.runtime(ir.RtPoolRemove, ir.KindManaged, p, old)
-	b.emit(&ir.DropInstr{Src: gone, Ty: ast.StringTy})
+	b.emit(b.ir.Drop(gone, ast.StringTy))
 	fresh := b.runtime(ir.RtPoolInsert, ir.KindScalar, p, b.alloc(1))
 	same := b.reg(ir.KindScalar)
-	b.emit(&ir.CmpInstr{Dst: same, Op: ir.CmpEq, A: old, B: fresh})
+	b.emit(ir.Cmp(same, ir.CmpEq, old, fresh, false))
 	found := b.runtime(ir.RtPoolContains, ir.KindScalar, p, old)
 	live := b.runtime(ir.RtPoolContains, ir.KindScalar, p, fresh)
 	// The answer is 100*same + 10*found + live, which must be 1.
 	hundred := b.reg(ir.KindScalar)
-	b.emit(&ir.BinInstr{Dst: hundred, Op: ir.OpMul, A: same, B: b.konst(100)})
+	b.emit(ir.Bin(hundred, ir.BinMul, same, b.konst(100), false, false))
 	ten := b.reg(ir.KindScalar)
-	b.emit(&ir.BinInstr{Dst: ten, Op: ir.OpMul, A: found, B: b.konst(10)})
+	b.emit(ir.Bin(ten, ir.BinMul, found, b.konst(10), false, false))
 	sum := b.reg(ir.KindScalar)
-	b.emit(&ir.BinInstr{Dst: sum, Op: ir.OpAdd, A: hundred, B: ten})
+	b.emit(ir.Bin(sum, ir.BinAdd, hundred, ten, false, false))
 	answer := b.reg(ir.KindScalar)
-	b.emit(&ir.BinInstr{Dst: answer, Op: ir.OpAdd, A: sum, B: live})
-	b.emit(&ir.DropSlotInstr{Slot: pool, Ty: ast.StringTy})
+	b.emit(ir.Bin(answer, ir.BinAdd, sum, live, false, false))
+	b.emit(b.ir.DropSlot(pool, ast.StringTy))
 	r := run(b.ret(answer))
 	if len(r.Violations) != 0 || r.ExitCode != 1 {
 		t.Fatalf("exit %d, %v", r.ExitCode, r.Violations)
@@ -307,7 +310,7 @@ func TestAStaleHandleTrapsLikeTheCompiledProgram(t *testing.T) {
 	b.store(pool, p)
 	old := b.runtime(ir.RtPoolInsert, ir.KindScalar, p, b.alloc(1))
 	gone := b.runtime(ir.RtPoolRemove, ir.KindManaged, p, old)
-	b.emit(&ir.DropInstr{Src: gone, Ty: ast.StringTy})
+	b.emit(b.ir.Drop(gone, ast.StringTy))
 	b.runtime(ir.RtPoolElem, ir.KindScalar, p, old)
 	r := run(b.ret(b.konst(0)))
 	if len(r.Violations) != 0 || r.ExitCode != 1 || !strings.Contains(string(r.Stderr), "panic: handle names no element") {
@@ -319,7 +322,7 @@ func TestOverflowAndPanicsExitWithOne(t *testing.T) {
 	b, _ := newFunction("main")
 	max := b.konst(1<<63 - 1)
 	sum := b.reg(ir.KindScalar)
-	b.emit(&ir.BinInstr{Dst: sum, Op: ir.OpAdd, A: max, B: b.konst(1), Checked: true})
+	b.emit(ir.Bin(sum, ir.BinAdd, max, b.konst(1), false, true))
 	r := run(b.ret(sum))
 	if r.ExitCode != 1 || len(r.Violations) != 0 {
 		t.Fatalf("exit %d, %v", r.ExitCode, r.Violations)

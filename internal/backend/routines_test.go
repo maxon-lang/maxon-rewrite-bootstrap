@@ -215,12 +215,14 @@ func TestDroppingAStringChecksForAnImmortalOne(t *testing.T) {
 // A move leaves the place empty, and a frame starts with its managed slots empty: the code stores zero where the IR moves,
 // and clears the slots at the start.
 func TestMovesAndFramesEmptyTheirSlots(t *testing.T) {
-	f := &ir.IrFunction{Decl: &ast.FuncDecl{Name: "f"}}
-	slot := f.NewSlot(ir.KindManaged)
-	b := f.NewBlock()
-	moved := f.NewReg(ir.KindManaged)
-	b.Instrs = append(b.Instrs, &ir.MoveSlotInstr{Dst: moved, Slot: slot})
-	b.Term = &ir.RetTerm{Value: moved}
+	var b ir.Builder
+	b.Start(&ast.FuncDecl{Name: "f"}, "", 0)
+	slot := b.F.NewSlot(ir.KindManaged)
+	block := b.NewBlock()
+	moved := b.F.NewReg(ir.KindManaged)
+	b.Emit(block, ir.MoveSlot(moved, slot))
+	b.Terminate(block, ir.Ret(moved))
+	f := b.Finish(nil)
 	code := EmitModule([]*ir.IrFunction{f}).Asm.Code
 	// mov [rbp-8], rax stores the zero of the frame's start; mov [rbp-8], rcx stores the zero of the move.
 	for name, store := range map[string][]byte{"the frame": {0x48, 0x89, 0x45, 0xF8}, "the move": {0x48, 0x89, 0x4D, 0xF8}} {
@@ -232,14 +234,16 @@ func TestMovesAndFramesEmptyTheirSlots(t *testing.T) {
 
 // A frame with many managed slots clears them with one string instruction.
 func TestAFrameWithManySlotsIsClearedInOneInstruction(t *testing.T) {
-	f := &ir.IrFunction{Decl: &ast.FuncDecl{Name: "f"}}
+	var b ir.Builder
+	b.Start(&ast.FuncDecl{Name: "f"}, "", 0)
 	for range zeroInlineSlots + 2 {
-		f.NewSlot(ir.KindManaged)
+		b.F.NewSlot(ir.KindManaged)
 	}
-	b := f.NewBlock()
-	zero := f.NewReg(ir.KindScalar)
-	b.Instrs = append(b.Instrs, &ir.ConstInstr{Dst: zero, Value: 0})
-	b.Term = &ir.RetTerm{Value: zero}
+	block := b.NewBlock()
+	zero := b.F.NewReg(ir.KindScalar)
+	b.Emit(block, ir.Const(zero, 0))
+	b.Terminate(block, ir.Ret(zero))
+	f := b.Finish(nil)
 	code := EmitModule([]*ir.IrFunction{f}).Asm.Code
 	if !bytes.Contains(code, []byte{0xF3, 0x48, 0xAB}) {
 		t.Error("the frame is not cleared with rep stosq")
@@ -251,17 +255,18 @@ func TestAFrameWithManySlotsIsClearedInOneInstruction(t *testing.T) {
 
 // nativeMain is a main of one block: an allocation, optionally given back, and a return of the code.
 func nativeMain(free bool, code int64) *ir.IrFunction {
-	f := &ir.IrFunction{Decl: &ast.FuncDecl{Name: "main"}}
-	b := f.NewBlock()
-	box := f.NewReg(ir.KindManaged)
-	exit := f.NewReg(ir.KindScalar)
-	b.Instrs = append(b.Instrs, &ir.AllocInstr{Dst: box, Bytes: 16})
+	var b ir.Builder
+	b.Start(&ast.FuncDecl{Name: "main"}, "", 0)
+	block := b.NewBlock()
+	box := b.F.NewReg(ir.KindManaged)
+	exit := b.F.NewReg(ir.KindScalar)
+	b.Emit(block, ir.Alloc(box, 16))
 	if free {
-		b.Instrs = append(b.Instrs, &ir.CallRuntimeInstr{Symbol: ir.RtFree, Args: []ir.V{box}})
+		b.Emit(block, b.CallRuntime(ir.NoReg, ir.RtFree, []ir.V{box}, nil))
 	}
-	b.Instrs = append(b.Instrs, &ir.ConstInstr{Dst: exit, Value: code})
-	b.Term = &ir.RetTerm{Value: exit}
-	return f
+	b.Emit(block, ir.Const(exit, code))
+	b.Terminate(block, ir.Ret(exit))
+	return b.Finish(nil)
 }
 
 // runNative links one function as a whole program and runs it, giving what it wrote to standard error and its exit code.

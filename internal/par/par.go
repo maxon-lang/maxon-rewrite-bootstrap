@@ -12,9 +12,17 @@ func ForEach[T any](items []T, jobs int, work func(T)) {
 }
 
 func ForEachIndex(n, jobs int, work func(int)) {
+	ForEachIndexWith(n, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, i int) { work(i) })
+}
+
+// ForEachIndexWith is ForEachIndex where each worker has a value of its own, made by newScratch on the worker's goroutine
+// and handed to every item that worker takes. It is where a phase keeps the buffers it reuses from one item to the next, so
+// the items allocate nothing once the buffers have grown; no two goroutines ever share one.
+func ForEachIndexWith[S any](n, jobs int, newScratch func() S, work func(scratch S, i int)) {
 	if jobs <= 1 || n <= 1 {
+		scratch := newScratch()
 		for i := range n {
-			work(i)
+			work(scratch, i)
 		}
 		return
 	}
@@ -37,12 +45,13 @@ func ForEachIndex(n, jobs int, work func(int)) {
 					mu.Unlock()
 				}
 			}()
+			scratch := newScratch()
 			for {
 				i := int(next.Add(1) - 1)
 				if i >= n {
 					return
 				}
-				work(i)
+				work(scratch, i)
 			}
 		})
 	}

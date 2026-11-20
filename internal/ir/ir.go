@@ -4,38 +4,46 @@ import (
 	"fmt"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
+	"strconv"
 	"strings"
 )
 
-type IrKind int
+type IrKind uint8
 
 const (
 	KindScalar IrKind = iota
 	KindManaged
 )
 
-type V int
+// V is a virtual register: an index into IrFunction.Regs.
+type V int32
 
-func (v V) String() string { return fmt.Sprintf("%%%d", int(v)) }
+// NoReg is the destination of an instruction that gives no value.
+const NoReg V = -1
 
-type BinOp int
+func (v V) String() string { return "%" + strconv.Itoa(int(v)) }
+
+// BlockID is a basic block: an index into IrFunction.Blocks.
+type BlockID int32
+
+type BinOp uint8
 
 const (
-	OpAdd BinOp = iota
-	OpSub
-	OpMul
-	OpDiv
-	OpMod
-	OpAnd
-	OpOr
-	OpXor
-	OpShl
-	OpShr
+	BinAdd BinOp = iota
+	BinSub
+	BinMul
+	BinDiv
+	BinMod
+	BinAnd
+	BinOr
+	BinXor
+	BinShl
+	BinShr
 )
 
 var binOpNames = [...]string{"add", "sub", "mul", "div", "mod", "and", "or", "xor", "shl", "shr"}
 
-type CmpOp int
+type CmpOp uint8
 
 const (
 	CmpEq CmpOp = iota
@@ -48,7 +56,7 @@ const (
 
 var cmpOpNames = [...]string{"eq", "ne", "lt", "le", "gt", "ge"}
 
-type GuardKind int
+type GuardKind uint8
 
 const (
 	GuardNonNegative GuardKind = iota
@@ -60,258 +68,232 @@ const (
 
 var guardNames = [...]string{"NonNegative", "SignedAtLeast", "SignedAtMost", "UnsignedAtLeast", "UnsignedAtMost"}
 
-type Instr interface{ instr() }
+// Opcode says what an Instr does, which is also what each of its fields means (below). The set is closed, and a pass
+// that handles every opcode ends in a panic for one it does not know.
+type Opcode uint8
 
-type InstrBase struct{}
+const (
+	opInvalid Opcode = iota
+	OpConst
+	OpStr
+	OpLoadSlot
+	OpStoreSlot
+	OpSlotAddr
+	OpLoadParam
+	OpLoadField
+	OpStoreField
+	OpFieldAddr
+	OpLoadAt
+	OpStoreAt
+	OpLoadGlobal
+	OpBin
+	OpCmp
+	OpNeg
+	OpNot
+	OpGuard
+	OpAlloc
+	OpCall
+	OpCallRuntime
+	OpWhen
+	OpDrop
+	OpDropSlot
+	OpDropAt
+	OpMoveSlot
+	OpMoveAt
+	OpCopy
+)
 
-func (InstrBase) instr() {}
+// InstrFlags are the booleans of an instruction.
+type InstrFlags uint8
 
-type ConstInstr struct {
-	InstrBase
+const (
+	// FlagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing.
+	FlagBorrow InstrFlags = 1 << iota
+	// FlagUnsigned is on a Bin or a Cmp that treats its operands as unsigned.
+	FlagUnsigned
+	// FlagChecked is on a Bin that traps on overflow.
+	FlagChecked
+)
+
+// NoRoutine is the C of a CallRuntime that stores no routine.
+const NoRoutine = -1
+
+// Instr is one instruction: a record of fixed size, so a function's instructions are one slice, read in order. The fields
+// mean what the opcode says; the ones that name a register are always V, and an operand that is a number lives in Imm.
+// What does not fit in a record (a type, a callee, a string, a list of arguments) is in the function's pools, which C and
+// a range of A and B index.
+//
+//	OpConst        Dst = Imm
+//	OpStr          Dst = the string Strings[C]
+//	OpLoadSlot     Dst = slot Imm
+//	OpStoreSlot    slot Imm = A (FlagBorrow: the slot owns nothing)
+//	OpSlotAddr     Dst = address of slot Imm
+//	OpLoadParam    Dst = parameter Imm
+//	OpLoadField    Dst = word at A + Imm
+//	OpStoreField   word at A + Imm = B
+//	OpFieldAddr    Dst = A + Imm
+//	OpLoadAt       Dst = word at A
+//	OpStoreAt      word at A = B
+//	OpLoadGlobal   Dst = the global Imm (a Rt)
+//	OpBin          Dst = A op Sub B (FlagUnsigned, FlagChecked)
+//	OpCmp          Dst = A cmp Sub B (FlagUnsigned)
+//	OpNeg, OpNot   Dst = op A
+//	OpGuard        traps unless A is in range Sub of bound Imm
+//	OpAlloc        Dst = a new box of Imm bytes
+//	OpCall         Dst (or NoReg) = Callees[C] applied to the arguments Args[A : A+B]
+//	OpCallRuntime  Dst (or NoReg) = the entry Imm (a Rt) applied to Args[A : A+B]; C is the index in Callees of the routine
+//	               the entry stores to call later (the destructor of a cown), or NoRoutine
+//	OpWhen         schedules the behaviour Behaviours[Imm] on the cowns Args[A : A+B], capturing Args[A+B : A+B+C]
+//	OpDrop         drops the value in A, of type Types[C]
+//	OpDropSlot     drops what slot Imm owns, of type Types[C]
+//	OpDropAt       drops what the address A holds, of type Types[C]
+//	OpMoveSlot     Dst = slot Imm, which is left empty
+//	OpMoveAt       Dst = the value at A, which is left empty
+//	OpCopy         Dst = a deep copy of A, of type Types[C]
+type Instr struct {
+	Op    Opcode
+	Sub   uint8
+	Flags InstrFlags
 	Dst   V
-	Value int64
+	A     V
+	B     V
+	C     int32
+	Imm   int64
 }
 
-type StrInstr struct {
-	InstrBase
-	Dst   V
-	Value string
+func (i Instr) Has(flag InstrFlags) bool { return i.Flags&flag != 0 }
+
+func flags(borrow, unsigned, checked bool) InstrFlags {
+	var f InstrFlags
+	if borrow {
+		f |= FlagBorrow
+	}
+	if unsigned {
+		f |= FlagUnsigned
+	}
+	if checked {
+		f |= FlagChecked
+	}
+	return f
 }
 
-type LoadSlot struct {
-	InstrBase
-	Dst  V
-	Slot int
-}
+func Const(dst V, value int64) Instr { return Instr{Op: OpConst, Dst: dst, Imm: value} }
 
-// StoreSlot puts a value in a slot. A slot owns what it holds unless Borrow is set, which a match binding of a payload
+func LoadSlot(dst V, slot int) Instr { return Instr{Op: OpLoadSlot, Dst: dst, Imm: int64(slot)} }
+
+// StoreSlot puts a value in a slot. A slot owns what it holds unless borrow is set, which a match binding of a payload
 // uses: the slot names a part of the match subject for the arm, and nothing drops it.
-type StoreSlot struct {
-	InstrBase
-	Slot   int
-	Src    V
-	Borrow bool
+func StoreSlot(slot int, src V, borrow bool) Instr {
+	return Instr{Op: OpStoreSlot, A: src, Imm: int64(slot), Flags: flags(borrow, false, false)}
 }
 
-type SlotAddr struct {
-	InstrBase
-	Dst  V
-	Slot int
+func SlotAddr(dst V, slot int) Instr { return Instr{Op: OpSlotAddr, Dst: dst, Imm: int64(slot)} }
+
+func LoadParam(dst V, param int) Instr { return Instr{Op: OpLoadParam, Dst: dst, Imm: int64(param)} }
+
+func LoadField(dst, obj V, offset int) Instr {
+	return Instr{Op: OpLoadField, Dst: dst, A: obj, Imm: int64(offset)}
 }
 
-type LoadParam struct {
-	InstrBase
-	Dst   V
-	Param int
+func StoreField(obj V, offset int, src V) Instr {
+	return Instr{Op: OpStoreField, A: obj, B: src, Imm: int64(offset)}
 }
 
-type LoadField struct {
-	InstrBase
-	Dst    V
-	Obj    V
-	Offset int
+func FieldAddr(dst, obj V, offset int) Instr {
+	return Instr{Op: OpFieldAddr, Dst: dst, A: obj, Imm: int64(offset)}
 }
 
-type StoreField struct {
-	InstrBase
-	Obj    V
-	Offset int
-	Src    V
+func LoadAt(dst, addr V) Instr { return Instr{Op: OpLoadAt, Dst: dst, A: addr} }
+
+func StoreAt(addr, src V) Instr { return Instr{Op: OpStoreAt, A: addr, B: src} }
+
+func LoadGlobal(dst V, symbol Rt) Instr { return Instr{Op: OpLoadGlobal, Dst: dst, Imm: int64(symbol)} }
+
+func Bin(dst V, op BinOp, a, b V, unsigned, checked bool) Instr {
+	return Instr{Op: OpBin, Dst: dst, A: a, B: b, Sub: uint8(op), Flags: flags(false, unsigned, checked)}
 }
 
-type FieldAddr struct {
-	InstrBase
-	Dst    V
-	Obj    V
-	Offset int
+func Cmp(dst V, op CmpOp, a, b V, unsigned bool) Instr {
+	return Instr{Op: OpCmp, Dst: dst, A: a, B: b, Sub: uint8(op), Flags: flags(false, unsigned, false)}
 }
 
-type LoadAt struct {
-	InstrBase
-	Dst  V
-	Addr V
+func Neg(dst, src V) Instr { return Instr{Op: OpNeg, Dst: dst, A: src} }
+
+func Not(dst, src V) Instr { return Instr{Op: OpNot, Dst: dst, A: src} }
+
+func Guard(src V, kind GuardKind, bound int64) Instr {
+	return Instr{Op: OpGuard, A: src, Sub: uint8(kind), Imm: bound}
 }
 
-type StoreAt struct {
-	InstrBase
-	Addr V
-	Src  V
+func Alloc(dst V, bytes int) Instr { return Instr{Op: OpAlloc, Dst: dst, Imm: int64(bytes)} }
+
+func MoveSlot(dst V, slot int) Instr { return Instr{Op: OpMoveSlot, Dst: dst, Imm: int64(slot)} }
+
+func MoveAt(dst, addr V) Instr { return Instr{Op: OpMoveAt, Dst: dst, A: addr} }
+
+func (i Instr) BinOp() BinOp { return BinOp(i.Sub) }
+
+func (i Instr) CmpOp() CmpOp { return CmpOp(i.Sub) }
+
+func (i Instr) GuardKind() GuardKind { return GuardKind(i.Sub) }
+
+// Slot is the slot an instruction names.
+func (i Instr) Slot() int { return int(i.Imm) }
+
+// Offset is the byte offset a field instruction names.
+func (i Instr) Offset() int { return int(i.Imm) }
+
+// Symbol is the runtime entry or global an instruction names.
+func (i Instr) Symbol() Rt { return Rt(i.Imm) }
+
+// TermKind says how a block ends.
+type TermKind uint8
+
+const (
+	termNone TermKind = iota
+	TermJump
+	TermBranch
+	TermSwitch
+	TermRet
+	TermTrap
+)
+
+// SwitchCase is a value of a switch and the block it goes to.
+type SwitchCase struct {
+	Value  int64
+	Target BlockID
 }
 
-type LoadGlobal struct {
-	InstrBase
-	Dst    V
-	Symbol string
-}
-
-type BinInstr struct {
-	InstrBase
-	Dst      V
-	Op       BinOp
-	A        V
-	B        V
-	Unsigned bool
-	Checked  bool
-}
-
-type CmpInstr struct {
-	InstrBase
-	Dst      V
-	Op       CmpOp
-	A        V
-	B        V
-	Unsigned bool
-}
-
-type NegInstr struct {
-	InstrBase
-	Dst V
-	Src V
-}
-
-type NotInstr struct {
-	InstrBase
-	Dst V
-	Src V
-}
-
-type GuardInstr struct {
-	InstrBase
-	Src   V
-	Kind  GuardKind
-	Bound int64
-}
-
-type AllocInstr struct {
-	InstrBase
-	Dst   V
-	Bytes int
-}
-
-type CallInstr struct {
-	InstrBase
-	Dst    *V
-	Target *ast.FuncDecl
-	Args   []V
-}
-
-type CallRuntimeInstr struct {
-	InstrBase
-	Dst    *V
-	Symbol string
-	Args   []V
-	// Routine is the function that the entry stores to call later: the destructor that a cown ends its content with
-	// (RtCownNew). It is nil for every other entry.
-	Routine *ast.FuncDecl
-}
-
-// WhenInstr schedules a behaviour: the body of a `when`, which runs later, in another thread, once it has exclusive access
-// to every cown it names (README, "Behaviours"). The cowns are references that the instruction only reads, and each gains
-// a count of its own, held until the behaviour has run. Each capture is a value that moves into the behaviour: a managed
-// one has been moved out of its owner, so it is in flight, and a scalar is copied. The body is a function of its own
-// whose parameters are the access to the value of each cown, an address as a mutates parameter has, and then the
-// captures, which it owns as a consumes parameter does. The behaviour returns nothing and nothing waits for it.
-type WhenInstr struct {
-	InstrBase
-	Body     *IrFunction
-	Cowns    []V
-	Captures []V
-}
-
-// The instructions below say where an owner dies or gives its value away (README, "The IR"). Each names the type of
-// the value, with the type arguments of an instance already applied, so codegen can call the drop routine of that
-// type. Dropping a value drops what it owns, deeply by type: the fields of a record, the payload of a union, the
-// elements of a primitive. A place that holds no value, because it was moved from or never assigned, is dropped as a
-// no-op, so a drop at the end of a scope needs no knowledge of the path that led there.
-
-// DropInstr drops the owned value in a register, such as a temporary that nothing took, a removed element, or the old
-// value of a place just read.
-type DropInstr struct {
-	InstrBase
-	Src V
-	Ty  ast.Ty
-}
-
-// DropSlotInstr drops what a slot owns, if anything, and leaves it empty.
-type DropSlotInstr struct {
-	InstrBase
-	Slot int
-	Ty   ast.Ty
-}
-
-// DropAtInstr drops what the address holds, if anything, and leaves it empty: the old value of a field, an element or an
-// mutates parameter that is about to be assigned.
-type DropAtInstr struct {
-	InstrBase
-	Addr V
-	Ty   ast.Ty
-}
-
-// MoveSlotInstr reads a slot and leaves it empty: the value now belongs to whoever receives it.
-type MoveSlotInstr struct {
-	InstrBase
-	Dst  V
-	Slot int
-}
-
-// MoveAtInstr reads the value at an address and leaves it empty, which is how a payload leaves the box of a union that
-// is consumed.
-type MoveAtInstr struct {
-	InstrBase
-	Dst  V
-	Addr V
-}
-
-// CopyInstr is a deep copy of the owned value in Src, which is left as it is: a new box for each record, union and array
-// inside it, and a new string for each string that is not in the executable, so every part of the copy has an owner of its
-// own to free it. A frozen value or a cown reference copies as another owner of the same box. Ty is the type of the value,
-// with an instance's type arguments applied, which is what tells the copy where the managed words of each box are.
-type CopyInstr struct {
-	InstrBase
-	Dst V
-	Src V
-	Ty  ast.Ty
-}
-
-type Terminator interface{ term() }
-
-type TermBase struct{}
-
-func (TermBase) term() {}
-
-type JumpTerm struct {
-	TermBase
-	Target *IrBlock
-}
-
-type BranchTerm struct {
-	TermBase
-	Cond V
-	Then *IrBlock
-	Else *IrBlock
-}
-
-type SwitchTerm struct {
-	TermBase
-	Value   V
-	Values  []int64
-	Targets []*IrBlock
-	Default *IrBlock
-}
-
-type RetTerm struct {
-	TermBase
+// Term is how a block ends, a record of fixed size like an instruction.
+//
+//	TermJump    to Then
+//	TermBranch  to Then if Value is not 0, else to Else
+//	TermSwitch  to the target of the case of Cases[First : First+Count] that Value equals, else to Then
+//	TermRet     returns Value
+//	TermTrap    stops the program
+type Term struct {
+	Kind  TermKind
 	Value V
+	Then  BlockID
+	Else  BlockID
+	First int32
+	Count int32
 }
 
-type TrapTerm struct {
-	TermBase
+func Jump(target BlockID) Term { return Term{Kind: TermJump, Then: target} }
+
+func Branch(cond V, then, els BlockID) Term {
+	return Term{Kind: TermBranch, Value: cond, Then: then, Else: els}
 }
 
-type IrBlock struct {
-	ID     int
-	Instrs []Instr
-	Term   Terminator
+func Ret(value V) Term { return Term{Kind: TermRet, Value: value} }
+
+func Trap() Term { return Term{Kind: TermTrap} }
+
+// Block is a run of instructions, Instrs[First:End] of its function, and how it ends.
+type Block struct {
+	First, End int32
+	Term       Term
 }
 
 // Refusal is a place in the source that lowered to something the backend cannot run yet. Lowering still completes, so
@@ -323,6 +305,8 @@ type Refusal struct {
 	Message string
 }
 
+// IrFunction is a function's IR: the instructions of all its blocks in one slice, block after block, and the pools that the
+// instructions index. Its slices are views of an Arena, so a function is valid until its arena is reset.
 type IrFunction struct {
 	Decl *ast.FuncDecl
 	// Name is what the function is called when that is not its declaration's symbol: a behaviour body is named for the
@@ -331,7 +315,14 @@ type IrFunction struct {
 	ParamCount int
 	Slots      []IrKind
 	Regs       []IrKind
-	Blocks     []*IrBlock
+	Instrs     []Instr
+	Blocks     []Block
+	// The pools, which the C of an instruction and a range of its A and B index.
+	Args    []V
+	Types   []ast.Ty
+	Callees []*ast.FuncDecl
+	Strings []string
+	Cases   []SwitchCase
 	// Refusals are the places in the source that cannot be compiled yet, in source order.
 	Refusals []Refusal
 	// UsesArrays is whether the function calls an array entry, which the backend then links the array runtime for.
@@ -359,50 +350,36 @@ func (f *IrFunction) NewSlot(kind IrKind) int {
 	return len(f.Slots) - 1
 }
 
-func (f *IrFunction) NewBlock() *IrBlock {
-	b := &IrBlock{ID: len(f.Blocks)}
-	f.Blocks = append(f.Blocks, b)
-	return b
+// BlockInstrs are the instructions of a block, not counting how it ends.
+func (f *IrFunction) BlockInstrs(b int) []Instr {
+	blk := &f.Blocks[b]
+	return f.Instrs[blk.First:blk.End]
 }
 
-func Successors(b *IrBlock) []*IrBlock {
-	switch t := b.Term.(type) {
-	case *JumpTerm:
-		return []*IrBlock{t.Target}
-	case *BranchTerm:
-		return []*IrBlock{t.Then, t.Else}
-	case *SwitchTerm:
-		return append(append([]*IrBlock{}, t.Targets...), t.Default)
-	case *RetTerm, *TrapTerm:
+// CallArgs are the arguments of a call or of a runtime entry.
+func (f *IrFunction) CallArgs(i Instr) []V { return f.Args[i.A : i.A+i.B] }
+
+// Callee is the function an OpCall calls.
+func (f *IrFunction) Callee(i Instr) *ast.FuncDecl { return f.Callees[i.C] }
+
+// Routine is the function an OpCallRuntime stores to call later, or nil.
+func (f *IrFunction) Routine(i Instr) *ast.FuncDecl {
+	if i.C == NoRoutine {
 		return nil
 	}
-	panic(diag.Internal("block b%d has no terminator", b.ID))
+	return f.Callees[i.C]
 }
 
-func (f *IrFunction) RemoveUnreachable() {
-	reached := make([]bool, len(f.Blocks))
-	work := []*IrBlock{f.Blocks[0]}
-	reached[0] = true
-	for len(work) > 0 {
-		b := work[len(work)-1]
-		work = work[:len(work)-1]
-		for _, next := range Successors(b) {
-			if !reached[next.ID] {
-				reached[next.ID] = true
-				work = append(work, next)
-			}
-		}
-	}
-	kept := f.Blocks[:0]
-	for _, b := range f.Blocks {
-		if reached[b.ID] {
-			kept = append(kept, b)
-		}
-	}
-	f.Blocks = kept
-	for i, b := range f.Blocks {
-		b.ID = i
-	}
+// TypeOf is the type a drop or a copy names.
+func (f *IrFunction) TypeOf(i Instr) ast.Ty { return f.Types[i.C] }
+
+// Text is the string an OpStr makes.
+func (f *IrFunction) Text(i Instr) string { return f.Strings[i.C] }
+
+// WhenParts are the behaviour an OpWhen schedules, the cowns it waits for and the values it captures.
+func (f *IrFunction) WhenParts(i Instr) (body *IrFunction, cowns, captures []V) {
+	end := i.A + i.B
+	return f.Behaviours[i.Imm], f.Args[i.A:end], f.Args[end : end+V(i.C)]
 }
 
 func kindName(k IrKind) string {
@@ -424,8 +401,8 @@ func quote(s string) string {
 	return "\"" + strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "\n", "\\n").Replace(s) + "\""
 }
 
-func dstPrefix(d *V) string {
-	if d == nil {
+func dstPrefix(d V) string {
+	if d == NoReg {
 		return ""
 	}
 	return d.String() + " = "
@@ -441,12 +418,12 @@ func PrintIr(f *IrFunction, sb *strings.Builder) {
 		sb.WriteString(" slots [" + strings.Join(parts, ", ") + "]")
 	}
 	sb.WriteByte('\n')
-	for _, b := range f.Blocks {
-		fmt.Fprintf(sb, "b%d:\n", b.ID)
-		for _, i := range b.Instrs {
-			sb.WriteString("  " + instrText(i) + "\n")
+	for b := range f.Blocks {
+		fmt.Fprintf(sb, "b%d:\n", b)
+		for _, i := range f.BlockInstrs(b) {
+			sb.WriteString("  " + f.InstrString(i) + "\n")
 		}
-		sb.WriteString("  " + termText(b.Term) + "\n")
+		sb.WriteString("  " + f.TermString(f.Blocks[b].Term) + "\n")
 	}
 	sb.WriteByte('\n')
 	for _, body := range f.Behaviours {
@@ -454,106 +431,104 @@ func PrintIr(f *IrFunction, sb *strings.Builder) {
 	}
 }
 
-func instrText(i Instr) string {
-	switch x := i.(type) {
-	case *ConstInstr:
-		return fmt.Sprintf("%s = const %d", x.Dst, x.Value)
-	case *StrInstr:
-		return fmt.Sprintf("%s = str %s", x.Dst, quote(x.Value))
-	case *LoadSlot:
-		return fmt.Sprintf("%s = load s%d", x.Dst, x.Slot)
-	case *StoreSlot:
-		if x.Borrow {
-			return fmt.Sprintf("store s%d, %s borrow", x.Slot, x.Src)
+// InstrString is the text the printer gives an instruction, for a tool that reports a place in a function.
+func (f *IrFunction) InstrString(i Instr) string {
+	switch i.Op {
+	case OpConst:
+		return fmt.Sprintf("%s = const %d", i.Dst, i.Imm)
+	case OpStr:
+		return fmt.Sprintf("%s = str %s", i.Dst, quote(f.Text(i)))
+	case OpLoadSlot:
+		return fmt.Sprintf("%s = load s%d", i.Dst, i.Imm)
+	case OpStoreSlot:
+		if i.Has(FlagBorrow) {
+			return fmt.Sprintf("store s%d, %s borrow", i.Imm, i.A)
 		}
-		return fmt.Sprintf("store s%d, %s", x.Slot, x.Src)
-	case *SlotAddr:
-		return fmt.Sprintf("%s = addr s%d", x.Dst, x.Slot)
-	case *LoadParam:
-		return fmt.Sprintf("%s = param %d", x.Dst, x.Param)
-	case *LoadField:
-		return fmt.Sprintf("%s = field %s+%d", x.Dst, x.Obj, x.Offset)
-	case *StoreField:
-		return fmt.Sprintf("setfield %s+%d, %s", x.Obj, x.Offset, x.Src)
-	case *FieldAddr:
-		return fmt.Sprintf("%s = fieldaddr %s+%d", x.Dst, x.Obj, x.Offset)
-	case *LoadAt:
-		return fmt.Sprintf("%s = loadat %s", x.Dst, x.Addr)
-	case *StoreAt:
-		return fmt.Sprintf("storeat %s, %s", x.Addr, x.Src)
-	case *LoadGlobal:
-		return fmt.Sprintf("%s = global %s", x.Dst, x.Symbol)
-	case *BinInstr:
+		return fmt.Sprintf("store s%d, %s", i.Imm, i.A)
+	case OpSlotAddr:
+		return fmt.Sprintf("%s = addr s%d", i.Dst, i.Imm)
+	case OpLoadParam:
+		return fmt.Sprintf("%s = param %d", i.Dst, i.Imm)
+	case OpLoadField:
+		return fmt.Sprintf("%s = field %s+%d", i.Dst, i.A, i.Imm)
+	case OpStoreField:
+		return fmt.Sprintf("setfield %s+%d, %s", i.A, i.Imm, i.B)
+	case OpFieldAddr:
+		return fmt.Sprintf("%s = fieldaddr %s+%d", i.Dst, i.A, i.Imm)
+	case OpLoadAt:
+		return fmt.Sprintf("%s = loadat %s", i.Dst, i.A)
+	case OpStoreAt:
+		return fmt.Sprintf("storeat %s, %s", i.A, i.B)
+	case OpLoadGlobal:
+		return fmt.Sprintf("%s = global %s", i.Dst, i.Symbol())
+	case OpBin:
 		suffix := ""
-		if x.Unsigned {
+		if i.Has(FlagUnsigned) {
 			suffix += ".u"
 		}
-		if x.Checked {
+		if i.Has(FlagChecked) {
 			suffix += ".checked"
 		}
-		return fmt.Sprintf("%s = %s%s %s, %s", x.Dst, binOpNames[x.Op], suffix, x.A, x.B)
-	case *CmpInstr:
+		return fmt.Sprintf("%s = %s%s %s, %s", i.Dst, binOpNames[i.Sub], suffix, i.A, i.B)
+	case OpCmp:
 		suffix := ""
-		if x.Unsigned {
+		if i.Has(FlagUnsigned) {
 			suffix = ".u"
 		}
-		return fmt.Sprintf("%s = cmp.%s%s %s, %s", x.Dst, cmpOpNames[x.Op], suffix, x.A, x.B)
-	case *NegInstr:
-		return fmt.Sprintf("%s = neg.checked %s", x.Dst, x.Src)
-	case *NotInstr:
-		return fmt.Sprintf("%s = not %s", x.Dst, x.Src)
-	case *GuardInstr:
-		return fmt.Sprintf("guard %s %s %d", x.Src, guardNames[x.Kind], x.Bound)
-	case *AllocInstr:
-		return fmt.Sprintf("%s = alloc %d", x.Dst, x.Bytes)
-	case *CallInstr:
-		return fmt.Sprintf("%scall %s(%s)", dstPrefix(x.Dst), x.Target.Symbol(), argList(x.Args))
-	case *CallRuntimeInstr:
-		text := fmt.Sprintf("%sruntime %s(%s)", dstPrefix(x.Dst), x.Symbol, argList(x.Args))
-		if x.Routine != nil {
-			text += " routine " + x.Routine.Symbol()
+		return fmt.Sprintf("%s = cmp.%s%s %s, %s", i.Dst, cmpOpNames[i.Sub], suffix, i.A, i.B)
+	case OpNeg:
+		return fmt.Sprintf("%s = neg.checked %s", i.Dst, i.A)
+	case OpNot:
+		return fmt.Sprintf("%s = not %s", i.Dst, i.A)
+	case OpGuard:
+		return fmt.Sprintf("guard %s %s %d", i.A, guardNames[i.Sub], i.Imm)
+	case OpAlloc:
+		return fmt.Sprintf("%s = alloc %d", i.Dst, i.Imm)
+	case OpCall:
+		return fmt.Sprintf("%scall %s(%s)", dstPrefix(i.Dst), f.Callee(i).Symbol(), argList(f.CallArgs(i)))
+	case OpCallRuntime:
+		text := fmt.Sprintf("%sruntime %s(%s)", dstPrefix(i.Dst), i.Symbol(), argList(f.CallArgs(i)))
+		if routine := f.Routine(i); routine != nil {
+			text += " routine " + routine.Symbol()
 		}
 		return text
-	case *WhenInstr:
-		return fmt.Sprintf("when %s cowns [%s] captures [%s]", x.Body.Symbol(), argList(x.Cowns), argList(x.Captures))
-	case *DropInstr:
-		return fmt.Sprintf("drop %s %s", x.Src, x.Ty.Name())
-	case *DropSlotInstr:
-		return fmt.Sprintf("dropslot s%d %s", x.Slot, x.Ty.Name())
-	case *DropAtInstr:
-		return fmt.Sprintf("dropat %s %s", x.Addr, x.Ty.Name())
-	case *CopyInstr:
-		return fmt.Sprintf("%s = copy %s %s", x.Dst, x.Src, x.Ty.Name())
-	case *MoveSlotInstr:
-		return fmt.Sprintf("%s = move s%d", x.Dst, x.Slot)
-	case *MoveAtInstr:
-		return fmt.Sprintf("%s = moveat %s", x.Dst, x.Addr)
+	case OpWhen:
+		body, cowns, captures := f.WhenParts(i)
+		return fmt.Sprintf("when %s cowns [%s] captures [%s]", body.Symbol(), argList(cowns), argList(captures))
+	case OpDrop:
+		return fmt.Sprintf("drop %s %s", i.A, f.TypeOf(i).Name())
+	case OpDropSlot:
+		return fmt.Sprintf("dropslot s%d %s", i.Imm, f.TypeOf(i).Name())
+	case OpDropAt:
+		return fmt.Sprintf("dropat %s %s", i.A, f.TypeOf(i).Name())
+	case OpCopy:
+		return fmt.Sprintf("%s = copy %s %s", i.Dst, i.A, f.TypeOf(i).Name())
+	case OpMoveSlot:
+		return fmt.Sprintf("%s = move s%d", i.Dst, i.Imm)
+	case OpMoveAt:
+		return fmt.Sprintf("%s = moveat %s", i.Dst, i.A)
 	}
-	panic(diag.Internal("printer: unhandled instruction %T", i))
+	panic(diag.Internal("printer: unhandled opcode %d", int(i.Op)))
 }
 
-func termText(t Terminator) string {
-	switch x := t.(type) {
-	case *JumpTerm:
-		return fmt.Sprintf("jump b%d", x.Target.ID)
-	case *BranchTerm:
-		return fmt.Sprintf("branch %s, b%d, b%d", x.Cond, x.Then.ID, x.Else.ID)
-	case *SwitchTerm:
-		parts := make([]string, len(x.Values))
-		for i, v := range x.Values {
-			parts[i] = fmt.Sprintf("%d: b%d", v, x.Targets[i].ID)
+// TermString is the text the printer gives a terminator.
+func (f *IrFunction) TermString(t Term) string {
+	switch t.Kind {
+	case TermJump:
+		return fmt.Sprintf("jump b%d", t.Then)
+	case TermBranch:
+		return fmt.Sprintf("branch %s, b%d, b%d", t.Value, t.Then, t.Else)
+	case TermSwitch:
+		cases := f.Cases[t.First : t.First+t.Count]
+		parts := make([]string, len(cases))
+		for i, c := range cases {
+			parts[i] = fmt.Sprintf("%d: b%d", c.Value, c.Target)
 		}
-		return fmt.Sprintf("switch %s [%s] default b%d", x.Value, strings.Join(parts, ", "), x.Default.ID)
-	case *RetTerm:
-		return fmt.Sprintf("ret %s", x.Value)
-	case *TrapTerm:
+		return fmt.Sprintf("switch %s [%s] default b%d", t.Value, strings.Join(parts, ", "), t.Then)
+	case TermRet:
+		return fmt.Sprintf("ret %s", t.Value)
+	case TermTrap:
 		return "trap"
 	}
 	panic(diag.Internal("printer: a block has no terminator"))
 }
-
-// InstrString is the text the printer gives an instruction, for a tool that reports a place in a function.
-func InstrString(i Instr) string { return instrText(i) }
-
-// TermString is the text the printer gives a terminator.
-func TermString(t Terminator) string { return termText(t) }

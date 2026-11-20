@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/ir"
 	"strconv"
@@ -13,9 +14,17 @@ const (
 	emptyListMessage       = "pop from an empty list"
 )
 
-func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
-	arg := func(i int) value { return fr.regs[c.Args[i]] }
-	set := func(v value) { fr.regs[*c.Dst] = v }
+// runtimeCall is a call of a runtime entry with its arguments and its routine looked up.
+type runtimeCall struct {
+	ir.Instr
+	args    []ir.V
+	routine *ast.FuncDecl
+}
+
+func (vm *vm) runtimeEntry(fr *frame, in *ir.Instr) {
+	c := runtimeCall{Instr: *in, args: fr.fn.CallArgs(*in), routine: fr.fn.Routine(*in)}
+	arg := func(i int) value { return fr.regs[c.args[i]] }
+	set := func(v value) { fr.regs[c.Dst] = v }
 	num := func(n int64) { set(value{n: n}) }
 	flag := func(b bool) {
 		if b {
@@ -24,7 +33,7 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 			num(0)
 		}
 	}
-	switch c.Symbol {
+	switch c.Symbol() {
 	case ir.RtWrite:
 		text := vm.text(arg(1), "a write")
 		switch arg(0).n {
@@ -52,12 +61,12 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 
 	case ir.RtFrozenFreeze:
 		vm.tracking = true
-		set(value{ref: vm.newShared(fr, kindFrozen, c.Args[0], "the freeze")})
+		set(value{ref: vm.newShared(fr, kindFrozen, c.args[0], "the freeze")})
 	case ir.RtCownNew:
 		vm.tracking = true
-		cown := vm.newShared(fr, kindCown, c.Args[0], "the new cown")
-		if c.Routine != nil {
-			cown.ending = vm.function(c.Routine)
+		cown := vm.newShared(fr, kindCown, c.args[0], "the new cown")
+		if c.routine != nil {
+			cown.ending = vm.function(c.routine)
 		}
 		set(value{ref: cown})
 	case ir.RtFrozenGet:
@@ -87,7 +96,7 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 		if uint64(i) > uint64(len(a.elems)) {
 			vm.trap(indexOutOfRangeMessage)
 		}
-		e := vm.moveIn(fr, a, c.Args[2], "the insert")
+		e := vm.moveIn(fr, a, c.args[2], "the insert")
 		vm.restructure(a)
 		a.elems = append(a.elems, nil)
 		copy(a.elems[i+1:], a.elems[i:])
@@ -111,11 +120,11 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 		num(int64(len(vm.collection(arg(0), kindMap, "a length").mapped.entries)))
 	case ir.RtMapHas:
 		m := vm.collection(arg(0), kindMap, "a lookup")
-		_, found := m.mapped.index[vm.keyOf(fr, c.Args[1], "a lookup")]
+		_, found := m.mapped.index[vm.keyOf(fr, c.args[1], "a lookup")]
 		flag(found)
 	case ir.RtMapElem:
 		m := vm.collection(arg(0), kindMap, "an element address")
-		e, found := m.mapped.index[vm.keyOf(fr, c.Args[1], "a lookup")]
+		e, found := m.mapped.index[vm.keyOf(fr, c.args[1], "a lookup")]
 		if !found {
 			vm.trap(missingKeyMessage)
 		}
@@ -124,7 +133,7 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 		vm.mapInsert(fr, c)
 	case ir.RtMapRemove:
 		m := vm.collection(arg(0), kindMap, "a remove")
-		key := vm.keyOf(fr, c.Args[1], "a remove")
+		key := vm.keyOf(fr, c.args[1], "a remove")
 		e, found := m.mapped.index[key]
 		if !found {
 			vm.trap(missingKeyMessage)
@@ -156,10 +165,10 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 		set(addressOf(l.table.cells[vm.slotOf(l, arg(1).n)]))
 	case ir.RtListPushFront, ir.RtListPushBack:
 		l := vm.collection(arg(0), kindList, "a push")
-		e := vm.moveIn(fr, l, c.Args[1], "the push")
+		e := vm.moveIn(fr, l, c.args[1], "the push")
 		vm.restructure(l)
 		slot, h := l.table.acquire(e)
-		if c.Symbol == ir.RtListPushFront {
+		if c.Symbol() == ir.RtListPushFront {
 			l.table.order = append([]int{slot}, l.table.order...)
 		} else {
 			l.table.order = append(l.table.order, slot)
@@ -171,7 +180,7 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 			vm.trap(emptyListMessage)
 		}
 		slot := l.table.order[0]
-		if c.Symbol == ir.RtListPopBack {
+		if c.Symbol() == ir.RtListPopBack {
 			slot = l.table.order[len(l.table.order)-1]
 		}
 		set(vm.takeSlot(l, slot, "the pop"))
@@ -182,14 +191,14 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 			break
 		}
 		slot := l.table.order[0]
-		if c.Symbol == ir.RtListLast {
+		if c.Symbol() == ir.RtListLast {
 			slot = l.table.order[len(l.table.order)-1]
 		}
 		num(handleOf(l.table.gens[slot], slot))
 	case ir.RtListNext, ir.RtListPrev:
 		l := vm.collection(arg(0), kindList, "a walk")
 		at := l.table.position(vm.slotOf(l, arg(1).n))
-		if c.Symbol == ir.RtListNext {
+		if c.Symbol() == ir.RtListNext {
 			at++
 		} else {
 			at--
@@ -226,7 +235,7 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 		set(addressOf(p.table.cells[vm.slotOf(p, arg(1).n)]))
 	case ir.RtPoolInsert:
 		p := vm.collection(arg(0), kindPool, "an insert")
-		e := vm.moveIn(fr, p, c.Args[1], "the insert")
+		e := vm.moveIn(fr, p, c.args[1], "the insert")
 		vm.restructure(p)
 		_, h := p.table.acquire(e)
 		num(h)
@@ -236,7 +245,7 @@ func (vm *vm) runtimeEntry(fr *frame, c *ir.CallRuntimeInstr) {
 	case ir.RtPoolCopy:
 		set(value{ref: vm.copyObject(vm.collection(arg(0), kindPool, "a copy"))})
 	default:
-		panic(diag.Internal("interp: unhandled runtime entry %s", c.Symbol))
+		panic(diag.Internal("interp: unhandled runtime entry %s", c.Symbol()))
 	}
 }
 
@@ -324,21 +333,21 @@ func (vm *vm) keyOf(fr *frame, r ir.V, what string) mapKey {
 
 // mapInsert adds a key and a value, which the map owns. A key that is there keeps its place: the value that was
 // there is dropped, and so is the key that came in, since the map holds one.
-func (vm *vm) mapInsert(fr *frame, c *ir.CallRuntimeInstr) {
-	m := vm.collection(fr.regs[c.Args[0]], kindMap, "an insert")
-	key := vm.keyOf(fr, c.Args[1], "an insert")
+func (vm *vm) mapInsert(fr *frame, c runtimeCall) {
+	m := vm.collection(fr.regs[c.args[0]], kindMap, "an insert")
+	key := vm.keyOf(fr, c.args[1], "an insert")
 	vm.restructure(m)
 	if e, found := m.mapped.index[key]; found {
 		vm.dropCell(&e.val)
-		vm.store(fr, &e.val, c.Args[2], "the insert")
-		if o := fr.regs[c.Args[1]].ref; o != nil && !o.immortal {
+		vm.store(fr, &e.val, c.args[2], "the insert")
+		if o := fr.regs[c.args[1]].ref; o != nil && !o.immortal {
 			vm.drop(o)
 		}
 		return
 	}
 	e := &mapEntry{key: cell{holder: m}, val: cell{holder: m}}
-	vm.store(fr, &e.key, c.Args[1], "the insert")
-	vm.store(fr, &e.val, c.Args[2], "the insert")
+	vm.store(fr, &e.key, c.args[1], "the insert")
+	vm.store(fr, &e.val, c.args[2], "the insert")
 	m.mapped.entries = append(m.mapped.entries, e)
 	m.mapped.index[key] = e
 }

@@ -352,7 +352,7 @@ func generate(proj *ast.Project, results []ast.ModuleResult, main *ast.FuncDecl,
 	units := make([]*backend.CodeUnit, len(modules)+1)
 	var refused atomic.Bool
 	generateModules := func() {
-		par.ForEachIndex(len(modules), o.Jobs, func(i int) {
+		par.ForEachIndexWith(len(modules), o.Jobs, newGenerateScratch, func(w *generateScratch, i int) {
 			out := &outputs[i]
 			var instances *ir.InstanceSet
 			diag.Guard(&unfinite[i], func() { instances = ir.Instances(results[i].Callers) })
@@ -360,15 +360,21 @@ func generate(proj *ast.Project, results []ast.ModuleResult, main *ast.FuncDecl,
 				refused.Store(true)
 				return
 			}
-			fns := make([]*ir.IrFunction, 0, len(results[i].Functions)+len(instances.List))
+			// What the interpreter runs is kept, so its IR stays where it is; the IR that is only emitted is dead once its
+			// module is, and the next module lowers over it.
+			if capture == nil {
+				w.lowering.Reset()
+			}
+			fns := w.fns[:0]
 			for _, f := range results[i].Functions {
 				if len(f.Generics) == 0 {
-					fns = append(fns, ir.Lower(f, instances))
+					fns = append(fns, w.lowering.Lower(f, instances))
 				}
 			}
 			for _, inst := range instances.List {
-				fns = append(fns, ir.Lower(inst, instances))
+				fns = append(fns, w.lowering.Lower(inst, instances))
 			}
+			w.fns = fns
 			out.refusals = refusals(fns, matters)
 			out.usesArrays = usesArrays(fns)
 			if o.EmitIr {
@@ -380,7 +386,7 @@ func generate(proj *ast.Project, results []ast.ModuleResult, main *ast.FuncDecl,
 			}
 			switch {
 			case capture != nil:
-				out.functions = fns
+				out.functions = slices.Clone(fns)
 			case len(out.refusals) > 0:
 				refused.Store(true)
 			case !refused.Load():
@@ -437,6 +443,15 @@ func generate(proj *ast.Project, results []ast.ModuleResult, main *ast.FuncDecl,
 	mark("link")
 	return nil
 }
+
+// generateScratch is what a worker of the generate pass reuses from one module to the next, so lowering a module
+// allocates nothing once the buffers have grown to the largest one.
+type generateScratch struct {
+	lowering *ir.Lowering
+	fns      []*ir.IrFunction
+}
+
+func newGenerateScratch() *generateScratch { return &generateScratch{lowering: ir.NewLowering()} }
 
 // functionsOnce is the IR of every function the interpreter runs. An instance that several modules lowered is there once,
 // as lowered by the first of them in module order.

@@ -14,14 +14,14 @@ import (
 
 func (b *builder) text(s string) ir.V {
 	d := b.reg(ir.KindManaged)
-	b.emit(&ir.StrInstr{Dst: d, Value: s})
+	b.emit(b.ir.Str(d, s))
 	return d
 }
 
 func (b *builder) write(s string) {
 	handle := b.reg(ir.KindScalar)
-	b.emit(&ir.LoadGlobal{Dst: handle, Symbol: ir.RtStdout})
-	b.emit(&ir.CallRuntimeInstr{Symbol: ir.RtWrite, Args: []ir.V{handle, b.text(s)}})
+	b.emit(ir.LoadGlobal(handle, ir.RtStdout))
+	b.emit(b.ir.CallRuntime(ir.NoReg, ir.RtWrite, []ir.V{handle, b.text(s)}, nil))
 }
 
 // cown makes a cown that owns a new box, and gives the register that holds the reference.
@@ -29,10 +29,10 @@ func (b *builder) cown(words int) ir.V {
 	return b.runtime(ir.RtCownNew, ir.KindManaged, b.alloc(words))
 }
 
-func (b *builder) drop(v ir.V) { b.emit(&ir.DropInstr{Src: v, Ty: ast.StringTy}) }
+func (b *builder) drop(v ir.V) { b.emit(b.ir.Drop(v, ast.StringTy)) }
 
 func (b *builder) when(body *ir.IrFunction, cowns []ir.V, captures ...ir.V) {
-	b.emit(&ir.WhenInstr{Body: body, Cowns: cowns, Captures: captures})
+	b.emit(b.ir.When(b.ir.Behaviour(body), cowns, captures))
 }
 
 // writer is a behaviour on one cown that writes a word to standard output.
@@ -177,7 +177,7 @@ func TestAThreadReadingWhatAnotherThreadOwns(t *testing.T) {
 	body, _ := newFunction("body", ast.ConvMutates, ast.ConvLet)
 	box := body.param(1, ir.KindManaged)
 	field := body.reg(ir.KindScalar)
-	body.emit(&ir.LoadField{Dst: field, Obj: box})
+	body.emit(ir.LoadField(field, box, 0))
 	bodyFn := body.ret(body.konst(0))
 	raced := 0
 	for seed := range int64(seedsToTry) {
@@ -190,7 +190,7 @@ func TestAThreadReadingWhatAnotherThreadOwns(t *testing.T) {
 		for range holdsItAWhile {
 			b.konst(0)
 		}
-		b.emit(&ir.DropSlotInstr{Slot: s, Ty: ast.StringTy})
+		b.emit(b.ir.DropSlot(s, ast.StringTy))
 		b.drop(c)
 		r := runSeed(b.ret(b.konst(0)), seed)
 		for _, v := range r.Violations {
@@ -209,7 +209,7 @@ func TestChangingAValueThatIsPartOfAFrozenValue(t *testing.T) {
 	box := b.alloc(1)
 	frozen := b.runtime(ir.RtFrozenFreeze, ir.KindManaged, box)
 	inner := b.runtime(ir.RtFrozenGet, ir.KindManaged, frozen)
-	b.emit(&ir.StoreField{Obj: inner, Src: b.konst(9)})
+	b.emit(ir.StoreField(inner, 0, b.konst(9)))
 	expectViolation(t, run(b.ret(b.konst(0))), interp.Immutability, "part of a frozen value")
 }
 
@@ -219,7 +219,7 @@ func TestReadingAFrozenValueIsFine(t *testing.T) {
 	frozen := b.runtime(ir.RtFrozenFreeze, ir.KindManaged, box)
 	inner := b.runtime(ir.RtFrozenGet, ir.KindManaged, frozen)
 	field := b.reg(ir.KindScalar)
-	b.emit(&ir.LoadField{Dst: field, Obj: inner})
+	b.emit(ir.LoadField(field, inner, 0))
 	b.drop(frozen)
 	r := run(b.ret(b.konst(0)))
 	if len(r.Violations) != 0 {
@@ -231,11 +231,11 @@ func TestReadingAFrozenValueIsFine(t *testing.T) {
 func TestAFrozenValueIsFreedWithItsLastOwner(t *testing.T) {
 	b, _ := newFunction("main")
 	outer, inner := b.alloc(1), b.alloc(1)
-	b.emit(&ir.StoreField{Obj: outer, Src: inner})
+	b.emit(ir.StoreField(outer, 0, inner))
 	frozen := b.runtime(ir.RtFrozenFreeze, ir.KindManaged, outer)
 	other := b.runtime(ir.RtShare, ir.KindManaged, frozen)
 	b.drop(frozen)
-	b.emit(&ir.DropInstr{Src: other, Ty: ast.StringTy})
+	b.emit(b.ir.Drop(other, ast.StringTy))
 	r := run(b.ret(b.konst(0)))
 	if len(r.Violations) != 0 {
 		t.Fatal(r.Violations[0])
@@ -259,7 +259,7 @@ func TestAFrozenValueIsStillThereWhileAnOwnerHoldsIt(t *testing.T) {
 	b.drop(frozen)
 	inner := b.runtime(ir.RtFrozenGet, ir.KindManaged, other)
 	field := b.reg(ir.KindScalar)
-	b.emit(&ir.LoadField{Dst: field, Obj: inner})
+	b.emit(ir.LoadField(field, inner, 0))
 	b.drop(other)
 	if r := run(b.ret(b.konst(0))); len(r.Violations) != 0 {
 		t.Fatal(r.Violations[0])
@@ -301,9 +301,9 @@ func TestABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped(t *testing.T) {
 	body, _ := newFunction("body", ast.ConvMutates)
 	addr := body.param(0, ir.KindScalar)
 	value := body.reg(ir.KindManaged)
-	body.emit(&ir.LoadAt{Dst: value, Addr: addr})
+	body.emit(ir.LoadAt(value, addr))
 	field := body.reg(ir.KindScalar)
-	body.emit(&ir.LoadField{Dst: field, Obj: value})
+	body.emit(ir.LoadField(field, value, 0))
 	bodyFn := body.ret(body.konst(0))
 	for seed := range int64(seedsToTry) {
 		b, _ := newFunction("main")
@@ -322,7 +322,7 @@ func TestACapturedValueIsFreedByTheBehaviour(t *testing.T) {
 	body, _ := newFunction("body", ast.ConvMutates, ast.ConvConsumes)
 	slot := body.slot(ir.KindManaged)
 	body.store(slot, body.param(1, ir.KindManaged))
-	body.emit(&ir.DropSlotInstr{Slot: slot, Ty: ast.StringTy})
+	body.emit(body.ir.DropSlot(slot, ast.StringTy))
 	bodyFn := body.ret(body.konst(0))
 	for seed := range int64(seedsToTry) {
 		b, _ := newFunction("main")

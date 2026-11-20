@@ -17,24 +17,24 @@ const (
 
 // entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
 // backend has no code for the entry.
-func (l *Lowerer) entry(site ast.Node, symbol string, kind IrKind, args ...V) V {
+func (l *Lowerer) entry(site ast.Node, symbol Rt, kind IrKind, args ...V) V {
 	d := l.reg(kind)
-	l.emitEntry(site, &CallRuntimeInstr{Dst: &d, Symbol: symbol, Args: args})
+	l.emitEntry(site, d, symbol, args, nil)
 	return d
 }
 
 // entryVoid calls a runtime entry that returns nothing.
-func (l *Lowerer) entryVoid(site ast.Node, symbol string, args ...V) {
-	l.emitEntry(site, &CallRuntimeInstr{Symbol: symbol, Args: args})
+func (l *Lowerer) entryVoid(site ast.Node, symbol Rt, args ...V) {
+	l.emitEntry(site, NoReg, symbol, args, nil)
 }
 
-func (l *Lowerer) emitEntry(site ast.Node, call *CallRuntimeInstr) {
-	if IsNativeEntry(call.Symbol) {
+func (l *Lowerer) emitEntry(site ast.Node, dst V, symbol Rt, args []V, routine *ast.FuncDecl) {
+	if IsNativeEntry(symbol) {
 		l.f.UsesArrays = true
 	} else {
 		l.refuse(site, diag.ErrInterpreterOnly, interpreterOnlyMessage)
 	}
-	l.emit(call)
+	l.emit(l.b.CallRuntime(dst, symbol, args, routine))
 }
 
 // refuse notes a place that cannot be compiled yet, once for each site.
@@ -47,11 +47,11 @@ func (l *Lowerer) refuse(site ast.Node, code, message string) {
 // union is a new box of a union value: the case index, then the payload.
 func (l *Lowerer) union(tag int, payload ...V) V {
 	p := l.reg(KindManaged)
-	l.emit(&AllocInstr{Dst: p, Bytes: BoxBytes(len(payload), true)})
+	l.emit(Alloc(p, BoxBytes(len(payload), true)))
 	t := l.konst(int64(tag))
-	l.emit(&StoreField{Obj: p, Offset: TagOffset, Src: t})
+	l.emit(StoreField(p, TagOffset, t))
 	for i, v := range payload {
-		l.emit(&StoreField{Obj: p, Offset: WordBytes + WordBytes*i, Src: v})
+		l.emit(StoreField(p, WordBytes+WordBytes*i, v))
 	}
 	return p
 }
@@ -60,28 +60,28 @@ func (l *Lowerer) union(tag int, payload ...V) V {
 // path where it is present, because the entry it calls traps on a miss.
 func (l *Lowerer) optional(present V, value func() V) V {
 	result := l.f.NewSlot(KindManaged)
-	some := l.f.NewBlock()
-	none := l.f.NewBlock()
-	end := l.f.NewBlock()
-	l.cur.Term = &BranchTerm{Cond: present, Then: some, Else: none}
+	some := l.b.NewBlock()
+	none := l.b.NewBlock()
+	end := l.b.NewBlock()
+	l.b.Terminate(l.cur, Branch(present, some, none))
 	l.cur = some
 	v := value()
-	l.emit(&StoreSlot{Slot: result, Src: l.union(ast.OptionSome, v)})
+	l.emit(StoreSlot(result, l.union(ast.OptionSome, v), false))
 	l.goTo(end)
 	l.cur = none
-	l.emit(&StoreSlot{Slot: result, Src: l.union(ast.OptionNone)})
+	l.emit(StoreSlot(result, l.union(ast.OptionNone), false))
 	l.goTo(end)
 	return l.fetch(result)
 }
 
 // requireOrTrap continues only when cond holds, and panics with the message otherwise.
 func (l *Lowerer) requireOrTrap(cond V, message string) {
-	ok := l.f.NewBlock()
-	bad := l.f.NewBlock()
-	l.cur.Term = &BranchTerm{Cond: cond, Then: ok, Else: bad}
+	ok := l.b.NewBlock()
+	bad := l.b.NewBlock()
+	l.b.Terminate(l.cur, Branch(cond, ok, bad))
 	l.cur = bad
-	l.emit(&CallRuntimeInstr{Symbol: RtPanic, Args: []V{l.str(message)}})
-	l.seal(&TrapTerm{})
+	l.emit(l.b.CallRuntime(NoReg, RtPanic, []V{l.str(message)}, nil))
+	l.seal(Trap())
 	l.cur = ok
 }
 
@@ -89,20 +89,20 @@ func (l *Lowerer) requireOrTrap(cond V, message string) {
 func (l *Lowerer) countedLoop(limit V, body func(index V)) {
 	index := l.f.NewSlot(KindScalar)
 	bound := l.f.NewSlot(KindScalar)
-	top := l.f.NewBlock()
-	inside := l.f.NewBlock()
-	exit := l.f.NewBlock()
-	l.emit(&StoreSlot{Slot: index, Src: l.konst(0)})
-	l.emit(&StoreSlot{Slot: bound, Src: limit})
+	top := l.b.NewBlock()
+	inside := l.b.NewBlock()
+	exit := l.b.NewBlock()
+	l.emit(StoreSlot(index, l.konst(0), false))
+	l.emit(StoreSlot(bound, limit, false))
 	l.goTo(top)
 	i := l.load(index)
 	n := l.load(bound)
-	l.cur.Term = &BranchTerm{Cond: l.compare(CmpLt, i, n, true), Then: inside, Else: exit}
+	l.b.Terminate(l.cur, Branch(l.compare(CmpLt, i, n, true), inside, exit))
 	l.cur = inside
 	body(l.load(index))
 	next := l.reg(KindScalar)
-	l.emit(&BinInstr{Dst: next, Op: OpAdd, A: l.load(index), B: l.konst(1), Unsigned: true})
-	l.emit(&StoreSlot{Slot: index, Src: next})
+	l.emit(Bin(next, BinAdd, l.load(index), l.konst(1), true, false))
+	l.emit(StoreSlot(index, next, false))
 	l.goTo(top)
 	l.cur = exit
 }
@@ -131,7 +131,7 @@ func (l *Lowerer) indexOf(e *ast.IndexExpr) V {
 
 func (l *Lowerer) elemEntry(site ast.Node, collection ast.Ty, coll, index V) V {
 	bt := ast.Content(l.binding.Apply(collection)).(*ast.BuiltinTy)
-	var symbol string
+	var symbol Rt
 	switch bt.Kind {
 	case ast.BuiltinArray:
 		symbol = RtArrayElem
@@ -150,7 +150,7 @@ func (l *Lowerer) elemEntry(site ast.Node, collection ast.Ty, coll, index V) V {
 func (l *Lowerer) VisitIndexExpr(e *ast.IndexExpr) V {
 	addr := l.elemAddr(e)
 	d := l.reg(l.kind(e.Ty()))
-	l.emit(&LoadAt{Dst: d, Addr: addr})
+	l.emit(LoadAt(d, addr))
 	return d
 }
 
@@ -162,7 +162,7 @@ func (l *Lowerer) assignElement(t *ast.IndexExpr, value ast.Expr) {
 	v := l.expr(value)
 	addr := l.elemEntry(t, t.Obj.Ty(), coll, index)
 	l.dropAt(addr, t.Ty())
-	l.emit(&StoreAt{Addr: addr, Src: v})
+	l.emit(StoreAt(addr, v))
 }
 
 // intrinsic lowers a call of a built-in method into the runtime entries of its primitive.
@@ -174,10 +174,17 @@ func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
 	if c.Receiver != nil {
 		recv = l.read(c.Receiver)
 	}
-	args := make([]V, len(c.Ordered))
+	base := len(l.args)
 	for i, a := range c.Ordered {
-		args[i] = l.converted(a, c.Pass.Specs[i].Type)
+		l.push(l.converted(a, c.Pass.Specs[i].Type))
 	}
+	result := l.intrinsicCall(c, recv, l.args[base:])
+	l.args = l.args[:base]
+	return result
+}
+
+// intrinsicCall lowers a built-in method whose receiver and arguments are lowered.
+func (l *Lowerer) intrinsicCall(c *ast.CallExpr, recv V, args []V) V {
 	switch c.Target.Intrinsic {
 	case ast.IntrinsicArrayNew:
 		return l.entry(c, RtArrayNew, KindManaged)
@@ -201,7 +208,7 @@ func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
 		n := l.entry(c, RtArrayLen, KindScalar, recv)
 		return l.optional(l.nonZero(n), func() V {
 			last := l.reg(KindScalar)
-			l.emit(&BinInstr{Dst: last, Op: OpSub, A: n, B: l.konst(1), Unsigned: true})
+			l.emit(Bin(last, BinSub, n, l.konst(1), true, false))
 			return l.entry(c, RtArrayRemove, l.payloadKind(c.Ty()), recv, last)
 		})
 
@@ -295,10 +302,10 @@ func (l *Lowerer) unwrap(c *ast.CallExpr, option V) V {
 	d := l.reg(kind)
 	if kind == KindManaged {
 		addr := l.reg(KindScalar)
-		l.emit(&FieldAddr{Dst: addr, Obj: option, Offset: optionPayloadOffset})
-		l.emit(&MoveAtInstr{Dst: d, Addr: addr})
+		l.emit(FieldAddr(addr, option, optionPayloadOffset))
+		l.emit(MoveAt(d, addr))
 	} else {
-		l.emit(&LoadField{Dst: d, Obj: option, Offset: optionPayloadOffset})
+		l.emit(LoadField(d, option, optionPayloadOffset))
 	}
 	l.dropValue(option, c.Receiver.Ty())
 	return d
@@ -306,7 +313,7 @@ func (l *Lowerer) unwrap(c *ast.CallExpr, option V) V {
 
 // dropEmpty ends a collection that the call consumes, and traps if an element is left: dropping it would drop the
 // element, which a type with a destructor must never be left to do.
-func (l *Lowerer) dropEmpty(c *ast.CallExpr, length string, collection V) V {
+func (l *Lowerer) dropEmpty(c *ast.CallExpr, length Rt, collection V) V {
 	l.requireOrTrap(l.isZero(l.entry(c, length, KindScalar, collection)), dropEmptyMessage)
 	l.dropValue(collection, c.Receiver.Ty())
 	return l.konst(0)
@@ -317,9 +324,9 @@ func (l *Lowerer) dropEmpty(c *ast.CallExpr, length string, collection V) V {
 func (l *Lowerer) moveOutAt(addr V, t ast.Ty) V {
 	d := l.reg(l.kind(t))
 	if l.kind(t) == KindManaged {
-		l.emit(&MoveAtInstr{Dst: d, Addr: addr})
+		l.emit(MoveAt(d, addr))
 	} else {
-		l.emit(&LoadAt{Dst: d, Addr: addr})
+		l.emit(LoadAt(d, addr))
 	}
 	return d
 }
@@ -331,7 +338,7 @@ func (l *Lowerer) exchange(c *ast.CallExpr) V {
 	value := l.converted(c.Ordered[1], c.Pass.Specs[1].Type)
 	addr := l.address(c.Ordered[0])
 	old := l.moveOutAt(addr, c.Ty())
-	l.emit(&StoreAt{Addr: addr, Src: value})
+	l.emit(StoreAt(addr, value))
 	return old
 }
 
@@ -352,7 +359,7 @@ func (l *Lowerer) isZero(v V) V { return l.compare(CmpEq, v, l.konst(0), false) 
 func (l *Lowerer) nonZero(v V) V { return l.compare(CmpNe, v, l.konst(0), false) }
 
 // popped is some(element) from the end of a list that has one, and none from an empty list.
-func (l *Lowerer) popped(c *ast.CallExpr, length, pop string, list V) V {
+func (l *Lowerer) popped(c *ast.CallExpr, length, pop Rt, list V) V {
 	n := l.entry(c, length, KindScalar, list)
 	return l.optional(l.nonZero(n), func() V {
 		return l.entry(c, pop, l.payloadKind(c.Ty()), list)
@@ -379,10 +386,15 @@ func (l *Lowerer) arrayFilled(c *ast.CallExpr, count, value V) V {
 // requireNative refuses, once for each site, a value of a type that holds a primitive the backend has no code for. A copy
 // or a drop of such a value is code that only the interpreter has, as the entries of the primitive itself are.
 func (l *Lowerer) requireNative(site ast.Node, t ast.Ty) {
-	if holdsInterpreterOnly(t, nil) {
+	var visiting [walkDepthHint]ast.Ty
+	if holdsInterpreterOnly(t, visiting[:0]) {
 		l.refuse(site, diag.ErrInterpreterOnly, interpreterOnlyMessage)
 	}
 }
+
+// walkDepthHint is how many records and unions a walk of a type usually has open at once, so its list of them lives on the
+// stack.
+const walkDepthHint = 8
 
 // holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a map, a list, a pool, a frozen value or a
 // cown. visiting are the records and unions being walked, so a type that contains itself through an array ends.

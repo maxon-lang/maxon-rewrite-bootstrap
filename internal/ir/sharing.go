@@ -25,7 +25,7 @@ func (l *Lowerer) contentOnce(site ast.Node, v V, frozen ast.Ty) (V, ast.Ty) {
 // when schedules the body of a behaviour, which becomes a function of its own. The cowns it names are read, and what it
 // captures moves in: the ownership pass marked each capture consumed, so reading it takes it out of its owner.
 func (l *Lowerer) VisitWhenStmt(s *ast.WhenStmt) {
-	body := l.behaviour(s)
+	behaviour := l.behaviour(s)
 	cowns := make([]V, len(s.Cowns))
 	for i, c := range s.Cowns {
 		cowns[i] = l.expr(c)
@@ -35,17 +35,16 @@ func (l *Lowerer) VisitWhenStmt(s *ast.WhenStmt) {
 		captures[i] = l.expr(cp.Ref)
 	}
 	l.refuse(s, diag.ErrInterpreterOnly, interpreterOnlyMessage)
-	l.emit(&WhenInstr{Body: body, Cowns: cowns, Captures: captures})
+	l.emit(l.b.When(behaviour, cowns, captures))
 }
 
 // behaviour lowers the body of a `when` as a function, with the type arguments of the function around it.
-func (l *Lowerer) behaviour(s *ast.WhenStmt) *IrFunction {
-	inner := newLowerer(s.Fn, l.binding, l.instances, ast.BehaviourName(l.f.Symbol(), len(l.f.Behaviours)))
-	body := lowerBody(inner)
-	l.f.Behaviours = append(l.f.Behaviours, body)
+func (l *Lowerer) behaviour(s *ast.WhenStmt) int {
+	inner := l.newLowerer(s.Fn, ast.BehaviourName(l.f.Symbol(), len(l.f.Behaviours)))
+	body := inner.lowerBody()
 	l.f.UsesArrays = l.f.UsesArrays || body.UsesArrays
 	l.f.Refusals = append(l.f.Refusals, body.Refusals...)
-	return body
+	return l.b.Behaviour(body)
 }
 
 // intrinsicSharing lowers a call of freeze, share, thaw or cown.
@@ -61,11 +60,11 @@ func (l *Lowerer) intrinsicSharing(c *ast.CallExpr, args []V) V {
 		return l.copyValue(c, inner, held)
 	case ast.IntrinsicCown:
 		d := l.reg(KindManaged)
-		call := &CallRuntimeInstr{Dst: &d, Symbol: RtCownNew, Args: args}
+		var routine *ast.FuncDecl
 		if c.Drop != nil {
-			call.Routine = l.callee(c.Drop)
+			routine = l.callee(c.Drop)
 		}
-		l.emitEntry(c, call)
+		l.emitEntry(c, d, RtCownNew, args, routine)
 		return d
 	}
 	panic(diag.Internal("lower: %d is not an intrinsic that shares", int(c.Target.Intrinsic)))

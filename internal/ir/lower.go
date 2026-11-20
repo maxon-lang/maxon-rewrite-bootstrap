@@ -3,7 +3,7 @@ package ir
 import (
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -14,11 +14,18 @@ const WordBytes = 8
 // TagOffset is where a union box holds its case index; the payload follows it.
 const TagOffset = 0
 
+// jumpTargets are where a break and a continue of a loop or a match go.
 type jumpTargets struct {
-	brk  *IrBlock
-	cont *IrBlock
+	brk  BlockID
+	cont BlockID
 	// depth is the number of scopes open where the loop or match starts: a jump to it leaves the ones above.
 	depth int
+}
+
+// jumpFrame is the targets of a loop or a match that is being lowered. They nest, so a break finds its own from the top.
+type jumpFrame struct {
+	node    ast.Node
+	targets jumpTargets
 }
 
 // ownerSlot is the slot that owns a consumes parameter: the caller gives the value away, so the callee holds it in a slot
@@ -30,77 +37,129 @@ type ownerSlot struct {
 
 type Lowerer struct {
 	fn *ast.FuncDecl
-	f  *IrFunction
+	b  *Builder
+	// f is the function under construction, which is the builder's.
+	f     *IrFunction
+	arena *Arena
 	// instances are the ones the module needs, which every generic call in the body must be one of.
 	instances *InstanceSet
 	// binding gives the type parameters of the function being lowered their arguments, when it is an instance of a
 	// generic function. The body was checked once against the parameters, so every type it names is read through it.
 	binding ast.Binding
-	jumps   map[ast.Node]jumpTargets
-	cur     *IrBlock
+	jumps   []jumpFrame
+	cur     BlockID
 	scopes  []scope
 	// ownerSlots are the slots that hold the consumes parameters the body names.
 	ownerSlots []ownerSlot
 	// selfOwner is the slot that owns a consumes self, or -1.
 	selfOwner int
+	// args holds the values of the arguments of the calls being lowered, the innermost call's last, so a call needs no list
+	// of its own.
+	args []V
 }
 
 var lowerBinOps = map[string]BinOp{
-	"+": OpAdd, "-": OpSub, "*": OpMul, "/": OpDiv, "mod": OpMod,
-	"and": OpAnd, "or": OpOr, "xor": OpXor, "shl": OpShl, "shr": OpShr,
+	"+": BinAdd, "-": BinSub, "*": BinMul, "/": BinDiv, "mod": BinMod,
+	"and": BinAnd, "or": BinOr, "xor": BinXor, "shl": BinShl, "shr": BinShr,
 }
 
 var lowerCmpOps = map[string]CmpOp{
 	"==": CmpEq, "!=": CmpNe, "<": CmpLt, "<=": CmpLe, ">": CmpGt, ">=": CmpGe,
 }
 
-// newLowerer starts the IR of a function. binding gives the type parameters their arguments; it is the function's own
-// when it is an instance of a generic function, and the one of the function around it for the body of a behaviour.
-func newLowerer(fn *ast.FuncDecl, binding ast.Binding, instances *InstanceSet, name string) *Lowerer {
-	paramCount := len(fn.Params)
-	if fn.IsMethod() {
-		paramCount++
-	}
-	l := &Lowerer{fn: fn, f: &IrFunction{Decl: fn, Name: name, ParamCount: paramCount}, jumps: map[ast.Node]jumpTargets{}, selfOwner: -1, binding: binding, instances: instances}
-	var locals []*ast.Local
-	for _, loc := range fn.Locals {
-		if !loc.IsParam {
-			locals = append(locals, loc)
-		}
-	}
-	sort.SliceStable(locals, func(i, j int) bool { return locals[i].Slot < locals[j].Slot })
-	for _, loc := range locals {
-		if loc.Slot != len(l.f.Slots) {
-			panic(diag.Internal("lower: local slots of %s are not dense", fn.Symbol()))
-		}
-		l.f.NewSlot(l.kind(loc.Type))
-	}
-	l.cur = l.f.NewBlock()
-	return l
+// Lowering lowers functions into one arena with the buffers of one lowerer, which is what a worker does for each module it
+// is given: Reset before a module forgets the IR of the one before it, and nothing is allocated once the buffers have grown
+// to the largest module. It belongs to one goroutine.
+type Lowering struct {
+	arena *Arena
+	l     Lowerer
+	b     Builder
 }
 
+// NewLowering is a lowerer with an arena of its own.
+func NewLowering() *Lowering {
+	w := &Lowering{arena: &Arena{}}
+	w.l.b, w.l.arena = &w.b, w.arena
+	return w
+}
+
+// Reset makes the IR of every function lowered so far invalid, so the arena's storage serves the next ones.
+func (w *Lowering) Reset() { w.arena.Reset() }
+
 // Lower is the IR of a function, or of an instance of a generic one. instances are the ones the function's module needs.
-func Lower(fn *ast.FuncDecl, instances *InstanceSet) *IrFunction {
+func (w *Lowering) Lower(fn *ast.FuncDecl, instances *InstanceSet) *IrFunction {
 	var binding ast.Binding
 	if fn.Generic != nil {
 		binding = ast.Binding{Params: fn.Generic.Generics, Args: fn.TypeArgs}
 	}
-	return lowerBody(newLowerer(fn, binding, instances, ""))
+	w.l.begin(fn, binding, instances, "")
+	return w.l.lowerBody()
 }
 
-// lowerBody lowers the statements of the function a lowerer was made for.
-func lowerBody(l *Lowerer) *IrFunction {
+// Lower is the IR of one function, in an arena of its own.
+func Lower(fn *ast.FuncDecl, instances *InstanceSet) *IrFunction {
+	return NewLowering().Lower(fn, instances)
+}
+
+// newLowerer starts the IR of the body of a behaviour, which is lowered while the function around it is, so it has a
+// builder of its own and its function goes in the same arena. binding is the one of the function around it.
+func (l *Lowerer) newLowerer(fn *ast.FuncDecl, name string) *Lowerer {
+	inner := &Lowerer{b: &Builder{}, arena: l.arena}
+	inner.begin(fn, l.binding, l.instances, name)
+	return inner
+}
+
+// begin starts the IR of a function, forgetting the one before it. binding gives the type parameters their arguments; it is
+// the function's own when it is an instance of a generic function, and the one of the function around it for the body of a
+// behaviour.
+func (l *Lowerer) begin(fn *ast.FuncDecl, binding ast.Binding, instances *InstanceSet, name string) {
+	paramCount := len(fn.Params)
+	if fn.IsMethod() {
+		paramCount++
+	}
+	l.b.Start(fn, name, paramCount)
+	l.fn, l.f, l.instances, l.binding = fn, &l.b.F, instances, binding
+	l.jumps, l.scopes, l.ownerSlots, l.args = l.jumps[:0], l.scopes[:0], l.ownerSlots[:0], l.args[:0]
+	l.selfOwner = -1
+	l.declareSlots()
+	l.cur = l.b.NewBlock()
+}
+
+// declareSlots makes a slot for each local that is not a parameter, at the index the checker gave it.
+func (l *Lowerer) declareSlots() {
+	count := 0
+	for _, loc := range l.fn.Locals {
+		if !loc.IsParam {
+			count++
+		}
+	}
+	const unset = IrKind(0xFF)
+	for range count {
+		l.f.Slots = append(l.f.Slots, unset)
+	}
+	for _, loc := range l.fn.Locals {
+		if loc.IsParam {
+			continue
+		}
+		if loc.Slot < 0 || loc.Slot >= count || l.f.Slots[loc.Slot] != unset {
+			panic(diag.Internal("lower: local slots of %s are not dense", l.fn.Symbol()))
+		}
+		l.f.Slots[loc.Slot] = l.kind(loc.Type)
+	}
+}
+
+// lowerBody lowers the statements of the function that begin started, and finishes it in the arena.
+func (l *Lowerer) lowerBody() *IrFunction {
 	fn := l.fn
 	l.pushScope(true)
 	l.adoptParams()
 	l.block(fn.Body)
 	l.popScope()
-	if l.cur.Term == nil {
+	if !l.b.Terminated(l.cur) {
 		zero := l.konst(0)
-		l.cur.Term = &RetTerm{Value: zero}
+		l.b.Terminate(l.cur, Ret(zero))
 	}
-	l.f.RemoveUnreachable()
-	return l.f
+	return l.b.Finish(l.arena)
 }
 
 // adoptParams moves each consumes parameter into a slot, which owns it from there on. A parameter the body does not name
@@ -126,7 +185,7 @@ func (l *Lowerer) adoptParams() {
 
 func (l *Lowerer) adopt(index int, t ast.Ty) int {
 	slot := l.f.NewSlot(KindManaged)
-	l.emit(&StoreSlot{Slot: slot, Src: l.param(index, KindManaged)})
+	l.emit(StoreSlot(slot, l.param(index, KindManaged), false))
 	l.ownLocal(slot, t)
 	return slot
 }
@@ -149,7 +208,7 @@ func (l *Lowerer) ownerOf(loc *ast.Local) int {
 func (l *Lowerer) ownedRead(slot int, e ast.Expr) V {
 	if e.IsConsumed() && l.f.Slots[slot] == KindManaged {
 		d := l.reg(KindManaged)
-		l.emit(&MoveSlotInstr{Dst: d, Slot: slot})
+		l.emit(MoveSlot(d, slot))
 		return d
 	}
 	return l.load(slot)
@@ -165,20 +224,38 @@ func kindOf(t ast.Ty) IrKind {
 // kind is the kind of a value of a type the body names, which may be a type parameter of the function.
 func (l *Lowerer) kind(t ast.Ty) IrKind { return kindOf(l.binding.Apply(t)) }
 
-func (l *Lowerer) emit(i Instr) {
-	l.cur.Instrs = append(l.cur.Instrs, i)
+func (l *Lowerer) pushJumps(node ast.Node, targets jumpTargets) {
+	l.jumps = append(l.jumps, jumpFrame{node: node, targets: targets})
 }
 
-func (l *Lowerer) seal(t Terminator) {
-	if l.cur.Term == nil {
-		l.cur.Term = t
+func (l *Lowerer) popJumps() { l.jumps = l.jumps[:len(l.jumps)-1] }
+
+// jumpsOf is where a break or a continue of the loop or match goes.
+func (l *Lowerer) jumpsOf(node ast.Node) jumpTargets {
+	for _, v := range slices.Backward(l.jumps) {
+		if v.node == node {
+			return v.targets
+		}
 	}
-	l.cur = l.f.NewBlock()
+	panic(diag.Internal("lower: a break or a continue names a loop or a match that is not being lowered"))
 }
 
-func (l *Lowerer) goTo(target *IrBlock) {
-	if l.cur.Term == nil {
-		l.cur.Term = &JumpTerm{Target: target}
+func (l *Lowerer) emit(i Instr) { l.b.Emit(l.cur, i) }
+
+// push adds the value of an argument to the call being lowered. The value is computed before the push, because computing
+// it can push too, and the stack may move.
+func (l *Lowerer) push(v V) { l.args = append(l.args, v) }
+
+func (l *Lowerer) seal(t Term) {
+	if !l.b.Terminated(l.cur) {
+		l.b.Terminate(l.cur, t)
+	}
+	l.cur = l.b.NewBlock()
+}
+
+func (l *Lowerer) goTo(target BlockID) {
+	if !l.b.Terminated(l.cur) {
+		l.b.Terminate(l.cur, Jump(target))
 	}
 	l.cur = target
 }
@@ -189,19 +266,19 @@ func (l *Lowerer) reg(kind IrKind) V {
 
 func (l *Lowerer) konst(value int64) V {
 	d := l.reg(KindScalar)
-	l.emit(&ConstInstr{Dst: d, Value: value})
+	l.emit(Const(d, value))
 	return d
 }
 
 func (l *Lowerer) str(value string) V {
 	d := l.reg(KindManaged)
-	l.emit(&StrInstr{Dst: d, Value: value})
+	l.emit(l.b.Str(d, value))
 	return d
 }
 
 func (l *Lowerer) param(index int, kind IrKind) V {
 	d := l.reg(kind)
-	l.emit(&LoadParam{Dst: d, Param: index})
+	l.emit(LoadParam(d, index))
 	return d
 }
 
@@ -213,9 +290,9 @@ func (l *Lowerer) self() V {
 	return l.param(l.fn.SelfLocal.ParamIndex, KindManaged)
 }
 
-func (l *Lowerer) runtime(symbol string, kind IrKind, args ...V) V {
+func (l *Lowerer) runtime(symbol Rt, kind IrKind, args ...V) V {
 	d := l.reg(kind)
-	l.emit(&CallRuntimeInstr{Dst: &d, Symbol: symbol, Args: args})
+	l.emit(l.b.CallRuntime(d, symbol, args, nil))
 	return d
 }
 
@@ -245,7 +322,7 @@ func (l *Lowerer) condition(e ast.Expr) V {
 func (l *Lowerer) VisitLetStmt(s *ast.LetStmt) {
 	if s.Init != nil {
 		v := l.expr(s.Init)
-		l.emit(&StoreSlot{Slot: s.Sym.Slot, Src: v})
+		l.emit(StoreSlot(s.Sym.Slot, v, false))
 	}
 	l.ownLocal(s.Sym.Slot, s.Sym.Type)
 }
@@ -255,14 +332,14 @@ func (l *Lowerer) VisitDiscardStmt(s *ast.DiscardStmt) { l.expr(s.Value) }
 func (l *Lowerer) VisitExprStmt(s *ast.ExprStmt) { l.expr(s.E) }
 
 func (l *Lowerer) VisitIfStmt(s *ast.IfStmt) {
-	then := l.f.NewBlock()
-	end := l.f.NewBlock()
+	then := l.b.NewBlock()
+	end := l.b.NewBlock()
 	els := end
 	if s.HasElse {
-		els = l.f.NewBlock()
+		els = l.b.NewBlock()
 	}
 	cond := l.condition(s.Cond)
-	l.cur.Term = &BranchTerm{Cond: cond, Then: then, Else: els}
+	l.b.Terminate(l.cur, Branch(cond, then, els))
 	l.cur = then
 	l.block(s.Then)
 	l.goTo(end)
@@ -275,16 +352,17 @@ func (l *Lowerer) VisitIfStmt(s *ast.IfStmt) {
 }
 
 func (l *Lowerer) VisitWhileStmt(s *ast.WhileStmt) {
-	top := l.f.NewBlock()
-	body := l.f.NewBlock()
-	end := l.f.NewBlock()
-	l.jumps[s] = jumpTargets{brk: end, cont: top, depth: len(l.scopes)}
+	top := l.b.NewBlock()
+	body := l.b.NewBlock()
+	end := l.b.NewBlock()
+	l.pushJumps(s, jumpTargets{brk: end, cont: top, depth: len(l.scopes)})
 	l.goTo(top)
 	cond := l.condition(s.Cond)
-	l.cur.Term = &BranchTerm{Cond: cond, Then: body, Else: end}
+	l.b.Terminate(l.cur, Branch(cond, body, end))
 	l.cur = body
 	l.block(s.Body)
 	l.goTo(top)
+	l.popJumps()
 	l.cur = end
 }
 
@@ -298,19 +376,19 @@ func (l *Lowerer) VisitReturnStmt(s *ast.ReturnStmt) {
 		v = l.expr(s.Value)
 	}
 	l.unwind(0)
-	l.seal(&RetTerm{Value: v})
+	l.seal(Ret(v))
 }
 
 func (l *Lowerer) VisitBreakStmt(s *ast.BreakStmt) {
-	target := l.jumps[s.Target]
+	target := l.jumpsOf(s.Target)
 	l.unwind(target.depth)
-	l.seal(&JumpTerm{Target: target.brk})
+	l.seal(Jump(target.brk))
 }
 
 func (l *Lowerer) VisitContinueStmt(s *ast.ContinueStmt) {
-	target := l.jumps[s.Target]
+	target := l.jumpsOf(s.Target)
 	l.unwind(target.depth)
-	l.seal(&JumpTerm{Target: target.cont})
+	l.seal(Jump(target.cont))
 }
 
 // VisitAssignStmt stores a value into a place, dropping the value the place held: the assignment is where that
@@ -325,12 +403,12 @@ func (l *Lowerer) VisitAssignStmt(a *ast.AssignStmt) {
 			if loc.ByRef() {
 				addr := l.param(loc.ParamIndex, KindScalar)
 				l.dropAt(addr, loc.Type)
-				l.emit(&StoreAt{Addr: addr, Src: v})
+				l.emit(StoreAt(addr, v))
 			} else {
 				if l.kind(loc.Type) == KindManaged {
-					l.emit(&DropSlotInstr{Slot: loc.Slot, Ty: l.dropType(loc.Type)})
+					l.emit(l.b.DropSlot(loc.Slot, l.dropType(loc.Type)))
 				}
-				l.emit(&StoreSlot{Slot: loc.Slot, Src: v})
+				l.emit(StoreSlot(loc.Slot, v, false))
 			}
 			return
 		case ast.NameSelfField:
@@ -359,16 +437,16 @@ func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
 	slot := s.Sym.Slot
 	limit := l.f.NewSlot(KindScalar)
 	unsigned := isUnsignedInt(s.Sym.Type)
-	body := l.f.NewBlock()
-	cont := l.f.NewBlock()
-	step := l.f.NewBlock()
-	exit := l.f.NewBlock()
-	l.jumps[s] = jumpTargets{brk: exit, cont: cont, depth: len(l.scopes)}
+	body := l.b.NewBlock()
+	cont := l.b.NewBlock()
+	step := l.b.NewBlock()
+	exit := l.b.NewBlock()
+	l.pushJumps(s, jumpTargets{brk: exit, cont: cont, depth: len(l.scopes)})
 
 	from := l.expr(s.From)
-	l.emit(&StoreSlot{Slot: slot, Src: from})
+	l.emit(StoreSlot(slot, from, false))
 	to := l.expr(s.To)
-	l.emit(&StoreSlot{Slot: limit, Src: to})
+	l.emit(StoreSlot(limit, to, false))
 	pastOp := CmpGe
 	if s.Inclusive {
 		pastOp = CmpGt
@@ -376,7 +454,7 @@ func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
 	pastA := l.load(slot)
 	pastB := l.load(limit)
 	past := l.compare(pastOp, pastA, pastB, unsigned)
-	l.cur.Term = &BranchTerm{Cond: past, Then: exit, Else: body}
+	l.b.Terminate(l.cur, Branch(past, exit, body))
 
 	l.cur = body
 	l.block(s.Body)
@@ -386,7 +464,7 @@ func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
 		a := l.load(slot)
 		b := l.load(limit)
 		done := l.compare(CmpEq, a, b, unsigned)
-		l.cur.Term = &BranchTerm{Cond: done, Then: exit, Else: step}
+		l.b.Terminate(l.cur, Branch(done, exit, step))
 		l.cur = step
 	} else {
 		l.goTo(step)
@@ -394,15 +472,16 @@ func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
 	next := l.reg(KindScalar)
 	cur := l.load(slot)
 	one := l.konst(1)
-	l.emit(&BinInstr{Dst: next, Op: OpAdd, A: cur, B: one, Unsigned: unsigned, Checked: false})
-	l.emit(&StoreSlot{Slot: slot, Src: next})
+	l.emit(Bin(next, BinAdd, cur, one, unsigned, false))
+	l.emit(StoreSlot(slot, next, false))
 	if s.Inclusive {
-		l.cur.Term = &JumpTerm{Target: body}
+		l.b.Terminate(l.cur, Jump(body))
 	} else {
 		lim := l.load(limit)
 		over := l.compare(CmpGe, next, lim, unsigned)
-		l.cur.Term = &BranchTerm{Cond: over, Then: exit, Else: body}
+		l.b.Terminate(l.cur, Branch(over, exit, body))
 	}
+	l.popJumps()
 	l.cur = exit
 }
 
@@ -413,13 +492,13 @@ func isUnsignedInt(t ast.Ty) bool {
 
 func (l *Lowerer) load(slot int) V {
 	d := l.reg(l.f.Slots[slot])
-	l.emit(&LoadSlot{Dst: d, Slot: slot})
+	l.emit(LoadSlot(d, slot))
 	return d
 }
 
 func (l *Lowerer) compare(op CmpOp, a, b V, unsigned bool) V {
 	d := l.reg(KindScalar)
-	l.emit(&CmpInstr{Dst: d, Op: op, A: a, B: b, Unsigned: unsigned})
+	l.emit(Cmp(d, op, a, b, unsigned))
 	return d
 }
 
@@ -508,15 +587,12 @@ func (l *Lowerer) VisitCondExpr(e *ast.CondExpr) V {
 // owns it until the join gives it to the expression's consumer, and each branch drops its own temporaries.
 
 func (l *Lowerer) VisitStructLitExpr(e *ast.StructLitExpr) V {
-	values := make([]ast.Expr, len(e.Ordered))
-	for i, v := range e.Ordered {
-		if v != nil {
-			values[i] = v
-		} else {
-			values[i] = e.Record.FieldList()[i].Default
+	return l.record(len(e.Ordered), nil, func(i int) ast.Expr {
+		if v := e.Ordered[i]; v != nil {
+			return v
 		}
-	}
-	return l.record(values, nil)
+		return e.Record.FieldList()[i].Default
+	})
 }
 
 func (l *Lowerer) VisitCastExpr(e *ast.CastExpr) V {
@@ -529,22 +605,22 @@ func (l *Lowerer) VisitMatchExpr(e *ast.MatchExpr) V { return l.match(e.Match, e
 
 func (l *Lowerer) VisitPanicExpr(e *ast.PanicExpr) V {
 	msg := l.expr(e.Message)
-	l.emit(&CallRuntimeInstr{Symbol: RtPanic, Args: []V{msg}})
-	l.seal(&TrapTerm{})
+	l.emit(l.b.CallRuntime(NoReg, RtPanic, []V{msg}, nil))
+	l.seal(Trap())
 	return l.konst(0)
 }
 
 func (l *Lowerer) choose(typ ast.Ty, cond V, then, els func() V) V {
 	result := l.f.NewSlot(l.kind(typ))
-	a := l.f.NewBlock()
-	b := l.f.NewBlock()
-	end := l.f.NewBlock()
-	l.cur.Term = &BranchTerm{Cond: cond, Then: a, Else: b}
+	a := l.b.NewBlock()
+	b := l.b.NewBlock()
+	end := l.b.NewBlock()
+	l.b.Terminate(l.cur, Branch(cond, a, b))
 	l.cur = a
-	l.scoped(func() { l.emit(&StoreSlot{Slot: result, Src: then()}) })
+	l.scoped(func() { l.emit(StoreSlot(result, then(), false)) })
 	l.goTo(end)
 	l.cur = b
-	l.scoped(func() { l.emit(&StoreSlot{Slot: result, Src: els()}) })
+	l.scoped(func() { l.emit(StoreSlot(result, els(), false)) })
 	l.goTo(end)
 	return l.fetch(result)
 }
@@ -580,7 +656,7 @@ func (l *Lowerer) VisitNameExpr(n *ast.NameExpr) V {
 
 		d := l.reg(l.kind(loc.Type))
 		addr := l.param(loc.ParamIndex, KindScalar)
-		l.emit(&LoadAt{Dst: d, Addr: addr})
+		l.emit(LoadAt(d, addr))
 		return d
 	case ast.NameSelfField:
 		d := l.reg(l.kind(n.Ty()))
@@ -597,11 +673,11 @@ func (l *Lowerer) VisitNameExpr(n *ast.NameExpr) V {
 func (l *Lowerer) loadField(d, obj V, e ast.Expr, index int) {
 	if e.IsConsumed() && l.f.Regs[d] == KindManaged {
 		addr := l.reg(KindScalar)
-		l.emit(&FieldAddr{Dst: addr, Obj: obj, Offset: WordBytes * index})
-		l.emit(&MoveAtInstr{Dst: d, Addr: addr})
+		l.emit(FieldAddr(addr, obj, WordBytes*index))
+		l.emit(MoveAt(d, addr))
 		return
 	}
-	l.emit(&LoadField{Dst: d, Obj: obj, Offset: WordBytes * index})
+	l.emit(LoadField(d, obj, WordBytes*index))
 }
 
 func (l *Lowerer) address(e ast.Expr) V {
@@ -614,19 +690,19 @@ func (l *Lowerer) address(e ast.Expr) V {
 				return l.param(loc.ParamIndex, KindScalar)
 			}
 			d := l.reg(KindScalar)
-			l.emit(&SlotAddr{Dst: d, Slot: loc.Slot})
+			l.emit(SlotAddr(d, loc.Slot))
 			return d
 		case ast.NameSelfField:
 			d := l.reg(KindScalar)
 			obj := l.self()
-			l.emit(&FieldAddr{Dst: d, Obj: obj, Offset: WordBytes * e.Field.Index})
+			l.emit(FieldAddr(d, obj, WordBytes*e.Field.Index))
 			return d
 		}
 	case *ast.MemberExpr:
 		if e.Kind == ast.MemberField {
 			obj := l.read(e.Obj)
 			d := l.reg(KindScalar)
-			l.emit(&FieldAddr{Dst: d, Obj: obj, Offset: WordBytes * e.Field.Index})
+			l.emit(FieldAddr(d, obj, WordBytes*e.Field.Index))
 			return d
 		}
 	case *ast.IndexExpr:
@@ -644,37 +720,40 @@ func (l *Lowerer) VisitCallExpr(c *ast.CallExpr) V {
 		if c.Kind == ast.CallPrint {
 			symbol = RtStdout
 		}
-		l.emit(&LoadGlobal{Dst: handle, Symbol: symbol})
-		l.emit(&CallRuntimeInstr{Symbol: RtWrite, Args: []V{handle, text}})
+		l.emit(LoadGlobal(handle, symbol))
+		l.emit(l.b.CallRuntime(NoReg, RtWrite, []V{handle, text}, nil))
 		return l.konst(0)
 	case ast.CallFunction, ast.CallStatic, ast.CallMethod, ast.CallBound:
 		if c.Kind != ast.CallBound && c.Target.Intrinsic != ast.NotIntrinsic {
 			return l.intrinsic(c)
 		}
 		target := l.callee(c)
-		var args []V
+		base := len(l.args)
 		if c.Receiver != nil {
-			args = append(args, l.read(c.Receiver))
+			l.push(l.read(c.Receiver))
 		}
 		for i := range c.Ordered {
 			if c.Pass.Specs[i].Conv.ByAddress() {
-				args = append(args, l.address(c.Ordered[i]))
+				l.push(l.address(c.Ordered[i]))
 			} else {
-				args = append(args, l.converted(c.Ordered[i], c.Pass.Specs[i].Type))
+				l.push(l.converted(c.Ordered[i], c.Pass.Specs[i].Type))
 			}
 		}
-		if c.Ty() == ast.Ty(ast.VoidTy) {
-			l.emit(&CallInstr{Target: target, Args: args})
+		dst := NoReg
+		if c.Ty() != ast.Ty(ast.VoidTy) {
+			dst = l.reg(l.kind(c.Ty()))
+		}
+		l.emit(l.b.Call(dst, target, l.args[base:]))
+		l.args = l.args[:base]
+		if dst == NoReg {
 			return l.konst(0)
 		}
-		d := l.reg(l.kind(c.Ty()))
-		l.emit(&CallInstr{Dst: &d, Target: target, Args: args})
-		return d
+		return dst
 	case ast.CallCopy:
 		return l.copyValue(c, l.expr(c.Receiver), c.Receiver.Ty())
 	case ast.CallUnionCtor:
 		tag := c.CaseIndex
-		return l.record(c.Ordered, &tag)
+		return l.record(len(c.Ordered), &tag, func(i int) ast.Expr { return c.Ordered[i] })
 	}
 	panic(diag.Internal("lower: unresolved call"))
 }
@@ -707,20 +786,21 @@ func FieldOffset(index int, tagged bool) int {
 	return WordBytes * index
 }
 
-func (l *Lowerer) record(values []ast.Expr, tag *int) V {
+// record is a new box of count fields, which the tag, when it has one, makes a union: value is the expression of each field.
+func (l *Lowerer) record(count int, tag *int, value func(i int) ast.Expr) V {
 	baseOffset := 0
 	if tag != nil {
 		baseOffset = WordBytes
 	}
 	p := l.reg(KindManaged)
-	l.emit(&AllocInstr{Dst: p, Bytes: BoxBytes(len(values), tag != nil)})
+	l.emit(Alloc(p, BoxBytes(count, tag != nil)))
 	if tag != nil {
 		t := l.konst(int64(*tag))
-		l.emit(&StoreField{Obj: p, Offset: TagOffset, Src: t})
+		l.emit(StoreField(p, TagOffset, t))
 	}
-	for i := range values {
-		v := l.expr(values[i])
-		l.emit(&StoreField{Obj: p, Offset: baseOffset + WordBytes*i, Src: v})
+	for i := range count {
+		v := l.expr(value(i))
+		l.emit(StoreField(p, baseOffset+WordBytes*i, v))
 	}
 	return p
 }
@@ -734,13 +814,13 @@ func (l *Lowerer) copyValue(site ast.Node, v V, t ast.Ty) V {
 	}
 	l.requireNative(site, ty)
 	d := l.reg(KindManaged)
-	l.emit(&CopyInstr{Dst: d, Src: v, Ty: ty})
+	l.emit(l.b.Copy(d, v, ty))
 	return d
 }
 
 func (l *Lowerer) tag(union V) V {
 	d := l.reg(KindScalar)
-	l.emit(&LoadField{Dst: d, Obj: union, Offset: TagOffset})
+	l.emit(LoadField(d, union, TagOffset))
 	return d
 }
 
@@ -764,7 +844,7 @@ func (l *Lowerer) VisitMemberExpr(m *ast.MemberExpr) V {
 		return l.konst(int64(m.CaseIndex))
 	case ast.MemberUnionCase:
 		tag := m.CaseIndex
-		return l.record(nil, &tag)
+		return l.record(0, &tag, nil)
 	case ast.MemberEnumOrdinal:
 		return l.expr(m.Obj)
 	case ast.MemberEnumName:
@@ -792,20 +872,20 @@ func (l *Lowerer) names(index V, names []string) V {
 
 func (l *Lowerer) selectValue(index V, kind IrKind, count int, value func(int) V) V {
 	result := l.f.NewSlot(kind)
-	end := l.f.NewBlock()
-	targets := make([]*IrBlock, count)
+	end := l.b.NewBlock()
+	targets := make([]BlockID, count)
 	for i := range count {
-		targets[i] = l.f.NewBlock()
+		targets[i] = l.b.NewBlock()
 	}
 	values := make([]int64, count-1)
 	for i := range values {
 		values[i] = int64(i)
 	}
-	l.cur.Term = &SwitchTerm{Value: index, Values: values, Targets: targets[:count-1], Default: targets[count-1]}
+	l.b.Terminate(l.cur, l.b.Switch(index, values, targets[:count-1], targets[count-1]))
 	for i := range count {
 		l.cur = targets[i]
 		v := value(i)
-		l.emit(&StoreSlot{Slot: result, Src: v})
+		l.emit(StoreSlot(result, v, false))
 		l.goTo(end)
 	}
 	return l.fetch(result)
@@ -827,6 +907,9 @@ const (
 // has been joined. A literal of a single borrowed string is a copy of it, because the literal's value is its own.
 func (l *Lowerer) VisitStrLit(s *ast.StrLit) V {
 	if s.IsPlain() {
+		if len(s.Parts) == 1 {
+			return l.str(s.Parts[0].(string))
+		}
 		var text strings.Builder
 		for _, p := range s.Parts {
 			text.WriteString(p.(string))
@@ -889,17 +972,17 @@ func (l *Lowerer) part(part any) (V, textOwner) {
 func (l *Lowerer) VisitBinaryExpr(b *ast.BinaryExpr) V {
 	if (b.Op == "and" || b.Op == "or") && b.Ty() == ast.Ty(ast.BoolTy) {
 		result := l.f.NewSlot(KindScalar)
-		rhs := l.f.NewBlock()
-		end := l.f.NewBlock()
+		rhs := l.b.NewBlock()
+		end := l.b.NewBlock()
 		lv := l.expr(b.L)
-		l.emit(&StoreSlot{Slot: result, Src: lv})
+		l.emit(StoreSlot(result, lv, false))
 		if b.Op == "and" {
-			l.cur.Term = &BranchTerm{Cond: lv, Then: rhs, Else: end}
+			l.b.Terminate(l.cur, Branch(lv, rhs, end))
 		} else {
-			l.cur.Term = &BranchTerm{Cond: lv, Then: end, Else: rhs}
+			l.b.Terminate(l.cur, Branch(lv, end, rhs))
 		}
 		l.cur = rhs
-		l.scoped(func() { l.emit(&StoreSlot{Slot: result, Src: l.expr(b.R)}) })
+		l.scoped(func() { l.emit(StoreSlot(result, l.expr(b.R), false)) })
 		l.goTo(end)
 		return l.load(result)
 	}
@@ -925,7 +1008,7 @@ func (l *Lowerer) VisitBinaryExpr(b *ast.BinaryExpr) V {
 	if !ok {
 		panic(diag.Internal("lower: unknown operator '%s'", b.Op))
 	}
-	l.emit(&BinInstr{Dst: d, Op: op, A: a, B: c, Unsigned: unsigned, Checked: op == OpAdd || op == OpSub || op == OpMul})
+	l.emit(Bin(d, op, a, c, unsigned, op == BinAdd || op == BinSub || op == BinMul))
 	if t, ok := b.Ty().(*ast.IntTy); ok {
 		l.rangeCheck(d, t)
 	}
@@ -935,7 +1018,7 @@ func (l *Lowerer) VisitBinaryExpr(b *ast.BinaryExpr) V {
 func (l *Lowerer) flip(boolean V) V {
 	d := l.reg(KindScalar)
 	one := l.konst(1)
-	l.emit(&BinInstr{Dst: d, Op: OpXor, A: boolean, B: one, Unsigned: false, Checked: false})
+	l.emit(Bin(d, BinXor, boolean, one, false, false))
 	return d
 }
 
@@ -946,9 +1029,9 @@ func (l *Lowerer) VisitUnaryExpr(u *ast.UnaryExpr) V {
 	}
 	d := l.reg(KindScalar)
 	if u.Op == "not" {
-		l.emit(&NotInstr{Dst: d, Src: v})
+		l.emit(Not(d, v))
 	} else {
-		l.emit(&NegInstr{Dst: d, Src: v})
+		l.emit(Neg(d, v))
 	}
 	l.rangeCheck(d, u.Ty().(*ast.IntTy))
 	return d
@@ -973,43 +1056,43 @@ func (l *Lowerer) fit(v V, target *ast.IntTy, source ast.Ty) {
 
 	if target.Unsigned() {
 		if !src.Unsigned() && src.Min.IsNeg() {
-			l.emit(&GuardInstr{Src: v, Kind: GuardNonNegative, Bound: 0})
+			l.emit(Guard(v, GuardNonNegative, 0))
 		}
 		if target.Min.Gt(ast.MaxI(src.Min, ast.Zero)) {
-			l.emit(&GuardInstr{Src: v, Kind: GuardUnsignedAtLeast, Bound: target.Min.Bits()})
+			l.emit(Guard(v, GuardUnsignedAtLeast, target.Min.Bits()))
 		}
 		if target.Max.Lt(src.Max) {
-			l.emit(&GuardInstr{Src: v, Kind: GuardUnsignedAtMost, Bound: target.Max.Bits()})
+			l.emit(Guard(v, GuardUnsignedAtMost, target.Max.Bits()))
 		}
 		return
 	}
 
 	srcMax := src.Max
 	if src.Unsigned() && src.Max.Gt(ast.I64Max) {
-		l.emit(&GuardInstr{Src: v, Kind: GuardNonNegative, Bound: 0})
+		l.emit(Guard(v, GuardNonNegative, 0))
 		srcMax = ast.I64Max
 	}
 	if target.Min.Gt(src.Min) {
-		l.emit(&GuardInstr{Src: v, Kind: GuardSignedAtLeast, Bound: target.Min.Bits()})
+		l.emit(Guard(v, GuardSignedAtLeast, target.Min.Bits()))
 	}
 	if target.Max.Lt(srcMax) {
-		l.emit(&GuardInstr{Src: v, Kind: GuardSignedAtMost, Bound: target.Max.Bits()})
+		l.emit(Guard(v, GuardSignedAtMost, target.Max.Bits()))
 	}
 }
 
 func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 	st := ast.Content(l.binding.Apply(m.Subject.Ty()))
 	subject := l.read(m.Subject)
-	end := l.f.NewBlock()
-	l.jumps[m] = jumpTargets{brk: end, depth: len(l.scopes)}
+	end := l.b.NewBlock()
+	l.pushJumps(m, jumpTargets{brk: end, depth: len(l.scopes)})
 	result := -1
 	if resultType != nil {
 		result = l.f.NewSlot(l.kind(resultType))
 	}
 
 	for _, arm := range m.Arms {
-		body := l.f.NewBlock()
-		next := l.f.NewBlock()
+		body := l.b.NewBlock()
+		next := l.b.NewBlock()
 		if arm.IsDefault {
 			l.goTo(body)
 		} else {
@@ -1030,7 +1113,7 @@ func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 		case ast.ArmThen:
 			l.stmt(arm.Action)
 		case ast.ArmGives:
-			l.scoped(func() { l.emit(&StoreSlot{Slot: result, Src: l.converted(arm.Value, resultType)}) })
+			l.scoped(func() { l.emit(StoreSlot(result, l.converted(arm.Value, resultType), false)) })
 		case ast.ArmPanic:
 			l.scoped(func() { l.expr(arm.Value) })
 		default:
@@ -1042,9 +1125,10 @@ func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 		l.goTo(end)
 		l.cur = next
 	}
-	if l.cur.Term == nil {
-		l.cur.Term = &TrapTerm{}
+	if !l.b.Terminated(l.cur) {
+		l.b.Terminate(l.cur, Trap())
 	}
+	l.popJumps()
 	l.cur = end
 	if result < 0 {
 		return l.konst(0)
@@ -1059,8 +1143,8 @@ func (l *Lowerer) borrowPayloads(arm *ast.MatchArm, subject V) {
 			if local != nil {
 				kind := l.kind(local.Type)
 				d := l.reg(kind)
-				l.emit(&LoadField{Dst: d, Obj: subject, Offset: WordBytes + WordBytes*i})
-				l.emit(&StoreSlot{Slot: local.Slot, Src: d, Borrow: kind == KindManaged})
+				l.emit(LoadField(d, subject, WordBytes+WordBytes*i))
+				l.emit(StoreSlot(local.Slot, d, kind == KindManaged))
 			}
 		}
 	}
@@ -1080,21 +1164,21 @@ func (l *Lowerer) takeApart(arm *ast.MatchArm, subject V, st ast.Ty) {
 			d := l.reg(kind)
 			if kind == KindManaged {
 				addr := l.reg(KindScalar)
-				l.emit(&FieldAddr{Dst: addr, Obj: subject, Offset: offset})
-				l.emit(&MoveAtInstr{Dst: d, Addr: addr})
+				l.emit(FieldAddr(addr, subject, offset))
+				l.emit(MoveAt(d, addr))
 			} else {
-				l.emit(&LoadField{Dst: d, Obj: subject, Offset: offset})
+				l.emit(LoadField(d, subject, offset))
 			}
-			l.emit(&StoreSlot{Slot: local.Slot, Src: d})
+			l.emit(StoreSlot(local.Slot, d, false))
 			l.ownLocal(local.Slot, local.Type)
 		}
 	}
 	l.dropValue(subject, st)
 }
 
-func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body *IrBlock) {
+func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body BlockID) {
 	unsigned := isUnsignedInt(st)
-	fail := l.f.NewBlock()
+	fail := l.b.NewBlock()
 	switch {
 	case pat.Kind() == ast.PatternCase:
 		scrutinee := subject
@@ -1103,12 +1187,12 @@ func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body *IrBlock) {
 		}
 		idx := l.konst(int64(pat.CaseIndex))
 		cmp := l.compare(CmpEq, scrutinee, idx, false)
-		l.cur.Term = &BranchTerm{Cond: cmp, Then: body, Else: fail}
+		l.b.Terminate(l.cur, Branch(cmp, body, fail))
 	case pat.Kind() == ast.PatternLiteral && st == ast.Ty(ast.StringTy):
 		testBlock := l.cur
 		lit := l.expr(pat.Value)
 		eq := l.runtime(RtStreq, KindScalar, subject, lit)
-		testBlock.Term = &BranchTerm{Cond: eq, Then: body, Else: fail}
+		l.b.Terminate(testBlock, Branch(eq, body, fail))
 	case pat.Kind() == ast.PatternLiteral:
 		var value int64
 		if bl, ok := pat.Value.(*ast.BoolLit); ok {
@@ -1120,21 +1204,21 @@ func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body *IrBlock) {
 		}
 		c := l.konst(value)
 		cmp := l.compare(CmpEq, subject, c, unsigned)
-		l.cur.Term = &BranchTerm{Cond: cmp, Then: body, Else: fail}
+		l.b.Terminate(l.cur, Branch(cmp, body, fail))
 	case pat.Kind() == ast.PatternRange:
 		lo := pat.Value.Ty().(*ast.ConstIntTy).Value
 		hi := pat.High.Ty().(*ast.ConstIntTy).Value
 		if !pat.Inclusive {
 			hi = hi.Sub(ast.One)
 		}
-		upper := l.f.NewBlock()
+		upper := l.b.NewBlock()
 		loC := l.konst(lo.Bits())
 		geCmp := l.compare(CmpGe, subject, loC, unsigned)
-		l.cur.Term = &BranchTerm{Cond: geCmp, Then: upper, Else: fail}
+		l.b.Terminate(l.cur, Branch(geCmp, upper, fail))
 		l.cur = upper
 		hiC := l.konst(hi.Bits())
 		leCmp := l.compare(CmpLe, subject, hiC, unsigned)
-		l.cur.Term = &BranchTerm{Cond: leCmp, Then: body, Else: fail}
+		l.b.Terminate(l.cur, Branch(leCmp, body, fail))
 	default:
 		panic(diag.Internal("lower: unhandled pattern kind"))
 	}

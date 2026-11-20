@@ -1,33 +1,38 @@
 package ir
 
-import "strings"
+import "minimaxon/internal/diag"
+
+// Rt names a symbol the runtime defines: an entry that code calls or a global it reads. The set is closed, so an
+// instruction holds one in a byte and the backend keys a symbol by it without making a string.
+type Rt uint8
 
 const (
-	RtEntry         = "rt.entry"
-	RtAlloc         = "rt.alloc"
-	RtFree          = "rt.free"
-	RtWrite         = "rt.write"
-	RtPanic         = "rt.panic"
-	RtConcat        = "rt.concat"
-	RtItoa          = "rt.itoa"
-	RtStreq         = "rt.streq"
-	RtPanicRange    = "rt.panicRange"
-	RtPanicOverflow = "rt.panicOverflow"
-	RtPanicDiv      = "rt.panicDiv"
-	RtPanicShift    = "rt.panicShift"
-	RtPanicIndex    = "rt.panicIndex"
-	RtHeap          = "g.heap"
-	RtStdout        = "g.stdout"
-	RtStderr        = "g.stderr"
+	RtEntry Rt = iota + 1
+	RtAlloc
+	RtFree
+	RtWrite
+	RtPanic
+	RtConcat
+	RtItoa
+	RtStreq
+	RtPanicRange
+	RtPanicOverflow
+	RtPanicDiv
+	RtPanicShift
+	RtPanicIndex
+	RtHeap
+	RtStdout
+	RtStderr
 	// RtLive is the number of heap boxes that are allocated and not yet freed, kept only by an executable built to count
 	// them.
-	RtLive = "g.live"
+	RtLive
 	// RtImageDataStart and RtImageDataEnd are the bounds of the executable's data section, where every string literal
 	// lives. The linker defines them, so the runtime can tell a string that is immortal from one on the heap.
-	RtImageDataStart = "g.imageDataStart"
-	RtImageDataEnd   = "g.imageDataEnd"
-	RtDll            = "kernel32.dll"
+	RtImageDataStart
+	RtImageDataEnd
 )
+
+const RtDll = "kernel32.dll"
 
 var RtImports = []string{"GetProcessHeap", "HeapAlloc", "GetStdHandle", "WriteFile", "ExitProcess", "HeapFree"}
 
@@ -36,55 +41,122 @@ var RtImports = []string{"GetProcessHeap", "HeapAlloc", "GetStdHandle", "WriteFi
 // lends it, valid until the next call that changes the primitive. An entry that is given an index, a key or a handle
 // that names nothing traps. A handle is a word and is never 0, so an entry that returns one returns 0 for none.
 const (
-	RtArrayNew    = "rt.array.new"    // () -> array
-	RtArrayLen    = "rt.array.len"    // (array) -> count
-	RtArrayElem   = "rt.array.elem"   // (array, index) -> address of the element
-	RtArrayInsert = "rt.array.insert" // (array, index, element): moves it in at index, which may be the length
-	RtArrayRemove = "rt.array.remove" // (array, index) -> element: moves it out
+	RtArrayNew    = RtImageDataEnd + 1 + iota // () -> array
+	RtArrayLen                                // (array) -> count
+	RtArrayElem                               // (array, index) -> address of the element
+	RtArrayInsert                             // (array, index, element): moves it in at index, which may be the length
+	RtArrayRemove                             // (array, index) -> element: moves it out
 
-	RtMapNew    = "rt.map.new"    // () -> map
-	RtMapLen    = "rt.map.len"    // (map) -> count
-	RtMapHas    = "rt.map.has"    // (map, key) -> bool
-	RtMapElem   = "rt.map.elem"   // (map, key) -> address of the value
-	RtMapInsert = "rt.map.insert" // (map, key, value): moves both in; the value of an existing key is dropped
-	RtMapRemove = "rt.map.remove" // (map, key) -> value: moves it out; the key is dropped
-	RtMapCopy   = "rt.map.copy"   // (map) -> map: every key and value copied
+	RtMapNew    // () -> map
+	RtMapLen    // (map) -> count
+	RtMapHas    // (map, key) -> bool
+	RtMapElem   // (map, key) -> address of the value
+	RtMapInsert // (map, key, value): moves both in; the value of an existing key is dropped
+	RtMapRemove // (map, key) -> value: moves it out; the key is dropped
+	RtMapCopy   // (map) -> map: every key and value copied
 
-	RtListNew         = "rt.list.new"         // () -> list
-	RtListLen         = "rt.list.len"         // (list) -> count
-	RtListContains    = "rt.list.contains"    // (list, handle) -> bool
-	RtListElem        = "rt.list.elem"        // (list, handle) -> address of the element
-	RtListPushFront   = "rt.list.pushFront"   // (list, element) -> handle: moves it in
-	RtListPushBack    = "rt.list.pushBack"    // (list, element) -> handle: moves it in
-	RtListPopFront    = "rt.list.popFront"    // (list) -> element: moves it out; traps if empty
-	RtListPopBack     = "rt.list.popBack"     // (list) -> element: moves it out; traps if empty
-	RtListFirst       = "rt.list.first"       // (list) -> handle, or 0 if empty
-	RtListLast        = "rt.list.last"        // (list) -> handle, or 0 if empty
-	RtListNext        = "rt.list.next"        // (list, handle) -> handle, or 0 after the last
-	RtListPrev        = "rt.list.prev"        // (list, handle) -> handle, or 0 before the first
-	RtListRemove      = "rt.list.remove"      // (list, handle) -> element: moves it out
-	RtListMoveToFront = "rt.list.moveToFront" // (list, handle)
-	RtListCopy        = "rt.list.copy"        // (list) -> list: every element copied, handles still valid in the copy
+	RtListNew         // () -> list
+	RtListLen         // (list) -> count
+	RtListContains    // (list, handle) -> bool
+	RtListElem        // (list, handle) -> address of the element
+	RtListPushFront   // (list, element) -> handle: moves it in
+	RtListPushBack    // (list, element) -> handle: moves it in
+	RtListPopFront    // (list) -> element: moves it out; traps if empty
+	RtListPopBack     // (list) -> element: moves it out; traps if empty
+	RtListFirst       // (list) -> handle, or 0 if empty
+	RtListLast        // (list) -> handle, or 0 if empty
+	RtListNext        // (list, handle) -> handle, or 0 after the last
+	RtListPrev        // (list, handle) -> handle, or 0 before the first
+	RtListRemove      // (list, handle) -> element: moves it out
+	RtListMoveToFront // (list, handle)
+	RtListCopy        // (list) -> list: every element copied, handles still valid in the copy
 
-	RtPoolNew      = "rt.pool.new"      // () -> pool
-	RtPoolLen      = "rt.pool.len"      // (pool) -> count
-	RtPoolContains = "rt.pool.contains" // (pool, handle) -> bool
-	RtPoolElem     = "rt.pool.elem"     // (pool, handle) -> address of the element
-	RtPoolInsert   = "rt.pool.insert"   // (pool, element) -> handle: moves it in
-	RtPoolRemove   = "rt.pool.remove"   // (pool, handle) -> element: moves it out
-	RtPoolCopy     = "rt.pool.copy"     // (pool) -> pool: every element copied, handles still valid in the copy
+	RtPoolNew      // () -> pool
+	RtPoolLen      // (pool) -> count
+	RtPoolContains // (pool, handle) -> bool
+	RtPoolElem     // (pool, handle) -> address of the element
+	RtPoolInsert   // (pool, element) -> handle: moves it in
+	RtPoolRemove   // (pool, handle) -> element: moves it out
+	RtPoolCopy     // (pool) -> pool: every element copied, handles still valid in the copy
 )
 
 // The entries of the values that cross between threads (README, "Behaviours"). A frozen value and a cown are boxes that
 // have a count of owners, not one owner: an entry that makes another owner raises the count, and dropping an owner
 // lowers it, and the box and everything it holds is freed when the count reaches 0.
 const (
-	RtFrozenFreeze = "rt.frozen.freeze" // (value) -> frozen: moves the value into a new box with a count of 1
-	RtFrozenGet    = "rt.frozen.get"    // (frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is
-	RtShare        = "rt.share"         // (frozen or cown) -> the same box: another owner, with the count raised by 1
-	RtCownNew      = "rt.cown.new"      // (value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop
+	RtFrozenFreeze = RtPoolCopy + 1 + iota // (value) -> frozen: moves the value into a new box with a count of 1
+	RtFrozenGet                            // (frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is
+	RtShare                                // (frozen or cown) -> the same box: another owner, with the count raised by 1
+	RtCownNew                              // (value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop
 )
 
 // IsNativeEntry is whether the backend implements a primitive's runtime entry. Only the array has native code; the
 // others run under the interpreter, so a program that reaches one is refused before code generation.
-func IsNativeEntry(symbol string) bool { return strings.HasPrefix(symbol, "rt.array.") }
+func IsNativeEntry(symbol Rt) bool { return symbol >= RtArrayNew && symbol <= RtArrayRemove }
+
+var rtNames = [...]string{
+	RtEntry:           "rt.entry",
+	RtAlloc:           "rt.alloc",
+	RtFree:            "rt.free",
+	RtWrite:           "rt.write",
+	RtPanic:           "rt.panic",
+	RtConcat:          "rt.concat",
+	RtItoa:            "rt.itoa",
+	RtStreq:           "rt.streq",
+	RtPanicRange:      "rt.panicRange",
+	RtPanicOverflow:   "rt.panicOverflow",
+	RtPanicDiv:        "rt.panicDiv",
+	RtPanicShift:      "rt.panicShift",
+	RtPanicIndex:      "rt.panicIndex",
+	RtHeap:            "g.heap",
+	RtStdout:          "g.stdout",
+	RtStderr:          "g.stderr",
+	RtLive:            "g.live",
+	RtImageDataStart:  "g.imageDataStart",
+	RtImageDataEnd:    "g.imageDataEnd",
+	RtArrayNew:        "rt.array.new",
+	RtArrayLen:        "rt.array.len",
+	RtArrayElem:       "rt.array.elem",
+	RtArrayInsert:     "rt.array.insert",
+	RtArrayRemove:     "rt.array.remove",
+	RtMapNew:          "rt.map.new",
+	RtMapLen:          "rt.map.len",
+	RtMapHas:          "rt.map.has",
+	RtMapElem:         "rt.map.elem",
+	RtMapInsert:       "rt.map.insert",
+	RtMapRemove:       "rt.map.remove",
+	RtMapCopy:         "rt.map.copy",
+	RtListNew:         "rt.list.new",
+	RtListLen:         "rt.list.len",
+	RtListContains:    "rt.list.contains",
+	RtListElem:        "rt.list.elem",
+	RtListPushFront:   "rt.list.pushFront",
+	RtListPushBack:    "rt.list.pushBack",
+	RtListPopFront:    "rt.list.popFront",
+	RtListPopBack:     "rt.list.popBack",
+	RtListFirst:       "rt.list.first",
+	RtListLast:        "rt.list.last",
+	RtListNext:        "rt.list.next",
+	RtListPrev:        "rt.list.prev",
+	RtListRemove:      "rt.list.remove",
+	RtListMoveToFront: "rt.list.moveToFront",
+	RtListCopy:        "rt.list.copy",
+	RtPoolNew:         "rt.pool.new",
+	RtPoolLen:         "rt.pool.len",
+	RtPoolContains:    "rt.pool.contains",
+	RtPoolElem:        "rt.pool.elem",
+	RtPoolInsert:      "rt.pool.insert",
+	RtPoolRemove:      "rt.pool.remove",
+	RtPoolCopy:        "rt.pool.copy",
+	RtFrozenFreeze:    "rt.frozen.freeze",
+	RtFrozenGet:       "rt.frozen.get",
+	RtShare:           "rt.share",
+	RtCownNew:         "rt.cown.new",
+}
+
+func (r Rt) String() string {
+	if int(r) >= len(rtNames) || rtNames[r] == "" {
+		panic(diag.Internal("%d is not a runtime symbol", int(r)))
+	}
+	return rtNames[r]
+}
