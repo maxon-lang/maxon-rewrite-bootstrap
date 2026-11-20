@@ -52,6 +52,10 @@ func (g *Graph) CheckAcyclic(p *ast.Project) *diag.CompileError {
 	return g.cycleError(p, order)
 }
 
+// Order is a topological order of the modules, each after everything it depends on, which is what a hash of a module that
+// holds the hashes of its dependencies is made in; it is shorter than the module list only when there is a cycle.
+func (g *Graph) Order() []ast.ModuleID { return g.order() }
+
 // order is a topological order of the modules that no cycle depends on, so each module comes after everything it
 // depends on (Kahn's algorithm). Modules that are ready go first in index order, and a module that becomes ready
 // goes after those already waiting, so the order is the same on every run. It is shorter than the graph exactly

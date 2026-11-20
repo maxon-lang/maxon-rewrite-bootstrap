@@ -91,8 +91,11 @@ func TestSubstitutionReachesTheArgumentsOfAPrimitive(t *testing.T) {
 }
 
 func TestWhichTypesMayBeMapKeys(t *testing.T) {
-	b := newProject().Builtins
-	enum := NewEnumTy(&EnumDecl{})
+	p := newProject()
+	b := p.Builtins
+	enumDecl := &EnumDecl{}
+	enumDecl.Module = p.Root
+	enum := NewEnumTy(enumDecl)
 	for _, ty := range []Ty{b.Count, BoolTy, StringTy, enum, b.HandleOf(StringTy)} {
 		if !IsKey(ty) {
 			t.Errorf("%s should be a key", ty.Name())

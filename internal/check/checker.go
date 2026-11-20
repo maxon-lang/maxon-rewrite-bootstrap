@@ -542,6 +542,7 @@ func (c *Checker) addFunction(f *ast.FuncDecl, nt ast.NominalTy, declared *[]*as
 		f.Owner = ast.SelfType(nt)
 		self = f.Owner
 	}
+	f.SetLinkName()
 	c.declareGenerics(f, nt)
 	if _, isEnum := nt.(*ast.EnumTy); isEnum && f.IsDestructor() {
 		panic(f.Error(diag.ErrDestructorMisuse, fmt.Sprintf("'%s' is an enum, whose values are plain numbers with nothing to end; remove 'destructs', or make '%s' a type or a union", nt.Name(), nt.Name())))

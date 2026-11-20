@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"minimaxon/internal/ast"
@@ -19,6 +20,13 @@ import (
 // lowered runs the front end on a one-module program in a file of testdata and lowers every function, which is what the
 // code generator reads.
 func lowered(t *testing.T, path string) []*ir.IrFunction {
+	t.Helper()
+	_, fns := loweredProject(t, path)
+	return fns
+}
+
+// loweredProject is lowered, with the project the functions were lowered in.
+func loweredProject(t *testing.T, path string) (*ast.Project, []*ir.IrFunction) {
 	t.Helper()
 	src := srctest.Read(t, path)
 	source := syntax.NewSource(src, []syntax.FileSlice{{File: "t.maxon", Begin: 0, End: len(src)}})
@@ -75,7 +83,7 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 	for _, inst := range instances.List {
 		fns = append(fns, ir.Lower(ast.Typings{&res.Typing}, inst, instances))
 	}
-	return fns
+	return proj, fns
 }
 
 const routinesFile = "testdata/routines.maxon"
@@ -85,8 +93,8 @@ func routineNames(units []*CodeUnit) []string {
 	var names []string
 	for _, u := range units {
 		for _, def := range u.CodeSymbols {
-			if r, ok := def.Symbol.(typeRoutine); ok {
-				names = append(names, r.String())
+			if strings.HasPrefix(def.Symbol, "drop ") || strings.HasPrefix(def.Symbol, "copy ") {
+				names = append(names, def.Symbol)
 			}
 		}
 	}
@@ -98,8 +106,8 @@ func hasRoutine(units []*CodeUnit, name string) bool {
 }
 
 // undefined lists the symbols that the units call or load and none of them defines, other than the ones given.
-func undefined(units []*CodeUnit, external map[any]bool) []string {
-	defined := map[any]bool{}
+func undefined(units []*CodeUnit, external map[string]bool) []string {
+	defined := map[string]bool{}
 	for _, u := range units {
 		for _, def := range u.CodeSymbols {
 			defined[def.Symbol] = true
@@ -112,7 +120,7 @@ func undefined(units []*CodeUnit, external map[any]bool) []string {
 	for _, u := range units {
 		for _, f := range u.Asm.SymbolFixups {
 			if !defined[f.Symbol] && !external[f.Symbol] {
-				missing = append(missing, SymbolText(f.Symbol))
+				missing = append(missing, f.Symbol)
 			}
 		}
 	}
@@ -120,8 +128,8 @@ func undefined(units []*CodeUnit, external map[any]bool) []string {
 }
 
 // The symbols that the runtime and the linker define, which no routine unit does.
-var outsideTheRoutines = map[any]bool{
-	ir.RtAlloc: true, ir.RtFree: true, ir.RtImageDataStart: true, ir.RtImageDataEnd: true,
+var outsideTheRoutines = map[string]bool{
+	ir.RtAlloc.String(): true, ir.RtFree.String(): true, ir.RtImageDataStart.String(): true, ir.RtImageDataEnd.String(): true,
 }
 
 // Every type the program drops or copies has a routine, and so does every type those reach: a record that holds an array of
@@ -130,19 +138,19 @@ func TestRoutinesAreMadeForEveryTypeTheCodeReaches(t *testing.T) {
 	module := EmitModule(lowered(t, routinesFile))
 	routines := EmitTypeRoutines([]*CodeUnit{module}, 1)
 	for _, want := range []string{
-		"drop Tree", "copy Tree", "drop array with Tree", "copy array with Tree", "drop String", "copy String",
-		"drop Shape", "copy Shape", "copy Plain",
+		"drop export::Tree", "copy export::Tree", "drop stdlib::array with export::Tree", "copy stdlib::array with export::Tree",
+		"drop String", "copy String", "drop export::Shape", "copy export::Shape", "copy export::Plain",
 	} {
 		if !hasRoutine(routines, want) {
 			t.Errorf("no routine %q in %v", want, routineNames(routines))
 		}
 	}
-	external := map[any]bool{}
+	external := map[string]bool{}
 	for sym := range outsideTheRoutines {
 		external[sym] = true
 	}
 	for _, f := range module.Asm.SymbolFixups {
-		if _, isRoutine := f.Symbol.(typeRoutine); !isRoutine {
+		if !slices.Contains(routineNames(routines), f.Symbol) {
 			external[f.Symbol] = true
 		}
 	}
@@ -156,15 +164,15 @@ func TestRoutinesAreMadeForEveryTypeTheCodeReaches(t *testing.T) {
 func TestDropOfABoxWithNothingInItIsTheFree(t *testing.T) {
 	module := EmitModule(lowered(t, routinesFile))
 	routines := EmitTypeRoutines([]*CodeUnit{module}, 1)
-	if hasRoutine(routines, "drop Plain") {
+	if hasRoutine(routines, "drop export::Plain") {
 		t.Error("a record of integers has a drop routine")
 	}
-	if !hasRoutine(routines, "copy Plain") {
+	if !hasRoutine(routines, "copy export::Plain") {
 		t.Error("a record of integers has no copy routine")
 	}
 	called := false
 	for _, f := range module.Asm.SymbolFixups {
-		called = called || f.Symbol == ir.RtFree
+		called = called || f.Symbol == ir.RtFree.String()
 	}
 	if !called {
 		t.Error("the drop of a record of integers does not call the free")
@@ -198,14 +206,14 @@ func TestRoutinesAreIdenticalForAnyJobCount(t *testing.T) {
 func TestDroppingAStringChecksForAnImmortalOne(t *testing.T) {
 	module := EmitModule(lowered(t, routinesFile))
 	for _, u := range EmitTypeRoutines([]*CodeUnit{module}, 1) {
-		if !definesCode(u, typeRoutine{dropRoutine, ast.StringTy}) {
+		if !definesCode(u, routineSymbol(dropRoutine, ast.StringTy.LinkName())) {
 			continue
 		}
-		seen := map[any]bool{}
+		seen := map[string]bool{}
 		for _, f := range u.Asm.SymbolFixups {
 			seen[f.Symbol] = true
 		}
-		if !seen[ir.RtImageDataStart] || !seen[ir.RtImageDataEnd] {
+		if !seen[ir.RtImageDataStart.String()] || !seen[ir.RtImageDataEnd.String()] {
 			t.Error("the drop of a string does not read the bounds of the data section")
 		}
 		return
@@ -217,7 +225,7 @@ func TestDroppingAStringChecksForAnImmortalOne(t *testing.T) {
 // and clears the slots at the start.
 func TestMovesAndFramesEmptyTheirSlots(t *testing.T) {
 	var b ir.Builder
-	b.Start(&ast.FuncDecl{Name: "f"}, "", 0)
+	b.Start(&ast.FuncDecl{Name: "f", LinkName: "export::f"}, "", 0)
 	slot := b.F.NewSlot(ir.KindManaged)
 	block := b.NewBlock()
 	moved := b.F.NewReg(ir.KindManaged)
@@ -236,7 +244,7 @@ func TestMovesAndFramesEmptyTheirSlots(t *testing.T) {
 // A frame with many managed slots clears them with one string instruction.
 func TestAFrameWithManySlotsIsClearedInOneInstruction(t *testing.T) {
 	var b ir.Builder
-	b.Start(&ast.FuncDecl{Name: "f"}, "", 0)
+	b.Start(&ast.FuncDecl{Name: "f", LinkName: "export::f"}, "", 0)
 	for range zeroInlineSlots + 2 {
 		b.F.NewSlot(ir.KindManaged)
 	}
@@ -257,7 +265,7 @@ func TestAFrameWithManySlotsIsClearedInOneInstruction(t *testing.T) {
 // nativeMain is a main of one block: an allocation, optionally given back, and a return of the code.
 func nativeMain(free bool, code int64) *ir.IrFunction {
 	var b ir.Builder
-	b.Start(&ast.FuncDecl{Name: "main"}, "", 0)
+	b.Start(&ast.FuncDecl{Name: "main", LinkName: "export::main"}, "", 0)
 	block := b.NewBlock()
 	box := b.F.NewReg(ir.KindManaged)
 	exit := b.F.NewReg(ir.KindScalar)
@@ -275,7 +283,7 @@ func runNative(t *testing.T, main *ir.IrFunction, options RuntimeOptions) (stder
 	t.Helper()
 	units := []*CodeUnit{EmitRuntime(main.Decl, options), EmitModule([]*ir.IrFunction{main})}
 	exe := filepath.Join(t.TempDir(), "main.exe")
-	Link(exe, units, ir.RtEntry, 1)
+	Link(exe, units, ir.RtEntry.String(), 1)
 	var errors bytes.Buffer
 	cmd := exec.Command(exe)
 	cmd.Stderr = &errors
@@ -305,7 +313,7 @@ func TestAnExecutableThatDoesNotCountNeverChecks(t *testing.T) {
 	if message, code := runNative(t, nativeMain(false, 5), RuntimeOptions{}); code != 5 || message != "" {
 		t.Errorf("exit %d, stderr %q", code, message)
 	}
-	if definesData(EmitRuntime(nativeMain(false, 0).Decl, RuntimeOptions{}), ir.RtLive) {
+	if definesData(EmitRuntime(nativeMain(false, 0).Decl, RuntimeOptions{}), ir.RtLive.String()) {
 		t.Error("the runtime keeps a count that was not asked for")
 	}
 }

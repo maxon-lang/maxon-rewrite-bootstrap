@@ -58,8 +58,11 @@ func (f *FuncDecl) BoundsOn(p *TypeParamTy) []*InterfaceTy {
 // Bounded is whether the parameter declares any bound.
 func (t *TypeParamTy) Bounded() bool { return t.bounded }
 
-func (t *TypeParamTy) Name() string    { return t.name }
-func (t *TypeParamTy) IsManaged() bool { return true }
+func (t *TypeParamTy) Name() string { return t.name }
+
+// LinkName is the parameter's name: only the declaration of a generic holds one, and no code is generated for it.
+func (t *TypeParamTy) LinkName() string { return t.name }
+func (t *TypeParamTy) IsManaged() bool  { return true }
 
 // InterfaceTy is a set of method signatures. It is a bound on a type parameter, never the type of a value.
 type InterfaceTy struct {
@@ -74,8 +77,11 @@ func NewInterfaceTy(d *InterfaceDecl) *InterfaceTy {
 	return &InterfaceTy{name: d.Name, Decl: d, Self: newTypeParamTy("Self"), Methods: map[string]*FuncSig{}}
 }
 
-func (t *InterfaceTy) Name() string    { return t.name }
-func (t *InterfaceTy) IsManaged() bool { return false }
+func (t *InterfaceTy) Name() string { return t.name }
+
+// LinkName is the interface's name: a bound is no type that code is generated for.
+func (t *InterfaceTy) LinkName() string { return t.name }
+func (t *InterfaceTy) IsManaged() bool  { return false }
 
 // Passing is how a callee takes what it is passed: the convention of its receiver and its parameters.
 type Passing struct {
@@ -305,6 +311,7 @@ func (f *FuncDecl) instantiate(args []Ty) *FuncDecl {
 	}
 	inst.Pass.Specs = b.ApplySpecs(f.Pass.Specs)
 	inst.ReturnType = b.Apply(f.ReturnType)
+	inst.SetLinkName()
 	return &inst
 }
 

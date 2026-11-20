@@ -5,7 +5,6 @@ import (
 	"math"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
-	"minimaxon/internal/ir"
 )
 
 type R int
@@ -76,16 +75,17 @@ const (
 )
 
 type Label struct {
-	Pos    int
-	Uses   []int
-	Symbol any
+	Pos  int
+	Uses []int
+	// Symbol is the symbol of a label that another unit defines; a label of this unit has none.
+	Symbol string
 }
 
 func NewLabel() *Label {
 	return &Label{Pos: -1}
 }
 
-func ExternLabel(symbol any) *Label {
+func ExternLabel(symbol string) *Label {
 	return &Label{Pos: -1, Symbol: symbol}
 }
 
@@ -101,13 +101,18 @@ type ImportFixup struct {
 
 type SymbolFixup struct {
 	Pos    int
-	Symbol any
+	Symbol string
 }
 
-// SymbolDef is a symbol that a unit defines and where: an offset in its code or in its data.
+// SymbolDef is a symbol that a unit defines and where: an offset in its code or in its data. A symbol is the text that
+// the unit's code and the link name it by (see "symbol text" in README, "Build cache"), so a unit does not depend on the
+// compile that made it.
 type SymbolDef struct {
-	Symbol any
+	Symbol string
 	Offset int
+	// Instance says the symbol is an instance of a generic function, which every unit that needs it defines, and the link
+	// keeps one of; any other symbol is defined once.
+	Instance bool
 }
 
 type CodeUnit struct {
@@ -131,22 +136,21 @@ func NewCodeUnit() *CodeUnit {
 	}
 }
 
-func SymbolText(symbol any) string {
-	switch s := symbol.(type) {
-	case string:
-		return s
-	case ir.Rt:
-		return s.String()
-	case *ast.FuncDecl:
-		return s.Symbol()
-	case typeRoutine:
-		return s.String()
-	}
-	panic(diag.Internal("symbol %T is neither a function, a name nor a routine", symbol))
+func (u *CodeUnit) DefineCode(symbol string) {
+	u.CodeSymbols = append(u.CodeSymbols, SymbolDef{Symbol: symbol, Offset: u.Asm.Pos()})
 }
 
-func (u *CodeUnit) DefineCode(symbol any) {
-	u.CodeSymbols = append(u.CodeSymbols, SymbolDef{Symbol: symbol, Offset: u.Asm.Pos()})
+// DefineFunction defines the code of a function by its link name.
+func (u *CodeUnit) DefineFunction(f *ast.FuncDecl) {
+	u.CodeSymbols = append(u.CodeSymbols, SymbolDef{Symbol: functionSymbol(f), Offset: u.Asm.Pos(), Instance: f.Generic != nil})
+}
+
+// functionSymbol is the symbol that a function's code is defined and called by.
+func functionSymbol(f *ast.FuncDecl) string {
+	if f.LinkName == "" {
+		panic(diag.Internal("%s has no link name, so no code can be defined or called for it", f.Symbol()))
+	}
+	return f.LinkName
 }
 
 // Section is where a part of a unit's code begins, and where its fixups of each kind begin, which are in the order of
@@ -162,7 +166,7 @@ func (u *CodeUnit) BeginSection() {
 	u.Sections = append(u.Sections, Section{a.Pos(), len(a.SymbolFixups), len(a.DataFixups), len(a.ImportFixups)})
 }
 
-func (u *CodeUnit) DefineData(symbol any, size int) {
+func (u *CodeUnit) DefineData(symbol string, size int) {
 	u.DataSymbols = append(u.DataSymbols, SymbolDef{Symbol: symbol, Offset: u.Data.Reserve(size)})
 }
 
@@ -408,7 +412,7 @@ func (a *Asm) ripRelativeData(op byte, reg R, dataOffset int) {
 	a.d32(0)
 }
 
-func (a *Asm) ripRelativeSymbol(op byte, reg R, symbol any) {
+func (a *Asm) ripRelativeSymbol(op byte, reg R, symbol string) {
 	a.rex(true, int(reg), 0)
 	a.Code = append(a.Code, op)
 	a.ripMem(int(reg))
@@ -416,12 +420,12 @@ func (a *Asm) ripRelativeSymbol(op byte, reg R, symbol any) {
 	a.d32(0)
 }
 
-func (a *Asm) LeaData(dst R, dataOffset int)   { a.ripRelativeData(0x8D, dst, dataOffset) }
-func (a *Asm) LoadData(dst R, dataOffset int)  { a.ripRelativeData(0x8B, dst, dataOffset) }
-func (a *Asm) StoreData(dataOffset int, src R) { a.ripRelativeData(0x89, src, dataOffset) }
-func (a *Asm) LoadSymbol(dst R, symbol any)    { a.ripRelativeSymbol(0x8B, dst, symbol) }
-func (a *Asm) StoreSymbol(symbol any, src R)   { a.ripRelativeSymbol(0x89, src, symbol) }
-func (a *Asm) LeaSymbol(dst R, symbol any)     { a.ripRelativeSymbol(0x8D, dst, symbol) }
+func (a *Asm) LeaData(dst R, dataOffset int)    { a.ripRelativeData(0x8D, dst, dataOffset) }
+func (a *Asm) LoadData(dst R, dataOffset int)   { a.ripRelativeData(0x8B, dst, dataOffset) }
+func (a *Asm) StoreData(dataOffset int, src R)  { a.ripRelativeData(0x89, src, dataOffset) }
+func (a *Asm) LoadSymbol(dst R, symbol string)  { a.ripRelativeSymbol(0x8B, dst, symbol) }
+func (a *Asm) StoreSymbol(symbol string, src R) { a.ripRelativeSymbol(0x89, src, symbol) }
+func (a *Asm) LeaSymbol(dst R, symbol string)   { a.ripRelativeSymbol(0x8D, dst, symbol) }
 
 func (a *Asm) CallImport(index int) {
 	a.Raw(0xFF, 0x15)
@@ -430,7 +434,7 @@ func (a *Asm) CallImport(index int) {
 }
 
 func (a *Asm) rel32(l *Label) {
-	if l.Symbol != nil {
+	if l.Symbol != "" {
 		a.SymbolFixups = append(a.SymbolFixups, SymbolFixup{a.Pos(), l.Symbol})
 		a.d32(0)
 	} else if l.Pos >= 0 {
@@ -452,7 +456,7 @@ func (a *Asm) Jcc(cc Cc, l *Label) {
 }
 
 // CallSymbol calls a function that another unit, or this one, defines, which the linker finds by its symbol.
-func (a *Asm) CallSymbol(symbol any) {
+func (a *Asm) CallSymbol(symbol string) {
 	a.Code = append(a.Code, opCallRel32)
 	a.SymbolFixups = append(a.SymbolFixups, SymbolFixup{a.Pos(), symbol})
 	a.d32(0)
@@ -464,8 +468,8 @@ func (a *Asm) Call(l *Label) {
 }
 
 func (a *Asm) Bind(l *Label) {
-	if l.Symbol != nil {
-		panic(diag.Internal("external label %s cannot be bound in a unit", SymbolText(l.Symbol)))
+	if l.Symbol != "" {
+		panic(diag.Internal("external label %s cannot be bound in a unit", l.Symbol))
 	}
 	l.Pos = a.Pos()
 	for _, use := range l.Uses {

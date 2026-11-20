@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"fmt"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/ir"
@@ -31,43 +30,52 @@ var routineKindNames = [...]string{"drop", "copy"}
 
 const routineKindCount = len(routineKindNames)
 
-// typeRoutine names the routine that drops or copies a value of one type. Types are interned, so two uses of one type
-// name one routine.
+// typeRoutine is the routine that drops or copies a value of one type. Its symbol is the kind and the type's link name, so
+// two units that ask for the routine of one type name one routine, whichever compile made them.
 type typeRoutine struct {
 	kind routineKind
 	ty   ast.Ty
+	// symbol is the text the routine is defined and called by.
+	symbol string
 }
 
-func (r typeRoutine) String() string {
-	return fmt.Sprintf("%s %s", routineKindNames[r.kind], r.ty.Name())
+func newTypeRoutine(kind routineKind, t ast.Ty) typeRoutine {
+	return typeRoutine{kind: kind, ty: t, symbol: routineSymbol(kind, t.LinkName())}
+}
+
+// routineSymbol is the symbol of the routine of a kind for the type with a link name. It starts with the kind and a space,
+// which no function's link name does, so no routine is named like a function.
+func routineSymbol(kind routineKind, typeLinkName string) string {
+	return routineKindNames[kind] + " " + typeLinkName
 }
 
 // routineSet is the routines a body of code asks for, each once, in the order they were first asked for. The name of a
-// routine is made once, because a call names it by an interface value that would otherwise be allocated at each call.
+// routine is made once for each type.
 type routineSet struct {
 	list    []typeRoutine
-	symbols [routineKindCount]map[ast.Ty]any
+	symbols [routineKindCount]map[ast.Ty]string
 }
 
 // symbol is the name of the code that drops or copies a value of a type, and notes that the code asks for it. A drop of a
 // box that holds nothing to drop is the free itself, with no routine of its own.
-func (s *routineSet) symbol(kind routineKind, t ast.Ty) any {
+func (s *routineSet) symbol(kind routineKind, t ast.Ty) string {
 	names := s.symbols[kind]
 	if name, ok := names[t]; ok {
 		return name
 	}
 	if names == nil {
-		names = map[ast.Ty]any{}
+		names = map[ast.Ty]string{}
 		s.symbols[kind] = names
 	}
 	if kind == dropRoutine && onlyFrees(t) {
-		names[t] = ir.RtFree
-		return ir.RtFree
+		free := ir.RtFree.String()
+		names[t] = free
+		return free
 	}
-	r := typeRoutine{kind, t}
-	names[t] = r
+	r := newTypeRoutine(kind, t)
+	names[t] = r.symbol
 	s.list = append(s.list, r)
-	return r
+	return r.symbol
 }
 
 // onlyFrees is whether dropping a value of the type is freeing its box and nothing else: a record with no managed field,
@@ -105,10 +113,10 @@ const estimatedRoutineBytes = 128
 // modules ask for, then the ones those ask for that are not made yet, and so on, each wave in parallel and in the order
 // the routines were first asked for.
 func EmitTypeRoutines(units []*CodeUnit, jobs int) []*CodeUnit {
-	var known routineSet
+	known := map[string]struct{}{}
 	var pending []typeRoutine
 	for _, unit := range units {
-		pending = known.addNew(pending, unit.needed.list)
+		pending = addNew(known, pending, unit.needed.list)
 	}
 	var made []*CodeUnit
 	for len(pending) > 0 {
@@ -119,19 +127,18 @@ func EmitTypeRoutines(units []*CodeUnit, jobs int) []*CodeUnit {
 		made = append(made, wave...)
 		var next []typeRoutine
 		for _, unit := range wave {
-			next = known.addNew(next, unit.needed.list)
+			next = addNew(known, next, unit.needed.list)
 		}
 		pending = next
 	}
 	return made
 }
 
-// addNew appends to list the routines that the set has not seen, and notes them.
-func (s *routineSet) addNew(list, routines []typeRoutine) []typeRoutine {
+// addNew appends to list the routines that are not known yet, and notes them.
+func addNew(known map[string]struct{}, list, routines []typeRoutine) []typeRoutine {
 	for _, r := range routines {
-		before := len(s.list)
-		s.symbol(r.kind, r.ty)
-		if len(s.list) > before {
+		if _, seen := known[r.symbol]; !seen {
+			known[r.symbol] = struct{}{}
 			list = append(list, r)
 		}
 	}
@@ -141,7 +148,7 @@ func (s *routineSet) addNew(list, routines []typeRoutine) []typeRoutine {
 func emitRoutines(routines []typeRoutine) *CodeUnit {
 	u := NewCodeUnit()
 	u.Asm.Code = make([]byte, 0, len(routines)*estimatedRoutineBytes)
-	e := &routineEmitter{u: u, a: u.Asm, free: ExternLabel(ir.RtFree), alloc: ExternLabel(ir.RtAlloc)}
+	e := &routineEmitter{u: u, a: u.Asm, free: ExternLabel(ir.RtFree.String()), alloc: ExternLabel(ir.RtAlloc.String())}
 	for _, r := range routines {
 		e.routine(r)
 	}
@@ -213,7 +220,7 @@ func (e *routineEmitter) allocate(bytes int) {
 // routine emits the code of one routine.
 func (e *routineEmitter) routine(r typeRoutine) {
 	e.u.BeginSection()
-	e.u.DefineCode(r)
+	e.u.DefineCode(r.symbol)
 	switch r.kind {
 	case dropRoutine:
 		e.drop(r.ty)
@@ -377,9 +384,9 @@ func (e *routineEmitter) dropArray(t *ast.BuiltinTy) {
 func (e *routineEmitter) jumpIfImmortal(target *Label) {
 	a := e.a
 	a.Load(Rax, Rbp, routineArg)
-	a.LeaSymbol(Rcx, ir.RtImageDataStart)
+	a.LeaSymbol(Rcx, ir.RtImageDataStart.String())
 	a.Sub(Rax, Rcx)
-	a.LeaSymbol(Rdx, ir.RtImageDataEnd)
+	a.LeaSymbol(Rdx, ir.RtImageDataEnd.String())
 	a.Sub(Rdx, Rcx)
 	a.Cmp(Rax, Rdx)
 	a.Jcc(CcB, target)

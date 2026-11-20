@@ -51,18 +51,18 @@ func EmitRuntime(main *ast.FuncDecl, o RuntimeOptions) *CodeUnit {
 	g := &runtimeUnit{
 		u:         u,
 		count:     o.CountAllocations,
-		rtAlloc:   ExternLabel(ir.RtAlloc),
-		rtFree:    ExternLabel(ir.RtFree),
-		rtWrite:   ExternLabel(ir.RtWrite),
-		rtPanic:   ExternLabel(ir.RtPanic),
+		rtAlloc:   ExternLabel(ir.RtAlloc.String()),
+		rtFree:    ExternLabel(ir.RtFree.String()),
+		rtWrite:   ExternLabel(ir.RtWrite.String()),
+		rtPanic:   ExternLabel(ir.RtPanic.String()),
 		asm:       u.Asm,
 		dataBytes: u.Data,
 	}
-	u.DefineData(ir.RtHeap, wordBytes)
-	u.DefineData(ir.RtStdout, wordBytes)
-	u.DefineData(ir.RtStderr, wordBytes)
+	u.DefineData(ir.RtHeap.String(), wordBytes)
+	u.DefineData(ir.RtStdout.String(), wordBytes)
+	u.DefineData(ir.RtStderr.String(), wordBytes)
 	if o.CountAllocations {
-		u.DefineData(ir.RtLive, wordBytes)
+		u.DefineData(ir.RtLive.String(), wordBytes)
 	}
 	g.emitEntry(main)
 	g.emitRuntime()
@@ -78,17 +78,17 @@ func (g *runtimeUnit) callRuntime(l *Label, args int) {
 
 func (g *runtimeUnit) emitEntry(main *ast.FuncDecl) {
 	a := g.asm
-	g.u.DefineCode(ir.RtEntry)
+	g.u.DefineCode(ir.RtEntry.String())
 	a.SubImm(Rsp, windowsShadowSize)
 	a.CallImport(impGetProcessHeap)
-	a.StoreSymbol(ir.RtHeap, Rax)
+	a.StoreSymbol(ir.RtHeap.String(), Rax)
 	a.MovImm(Rcx, stdOutputHandle)
 	a.CallImport(impGetStdHandle)
-	a.StoreSymbol(ir.RtStdout, Rax)
+	a.StoreSymbol(ir.RtStdout.String(), Rax)
 	a.MovImm(Rcx, stdErrorHandle)
 	a.CallImport(impGetStdHandle)
-	a.StoreSymbol(ir.RtStderr, Rax)
-	a.Call(ExternLabel(main))
+	a.StoreSymbol(ir.RtStderr.String(), Rax)
+	a.Call(ExternLabel(functionSymbol(main)))
 	if g.count {
 		g.exitIfLeaking()
 	}
@@ -102,15 +102,15 @@ func (g *runtimeUnit) emitEntry(main *ast.FuncDecl) {
 func (g *runtimeUnit) exitIfLeaking() {
 	a := g.asm
 	clean := NewLabel()
-	a.LoadSymbol(Rcx, ir.RtLive)
+	a.LoadSymbol(Rcx, ir.RtLive.String())
 	a.Test(Rcx, Rcx)
 	a.Jcc(CcE, clean)
 	g.writeError(func() { a.LeaData(Rax, g.dataBytes.String(leakMessage)) })
-	a.LoadSymbol(Rax, ir.RtLive)
+	a.LoadSymbol(Rax, ir.RtLive.String())
 	a.Push(Rax)
 	a.MovImm(Rax, 0)
 	a.Push(Rax)
-	g.callRuntime(ExternLabel(ir.RtItoa), 2)
+	g.callRuntime(ExternLabel(ir.RtItoa.String()), 2)
 	a.Mov(Rbx, Rax)
 	g.writeError(func() { a.Mov(Rax, Rbx) })
 	g.writeError(func() { a.LeaData(Rax, g.dataBytes.String(leakMessageEnd)) })
@@ -122,7 +122,7 @@ func (g *runtimeUnit) exitIfLeaking() {
 // writeError writes the string that text puts in rax to standard error.
 func (g *runtimeUnit) writeError(text func()) {
 	a := g.asm
-	a.LoadSymbol(Rax, ir.RtStderr)
+	a.LoadSymbol(Rax, ir.RtStderr.String())
 	a.Push(Rax)
 	text()
 	a.Push(Rax)
@@ -159,9 +159,9 @@ func (g *runtimeUnit) emitRuntime() {
 	u := g.u
 	data := g.dataBytes
 
-	u.DefineCode(ir.RtAlloc)
+	u.DefineCode(ir.RtAlloc.String())
 	g.prologue(0, true)
-	a.LoadSymbol(Rcx, ir.RtHeap)
+	a.LoadSymbol(Rcx, ir.RtHeap.String())
 	a.MovImm(Rdx, heapZeroMemory)
 	a.Load(R8, Rbp, 16)
 	a.CallImport(impHeapAlloc)
@@ -172,7 +172,7 @@ func (g *runtimeUnit) emitRuntime() {
 
 	// free(box): gives a box back to the heap. A box that is 0 is a place that held no value, which HeapFree does not
 	// accept, so it is skipped.
-	u.DefineCode(ir.RtFree)
+	u.DefineCode(ir.RtFree.String())
 	g.prologue(0, true)
 	freed := NewLabel()
 	a.Load(R8, Rbp, 16)
@@ -181,13 +181,13 @@ func (g *runtimeUnit) emitRuntime() {
 	if g.count {
 		g.countLive(-1)
 	}
-	a.LoadSymbol(Rcx, ir.RtHeap)
+	a.LoadSymbol(Rcx, ir.RtHeap.String())
 	a.Xor(Rdx, Rdx)
 	a.CallImport(impHeapFree)
 	a.Bind(freed)
 	g.epilogue()
 
-	u.DefineCode(ir.RtWrite)
+	u.DefineCode(ir.RtWrite.String())
 	g.prologue(0, true)
 	a.Load(Rcx, Rbp, 24)
 	a.Load(Rdx, Rbp, 16)
@@ -199,12 +199,12 @@ func (g *runtimeUnit) emitRuntime() {
 	a.CallImport(impWriteFile)
 	g.epilogue()
 
-	u.DefineCode(ir.RtPanic)
+	u.DefineCode(ir.RtPanic.String())
 	g.prologue(0, false)
 	pieces := []panicPiece{{data.String("panic: "), true}, {0, false}}
 	pieces = append(pieces, panicPiece{data.String("\n"), true})
 	for _, piece := range pieces {
-		a.LoadSymbol(Rax, ir.RtStderr)
+		a.LoadSymbol(Rax, ir.RtStderr.String())
 		a.Push(Rax)
 		if piece.isText {
 			a.LeaData(Rax, piece.text)
@@ -219,7 +219,7 @@ func (g *runtimeUnit) emitRuntime() {
 	a.MovImm(Rcx, panicExitCode)
 	a.CallImport(impExitProcess)
 
-	u.DefineCode(ir.RtConcat)
+	u.DefineCode(ir.RtConcat.String())
 	g.prologue(0, false)
 	a.Load(Rsi, Rbp, 24)
 	a.Load(Rdi, Rbp, 16)
@@ -241,7 +241,7 @@ func (g *runtimeUnit) emitRuntime() {
 	a.Mov(Rax, R12)
 	g.epilogue()
 
-	u.DefineCode(ir.RtItoa)
+	u.DefineCode(ir.RtItoa.String())
 	g.prologue(64, false)
 	digits := NewLabel()
 	loop := NewLabel()
@@ -284,7 +284,7 @@ func (g *runtimeUnit) emitRuntime() {
 	a.Mov(Rax, R12)
 	g.epilogue()
 
-	u.DefineCode(ir.RtStreq)
+	u.DefineCode(ir.RtStreq.String())
 	g.prologue(0, false)
 	yes := NewLabel()
 	no := NewLabel()
@@ -319,7 +319,7 @@ func (g *runtimeUnit) emitRuntime() {
 		{ir.RtPanicShift, "negative shift count"},
 	}
 	for _, p := range panics {
-		u.DefineCode(p.symbol)
+		u.DefineCode(p.symbol.String())
 		a.LeaData(Rax, data.String(p.message))
 		a.Push(Rax)
 		a.Call(g.rtPanic)
@@ -329,7 +329,7 @@ func (g *runtimeUnit) emitRuntime() {
 // countLive adds to the number of live boxes, keeping every register but rcx.
 func (g *runtimeUnit) countLive(delta int) {
 	a := g.asm
-	a.LoadSymbol(Rcx, ir.RtLive)
+	a.LoadSymbol(Rcx, ir.RtLive.String())
 	a.AddImm(Rcx, delta)
-	a.StoreSymbol(ir.RtLive, Rcx)
+	a.StoreSymbol(ir.RtLive.String(), Rcx)
 }

@@ -42,10 +42,10 @@ func TestLabelFixups(t *testing.T) {
 	}
 }
 
-func definesCode(u *CodeUnit, symbol any) bool {
+func definesCode(u *CodeUnit, symbol string) bool {
 	return slices.ContainsFunc(u.CodeSymbols, func(d SymbolDef) bool { return d.Symbol == symbol })
 }
 
-func definesData(u *CodeUnit, symbol any) bool {
+func definesData(u *CodeUnit, symbol string) bool {
 	return slices.ContainsFunc(u.DataSymbols, func(d SymbolDef) bool { return d.Symbol == symbol })
 }

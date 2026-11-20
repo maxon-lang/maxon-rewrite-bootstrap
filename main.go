@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"minimaxon/internal/ast"
+	"minimaxon/internal/cache"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/driver"
 	"minimaxon/internal/interp"
@@ -37,6 +38,7 @@ A directory is a project: each directory under it is a module. --jobs=N sets how
 compile at once (default: one fewer than the processor count). --timings prints each phase's time and busy cores;
 --trace=FILE writes an execution trace of the compile for go tool trace. --emit-ir writes the IR beside the
 executable, as <out>.ir.
+--no-cache does not use the build cache (see MINIMAXON_CACHE in the README).
 --seed=N picks the schedule of behaviours that interp runs. --count-allocations builds executables that count their live
 heap boxes and fail at exit with code 99 if any is left (development only). --update-positions makes test rewrite
 the position of an expect-error whose code was reported at another place.`
@@ -52,6 +54,8 @@ const (
 	timingsFlag           = "--timings"
 	emitIrFlag            = "--emit-ir"
 	countAllocationsFlag  = "--count-allocations"
+	noCacheFlag           = "--no-cache"
+	cacheEnvironment      = "MINIMAXON_CACHE"
 	updatePositionsFlag   = "--update-positions"
 	keywordFlagPrefix     = "--keyword="
 	checkFlag             = "--check"
@@ -82,6 +86,8 @@ var (
 	emitIR    bool
 	// countAllocations builds executables that count their live heap boxes (see the README, "Counting allocations").
 	countAllocations bool
+	// noCache turns the build cache off for a build or a run.
+	noCache bool
 	// updatePositions makes the test runner rewrite an expect-error's position when the expected code was reported
 	// somewhere else, as it is after a change that only moves code, such as renaming a keyword.
 	updatePositions bool
@@ -89,7 +95,30 @@ var (
 )
 
 func compileWithFlags(path, output string) []*diag.CompileError {
-	return driver.Compile(path, output, flagOptions())
+	options := flagOptions()
+	if output != "" {
+		options.Cache = buildCache()
+	}
+	return driver.Compile(path, output, options)
+}
+
+// buildCache is the cache that building an executable reads and writes: the directory MINIMAXON_CACHE names, by default one
+// in the user's cache directory. It is nil when --no-cache or MINIMAXON_CACHE=off turn it off, or when there is no
+// directory to keep it in or no way to tell which compiler is running, since then no entry can be trusted to be this
+// compiler's.
+func buildCache() *cache.Cache {
+	if noCache {
+		return nil
+	}
+	dir, enabled := cache.Dir(os.Getenv(cacheEnvironment))
+	if !enabled {
+		return nil
+	}
+	compiler, err := cache.Executable()
+	if err != nil {
+		return nil
+	}
+	return cache.Open(dir, compiler)
 }
 
 func flagOptions() driver.Options {
@@ -156,10 +185,11 @@ func runMain(args []string) (code int) {
 		timings = timings || a == timingsFlag
 		emitIR = emitIR || a == emitIrFlag
 		countAllocations = countAllocations || a == countAllocationsFlag
+		noCache = noCache || a == noCacheFlag
 		updatePositions = updatePositions || a == updatePositionsFlag
 	}
 	args = filterArgs(args, func(a string) bool {
-		return a != timingsFlag && a != emitIrFlag && a != countAllocationsFlag && a != updatePositionsFlag
+		return a != timingsFlag && a != emitIrFlag && a != countAllocationsFlag && a != noCacheFlag && a != updatePositionsFlag
 	})
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, usage)

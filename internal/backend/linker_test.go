@@ -46,7 +46,7 @@ func linkUnits(seed uint64) []*CodeUnit {
 	return units
 }
 
-func linkToBytes(t *testing.T, units []*CodeUnit, entry any, jobs int) []byte {
+func linkToBytes(t *testing.T, units []*CodeUnit, entry string, jobs int) []byte {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "out.exe")
 	Link(out, units, entry, jobs)
@@ -200,8 +200,8 @@ func TestAbandonedOutputKeepsTheOldExecutable(t *testing.T) {
 // testInstance is an instance of a generic function, the one symbol that more than one unit may define. The same value
 // is the same symbol, as the interned instance is in a compile.
 func testInstance(name string) *ast.FuncDecl {
-	generic := &ast.FuncDecl{Name: name}
-	return &ast.FuncDecl{Name: name, Generic: generic}
+	generic := &ast.FuncDecl{Name: name, LinkName: name}
+	return &ast.FuncDecl{Name: name, LinkName: name + "[T]", Generic: generic}
 }
 
 // instanceMarker is the code of the instance that the unit with this number defines, which no other unit has.
@@ -209,17 +209,17 @@ func instanceMarker(unit int) []byte { return []byte{0xDE, 0xC0, 0xDE, byte(unit
 
 // instanceUnits are an entry unit that calls the symbol and then each unit in definers, which defines it with a code of
 // its own, the way every module that needs the same instance does.
-func instanceUnits(symbol any, definers ...int) []*CodeUnit {
+func instanceUnits(function *ast.FuncDecl, definers ...int) []*CodeUnit {
 	entry := NewCodeUnit()
 	entry.BeginSection()
 	entry.DefineCode(testLinkEntry)
-	entry.Asm.CallSymbol(symbol)
+	entry.Asm.CallSymbol(function.LinkName)
 	entry.Asm.Raw(0xC3)
 	units := []*CodeUnit{entry}
 	for _, number := range definers {
 		u := NewCodeUnit()
 		u.BeginSection()
-		u.DefineCode(symbol)
+		u.DefineFunction(function)
 		u.Asm.Raw(instanceMarker(number)...)
 		u.Asm.Raw(0xC3)
 		units = append(units, u)
@@ -277,7 +277,7 @@ func TestLinkKeepsOneDefinitionOfAnInstanceAmongManyUnits(t *testing.T) {
 
 // Only an instance may be defined by more than one unit: any other function, and any name, stays an error.
 func TestLinkRefusesAFunctionThatIsNotAnInstanceAndTwoUnitsDefine(t *testing.T) {
-	plain := &ast.FuncDecl{Name: "helper"}
+	plain := &ast.FuncDecl{Name: "helper", LinkName: "helper"}
 	for _, jobs := range []int{1, 4} {
 		message := catchInternal(t, func() { linkToBytes(t, instanceUnits(plain, 1, 2), testLinkEntry, jobs) })
 		if !strings.Contains(message, "defined twice") || !strings.Contains(message, "helper") {

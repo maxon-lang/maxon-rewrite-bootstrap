@@ -7,6 +7,8 @@ import (
 
 type Ty interface {
 	Name() string
+	// LinkName is the text that code generated for the type goes by (see linkname.go).
+	LinkName() string
 	IsManaged() bool
 }
 
@@ -23,6 +25,14 @@ func (t *IntTy) Name() string {
 		return t.Alias
 	}
 	return fmt.Sprintf("int(%s to %s)", t.Min, t.Max)
+}
+
+// LinkName tells two aliases of one name apart by their ranges, which is all the code for an integer type depends on.
+func (t *IntTy) LinkName() string {
+	if t.Alias == "" {
+		return intSpelling(t)
+	}
+	return t.Alias + intLinkAliasMark + intSpelling(t)
 }
 
 func (t *IntTy) IsManaged() bool      { return false }
@@ -42,8 +52,11 @@ type ConstIntTy struct {
 	Value I128
 }
 
-func (t *ConstIntTy) Name() string    { return "integer constant " + t.Value.String() }
-func (t *ConstIntTy) IsManaged() bool { return false }
+func (t *ConstIntTy) Name() string { return "integer constant " + t.Value.String() }
+
+// LinkName is the name a constant has in a message: no code is generated for the type of a constant.
+func (t *ConstIntTy) LinkName() string { return t.Name() }
+func (t *ConstIntTy) IsManaged() bool  { return false }
 
 type PrimTy struct {
 	name    string
@@ -57,8 +70,9 @@ var (
 	NeverTy  = &PrimTy{name: "never"}
 )
 
-func (t *PrimTy) Name() string    { return t.name }
-func (t *PrimTy) IsManaged() bool { return t.managed }
+func (t *PrimTy) Name() string     { return t.name }
+func (t *PrimTy) LinkName() string { return t.name }
+func (t *PrimTy) IsManaged() bool  { return t.managed }
 
 type NominalTy interface {
 	Ty
@@ -70,7 +84,10 @@ type NominalTy interface {
 // list of type arguments, have Args instead: an instance reads its members and conformances through the
 // declaration, substituting its Args for the declaration's Params.
 type NominalBase struct {
-	name    string
+	name string
+	// link is the name that code generated for the type goes by: the module that declares it and its name, and for an
+	// instance its type arguments (see linkname.go).
+	link    string
 	Methods map[string]*FuncDecl
 	// Params are the type parameters of a generic declaration.
 	Params []*TypeParamTy
@@ -83,6 +100,7 @@ type NominalBase struct {
 }
 
 func (n *NominalBase) Name() string                      { return n.name }
+func (n *NominalBase) LinkName() string                  { return n.link }
 func (n *NominalBase) MethodTable() map[string]*FuncDecl { return n.Methods }
 func (n *NominalBase) Base() *NominalBase                { return n }
 
@@ -98,7 +116,10 @@ func (n *NominalBase) Declaration() *NominalBase {
 func (n *NominalBase) IsGeneric() bool { return len(n.Params) > 0 }
 
 func (n *NominalBase) newInstanceBase(args []Ty) NominalBase {
-	return NominalBase{name: InstanceSpelling(n.name, typeNames(args)), Methods: n.Methods, Args: args, declaring: n}
+	return NominalBase{
+		name: InstanceSpelling(n.name, typeNames(args)), link: InstanceSpelling(n.link, linkNames(args)),
+		Methods: n.Methods, Args: args, declaring: n,
+	}
 }
 
 func (n *NominalBase) initGeneric(params []*TypeParam, where []*Constraint) {
@@ -130,7 +151,7 @@ type RecordTy struct {
 }
 
 func NewRecordTy(d *TypeDecl) *RecordTy {
-	r := &RecordTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
+	r := &RecordTy{name: d.Name, link: nominalLinkName(&d.DeclBase), Methods: map[string]*FuncDecl{}, Decl: d}
 	r.initGeneric(d.TypeParams, d.Where)
 	return r
 }
@@ -172,7 +193,7 @@ type EnumTy struct {
 }
 
 func NewEnumTy(d *EnumDecl) *EnumTy {
-	return &EnumTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
+	return &EnumTy{name: d.Name, link: nominalLinkName(&d.DeclBase), Methods: map[string]*FuncDecl{}, Decl: d}
 }
 
 func (e *EnumTy) IsManaged() bool { return false }
@@ -204,7 +225,7 @@ type UnionTy struct {
 }
 
 func NewUnionTy(d *UnionDecl) *UnionTy {
-	u := &UnionTy{name: d.Name, Methods: map[string]*FuncDecl{}, Decl: d}
+	u := &UnionTy{name: d.Name, link: nominalLinkName(&d.DeclBase), Methods: map[string]*FuncDecl{}, Decl: d}
 	u.initGeneric(d.TypeParams, d.Where)
 	return u
 }

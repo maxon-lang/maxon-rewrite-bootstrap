@@ -3,6 +3,7 @@ package driver
 import (
 	"fmt"
 	"minimaxon/internal/ast"
+	"minimaxon/internal/cache"
 	"minimaxon/internal/check"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/interp"
@@ -52,6 +53,11 @@ type Options struct {
 	// CountAllocations makes the executable count its live heap boxes and fail at exit if any is left (README, "Counting
 	// allocations"): a development flag, so a normal executable pays nothing for it.
 	CountAllocations bool
+	// Cache is the build cache that a compile that makes an executable reads and writes (README, "Build cache"); nil means
+	// there is none.
+	Cache *cache.Cache
+	// CacheStats, when not nil, is filled in with what the compile did with Cache.
+	CacheStats *CacheStats
 }
 
 func Compile(path, output string, o Options) []*diag.CompileError {
@@ -245,6 +251,9 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 	modulesPhase := newModulePhase(proj, results, typings, graph, main, output, o, capture)
 	modulesPhase.run()
 	modulesPhase.reportTimings()
+	if o.CacheStats != nil && modulesPhase.keys != nil {
+		*o.CacheStats = modulesPhase.cacheStats()
+	}
 	mark("modules")
 	if checkErrors := collectErrors(proj, errors, results, modulesPhase.bodied); checkErrors != nil {
 		return checkErrors

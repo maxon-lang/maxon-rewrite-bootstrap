@@ -1,7 +1,7 @@
 # minimaxon
 
 A small Maxon compiler for trying out language changes, and the seed of the next full Maxon compiler. It is
-written in Go, targets x64 Windows only, and is about 18,000 hand-written lines in eleven packages, plus the generator
+written in Go, targets x64 Windows only, and is about 18,000 hand-written lines in thirteen packages, plus the generator
 that writes its parser and AST. It compiles modules in parallel and writes a
 PE executable directly, with no external assembler, linker or C runtime.
 
@@ -30,7 +30,7 @@ go test ./...
 
 | Command | What it does |
 |---|---|
-| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory |
+| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory; modules that did not change come from the build cache (see "Build cache") |
 | `minimaxon run <file\|dir>` | compile to `%TEMP%\minimaxon\` and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only |
 | `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
@@ -40,11 +40,14 @@ go test ./...
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many
 modules compile at once. The default is one fewer than the processor count, and the executable is byte-identical
-whatever the value. `--timings` prints to stderr each pass's wall time, busy cores, the kernel's share of that work,
+whatever the value. `--no-cache` makes a `build` or `run` neither read nor write the build cache, and the environment variable
+`MINIMAXON_CACHE` names the directory it lives in, or says `off` (see "Build cache"). `--timings` prints to stderr each pass's wall time, busy cores, the kernel's share of that work,
 allocation, garbage collections and GC pause time, then the total with the share of the processors kept busy. Busy
 cores are the processor time a phase used over its wall time, so a phase that keeps every core working reads as the
 processor count; the kernel's share is mostly committing fresh pages (see "Allocation"). Windows counts processor time
-in clock ticks of about 15.6 ms, so a phase needs to last several ticks for its cores to mean anything.
+in clock ticks of about 15.6 ms, so a phase needs to last several ticks for its cores to mean anything. With the build
+cache on, the `modules` phase also prints a line of how many modules were hits and misses, how many checks were skipped and
+how much was read and written.
 `--trace=FILE` writes a Go execution trace of a `build`, `run` or `check` to FILE, with a mark where each phase
 ends; `go tool trace FILE` shows what each core did over time, so idle cores at a phase's end and serial steps are
 visible. `--seed=N` picks the schedule of behaviours that `interp` runs (default 0). `--count-allocations` builds an
@@ -65,7 +68,8 @@ run whole programs through `minimaxon test`.
 Each `tests/**/*.maxon` is one program, except under `tests/modules/`, where each directory is a project
 and its root files carry the directives. The runner compiles every program to an executable, a program that must
 fail included, because some errors come after type checking (lowering refuses what has no native code yet).
-A program that compiles is run twice, as the executable and under the tracking interpreter (see "The interpreter"),
+The runner never uses the build cache, so a test compiles exactly what is in its files and leaves nothing behind in the user's
+cache; the driver's own tests use a cache in a temporary directory. A program that compiles is run twice, as the executable and under the tracking interpreter (see "The interpreter"),
 and both must give the stdout and the exit code the directives say; the interpreter must also find no violation of the
 memory model, and the executable, built with `--count-allocations`, must end with no heap box live (a program that
 traps skips that check). A program that uses a map, a list, a pool, a frozen value, a cown or a behaviour has no
@@ -128,6 +132,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 |---|---|---|
 | `diag` | `CompileError`, `Guard`, the error codes | — |
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item; `Run`: runs a `Plan`, tasks that wait for other tasks, on the pool, preferring the group a worker was just on and then the lowest task; a panic is raised by item or task number, not by time | — |
+| `cache` | the store of the build cache: entries found by a key in a directory, written whole by a rename and read so that damage is a miss, the hasher that keys are made with, the hash of the running compiler, and the wire format an entry is written in (see "Build cache") | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
 | `ast` | the program model: `Tree`, a module's nodes as 16-byte records with the views that read them and the lists they point into, the structs that stay (the declarations), their kinds and the visitors (generated), `Pos` and `Positions` (where a node is), the handles (`ModuleID`, `NodeID`, `DeclRef`, `LocalID`), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases, with `Resolution` and `Typing`, the tables that phases fill in (see "The AST") | `diag` |
 | `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
@@ -135,9 +140,9 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `resolve` | name resolution, and binding each `where` constraint to its type parameter, into the module's `Resolution` | `ast`, `diag` |
 | `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag` |
 | `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag` |
-| `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer | `ast`, `diag`, `ir`, `par` |
+| `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer, and the format a code unit is written in for the build cache | `ast`, `cache`, `diag`, `ir`, `par` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives in Go and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `diag`, `ir` |
-| `driver` | `Compile`: runs the phases, the modules phase (check and generate of each module) as one scheduled phase; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
+| `driver` | `Compile`: runs the phases, the modules phase (check and generate of each module) as one scheduled phase, with the build cache's keys and entries; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
 that generates code from the grammar; nothing imports it.
@@ -218,9 +223,9 @@ merged in source order, which keeps the output deterministic.
 | declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass. It also numbers the module's nodes that have a slot, now that resolve has changed the kind of some, and sizes the tables of the `Typing` that only some nodes have |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
 | check | `check` | the first task of the modules phase: two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3117`), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3110` to `E3115`, `E3125`, `E2013`) A module's verify stage runs only if its bodies had no errors and no module's bodies have had errors yet, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
-| generate | `ir`, `backend` | the last task of the modules phase: two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules |
+| generate | `ir`, `backend` | the last task of the modules phase: two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules. A module whose entry the build cache holds is not lowered or emitted at all (see "Build cache") |
 | routines | `backend` | serial to start, then parallel: the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), made in waves of units of 256 routines; the order of the routines comes from the modules in source order, so it does not depend on `--jobs` |
-| link | `backend` | each function and routine is a section, each string and reserved value a piece of data, and only those the entry reaches through symbol and data references are kept (the runtime units are one section each). Every function is still compiled; what nothing calls is dropped here, as Go's linker does. Every step runs on all jobs: each unit enters its definitions into one table (a hash table of ids whose slots are claimed with a compare and swap, so it needs no lock; the ids count over the units in order, each definition having one). An instance is defined by every module that needs it, so the symbol of an instance may be defined more than once, and the table keeps the lowest id, which is the definition of the first unit, whichever job entered its own first: a definition that finds a lower id gives way and one that finds a higher id takes the slot. The other copies are never looked up, so the mark never reaches them and they are dropped like any dead section, as a C++ linker does with COMDAT "any". Any other symbol defined twice is an internal error; the mark follows the calls a round at a time, resolving a fixup only where live code uses it, with each round's sections shared out in chunks and the next round gathered in chunk order; each unit places its live parts from its own aligned start, and a running sum over the units in order gives each unit its base; each unit copies and patches its code into the image, which is the file in memory, while the file is created in the background and written in chunks as the code in front becomes final. The units go in module-path order after a runtime unit, then the routines, and the array runtime comes last. The layout depends only on which sections are live, so it is the same for any `--jobs` |
+| link | `backend` | each function and routine is a section, each string and reserved value a piece of data, and only those the entry reaches through symbol and data references are kept (the runtime units are one section each). Every function is still compiled; what nothing calls is dropped here, as Go's linker does. Every step runs on all jobs: each unit enters its definitions into one table (a hash table of ids whose slots are claimed with a compare and swap, so it needs no lock; the ids count over the units in order, each definition having one; a symbol is its text, a link name, see "Build cache"). An instance is defined by every module that needs it, so the symbol of an instance may be defined more than once, and the table keeps the lowest id, which is the definition of the first unit, whichever job entered its own first: a definition that finds a lower id gives way and one that finds a higher id takes the slot. The other copies are never looked up, so the mark never reaches them and they are dropped like any dead section, as a C++ linker does with COMDAT "any". Any other symbol defined twice is an internal error; the mark follows the calls a round at a time, resolving a fixup only where live code uses it, with each round's sections shared out in chunks and the next round gathered in chunk order; each unit places its live parts from its own aligned start, and a running sum over the units in order gives each unit its base; each unit copies and patches its code into the image, which is the file in memory, while the file is created in the background and written in chunks as the code in front becomes final. The units go in module-path order after a runtime unit, then the routines, and the array runtime comes last. The layout depends only on which sections are live, so it is the same for any `--jobs` |
 
 `driver.Prepare` (and `Interpret`, which runs the result once) runs the same passes through the lower stage of `generate` and gives the IR to
 the interpreter instead of codegen, which is how a map, a list, a pool, a frozen value, a cown and a behaviour run. `minimaxon check` runs
@@ -238,7 +243,7 @@ each task the tasks it needs, and its group):
 | closure | the module's check, and the closure of each module it depends on (the edges of `project.Graph`) | no work but a join: it is done exactly when the checks of the module and of every module it reaches are, so the plan has one edge per dependency and no module holds the set of the modules it reaches |
 | generate | the module's closure | the instances, and the lowering and codegen, or only the instances for a compile that makes nothing; it reads the bodies and check results of the generics it reaches in other modules and the marks verify leaves on their constants, which are all in modules it reaches, and nothing of a module that depends on it |
 
-A compile that makes an executable has one more task, with no prerequisites and the lowest number, that emits the runtime unit. A
+With a build cache, a module's key and entry are looked up before the phase starts, a module whose entry is there has no generate to run, and a module that nothing that is not a hit reaches has no check to run either (see "Build cache"); those tasks are scheduled and end at once. A compile that makes an executable has one more task, with no prerequisites and the lowest number, that emits the runtime unit. A
 module that depends on nothing is therefore generated while others are still being checked, and a module's generate does not wait
 for the modules that depend on it. A worker that finishes a task goes on to a task that has just become ready in the same group
 (the same module), where its data is in cache, and otherwise takes the ready task of the lowest number, which is the lowest module
@@ -274,8 +279,8 @@ stage reported for other modules is dropped. The serial steps
 are the import-cycle check and the aliases phase between resolve and declare, walks over the module graph and over
 the typealiases of instances.
 
-A module's tasks in the modules phase have explicit inputs and outputs, which is what a per-module cache and a language server need
-of them. The inputs of check are the module (its syntax tree, resolution and declarations) and the declarations and constants of the
+A module's tasks in the modules phase have explicit inputs and outputs, which is what the per-module build cache and a language server
+need of them. The inputs of check are the module (its syntax tree, resolution and declarations) and the declarations and constants of the
 modules it depends on; its outputs are the module's errors, its `Typing` (types and the ownership marks), the calls and bounds
 that verify checked, and the functions that need instances. The inputs of generate are the module's results and the `Typing` and
 results of the modules it reaches; its outputs are the module's refusals, its IR text and its code unit.
@@ -496,6 +501,134 @@ since every typed expression looked its type up, and the build 7 ms slower (468 
 runs). The handles would pay only where the lookup is cheaper than the cache misses of a 16-byte entry.
 
 Watch the MB column of `--timings` when changing a phase.
+
+## Build cache
+
+A rebuild after an edit redoes only the modules the edit can have changed: the rest come from a cache of what `generate` made for each
+module, as Go's build does, and the executable is byte for byte the one a build with no cache makes. The front (discover to
+constants) always runs for every module, so every error it can report is reported as without a cache, and the modules phase (check
+and generate) is where a hit saves its work. Only a build that makes an executable uses the cache: `check` and `interp` do not.
+
+### Link names
+
+A code unit names the functions it defines and calls, the data it defines, and the routines it asks for by text, never by an address or
+by a number that counts the project's modules, because a unit that is kept must mean the same in a later compile. That text is a
+**link name** (`internal/ast/linkname.go`). It starts with the module that declares what it names: its path, `export` for the project
+root (a directory cannot be called that) and `stdlib` for the standard library. So two modules may each declare a `helper` or a
+`Counter`, and an instance applied to one of them is not the instance applied to the other:
+
+| Names | Link name |
+|---|---|
+| a function | `geometry::area`, `export::main` |
+| a method | `export::Counter.inc`, `(export::Box with stdlib::Count).make` |
+| an instance of a generic function | `export::swap[stdlib::Count, export::Counter]` |
+| a type | `export::Counter`, `export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))` |
+| a drop or copy routine | `drop export::Counter`, `copy stdlib::array with export::Tree` |
+| a runtime entry or global | `rt.alloc`, `rt.heap` (the text of `ir.Rt`) |
+
+An integer type is named by its alias and its range, since the code for it depends on nothing else. The kinds of symbol cannot meet:
+a function's name has `::` before any space, a routine's starts with `drop ` or `copy `, and the runtime's have neither. A function's
+link name is made when the function is declared, or when an instance is made, and a type's when the type is, so naming a callee costs a
+field read. The text of a function in the IR (`--emit-ir`) and in a message is its plain symbol, as before. The link keeps one definition
+of a symbol that a unit marks as an instance, which every module that needs the instance defines, and refuses any other symbol that is
+defined twice. `ast.ParseLinkType` reads a type's link name back as the type, in a project whose declarations are made, which is how the
+routines a kept unit asks for are found again.
+
+### What an entry holds
+
+The entry of a module is the output of its `generate`: its code unit (the code, the data, the references and definitions to link, the
+sections and pieces the link keeps or drops whole, and the drop and copy routines it asks for, each as a kind and the link name of a
+type), whether it calls an array entry, and, if the build that wrote it asked for `--emit-ir`, the module's IR text. A module that has an
+error or a refusal (`E9002`, a runaway generic) has no entry: nothing a diagnostic holds is kept, so a diagnostic is always made, and made
+the same way, by the compile that reports it. A build that does not ask for the IR leaves entries without it, so a build that does is a miss
+for each of them and writes entries that serve both. Writing happens in the module's own generate task, on whatever worker made the
+unit.
+
+### The key
+
+A module's key is a SHA-256 of: the compiler (the hash of the executable, computed once per process), the flags that change what a module
+compiles to (`--count-allocations`; not `--jobs`, `--timings`, `--trace` or `--emit-ir`), the module's link path, a digest of its source
+(its text and where each file ends in it; a file's name is only where a diagnostic says a thing is), and **the keys of the modules it
+depends on**, in module order. The keys are made in the order of the module graph, so a key holds the source of every module the module
+reaches and the shape of the graph between them. The directory a project is in, the handles of the modules and the schedule are not in a
+key; adding or removing a module that nothing in a module's closure names changes none of its key (the handles move, and the entries do
+not care).
+
+### What a hit skips, and why that is right
+
+A **hit** is a module whose entry is there, whole, and holds what the build needs. Its `generate` does not run. Its `check` runs only if some
+module that is **not** a hit reaches it, because that module's generate reads the bodies and check results of the generics it reaches and
+the marks that verify leaves on the constants it reaches, and nothing else of another module's check. So `check` runs for a miss and for each
+module a miss reaches (the modules phase's own reverse closure), and a module that no miss reaches runs neither. A miss does what it always
+did.
+
+Why a hit is the right output, for each thing `generate(m)` reads of another module:
+
+- **Bodies and check results of generics, constants and field defaults of other modules.** A generic, a constant or a record is in a module
+  that `m` names (an edge of the graph) or that a module it names names, and so on: the key holds the source of that whole closure.
+- **Layouts and signatures.** The offset of a field, the size of a box, a union's cases, an enum's values and a callee's conventions come
+  from declarations. A type reaches `m`'s code only through a declaration in a module `m` names, and that declaration names the type's
+  module itself, so the closure holds it. Callees are named by link names and never inlined, so a non-generic body of another module is
+  not read.
+- **Bare names.** A bare name is the module's own declaration, else the root's, else the one exported declaration anywhere (`E3095` for
+  two). Which one it is decides an edge of the graph, and the keys hold the edges: a declaration that the root gains and that a module's
+  bare name now resolves to is a dependency the module did not have, so its key changes though its own text does not; a declaration that
+  another module gains, or one that moves, changes the source of a module in the closure; and one that makes two candidates is `E3095`,
+  which the front reports before any entry is read. The module's own declarations cannot be changed from outside.
+- **The root, the runtime and the standard library.** The root is a module like any other. The runtime unit, and the entry that calls
+  `main`, are made by every build and are not cached; the standard library and the code generator are the compiler, which is in the key.
+- **The module's own name**, which every symbol in its unit holds, is in its key: two modules of the same text have two entries.
+
+Errors stay as without a cache, because the cache is only consulted for a module that would compile: a module has an entry only if its
+check and its generate found nothing, its check reads nothing outside its closure's declarations, which its key holds, and so a module
+with the same key finds nothing again, so skipping its check hides no error. A module that is unchanged and would now fail, because a
+module it reaches changed, has another key, is a miss, and is checked, so the build reports the errors of a build with no cache. The
+front runs in full for every module, so its errors, which come before the modules phase, are reported as ever; and an error in the modules
+phase is reported only for modules that were checked, which are the ones that can have one.
+
+### Storage
+
+The cache is a directory, by default `minimaxon\cache` in the user's cache directory (`%LocalAppData%` on Windows). `MINIMAXON_CACHE`
+names another directory, or says `off` to turn the cache off, and `--no-cache` turns it off for one `build` or `run`. `minimaxon test` and
+`go test` never use the user's: the runner does not use a cache, and the tests that do use a temporary directory. The directory can be
+deleted at any time, and a compiler that finds nothing in it makes what it needs; nothing evicts an entry yet.
+
+An entry is a file `<first two hex digits of the key>/<the rest>`. It is written whole to a file of its own in that directory and
+renamed over the name, so a reader sees the old entry or the new one and never part of one, a crash leaves at most a stray `tmp-*` file,
+and compilers that write at once cannot corrupt each other. A failure to write is counted and never fails the compile. A read that finds a
+file that is missing, cut short, longer than it says, of another version, damaged (the checksum is CRC-32C), or not a code unit is a miss,
+and the module is made and written again.
+
+The file is `MXCE`, the layout version (`cache.Version`, 32 bits), the payload's length (64 bits), the payload, and the checksum of the
+payload (32 bits), all little-endian. The payload is written in the wire format of `internal/cache`, which a program in any language can
+read: an unsigned integer is a base-128 varint, a bool is a byte, a string or a byte string is its length and its bytes, and a list is its
+count and its items; nothing is aligned and no reflection or `encoding/gob` is involved. An entry's payload is: whether the module uses an
+array entry, whether the IR text is there, the IR text, and the unit, whose layout `backend/unitcodec.go` documents. A decoder checks every
+count against the bytes that are left, so a damaged entry asks for no memory.
+
+### Reading the cache
+
+`--timings` prints, above the `modules` line, `cache: N hits, M misses, K checks skipped, X MB read, Y MB written` and the time the lookup
+took (summed over the workers). The lookup, which makes the keys and reads and decodes every entry, runs on all `--jobs` before the
+modules phase, and the writes are part of each module's generate. A compile is the same bytes for any `--jobs`, and a cold, a warm and a
+partly warm build make the same executable and the same `--emit-ir`.
+
+### What comes next
+
+The key holds the source of the whole closure, which is conservative: an edit to the body of a function that no other module can read still
+makes a miss of every module that reaches it. **Early cutoff** is the next step: a module's key would hold, for each module it depends on,
+a digest of what that module shows to others instead of its key: the signatures and layouts of its declarations, the bodies of its generic
+functions and methods (an instance is lowered in the module that needs it), and its constants and field defaults. The front already has
+those after `declare`; a body edit to a non-generic function would then change that module's own key and no other's.
+
+A hit that a miss reaches is checked now, which a program whose root reaches every module pays for each edit. The miss's `generate` can
+only read the check results of a module that declares a generic function or method, a constant, or a field default, which `declare`
+knows, so a module that declares none of them could skip its check as well.
+
+A language server needs more of the same: to keep the front's products of a module that did not change (its tree, resolution and typing
+tables are indexed by `NodeID`, which depends only on the module's own text, and only the `ModuleID`s in them need renumbering when
+modules are added or removed), to cache a failing module's diagnostics under the same key, and to keep decoded units in memory rather
+than read them again.
 
 ## The IR
 

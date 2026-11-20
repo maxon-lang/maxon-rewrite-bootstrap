@@ -115,7 +115,7 @@ func (l *linkUnit) definitions() int { return len(l.u.CodeSymbols) + len(l.u.Dat
 // runs on all jobs: the definitions are entered into one table, the mark follows the calls a round at a time, each
 // unit finds its own places and then the units are given theirs by a running sum, and each unit copies and patches
 // its own code into the image.
-func Link(out string, units []*CodeUnit, entry any, jobs int) {
+func Link(out string, units []*CodeUnit, entry string, jobs int) {
 	output := OpenPeOutput(out)
 	defer output.Abandon()
 	links := make([]*linkUnit, len(units))
@@ -132,12 +132,12 @@ func Link(out string, units []*CodeUnit, entry any, jobs int) {
 	defined := make([]linkTarget, imageDataEnd+1)
 	par.ForEachIndex(len(links), jobs, func(i int) { links[i].define(int32(i), table, defined) })
 	defined[imageDataStart], defined[imageDataEnd] = linkTarget{kind: linkImageDataStart}, linkTarget{kind: linkImageDataEnd}
-	table.define(imageDataStart, ir.RtImageDataStart)
-	table.define(imageDataEnd, ir.RtImageDataEnd)
+	table.define(imageDataStart, ir.RtImageDataStart.String(), false)
+	table.define(imageDataEnd, ir.RtImageDataEnd.String(), false)
 
 	start := defined[table.lookup(entry)]
 	if start.kind != linkCode {
-		panic(diag.Internal("no entry symbol %s", SymbolText(entry)))
+		panic(diag.Internal("no entry symbol %s", entry))
 	}
 	markLive(links, table, defined, start, jobs)
 	codeSize, dataSize := layOut(links, jobs)
@@ -181,12 +181,12 @@ func (l *linkUnit) define(unit int32, table *symbolTable, defined []linkTarget) 
 	id := l.firstID
 	for _, d := range l.u.CodeSymbols {
 		defined[id] = linkTarget{kind: linkCode, unit: unit, part: int32(l.sectionOf(d.Offset)), offset: int32(d.Offset)}
-		table.define(id, d.Symbol)
+		table.define(id, d.Symbol, d.Instance)
 		id++
 	}
 	for _, d := range l.u.DataSymbols {
 		defined[id] = linkTarget{kind: linkData, unit: unit, part: int32(containing(l.pieces, d.Offset)), offset: int32(d.Offset)}
-		table.define(id, d.Symbol)
+		table.define(id, d.Symbol, d.Instance)
 		id++
 	}
 }
@@ -237,7 +237,7 @@ func (l *linkUnit) mark(links []*linkUnit, table *symbolTable, defined []linkTar
 		l.targets[j] = id
 		switch t := defined[id]; t.kind {
 		case linkUndefined:
-			panic(diag.Internal("undefined symbol %s", SymbolText(a.SymbolFixups[j].Symbol)))
+			panic(diag.Internal("undefined symbol %s", a.SymbolFixups[j].Symbol))
 		case linkData:
 			setLive(&links[t.unit].liveData[t.part])
 		case linkCode:

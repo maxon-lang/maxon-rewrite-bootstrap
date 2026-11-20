@@ -19,29 +19,29 @@ const (
 func EmitArrayRuntime() *CodeUnit {
 	u := NewCodeUnit()
 	a := u.Asm
-	g := &runtimeUnit{u: u, rtAlloc: ExternLabel(ir.RtAlloc), rtFree: ExternLabel(ir.RtFree), rtPanic: ExternLabel(ir.RtPanic), asm: a, dataBytes: u.Data}
-	outOfRange := ExternLabel(ir.RtPanicIndex)
+	g := &runtimeUnit{u: u, rtAlloc: ExternLabel(ir.RtAlloc.String()), rtFree: ExternLabel(ir.RtFree.String()), rtPanic: ExternLabel(ir.RtPanic.String()), asm: a, dataBytes: u.Data}
+	outOfRange := ExternLabel(ir.RtPanicIndex.String())
 
-	u.DefineCode(ir.RtPanicIndex)
+	u.DefineCode(ir.RtPanicIndex.String())
 	a.LeaData(Rax, g.dataBytes.String(indexOutOfRange))
 	a.Push(Rax)
 	a.Call(g.rtPanic)
 
-	u.DefineCode(ir.RtArrayNew)
+	u.DefineCode(ir.RtArrayNew.String())
 	g.prologue(0, false)
 	a.MovImm(Rax, arrayHeaderBytes)
 	a.Push(Rax)
 	g.callRuntime(g.rtAlloc, 1)
 	g.epilogue()
 
-	u.DefineCode(ir.RtArrayLen)
+	u.DefineCode(ir.RtArrayLen.String())
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 16)
 	a.Load(Rax, Rax, arrayLengthOffset)
 	g.epilogue()
 
 	// elem(array, index): the address of the element, after checking the index against the length.
-	u.DefineCode(ir.RtArrayElem)
+	u.DefineCode(ir.RtArrayElem.String())
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 24)
 	a.Load(Rcx, Rbp, 16)
@@ -55,7 +55,7 @@ func EmitArrayRuntime() *CodeUnit {
 	g.epilogue()
 
 	// insert(array, index, element): moves the element in at index, which may be the length, shifting what follows.
-	u.DefineCode(ir.RtArrayInsert)
+	u.DefineCode(ir.RtArrayInsert.String())
 	g.prologue(0, false)
 	room := NewLabel()
 	sized := NewLabel()
@@ -114,7 +114,7 @@ func EmitArrayRuntime() *CodeUnit {
 	g.epilogue()
 
 	// remove(array, index) -> element: moves it out, shifting what follows down.
-	u.DefineCode(ir.RtArrayRemove)
+	u.DefineCode(ir.RtArrayRemove.String())
 	g.prologue(0, false)
 	closeUp := NewLabel()
 	closed := NewLabel()

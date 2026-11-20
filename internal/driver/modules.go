@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/backend"
+	"minimaxon/internal/cache"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/interp"
 	"minimaxon/internal/ir"
@@ -143,12 +144,23 @@ type modulePhase struct {
 	crashes []*par.WorkerPanic
 	units   []*backend.CodeUnit
 
+	// keys, cached and needCheck are the build cache's part of the phase, made by consultCache for a compile that makes an
+	// executable with a cache: the key of each module's entry, the entry that was found (nil for a miss) and whether the
+	// module's check has to run. Without a cache they are nil.
+	keys      []cache.Key
+	cached    []*cachedModule
+	needCheck []bool
+	// cacheRead and cacheWritten are the sizes the cache had read and written when the phase began, so the phase can say
+	// how much it did itself.
+	cacheRead, cacheWritten int64
+	writeFailures           atomic.Int64
+
 	bodiesFailed atomic.Bool
 	anyFailed    atomic.Bool
 	refused      atomic.Bool
 
-	timings                 bool
-	checkTime, generateTime atomic.Int64
+	timings                            bool
+	checkTime, generateTime, cacheTime atomic.Int64
 }
 
 func newModulePhase(proj *ast.Project, results []ast.ModuleResult, typings ast.Typings, graph *project.Graph, main *ast.FuncDecl, output string, o Options, capture **interp.Program) *modulePhase {
@@ -179,6 +191,12 @@ func newModulePhase(proj *ast.Project, results []ast.ModuleResult, typings ast.T
 
 // run schedules every task over the jobs.
 func (p *modulePhase) run() {
+	if p.options.Cache != nil && p.emit && p.capture == nil {
+		p.cacheRead, p.cacheWritten = p.options.Cache.BytesRead(), p.options.Cache.BytesWritten()
+		stop := p.stopwatch(&p.cacheTime)
+		p.consultCache()
+		stop()
+	}
 	plan := modulePlan(p.graph, p.layout)
 	par.Run(plan, p.options.Jobs, func() *generateScratch { return &generateScratch{} }, p.task)
 }
@@ -210,6 +228,10 @@ func (p *modulePhase) emitRuntime() {
 // that has body errors, nor once any module has had them, which keeps the errors independent of which worker got there
 // first: a verify that ran meanwhile is dropped by collectErrors.
 func (p *modulePhase) check(id ast.ModuleID) {
+	if p.skipsCheck(id) {
+		p.verified[id] = true
+		return
+	}
 	defer trace.StartRegion(context.Background(), "check").End()
 	defer p.stopwatch(&p.checkTime)()
 	m, res := p.proj.Modules[id], &p.results[id]
@@ -240,7 +262,7 @@ func (p *modulePhase) closure(id ast.ModuleID) {
 // generateTask is a module's last task. With an error anywhere, or in what the module reaches, there is nothing to make of
 // the module, and lowering what has an error could fail on what the checker would have refused.
 func (p *modulePhase) generateTask(w *generateScratch, id ast.ModuleID) {
-	if p.anyFailed.Load() || !p.reached[id] {
+	if p.hit(id) || p.anyFailed.Load() || !p.reached[id] {
 		return
 	}
 	defer trace.StartRegion(context.Background(), "generate").End()
@@ -302,8 +324,10 @@ func (p *modulePhase) generate(w *generateScratch, id ast.ModuleID) {
 		out.functions = slices.Clone(fns)
 	case len(out.refusals) > 0:
 		p.refused.Store(true)
-	case !p.refused.Load():
-		p.units[id+1] = backend.EmitModule(fns)
+	case !p.refused.Load() || p.keys != nil:
+		unit := backend.EmitModule(fns)
+		p.units[id+1] = unit
+		p.remember(id, unit, out)
 	}
 }
 
@@ -351,7 +375,7 @@ func (p *modulePhase) conclude(output string, mark func(string)) []*diag.Compile
 		units = append(units, backend.EmitArrayRuntime())
 	}
 	mark("routines")
-	backend.Link(output, units, ir.RtEntry, p.options.Jobs)
+	backend.Link(output, units, ir.RtEntry.String(), p.options.Jobs)
 	mark("link")
 	return nil
 }
@@ -372,4 +396,12 @@ func (p *modulePhase) reportTimings() {
 	}
 	ms := func(total *atomic.Int64) float64 { return float64(total.Load()) / nanosPerMillisecond }
 	fmt.Fprintf(os.Stderr, "  check %.1f ms, generate %.1f ms of task time\n", ms(&p.checkTime), ms(&p.generateTime))
+	if p.keys != nil {
+		s := p.cacheStats()
+		fmt.Fprintf(os.Stderr, "  cache: %d hits, %d misses, %d checks skipped, %.1f MB read, %.1f MB written, lookup %.1f ms of task time\n",
+			s.Hits, s.Misses, s.ChecksSkipped, float64(s.BytesRead)/bytesPerMegabyte, float64(s.BytesWritten)/bytesPerMegabyte, ms(&p.cacheTime))
+		if s.WriteFailures > 0 {
+			fmt.Fprintf(os.Stderr, "  cache: %d entries could not be written\n", s.WriteFailures)
+		}
+	}
 }

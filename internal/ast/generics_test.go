@@ -8,6 +8,7 @@ import (
 func newBox() *RecordTy {
 	decl := &TypeDecl{TypeParams: []*TypeParam{{Name: "T"}}}
 	decl.Name = "Box"
+	decl.Module = NewModule("", ".", false)
 	return NewRecordTy(decl)
 }
 

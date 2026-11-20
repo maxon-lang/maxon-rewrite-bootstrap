@@ -29,6 +29,9 @@ type Positions struct {
 	firstLines []int
 }
 
+// Files are the files of the module, in the order their text is in the module's.
+func (p *Positions) Files() []FileSpan { return p.files }
+
 func NewPositions(text string, files []FileSpan) *Positions {
 	return &Positions{text: text, files: files}
 }

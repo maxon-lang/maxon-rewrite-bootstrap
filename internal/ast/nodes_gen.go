@@ -104,6 +104,7 @@ type FuncDecl struct {
 	TypeArgs  []Ty
 	Instances *InstanceTable
 	Uses      []CallUse
+	LinkName  string
 
 	Pass        Passing
 	ParamTypes  []Ty

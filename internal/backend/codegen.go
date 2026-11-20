@@ -57,11 +57,11 @@ func EmitModule(fns []*ir.IrFunction) *CodeUnit {
 	g := &codegen{
 		u:             u,
 		asm:           u.Asm,
-		rtAlloc:       ExternLabel(ir.RtAlloc),
-		panicRange:    ExternLabel(ir.RtPanicRange),
-		panicOverflow: ExternLabel(ir.RtPanicOverflow),
-		panicDiv:      ExternLabel(ir.RtPanicDiv),
-		panicShift:    ExternLabel(ir.RtPanicShift),
+		rtAlloc:       ExternLabel(ir.RtAlloc.String()),
+		panicRange:    ExternLabel(ir.RtPanicRange.String()),
+		panicOverflow: ExternLabel(ir.RtPanicOverflow.String()),
+		panicDiv:      ExternLabel(ir.RtPanicDiv.String()),
+		panicShift:    ExternLabel(ir.RtPanicShift.String()),
 	}
 	for _, f := range fns {
 		g.function(f)
@@ -123,7 +123,7 @@ func (g *codegen) function(fn *ir.IrFunction) {
 		g.labels[i].Uses = g.labels[i].Uses[:0]
 	}
 	g.u.BeginSection()
-	g.u.DefineCode(fn.Decl)
+	g.u.DefineFunction(fn.Decl)
 	a.Push(Rbp)
 	a.Mov(Rbp, Rsp)
 	g.allocateFrame((len(fn.Slots) + len(fn.Regs)) * wordBytes)
@@ -184,7 +184,7 @@ func (g *codegen) allocateFrame(bytes int) {
 	}
 }
 
-func (g *codegen) call(symbol any, args []ir.V, dst ir.V) {
+func (g *codegen) call(symbol string, args []ir.V, dst ir.V) {
 	a := g.asm
 	for _, arg := range args {
 		g.get(Rax, arg)
@@ -278,7 +278,7 @@ func (g *codegen) instr(x ir.Instr) {
 		g.get(Rax, x.B)
 		a.Store(Rcx, 0, Rax)
 	case ir.OpLoadGlobal:
-		a.LoadSymbol(Rax, x.Symbol())
+		a.LoadSymbol(Rax, x.Symbol().String())
 		g.put(x.Dst, Rax)
 	case ir.OpBin:
 		g.get(Rax, x.A)
@@ -309,9 +309,9 @@ func (g *codegen) instr(x ir.Instr) {
 		a.AddImm(Rsp, wordBytes)
 		g.put(x.Dst, Rax)
 	case ir.OpCall:
-		g.call(g.f.Callee(x), g.f.CallArgs(x), x.Dst)
+		g.call(functionSymbol(g.f.Callee(x)), g.f.CallArgs(x), x.Dst)
 	case ir.OpCallRuntime:
-		g.call(x.Symbol(), g.f.CallArgs(x), x.Dst)
+		g.call(x.Symbol().String(), g.f.CallArgs(x), x.Dst)
 	case ir.OpWhen:
 		panic(diag.Internal("codegen: a behaviour has no native code, and the driver refuses it before code is generated"))
 	default:

@@ -229,7 +229,7 @@ func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
 
 func (b *Builtins) newPrimitive(kind BuiltinKind, params ...string) *BuiltinTy {
 	d := newBuiltinDecl(b.stdlib, builtinNames[kind], params...)
-	t := &BuiltinTy{name: d.Name, Methods: map[string]*FuncDecl{}, Kind: kind, Decl: d, lib: b}
+	t := &BuiltinTy{name: d.Name, link: nominalLinkName(&d.DeclBase), Methods: map[string]*FuncDecl{}, Kind: kind, Decl: d, lib: b}
 	t.initGeneric(d.TypeParams, nil)
 	d.Ty = t
 	b.stdlib.Declare(d)
