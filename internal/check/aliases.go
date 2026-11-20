@@ -7,14 +7,15 @@ import (
 
 // DeclareAliases gives each typealias of an instance its type, after the typealiases it names. It is serial and cheap:
 // there are few such typealiases, and one may name another's in any module. Modules and declarations go in source
-// order, so the instances are interned in the same order whatever --jobs is.
-func DeclareAliases(proj *ast.Project) {
+// order, so the instances are interned in the same order whatever --jobs is. Errors and the type arguments' pending
+// bounds go to the result of the module whose typealias they come from.
+func DeclareAliases(proj *ast.Project, results []ast.ModuleResult) {
 	const visiting, done = 1, 2
 	state := map[*ast.AliasDecl]byte{}
 	checkers := map[*ast.Module]*Checker{}
 	checkerOf := func(m *ast.Module) *Checker {
 		if checkers[m] == nil {
-			checkers[m] = NewChecker(proj, m, &m.Errors)
+			checkers[m] = NewChecker(proj, m, &results[m.ID].Errors)
 		}
 		return checkers[m]
 	}
@@ -39,13 +40,13 @@ func DeclareAliases(proj *ast.Project) {
 	for _, m := range proj.Modules {
 		for _, d := range m.Decls {
 			if a, ok := d.(*ast.AliasDecl); ok && a.Instance != nil {
-				diag.Guard(&m.Errors, func() { visit(a) })
+				diag.Guard(&results[m.ID].Errors, func() { visit(a) })
 			}
 		}
 	}
 	for _, m := range proj.Modules {
 		if c := checkers[m]; c != nil {
-			m.Bounds = append(m.Bounds, c.Bounds...)
+			results[m.ID].Bounds = append(results[m.ID].Bounds, c.Bounds...)
 		}
 	}
 }

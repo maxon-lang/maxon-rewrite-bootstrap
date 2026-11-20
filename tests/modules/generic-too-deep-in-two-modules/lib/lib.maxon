@@ -1,0 +1,16 @@
+export typealias Score = int(i64.min to i64.max)
+
+export type Wrap uses T
+	export var inner as T
+
+	export static function make(consumes inner T) returns Self
+		return Self{inner: inner}
+	end 'make'
+end 'Wrap'
+
+export function nest(consumes x T, depth Score) uses T returns Score where T implements Droppable
+	if depth > 0 'more'
+		return nest(Wrap.make(x), depth: depth - 1)
+	end 'more'
+	return 0
+end 'nest'

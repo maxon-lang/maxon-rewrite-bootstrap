@@ -31,12 +31,14 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 	root.Decls = prog.Decls
 	proj := ast.NewProject(root)
 	proj.Modules = []*ast.Module{root}
-	project.BuildTables(proj, 1)
-	resolve.NewResolver(proj, root).Run()
-	check.DeclareAliases(proj)
-	c := check.NewChecker(proj, root, &root.Errors)
+	results := make([]ast.ModuleResult, len(proj.Modules))
+	res := &results[root.ID]
+	project.BuildTables(proj, results, 1)
+	resolve.NewResolver(proj, root, res).Run()
+	check.DeclareAliases(proj, results)
+	c := check.NewChecker(proj, root, &res.Errors)
 	for _, d := range root.Decls {
-		root.Functions = append(root.Functions, c.Declare(d)...)
+		res.Functions = append(res.Functions, c.Declare(d)...)
 	}
 	for _, d := range root.Decls {
 		switch d.(type) {
@@ -44,32 +46,33 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 			c.CheckBody(d)
 		}
 	}
-	for _, f := range root.Functions {
+	for _, f := range res.Functions {
 		c.CheckBody(f)
 	}
 	c.Verify(c.Pending)
-	c.VerifyBounds(append(root.Bounds, c.Bounds...))
-	root.Callers = c.Callers
-	if len(root.Errors) == 0 {
-		o := check.NewOwnership(&root.Errors, c)
+	c.VerifyBounds(append(res.Bounds, c.Bounds...))
+	res.Callers = c.Callers
+	if len(res.Errors) == 0 {
+		o := check.NewOwnership(&res.Errors, c)
 		for _, d := range root.Decls {
 			o.CheckValues(d)
 		}
-		for _, f := range root.Functions {
+		for _, f := range res.Functions {
 			o.Check(f)
 		}
 	}
-	if len(root.Errors) > 0 {
-		t.Fatalf("errors: %v", root.Errors)
+	if len(res.Errors) > 0 {
+		t.Fatalf("errors: %v", res.Errors)
 	}
 	var fns []*ir.IrFunction
-	for _, f := range root.Functions {
+	instances := ir.Instances(results[0].Callers)
+	for _, f := range res.Functions {
 		if len(f.Generics) == 0 {
-			fns = append(fns, ir.Lower(f))
+			fns = append(fns, ir.Lower(f, instances))
 		}
 	}
-	for _, inst := range ir.Instances([]*ast.Module{root})[0] {
-		fns = append(fns, ir.Lower(inst))
+	for _, inst := range instances.List {
+		fns = append(fns, ir.Lower(inst, instances))
 	}
 	return fns
 }
@@ -80,8 +83,8 @@ const routinesFile = "testdata/routines.maxon"
 func routineNames(units []*CodeUnit) []string {
 	var names []string
 	for _, u := range units {
-		for sym := range u.CodeSymbols {
-			if r, ok := sym.(typeRoutine); ok {
+		for _, def := range u.CodeSymbols {
+			if r, ok := def.Symbol.(typeRoutine); ok {
 				names = append(names, r.String())
 			}
 		}
@@ -97,11 +100,11 @@ func hasRoutine(units []*CodeUnit, name string) bool {
 func undefined(units []*CodeUnit, external map[any]bool) []string {
 	defined := map[any]bool{}
 	for _, u := range units {
-		for sym := range u.CodeSymbols {
-			defined[sym] = true
+		for _, def := range u.CodeSymbols {
+			defined[def.Symbol] = true
 		}
-		for sym := range u.DataSymbols {
-			defined[sym] = true
+		for _, def := range u.DataSymbols {
+			defined[def.Symbol] = true
 		}
 	}
 	var missing []string
@@ -194,7 +197,7 @@ func TestRoutinesAreIdenticalForAnyJobCount(t *testing.T) {
 func TestDroppingAStringChecksForAnImmortalOne(t *testing.T) {
 	module := EmitModule(lowered(t, routinesFile))
 	for _, u := range EmitTypeRoutines([]*CodeUnit{module}, 1) {
-		if _, ok := u.CodeSymbols[typeRoutine{dropRoutine, ast.StringTy}]; !ok {
+		if !definesCode(u, typeRoutine{dropRoutine, ast.StringTy}) {
 			continue
 		}
 		seen := map[any]bool{}
@@ -296,7 +299,7 @@ func TestAnExecutableThatDoesNotCountNeverChecks(t *testing.T) {
 	if message, code := runNative(t, nativeMain(false, 5), RuntimeOptions{}); code != 5 || message != "" {
 		t.Errorf("exit %d, stderr %q", code, message)
 	}
-	if _, ok := EmitRuntime(nativeMain(false, 0).Decl, RuntimeOptions{}).DataSymbols[ir.RtLive]; ok {
+	if definesData(EmitRuntime(nativeMain(false, 0).Decl, RuntimeOptions{}), ir.RtLive) {
 		t.Error("the runtime keeps a count that was not asked for")
 	}
 }

@@ -24,16 +24,18 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 	root.Decls = prog.Decls
 	proj := ast.NewProject(root)
 	proj.Modules = []*ast.Module{root}
-	project.BuildTables(proj, 1)
-	resolve.NewResolver(proj, root).Run()
-	DeclareAliases(proj)
-	if len(root.Errors) > 0 {
-		return root.Errors
+	results := make([]ast.ModuleResult, len(proj.Modules))
+	res := &results[root.ID]
+	project.BuildTables(proj, results, 1)
+	resolve.NewResolver(proj, root, res).Run()
+	DeclareAliases(proj, results)
+	if len(res.Errors) > 0 {
+		return res.Errors
 	}
 
-	c := NewChecker(proj, root, &root.Errors)
+	c := NewChecker(proj, root, &res.Errors)
 	for _, d := range root.Decls {
-		root.Functions = append(root.Functions, c.Declare(d)...)
+		res.Functions = append(res.Functions, c.Declare(d)...)
 	}
 	c.CheckMain()
 	for _, d := range root.Decls {
@@ -42,21 +44,21 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 			c.CheckBody(d)
 		}
 	}
-	for _, f := range root.Functions {
+	for _, f := range res.Functions {
 		c.CheckBody(f)
 	}
 	c.Verify(c.Pending)
-	c.VerifyBounds(append(root.Bounds, c.Bounds...))
-	if len(root.Errors) == 0 {
-		o := NewOwnership(&root.Errors, c)
+	c.VerifyBounds(append(res.Bounds, c.Bounds...))
+	if len(res.Errors) == 0 {
+		o := NewOwnership(&res.Errors, c)
 		for _, d := range root.Decls {
 			o.CheckValues(d)
 		}
-		for _, f := range root.Functions {
+		for _, f := range res.Functions {
 			o.Check(f)
 		}
 	}
-	return root.Errors
+	return res.Errors
 }
 
 func expectCodes(t *testing.T, errs []*diag.CompileError, codes ...string) {

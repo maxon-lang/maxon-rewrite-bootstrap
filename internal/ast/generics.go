@@ -219,7 +219,7 @@ type instanceNode struct {
 }
 
 // get is the instance for a list of arguments, made by build the first time it is asked for.
-func (t *InstanceTable) get(args []Ty, build func() any) (value any, created bool) {
+func (t *InstanceTable) get(args []Ty, build func() any) any {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	node := &t.root
@@ -234,11 +234,10 @@ func (t *InstanceTable) get(args []Ty, build func() any) (value any, created boo
 		}
 		node = child
 	}
-	if node.value != nil {
-		return node.value, false
+	if node.value == nil {
+		node.value = build()
 	}
-	node.value = build()
-	return node.value, true
+	return node.value
 }
 
 // Instantiate is the type a generic declaration names when it is given type arguments. The same arguments always give
@@ -256,14 +255,14 @@ func Instantiate(declaration NominalTy, args []Ty) NominalTy {
 }
 
 func instantiateRecord(d *RecordTy, args []Ty) *RecordTy {
-	v, _ := d.instances.get(args, func() any {
+	v := d.instances.get(args, func() any {
 		return &RecordTy{NominalBase: d.newInstanceBase(args), Decl: d.Decl, origin: d}
 	})
 	return v.(*RecordTy)
 }
 
 func instantiateUnion(d *UnionTy, args []Ty) *UnionTy {
-	v, _ := d.instances.get(args, func() any {
+	v := d.instances.get(args, func() any {
 		return &UnionTy{NominalBase: d.newInstanceBase(args), Decl: d.Decl, origin: d}
 	})
 	return v.(*UnionTy)
@@ -284,11 +283,9 @@ func SelfType(declaration NominalTy) NominalTy {
 }
 
 // Instance is the function a generic declaration becomes for a list of type arguments, with its signature
-// substituted. Its body is the declaration's, which is lowered once for each instance. created is whether this call
-// made it.
-func (f *FuncDecl) Instance(args []Ty) (instance *FuncDecl, created bool) {
-	v, created := f.Instances.get(args, func() any { return f.instantiate(args) })
-	return v.(*FuncDecl), created
+// substituted. Its body is the declaration's, which is lowered once for each module that needs the instance.
+func (f *FuncDecl) Instance(args []Ty) *FuncDecl {
+	return f.Instances.get(args, func() any { return f.instantiate(args) }).(*FuncDecl)
 }
 
 func (f *FuncDecl) instantiate(args []Ty) *FuncDecl {
@@ -331,12 +328,12 @@ func (b Binding) ApplySpecs(specs []ParamSpec) []ParamSpec {
 
 // Resolved is the function a call runs once the type parameters of the code it is in are bound: the target itself, or
 // the instance of a generic one, or for a call through a bound the method of the type that stands in for the
-// parameter. created is whether the instance did not exist before.
-func (c *CallExpr) Resolved(b Binding) (target *FuncDecl, created bool) {
+// parameter.
+func (c *CallExpr) Resolved(b Binding) *FuncDecl {
 	switch c.Kind {
 	case CallFunction, CallStatic, CallMethod:
 		if len(c.Target.Generics) == 0 {
-			return c.Target, false
+			return c.Target
 		}
 		return c.Target.Instance(b.applyAll(c.Generic.TypeArgs))
 	case CallBound:
@@ -350,7 +347,7 @@ func (c *CallExpr) Resolved(b Binding) (target *FuncDecl, created bool) {
 			panic(diag.Internal("%s has no method '%s' for the bound that declares it", recv.Name(), c.Generic.Method.Name))
 		}
 		if len(method.Generics) == 0 {
-			return method, false
+			return method
 		}
 		return method.Instance(recv.Base().Args)
 	}

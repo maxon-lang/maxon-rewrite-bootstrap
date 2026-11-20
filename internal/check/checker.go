@@ -234,7 +234,7 @@ func requireTypeArgCount(site ast.Node, name string, params []*ast.TypeParamTy, 
 }
 
 // instantiate is a generic type given its arguments. Whether they meet the parameters' bounds is checked in the
-// verify phase.
+// verify stage.
 func (c *Checker) instantiate(site ast.Node, nt ast.NominalTy, args []ast.Ty) ast.NominalTy {
 	params := nt.Base().Params
 	requireTypeArgCount(site, nt.Name(), params, len(args))
@@ -276,7 +276,7 @@ func (c *Checker) queueBounds(site ast.Node, params []*ast.TypeParamTy, args []a
 
 // queueMethodBounds queues the check of a call's type arguments against the bounds that the method adds to its type's
 // parameters. Which parameters those are is known only once the method's module has declared it, so each parameter is
-// queued and the verify phase looks at what the method says about it.
+// queued and the verify stage looks at what the method says about it.
 func (c *Checker) queueMethodBounds(site ast.Node, method *ast.FuncDecl, args []ast.Ty) {
 	if !method.HasOwnBounds() {
 		return

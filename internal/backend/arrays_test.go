@@ -11,7 +11,7 @@ import (
 func TestArrayRuntimeDefinesItsEntries(t *testing.T) {
 	u := EmitArrayRuntime()
 	for _, entry := range []string{ir.RtArrayNew, ir.RtArrayLen, ir.RtArrayElem, ir.RtArrayInsert, ir.RtArrayRemove, ir.RtPanicIndex} {
-		if _, ok := u.CodeSymbols[entry]; !ok {
+		if !definesCode(u, entry) {
 			t.Errorf("the array runtime does not define %s", entry)
 		}
 		if !ir.IsNativeEntry(entry) && entry != ir.RtPanicIndex {
@@ -20,7 +20,7 @@ func TestArrayRuntimeDefinesItsEntries(t *testing.T) {
 	}
 	external := map[any]bool{ir.RtAlloc: true, ir.RtFree: true, ir.RtPanic: true}
 	for _, f := range u.Asm.SymbolFixups {
-		if _, defined := u.CodeSymbols[f.Symbol]; !defined && !external[f.Symbol] {
+		if !definesCode(u, f.Symbol) && !external[f.Symbol] {
 			t.Errorf("the array runtime refers to %v, which no unit it links with defines", f.Symbol)
 		}
 	}

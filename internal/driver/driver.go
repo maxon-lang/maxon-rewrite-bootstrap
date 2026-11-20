@@ -17,11 +17,12 @@ import (
 	"runtime"
 	"runtime/debug"
 	"runtime/metrics"
+	"runtime/trace"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 const (
@@ -49,8 +50,10 @@ func heapAllocated() uint64 {
 type Options struct {
 	// Jobs is how many modules compile at once; the executable is the same for any value.
 	Jobs int
-	// Timings prints each phase's wall time and allocation to standard error.
+	// Timings prints each phase's wall time, busy cores and allocation to standard error.
 	Timings bool
+	// Trace, when not empty, is where a Go execution trace of the compile is written, for `go tool trace`.
+	Trace string
 	// EmitIr writes the IR of every function beside the executable, as <output>.ir.
 	EmitIr bool
 	// CountAllocations makes the executable count its live heap boxes and fail at exit if any is left (README, "Counting
@@ -60,7 +63,26 @@ type Options struct {
 
 func Compile(path, output string, o Options) (errs []*diag.CompileError) {
 	defer recoverCompileError(&errs)
+	if o.Trace != "" {
+		defer startTrace(o.Trace)()
+	}
 	return compileProject(path, output, o, nil)
+}
+
+func startTrace(path string) (stop func()) {
+	file, err := os.Create(path)
+	if err != nil {
+		panic(diag.Internal("cannot create the trace %s: %v", path, err))
+	}
+	if err := trace.Start(file); err != nil {
+		panic(diag.Internal("cannot start the trace: %v", err))
+	}
+	return func() {
+		trace.Stop()
+		if err := file.Close(); err != nil {
+			panic(diag.Internal("cannot write the trace %s: %v", path, err))
+		}
+	}
 }
 
 func recoverCompileError(errs *[]*diag.CompileError) {
@@ -99,24 +121,11 @@ func Interpret(path string, jobs int, stepLimit int64) (result *interp.Result, e
 // compileProject runs the phases. With a non-empty output it generates an executable; with capture it lowers the program
 // and hands the IR to the interpreter instead.
 func compileProject(path, output string, o Options, capture **interp.Program) []*diag.CompileError {
-	jobs, timings, emitIr := o.Jobs, o.Timings, o.EmitIr
+	jobs, timings := o.Jobs, o.Timings
 	var errors []*diag.CompileError
-	clock := time.Now()
-	var stats runtime.MemStats
-	runtime.ReadMemStats(&stats)
-	allocated, collections, paused := stats.TotalAlloc, stats.NumGC, stats.PauseTotalNs
-	mark := func(phase string) {
-		if timings {
-			runtime.ReadMemStats(&stats)
-			fmt.Fprintf(os.Stderr, "%-10s %8.1f ms %8.1f MB %4d GCs %7.1f ms paused\n", phase,
-				float64(time.Since(clock).Nanoseconds())/1e6,
-				float64(stats.TotalAlloc-allocated)/bytesPerMegabyte,
-				stats.NumGC-collections,
-				float64(stats.PauseTotalNs-paused)/1e6)
-			allocated, collections, paused = stats.TotalAlloc, stats.NumGC, stats.PauseTotalNs
-		}
-		clock = time.Now()
-	}
+	timer := newPhaseTimer(timings)
+	defer timer.total()
+	mark := timer.mark
 
 	proj := project.Discover(path, &errors)
 	budget, restore := suspendCollection(proj, jobs)
@@ -129,24 +138,23 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 		return sortedErrors(errors)
 	}
 	modules := proj.Modules
+	results := make([]ast.ModuleResult, len(modules))
 
-	phase := func(work func(*ast.Module)) { par.ForEach(modules, jobs, work) }
-
-	failed := func() []*diag.CompileError {
-		all := append([]*diag.CompileError{}, errors...)
-		for _, m := range modules {
-			all = append(all, m.Errors...)
-		}
-		if len(all) == 0 {
-			return nil
-		}
-		return sortedErrors(all)
+	phase := func(work func(*ast.Module, *ast.ModuleResult)) {
+		par.ForEachIndex(len(modules), jobs, func(i int) { work(modules[i], &results[i]) })
 	}
 
+	failed := func() []*diag.CompileError { return collectErrors(errors, results, nil) }
+
+	// The parse pass builds each module's own declaration table straight after parsing it, while its AST is in cache. A
+	// module's table is built only when it parsed cleanly, and the table's errors count only when every module did, so
+	// the errors a program gets are the same as if the table had a pass of its own after the parse.
 	var readBytes, lexBytes, parseBytes atomic.Uint64
 	parseStart := heapAllocated()
-	phase(func(m *ast.Module) {
-		diag.Guard(&m.Errors, func() {
+	parsed := make([]int, len(modules))
+	declared := make([][]ast.Decl, len(modules))
+	phase(func(m *ast.Module, res *ast.ModuleResult) {
+		diag.Guard(&res.Errors, func() {
 			a0 := stepAllocated(timings)
 			src := syntax.LoadModuleSource(m.Files)
 			a1 := stepAllocated(timings)
@@ -155,7 +163,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 			a2 := stepAllocated(timings)
 			parser := syntax.NewParser(src, tokens)
 			m.Decls = append(m.Decls, parser.ParseProgram().Decls...)
-			m.Errors = append(m.Errors, parser.Errors...)
+			res.Errors = append(res.Errors, parser.Errors...)
 			a3 := stepAllocated(timings)
 			*scratch = tokens[:0]
 			tokenBuffers.Put(scratch)
@@ -163,44 +171,45 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 			lexBytes.Add(a2 - a1)
 			parseBytes.Add(a3 - a2)
 		})
+		parsed[m.ID] = len(res.Errors)
+		if parsed[m.ID] == 0 {
+			declared[m.ID] = project.BuildModuleTable(m, &res.Errors)
+		}
 	})
 	if timings {
 		reportParseAllocation(heapAllocated()-parseStart, readBytes.Load(), lexBytes.Load(), parseBytes.Load())
 	}
 	mark("parse")
-	if parseErrors := failed(); parseErrors != nil {
+	if parseErrors := collectErrors(errors, results, parsed); parseErrors != nil {
 		return parseErrors
 	}
 
-	project.BuildTables(proj, jobs)
-	mark("tables")
-	if tableErrors := failed(); tableErrors != nil {
-		return tableErrors
-	}
+	project.IndexNames(proj, declared)
+	mark("names")
 
-	phase(func(m *ast.Module) { resolve.NewResolver(proj, m).Run() })
+	phase(func(m *ast.Module, res *ast.ModuleResult) { resolve.NewResolver(proj, m, res).Run() })
 	mark("resolve")
 	if resolveErrors := failed(); resolveErrors != nil {
 		return resolveErrors
 	}
-	if !project.DependencyOrder(proj, &errors) {
-		return sortedErrors(errors)
+	if cycle := project.NewGraph(results).CheckAcyclic(proj); cycle != nil {
+		return sortedErrors([]*diag.CompileError{cycle})
 	}
 	mark("cycles")
 
-	check.DeclareAliases(proj)
+	check.DeclareAliases(proj, results)
 	mark("aliases")
 	if aliasErrors := failed(); aliasErrors != nil {
 		return aliasErrors
 	}
 
 	var main *ast.FuncDecl
-	phase(func(m *ast.Module) {
-		checker := check.NewChecker(proj, m, &m.Errors)
+	phase(func(m *ast.Module, res *ast.ModuleResult) {
+		checker := check.NewChecker(proj, m, &res.Errors)
 		for _, d := range m.Decls {
-			m.Functions = append(m.Functions, checker.Declare(d)...)
+			res.Functions = append(res.Functions, checker.Declare(d)...)
 		}
-		m.Bounds = append(m.Bounds, checker.Bounds...)
+		res.Bounds = append(res.Bounds, checker.Bounds...)
 		if m == proj.Root {
 			main = checker.CheckMain()
 		}
@@ -216,149 +225,278 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 		return constErrors
 	}
 
-	phase(func(m *ast.Module) {
-		checker := check.NewChecker(proj, m, &m.Errors)
-		for _, d := range m.Decls {
-			switch d.(type) {
-			case *ast.TypeDecl, *ast.UnionDecl, *ast.EnumDecl:
-				checker.CheckBody(d)
-			}
-		}
-		for _, f := range m.Functions {
-			checker.CheckBody(f)
-		}
-		m.Pending = append(m.Pending, checker.Pending...)
-		m.Bounds = append(m.Bounds, checker.Bounds...)
-		m.Callers = append(m.Callers, checker.Callers...)
-	})
-	mark("bodies")
-	if bodyErrors := failed(); bodyErrors != nil {
-		return bodyErrors
-	}
-
-	phase(func(m *ast.Module) {
-		verifier := check.NewChecker(proj, m, &m.Errors)
-		verifier.Verify(m.Pending)
-		verifier.VerifyBounds(m.Bounds)
-		if len(m.Errors) == 0 {
-			ownership := check.NewOwnership(&m.Errors, verifier)
-			for _, d := range m.Decls {
-				ownership.CheckValues(d)
-			}
-			for _, f := range m.Functions {
-				ownership.Check(f)
-			}
+	// The check pass types a module's bodies and then verifies it, while its AST and types are in cache. Verify does not
+	// run on a module that has body errors, and when any module has body errors only those are reported: a verify that
+	// another module's worker ran meanwhile is dropped, so the errors depend neither on --jobs nor on which worker got
+	// there first.
+	bodied := make([]int, len(modules))
+	var bodiesFailed atomic.Bool
+	phase(func(m *ast.Module, res *ast.ModuleResult) {
+		checkBodies(proj, m, res)
+		bodied[m.ID] = len(res.Errors)
+		if bodied[m.ID] > 0 {
+			bodiesFailed.Store(true)
+		} else if !bodiesFailed.Load() {
+			verifyModule(proj, m, res)
 		}
 	})
-	mark("verify")
-	if verifyErrors := failed(); verifyErrors != nil {
-		return verifyErrors
-	}
-
-	var instances [][]*ast.FuncDecl
-	diag.Guard(&errors, func() { instances = ir.Instances(modules) })
-	mark("instances")
-	if len(errors) > 0 {
-		return sortedErrors(errors)
+	mark("check")
+	if checkErrors := collectErrors(errors, results, bodied); checkErrors != nil {
+		return checkErrors
 	}
 
 	if output != "" || capture != nil {
-		irs := make([][]*ir.IrFunction, len(modules))
-		par.ForEachIndex(len(modules), jobs, func(i int) {
-			fns := make([]*ir.IrFunction, 0, len(modules[i].Functions)+len(instances[i]))
-			for _, f := range modules[i].Functions {
-				if len(f.Generics) == 0 {
-					fns = append(fns, ir.Lower(f))
-				}
-			}
-			for _, inst := range instances[i] {
-				fns = append(fns, ir.Lower(inst))
-			}
-			irs[i] = fns
-		})
-		mark("lower")
-		if emitIr {
-			var text strings.Builder
-			for _, fns := range irs {
-				for _, fn := range fns {
-					ir.PrintIr(fn, &text)
-				}
-			}
-			if err := os.WriteFile(output+".ir", []byte(text.String()), 0o644); err != nil {
-				panic(diag.Internal("cannot write %s.ir: %v", output, err))
-			}
+		return generate(proj, results, main, output, o, capture, mark)
+	}
+	return checkInstances(results, jobs, mark)
+}
+
+// checkInstances is what a compile that makes nothing runs in place of generate: each module finds its instances, which
+// is where a generic function that grows its own type argument without end is refused (E3122).
+func checkInstances(results []ast.ModuleResult, jobs int, mark func(string)) []*diag.CompileError {
+	failures := make([][]*diag.CompileError, len(results))
+	par.ForEachIndex(len(results), jobs, func(i int) {
+		diag.Guard(&failures[i], func() { ir.Instances(results[i].Callers) })
+	})
+	mark("instances")
+	return firstFailure(failures)
+}
+
+// firstFailure is the failure of the first module that has one, or nil. Every module that reaches a generic that grows
+// its type argument without end finds the same runaway, so the program gets one error, from a module that is the same
+// for any number of jobs, not one for each module.
+func firstFailure(failures [][]*diag.CompileError) []*diag.CompileError {
+	for _, failure := range failures {
+		if len(failure) > 0 {
+			return failure
 		}
-		if capture != nil {
-			if blocked := refusals(irs, func(code string) bool { return code != diag.ErrInterpreterOnly }); len(blocked) > 0 {
-				return sortedErrors(blocked)
-			}
-			var all []*ir.IrFunction
-			for _, fns := range irs {
-				all = append(all, fns...)
-			}
-			*capture = interp.NewProgram(all, main)
-			return nil
-		}
-		if blocked := refusals(irs, func(string) bool { return true }); len(blocked) > 0 {
-			return sortedErrors(blocked)
-		}
-		units := make([]*backend.CodeUnit, len(modules)+1)
-		emitModules := func() { par.ForEachIndex(len(modules), jobs, func(i int) { units[i+1] = backend.EmitModule(irs[i]) }) }
-		if jobs <= 1 {
-			units[0] = backend.EmitRuntime(main, backend.RuntimeOptions{CountAllocations: o.CountAllocations})
-			emitModules()
-		} else {
-			var failure any
-			var done sync.WaitGroup
-			done.Go(func() {
-				defer func() { failure = recover() }()
-				units[0] = backend.EmitRuntime(main, backend.RuntimeOptions{CountAllocations: o.CountAllocations})
-			})
-			emitModules()
-			done.Wait()
-			if failure != nil {
-				panic(failure)
-			}
-		}
-		mark("codegen")
-		units = append(units, backend.EmitTypeRoutines(units, jobs)...)
-		if usesArrays(irs) {
-			units = append(units, backend.EmitArrayRuntime())
-		}
-		mark("routines")
-		backend.Link(output, units, ir.RtEntry, jobs)
-		mark("link")
 	}
 	return nil
 }
 
-// refusals are the places where a program needs something the backend cannot run yet, such as a map, a list, a pool, a
-// frozen value, a cown or a behaviour, which only the interpreter runs. One is reported for each function, at its first that matters, so the errors are a
-// property of the program and not of how many modules compile at once.
-func refusals(irs [][]*ir.IrFunction, matters func(code string) bool) []*diag.CompileError {
-	var errs []*diag.CompileError
-	for _, fns := range irs {
-		for _, fn := range fns {
-			for _, r := range fn.Refusals {
-				if matters(r.Code) {
-					errs = append(errs, r.Site.P().Error(r.Code, r.Message))
-					break
+// checkBodies types the module's type declarations and functions, and records what verify and the instances need.
+func checkBodies(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
+	checker := check.NewChecker(proj, m, &res.Errors)
+	for _, d := range m.Decls {
+		switch d.(type) {
+		case *ast.TypeDecl, *ast.UnionDecl, *ast.EnumDecl:
+			checker.CheckBody(d)
+		}
+	}
+	for _, f := range res.Functions {
+		checker.CheckBody(f)
+	}
+	res.Pending = append(res.Pending, checker.Pending...)
+	res.Bounds = append(res.Bounds, checker.Bounds...)
+	res.Callers = append(res.Callers, checker.Callers...)
+}
+
+// verifyModule checks the calls and type arguments that checkBodies recorded, then ownership, which only runs on a
+// module that has no error yet.
+func verifyModule(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
+	verifier := check.NewChecker(proj, m, &res.Errors)
+	verifier.Verify(res.Pending)
+	verifier.VerifyBounds(res.Bounds)
+	if len(res.Errors) == 0 {
+		ownership := check.NewOwnership(&res.Errors, verifier)
+		for _, d := range m.Decls {
+			ownership.CheckValues(d)
+		}
+		for _, f := range res.Functions {
+			ownership.Check(f)
+		}
+	}
+}
+
+// collectErrors gathers the errors of the compile so far, sorted, or nil if there are none. A pass that fuses two
+// stages gives stageEnds, how many errors each module had when its first stage ended: if any module had errors then,
+// only those count, and what the second stage found is dropped.
+func collectErrors(errors []*diag.CompileError, results []ast.ModuleResult, stageEnds []int) []*diag.CompileError {
+	firstStageFailed := slices.ContainsFunc(stageEnds, func(n int) bool { return n > 0 })
+	all := append([]*diag.CompileError{}, errors...)
+	for i := range results {
+		if firstStageFailed {
+			all = append(all, results[i].Errors[:stageEnds[i]]...)
+		} else {
+			all = append(all, results[i].Errors...)
+		}
+	}
+	if len(all) == 0 {
+		return nil
+	}
+	return sortedErrors(all)
+}
+
+// moduleOutput is what the generate pass keeps of a module once its functions are lowered and its code is emitted.
+type moduleOutput struct {
+	// functions are kept only for the interpreter, which runs the IR instead of emitting code.
+	functions  []*ir.IrFunction
+	irText     string
+	refusals   []*diag.CompileError
+	usesArrays bool
+}
+
+// generate finds the instances a module needs, lowers its functions and those instances, and emits its code unit
+// straight away, so the IR is consumed while it is in cache. A module that needs an instance that another module
+// needs too lowers and emits it as well, and the link keeps one copy. With capture it hands the IR to the interpreter
+// instead of emitting code. A program that has refusals gets no executable and the code emitted for it is dropped; a
+// module with a refusal is not emitted at all, because its IR holds what codegen cannot handle.
+func generate(proj *ast.Project, results []ast.ModuleResult, main *ast.FuncDecl, output string, o Options, capture **interp.Program, mark func(string)) []*diag.CompileError {
+	modules := proj.Modules
+	matters := func(string) bool { return true }
+	if capture != nil {
+		matters = func(code string) bool { return code != diag.ErrInterpreterOnly }
+	}
+	outputs := make([]moduleOutput, len(modules))
+	unfinite := make([][]*diag.CompileError, len(modules))
+	units := make([]*backend.CodeUnit, len(modules)+1)
+	var refused atomic.Bool
+	generateModules := func() {
+		par.ForEachIndex(len(modules), o.Jobs, func(i int) {
+			out := &outputs[i]
+			var instances *ir.InstanceSet
+			diag.Guard(&unfinite[i], func() { instances = ir.Instances(results[i].Callers) })
+			if len(unfinite[i]) > 0 {
+				refused.Store(true)
+				return
+			}
+			fns := make([]*ir.IrFunction, 0, len(results[i].Functions)+len(instances.List))
+			for _, f := range results[i].Functions {
+				if len(f.Generics) == 0 {
+					fns = append(fns, ir.Lower(f, instances))
 				}
+			}
+			for _, inst := range instances.List {
+				fns = append(fns, ir.Lower(inst, instances))
+			}
+			out.refusals = refusals(fns, matters)
+			out.usesArrays = usesArrays(fns)
+			if o.EmitIr {
+				var text strings.Builder
+				for _, fn := range fns {
+					ir.PrintIr(fn, &text)
+				}
+				out.irText = text.String()
+			}
+			switch {
+			case capture != nil:
+				out.functions = fns
+			case len(out.refusals) > 0:
+				refused.Store(true)
+			case !refused.Load():
+				units[i+1] = backend.EmitModule(fns)
+			}
+		})
+	}
+	emitRuntime := func() {
+		units[0] = backend.EmitRuntime(main, backend.RuntimeOptions{CountAllocations: o.CountAllocations})
+	}
+	switch {
+	case capture != nil:
+		generateModules()
+	case o.Jobs <= 1:
+		emitRuntime()
+		generateModules()
+	default:
+		var failure any
+		var done sync.WaitGroup
+		done.Go(func() {
+			defer func() { failure = recover() }()
+			emitRuntime()
+		})
+		generateModules()
+		done.Wait()
+		if failure != nil {
+			panic(failure)
+		}
+	}
+	mark("generate")
+	if failure := firstFailure(unfinite); failure != nil {
+		return failure
+	}
+	if o.EmitIr {
+		writeIr(output+".ir", outputs)
+	}
+	var blocked []*diag.CompileError
+	for i := range outputs {
+		blocked = append(blocked, outputs[i].refusals...)
+	}
+	if len(blocked) > 0 {
+		return withoutRepeats(sortedErrors(blocked))
+	}
+	if capture != nil {
+		*capture = interp.NewProgram(functionsOnce(outputs), main)
+		return nil
+	}
+	units = append(units, backend.EmitTypeRoutines(units, o.Jobs)...)
+	if slices.ContainsFunc(outputs, func(out moduleOutput) bool { return out.usesArrays }) {
+		units = append(units, backend.EmitArrayRuntime())
+	}
+	mark("routines")
+	backend.Link(output, units, ir.RtEntry, o.Jobs)
+	mark("link")
+	return nil
+}
+
+// functionsOnce is the IR of every function the interpreter runs. An instance that several modules lowered is there once,
+// as lowered by the first of them in module order.
+func functionsOnce(outputs []moduleOutput) []*ir.IrFunction {
+	var all []*ir.IrFunction
+	seen := map[*ast.FuncDecl]struct{}{}
+	for i := range outputs {
+		for _, fn := range outputs[i].functions {
+			if _, again := seen[fn.Decl]; !again {
+				seen[fn.Decl] = struct{}{}
+				all = append(all, fn)
+			}
+		}
+	}
+	return all
+}
+
+// withoutRepeats drops an error that an earlier one repeats exactly, which is what a refusal inside an instance becomes
+// when every module that needs the instance lowers it.
+func withoutRepeats(errs []*diag.CompileError) []*diag.CompileError {
+	seen := map[diag.CompileError]struct{}{}
+	var out []*diag.CompileError
+	for _, e := range errs {
+		if _, again := seen[*e]; !again {
+			seen[*e] = struct{}{}
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func writeIr(path string, outputs []moduleOutput) {
+	var text strings.Builder
+	for i := range outputs {
+		text.WriteString(outputs[i].irText)
+	}
+	if err := os.WriteFile(path, []byte(text.String()), 0o644); err != nil {
+		panic(diag.Internal("cannot write %s: %v", path, err))
+	}
+}
+
+// refusals are the places in a module's functions where a program needs something the backend cannot run yet, such as a
+// map, a list, a pool, a frozen value, a cown or a behaviour, which only the interpreter runs. One is reported for each
+// function, at its first that matters, so the errors are a property of the program and not of how many modules compile
+// at once.
+func refusals(fns []*ir.IrFunction, matters func(code string) bool) []*diag.CompileError {
+	var errs []*diag.CompileError
+	for _, fn := range fns {
+		for _, r := range fn.Refusals {
+			if matters(r.Code) {
+				errs = append(errs, r.Site.P().Error(r.Code, r.Message))
+				break
 			}
 		}
 	}
 	return errs
 }
 
-func usesArrays(irs [][]*ir.IrFunction) bool {
-	for _, fns := range irs {
-		for _, fn := range fns {
-			if fn.UsesArrays {
-				return true
-			}
-		}
-	}
-	return false
+func usesArrays(fns []*ir.IrFunction) bool {
+	return slices.ContainsFunc(fns, func(fn *ir.IrFunction) bool { return fn.UsesArrays })
 }
 
 func stepAllocated(timings bool) uint64 {

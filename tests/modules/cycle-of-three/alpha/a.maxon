@@ -1,0 +1,7 @@
+export function first() returns String
+	return "first {beta.second()}"
+end 'first'
+
+export function again() returns String
+	return "again"
+end 'again'

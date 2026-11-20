@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("{alpha.runAlpha() + beta.runBeta()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3122 at 13:14

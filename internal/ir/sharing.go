@@ -40,7 +40,7 @@ func (l *Lowerer) VisitWhenStmt(s *ast.WhenStmt) {
 
 // behaviour lowers the body of a `when` as a function, with the type arguments of the function around it.
 func (l *Lowerer) behaviour(s *ast.WhenStmt) *IrFunction {
-	inner := newLowerer(s.Fn, l.binding, ast.BehaviourName(l.f.Symbol(), len(l.f.Behaviours)))
+	inner := newLowerer(s.Fn, l.binding, l.instances, ast.BehaviourName(l.f.Symbol(), len(l.f.Behaviours)))
 	body := lowerBody(inner)
 	l.f.Behaviours = append(l.f.Behaviours, body)
 	l.f.UsesArrays = l.f.UsesArrays || body.UsesArrays

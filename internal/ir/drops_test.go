@@ -84,8 +84,8 @@ func TestAMatchBindingIsABorrow(t *testing.T) {
 }
 
 func TestScalarsAreNeverDropped(t *testing.T) {
-	m := frontEnd(t, "testdata/scalars-are-never-dropped.maxon")
-	text := irText(lowerNamed(t, m, "main"))
+	results := frontEnd(t, "testdata/scalars-are-never-dropped.maxon")
+	text := irText(lowerNamed(t, results, "main"))
 	if strings.Contains(text, "drop") || strings.Contains(text, "move") {
 		t.Errorf("nothing here has an owner:\n%s", text)
 	}
@@ -94,8 +94,8 @@ func TestScalarsAreNeverDropped(t *testing.T) {
 // A field default is an expression the type's own code makes for each literal, so it is consumed by the field and never
 // dropped as a temporary.
 func TestAFieldDefaultIsOwnedByItsField(t *testing.T) {
-	m := frontEnd(t, "testdata/field-default-is-owned-by-its-field.maxon")
-	text := irText(lowerNamed(t, m, "make"))
+	results := frontEnd(t, "testdata/field-default-is-owned-by-its-field.maxon")
+	text := irText(lowerNamed(t, results, "make"))
 	if strings.Contains(text, "drop %") {
 		t.Errorf("the default array belongs to the field:\n%s", text)
 	}
@@ -126,14 +126,14 @@ func TestACopyIsOneInstructionThatNamesTheType(t *testing.T) {
 // A function that drops a value holding something that only the interpreter has is refused, though it makes none: the
 // backend has no routine to free one. The refusal is at the function, and only one.
 func TestDroppingAMapIsRefusedLikeMakingOne(t *testing.T) {
-	m := frontEnd(t, copiesFile)
+	results := frontEnd(t, copiesFile)
 	for _, name := range []string{"takesMap", "takesTreeOfPools"} {
-		f := lowerNamed(t, m, name)
+		f := lowerNamed(t, results, name)
 		if len(f.Refusals) != 1 || f.Refusals[0].Code != "E9002" {
 			t.Errorf("%s: refusals %+v", name, f.Refusals)
 		}
 	}
-	if f := lowerNamed(t, m, "copies"); len(f.Refusals) != 0 {
+	if f := lowerNamed(t, results, "copies"); len(f.Refusals) != 0 {
 		t.Errorf("copies: refusals %+v", f.Refusals)
 	}
 }

@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"minimaxon/internal/ast"
@@ -17,22 +18,40 @@ type lookup struct {
 var primitiveTypes = map[string]bool{"bool": true, "String": true, "Self": true, "int": true, "float": true}
 
 type Resolver struct {
-	project    *ast.Project
-	module     *ast.Module
+	project *ast.Project
+	module  *ast.Module
+	// result is the module's own result: the resolver records its errors and, when it is done, its dependencies.
+	result *ast.ModuleResult
+	// deps holds the first place each other module is named.
+	deps       map[ast.ModuleID]ast.Node
 	scopes     []map[string]bool
 	fields     map[string]bool
 	typeParams map[string]*ast.TypeParam
 }
 
-func NewResolver(p *ast.Project, m *ast.Module) *Resolver {
-	return &Resolver{project: p, module: m, fields: map[string]bool{}}
+func NewResolver(p *ast.Project, m *ast.Module, result *ast.ModuleResult) *Resolver {
+	return &Resolver{project: p, module: m, result: result, fields: map[string]bool{}}
 }
 
+// Run resolves the module's declarations, then records its dependencies in the module's result.
 func (r *Resolver) Run() {
 	for _, d := range r.module.Decls {
 		r.typeParams = nil
-		diag.Guard(&r.module.Errors, func() { r.resolveDecl(d) })
+		diag.Guard(&r.result.Errors, func() { r.resolveDecl(d) })
 	}
+	r.result.Deps = r.sortedDeps()
+}
+
+func (r *Resolver) sortedDeps() []ast.ModuleDep {
+	if len(r.deps) == 0 {
+		return nil
+	}
+	deps := make([]ast.ModuleDep, 0, len(r.deps))
+	for id, site := range r.deps {
+		deps = append(deps, ast.ModuleDep{Module: id, Site: site})
+	}
+	slices.SortFunc(deps, func(a, b ast.ModuleDep) int { return cmp.Compare(a.Module, b.Module) })
+	return deps
 }
 
 func (r *Resolver) resolveDecl(d ast.Decl) {
@@ -218,7 +237,7 @@ func (r *Resolver) popScope() {
 func (r *Resolver) block(body []ast.Stmt) {
 	r.pushScope()
 	for _, s := range body {
-		diag.Guard(&r.module.Errors, func() { r.stmt(s) })
+		diag.Guard(&r.result.Errors, func() { r.stmt(s) })
 	}
 	r.popScope()
 }
@@ -617,8 +636,11 @@ func (r *Resolver) take(found lookup, site ast.Node) ast.Decl {
 	if found.Decl != nil {
 		dm := found.Decl.Base().Module
 		if dm != r.module && !dm.IsStdlib {
-			if _, seen := r.module.DepSites[dm]; !seen {
-				r.module.DepSites[dm] = site
+			if r.deps == nil {
+				r.deps = map[ast.ModuleID]ast.Node{}
+			}
+			if _, seen := r.deps[dm.ID]; !seen {
+				r.deps[dm.ID] = site
 			}
 		}
 	}

@@ -26,6 +26,11 @@ language subset, the pipeline, the packages and the IR; read it before changing 
   test regenerates it and fails if the checked-in file differs.
 - **Speed is a requirement.** Both the compiler's own build and its compile speed must stay fast. Measure with
   `--timings` on a large generated project before and after a change to a hot phase, and report the numbers.
+- **The design is CPU-cache optimized.** A worker keeps a module on its core from one stage to the next while its data
+  is hot, rather than sweeping every module through one phase. Data is flat and indexed by handles: small fixed-size
+  records in slices (the 8-byte token is the model), frequently used fields apart from rarely used ones, and no
+  pointer graphs or maps on hot paths. Allocation is memory traffic, so watch the MB column; for a change aimed at
+  memory behaviour, measure cache misses with hardware counters as well as wall time.
 
 ## Building and testing
 

@@ -1,0 +1,11 @@
+export type Other
+	export var n as lib.Score
+
+	export static function make(n lib.Score) returns Other
+		return Other{n: n}
+	end 'make'
+end 'Other'
+
+export function runBeta() returns lib.Score
+	return lib.nest(lib.Wrap.make(Other.make(1)), depth: 3)
+end 'runBeta'

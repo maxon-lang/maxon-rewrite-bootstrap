@@ -1,0 +1,3 @@
+export function third() returns String
+	return "third {alpha.again()}"
+end 'third'

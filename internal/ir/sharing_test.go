@@ -65,14 +65,14 @@ func TestBehavioursNestAndAreNamedByTheirPlace(t *testing.T) {
 // Nothing here has native code, so each function that holds one is refused where the first is, and the others stay
 // clean.
 func TestSharingIsRefusedNatively(t *testing.T) {
-	m := frontEnd(t, sharingFile)
+	results := frontEnd(t, sharingFile)
 	for _, name := range []string{"frozenFields", "sharedAndThawed", "copied", "schedule", "nested"} {
-		f := lowerNamed(t, m, name)
+		f := lowerNamed(t, results, name)
 		if len(f.Refusals) == 0 || f.Refusals[0].Code != diag.ErrInterpreterOnly {
 			t.Errorf("%s: refusals %v", name, f.Refusals)
 		}
 	}
-	if f := lowerNamed(t, m, "glance"); len(f.Refusals) != 0 {
+	if f := lowerNamed(t, results, "glance"); len(f.Refusals) != 0 {
 		t.Errorf("a function that shares nothing is not refused: %v", f.Refusals)
 	}
 }

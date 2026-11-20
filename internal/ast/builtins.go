@@ -481,7 +481,7 @@ func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty
 }
 
 func instantiateBuiltin(d *BuiltinTy, args []Ty) *BuiltinTy {
-	v, _ := d.instances.get(args, func() any {
+	v := d.instances.get(args, func() any {
 		return &BuiltinTy{NominalBase: d.newInstanceBase(args), Kind: d.Kind, Decl: d.Decl, origin: d, lib: d.lib}
 	})
 	return v.(*BuiltinTy)

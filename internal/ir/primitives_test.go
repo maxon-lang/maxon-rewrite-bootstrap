@@ -9,11 +9,11 @@ import (
 
 const primitivesFile = "testdata/primitives.maxon"
 
-func lowerNamed(t *testing.T, module *ast.Module, name string) *IrFunction {
+func lowerNamed(t *testing.T, results []ast.ModuleResult, name string) *IrFunction {
 	t.Helper()
-	for _, f := range module.Functions {
+	for _, f := range results[0].Functions {
 		if f.Name == name {
-			return Lower(f)
+			return Lower(f, Instances(results[0].Callers))
 		}
 	}
 	t.Fatalf("no function %s", name)
@@ -28,8 +28,8 @@ func irText(f *IrFunction) string {
 
 // An array is lowered to the array's own runtime entries, which the backend implements, so nothing is refused.
 func TestArrayOperationsLowerToNativeEntries(t *testing.T) {
-	m := frontEnd(t, primitivesFile)
-	sum := lowerNamed(t, m, "sumOf")
+	results := frontEnd(t, primitivesFile)
+	sum := lowerNamed(t, results, "sumOf")
 	text := irText(sum)
 	for _, entry := range []string{"runtime rt.array.len(", "runtime rt.array.elem("} {
 		if !strings.Contains(text, entry) {
@@ -39,7 +39,7 @@ func TestArrayOperationsLowerToNativeEntries(t *testing.T) {
 	if !sum.UsesArrays || len(sum.Refusals) != 0 {
 		t.Errorf("sumOf: UsesArrays=%v refusals=%v", sum.UsesArrays, sum.Refusals)
 	}
-	drop := irText(lowerNamed(t, m, "drop"))
+	drop := irText(lowerNamed(t, results, "drop"))
 	for _, entry := range []string{"rt.array.remove(", "rt.array.elem(", "storeat", "alloc 16"} {
 		if !strings.Contains(drop, entry) {
 			t.Errorf("drop does not contain %s:\n%s", entry, drop)
@@ -50,15 +50,15 @@ func TestArrayOperationsLowerToNativeEntries(t *testing.T) {
 // A map, a pool and a list are lowered to runtime entries that only the interpreter has. The IR is whole, and each
 // place that needs one is recorded for the driver to refuse, once for each place and in source order.
 func TestInterpreterOnlyEntriesAreRecordedAsRefusals(t *testing.T) {
-	m := frontEnd(t, primitivesFile)
-	lookup := lowerNamed(t, m, "lookup")
+	results := frontEnd(t, primitivesFile)
+	lookup := lowerNamed(t, results, "lookup")
 	if len(lookup.Refusals) != 1 || lookup.UsesArrays || !strings.Contains(irText(lookup), "runtime rt.map.elem(") {
 		t.Fatalf("lookup: refusals=%v\n%s", lookup.Refusals, irText(lookup))
 	}
 	if r := lookup.Refusals[0]; r.Code != "E9002" || r.Site.P().Line != 15 {
 		t.Errorf("refusal %+v at line %d", r, r.Site.P().Line)
 	}
-	build := lowerNamed(t, m, "build")
+	build := lowerNamed(t, results, "build")
 	lines := make([]int, len(build.Refusals))
 	for i, r := range build.Refusals {
 		lines[i] = r.Site.P().Line

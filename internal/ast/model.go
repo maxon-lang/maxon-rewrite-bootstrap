@@ -1,11 +1,18 @@
 package ast
 
-import (
-	"minimaxon/internal/diag"
-	"sort"
-)
+import "sort"
+
+// ModuleID is a handle to a module: its index in Project.Modules, which lists the root first and then each module's
+// children in name order, depth first, so the order is the same for every run.
+// Anything that refers to a module without owning it, such as a dependency or a per-module result, holds this.
+type ModuleID int
+
+// StdlibID is the handle of the standard library, which is not one of the project's modules: no per-module result has
+// an index for it, so using it as one fails instead of reading the root's.
+const StdlibID ModuleID = -1
 
 type Module struct {
+	ID       ModuleID
 	Path     string
 	Dir      string
 	IsStdlib bool
@@ -13,20 +20,12 @@ type Module struct {
 	Decls    []Decl
 	Names    map[string]Decl
 	Children map[string]*Module
-	DepSites map[*Module]Node
-	Errors   []*diag.CompileError
-
-	Functions []*FuncDecl
-	Pending   []PendingCall
-	Bounds    []PendingBound
-	// Callers are the functions that call a generic or go through a bound, which instances start from.
-	Callers []*FuncDecl
 }
 
 func NewModule(path, dir string, isStdlib bool) *Module {
 	return &Module{
 		Path: path, Dir: dir, IsStdlib: isStdlib,
-		Names: map[string]Decl{}, Children: map[string]*Module{}, DepSites: map[*Module]Node{},
+		Names: map[string]Decl{}, Children: map[string]*Module{},
 	}
 }
 
@@ -49,36 +48,19 @@ func (m *Module) ChildNames() []string {
 	return names
 }
 
-type PendingCall struct {
-	Call   *CallExpr
-	Callee string
-	Params []ParamSpec
-}
-
-// PendingBound is a type argument that its type parameter's bounds have not yet been checked against. The bounds
-// belong to a declaration that another module may still be declaring, so the check waits for the verify phase.
-type PendingBound struct {
-	Site  Node
-	Param *TypeParamTy
-	Arg   Ty
-	// Method is the method whose own bounds on Param apply, or nil where Param's bounds do.
-	Method *FuncDecl
-	// Within is the function the site is in when it has bounds of its own on its type's parameters, which the site may
-	// rely on, or nil.
-	Within *FuncDecl
-}
-
 type Project struct {
 	Root   *Module
 	Stdlib *Module
 	// Builtins are the runtime primitives and Option, declared in Stdlib.
 	Builtins *Builtins
-	Modules  []*Module
-	ByName   map[string][]Decl
+	// Modules lists every module of the project, indexed by ModuleID.
+	Modules []*Module
+	ByName  map[string][]Decl
 }
 
 func NewProject(root *Module) *Project {
 	p := &Project{Root: root, Stdlib: NewModule("stdlib", "", true), ByName: map[string][]Decl{}}
+	p.Stdlib.ID = StdlibID
 	for _, b := range []struct {
 		name     string
 		min, max I128

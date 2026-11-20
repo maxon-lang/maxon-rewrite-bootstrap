@@ -97,120 +97,67 @@ func addDirectory(p *ast.Project, m *ast.Module, errs *[]*diag.CompileError, mu 
 }
 
 func collect(p *ast.Project, m *ast.Module) {
+	m.ID = ast.ModuleID(len(p.Modules))
 	p.Modules = append(p.Modules, m)
 	for _, name := range m.ChildNames() {
 		collect(p, m.Children[name])
 	}
 }
 
-func BuildTables(p *ast.Project, jobs int) {
-	par.ForEach(p.Modules, jobs, func(m *ast.Module) {
-		for _, d := range m.Decls {
-			b := d.Base()
-			b.Module = m
-			for _, method := range ast.Methods(d) {
-				method.Module = m
-			}
-			if tb, ok := d.(ast.TypeDeclNode); ok {
-				diag.Guard(&m.Errors, func() { tb.TypeBase().Ty = ast.Shell(tb) })
-			}
-			if kept, ok := m.Names[b.Name]; ok {
-				k := kept.P()
-				m.Errors = append(m.Errors, b.Error(diag.ErrDuplicateDefinition,
-					"'"+b.Name+"' is already declared in "+m.Display()+" at "+k.File+":"+strconv.Itoa(k.Line)))
-				continue
-			}
-			m.Names[b.Name] = d
-		}
-	})
-
-	perModule := make([][]ast.Decl, len(p.Modules))
+// BuildTables fills in each module's declaration table and the project-wide name index; a duplicate declaration is an
+// error in the result of the module that repeats it.
+func BuildTables(p *ast.Project, results []ast.ModuleResult, jobs int) {
+	declared := make([][]ast.Decl, len(p.Modules))
 	par.ForEachIndex(len(p.Modules), jobs, func(i int) {
-		m := p.Modules[i]
-		decls := make([]ast.Decl, 0, len(m.Names))
-		for _, d := range m.Decls {
-			if m.Names[d.Base().Name] == d {
-				decls = append(decls, d)
-			}
-		}
-		sort.SliceStable(decls, func(a, b int) bool {
-			pa, pb := decls[a].P(), decls[b].P()
-			if pa.File != pb.File {
-				return pa.File < pb.File
-			}
-			return pa.Line < pb.Line
-		})
-		perModule[i] = decls
+		declared[i] = BuildModuleTable(p.Modules[i], &results[i].Errors)
 	})
-	for _, decls := range perModule {
+	IndexNames(p, declared)
+}
+
+// BuildModuleTable fills in the module's own declaration table and an empty type object for each of its types, and
+// returns the declarations the table holds, in source order. It reads nothing of another module, so it runs on the
+// worker that parsed the module.
+func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
+	for _, d := range m.Decls {
+		b := d.Base()
+		b.Module = m
+		for _, method := range ast.Methods(d) {
+			method.Module = m
+		}
+		if tb, ok := d.(ast.TypeDeclNode); ok {
+			diag.Guard(errs, func() { tb.TypeBase().Ty = ast.Shell(tb) })
+		}
+		if kept, ok := m.Names[b.Name]; ok {
+			k := kept.P()
+			*errs = append(*errs, b.Error(diag.ErrDuplicateDefinition,
+				"'"+b.Name+"' is already declared in "+m.Display()+" at "+k.File+":"+strconv.Itoa(k.Line)))
+			continue
+		}
+		m.Names[b.Name] = d
+	}
+	decls := make([]ast.Decl, 0, len(m.Names))
+	for _, d := range m.Decls {
+		if m.Names[d.Base().Name] == d {
+			decls = append(decls, d)
+		}
+	}
+	sort.SliceStable(decls, func(a, b int) bool {
+		pa, pb := decls[a].P(), decls[b].P()
+		if pa.File != pb.File {
+			return pa.File < pb.File
+		}
+		return pa.Line < pb.Line
+	})
+	return decls
+}
+
+// IndexNames builds the project-wide name index from each module's declarations, as BuildModuleTable returned them,
+// modules in order so the index does not depend on how many compile at once.
+func IndexNames(p *ast.Project, declared [][]ast.Decl) {
+	for _, decls := range declared {
 		for _, d := range decls {
 			name := d.Base().Name
 			p.ByName[name] = append(p.ByName[name], d)
 		}
-	}
-}
-
-func DependencyOrder(p *ast.Project, errs *[]*diag.CompileError) bool {
-	remaining := map[*ast.Module]bool{}
-	for _, m := range p.Modules {
-		remaining[m] = true
-	}
-	for len(remaining) > 0 {
-		var ready *ast.Module
-		for _, m := range p.Modules {
-			if !remaining[m] {
-				continue
-			}
-			blocked := false
-			for d := range m.DepSites {
-				if remaining[d] {
-					blocked = true
-					break
-				}
-			}
-			if !blocked {
-				ready = m
-				break
-			}
-		}
-		if ready == nil {
-			*errs = append(*errs, cycleError(p, remaining))
-			return false
-		}
-		delete(remaining, ready)
-	}
-	return true
-}
-
-func cycleError(p *ast.Project, remaining map[*ast.Module]bool) *diag.CompileError {
-	var start *ast.Module
-	for _, m := range p.Modules {
-		if remaining[m] {
-			start = m
-			break
-		}
-	}
-	path := []*ast.Module{start}
-	for {
-		var deps []*ast.Module
-		for d := range path[len(path)-1].DepSites {
-			if remaining[d] {
-				deps = append(deps, d)
-			}
-		}
-		sort.Slice(deps, func(a, b int) bool { return deps[a].Path < deps[b].Path })
-		next := deps[0]
-		for at, m := range path {
-			if m == next {
-				cycle := append(append([]*ast.Module{}, path[at:]...), next)
-				names := make([]string, len(cycle))
-				for i, c := range cycle {
-					names[i] = c.Display()
-				}
-				site := cycle[0].DepSites[cycle[1]].P()
-				return site.Error("E9001", "modules depend on each other in a cycle: "+strings.Join(names, " -> "))
-			}
-		}
-		path = append(path, next)
 	}
 }

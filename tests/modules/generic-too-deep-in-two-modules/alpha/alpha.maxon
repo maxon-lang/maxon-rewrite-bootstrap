@@ -1,0 +1,11 @@
+export type Plain
+	export var n as lib.Score
+
+	export static function make(n lib.Score) returns Plain
+		return Plain{n: n}
+	end 'make'
+end 'Plain'
+
+export function runAlpha() returns lib.Score
+	return lib.nest(Plain.make(1), depth: 3)
+end 'runAlpha'

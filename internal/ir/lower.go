@@ -31,6 +31,8 @@ type ownerSlot struct {
 type Lowerer struct {
 	fn *ast.FuncDecl
 	f  *IrFunction
+	// instances are the ones the module needs, which every generic call in the body must be one of.
+	instances *InstanceSet
 	// binding gives the type parameters of the function being lowered their arguments, when it is an instance of a
 	// generic function. The body was checked once against the parameters, so every type it names is read through it.
 	binding ast.Binding
@@ -54,12 +56,12 @@ var lowerCmpOps = map[string]CmpOp{
 
 // newLowerer starts the IR of a function. binding gives the type parameters their arguments; it is the function's own
 // when it is an instance of a generic function, and the one of the function around it for the body of a behaviour.
-func newLowerer(fn *ast.FuncDecl, binding ast.Binding, name string) *Lowerer {
+func newLowerer(fn *ast.FuncDecl, binding ast.Binding, instances *InstanceSet, name string) *Lowerer {
 	paramCount := len(fn.Params)
 	if fn.IsMethod() {
 		paramCount++
 	}
-	l := &Lowerer{fn: fn, f: &IrFunction{Decl: fn, Name: name, ParamCount: paramCount}, jumps: map[ast.Node]jumpTargets{}, selfOwner: -1, binding: binding}
+	l := &Lowerer{fn: fn, f: &IrFunction{Decl: fn, Name: name, ParamCount: paramCount}, jumps: map[ast.Node]jumpTargets{}, selfOwner: -1, binding: binding, instances: instances}
 	var locals []*ast.Local
 	for _, loc := range fn.Locals {
 		if !loc.IsParam {
@@ -77,12 +79,13 @@ func newLowerer(fn *ast.FuncDecl, binding ast.Binding, name string) *Lowerer {
 	return l
 }
 
-func Lower(fn *ast.FuncDecl) *IrFunction {
+// Lower is the IR of a function, or of an instance of a generic one. instances are the ones the function's module needs.
+func Lower(fn *ast.FuncDecl, instances *InstanceSet) *IrFunction {
 	var binding ast.Binding
 	if fn.Generic != nil {
 		binding = ast.Binding{Params: fn.Generic.Generics, Args: fn.TypeArgs}
 	}
-	return lowerBody(newLowerer(fn, binding, ""))
+	return lowerBody(newLowerer(fn, binding, instances, ""))
 }
 
 // lowerBody lowers the statements of the function a lowerer was made for.
@@ -676,12 +679,12 @@ func (l *Lowerer) VisitCallExpr(c *ast.CallExpr) V {
 	panic(diag.Internal("lower: unresolved call"))
 }
 
-// callee is the function a call runs. Every instance a body reaches was collected before lowering, so a missing one
-// is a compiler bug, and making it here would race with the other modules lowering.
+// callee is the function a call runs. Every instance a body reaches was found for the module before lowering, so a
+// missing one is a compiler bug: the executable would depend on another module having made the instance.
 func (l *Lowerer) callee(c *ast.CallExpr) *ast.FuncDecl {
-	target, created := c.Resolved(l.binding)
-	if created {
-		panic(diag.Internal("lower: %s was not collected before lowering", target.Symbol()))
+	target := c.Resolved(l.binding)
+	if target.Generic != nil && !l.instances.has(target) {
+		panic(diag.Internal("lower: %s was not found among the instances of the module", target.Symbol()))
 	}
 	return target
 }

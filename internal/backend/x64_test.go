@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/hex"
+	"slices"
 	"testing"
 )
 
@@ -39,4 +40,12 @@ func TestLabelFixups(t *testing.T) {
 	if got := hex.EncodeToString(a.Code); got != "e9fbffffff"+"e900000000" {
 		t.Fatalf("got %s", got)
 	}
+}
+
+func definesCode(u *CodeUnit, symbol any) bool {
+	return slices.ContainsFunc(u.CodeSymbols, func(d SymbolDef) bool { return d.Symbol == symbol })
+}
+
+func definesData(u *CodeUnit, symbol any) bool {
+	return slices.ContainsFunc(u.DataSymbols, func(d SymbolDef) bool { return d.Symbol == symbol })
 }

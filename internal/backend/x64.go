@@ -103,11 +103,19 @@ type SymbolFixup struct {
 	Symbol any
 }
 
+// SymbolDef is a symbol that a unit defines and where: an offset in its code or in its data.
+type SymbolDef struct {
+	Symbol any
+	Offset int
+}
+
 type CodeUnit struct {
-	Asm         *Asm
-	Data        *DataSection
-	CodeSymbols map[any]int
-	DataSymbols map[any]int
+	Asm  *Asm
+	Data *DataSection
+	// CodeSymbols and DataSymbols are in the order the unit defined them. A symbol that is defined twice, and is not
+	// an instance of a generic, is found by the link, which meets every definition of every unit.
+	CodeSymbols []SymbolDef
+	DataSymbols []SymbolDef
 	// Sections are the parts of the code that the link keeps or drops whole, in order: a function or a routine each. A
 	// unit that starts none is one section, so its code may jump between its own symbols.
 	Sections []Section
@@ -117,10 +125,8 @@ type CodeUnit struct {
 
 func NewCodeUnit() *CodeUnit {
 	return &CodeUnit{
-		Asm:         &Asm{},
-		Data:        &DataSection{strings: map[string]int{}},
-		CodeSymbols: map[any]int{},
-		DataSymbols: map[any]int{},
+		Asm:  &Asm{},
+		Data: &DataSection{strings: map[string]int{}},
 	}
 }
 
@@ -137,10 +143,7 @@ func SymbolText(symbol any) string {
 }
 
 func (u *CodeUnit) DefineCode(symbol any) {
-	if _, ok := u.CodeSymbols[symbol]; ok {
-		panic(diag.Internal("code symbol %s is defined twice", SymbolText(symbol)))
-	}
-	u.CodeSymbols[symbol] = u.Asm.Pos()
+	u.CodeSymbols = append(u.CodeSymbols, SymbolDef{Symbol: symbol, Offset: u.Asm.Pos()})
 }
 
 // Section is where a part of a unit's code begins, and where its fixups of each kind begin, which are in the order of
@@ -157,10 +160,7 @@ func (u *CodeUnit) BeginSection() {
 }
 
 func (u *CodeUnit) DefineData(symbol any, size int) {
-	if _, ok := u.DataSymbols[symbol]; ok {
-		panic(diag.Internal("data symbol %s is defined twice", SymbolText(symbol)))
-	}
-	u.DataSymbols[symbol] = u.Data.Reserve(size)
+	u.DataSymbols = append(u.DataSymbols, SymbolDef{Symbol: symbol, Offset: u.Data.Reserve(size)})
 }
 
 type DataSection struct {

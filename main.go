@@ -34,7 +34,9 @@ const usage = `usage:
   minimaxon fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files under the paths in the one layout
 
 A directory is a project: each directory under it is a module. --jobs=N sets how many modules
-compile at once (default: one fewer than the processor count). --timings prints each phase's time; --emit-ir writes the IR beside the executable, as <out>.ir.
+compile at once (default: one fewer than the processor count). --timings prints each phase's time and busy cores;
+--trace=FILE writes an execution trace of the compile for go tool trace. --emit-ir writes the IR beside the
+executable, as <out>.ir.
 --seed=N picks the schedule of behaviours that interp runs. --count-allocations builds executables that count their live
 heap boxes and fail at exit with code 99 if any is left (development only). --update-positions makes test rewrite
 the position of an expect-error whose code was reported at another place.`
@@ -46,6 +48,7 @@ const (
 	usageExitCode         = 2
 	jobsFlagPrefix        = "--jobs="
 	seedFlagPrefix        = "--seed="
+	traceFlagPrefix       = "--trace="
 	timingsFlag           = "--timings"
 	emitIrFlag            = "--emit-ir"
 	countAllocationsFlag  = "--count-allocations"
@@ -74,7 +77,9 @@ const (
 var (
 	jobs    = driver.DefaultJobs()
 	timings bool
-	emitIR  bool
+	// tracePath is where build, run and check write an execution trace of the compile, when it is not empty.
+	tracePath string
+	emitIR    bool
 	// countAllocations builds executables that count their live heap boxes (see the README, "Counting allocations").
 	countAllocations bool
 	// updatePositions makes the test runner rewrite an expect-error's position when the expected code was reported
@@ -84,7 +89,11 @@ var (
 )
 
 func compileWithFlags(path, output string) []*diag.CompileError {
-	return driver.Compile(path, output, driver.Options{Jobs: jobs, Timings: timings, EmitIr: emitIR, CountAllocations: countAllocations})
+	return driver.Compile(path, output, flagOptions())
+}
+
+func flagOptions() driver.Options {
+	return driver.Options{Jobs: jobs, Timings: timings, Trace: tracePath, EmitIr: emitIR, CountAllocations: countAllocations}
 }
 
 func describeInternal(r any, stack []byte) string {
@@ -126,6 +135,18 @@ func runMain(args []string) (code int) {
 				return usageExitCode
 			}
 			seed = n
+			args = filterArgs(args, func(other string) bool { return other != a })
+			break
+		}
+	}
+
+	for _, a := range args {
+		if strings.HasPrefix(a, traceFlagPrefix) {
+			tracePath = a[len(traceFlagPrefix):]
+			if tracePath == "" {
+				fmt.Fprintln(os.Stderr, "--trace takes a file name")
+				return usageExitCode
+			}
 			args = filterArgs(args, func(other string) bool { return other != a })
 			break
 		}
@@ -398,7 +419,10 @@ func compileForTest(file, output string) (errs []*diag.CompileError, internal st
 			internal = describeInternal(r, debug.Stack())
 		}
 	}()
-	return compileWithFlags(file, output), ""
+	options := flagOptions()
+	// One trace is written per process, and the corpus compiles many programs at once.
+	options.Trace = ""
+	return driver.Compile(file, output, options), ""
 }
 
 func joinErrors(errs []*diag.CompileError) string {
