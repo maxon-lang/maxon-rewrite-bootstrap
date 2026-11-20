@@ -137,7 +137,7 @@ func (l *Lowerer) fetch(slot int) V {
 func (l *Lowerer) dropType(t ast.Ty) ast.Ty {
 	ty := l.binding.Apply(t)
 	if len(l.f.Refusals) == 0 {
-		l.requireNative(l.fn, ty)
+		l.requireNative(l.fn.Position(), ty)
 	}
 	return ty
 }

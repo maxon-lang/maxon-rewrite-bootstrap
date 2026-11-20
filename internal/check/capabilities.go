@@ -301,8 +301,8 @@ func (c *Checker) copyAdvice(t ast.Ty, ifCopyable, otherwise string) string {
 
 // structuralCapability is the error for a declaration that says it implements Copyable or Droppable: it has them
 // already, and the way to say otherwise is to opt out or to hold a part that lacks them.
-func (c *Checker) structuralCapability(site ast.Node, iface *ast.InterfaceTy) *diag.CompileError {
-	return site.P().Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is not implemented by saying so: every type has it unless it opts out or holds a part that lacks it; remove it from 'implements'%s",
+func (c *Checker) structuralCapability(site ast.Pos, iface *ast.InterfaceTy) *diag.CompileError {
+	return site.Position().Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is not implemented by saying so: every type has it unless it opts out or holds a part that lacks it; remove it from 'implements'%s",
 		iface.Name(), optOutAdvice(iface, c.project.Builtins)))
 }
 

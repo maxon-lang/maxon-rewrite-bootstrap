@@ -157,6 +157,9 @@ type grammar struct {
 	tokens    []*tokenDef
 	rules     []*rule
 	astBlocks []*astBlock
+	// structs names the nodes that are Go structs: the declarations, which later phases fill in and other modules
+	// read. Every other node is a record in the module's tree.
+	structs []string
 }
 
 type tokenDef struct {
@@ -269,6 +272,10 @@ func parseGrammar(file, src string) *grammar {
 				}
 			}
 		case p.isPunct("@"):
+			if names, ok := p.structsBlock(); ok {
+				g.structs = append(g.structs, names...)
+				continue
+			}
 			g.astBlocks = append(g.astBlocks, p.astBlock())
 		case p.cur().kind == tkIdent && isUpper(p.cur().text):
 			g.tokens = append(g.tokens, p.lexerRule())
@@ -333,6 +340,18 @@ func (p *grammarParser) takeDoc() string {
 	d := p.doc
 	p.doc = ""
 	return d
+}
+
+// structsBlock reads `@ast::Structs { Name Name ... }` if that is what comes next.
+func (p *grammarParser) structsBlock() ([]string, bool) {
+	at := p.pos
+	if !p.isPunct("@") || p.peek().text != "ast" || p.toks[at+2].text != "::" || p.toks[at+3].text != "Structs" {
+		return nil, false
+	}
+	p.pos += 4
+	body := p.expect(tkBrace)
+	p.takeDoc()
+	return strings.Fields(body.text), true
 }
 
 func (p *grammarParser) astBlock() *astBlock {

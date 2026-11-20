@@ -73,12 +73,12 @@ func TestPositionsCountLinesPerFile(t *testing.T) {
 func TestStringPartsAreSlicesOfTheSource(t *testing.T) {
 	src := sourceOf(t, "testdata/string-parts.maxon")
 	p := NewParser(src, Lex(src, nil))
-	parts := p.strLitParts(p.toks[3])
-	if len(parts) != 3 || parts[0] != "a" || parts[2] != "b\tc" {
+	parts := ast.StrPartsAt(p.tree, p.strLitParts(p.toks[3]))
+	if parts.Len() != 3 || parts.At(0).Text != "a" || parts.At(2).Text != "b\tc" {
 		t.Fatalf("parts: %#v", parts)
 	}
-	if _, ok := parts[1].(*ast.NameExpr); !ok {
-		t.Errorf("interpolation: got %T, want a name", parts[1])
+	if _, ok := parts.At(1).Expr.AsNameExpr(); !ok {
+		t.Errorf("interpolation: got %v, want a name", parts.At(1).Expr.Kind())
 	}
 }
 
@@ -100,8 +100,8 @@ func TestCommentsAreSkippedAndKeepPositions(t *testing.T) {
 	if len(prog.Decls) != 2 {
 		t.Fatalf("decls: %+v", prog.Decls)
 	}
-	parts := prog.Decls[1].(*ast.ConstDecl).Value.(*ast.StrLit).Parts
-	if len(parts) != 2 || parts[1] != " // kept" {
+	lit, _ := prog.Decls[1].(*ast.ConstDecl).Value.AsStrLit()
+	if parts := lit.Parts(); parts.Len() != 2 || parts.At(1).Text != " // kept" {
 		t.Errorf("string parts: %#v", parts)
 	}
 }
@@ -121,7 +121,7 @@ func TestParseFunction(t *testing.T) {
 		t.Fatalf("errors: %v", errs)
 	}
 	f, ok := prog.Decls[0].(*ast.FuncDecl)
-	if len(prog.Decls) != 1 || !ok || f.Name != "f" || len(f.Body) != 1 {
+	if len(prog.Decls) != 1 || !ok || f.Name != "f" || f.Body.Len() != 1 {
 		t.Fatalf("decls: %+v", prog.Decls)
 	}
 }
@@ -131,26 +131,26 @@ func TestParseOperatorPrecedence(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("errors: %v", errs)
 	}
-	cond, ok := prog.Decls[0].(*ast.ConstDecl).Value.(*ast.CondExpr)
+	cond, ok := prog.Decls[0].(*ast.ConstDecl).Value.AsCondExpr()
 	if !ok {
 		t.Fatalf("got %T, want a conditional", prog.Decls[0].(*ast.ConstDecl).Value)
 	}
-	sum, ok := cond.Then.(*ast.BinaryExpr)
-	if !ok || sum.Op != "+" {
-		t.Fatalf("then: got %+v, want '+'", cond.Then)
+	sum, ok := cond.Then().AsBinaryExpr()
+	if !ok || sum.Op() != "+" {
+		t.Fatalf("then: got %+v, want '+'", cond.Then())
 	}
-	if lit, ok := sum.L.(*ast.IntLit); !ok || lit.Value() != ast.I64(-1) {
-		t.Errorf("left of '+': got %+v, want the literal -1", sum.L)
+	if lit, ok := sum.L().AsIntLit(); !ok || lit.Value() != ast.I64(-1) {
+		t.Errorf("left of '+': got %+v, want the literal -1", sum.L())
 	}
-	product, ok := sum.R.(*ast.BinaryExpr)
-	if !ok || product.Op != "*" {
-		t.Fatalf("right of '+': got %+v, want '*'", sum.R)
+	product, ok := sum.R().AsBinaryExpr()
+	if !ok || product.Op() != "*" {
+		t.Fatalf("right of '+': got %+v, want '*'", sum.R())
 	}
-	if _, ok := product.R.(*ast.CastExpr); !ok {
-		t.Errorf("right of '*': got %T, want a cast", product.R)
+	if _, ok := product.R().AsCastExpr(); !ok {
+		t.Errorf("right of '*': got %T, want a cast", product.R())
 	}
-	if or, ok := cond.Cond.(*ast.BinaryExpr); !ok || or.Op != "or" {
-		t.Errorf("condition: got %+v, want 'or'", cond.Cond)
+	if or, ok := cond.Cond().AsBinaryExpr(); !ok || or.Op() != "or" {
+		t.Errorf("condition: got %+v, want 'or'", cond.Cond())
 	}
 }
 
@@ -160,11 +160,11 @@ func TestParseAssignmentAndCallShareTheirStart(t *testing.T) {
 		t.Fatalf("errors: %v", errs)
 	}
 	body := prog.Decls[0].(*ast.FuncDecl).Body
-	if _, ok := body[0].(*ast.AssignStmt); !ok {
-		t.Errorf("statement 1: got %T, want an assignment", body[0])
+	if _, ok := body.At(0).AsAssignStmt(); !ok {
+		t.Errorf("statement 1: got %T, want an assignment", body.At(0))
 	}
-	if _, ok := body[1].(*ast.ExprStmt); !ok {
-		t.Errorf("statement 2: got %T, want an expression statement", body[1])
+	if _, ok := body.At(1).AsExprStmt(); !ok {
+		t.Errorf("statement 2: got %T, want an expression statement", body.At(1))
 	}
 }
 
@@ -208,10 +208,10 @@ func TestParsesGenericDeclarationsAndUses(t *testing.T) {
 	if len(box.TypeParams) != 2 || box.TypeParams[1].Name != "U" {
 		t.Fatalf("type parameters: %+v", box.TypeParams)
 	}
-	if len(box.Where) != 1 || box.Where[0].Param != "T" || len(box.Where[0].Bounds) != 2 || box.Where[0].Bounds[1].Name != "Named" {
+	if len(box.Where) != 1 || box.Where[0].Param != "T" || box.Where[0].Bounds.Len() != 2 || box.Where[0].Bounds.At(1).Name() != "Named" {
 		t.Fatalf("constraints: %+v", box.Where)
 	}
-	if len(box.Conforms) != 1 || box.Conforms[0].Name != "Shape" {
+	if box.Conforms.Len() != 1 || box.Conforms.At(0).Name() != "Shape" {
 		t.Fatalf("conforms: %+v", box.Conforms)
 	}
 	pick := prog.Decls[2].(*ast.FuncDecl)
@@ -219,13 +219,13 @@ func TestParsesGenericDeclarationsAndUses(t *testing.T) {
 		t.Fatalf("type parameters %+v, constraints %+v", pick.TypeParams, pick.Where)
 	}
 	// 'with' takes one argument bare, so a bare instance as the argument nests to the right.
-	result := pick.Returns.TypeArgs
-	if len(result) != 2 || result[1].Name != "Other" || result[1].Qualifier[0] != "lib" || len(result[1].TypeArgs) != 1 ||
-		result[1].TypeArgs[0].Name != "Option" || len(result[1].TypeArgs[0].TypeArgs) != 1 {
+	result := pick.Returns.TypeArgs()
+	if result.Len() != 2 || result.At(1).Name() != "Other" || result.At(1).Qualifier().At(0) != "lib" || result.At(1).TypeArgs().Len() != 1 ||
+		result.At(1).TypeArgs().At(0).Name() != "Option" || result.At(1).TypeArgs().At(0).TypeArgs().Len() != 1 {
 		t.Fatalf("return type arguments: %+v", result)
 	}
 	alias := prog.Decls[3].(*ast.AliasDecl)
-	if alias.Instance == nil || alias.Instance.Name != "array" || len(alias.Instance.TypeArgs[0].TypeArgs) != 2 {
+	if alias.Instance.IsNil() || alias.Instance.Name() != "array" || alias.Instance.TypeArgs().At(0).TypeArgs().Len() != 2 {
 		t.Fatalf("typealias: %+v", alias.Instance)
 	}
 }
@@ -236,16 +236,25 @@ func TestParsesSubscripts(t *testing.T) {
 		t.Fatalf("errors: %v", errs)
 	}
 	body := prog.Decls[0].(*ast.FuncDecl).Body
-	assign := body[0].(*ast.AssignStmt)
-	if target, ok := assign.Target.(*ast.IndexExpr); !ok || len(target.Args) != 1 {
-		t.Fatalf("assignment target: %T", assign.Target)
+	assign, _ := body.At(0).AsAssignStmt()
+	if target, ok := assign.Target().AsIndexExpr(); !ok || target.Args().Len() != 1 {
+		t.Fatalf("assignment target: %v", assign.Target().Kind())
 	}
-	if member, ok := assign.Value.(*ast.MemberExpr); !ok || member.Obj.(*ast.IndexExpr).Args[0].(*ast.BinaryExpr).Op != "+" {
-		t.Fatalf("assignment value: %T", assign.Value)
+	member, ok := assign.Value().AsMemberExpr()
+	if !ok {
+		t.Fatalf("assignment value: %v", assign.Value().Kind())
 	}
-	call := body[1].(*ast.ExprStmt).E.(*ast.CallExpr)
-	if len(call.Args) != 2 || call.Args[0].Value.(*ast.IndexExpr).Args[0].(*ast.BinaryExpr).Op != "-" {
-		t.Fatalf("call arguments: %+v", call.Args)
+	index, _ := member.Obj().AsIndexExpr()
+	sum, _ := index.Args().At(0).AsBinaryExpr()
+	if sum.Op() != "+" {
+		t.Fatalf("the subscript is %v, want a sum", sum.Op())
+	}
+	stmt, _ := body.At(1).AsExprStmt()
+	call, _ := stmt.E().AsCallExpr()
+	first, _ := call.Args().At(0).Value().AsIndexExpr()
+	difference, _ := first.Args().At(0).AsBinaryExpr()
+	if call.Args().Len() != 2 || difference.Op() != "-" {
+		t.Fatalf("call arguments: %d, the first subscripted with %q", call.Args().Len(), difference.Op())
 	}
 }
 
@@ -286,11 +295,11 @@ func TestMarkdownKeywordEditsRenameOnlyCode(t *testing.T) {
 }
 
 func fileOf(prog *ast.Program, n ast.Node) string {
-	file, _, _ := prog.Positions.Where(n.P().Off)
+	file, _, _ := prog.Positions.Where(n.Position().Off)
 	return file
 }
 
-func TestParsingNumbersTheNodesOfTheModuleInItsArena(t *testing.T) {
+func TestParsingNumbersTheNodesOfTheModuleInItsTree(t *testing.T) {
 	const module ast.ModuleID = 5
 	scratch := NewScratch()
 	src := sourceOf(t, "testdata/parse-function.maxon")
@@ -299,22 +308,22 @@ func TestParsingNumbersTheNodesOfTheModuleInItsArena(t *testing.T) {
 		t.Fatalf("errors %v and %d declarations", errs, len(program.Decls))
 	}
 	fn := program.Decls[0].(*ast.FuncDecl)
-	ret := fn.Body[0].(*ast.ReturnStmt)
+	ret, _ := fn.Body.At(0).AsReturnStmt()
 	// The function, its return type, the return statement and its value, and the label that ends it.
-	nodes := []ast.Node{fn, fn.Returns, ret, ret.Value, fn.End}
-	if program.Nodes.Count() != len(nodes) {
-		t.Errorf("the arena counts %d nodes, want %d", program.Nodes.Count(), len(nodes))
+	nodes := []ast.Node{fn, fn.Returns, ret, ret.Value(), fn.End}
+	if program.Tree.Count() != len(nodes) {
+		t.Errorf("the tree counts %d nodes, want %d", program.Tree.Count(), len(nodes))
 	}
 	seen := map[ast.NodeID]bool{}
 	for _, n := range nodes {
-		head := n.P()
+		head := n.Position()
 		if head.Mod != module {
 			t.Errorf("%T is in module %d, want %d", n, head.Mod, module)
 		}
 	}
-	for _, id := range []ast.NodeID{fn.ID, fn.Returns.ID, ret.ID, ret.Value.(*ast.IntLit).ID, fn.End.ID} {
-		if id < 1 || int(id) > program.Nodes.Count() || seen[id] {
-			t.Errorf("node ID %d is outside 1..%d or repeats an earlier one", id, program.Nodes.Count())
+	for _, id := range []ast.NodeID{fn.ID, fn.Returns.ID, ret.ID, ret.Value().ID, fn.End.ID} {
+		if id < 1 || int(id) > program.Tree.Count() || seen[id] {
+			t.Errorf("node ID %d is outside 1..%d or repeats an earlier one", id, program.Tree.Count())
 		}
 		seen[id] = true
 	}

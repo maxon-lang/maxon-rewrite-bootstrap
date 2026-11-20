@@ -12,9 +12,10 @@ type Pos struct {
 	Off uint32
 }
 
-func (p *Pos) P() *Pos { return p }
-
 // Site is the position as a diagnostic holds it.
+// Position is the position itself, which makes a Pos a Node.
+func (p Pos) Position() Pos { return p }
+
 func (p Pos) Site() diag.Site { return diag.Site{Module: int32(p.Mod), Offset: p.Off} }
 
 // Error is a diagnostic at the position. It is located (given a file, line and column) when the compile reports it,
@@ -23,27 +24,30 @@ func (p Pos) Error(code, msg string) *diag.CompileError {
 	return diag.NewSiteError(code, msg, p.Site())
 }
 
-// NodeID is the index of a node among the nodes of its module, which its module's Arena counts in the order the nodes
+// NodeID is the index of a node among the nodes of its module, which its module's Tree counts in the order the nodes
 // are made, from 1: the zero value is no node, so a table that is indexed by it starts empty. A side table that a
 // phase fills in is a slice indexed by NodeID, so what a phase knows about a node is not part of the node. It is
 // 32 bits: a node covers at least one byte of the module's text, which is at most 4 GB.
 type NodeID uint32
 
+// Node is anything that is somewhere in a module's text: a struct that Head starts, or the view of a record.
 type Node interface {
-	P() *Pos
+	Position() Pos
 }
 
-// Head is what every node starts with: where it is and which node it is in its module.
+// Head is what every struct node starts with: where it is and which node it is in its module.
 type Head struct {
 	Pos
 	ID NodeID
 }
 
-// Program is what parsing a module makes: its declarations, the arena that holds every node of them, and where their
+func (h Head) Position() Pos { return h.Pos }
+
+// Program is what parsing a module makes: its declarations, the tree that holds every node of them, and where their
 // text is.
 type Program struct {
 	Decls     []Decl
-	Nodes     *Arena
+	Tree      *Tree
 	Positions *Positions
 }
 
@@ -80,55 +84,3 @@ func (f *FuncDecl) IsMethod() bool { return f.Owner != nil && !f.IsStatic }
 
 // IsDestructor is whether the method ends its receiver: it is written 'destructs self', so the signature alone says so.
 func (f *FuncDecl) IsDestructor() bool { return ConventionOf(f.Receiver) == ConvDestructs }
-
-type Stmt interface {
-	Node
-	stmt()
-}
-
-func (*StmtBase) stmt() {}
-
-type Expr interface {
-	Node
-	// Base is what every expression starts with: its module, and its slot among the module's expressions, which finds
-	// its entry in that module's Typing.
-	Base() *ExprBase
-}
-
-func (e *ExprBase) Base() *ExprBase { return e }
-
-func (l *IntLit) Value() I128 {
-	if l.Negative {
-		return l.Magnitude.Neg()
-	}
-	return l.Magnitude
-}
-
-func (s *StrLit) IsPlain() bool {
-	for _, p := range s.Parts {
-		if _, ok := p.(string); !ok {
-			return false
-		}
-	}
-	return true
-}
-
-func (p *Pattern) Kind() PatternKind {
-	switch {
-	case p.CaseName != "":
-		return PatternCase
-	case p.High != nil:
-		return PatternRange
-	}
-	return PatternLiteral
-}
-
-func (a *MatchArm) Kind() ArmKind {
-	switch {
-	case a.Action != nil:
-		return ArmThen
-	case a.Gives:
-		return ArmGives
-	}
-	return ArmPanic
-}

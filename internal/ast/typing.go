@@ -152,19 +152,28 @@ type CallInfo struct {
 	// Ordered are the arguments in the order of the parameters, which labels may have changed.
 	Ordered []Expr
 	// Drop is the destructor call of a cown that was given 'dropWith:'.
-	Drop *CallExpr
+	Drop *CallInfo
 }
 
 // ReceiverFor is the object a call of the kind is made on, or nil for a call that has none. A method call, a call through
 // a bound and a copy are written 'object.name(...)', so it is the object of the member the call names.
-func (c *CallExpr) ReceiverFor(kind CallKind) Expr {
+func (c CallExpr) ReceiverFor(kind CallKind) Expr {
 	switch kind {
 	case CallMethod, CallBound, CallCopy:
-		if m, named := c.Callee.(*MemberExpr); named {
-			return m.Obj
+		if m, named := c.Callee().AsMemberExpr(); named {
+			return m.Obj()
 		}
 	}
-	return nil
+	return Expr{}
+}
+
+// CallUse is a call a function records, for finding the instances of generics it needs: what the call is, and the object it
+// is made on, which a call through a bound needs to know the type of.
+type CallUse struct {
+	Info     *CallInfo
+	Receiver Expr
+	// Site is where the call is, which an error about the instance it needs is reported at.
+	Site Pos
 }
 
 // StructLitInfo is the record a struct literal makes and its field values in the order of the record's fields; a field
@@ -188,21 +197,24 @@ type WhenInfo struct {
 
 // Typing is what the check pass decided about the nodes of one module's bodies: the type of every expression, whether the
 // ownership pass found it consumed, what each name, member, call, struct literal and pattern stands for, the local that
-// each let, for and parameter declares, where each break and continue goes, and the function and captures of each
-// behaviour. The nodes keep only what the author wrote.
+// each let and for declares, where each break and continue goes, and the function and captures of each behaviour. The
+// nodes keep only what the author wrote.
 //
-// A node finds its entry by a slot that the module's arena gave it when the node was made (see Slots). What nearly every
-// expression has, a type, a consumed flag and the operand kind of a binary operator, is indexed by the expression's own
-// slot, so a statement or a declaration pays nothing for it. What only some kinds of expression have is indexed by a slot
-// that only the nodes of that kind count (a call has one of 'Call', so the table of calls has as many entries as the
-// module has calls, not as many as it has expressions). Slot 0 is no slot, so a node that no arena made has no entry and
-// a read of it is an internal error.
+// What nearly every expression has, a type and a consumed flag, is indexed by the node's own NodeID. What only some kinds
+// of node have is indexed by a slot that only the nodes of that kind count (a call has one of 'Call', so the table of calls
+// has as many entries as the module has calls, not as many as it has nodes), and the slot of a node is found by its NodeID
+// in one table, slots. Slot 0 is no slot, so a node of a kind with no table has no entry and a read of it is an internal
+// error.
 //
 // It is written only by the checker of its own module: the constants one at a time (each writes the entries of its
 // own expressions, and the tables were sized before the first), then the bodies and the ownership pass of the module's
 // worker. Every module's check pass completes before the generate pass starts, which is the only reader of another
 // module's Typing, so no table is read while it is written.
 type Typing struct {
+	// slots is the slot of each node by its NodeID, and count how many slots of each table there are.
+	slots []uint32
+	count Slots
+
 	types    []Ty
 	consumed []uint64
 	operands []Operand
@@ -223,50 +235,51 @@ type Typing struct {
 	constOf map[*ConstDecl]uint32
 }
 
-// Reset sizes the tables for the nodes the module's arena has made so far and empties them.
-func (t *Typing) Reset(s Slots) {
-	t.types, t.consumed, t.operands = nil, nil, nil
-	t.names, t.members, t.calls, t.structLits, t.patterns, t.whens, t.locals, t.jumps = nil, nil, nil, nil, nil, nil, nil, nil
+// Size makes the tables that have an entry for every node, for the nodes the tree has now. It needs nothing that
+// resolution decides, so the driver does it while the serial work of the project leaves the other cores idle: a table of this
+// size is allocated on one core at a time, and the check pass would make every worker wait for the heap.
+func (t *Typing) Size(tree *Tree) {
+	t.slots = make([]uint32, len(tree.Records))
+	t.types = make([]Ty, len(tree.Records))
+	t.consumed = make([]uint64, len(tree.Records)/64+1)
+}
+
+// Reset numbers the slots of the module's tree as it is now, after resolution made its last node, and sizes the tables of
+// the kinds that only some nodes have. It grows what Size made for a node that resolution added, and makes it if Size was
+// not called.
+func (t *Typing) Reset(tree *Tree) {
+	if len(t.slots) < len(tree.Records) {
+		t.slots = append(t.slots, make([]uint32, len(tree.Records)-len(t.slots))...)
+		t.types = append(t.types, make([]Ty, len(tree.Records)-len(t.types))...)
+		t.consumed = append(t.consumed, make([]uint64, len(tree.Records)/64+1-len(t.consumed))...)
+	}
+	clear(t.slots)
+	t.count = tree.NumberSlots(t.slots)
+	t.operands = make([]Operand, t.count.Binary+1)
+	t.names = make([]NameInfo, t.count.Name+1)
+	t.members = make([]MemberInfo, t.count.Member+1)
+	t.calls = make([]CallInfo, t.count.Call+1)
+	t.structLits = make([]StructLitInfo, t.count.StructLit+1)
+	t.patterns = make([]PatternInfo, t.count.Pattern+1)
+	t.whens = make([]WhenInfo, t.count.When+1)
+	t.locals = make([]LocalID, t.count.Local+1)
+	t.jumps = make([]NodeID, t.count.Jump+1)
 	t.consts, t.constOf = nil, nil
-	t.Sync(s)
 }
 
-// Sync gives the tables room for the nodes made since they were sized, which is how a node that a phase makes while it
-// checks has its entries. It keeps what the tables hold, and is for the one worker that checks the module's bodies: the
-// constants are checked at the same time as each other, so nothing may make a node meanwhile.
-func (t *Typing) Sync(s Slots) {
-	t.types = grow(t.types, s.Expr)
-	t.operands = grow(t.operands, s.Expr)
-	if words := int(s.Expr)/64 + 1; len(t.consumed) < words {
-		t.consumed = append(t.consumed, make([]uint64, words-len(t.consumed))...)
+// entry is the entry of a node in the table, which must be one the table has.
+func entry[T any](t *Typing, table []T, id NodeID, what string) *T {
+	if int(id) >= len(t.slots) {
+		noEntry(uint32(id), len(t.slots), what)
 	}
-	t.names = grow(t.names, s.Name)
-	t.members = grow(t.members, s.Member)
-	t.calls = grow(t.calls, s.Call)
-	t.structLits = grow(t.structLits, s.StructLit)
-	t.patterns = grow(t.patterns, s.Pattern)
-	t.whens = grow(t.whens, s.When)
-	t.locals = grow(t.locals, s.Local)
-	t.jumps = grow(t.jumps, s.Jump)
-}
-
-// grow makes the table hold the slots 1 to count.
-func grow[T any](table []T, count uint32) []T {
-	if want := int(count) + 1; len(table) < want {
-		return append(table, make([]T, want-len(table))...)
+	s := t.slots[id]
+	if s == 0 || int(s) >= len(table) {
+		noEntry(s, len(table)-1, what)
 	}
-	return table
+	return &table[s]
 }
 
-// at is the entry of a slot, which must be one the table has.
-func at[T any](table []T, slot uint32, what string) *T {
-	if slot == 0 || int(slot) >= len(table) {
-		noEntry(slot, len(table)-1, what)
-	}
-	return &table[slot]
-}
-
-// noEntry is the error for a slot that the table has no entry for, kept out of line so that at is small enough to inline.
+// noEntry is the error for a node that the table has no entry for, kept out of line so that entry is small enough to inline.
 //
 //go:noinline
 func noEntry(slot uint32, entries int, what string) {
@@ -275,70 +288,71 @@ func noEntry(slot uint32, entries int, what string) {
 
 // Type is the type of an expression the checker typed.
 func (t *Typing) Type(e Expr) Ty {
-	return t.TypeAt(e.Base())
-}
-
-// TypeAt is the type of the expression that starts with the base, for code that has asked an expression for its base once
-// and reads several things about it.
-func (t *Typing) TypeAt(e *ExprBase) Ty {
-	ty := *at(t.types, e.Ord, "type")
+	if uint(e.ID) >= uint(len(t.types)) {
+		noEntry(uint32(e.ID), len(t.types)-1, "type")
+	}
+	ty := t.types[e.ID]
 	if ty == nil {
-		noType(e)
+		noType(e.Ref)
 	}
 	return ty
 }
 
-// noType is the error for an expression the checker never typed, kept out of line so that TypeAt is small enough to inline.
+// noType is the error for an expression the checker never typed, kept out of line so that Type is small enough to inline.
 //
 //go:noinline
-func noType(e *ExprBase) {
-	panic(diag.Internal("typing: the expression at %d has no type", e.Off))
+func noType(e Ref) {
+	panic(diag.Internal("typing: the expression at %d has no type", e.Position().Off))
 }
 
-func (t *Typing) SetType(e Expr, ty Ty) { *at(t.types, e.Base().Ord, "type") = ty }
+func (t *Typing) SetType(e Expr, ty Ty) {
+	if uint(e.ID) >= uint(len(t.types)) {
+		noEntry(uint32(e.ID), len(t.types)-1, "type")
+	}
+	t.types[e.ID] = ty
+}
 
 // Consumed is whether the ownership pass found the expression in a position that takes ownership of its value: a binding,
 // an assignment, a consumes argument, a return, a field or payload, or a branch of a conditional or a match. A place there
 // is moved out of; a fresh value there needs no one to drop it. Lowering reads this to place drops, so the pass is the
 // only place that decides what a move is.
-func (t *Typing) Consumed(e Expr) bool { return t.ConsumedAt(e.Base()) }
-
-// ConsumedAt is Consumed for an expression's base (see TypeAt).
-func (t *Typing) ConsumedAt(e *ExprBase) bool {
-	slot := e.Ord
-	at(t.types, slot, "consumed")
-	return t.consumed[slot/64]&(1<<(slot%64)) != 0
+func (t *Typing) Consumed(e Expr) bool {
+	if uint(e.ID) >= uint(len(t.types)) {
+		noEntry(uint32(e.ID), len(t.types)-1, "consumed")
+	}
+	return t.consumed[e.ID/64]&(1<<(e.ID%64)) != 0
 }
 
 func (t *Typing) MarkConsumed(e Expr) {
-	slot := e.Base().Ord
-	at(t.types, slot, "consumed")
-	t.consumed[slot/64] |= 1 << (slot % 64)
+	if uint(e.ID) >= uint(len(t.types)) {
+		noEntry(uint32(e.ID), len(t.types)-1, "consumed")
+	}
+	t.consumed[e.ID/64] |= 1 << (e.ID % 64)
 }
 
 // Operand is how the operands of a binary operator are compared and divided.
-func (t *Typing) Operand(b *BinaryExpr) Operand { return *at(t.operands, b.Ord, "operand") }
+func (t *Typing) Operand(b BinaryExpr) Operand { return *entry(t, t.operands, b.ID, "operand") }
 
-func (t *Typing) SetOperand(b *BinaryExpr, o Operand) { *at(t.operands, b.Ord, "operand") = o }
+func (t *Typing) SetOperand(b BinaryExpr, o Operand) { *entry(t, t.operands, b.ID, "operand") = o }
 
-func (t *Typing) Name(n *NameExpr) NameInfo { return *at(t.names, n.Info, "name") }
+func (t *Typing) Name(n NameExpr) NameInfo { return *entry(t, t.names, n.ID, "name") }
 
-func (t *Typing) SetName(n *NameExpr, info NameInfo) { *at(t.names, n.Info, "name") = info }
+func (t *Typing) SetName(n NameExpr, info NameInfo) { *entry(t, t.names, n.ID, "name") = info }
 
 // ConstName is the name of a constant.
 func (t *Typing) ConstName(d *ConstDecl) NameInfo {
 	t.constMu.Lock()
 	defer t.constMu.Unlock()
-	slot, listed := t.constOf[d]
+	s, listed := t.constOf[d]
 	if !listed {
 		if t.constOf == nil {
 			t.constOf = map[*ConstDecl]uint32{}
 		}
 		t.consts = append(t.consts, d)
-		slot = uint32(len(t.consts))
-		t.constOf[d] = slot
+		s = uint32(len(t.consts))
+		t.constOf[d] = s
 	}
-	return nameOf(NameConst, slot)
+	return nameOf(NameConst, s)
 }
 
 // Const is the constant a name of a constant stands for.
@@ -349,70 +363,68 @@ func (t *Typing) Const(i NameInfo) *ConstDecl {
 	return t.consts[i.index()-1]
 }
 
-func (t *Typing) Member(m *MemberExpr) MemberInfo { return *at(t.members, m.Info, "member") }
+func (t *Typing) Member(m MemberExpr) MemberInfo { return *entry(t, t.members, m.ID, "member") }
 
-func (t *Typing) SetMember(m *MemberExpr, info MemberInfo) { *at(t.members, m.Info, "member") = info }
+func (t *Typing) SetMember(m MemberExpr, info MemberInfo) {
+	*entry(t, t.members, m.ID, "member") = info
+}
 
 // Call is what a call is. It is the entry itself and not a copy, which a call's size would make worth avoiding: the checker
-// fills it in as it learns more about the call, and everything else only reads it. Like the other Edit pointers it is into
-// the table, so it is good only until the next Sync.
-func (t *Typing) Call(c *CallExpr) *CallInfo { return at(t.calls, c.Info, "call") }
+// fills it in as it learns more about the call, and everything else only reads it.
+func (t *Typing) Call(c CallExpr) *CallInfo { return entry(t, t.calls, c.ID, "call") }
 
-func (t *Typing) StructLit(s *StructLitExpr) StructLitInfo {
-	return *at(t.structLits, s.Info, "struct literal")
+func (t *Typing) StructLit(s StructLitExpr) StructLitInfo {
+	return *entry(t, t.structLits, s.ID, "struct literal")
 }
 
-func (t *Typing) SetStructLit(s *StructLitExpr, info StructLitInfo) {
-	*at(t.structLits, s.Info, "struct literal") = info
+func (t *Typing) SetStructLit(s StructLitExpr, info StructLitInfo) {
+	*entry(t, t.structLits, s.ID, "struct literal") = info
 }
 
-func (t *Typing) Pattern(p *Pattern) PatternInfo { return *at(t.patterns, p.Info, "pattern") }
+func (t *Typing) Pattern(p Pattern) PatternInfo { return *entry(t, t.patterns, p.ID, "pattern") }
 
 // EditPattern is the entry of a pattern, for the checker to fill in.
-func (t *Typing) EditPattern(p *Pattern) *PatternInfo { return at(t.patterns, p.Info, "pattern") }
+func (t *Typing) EditPattern(p Pattern) *PatternInfo { return entry(t, t.patterns, p.ID, "pattern") }
 
-func (t *Typing) When(w *WhenStmt) WhenInfo { return *at(t.whens, w.Info, "behaviour") }
+func (t *Typing) When(w WhenStmt) WhenInfo { return *entry(t, t.whens, w.ID, "behaviour") }
 
 // EditWhen is the entry of a behaviour, for the checker to fill in.
-func (t *Typing) EditWhen(w *WhenStmt) *WhenInfo { return at(t.whens, w.Info, "behaviour") }
+func (t *Typing) EditWhen(w WhenStmt) *WhenInfo { return entry(t, t.whens, w.ID, "behaviour") }
 
-// LetLocal, ForLocal and ParamLocal are the local a let, a for or a parameter declares, in the function it is in: 0 for a
-// parameter named '_'.
-func (t *Typing) LetLocal(l *LetStmt) LocalID { return *at(t.locals, l.Local, "local") }
+// LetLocal and ForLocal are the local a let or a for declares, in the function it is in: 0 for a 'for' named '_'.
+func (t *Typing) LetLocal(l LetStmt) LocalID { return *entry(t, t.locals, l.ID, "local") }
 
-func (t *Typing) ForLocal(f *ForStmt) LocalID { return *at(t.locals, f.Local, "local") }
+func (t *Typing) ForLocal(f ForStmt) LocalID { return *entry(t, t.locals, f.ID, "local") }
 
-func (t *Typing) ParamLocal(p *Param) LocalID { return *at(t.locals, p.Local, "local") }
+func (t *Typing) SetLetLocal(l LetStmt, local *Local) { *entry(t, t.locals, l.ID, "local") = local.id }
 
-func (t *Typing) SetLetLocal(l *LetStmt, local *Local) { *at(t.locals, l.Local, "local") = local.id }
-
-func (t *Typing) SetForLocal(f *ForStmt, local *Local) { *at(t.locals, f.Local, "local") = local.id }
-
-func (t *Typing) SetParamLocal(p *Param, local *Local) { *at(t.locals, p.Local, "local") = local.id }
+func (t *Typing) SetForLocal(f ForStmt, local *Local) { *entry(t, t.locals, f.ID, "local") = local.id }
 
 // BreakTarget and ContinueTarget are the loop or match that a break or a continue leaves or repeats.
-func (t *Typing) BreakTarget(b *BreakStmt) NodeID { return *at(t.jumps, b.Jump, "jump") }
+func (t *Typing) BreakTarget(b BreakStmt) NodeID { return *entry(t, t.jumps, b.ID, "jump") }
 
-func (t *Typing) ContinueTarget(c *ContinueStmt) NodeID { return *at(t.jumps, c.Jump, "jump") }
+func (t *Typing) ContinueTarget(c ContinueStmt) NodeID { return *entry(t, t.jumps, c.ID, "jump") }
 
-func (t *Typing) SetBreakTarget(b *BreakStmt, target NodeID) { *at(t.jumps, b.Jump, "jump") = target }
+func (t *Typing) SetBreakTarget(b BreakStmt, target NodeID) {
+	*entry(t, t.jumps, b.ID, "jump") = target
+}
 
-func (t *Typing) SetContinueTarget(c *ContinueStmt, target NodeID) {
-	*at(t.jumps, c.Jump, "jump") = target
+func (t *Typing) SetContinueTarget(c ContinueStmt, target NodeID) {
+	*entry(t, t.jumps, c.ID, "jump") = target
 }
 
 // IsStorage is whether an expression reads a value that already lives somewhere, in a variable, a field or an element, and
 // so borrows it, as opposed to making a new value. It asks about four members of Expr, so it is a type switch and not a
 // visitor.
 func (t *Typing) IsStorage(e Expr) bool {
-	switch e := e.(type) {
-	case *NameExpr:
-		kind := t.Name(e).Kind()
+	switch e.Kind() {
+	case KindNameExpr:
+		kind := t.Name(NameExpr{e.Ref}).Kind()
 		return kind == NameLocal || kind == NameSelfField
-	case *SelfExpr, *IndexExpr:
+	case KindSelfExpr, KindIndexExpr:
 		return true
-	case *MemberExpr:
-		return t.Member(e).Kind == MemberField
+	case KindMemberExpr:
+		return t.Member(MemberExpr{e.Ref}).Kind == MemberField
 	}
 	return false
 }
@@ -420,8 +432,8 @@ func (t *Typing) IsStorage(e Expr) bool {
 // Resolved is the function a call runs once the type parameters of the code it is in are bound: the target itself, or
 // the instance of a generic one, or for a call through a bound the method of the type that stands in for the
 // parameter.
-func (t *Typing) Resolved(c *CallExpr, b Binding) *FuncDecl {
-	info := t.Call(c)
+func (t *Typing) Resolved(use CallUse, b Binding) *FuncDecl {
+	info := use.Info
 	switch info.Kind {
 	case CallFunction, CallStatic, CallMethod:
 		if len(info.Target.Generics) == 0 {
@@ -430,7 +442,7 @@ func (t *Typing) Resolved(c *CallExpr, b Binding) *FuncDecl {
 		return info.Target.Instance(b.applyAll(info.Generic.TypeArgs))
 	case CallBound:
 		// A frozen receiver lends its contents, so the method is the one of the type it holds.
-		receiver := b.Apply(t.Type(c.ReceiverFor(info.Kind)))
+		receiver := b.Apply(t.Type(use.Receiver))
 		recv, ok := Content(receiver).(NominalTy)
 		if !ok {
 			panic(diag.Internal("a call through a bound has a receiver of %s, which has no methods", receiver.Name()))
@@ -468,16 +480,10 @@ func noTyping(m ModuleID, count int) {
 }
 
 // Type is the type of an expression, wherever its module is.
-func (ts Typings) Type(e Expr) Ty {
-	b := e.Base()
-	return ts.Of(b.Mod).TypeAt(b)
-}
+func (ts Typings) Type(e Expr) Ty { return ts.Of(e.T.Module).Type(e) }
 
 // Consumed is whether the ownership pass found the expression consuming its value, wherever its module is.
-func (ts Typings) Consumed(e Expr) bool {
-	b := e.Base()
-	return ts.Of(b.Mod).ConsumedAt(b)
-}
+func (ts Typings) Consumed(e Expr) bool { return ts.Of(e.T.Module).Consumed(e) }
 
 // For is the typing of the module that the node is in.
-func (ts Typings) For(n Node) *Typing { return ts.Of(n.P().Mod) }
+func (ts Typings) For(pos Pos) *Typing { return ts.Of(pos.Mod) }

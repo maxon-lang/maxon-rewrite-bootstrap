@@ -30,7 +30,7 @@ type ModuleDep struct {
 }
 
 type PendingCall struct {
-	Call   *CallExpr
+	Call   CallExpr
 	Callee string
 	Params []ParamSpec
 }

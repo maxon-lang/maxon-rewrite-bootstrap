@@ -18,32 +18,37 @@ func requireInternalError(t *testing.T, what string, f func()) {
 	f()
 }
 
+// sized is a typing for the nodes the tree has now.
+func sized(tree *Tree) *Typing {
+	typing := new(Typing)
+	typing.Reset(tree)
+	return typing
+}
+
 func TestTypingGivesBackTheTypeOfAnExpression(t *testing.T) {
-	arena := NewArena(0)
-	lit, name, call := arena.NewIntLit(), arena.NewNameExpr(), arena.NewCallExpr()
-	var typing Typing
-	typing.Reset(arena.Slots())
-	typing.SetType(lit, BoolTy)
-	typing.SetType(name, StringTy)
-	typing.SetType(call, VoidTy)
-	if typing.Type(lit) != Ty(BoolTy) || typing.Type(name) != Ty(StringTy) || typing.Type(call) != Ty(VoidTy) {
-		t.Errorf("the types are %v, %v and %v, want bool, String and void", typing.Type(lit).Name(), typing.Type(name).Name(), typing.Type(call).Name())
+	tree := NewTree(0, "", 0)
+	lit, name, call := tree.NewIntLit(0), tree.NewNameExpr(0), tree.NewCallExpr(0)
+	typing := sized(tree)
+	typing.SetType(lit.Expr(), BoolTy)
+	typing.SetType(name.Expr(), StringTy)
+	typing.SetType(call.Expr(), VoidTy)
+	if typing.Type(lit.Expr()) != Ty(BoolTy) || typing.Type(name.Expr()) != Ty(StringTy) || typing.Type(call.Expr()) != Ty(VoidTy) {
+		t.Errorf("the types are %v, %v and %v, want bool, String and void", typing.Type(lit.Expr()).Name(), typing.Type(name.Expr()).Name(), typing.Type(call.Expr()).Name())
 	}
 }
 
 func TestTypingSizesASparseTableByTheNodesOfItsKind(t *testing.T) {
-	arena := NewArena(0)
-	var calls []*CallExpr
+	tree := NewTree(0, "", 0)
+	var calls []CallExpr
 	for range 3 {
 		for range 20 {
-			arena.NewIntLit()
+			tree.NewIntLit(0)
 		}
-		calls = append(calls, arena.NewCallExpr())
+		calls = append(calls, tree.NewCallExpr(0))
 	}
-	var typing Typing
-	typing.Reset(arena.Slots())
+	typing := sized(tree)
 	if len(typing.types) != 63+1 || len(typing.calls) != 3+1 {
-		t.Fatalf("63 expressions of which 3 are calls have %d type entries and %d call entries, want 64 and 4", len(typing.types), len(typing.calls))
+		t.Fatalf("63 nodes of which 3 are calls have %d type entries and %d call entries, want 64 and 4", len(typing.types), len(typing.calls))
 	}
 	if len(typing.names) != 1 || len(typing.members) != 1 {
 		t.Errorf("a module with no names or members has %d and %d entries, want none (slot 0 only)", len(typing.names), len(typing.members))
@@ -59,14 +64,13 @@ func TestTypingSizesASparseTableByTheNodesOfItsKind(t *testing.T) {
 }
 
 func TestTypingKeepsEachKindOfEntryApart(t *testing.T) {
-	arena := NewArena(0)
-	name, member := arena.NewNameExpr(), arena.NewMemberExpr()
-	letStmt, forStmt, param := arena.NewLetStmt(), arena.NewForStmt(), arena.NewParam()
-	brk, cont := arena.NewBreakStmt(), arena.NewContinueStmt()
-	when, pattern := arena.NewWhenStmt(), arena.NewPattern()
-	lit := arena.NewStructLitExpr()
-	var typing Typing
-	typing.Reset(arena.Slots())
+	tree := NewTree(0, "", 0)
+	name, member := tree.NewNameExpr(0), tree.NewMemberExpr(0)
+	letStmt, forStmt := tree.NewLetStmt(0), tree.NewForStmt(0)
+	brk, cont := tree.NewBreakStmt(0), tree.NewContinueStmt(0)
+	when, pattern := tree.NewWhenStmt(0), tree.NewPattern(0)
+	lit := tree.NewStructLitExpr(0)
+	typing := sized(tree)
 
 	fn := &FuncDecl{Name: "f"}
 	local, counter := NewLocal("x", BoolTy, false), NewLocal("i", BoolTy, false)
@@ -88,8 +92,8 @@ func TestTypingKeepsEachKindOfEntryApart(t *testing.T) {
 	if got := typing.Member(member); got.Kind != MemberEnumCase || got.CaseIndex != 4 {
 		t.Errorf("the member is %+v", got)
 	}
-	if fn.LocalAt(typing.LetLocal(letStmt)) != local || fn.LocalAt(typing.ForLocal(forStmt)) != counter || fn.LocalAt(typing.ParamLocal(param)) != nil {
-		t.Error("a let, a for and a parameter that declares nothing do not read back their locals")
+	if fn.LocalAt(typing.LetLocal(letStmt)) != local || fn.LocalAt(typing.ForLocal(forStmt)) != counter {
+		t.Error("a let and a for do not read back their locals")
 	}
 	if typing.BreakTarget(brk) != 7 || typing.ContinueTarget(cont) != 9 {
 		t.Errorf("the jumps go to %d and %d, want 7 and 9", typing.BreakTarget(brk), typing.ContinueTarget(cont))
@@ -105,8 +109,7 @@ func TestANameStandsForALocalAFieldOrAConstantByHandle(t *testing.T) {
 	first, second := NewLocal("first", BoolTy, false), NewLocal("second", StringTy, false)
 	method.AddLocal(first)
 	method.AddLocal(second)
-	var typing Typing
-	typing.Reset(Slots{})
+	typing := sized(NewTree(0, "", 0))
 
 	if first.ID() != 1 || second.ID() != 2 {
 		t.Errorf("the locals have the handles %d and %d, want 1 and 2", first.ID(), second.ID())
@@ -143,50 +146,49 @@ func TestANameKeepsItsKindAndIndexInOneWord(t *testing.T) {
 }
 
 func TestTheReceiverOfACallIsTheObjectOfTheMemberItNames(t *testing.T) {
-	arena := NewArena(0)
-	member, object := arena.NewMemberExpr(), arena.NewNameExpr()
-	member.Obj = object
-	method := arena.NewCallExpr()
-	method.Callee = member
-	plain := arena.NewCallExpr()
-	plain.Callee = arena.NewNameExpr()
+	tree := NewTree(0, "", 0)
+	member, object := tree.NewMemberExpr(0), tree.NewNameExpr(0)
+	member.SetObj(object.Expr())
+	method := tree.NewCallExpr(0)
+	method.SetCallee(member.Expr())
+	plain := tree.NewCallExpr(0)
+	plain.SetCallee(tree.NewNameExpr(0).Expr())
 	for _, kind := range []CallKind{CallMethod, CallBound, CallCopy} {
-		if got := method.ReceiverFor(kind); got != Expr(object) {
+		if got := method.ReceiverFor(kind); got != object.Expr() {
 			t.Errorf("a call of kind %d has the receiver %v, want the member's object", kind, got)
 		}
 	}
-	if method.ReceiverFor(CallFunction) != nil || plain.ReceiverFor(CallMethod) != nil || (&CallExpr{}).ReceiverFor(CallMethod) != nil {
+	if !method.ReceiverFor(CallFunction).IsNil() || !plain.ReceiverFor(CallMethod).IsNil() || !tree.NewCallExpr(0).ReceiverFor(CallMethod).IsNil() {
 		t.Error("a function, a method named by a bare name, or a call with no callee has a receiver")
 	}
 }
 
 func TestTypingMarksConsumedAcrossWordBoundaries(t *testing.T) {
-	arena := NewArena(0)
-	var lits []*IntLit
+	tree := NewTree(0, "", 0)
+	var lits []IntLit
 	for range 130 {
-		lits = append(lits, arena.NewIntLit())
+		lits = append(lits, tree.NewIntLit(0))
 	}
-	var typing Typing
-	typing.Reset(arena.Slots())
+	typing := sized(tree)
 	for i, lit := range lits {
 		if i%3 == 0 {
-			typing.MarkConsumed(lit)
+			typing.MarkConsumed(lit.Expr())
 		}
 	}
 	for i, lit := range lits {
-		if typing.Consumed(lit) != (i%3 == 0) {
-			t.Errorf("expression %d (slot %d) is consumed: %v", i, lit.Ord, typing.Consumed(lit))
+		if typing.Consumed(lit.Expr()) != (i%3 == 0) {
+			t.Errorf("expression %d (node %d) is consumed: %v", i, lit.ID, typing.Consumed(lit.Expr()))
 		}
 	}
 }
 
 func TestTypingGivesTheOperandOfABinaryOperator(t *testing.T) {
-	arena := NewArena(0)
-	plain, unsigned, text := arena.NewBinaryExpr(), arena.NewBinaryExpr(), arena.NewBinaryExpr()
-	var typing Typing
-	typing.Reset(arena.Slots())
+	tree := NewTree(0, "", 0)
+	plain, unsigned, text := tree.NewBinaryExpr(0), tree.NewBinaryExpr(0), tree.NewBinaryExpr(0)
+	typing := sized(tree)
 	typing.SetOperand(unsigned, OperandOf(&IntTy{Alias: "u8", Max: U64Max}))
 	typing.SetOperand(text, OperandOf(StringTy))
+	typing.SetOperand(plain, OperandOf(BoolTy))
 	if typing.Operand(plain) != OperandWord || typing.Operand(unsigned) != OperandUnsigned || typing.Operand(text) != OperandString {
 		t.Errorf("the operands are %d, %d and %d", typing.Operand(plain), typing.Operand(unsigned), typing.Operand(text))
 	}
@@ -195,61 +197,52 @@ func TestTypingGivesTheOperandOfABinaryOperator(t *testing.T) {
 	}
 }
 
-func TestTypingGrowsForNodesMadeAfterItWasSized(t *testing.T) {
-	arena := NewArena(0)
-	early := arena.NewNameExpr()
-	var typing Typing
-	typing.Reset(arena.Slots())
-	typing.SetType(early, BoolTy)
-	typing.SetName(early, typing.ConstName(&ConstDecl{}))
-	typing.MarkConsumed(early)
-
-	late := arena.NewNameExpr()
-	requireInternalError(t, "a read of an expression made after the tables were sized", func() { typing.Type(late) })
-	typing.Sync(arena.Slots())
-	typing.SetType(late, StringTy)
-	typing.SetName(late, FieldName(&FieldInfo{}))
-	if typing.Type(late) != Ty(StringTy) || typing.Name(late).Kind() != NameSelfField {
-		t.Error("the node made late does not read back")
-	}
-	if typing.Type(early) != Ty(BoolTy) || typing.Name(early).Kind() != NameConst || !typing.Consumed(early) || typing.Consumed(late) {
-		t.Error("growing the tables lost what the earlier node had, or marked the new one consumed")
+func TestTypingNumbersAMemberThatBecameANameAsAName(t *testing.T) {
+	tree := NewTree(0, "geometry.area", 0)
+	head := tree.NewNameExpr(0)
+	head.SetNameRef(TextRef(0))
+	member := tree.NewMemberExpr(0)
+	member.SetObj(head.Expr())
+	member.SetNameRef(TextRef(9))
+	other := tree.NewNameExpr(0)
+	member.BecomeName(head)
+	typing := sized(tree)
+	typing.SetName(NameExpr{member.Ref}, LocalName(func() *Local {
+		fn := &FuncDecl{}
+		l := NewLocal("area", BoolTy, false)
+		fn.AddLocal(l)
+		return l
+	}()))
+	typing.SetName(other, FieldName(&FieldInfo{}))
+	if typing.Name(NameExpr{member.Ref}).Kind() != NameLocal || typing.Name(other).Kind() != NameSelfField || len(typing.members) != 1 {
+		t.Errorf("a rewritten name has no entry of its own: %d member entries", len(typing.members)-1)
 	}
 }
 
 func TestReadingAnEntryThatDoesNotExistIsAnInternalError(t *testing.T) {
-	arena := NewArena(0)
-	typed := arena.NewIntLit()
-	var typing Typing
-	typing.Reset(arena.Slots())
-	typing.SetType(typed, BoolTy)
+	tree := NewTree(0, "", 0)
+	typed := tree.NewIntLit(0)
+	typing := sized(tree)
+	typing.SetType(typed.Expr(), BoolTy)
 
-	notMadeByAnArena := &NameExpr{}
-	requireInternalError(t, "a read of a name that no arena made, which has slot 0", func() { typing.Name(notMadeByAnArena) })
-	requireInternalError(t, "a read of the type of an expression that no arena made", func() { typing.Type(notMadeByAnArena) })
-	requireInternalError(t, "a write to an expression that no arena made", func() { typing.SetType(notMadeByAnArena, BoolTy) })
+	call := tree.NewCallExpr(0)
+	requireInternalError(t, "a read of a call that was made after the tables were sized, which has no slot", func() { typing.Call(call) })
+	requireInternalError(t, "a read of a name that is not in the numbering", func() { typing.Name(NameExpr{Ref{tree, 99}}) })
+	requireInternalError(t, "a read of the type of a node beyond the table", func() { typing.Type(Expr{Ref{tree, 99}}) })
+	requireInternalError(t, "a write to a node beyond the table", func() { typing.SetType(Expr{Ref{tree, 99}}, BoolTy) })
+	requireInternalError(t, "a read of the consumed flag of a node beyond the table", func() { typing.Consumed(Expr{Ref{tree, 99}}) })
 
-	other := NewArena(1)
-	other.NewIntLit()
-	late := other.NewIntLit()
-	requireInternalError(t, "a read of a slot beyond the table", func() { typing.Type(late) })
-
-	untyped := NewArena(0).NewIntLit()
-	var empty Typing
-	empty.Reset(Slots{Expr: 1})
-	requireInternalError(t, "a read of the type of an expression the checker never typed", func() { empty.Type(untyped) })
+	untyped := tree.NewIntLit(0)
+	requireInternalError(t, "a read of the type of an expression the checker never typed", func() { sized(tree).Type(untyped.Expr()) })
 }
 
 func TestTypingsFindTheTypingOfANodesModule(t *testing.T) {
-	first, second := NewArena(0), NewArena(1)
-	a, b := first.NewIntLit(), second.NewIntLit()
-	a.Pos.Mod, b.Pos.Mod = 0, 1
-	typings := Typings{new(Typing), new(Typing)}
-	typings[0].Reset(first.Slots())
-	typings[1].Reset(second.Slots())
-	typings.For(a).SetType(a, BoolTy)
-	typings.For(b).SetType(b, StringTy)
-	if typings.For(a).Type(a) != Ty(BoolTy) || typings.For(b).Type(b) != Ty(StringTy) {
+	first, second := NewTree(0, "", 0), NewTree(1, "", 0)
+	a, b := first.NewIntLit(0), second.NewIntLit(0)
+	typings := Typings{sized(first), sized(second)}
+	typings.For(a.Position()).SetType(a.Expr(), BoolTy)
+	typings.For(b.Position()).SetType(b.Expr(), StringTy)
+	if typings.Type(a.Expr()) != Ty(BoolTy) || typings.Type(b.Expr()) != Ty(StringTy) {
 		t.Error("a node does not find its own module's entry")
 	}
 	requireInternalError(t, "a typing of the standard library, which has none", func() { typings.Of(StdlibID) })

@@ -11,31 +11,31 @@ import (
 func (l *Lowerer) read(e ast.Expr) V {
 	v := l.expr(e)
 	for t := l.binding.Apply(l.ty(e)); ast.IsFrozen(t); {
-		v, t = l.contentOnce(e, v, t)
+		v, t = l.contentOnce(e.Position(), v, t)
 	}
 	return v
 }
 
 // contentOnce is what one frozen value holds, lent for as long as the frozen value is held, and the type of it.
-func (l *Lowerer) contentOnce(site ast.Node, v V, frozen ast.Ty) (V, ast.Ty) {
+func (l *Lowerer) contentOnce(site ast.Pos, v V, frozen ast.Ty) (V, ast.Ty) {
 	held := frozen.(*ast.BuiltinTy).Held()
 	return l.entry(site, RtFrozenGet, kindOf(held), v), held
 }
 
 // when schedules the body of a behaviour, which becomes a function of its own. The cowns it names are read, and what it
 // captures moves in: the ownership pass marked each capture consumed, so reading it takes it out of its owner.
-func (l *Lowerer) VisitWhenStmt(s *ast.WhenStmt) {
-	info := l.typings.Of(s.Mod).When(s)
+func (l *Lowerer) VisitWhenStmt(s ast.WhenStmt) {
+	info := l.typings.Of(s.T.Module).When(s)
 	behaviour := l.behaviour(info)
-	cowns := make([]V, len(s.Cowns))
-	for i, c := range s.Cowns {
-		cowns[i] = l.expr(c)
+	cowns := make([]V, s.Cowns().Len())
+	for i, c := range s.Cowns().All() {
+		cowns[i] = l.expr(c.Expr())
 	}
 	captures := make([]V, len(info.Captures))
 	for i, cp := range info.Captures {
-		captures[i] = l.expr(cp.Ref)
+		captures[i] = l.expr(cp.Ref.Expr())
 	}
-	l.refuse(s, diag.ErrInterpreterOnly, interpreterOnlyMessage)
+	l.refuse(s.Position(), diag.ErrInterpreterOnly, interpreterOnlyMessage)
 	l.emit(l.b.When(behaviour, cowns, captures))
 }
 
@@ -52,20 +52,20 @@ func (l *Lowerer) behaviour(s ast.WhenInfo) int {
 func (l *Lowerer) intrinsicSharing(c call, args []V) V {
 	switch c.Target.Intrinsic {
 	case ast.IntrinsicFreeze:
-		return l.entry(c.CallExpr, RtFrozenFreeze, KindManaged, args[0])
+		return l.entry(c.CallExpr.Position(), RtFrozenFreeze, KindManaged, args[0])
 	case ast.IntrinsicShare:
-		return l.entry(c.CallExpr, RtShare, KindManaged, args[0])
+		return l.entry(c.CallExpr.Position(), RtShare, KindManaged, args[0])
 	case ast.IntrinsicThaw:
-		held := l.binding.Apply(l.ty(c.CallExpr))
-		inner := l.entry(c.CallExpr, RtFrozenGet, kindOf(held), args[0])
-		return l.copyValue(c.CallExpr, inner, held)
+		held := l.binding.Apply(l.ty(c.CallExpr.Expr()))
+		inner := l.entry(c.CallExpr.Position(), RtFrozenGet, kindOf(held), args[0])
+		return l.copyValue(c.CallExpr.Position(), inner, held)
 	case ast.IntrinsicCown:
 		d := l.reg(KindManaged)
 		var routine *ast.FuncDecl
 		if c.Drop != nil {
-			routine = l.callee(c.Drop)
+			routine = l.callee(ast.CallUse{Info: c.Drop, Site: c.Position()})
 		}
-		l.emitEntry(c.CallExpr, d, RtCownNew, args, routine)
+		l.emitEntry(c.CallExpr.Position(), d, RtCownNew, args, routine)
 		return d
 	}
 	panic(diag.Internal("lower: %d is not an intrinsic that shares", int(c.Target.Intrinsic)))

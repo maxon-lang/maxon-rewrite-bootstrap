@@ -19,14 +19,17 @@ type pgen struct {
 	// lists are the element types of the lists the parser builds, in the order they are first used; each has a
 	// stack in listStacks.
 	lists []string
+	// idStacks are the stacks of the numbers that a list of records or of texts holds, one for each list of the grammar:
+	// a node's lists are parsed one after the other, so each takes the numbers above its own mark.
+	idStacks []string
 }
 
 // target says where the values a sequence parses go.
 type target struct {
 	node   *node
 	helper *rule
-	// pass names the variable that receives the value of a pass-through alternative.
-	pass string
+	// pass names the variable that receives the value of a pass-through alternative, and passSet the set it is a view of.
+	pass, passSet string
 }
 
 func emitParser(m *model, a *analysis) string {
@@ -62,11 +65,18 @@ func emitParser(m *model, a *analysis) string {
 	for _, name := range g.setList {
 		w.p("var %s = [numTokens]bool{%s}\n", name, g.sets[name])
 	}
-	w.p("\n// listStacks has a stack for each type of element that a list in the grammar holds.\ntype listStacks struct {\n")
+	w.p("\n// listStacks has a stack for each type of element that a list of structs in the grammar holds, and one for the\n")
+	w.p("// numbers of the records and texts that each list of the tree holds.\ntype listStacks struct {\n")
+	for _, name := range g.idStacks {
+		w.p("\t%s listStack[uint32]\n", name)
+	}
 	for _, elem := range g.lists {
 		w.p("\t%s listStack[%s]\n", listField(elem), qualify(elem))
 	}
 	w.p("}\n\nfunc (s *listStacks) reset() {\n")
+	for _, name := range g.idStacks {
+		w.p("\ts.%s.reset()\n", name)
+	}
 	for _, elem := range g.lists {
 		w.p("\ts.%s.reset()\n", listField(elem))
 	}
@@ -312,7 +322,7 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 		case e.label != "":
 			g.assignValue(tg, e, call)
 		case tg.pass != "":
-			g.p("%s = %s\n", tg.pass, call)
+			g.p("%s = %s\n", tg.pass, g.convert(call, g.m.ruleByName[e.text], tg.passSet))
 		default:
 			g.p("%s\n", call)
 		}
@@ -370,50 +380,156 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 	}
 }
 
+// fieldPlan is where the record field f of n is kept.
+func (g *pgen) fieldPlan(n *node, f *field) *fieldPlan {
+	for _, fp := range g.m.planOf(n).fields {
+		if fp.f == f {
+			return fp
+		}
+	}
+	panic(fmt.Sprintf("grammargen: %s has no plan for field %s", n.name, f.name))
+}
+
+// setField is the statement that stores expr, of the field's Go type, in a field of a record or a struct.
+func (g *pgen) setField(tg target, f *field, expr string) string {
+	if !tg.node.record {
+		return fmt.Sprintf("n.%s = %s", f.name, expr)
+	}
+	switch fp := g.fieldPlan(tg.node, f); fp.st {
+	case stText, stLabel, stWord:
+		return fmt.Sprintf("n.Set%sRef(%s)", f.name, expr)
+	}
+	return fmt.Sprintf("n.Set%s(%s)", f.name, expr)
+}
+
+// elemName is the node or set a type names, without its list brackets or pointer: "*Arg", "[]Expr" and "Expr" name Arg,
+// Expr and Expr.
+func elemName(typ string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(typ, "[]"), "*")
+}
+
+// convert is the view of the rule's node as the set dst, when the node is a record that is a member of it and the set is
+// what a field, a list or a variable holds.
+func (g *pgen) convert(value string, src *rule, dst string) string {
+	if src == nil || g.m.kind[src] != rkNode {
+		return value
+	}
+	n := g.m.nodeOfRule[src]
+	if n.record && n.set != nil && n.set.name == dst && n.name != dst {
+		return value + "." + dst + "()"
+	}
+	return value
+}
+
+// pushed is the element a list of the destination holds, for the value of a rule: a record is its number.
+func (g *pgen) pushed(typ, value string) string {
+	if _, _, ok := g.m.refersToRecord(typ); ok {
+		return "uint32(" + value + ".ID)"
+	}
+	return value
+}
+
 func (g *pgen) assignToken(tg target, e *elem, call string) {
 	if tg.helper != nil {
 		g.checkHelperLabel(tg.helper, e)
-		g.store(tg.helper.returns.name, tg.helper.returns.typ, e.appendTo, "p.text("+call+")")
+		g.storeText(tg.helper.returns.name, tg.helper.returns.typ, e.appendTo, "p.text("+call+")")
 		return
 	}
 	if tg.node == nil {
 		g.fail(e.line, "label '%s' has no node to go in", e.label)
 	}
 	f := g.m.fieldOf(tg.node, e.label, e.line)
-	dst := "n." + f.name
-	switch strings.TrimPrefix(f.typ, "[]") {
-	case "bool":
+	if !tg.node.record {
+		dst := "n." + f.name
+		switch strings.TrimPrefix(f.typ, "[]") {
+		case "bool":
+			if e.kind != ekLiteral || e.appendTo {
+				g.fail(e.line, "a bool field takes a single literal")
+			}
+			g.p("%s\nn.%s = true\n", call, f.name)
+		case "string":
+			g.storeText(dst, f.typ, e.appendTo, "p.text("+call+")")
+		default:
+			g.storeText(dst, f.typ, e.appendTo, fmt.Sprintf("p.%s%s(%s)", lowerFirst(tg.node.name), f.name, call))
+		}
+		return
+	}
+	fp := g.fieldPlan(tg.node, f)
+	conv := fmt.Sprintf("p.%s%s(%s)", lowerFirst(tg.node.name), f.name, call)
+	switch fp.st {
+	case stBool:
 		if e.kind != ekLiteral || e.appendTo {
 			g.fail(e.line, "a bool field takes a single literal")
 		}
-		g.p("%s\n%s = true\n", call, dst)
-	case "string":
-		g.store(dst, f.typ, e.appendTo, "p.text("+call+")")
+		g.p("%s\nn.Set%s()\n", call, f.name)
+	case stEnum:
+		g.p("%s\n", g.setField(tg, f, "p.text("+call+")"))
+	case stText, stLabel:
+		g.p("%s\n", g.setField(tg, f, "p.textRef("+call+")"))
+	case stTexts:
+		if !e.appendTo {
+			g.fail(e.line, "a list of texts takes +=")
+		}
+		g.p("%s.push(p.textRef(%s))\n", g.stackFor(tg, f.name, f.typ), call)
+	case stI128, stWord:
+		g.p("%s\n", g.setField(tg, f, conv))
 	default:
-		g.store(dst, f.typ, e.appendTo, fmt.Sprintf("p.%s%s(%s)", lowerFirst(tg.node.name), f.name, call))
+		g.fail(e.line, "field %s of %s holds nodes, and a token is not one", f.name, tg.node.name)
 	}
 }
 
-func (g *pgen) assignValue(tg target, e *elem, value string) {
-	if tg.helper != nil {
-		g.checkHelperLabel(tg.helper, e)
-		g.store(tg.helper.returns.name, tg.helper.returns.typ, e.appendTo, value)
-		return
-	}
-	if tg.node == nil {
-		g.fail(e.line, "label '%s' has no node to go in", e.label)
-	}
-	f := g.m.fieldOf(tg.node, e.label, e.line)
-	g.store("n."+f.name, f.typ, e.appendTo, value)
-}
-
-// store assigns value to dst, a field or helper variable of the given type, or pushes it on the stack of its list.
-func (g *pgen) store(dst, typ string, appendTo bool, value string) {
+// storeText assigns a token's text to a helper's variable or a struct's field, or pushes it on the stack of its list.
+func (g *pgen) storeText(dst, typ string, appendTo bool, value string) {
 	if appendTo {
 		g.p("p.lists.%s.push(%s)\n", g.listOf(typ), value)
 	} else {
 		g.p("%s = %s\n", dst, value)
 	}
+}
+
+func (g *pgen) assignValue(tg target, e *elem, value string) {
+	src := g.m.ruleByName[e.text]
+	if tg.helper != nil {
+		g.checkHelperLabel(tg.helper, e)
+		typ := tg.helper.returns.typ
+		value = g.convert(value, src, elemName(typ))
+		if e.appendTo {
+			g.p("%s.push(%s)\n", g.stackFor(tg, "", typ), g.pushed(typ, value))
+		} else {
+			g.p("%s = %s\n", tg.helper.returns.name, value)
+		}
+		return
+	}
+	if tg.node == nil {
+		g.fail(e.line, "label '%s' has no node to go in", e.label)
+	}
+	f := g.m.fieldOf(tg.node, e.label, e.line)
+	value = g.convert(value, src, elemName(f.typ))
+	if e.appendTo {
+		g.p("%s.push(%s)\n", g.stackFor(tg, f.name, f.typ), g.pushed(f.typ, value))
+		return
+	}
+	g.p("%s\n", g.setField(tg, f, value))
+}
+
+// stackFor is the stack, as Go code, that a list of the given type is built on: the one of its own for a list of records
+// or texts in the tree, which holds their numbers, and for a list of structs the one for its element type. A field is
+// named by its node, and a helper's list by the helper.
+func (g *pgen) stackFor(tg target, field, typ string) string {
+	_, _, records := g.m.refersToRecord(typ)
+	if !records && !(typ == "[]string" && tg.node != nil && tg.node.record) {
+		return "p.lists." + g.listOf(typ)
+	}
+	name := "ids_"
+	if tg.helper != nil {
+		name += tg.helper.name
+	} else {
+		name += tg.node.name + "_" + field
+	}
+	if !slices.Contains(g.idStacks, name) {
+		g.idStacks = append(g.idStacks, name)
+	}
+	return "p.lists." + name
 }
 
 // listOf names the stack for lists of type typ, which is a slice type.
@@ -433,9 +549,13 @@ func listField(elem string) string {
 }
 
 // A list is built on its stack, not by append: the elements are pushed as they are parsed, and when the list ends
-// they are copied out once into a slice of exactly their count. Parsing a list inside one pushes and pops above it.
+// they are copied out once, into a slice of exactly their count, or for the lists of the tree into the tree's list
+// array. Parsing a list inside one pushes and pops above it.
 type pendingList struct {
-	dst, typ string
+	dst, typ, stack string
+	// set stores the finished list, and take makes it from the stack above the mark.
+	set  func(expr string) string
+	take func(mark string) string
 	// mixed is a destination that something other than the list assigns too, so the list sets it only if it has
 	// elements.
 	mixed bool
@@ -450,41 +570,62 @@ func (g *pgen) pendingLists(tg target, alts []*alt) []pendingList {
 		if e.label == "" {
 			return
 		}
-		var dst, typ string
+		var l pendingList
 		if tg.helper != nil {
-			dst, typ = tg.helper.returns.name, tg.helper.returns.typ
+			name := tg.helper.returns.name
+			l = pendingList{dst: name, typ: tg.helper.returns.typ, set: func(x string) string { return name + " = " + x }}
+			if e.appendTo {
+				l.stack = g.stackFor(tg, "", l.typ)
+			}
 		} else {
 			f := g.m.fieldOf(tg.node, e.label, e.line)
-			dst, typ = "n."+f.name, f.typ
+			l = pendingList{dst: "n." + f.name, typ: f.typ, set: func(x string) string { return g.setField(tg, f, x) }}
+			if e.appendTo {
+				l.stack = g.stackFor(tg, f.name, f.typ)
+			}
 		}
 		if !e.appendTo {
-			assigned = append(assigned, dst)
+			assigned = append(assigned, l.dst)
 			return
 		}
-		for _, l := range lists {
-			if l.dst == dst {
+		for _, have := range lists {
+			if have.dst == l.dst {
 				return
 			}
 		}
-		lists = append(lists, pendingList{dst: dst, typ: typ})
+		l.take = g.takeList(l)
+		lists = append(lists, l)
 	})
 	for i := range lists {
 		lists[i].mixed = slices.Contains(assigned, lists[i].dst)
-		g.p("%s := p.lists.%s.mark()\n", markName(lists[i].dst), g.listOf(lists[i].typ))
+		g.p("%s := %s.mark()\n", markName(lists[i].dst), lists[i].stack)
 	}
 	return lists
 }
 
+// takeList is the code that makes the list from what its stack holds above a mark.
+func (g *pgen) takeList(l pendingList) func(mark string) string {
+	_, _, records := g.m.refersToRecord(l.typ)
+	switch {
+	case records:
+		elem := qualify(g.m.goType(elemName(l.typ)))
+		return func(mark string) string { return fmt.Sprintf("takeList[%s](p, &%s, %s)", elem, l.stack, mark) }
+	case strings.HasPrefix(l.stack, "p.lists.ids_"):
+		return func(mark string) string { return fmt.Sprintf("takeTexts(p, &%s, %s)", l.stack, mark) }
+	}
+	return func(mark string) string { return fmt.Sprintf("%s.take(%s)", l.stack, mark) }
+}
+
 func markName(dst string) string { return "mark_" + strings.ReplaceAll(dst, ".", "_") }
 
-// finishLists copies each pending list out of its stack into its destination.
+// finishLists stores each pending list from its stack into its destination.
 func (g *pgen) finishLists(lists []pendingList) {
 	for _, l := range lists {
-		stack, mark := "p.lists."+g.listOf(l.typ), markName(l.dst)
+		stack, mark := l.stack, markName(l.dst)
 		if l.mixed {
-			g.p("if %s.pushedSince(%s) {\n%s = %s.take(%s)\n}\n", stack, mark, l.dst, stack, mark)
+			g.p("if %s.pushedSince(%s) {\n%s\n}\n", stack, mark, l.set(l.take(mark)))
 		} else {
-			g.p("%s = %s.take(%s)\n", l.dst, stack, mark)
+			g.p("%s\n", l.set(l.take(mark)))
 		}
 	}
 }
@@ -502,17 +643,17 @@ func (g *pgen) nodeRule(r *rule) {
 	c := cont{rule: r}
 	if lead := g.after[r]; lead != nil {
 		first := r.alts[0].elems[0]
-		g.p("func (p *Parser) %sAfter(t *Token, first %s) *ast.%s {\n", parseFunc(r), qualify(g.m.valueType(lead)), n.name)
-		g.p("n := p.arena.New%s()\nplace(p, n, t)\n", n.name)
+		g.p("func (p *Parser) %sAfter(t *Token, first %s) %s {\n", parseFunc(r), qualify(g.m.goType(g.m.valueType(lead))), g.nodeType(n))
+		g.p("n := p.tree.New%s(t.Start)\n", n.name)
 		lists := g.pendingLists(g.nodeTarget(n), r.alts)
 		g.assignValue(g.nodeTarget(n), first, "first")
 		g.seq(r.alts[0].elems[1:], c, g.nodeTarget(n))
 		g.finishLists(lists)
 		g.p("return n\n}\n\n")
-		g.p("func (p *Parser) %s() *ast.%s {\nt := p.cur()\nreturn p.%sAfter(t, %s)\n}\n\n", parseFunc(r), n.name, parseFunc(r), g.call(lead))
+		g.p("func (p *Parser) %s() %s {\nt := p.cur()\nreturn p.%sAfter(t, %s)\n}\n\n", parseFunc(r), g.nodeType(n), parseFunc(r), g.call(lead))
 		return
 	}
-	g.p("func (p *Parser) %s() *ast.%s {\nt := p.cur()\nn := p.arena.New%s()\nplace(p, n, t)\n", parseFunc(r), n.name, n.name)
+	g.p("func (p *Parser) %s() %s {\nt := p.cur()\nn := p.tree.New%s(t.Start)\n", parseFunc(r), g.nodeType(n), n.name)
 	lists := g.pendingLists(g.nodeTarget(n), r.alts)
 	g.alternatives(r.alts, c, r.desc, r.line, g.nodeTarget(n))
 	g.finishLists(lists)
@@ -533,7 +674,8 @@ func (g *pgen) alternatives(alts []*alt, c cont, desc string, line int, tg targe
 
 func (g *pgen) helperRule(r *rule) {
 	v := r.returns
-	g.p("func (p *Parser) %s() %s {\nvar %s %s\n", parseFunc(r), qualify(v.typ), v.name, qualify(v.typ))
+	typ := qualify(g.m.goType(v.typ))
+	g.p("func (p *Parser) %s() %s {\nvar %s %s\n", parseFunc(r), typ, v.name, typ)
 	lists := g.pendingLists(target{helper: r}, r.alts)
 	g.alternatives(r.alts, cont{rule: r}, r.desc, r.line, target{helper: r})
 	g.finishLists(lists)
@@ -636,21 +778,21 @@ func (g *pgen) setRule(r *rule) {
 			}
 			g.choice(rest, r.line, "", func(k int) {
 				ref, _ := g.m.passThrough(r.alts[o.group.members[k]])
-				g.p("return p.%sAfter(t, first)\n", parseFunc(ref))
+				g.p("return %s\n", g.convert(fmt.Sprintf("p.%sAfter(t, first)", parseFunc(ref)), ref, s.name))
 			})
 		case o.alt.label != "":
 			n := g.m.nodeByName[o.alt.label]
-			g.p("n := p.arena.New%s()\nplace(p, n, t)\n", n.name)
+			g.p("n := p.tree.New%s(t.Start)\n", n.name)
 			lists := g.pendingLists(g.nodeTarget(n), []*alt{o.alt})
 			g.seq(o.alt.elems, c, g.nodeTarget(n))
 			g.finishLists(lists)
-			g.p("return n\n")
+			g.p("return %s\n", g.asSet(n, "n"))
 		case len(o.alt.elems) == 1:
 			ref, _ := g.m.passThrough(o.alt)
-			g.p("return %s\n", g.call(ref))
+			g.p("return %s\n", g.convert(g.call(ref), ref, s.name))
 		default:
 			g.p("var v ast.%s\n", s.name)
-			g.seq(o.alt.elems, c, target{pass: "v"})
+			g.seq(o.alt.elems, c, target{pass: "v", passSet: s.name})
 			g.p("return v\n")
 		}
 	})
@@ -706,7 +848,7 @@ func (g *pgen) operatorRule(r *rule) {
 		switch {
 		case a.label != "":
 			n := g.m.nodeByName[a.label]
-			g.p("n := p.arena.New%s()\nplace(p, n, t)\n", n.name)
+			g.p("n := p.tree.New%s(t.Start)\n", n.name)
 			lists := g.pendingLists(g.nodeTarget(n), []*alt{a})
 			last := len(a.elems) - 1
 			if prec[a] > 0 {
@@ -716,12 +858,12 @@ func (g *pgen) operatorRule(r *rule) {
 				g.seq(a.elems, c, g.nodeTarget(n))
 			}
 			g.finishLists(lists)
-			g.p("left = n\n")
+			g.p("left = %s\n", g.asSet(n, "n"))
 		case len(a.elems) == 1:
 			ref, _ := g.m.passThrough(a)
-			g.p("left = %s\n", g.call(ref))
+			g.p("left = %s\n", g.convert(g.call(ref), ref, s.name))
 		default:
-			g.seq(a.elems, c, target{pass: "left"})
+			g.seq(a.elems, c, target{pass: "left", passSet: s.name})
 		}
 	})
 
@@ -744,7 +886,7 @@ func (g *pgen) operatorRule(r *rule) {
 		n := g.m.nodeByName[a.label]
 		tg := g.nodeTarget(n)
 		g.p("case %s:\nif %d < minPrec {\nreturn left\n}\n", strings.Join(terms, ", "), prec[a])
-		g.p("n := p.arena.New%s()\nplace(p, n, p.cur())\n", n.name)
+		g.p("n := p.tree.New%s(p.cur().Start)\n", n.name)
 		lists := g.pendingLists(tg, []*alt{a})
 		g.assignValue(tg, a.elems[0], "left")
 		last := len(a.elems) - 1
@@ -759,7 +901,23 @@ func (g *pgen) operatorRule(r *rule) {
 			g.seq(a.elems[1:], c, tg)
 		}
 		g.finishLists(lists)
-		g.p("left = n\n")
+		g.p("left = %s\n", g.asSet(n, "n"))
 	}
 	g.p("default:\nreturn left\n}\n}\n}\n\n")
+}
+
+// nodeType is the Go type that the function parsing a node returns: the view of a record, or a pointer to a struct.
+func (g *pgen) nodeType(n *node) string {
+	if n.record {
+		return "ast." + n.name
+	}
+	return "*ast." + n.name
+}
+
+// asSet is the value of the node n, which is in a set, as that set's type: a record is wrapped in the set's view.
+func (g *pgen) asSet(n *node, value string) string {
+	if n.record && n.set != nil {
+		return value + "." + n.set.name + "()"
+	}
+	return value
 }

@@ -53,7 +53,13 @@ type Checker struct {
 	scopes     []map[string]*ast.Local
 	blocks     []checkerBlock
 	nextSlot   int
-	uses       *[]*ast.CallExpr
+	uses       *[]ast.CallUse
+	// omitted is the argument 'dropWith:' of a cown call, which names a destructor and is no value, so the ordering of that
+	// call's arguments leaves it out.
+	omitted struct {
+		call ast.CallExpr
+		arg  ast.Arg
+	}
 	// dead is whether the statement being checked comes after its block's live statements.
 	dead bool
 	// expect is the type the context of the expression being checked needs, or nil where it needs none in particular:
@@ -79,10 +85,6 @@ type Checker struct {
 func NewChecker(p *ast.Project, m *ast.Module, resolution *ast.Resolution, typing *ast.Typing, errs *[]*diag.CompileError) *Checker {
 	return &Checker{project: p, module: m, resolution: resolution, typing: typing, errs: errs}
 }
-
-// made gives the typing room for the nodes that the checker has just made, which a phase does while it checks the bodies of
-// the module, one worker at a time.
-func (c *Checker) made() { c.typing.Sync(c.module.Nodes.Slots()) }
 
 // ty is the type the checker gave an expression.
 func (c *Checker) ty(e ast.Expr) ast.Ty { return c.typing.Type(e) }
@@ -122,9 +124,9 @@ func (c *Checker) Declare(d ast.Decl) []*ast.FuncDecl {
 // DeclareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
 func (c *Checker) DeclareAlias(a *ast.AliasDecl) {
 	c.guard(func() {
-		if len(a.Instance.TypeArgs) == 0 {
+		if a.Instance.TypeArgs().Len() == 0 {
 			panic(a.Instance.Error(diag.ErrAliasTarget, fmt.Sprintf("a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '%s' itself where '%s' is used",
-				a.Instance.Name, a.Name)))
+				a.Instance.Name(), a.Name)))
 		}
 		a.Ty = c.resolve(a.Instance, nil)
 	})
@@ -138,13 +140,13 @@ func (c *Checker) CheckBody(d ast.Decl) {
 		c.checkFieldDefaults(t)
 		c.guard(func() { c.checkCycle(t.Ty.(ast.NominalTy)) })
 		c.guard(func() { c.checkCownCycle(t.Ty.(ast.NominalTy)) })
-		c.guard(func() { c.checkConformance(t, t.Ty.(ast.NominalTy)) })
+		c.guard(func() { c.checkConformance(t.Position(), t.Ty.(ast.NominalTy)) })
 	case *ast.UnionDecl:
 		c.guard(func() { c.checkCycle(t.Ty.(ast.NominalTy)) })
 		c.guard(func() { c.checkCownCycle(t.Ty.(ast.NominalTy)) })
-		c.guard(func() { c.checkConformance(t, t.Ty.(ast.NominalTy)) })
+		c.guard(func() { c.checkConformance(t.Position(), t.Ty.(ast.NominalTy)) })
 	case *ast.EnumDecl:
-		c.guard(func() { c.checkConformance(t, t.Ty.(ast.NominalTy)) })
+		c.guard(func() { c.checkConformance(t.Position(), t.Ty.(ast.NominalTy)) })
 	default:
 		panic(diag.Internal("no body to check in %T", d))
 	}
@@ -170,42 +172,42 @@ func (c *Checker) VerifyBounds(bounds []ast.PendingBound) {
 				interfaces = b.Method.BoundsOn(b.Param)
 			}
 			for _, iface := range interfaces {
-				c.requireConforms(&b.Site, b.Arg, iface, b.Param)
+				c.requireConforms(b.Site, b.Arg, iface, b.Param)
 			}
 		})
 	}
 }
 
 // resolve is the type a type reference names. self is what 'Self' means where the reference is written.
-func (c *Checker) resolve(tr *ast.TypeRef, self ast.Ty) ast.Ty {
+func (c *Checker) resolve(tr ast.TypeRef, self ast.Ty) ast.Ty {
 	t := c.resolveNamed(tr, self)
 	if _, isInterface := t.(*ast.InterfaceTy); isInterface {
-		panic(tr.Error(diag.ErrInterfaceAsType, fmt.Sprintf("'%s' is an interface, which only bounds a type parameter: declare a type parameter with 'uses T where T implements %s' and use T as the type", tr.Name, tr.Name)))
+		panic(tr.Error(diag.ErrInterfaceAsType, fmt.Sprintf("'%s' is an interface, which only bounds a type parameter: declare a type parameter with 'uses T where T implements %s' and use T as the type", tr.Name(), tr.Name())))
 	}
 	return t
 }
 
-func (c *Checker) resolveNamed(tr *ast.TypeRef, self ast.Ty) ast.Ty {
+func (c *Checker) resolveNamed(tr ast.TypeRef, self ast.Ty) ast.Ty {
 	if param := c.resolution.TypeParam(tr.ID); param != nil {
-		c.requireNoTypeArgs(tr, tr.Name)
+		c.requireNoTypeArgs(tr, tr.Name())
 		return param.Ty
 	}
-	if len(tr.Qualifier) == 0 {
-		switch tr.Name {
+	if tr.Qualifier().Len() == 0 {
+		switch tr.Name() {
 		case "bool":
-			c.requireNoTypeArgs(tr, tr.Name)
+			c.requireNoTypeArgs(tr, tr.Name())
 			return ast.BoolTy
 		case "String":
-			c.requireNoTypeArgs(tr, tr.Name)
+			c.requireNoTypeArgs(tr, tr.Name())
 			return ast.StringTy
 		case "Self":
 			if self == nil {
 				panic(tr.Error(diag.ErrUnknownType, "'Self' names a type only inside one"))
 			}
-			c.requireNoTypeArgs(tr, tr.Name)
+			c.requireNoTypeArgs(tr, tr.Name())
 			return self
 		case "int", "float":
-			panic(tr.Error(diag.ErrTypeMismatch, fmt.Sprintf("a bare '%s' needs a ranged typealias", tr.Name)))
+			panic(tr.Error(diag.ErrTypeMismatch, fmt.Sprintf("a bare '%s' needs a ranged typealias", tr.Name())))
 		}
 	}
 	if tb, ok := c.target(tr.ID).(ast.TypeDeclNode); ok {
@@ -213,46 +215,46 @@ func (c *Checker) resolveNamed(tr *ast.TypeRef, self ast.Ty) ast.Ty {
 			return c.withTypeArgs(tr, t, self)
 		}
 	}
-	panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name)))
+	panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())))
 }
 
-func (c *Checker) requireNoTypeArgs(tr *ast.TypeRef, name string) {
-	if len(tr.TypeArgs) > 0 {
+func (c *Checker) requireNoTypeArgs(tr ast.TypeRef, name string) {
+	if tr.TypeArgs().Len() > 0 {
 		panic(tr.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is not generic and takes no type arguments", name)))
 	}
 }
 
 // withTypeArgs is the type a declaration names where a reference gives it type arguments: a generic declaration
 // needs them and no other does.
-func (c *Checker) withTypeArgs(tr *ast.TypeRef, t ast.Ty, self ast.Ty) ast.Ty {
+func (c *Checker) withTypeArgs(tr ast.TypeRef, t ast.Ty, self ast.Ty) ast.Ty {
 	nt, isNominal := t.(ast.NominalTy)
 	if !isNominal || !nt.Base().IsGeneric() {
-		c.requireNoTypeArgs(tr, tr.Name)
+		c.requireNoTypeArgs(tr, tr.Name())
 		return t
 	}
-	return c.instantiate(tr, nt, c.resolveArgs(tr.TypeArgs, self))
+	return c.instantiate(tr.Position(), nt, c.resolveArgs(tr.TypeArgs(), self))
 }
 
 // resolveArgs resolves a written list of type arguments.
-func (c *Checker) resolveArgs(refs []*ast.TypeRef, self ast.Ty) []ast.Ty {
-	args := make([]ast.Ty, len(refs))
-	for i, r := range refs {
+func (c *Checker) resolveArgs(refs ast.TypeRefList, self ast.Ty) []ast.Ty {
+	args := make([]ast.Ty, refs.Len())
+	for i, r := range refs.All() {
 		args[i] = c.resolve(r, self)
 	}
 	return args
 }
 
 // requireTypeArgCount refuses a list of type arguments of the wrong length.
-func requireTypeArgCount(site ast.Node, name string, params []*ast.TypeParamTy, given int) {
+func requireTypeArgCount(site ast.Pos, name string, params []*ast.TypeParamTy, given int) {
 	if given != len(params) {
-		panic(site.P().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' takes %d type argument(s), given %d: write '%s'",
+		panic(site.Position().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' takes %d type argument(s), given %d: write '%s'",
 			name, len(params), given, ast.InstanceSpelling(name, paramNames(params)))))
 	}
 }
 
 // instantiate is a generic type given its arguments. Whether they meet the parameters' bounds is checked in the
 // verify stage.
-func (c *Checker) instantiate(site ast.Node, nt ast.NominalTy, args []ast.Ty) ast.NominalTy {
+func (c *Checker) instantiate(site ast.Pos, nt ast.NominalTy, args []ast.Ty) ast.NominalTy {
 	params := nt.Base().Params
 	requireTypeArgCount(site, nt.Name(), params, len(args))
 	if bt, ok := nt.(*ast.BuiltinTy); ok {
@@ -269,9 +271,9 @@ func (c *Checker) instantiate(site ast.Node, nt ast.NominalTy, args []ast.Ty) as
 
 // requireKey refuses a map whose key is not compared and copied as a word or as text: a record or a union has no
 // equality, and a type parameter is not known to have one.
-func requireKey(site ast.Node, key ast.Ty) {
+func requireKey(site ast.Pos, key ast.Ty) {
 	if !ast.IsKey(key) {
-		panic(site.P().Error(diag.ErrMapKey, fmt.Sprintf("'%s' cannot be the key of a map: a key is an integer alias, a bool, an enum, a String or a Handle", key.Name())))
+		panic(site.Position().Error(diag.ErrMapKey, fmt.Sprintf("'%s' cannot be the key of a map: a key is an integer alias, a bool, an enum, a String or a Handle", key.Name())))
 	}
 }
 
@@ -283,10 +285,10 @@ func paramNames(params []*ast.TypeParamTy) []string {
 	return names
 }
 
-func (c *Checker) queueBounds(site ast.Node, params []*ast.TypeParamTy, args []ast.Ty) {
+func (c *Checker) queueBounds(site ast.Pos, params []*ast.TypeParamTy, args []ast.Ty) {
 	for i, p := range params {
 		if p.Bounded() {
-			c.Bounds = append(c.Bounds, ast.PendingBound{Site: *site.P(), Param: p, Arg: args[i], Within: c.bounded})
+			c.Bounds = append(c.Bounds, ast.PendingBound{Site: site.Position(), Param: p, Arg: args[i], Within: c.bounded})
 		}
 	}
 }
@@ -294,12 +296,12 @@ func (c *Checker) queueBounds(site ast.Node, params []*ast.TypeParamTy, args []a
 // queueMethodBounds queues the check of a call's type arguments against the bounds that the method adds to its type's
 // parameters. Which parameters those are is known only once the method's module has declared it, so each parameter is
 // queued and the verify stage looks at what the method says about it.
-func (c *Checker) queueMethodBounds(site ast.Node, method *ast.FuncDecl, args []ast.Ty) {
+func (c *Checker) queueMethodBounds(site ast.Pos, method *ast.FuncDecl, args []ast.Ty) {
 	if !method.HasOwnBounds() {
 		return
 	}
 	for i, p := range method.Generics {
-		c.Bounds = append(c.Bounds, ast.PendingBound{Site: *site.P(), Param: p, Arg: args[i], Method: method, Within: c.bounded})
+		c.Bounds = append(c.Bounds, ast.PendingBound{Site: site.Position(), Param: p, Arg: args[i], Method: method, Within: c.bounded})
 	}
 }
 
@@ -324,17 +326,17 @@ func (c *Checker) boundsOf(p *ast.TypeParamTy) []*ast.InterfaceTy {
 }
 
 // resolveBound is the interface a bound or a conformance names.
-func (c *Checker) resolveBound(tr *ast.TypeRef) *ast.InterfaceTy {
+func (c *Checker) resolveBound(tr ast.TypeRef) *ast.InterfaceTy {
 	target := c.target(tr.ID)
 	if target == nil && c.resolution.TypeParam(tr.ID) == nil {
-		panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name)))
+		panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())))
 	}
 	d, ok := target.(*ast.InterfaceDecl)
 	if !ok {
-		panic(tr.Error(diag.ErrGenericDeclaration, fmt.Sprintf("'%s' is not an interface, and only an interface can be a bound or be implemented", tr.Name)))
+		panic(tr.Error(diag.ErrGenericDeclaration, fmt.Sprintf("'%s' is not an interface, and only an interface can be a bound or be implemented", tr.Name())))
 	}
-	if len(tr.TypeArgs) > 0 {
-		panic(tr.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("the interface '%s' is not generic and takes no type arguments", tr.Name)))
+	if tr.TypeArgs().Len() > 0 {
+		panic(tr.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("the interface '%s' is not generic and takes no type arguments", tr.Name())))
 	}
 	return d.Ty.(*ast.InterfaceTy)
 }
@@ -353,19 +355,19 @@ func (c *Checker) declareTypeParams(params []*ast.TypeParam, where []*ast.Constr
 		}
 	}
 	for _, cs := range where {
-		for _, b := range cs.Bounds {
+		for _, b := range cs.Bounds.All() {
 			constrained := c.resolution.TypeParam(cs.ID).Ty
 			constrained.Interfaces = append(constrained.Interfaces, c.resolveBound(b))
 		}
 	}
 }
 
-func (c *Checker) declareConforms(interfaces []*ast.TypeRef, nt ast.NominalTy) {
+func (c *Checker) declareConforms(interfaces ast.TypeRefList, nt ast.NominalTy) {
 	base := nt.Base()
-	for _, tr := range interfaces {
+	for _, tr := range interfaces.All() {
 		iface := c.resolveBound(tr)
 		if c.project.Builtins.IsCapability(iface) {
-			c.guard(func() { panic(c.structuralCapability(tr, iface)) })
+			c.guard(func() { panic(c.structuralCapability(tr.Position(), iface)) })
 			continue
 		}
 		base.Conforms = append(base.Conforms, iface)
@@ -384,7 +386,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 				panic(f.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is declared twice", f.Name)))
 			}
 			var ft ast.Ty = ast.VoidTy
-			if f.Type != nil {
+			if !f.Type.IsNil() {
 				ft = c.resolve(f.Type, self)
 			}
 			rt.Fields = append(rt.Fields, &ast.FieldInfo{
@@ -405,7 +407,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 				panic(cs.Error(diag.ErrEnumDuplicateCase, fmt.Sprintf("case '%s' is declared twice", cs.Name)))
 			}
 			raw := next
-			if cs.Raw != nil {
+			if !cs.Raw.IsNil() {
 				raw = cs.Raw.Value()
 			}
 			for _, r := range et.Raw {
@@ -413,7 +415,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 					panic(cs.Error("E3031", fmt.Sprintf("raw value %s is used twice", raw.String())))
 				}
 			}
-			et.HasExplicitRaw = et.HasExplicitRaw || cs.Raw != nil
+			et.HasExplicitRaw = et.HasExplicitRaw || !cs.Raw.IsNil()
 			et.Cases = append(et.Cases, cs.Name)
 			et.Raw = append(et.Raw, raw)
 			next = raw.Add(ast.One)
@@ -497,8 +499,8 @@ func (c *Checker) paramSpecs(params []*ast.Param, self ast.Ty) ([]ast.Ty, []ast.
 	return types, specs
 }
 
-func (c *Checker) returnOf(returns *ast.TypeRef, self ast.Ty) ast.Ty {
-	if returns == nil {
+func (c *Checker) returnOf(returns ast.TypeRef, self ast.Ty) ast.Ty {
+	if returns.IsNil() {
 		return ast.VoidTy
 	}
 	return c.resolve(returns, self)
@@ -513,7 +515,7 @@ func (c *Checker) declareGenerics(f *ast.FuncDecl, nt ast.NominalTy) {
 	case nt != nil && nt.Base().IsGeneric():
 		f.Generics = nt.Base().Params
 		for _, cs := range f.Where {
-			for _, b := range cs.Bounds {
+			for _, b := range cs.Bounds.All() {
 				f.Bounds = append(f.Bounds, ast.ParamBound{Param: c.resolution.TypeParam(cs.ID).Ty, Iface: c.resolveBound(b)})
 			}
 		}
@@ -568,7 +570,7 @@ func (c *Checker) CheckMain() *ast.FuncDecl {
 			panic(main.Error(diag.ErrMainWrongReturnType, "'main' takes no parameters"))
 		}
 		returnsExitCode := false
-		if main.Returns != nil {
+		if !main.Returns.IsNil() {
 			if a, isAlias := c.target(main.Returns.ID).(*ast.AliasDecl); isAlias && a.Name == "ExitCode" {
 				returnsExitCode = true
 			}
@@ -586,7 +588,7 @@ func (c *Checker) declareFieldDefaults(td *ast.TypeDecl) {
 	self := ast.SelfType(rt)
 	c.enterContext(nil, self, false)
 	for _, fi := range rt.Fields {
-		if fi.Default == nil {
+		if fi.Default.IsNil() {
 			continue
 		}
 		c.guard(func() { fi.Type = c.defaultType(fi, self) })
@@ -595,36 +597,40 @@ func (c *Checker) declareFieldDefaults(td *ast.TypeDecl) {
 
 func (c *Checker) defaultType(fi *ast.FieldInfo, rt ast.Ty) ast.Ty {
 	var head ast.Expr
-	switch d := fi.Default.(type) {
-	case *ast.MemberExpr:
-		head = d.Obj
-	case *ast.CallExpr:
-		if m, ok := d.Callee.(*ast.MemberExpr); ok {
-			head = m.Obj
+	switch fi.Default.Kind() {
+	case ast.KindMemberExpr:
+		d := fi.Default.ToMemberExpr()
+
+		head = d.Obj()
+	case ast.KindCallExpr:
+		d := fi.Default.ToCallExpr()
+
+		if m, ok := d.Callee().AsMemberExpr(); ok {
+			head = m.Obj()
 		}
 	}
-	if cast, ok := fi.Default.(*ast.CastExpr); ok {
-		return c.resolve(cast.Target, rt)
+	if cast, ok := fi.Default.AsCastExpr(); ok {
+		return c.resolve(cast.Target(), rt)
 	}
-	if _, ok := fi.Default.(*ast.BoolLit); ok {
+	if _, ok := fi.Default.AsBoolLit(); ok {
 		return ast.BoolTy
 	}
-	if s, ok := fi.Default.(*ast.StrLit); ok && s.IsPlain() {
+	if s, ok := fi.Default.AsStrLit(); ok && s.IsPlain() {
 		return ast.StringTy
 	}
-	if n, ok := head.(*ast.NameExpr); ok {
-		if nt := c.typeNamed(n); nt != nil {
-			return c.requireInstance(n, nt)
+	if n, ok := head.AsNameExpr(); ok {
+		if nt := c.typeNamed(n.Expr()); nt != nil {
+			return c.requireInstance(n.Position(), nt)
 		}
 	}
-	panic(fi.Default.P().Error(diag.ErrExpressionError,
+	panic(fi.Default.Position().Error(diag.ErrExpressionError,
 		fmt.Sprintf("field '%s' needs a type: write 'var %s as <Type>', or a default that is a cast, a bool, a string, or a case or factory of a type", fi.Name, fi.Name)))
 }
 
 func (c *Checker) checkFieldDefaults(td *ast.TypeDecl) {
 	rt := td.Ty.(*ast.RecordTy)
 	for _, fi := range rt.Fields {
-		if fi.Default == nil {
+		if fi.Default.IsNil() {
 			continue
 		}
 		c.guard(func() {
@@ -643,9 +649,9 @@ func (c *Checker) CheckConst(cd *ast.ConstDecl) {
 		if it, ok := t.(*ast.IntTy); (ok && it.IsAnonymous()) || t == ast.VoidTy || t == ast.NeverTy {
 			panic(cd.Error("E3220", fmt.Sprintf("constant '%s' must be a value known before the program runs", cd.Name)))
 		}
-		if s, ok := cd.Value.(*ast.StrLit); ok && t == ast.StringTy {
-			for _, part := range s.Parts {
-				if _, isExpr := part.(ast.Expr); isExpr {
+		if s, ok := cd.Value.AsStrLit(); ok && t == ast.StringTy {
+			for _, part := range s.Parts().All() {
+				if !part.Expr.IsNil() {
 					panic(cd.Error("E3220", "a constant string cannot interpolate"))
 				}
 			}
@@ -698,7 +704,7 @@ func (c *Checker) popBlock() {
 	c.blocks = c.blocks[:len(c.blocks)-1]
 }
 
-func (c *Checker) declareLocal(name string, t ast.Ty, isVar bool, site ast.Node) *ast.Local {
+func (c *Checker) declareLocal(name string, t ast.Ty, isVar bool, site ast.Pos) *ast.Local {
 	local := ast.NewLocal(name, t, isVar)
 	c.bind(local, site)
 	local.Slot = c.nextSlot
@@ -711,18 +717,18 @@ func (c *Checker) declareParam(prm *ast.Param, t ast.Ty, index int) *ast.Local {
 	local.IsParam = true
 	local.Conv = ast.ConventionOf(prm.Convention)
 	local.ParamIndex = index
-	c.bind(local, prm)
+	c.bind(local, prm.Position())
 	return local
 }
 
-func (c *Checker) bind(local *ast.Local, site ast.Node) {
+func (c *Checker) bind(local *ast.Local, site ast.Pos) {
 	name := local.Name
 	if rt := c.selfRecord(); rt != nil && rt.Field(name) != nil {
-		panic(site.P().Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' shadows the field '%s' of '%s'", name, name, rt.Name())))
+		panic(site.Position().Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' shadows the field '%s' of '%s'", name, name, rt.Name())))
 	}
 	top := c.scopes[len(c.scopes)-1]
 	if _, exists := top[name]; exists {
-		panic(site.P().Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is declared twice in this scope", name)))
+		panic(site.Position().Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is declared twice in this scope", name)))
 	}
 	top[name] = local
 	c.fn.AddLocal(local)
@@ -742,9 +748,10 @@ func (c *Checker) checkFunction(f *ast.FuncDecl) {
 		f.SelfLocal = self
 		f.AddLocal(self)
 	}
+	f.ParamLocals = make([]ast.LocalID, len(f.Params))
 	for i, prm := range f.Params {
 		if prm.Name != "_" {
-			c.typing.SetParamLocal(prm, c.declareParam(prm, f.ParamTypes[i], index))
+			f.ParamLocals[i] = c.declareParam(prm, f.ParamTypes[i], index).ID()
 		}
 		index++
 	}
@@ -755,7 +762,7 @@ func (c *Checker) checkFunction(f *ast.FuncDecl) {
 	}
 }
 
-func (c *Checker) checkBlock(body []ast.Stmt) {
+func (c *Checker) checkBlock(body ast.StmtList) {
 	c.pushScope()
 	c.checkStmts(body)
 	c.popScope()
@@ -763,10 +770,10 @@ func (c *Checker) checkBlock(body []ast.Stmt) {
 
 // checkStmts types the statements of a block. Those after the block's live statements are typed too, but are never
 // lowered, so the calls they make record no instance.
-func (c *Checker) checkStmts(body []ast.Stmt) {
-	live := len(ast.Live(body))
+func (c *Checker) checkStmts(body ast.StmtList) {
+	live := ast.Live(body).Len()
 	outer := c.dead
-	for i, s := range body {
+	for i, s := range body.All() {
 		c.dead = outer || i >= live
 		c.guard(func() { c.checkStmt(s) })
 	}
@@ -796,15 +803,15 @@ func (c *Checker) coerce(e ast.Expr, target ast.Ty, what string) {
 	}
 	if k, ok := src.(*ast.ConstIntTy); ok {
 		if ti, isInt := target.(*ast.IntTy); isInt {
-			panic(e.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: %s does not fit %s (%s to %s)", what, k.Value.String(), ti.Name(), ti.Min.String(), ti.Max.String())))
+			panic(e.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: %s does not fit %s (%s to %s)", what, k.Value.String(), ti.Name(), ti.Min.String(), ti.Max.String())))
 		}
 	}
 	if si, ok := src.(*ast.IntTy); ok && si.IsAnonymous() {
 		if ta, isInt := target.(*ast.IntTy); isInt {
-			panic(e.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: a value of %s may not fit %s; cast it with 'as %s'", what, src.Name(), ta.Name(), ta.Name())))
+			panic(e.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: a value of %s may not fit %s; cast it with 'as %s'", what, src.Name(), ta.Name(), ta.Name())))
 		}
 	}
-	panic(e.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: expected %s, found %s", what, target.Name(), src.Name())))
+	panic(e.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: expected %s, found %s", what, target.Name(), src.Name())))
 }
 
 func (c *Checker) isInt(t ast.Ty) bool {
@@ -825,9 +832,9 @@ func (c *Checker) rangeOf(t ast.Ty) (ast.I128, ast.I128) {
 	panic(diag.Internal("%s is not an integer", t.Name()))
 }
 
-func (c *Checker) requireSigned64(site ast.Node, t ast.Ty) {
+func (c *Checker) requireSigned64(site ast.Pos, t ast.Ty) {
 	if k, ok := t.(*ast.ConstIntTy); ok && k.Value.Gt(ast.I64Max) {
-		panic(site.P().Error(diag.ErrIntegerLiteralRange,
+		panic(site.Position().Error(diag.ErrIntegerLiteralRange,
 			fmt.Sprintf("Integer literal '%s' is above i64.max, so it needs an alias whose range admits it: write '%s as <alias>'", k.Value.String(), k.Value.String())))
 	}
 }
@@ -839,11 +846,11 @@ func (c *Checker) namedInt(t ast.Ty) *ast.IntTy {
 	return nil
 }
 
-func (c *Checker) unifyInts(site ast.Node, l, r ast.Ty) *ast.IntTy {
+func (c *Checker) unifyInts(site ast.Pos, l, r ast.Ty) *ast.IntTy {
 	la := c.namedInt(l)
 	ra := c.namedInt(r)
 	if la != nil && ra != nil && la != ra {
-		panic(site.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("the operands are %s and %s; cast one so both are the same type", la.Name(), ra.Name())))
+		panic(site.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("the operands are %s and %s; cast one so both are the same type", la.Name(), ra.Name())))
 	}
 	alias := la
 	if alias == nil {
@@ -859,12 +866,12 @@ func (c *Checker) unifyInts(site ast.Node, l, r ast.Ty) *ast.IntTy {
 		other = l
 	}
 	if !c.assignable(other, alias) {
-		panic(site.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("an operand of %s does not fit %s; cast it with 'as %s'", other.Name(), alias.Name(), alias.Name())))
+		panic(site.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("an operand of %s does not fit %s; cast it with 'as %s'", other.Name(), alias.Name(), alias.Name())))
 	}
 	return alias
 }
 
-func (c *Checker) join(site ast.Node, a, b ast.Ty) ast.Ty {
+func (c *Checker) join(site ast.Pos, a, b ast.Ty) ast.Ty {
 	if a == ast.NeverTy {
 		return b
 	}
@@ -879,7 +886,7 @@ func (c *Checker) join(site ast.Node, a, b ast.Ty) ast.Ty {
 		bmin, bmax := c.rangeOf(b)
 		return &ast.IntTy{Min: ast.MinI(amin, bmin), Max: ast.MaxI(amax, bmax)}
 	}
-	panic(site.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("the branches produce %s and %s", a.Name(), b.Name())))
+	panic(site.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("the branches produce %s and %s", a.Name(), b.Name())))
 }
 
 func (c *Checker) checkExpr(e ast.Expr) ast.Ty {
@@ -897,43 +904,43 @@ func (c *Checker) checkExpecting(e ast.Expr, want ast.Ty) ast.Ty {
 	return t
 }
 
-func (c *Checker) VisitIntLit(x *ast.IntLit) ast.Ty { return &ast.ConstIntTy{Value: x.Value()} }
+func (c *Checker) VisitIntLit(x ast.IntLit) ast.Ty { return &ast.ConstIntTy{Value: x.Value()} }
 
-func (c *Checker) VisitBoolLit(*ast.BoolLit) ast.Ty { return ast.BoolTy }
+func (c *Checker) VisitBoolLit(ast.BoolLit) ast.Ty { return ast.BoolTy }
 
-func (c *Checker) VisitMatchExpr(x *ast.MatchExpr) ast.Ty { return c.checkMatch(x.Match, true) }
+func (c *Checker) VisitMatchExpr(x ast.MatchExpr) ast.Ty { return c.checkMatch(x.Match(), true) }
 
-func (c *Checker) VisitStrLit(s *ast.StrLit) ast.Ty {
-	for _, p := range s.Parts {
-		part, ok := p.(ast.Expr)
-		if !ok {
+func (c *Checker) VisitStrLit(s ast.StrLit) ast.Ty {
+	for _, p := range s.Parts().All() {
+		part := p.Expr
+		if part.IsNil() {
 			continue
 		}
 		t := ast.Content(c.checkExpr(part))
-		c.requireSigned64(part, t)
+		c.requireSigned64(part.Position(), t)
 		_, isEnum := t.(*ast.EnumTy)
 		_, isUnion := t.(*ast.UnionTy)
 		if !(c.isInt(t) || t == ast.StringTy || t == ast.BoolTy || isEnum || isUnion) {
-			panic(part.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a value of %s cannot be interpolated", t.Name())))
+			panic(part.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("a value of %s cannot be interpolated", t.Name())))
 		}
 	}
 	return ast.StringTy
 }
 
-func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
+func (c *Checker) VisitNameExpr(n ast.NameExpr) ast.Ty {
 	if local := c.useLocal(n); local != nil {
 		c.typing.SetName(n, ast.LocalName(local))
 		return local.Type
 	}
 	if rt := c.selfRecord(); rt != nil {
-		if field := rt.Field(n.Name); field != nil {
+		if field := rt.Field(n.Name()); field != nil {
 			c.typing.SetName(n, ast.FieldName(field))
 			return rt.FieldType(field)
 		}
 	}
 	if c.behaviour != nil {
-		if ft, ok := c.selfFieldInBehaviour(n.Name); ok {
-			c.refuseBehaviourSelf(n, "the field '"+n.Name+"'", ft)
+		if ft, ok := c.selfFieldInBehaviour(n.Name()); ok {
+			c.refuseBehaviourSelf(n.Position(), "the field '"+n.Name()+"'", ft)
 		}
 	}
 	switch d := c.target(n.ID).(type) {
@@ -946,17 +953,17 @@ func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
 	case *ast.FuncDecl:
 		panic(n.Error(diag.ErrUnsupported, "a function value is not supported by minimaxon; call the function"))
 	case ast.TypeDeclNode:
-		panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("'%s' is a type, not a value", n.Name)))
+		panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("'%s' is a type, not a value", n.Name())))
 	}
-	if n.Name == "Self" {
+	if n.Name() == "Self" {
 		panic(n.Error(diag.ErrExpressionError, "'Self' is a type, not a value"))
 	}
-	panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name)))
+	panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name())))
 }
 
-func (c *Checker) VisitSelfExpr(s *ast.SelfExpr) ast.Ty {
+func (c *Checker) VisitSelfExpr(s ast.SelfExpr) ast.Ty {
 	if c.behaviour != nil {
-		c.refuseBehaviourSelf(s, "'self'", c.owner)
+		c.refuseBehaviourSelf(s.Position(), "'self'", c.owner)
 	}
 	if c.fn == nil || !c.fn.IsMethod() {
 		panic(s.Error(diag.ErrUnexpectedToken, "'self' is used only inside an instance method"))
@@ -964,7 +971,7 @@ func (c *Checker) VisitSelfExpr(s *ast.SelfExpr) ast.Ty {
 	return c.owner
 }
 
-func (c *Checker) fold(site ast.Node, op string, a, b ast.I128) ast.I128 {
+func (c *Checker) fold(site ast.Pos, op string, a, b ast.I128) ast.I128 {
 	var r ast.I128
 	switch op {
 	case "+":
@@ -974,12 +981,12 @@ func (c *Checker) fold(site ast.Node, op string, a, b ast.I128) ast.I128 {
 	case "*":
 		product, ok := ast.FromBig(new(big.Int).Mul(a.Big(), b.Big()))
 		if !ok {
-			panic(site.P().Error(diag.ErrTypeMismatch, "the constant expression overflows 64 bits"))
+			panic(site.Position().Error(diag.ErrTypeMismatch, "the constant expression overflows 64 bits"))
 		}
 		r = product
 	case "/", "mod":
 		if b.IsZero() {
-			panic(site.P().Error(diag.ErrDivisionByZero, "division by a constant zero"))
+			panic(site.Position().Error(diag.ErrDivisionByZero, "division by a constant zero"))
 		}
 		var q, m big.Int
 		q.QuoRem(a.Big(), b.Big(), &m)
@@ -989,7 +996,7 @@ func (c *Checker) fold(site ast.Node, op string, a, b ast.I128) ast.I128 {
 		}
 		quotient, ok := ast.FromBig(v)
 		if !ok {
-			panic(site.P().Error(diag.ErrTypeMismatch, "the constant expression overflows 64 bits"))
+			panic(site.Position().Error(diag.ErrTypeMismatch, "the constant expression overflows 64 bits"))
 		}
 		r = quotient
 	case "and":
@@ -1000,7 +1007,7 @@ func (c *Checker) fold(site ast.Node, op string, a, b ast.I128) ast.I128 {
 		r = ast.I128{Hi: a.Hi ^ b.Hi, Lo: a.Lo ^ b.Lo}
 	case "shl", "shr":
 		if b.IsNeg() {
-			panic(site.P().Error("E2054", "a shift count cannot be negative"))
+			panic(site.Position().Error("E2054", "a shift count cannot be negative"))
 		}
 		wide := b.Ge(ast.I64(checkerShiftLimit))
 		switch {
@@ -1017,32 +1024,32 @@ func (c *Checker) fold(site ast.Node, op string, a, b ast.I128) ast.I128 {
 			r = shifted
 		}
 	default:
-		panic(site.P().Error(diag.ErrUnsupported, fmt.Sprintf("cannot fold '%s'", op)))
+		panic(site.Position().Error(diag.ErrUnsupported, fmt.Sprintf("cannot fold '%s'", op)))
 	}
 	if r.Lt(ast.I64Min) || r.Gt(ast.U64Max) {
-		panic(site.P().Error(diag.ErrTypeMismatch, "the constant expression overflows 64 bits"))
+		panic(site.Position().Error(diag.ErrTypeMismatch, "the constant expression overflows 64 bits"))
 	}
 	return r
 }
 
-func (c *Checker) VisitBinaryExpr(b *ast.BinaryExpr) ast.Ty {
-	l := c.checkExpr(b.L)
-	r := c.checkExpr(b.R)
+func (c *Checker) VisitBinaryExpr(b ast.BinaryExpr) ast.Ty {
+	l := c.checkExpr(b.L())
+	r := c.checkExpr(b.R())
 
-	if checkerArithmetic[b.Op] || (checkerLogical[b.Op] && c.isInt(l)) {
+	if checkerArithmetic[b.Op()] || (checkerLogical[b.Op()] && c.isInt(l)) {
 		if !c.isInt(l) || !c.isInt(r) {
-			panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' needs integers, found %s and %s", b.Op, l.Name(), r.Name())))
+			panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' needs integers, found %s and %s", b.Op(), l.Name(), r.Name())))
 		}
 		lc, lConst := l.(*ast.ConstIntTy)
 		rc, rConst := r.(*ast.ConstIntTy)
 		if lConst && rConst {
 			c.typing.SetOperand(b, ast.OperandOf(ast.Anonymous64))
-			return &ast.ConstIntTy{Value: c.fold(b, b.Op, lc.Value, rc.Value)}
+			return &ast.ConstIntTy{Value: c.fold(b.Position(), b.Op(), lc.Value, rc.Value)}
 		}
-		if (b.Op == "/" || b.Op == "mod") && rConst && rc.Value.IsZero() {
+		if (b.Op() == "/" || b.Op() == "mod") && rConst && rc.Value.IsZero() {
 			panic(b.Error(diag.ErrDivisionByZero, "division by a constant zero"))
 		}
-		if b.Op == "shl" || b.Op == "shr" {
+		if b.Op() == "shl" || b.Op() == "shr" {
 			lt := ast.Anonymous64
 			if !lConst {
 				lt = l.(*ast.IntTy)
@@ -1050,24 +1057,24 @@ func (c *Checker) VisitBinaryExpr(b *ast.BinaryExpr) ast.Ty {
 			c.typing.SetOperand(b, ast.OperandOf(lt))
 			return lt
 		}
-		t := c.unifyInts(b, l, r)
+		t := c.unifyInts(b.Position(), l, r)
 		c.typing.SetOperand(b, ast.OperandOf(t))
 		return t
 	}
 
-	if checkerLogical[b.Op] {
+	if checkerLogical[b.Op()] {
 		if l != ast.BoolTy || r != ast.BoolTy {
-			panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' needs two bools or two integers, found %s and %s", b.Op, l.Name(), r.Name())))
+			panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' needs two bools or two integers, found %s and %s", b.Op(), l.Name(), r.Name())))
 		}
 		return ast.BoolTy
 	}
 
-	if checkerComparison[b.Op] {
+	if checkerComparison[b.Op()] {
 		if c.isInt(l) && c.isInt(r) {
-			c.typing.SetOperand(b, ast.OperandOf(c.unifyInts(b, l, r)))
+			c.typing.SetOperand(b, ast.OperandOf(c.unifyInts(b.Position(), l, r)))
 			return ast.BoolTy
 		}
-		equality := b.Op == "==" || b.Op == "!="
+		equality := b.Op() == "==" || b.Op() == "!="
 		_, lUnion := l.(*ast.UnionTy)
 		_, rUnion := r.(*ast.UnionTy)
 		if lUnion || rUnion {
@@ -1078,10 +1085,10 @@ func (c *Checker) VisitBinaryExpr(b *ast.BinaryExpr) ast.Ty {
 			c.typing.SetOperand(b, ast.OperandOf(l))
 			return ast.BoolTy
 		}
-		panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' cannot compare %s and %s", b.Op, l.Name(), r.Name())))
+		panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' cannot compare %s and %s", b.Op(), l.Name(), r.Name())))
 	}
 
-	panic(b.Error(diag.ErrUnsupported, fmt.Sprintf("unknown operator '%s'", b.Op)))
+	panic(b.Error(diag.ErrUnsupported, fmt.Sprintf("unknown operator '%s'", b.Op())))
 }
 
 // isHandle is whether t is a Handle, which is compared as a word.
@@ -1090,9 +1097,9 @@ func (c *Checker) isHandle(t ast.Ty) bool {
 	return ok && bt.Kind == ast.BuiltinHandle
 }
 
-func (c *Checker) VisitUnaryExpr(u *ast.UnaryExpr) ast.Ty {
-	t := c.checkExpr(u.E)
-	if u.Op == "not" {
+func (c *Checker) VisitUnaryExpr(u ast.UnaryExpr) ast.Ty {
+	t := c.checkExpr(u.E())
+	if u.Op() == "not" {
 		if t == ast.BoolTy {
 			return ast.BoolTy
 		}
@@ -1119,61 +1126,74 @@ func (c *Checker) VisitUnaryExpr(u *ast.UnaryExpr) ast.Ty {
 	panic(u.Error(diag.ErrTypeMismatch, fmt.Sprintf("'-' needs an integer, found %s", t.Name())))
 }
 
-func (c *Checker) VisitCondExpr(cd *ast.CondExpr) ast.Ty {
-	if c.checkExpr(cd.Cond) != ast.BoolTy {
-		panic(cd.Cond.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", c.ty(cd.Cond).Name())))
+func (c *Checker) VisitCondExpr(cd ast.CondExpr) ast.Ty {
+	if c.checkExpr(cd.Cond()) != ast.BoolTy {
+		panic(cd.Cond().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", c.ty(cd.Cond()).Name())))
 	}
-	then := c.checkExpecting(cd.Then, c.expect)
-	els := c.checkExpecting(cd.Else, c.expect)
-	return c.join(cd, then, els)
+	then := c.checkExpecting(cd.Then(), c.expect)
+	els := c.checkExpecting(cd.Else(), c.expect)
+	return c.join(cd.Position(), then, els)
 }
 
-func (c *Checker) VisitPanicExpr(p *ast.PanicExpr) ast.Ty {
-	if c.checkExpr(p.Message) != ast.StringTy {
-		panic(p.Message.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("panic takes a String, found %s", c.ty(p.Message).Name())))
+func (c *Checker) VisitPanicExpr(p ast.PanicExpr) ast.Ty {
+	if c.checkExpr(p.Message()) != ast.StringTy {
+		panic(p.Message().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("panic takes a String, found %s", c.ty(p.Message()).Name())))
 	}
 	return ast.NeverTy
 }
 
 // orderArgs puts a call's arguments in the order of the parameters, which labels name after the first.
-func (c *Checker) orderArgs(call *ast.CallExpr, callee string, ps []ast.ParamSpec) []ast.Expr {
-	if len(call.Args) != len(ps) {
-		panic(call.Error(diag.ErrCallArgCountMismatch, fmt.Sprintf("'%s' takes %d argument(s), given %d", callee, len(ps), len(call.Args))))
+func (c *Checker) orderArgs(call ast.CallExpr, callee string, ps []ast.ParamSpec) []ast.Expr {
+	given := call.Args().Len()
+	left := c.omitted.arg
+	if c.omitted.call != call {
+		left = ast.Arg{}
+	}
+	if !left.IsNil() {
+		given--
+	}
+	if given != len(ps) {
+		panic(call.Error(diag.ErrCallArgCountMismatch, fmt.Sprintf("'%s' takes %d argument(s), given %d", callee, len(ps), given)))
 	}
 	ordered := make([]ast.Expr, len(ps))
-	for i, arg := range call.Args {
+	i := -1
+	for _, arg := range call.Args().All() {
+		if arg == left {
+			continue
+		}
+		i++
 		var slot int
 		if i == 0 {
-			if arg.Label != "" {
+			if arg.Label() != "" {
 				panic(arg.Error(diag.ErrCallFirstArgNamed, "the first argument is positional: drop its label"))
 			}
 			slot = 0
 		} else {
-			if arg.Label == "" {
+			if arg.Label() == "" {
 				panic(arg.Error(diag.ErrCallArgMissingLabel, fmt.Sprintf("argument %d of '%s' needs its label", i+1, callee)))
 			}
 			slot = -1
 			for j, q := range ps {
-				if q.Name == arg.Label {
+				if q.Name == arg.Label() {
 					slot = j
 					break
 				}
 			}
 			if slot <= 0 {
-				panic(arg.Error(diag.ErrCallUnknownArgLabel, fmt.Sprintf("'%s' has no parameter '%s' after its first", callee, arg.Label)))
+				panic(arg.Error(diag.ErrCallUnknownArgLabel, fmt.Sprintf("'%s' has no parameter '%s' after its first", callee, arg.Label())))
 			}
-			if ordered[slot] != nil {
-				panic(arg.Error(diag.ErrCallDuplicateArg, fmt.Sprintf("'%s' is given twice", arg.Label)))
+			if !ordered[slot].IsNil() {
+				panic(arg.Error(diag.ErrCallDuplicateArg, fmt.Sprintf("'%s' is given twice", arg.Label())))
 			}
 		}
-		ordered[slot] = arg.Value
+		ordered[slot] = arg.Value()
 	}
 	return ordered
 }
 
 // checkedArgs orders a call's arguments and types them, before the parameters' types are known: a generic callee's
 // type arguments come from them.
-func (c *Checker) checkedArgs(call *ast.CallExpr, callee string, ps []ast.ParamSpec) []ast.Expr {
+func (c *Checker) checkedArgs(call ast.CallExpr, callee string, ps []ast.ParamSpec) []ast.Expr {
 	ordered := c.orderArgs(call, callee, ps)
 	for _, v := range ordered {
 		c.checkExpr(v)
@@ -1181,7 +1201,7 @@ func (c *Checker) checkedArgs(call *ast.CallExpr, callee string, ps []ast.ParamS
 	return ordered
 }
 
-func (c *Checker) bindArgs(call *ast.CallExpr, callee string, ps []ast.ParamSpec, argsChecked bool) []ast.Expr {
+func (c *Checker) bindArgs(call ast.CallExpr, callee string, ps []ast.ParamSpec, argsChecked bool) []ast.Expr {
 	ordered := c.orderArgs(call, callee, ps)
 	for i := range ps {
 		if !argsChecked {
@@ -1200,7 +1220,7 @@ func (c *Checker) coerceArg(value ast.Expr, callee string, ps ast.ParamSpec) {
 		// A let parameter borrows, and the contents of a frozen value can be borrowed: the callee reads them and
 		// cannot change them. A parameter that changes or keeps them cannot have them.
 		if ps.Conv != ast.ConvLet {
-			panic(value.P().Error(diag.ErrFrozenChange, fmt.Sprintf("the %s parameter '%s' of '%s' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", ps.Conv, ps.Name, callee)))
+			panic(value.Position().Error(diag.ErrFrozenChange, fmt.Sprintf("the %s parameter '%s' of '%s' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", ps.Conv, ps.Name, callee)))
 		}
 	default:
 		c.coerce(value, ps.Type, fmt.Sprintf("argument '%s' of '%s'", ps.Name, callee))
@@ -1209,7 +1229,7 @@ func (c *Checker) coerceArg(value ast.Expr, callee string, ps ast.ParamSpec) {
 
 func (c *Checker) checkSameType(value ast.Expr, ps ast.ParamSpec) {
 	if c.ty(value) != ps.Type {
-		panic(value.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("the %s parameter '%s' is %s; the argument is %s", ps.Conv, ps.Name, ps.Type.Name(), c.ty(value).Name())))
+		panic(value.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("the %s parameter '%s' is %s; the argument is %s", ps.Conv, ps.Name, ps.Type.Name(), c.ty(value).Name())))
 	}
 }
 
@@ -1227,7 +1247,7 @@ func nameable(t ast.Ty) bool {
 
 // infer chooses the type arguments of a call from its arguments' types, and the ones they leave open from the type
 // the context expects of result, the type the call gives before its type arguments are known.
-func (c *Checker) infer(site ast.Node, callee string, params []*ast.TypeParamTy, specs []ast.ParamSpec, ordered []ast.Expr, result ast.Ty) []ast.Ty {
+func (c *Checker) infer(site ast.Pos, callee string, params []*ast.TypeParamTy, specs []ast.ParamSpec, ordered []ast.Expr, result ast.Ty) []ast.Ty {
 	args := make([]ast.Ty, len(params))
 	for i, spec := range specs {
 		unifyType(spec.Type, c.ty(ordered[i]), params, args)
@@ -1236,13 +1256,13 @@ func (c *Checker) infer(site ast.Node, callee string, params []*ast.TypeParamTy,
 }
 
 // inferRest fills the type arguments that are still open from the type the context expects of result.
-func (c *Checker) inferRest(site ast.Node, callee string, params []*ast.TypeParamTy, args []ast.Ty, result ast.Ty) []ast.Ty {
+func (c *Checker) inferRest(site ast.Pos, callee string, params []*ast.TypeParamTy, args []ast.Ty, result ast.Ty) []ast.Ty {
 	if c.expect != nil {
 		unifyType(result, c.expect, params, args)
 	}
 	for i, a := range args {
 		if a == nil {
-			panic(site.P().Error(diag.ErrCannotInfer, fmt.Sprintf("the type argument '%s' of '%s' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance",
+			panic(site.Position().Error(diag.ErrCannotInfer, fmt.Sprintf("the type argument '%s' of '%s' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance",
 				params[i].Name(), callee)))
 		}
 	}
@@ -1277,7 +1297,13 @@ func unifyAll(param, arg []ast.Ty, params []*ast.TypeParamTy, args []ast.Ty) {
 }
 
 // recordUses notes calls that need an instance of a generic, on the function or the field default being checked.
-func (c *Checker) recordUses(calls ...*ast.CallExpr) {
+// use is what a call records for the instances it needs: what it is, and the object it is made on.
+func (c *Checker) use(call ast.CallExpr) ast.CallUse {
+	info := c.typing.Call(call)
+	return ast.CallUse{Info: info, Receiver: call.ReceiverFor(info.Kind), Site: call.Position()}
+}
+
+func (c *Checker) recordUses(calls ...ast.CallUse) {
 	if c.uses == nil {
 		panic(diag.Internal("check: a call is checked outside a function or a field default"))
 	}
@@ -1292,7 +1318,7 @@ func (c *Checker) recordUses(calls ...*ast.CallExpr) {
 
 // callGeneric types a call whose callee has type parameters. given are the arguments of the instance the callee is
 // called on, which were checked against their bounds where the instance was written; without them they are inferred.
-func (c *Checker) callGeneric(call *ast.CallExpr, target *ast.FuncDecl, given []ast.Ty) ast.Ty {
+func (c *Checker) callGeneric(call ast.CallExpr, target *ast.FuncDecl, given []ast.Ty) ast.Ty {
 	callee := target.Symbol()
 	args := given
 	var ordered []ast.Expr
@@ -1310,17 +1336,17 @@ func (c *Checker) callGeneric(call *ast.CallExpr, target *ast.FuncDecl, given []
 		c.checkIntrinsicArgs(call, target, ordered)
 	}
 	if given == nil {
-		args = c.infer(call, callee, target.Generics, target.Pass.Specs, ordered, target.ReturnType)
-		c.queueBounds(call, target.Generics, args)
+		args = c.infer(call.Position(), callee, target.Generics, target.Pass.Specs, ordered, target.ReturnType)
+		c.queueBounds(call.Position(), target.Generics, args)
 		specs = ast.Binding{Params: target.Generics, Args: args}.ApplySpecs(target.Pass.Specs)
 	}
-	c.queueMethodBounds(call, target, args)
+	c.queueMethodBounds(call.Position(), target, args)
 	info := c.typing.Call(call)
 	info.Generic = &ast.GenericCall{SelfConv: target.Pass.SelfConv, Specs: specs, TypeArgs: args}
 	info.Pass = &info.Generic.Passing
 	info.Ordered = ordered
 	if target.Intrinsic == ast.NotIntrinsic {
-		c.recordUses(call)
+		c.recordUses(c.use(call))
 	}
 	if !c.declares(target) {
 		c.Pending = append(c.Pending, ast.PendingCall{Call: call, Callee: callee, Params: info.Pass.Specs})
@@ -1340,14 +1366,14 @@ func (c *Checker) declares(f *ast.FuncDecl) bool {
 }
 
 // requireExported refuses a function of another module that the module does not export.
-func (c *Checker) requireExported(site ast.Node, target *ast.FuncDecl) {
+func (c *Checker) requireExported(site ast.Pos, target *ast.FuncDecl) {
 	if !c.declares(target) && !target.IsExported() {
-		panic(site.P().Error("E3008", fmt.Sprintf("'%s' is not exported from module %s", target.Symbol(), target.Module.Display())))
+		panic(site.Position().Error("E3008", fmt.Sprintf("'%s' is not exported from module %s", target.Symbol(), target.Module.Display())))
 	}
 }
 
-func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, given []ast.Ty) ast.Ty {
-	c.requireExported(call, target)
+func (c *Checker) callFunction(call ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, given []ast.Ty) ast.Ty {
+	c.requireExported(call.Position(), target)
 	info := c.typing.Call(call)
 	info.Kind = kind
 	info.Target = target
@@ -1358,8 +1384,8 @@ func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *as
 	if c.declares(target) {
 		info.Ordered = c.bindArgs(call, target.Symbol(), target.Pass.Specs, false)
 	} else {
-		for _, a := range call.Args {
-			c.checkExpr(a.Value)
+		for _, a := range call.Args().All() {
+			c.checkExpr(a.Value())
 		}
 		c.Pending = append(c.Pending, ast.PendingCall{Call: call, Callee: target.Symbol(), Params: target.Pass.Specs})
 	}
@@ -1370,20 +1396,20 @@ func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *as
 // its declaration, which only a call or a case that infers the arguments accepts; requireInstance refuses it anywhere
 // else. A typealias of an instance names the instance.
 func (c *Checker) typeNamed(e ast.Expr) ast.NominalTy {
-	n, ok := e.(*ast.NameExpr)
+	n, ok := e.AsNameExpr()
 	if !ok {
 		return nil
 	}
-	if n.Name == "Self" {
+	if n.Name() == "Self" {
 		if c.owner == nil {
 			panic(n.Error(diag.ErrUnknownType, "'Self' names a type only inside one"))
 		}
 		return c.owner
 	}
-	if c.lookupLocal(n.Name) != nil {
+	if c.lookupLocal(n.Name()) != nil {
 		return nil
 	}
-	if rt := c.selfRecord(); rt != nil && rt.Field(n.Name) != nil {
+	if rt := c.selfRecord(); rt != nil && rt.Field(n.Name()) != nil {
 		return nil
 	}
 	tb, isType := c.target(n.ID).(ast.TypeDeclNode)
@@ -1398,29 +1424,29 @@ func (c *Checker) typeNamed(e ast.Expr) ast.NominalTy {
 }
 
 // requireInstance refuses a generic declaration where a type is needed and no call can infer its arguments.
-func (c *Checker) requireInstance(site ast.Node, nt ast.NominalTy) ast.NominalTy {
+func (c *Checker) requireInstance(site ast.Pos, nt ast.NominalTy) ast.NominalTy {
 	if nt.Base().IsGeneric() {
-		panic(site.P().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is generic: name an instance with a typealias, as 'typealias Name = %s'",
+		panic(site.Position().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' is generic: name an instance with a typealias, as 'typealias Name = %s'",
 			nt.Name(), ast.InstanceSpelling(nt.Name(), paramNames(nt.Base().Params)))))
 	}
 	return nt
 }
 
-func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
+func (c *Checker) VisitCallExpr(call ast.CallExpr) ast.Ty {
 	if !c.allowCalls {
 		panic(call.Error("E3220", "a constant calls nothing"))
 	}
 
-	if n, ok := call.Callee.(*ast.NameExpr); ok && c.lookupLocal(n.Name) == nil {
+	if n, ok := call.Callee().AsNameExpr(); ok && c.lookupLocal(n.Name()) == nil {
 		callee := c.target(n.ID)
-		if callee == nil && (n.Name == "print" || n.Name == "printError") {
+		if callee == nil && (n.Name() == "print" || n.Name() == "printError") {
 			info := c.typing.Call(call)
-			if n.Name == "print" {
+			if n.Name() == "print" {
 				info.Kind = ast.CallPrint
 			} else {
 				info.Kind = ast.CallPrintError
 			}
-			info.Ordered = c.bindArgs(call, n.Name, []ast.ParamSpec{{Name: "text", Type: ast.StringTy, Conv: ast.ConvLet}}, false)
+			info.Ordered = c.bindArgs(call, n.Name(), []ast.ParamSpec{{Name: "text", Type: ast.StringTy, Conv: ast.ConvLet}}, false)
 			return ast.VoidTy
 		}
 		if f, isFunc := callee.(*ast.FuncDecl); isFunc {
@@ -1429,38 +1455,38 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 		if ast.IsCownConstructor(callee) {
 			return c.cownCall(call)
 		}
-		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name)))
+		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name())))
 	}
 
-	if m, ok := call.Callee.(*ast.MemberExpr); ok {
-		if nt := c.typeNamed(m.Obj); nt != nil {
+	if m, ok := call.Callee().AsMemberExpr(); ok {
+		if nt := c.typeNamed(m.Obj()); nt != nil {
 			if ut, isUnion := nt.(*ast.UnionTy); isUnion {
-				if ci := ut.CaseIndex(m.Name); ci >= 0 {
+				if ci := ut.CaseIndex(m.Name()); ci >= 0 {
 					return c.unionConstructor(call, ut, ci)
 				}
 			}
-			if sm, found := nt.MethodTable()[m.Name]; found && sm.IsStatic {
+			if sm, found := nt.MethodTable()[m.Name()]; found && sm.IsStatic {
 				return c.callFunction(call, ast.CallStatic, sm, nt.Base().Args)
 			}
-			panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("'%s' has no static function or case '%s'", nt.Name(), m.Name)))
+			panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("'%s' has no static function or case '%s'", nt.Name(), m.Name())))
 		}
 
-		rt := c.checkExpr(m.Obj)
-		if m.Name == copyMethod {
+		rt := c.checkExpr(m.Obj())
+		if m.Name() == copyMethod {
 			return c.copyCall(call, rt)
 		}
 		content := ast.Content(rt)
-		requireNotCown(call, content, "calling", m.Name)
+		requireNotCown(call.Position(), content, "calling", m.Name())
 		if param, isParam := content.(*ast.TypeParamTy); isParam {
 			return c.boundCall(call, m, param, rt)
 		}
 		if recv, isNominal := content.(ast.NominalTy); isNominal {
-			if method, found := recv.MethodTable()[m.Name]; found && !method.IsStatic {
-				requireNotFrozenChange(call, rt, method.Pass.SelfConv, m.Name)
+			if method, found := recv.MethodTable()[m.Name()]; found && !method.IsStatic {
+				requireNotFrozenChange(call.Position(), rt, method.Pass.SelfConv, m.Name())
 				return c.callFunction(call, ast.CallMethod, method, recv.Base().Args)
 			}
 		}
-		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'", rt.Name(), m.Name)))
+		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'", rt.Name(), m.Name())))
 	}
 
 	panic(call.Error(diag.ErrUnsupported, "only a named function or method can be called"))
@@ -1468,7 +1494,7 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 
 // unionConstructor types 'Union.case(payload)'. A generic union written without type arguments takes them from the
 // payload.
-func (c *Checker) unionConstructor(call *ast.CallExpr, ut *ast.UnionTy, caseIndex int) ast.Ty {
+func (c *Checker) unionConstructor(call ast.CallExpr, ut *ast.UnionTy, caseIndex int) ast.Ty {
 	uc := ut.CaseList()[caseIndex]
 	if len(uc.Payload) == 0 {
 		panic(call.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries no payload: write '%s.%s'", uc.Name, ut.Name(), uc.Name)))
@@ -1488,7 +1514,7 @@ func (c *Checker) unionConstructor(call *ast.CallExpr, ut *ast.UnionTy, caseInde
 	callee := ut.Name() + "." + uc.Name
 	if ut.Base().IsGeneric() {
 		ordered := c.checkedArgs(call, callee, specs)
-		ut = c.instantiate(call, ut, c.infer(call, ut.Name(), ut.Base().Params, specs, ordered, ast.SelfType(ut))).(*ast.UnionTy)
+		ut = c.instantiate(call.Position(), ut, c.infer(call.Position(), ut.Name(), ut.Base().Params, specs, ordered, ast.SelfType(ut))).(*ast.UnionTy)
 		specs = specsOf(ut)
 		for i, spec := range specs {
 			c.coerceArg(ordered[i], callee, spec)
@@ -1504,24 +1530,24 @@ func (c *Checker) unionConstructor(call *ast.CallExpr, ut *ast.UnionTy, caseInde
 
 // boundCall types a call of a method that a type parameter's bounds declare. It is the only method a value of a type
 // parameter has, and it runs the method of whatever type the parameter becomes.
-func (c *Checker) boundCall(call *ast.CallExpr, m *ast.MemberExpr, param *ast.TypeParamTy, receiver ast.Ty) ast.Ty {
+func (c *Checker) boundCall(call ast.CallExpr, m ast.MemberExpr, param *ast.TypeParamTy, receiver ast.Ty) ast.Ty {
 	var iface *ast.InterfaceTy
 	var sig *ast.FuncSig
 	for _, candidate := range c.boundsOf(param) {
-		s, found := candidate.Methods[m.Name]
+		s, found := candidate.Methods[m.Name()]
 		if !found || candidate == iface {
 			continue
 		}
 		if sig != nil {
 			panic(call.Error(diag.ErrAmbiguousBound, fmt.Sprintf("the bounds '%s' and '%s' of '%s' both declare '%s'; keep only one bound that declares it",
-				iface.Name(), candidate.Name(), param.Name(), m.Name)))
+				iface.Name(), candidate.Name(), param.Name(), m.Name())))
 		}
 		iface, sig = candidate, s
 	}
 	if sig == nil {
-		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'%s", param.Name(), m.Name, c.boundsText(param))))
+		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'%s", param.Name(), m.Name(), c.boundsText(param))))
 	}
-	requireNotFrozenChange(call, receiver, sig.Pass.SelfConv, m.Name)
+	requireNotFrozenChange(call.Position(), receiver, sig.Pass.SelfConv, m.Name())
 	b := ast.Binding{Params: []*ast.TypeParamTy{iface.Self}, Args: []ast.Ty{param}}
 	info := c.typing.Call(call)
 	info.Kind = ast.CallBound
@@ -1530,8 +1556,8 @@ func (c *Checker) boundCall(call *ast.CallExpr, m *ast.MemberExpr, param *ast.Ty
 		Method: sig,
 	}
 	info.Pass = &info.Generic.Passing
-	info.Ordered = c.bindArgs(call, param.Name()+"."+m.Name, info.Pass.Specs, false)
-	c.recordUses(call)
+	info.Ordered = c.bindArgs(call, param.Name()+"."+m.Name(), info.Pass.Specs, false)
+	c.recordUses(c.use(call))
 	return b.Apply(sig.ReturnType)
 }
 
@@ -1549,10 +1575,10 @@ func (c *Checker) boundsText(param *ast.TypeParamTy) string {
 }
 
 // requireConforms checks one type argument against one bound of its parameter.
-func (c *Checker) requireConforms(site ast.Node, arg ast.Ty, iface *ast.InterfaceTy, param *ast.TypeParamTy) {
+func (c *Checker) requireConforms(site ast.Pos, arg ast.Ty, iface *ast.InterfaceTy, param *ast.TypeParamTy) {
 	if k, structural := c.capabilityOf(iface); structural {
 		if why, fix, lacking := c.whyNot(k, arg); lacking {
-			panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("the type argument '%s' for '%s' must be %s, but %s: %s", arg.Name(), param.Name(), iface.Name(), why, fix)))
+			panic(site.Position().Error(diag.ErrBoundNotMet, fmt.Sprintf("the type argument '%s' for '%s' must be %s, but %s: %s", arg.Name(), param.Name(), iface.Name(), why, fix)))
 		}
 		return
 	}
@@ -1561,20 +1587,20 @@ func (c *Checker) requireConforms(site ast.Node, arg ast.Ty, iface *ast.Interfac
 		if slices.Contains(c.boundsOf(t), iface) {
 			return
 		}
-		panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("the type parameter '%s' is not known to be %s, which the type argument for '%s' must be: add the bound, '%s implements %s'",
+		panic(site.Position().Error(diag.ErrBoundNotMet, fmt.Sprintf("the type parameter '%s' is not known to be %s, which the type argument for '%s' must be: add the bound, '%s implements %s'",
 			t.Name(), iface.Name(), param.Name(), t.Name(), iface.Name())))
 	case ast.NominalTy:
 		if slices.Contains(t.Base().Declaration().Conforms, iface) {
 			return
 		}
 		if c.project.Builtins.Is(t) {
-			panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' is built in and implements no interface, so it cannot be %s for '%s'; wrap it in a type of your own that declares 'implements %s'",
+			panic(site.Position().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' is built in and implements no interface, so it cannot be %s for '%s'; wrap it in a type of your own that declares 'implements %s'",
 				t.Name(), iface.Name(), param.Name(), c.spelled(iface))))
 		}
-		panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' must be %s for '%s': declare '%s %s implements %s'%s",
+		panic(site.Position().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' must be %s for '%s': declare '%s %s implements %s'%s",
 			t.Name(), iface.Name(), param.Name(), declarationWord(t), t.Base().Declaration().Name(), c.spelled(iface), missingMethods(t, iface))))
 	}
-	panic(site.P().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' must be %s for '%s', but only a type, enum or union implements an interface",
+	panic(site.Position().Error(diag.ErrBoundNotMet, fmt.Sprintf("'%s' must be %s for '%s', but only a type, enum or union implements an interface",
 		arg.Name(), iface.Name(), param.Name())))
 }
 
@@ -1614,7 +1640,7 @@ func missingMethods(t ast.NominalTy, iface *ast.InterfaceTy) string {
 
 // checkConformance checks a declaration against each interface it says it implements: every method is there with the
 // signature the interface gives, so a bound that the declaration meets is never wrong at an instance.
-func (c *Checker) checkConformance(site ast.Node, nt ast.NominalTy) {
+func (c *Checker) checkConformance(site ast.Pos, nt ast.NominalTy) {
 	self := ast.SelfType(nt)
 	for _, iface := range nt.Base().Conforms {
 		b := ast.Binding{Params: []*ast.TypeParamTy{iface.Self}, Args: []ast.Ty{self}}
@@ -1624,11 +1650,11 @@ func (c *Checker) checkConformance(site ast.Node, nt ast.NominalTy) {
 	}
 }
 
-func (c *Checker) requireImplements(site ast.Node, nt ast.NominalTy, iface *ast.InterfaceTy, sig *ast.FuncSig, b ast.Binding) {
+func (c *Checker) requireImplements(site ast.Pos, nt ast.NominalTy, iface *ast.InterfaceTy, sig *ast.FuncSig, b ast.Binding) {
 	wantSpecs, wantReturn := b.ApplySpecs(sig.Pass.Specs), b.Apply(sig.ReturnType)
 	m, found := nt.MethodTable()[sig.Name]
 	if found && m.HasOwnBounds() {
-		panic(site.P().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it implements %s, but its method '%s' adds a 'where' on the type's parameters, so '%s' would implement %s only for some instances: remove the 'where' from the method, or put the bound on the type",
+		panic(site.Position().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it implements %s, but its method '%s' adds a 'where' on the type's parameters, so '%s' would implement %s only for some instances: remove the 'where' from the method, or put the bound on the type",
 			nt.Name(), iface.Name(), sig.Name, nt.Name(), iface.Name())))
 	}
 	if !found || m.IsStatic || m.Pass.SelfConv != sig.Pass.SelfConv || !slices.Equal(m.Pass.Specs, wantSpecs) || m.ReturnType != wantReturn {
@@ -1636,7 +1662,7 @@ func (c *Checker) requireImplements(site ast.Node, nt ast.NominalTy, iface *ast.
 		if found {
 			problem = "has it as '" + signatureText(m.Name, m.Pass.SelfConv, m.Pass.Specs, m.ReturnType) + "'"
 		}
-		panic(site.P().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it implements %s, which needs '%s', but '%s' %s: add or change the method to match it",
+		panic(site.Position().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it implements %s, which needs '%s', but '%s' %s: add or change the method to match it",
 			nt.Name(), iface.Name(), signatureText(sig.Name, sig.Pass.SelfConv, wantSpecs, wantReturn), nt.Name(), problem)))
 	}
 }
@@ -1661,7 +1687,7 @@ func signatureText(name string, selfConv ast.Convention, specs []ast.ParamSpec, 
 	return text
 }
 
-func (c *Checker) copyCall(call *ast.CallExpr, t ast.Ty) ast.Ty {
+func (c *Checker) copyCall(call ast.CallExpr, t ast.Ty) ast.Ty {
 	if t == ast.VoidTy || t == ast.NeverTy {
 		panic(call.Error(diag.ErrTypeMismatch, "an expression with no value cannot be copied"))
 	}
@@ -1674,39 +1700,39 @@ func (c *Checker) copyCall(call *ast.CallExpr, t ast.Ty) ast.Ty {
 	return t
 }
 
-func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
-	if nt := c.typeNamed(m.Obj); nt != nil {
-		if ut, isUnion := nt.(*ast.UnionTy); isUnion && ut.Base().IsGeneric() && ut.CaseIndex(m.Name) >= 0 {
+func (c *Checker) VisitMemberExpr(m ast.MemberExpr) ast.Ty {
+	if nt := c.typeNamed(m.Obj()); nt != nil {
+		if ut, isUnion := nt.(*ast.UnionTy); isUnion && ut.Base().IsGeneric() && ut.CaseIndex(m.Name()) >= 0 {
 			params := ut.Base().Params
-			nt = c.instantiate(m.Obj, ut, c.inferRest(m.Obj, ut.Name()+"."+m.Name, params, make([]ast.Ty, len(params)), ast.SelfType(ut)))
+			nt = c.instantiate(m.Obj().Position(), ut, c.inferRest(m.Obj().Position(), ut.Name()+"."+m.Name(), params, make([]ast.Ty, len(params)), ast.SelfType(ut)))
 		}
-		c.requireInstance(m.Obj, nt)
+		c.requireInstance(m.Obj().Position(), nt)
 		switch t := nt.(type) {
 		case *ast.EnumTy:
-			caseIndex := t.CaseIndex(m.Name)
+			caseIndex := t.CaseIndex(m.Name())
 			if caseIndex < 0 {
-				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name)))
+				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name())))
 			}
 			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberEnumCase, CaseIndex: int32(caseIndex)})
 			return t
 		case *ast.UnionTy:
-			caseIndex := t.CaseIndex(m.Name)
+			caseIndex := t.CaseIndex(m.Name())
 			if caseIndex < 0 {
-				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name)))
+				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name())))
 			}
 			if len(t.CaseList()[caseIndex].Payload) > 0 {
-				panic(m.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries a payload: construct it with arguments", m.Name)))
+				panic(m.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries a payload: construct it with arguments", m.Name())))
 			}
 			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberUnionCase, CaseIndex: int32(caseIndex)})
 			return t
 		}
-		panic(m.Error(diag.ErrUnknownField, fmt.Sprintf("'%s.%s' is not a value", nt.Name(), m.Name)))
+		panic(m.Error(diag.ErrUnknownField, fmt.Sprintf("'%s.%s' is not a value", nt.Name(), m.Name())))
 	}
 
-	t := c.checkExpr(m.Obj)
-	requireNotCown(m, ast.Content(t), "reading", m.Name)
+	t := c.checkExpr(m.Obj())
+	requireNotCown(m.Position(), ast.Content(t), "reading", m.Name())
 	if rt, ok := ast.Content(t).(*ast.RecordTy); ok {
-		if f := rt.Field(m.Name); f != nil {
+		if f := rt.Field(m.Name()); f != nil {
 			if rt.Decl.Module != c.module && !f.Exported {
 				panic(m.Error("E3014", fmt.Sprintf("field '%s.%s' is not exported", rt.Name(), f.Name)))
 			}
@@ -1714,8 +1740,8 @@ func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
 			return rt.FieldType(f)
 		}
 	}
-	if et, ok := t.(*ast.EnumTy); ok && (m.Name == "name" || m.Name == "ordinal" || m.Name == "rawValue") {
-		switch m.Name {
+	if et, ok := t.(*ast.EnumTy); ok && (m.Name() == "name" || m.Name() == "ordinal" || m.Name() == "rawValue") {
+		switch m.Name() {
 		case "name":
 			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberEnumName})
 			return ast.StringTy
@@ -1731,8 +1757,8 @@ func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
 		}
 		return c.countTy()
 	}
-	if _, ok := t.(*ast.UnionTy); ok && (m.Name == "name" || m.Name == "ordinal") {
-		if m.Name == "name" {
+	if _, ok := t.(*ast.UnionTy); ok && (m.Name() == "name" || m.Name() == "ordinal") {
+		if m.Name() == "name" {
 			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberUnionName})
 			return ast.StringTy
 		}
@@ -1740,34 +1766,34 @@ func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
 		return c.countTy()
 	}
 	if nom, ok := t.(ast.NominalTy); ok {
-		if _, isMethod := nom.MethodTable()[m.Name]; isMethod {
+		if _, isMethod := nom.MethodTable()[m.Name()]; isMethod {
 			panic(m.Error(diag.ErrUnsupported, "a method value is not supported by minimaxon; call the method"))
 		}
 	}
-	panic(m.Error(diag.ErrUnknownField, fmt.Sprintf("%s has no field '%s'", t.Name(), m.Name)))
+	panic(m.Error(diag.ErrUnknownField, fmt.Sprintf("%s has no field '%s'", t.Name(), m.Name())))
 }
 
 // VisitIndexExpr types a subscript. An element of a primitive is a projection, never a value of its own: what it is
 // used for decides whether it borrows the element to read it or to change it, and the ownership pass refuses to move
 // one out.
-func (c *Checker) VisitIndexExpr(x *ast.IndexExpr) ast.Ty {
-	t := ast.Content(c.checkExpr(x.Obj))
-	requireNotCown(x, t, "reading an element", "")
+func (c *Checker) VisitIndexExpr(x ast.IndexExpr) ast.Ty {
+	t := ast.Content(c.checkExpr(x.Obj()))
+	requireNotCown(x.Position(), t, "reading an element", "")
 	bt, ok := t.(*ast.BuiltinTy)
 	if !ok || !bt.Subscriptable() {
 		panic(x.Error(diag.ErrTypeMismatch, fmt.Sprintf("%s has no elements to index: only an array, a map, a list or a pool does", t.Name())))
 	}
-	if len(x.Args) != 1 {
-		panic(x.Error(diag.ErrTypeMismatch, fmt.Sprintf("an index is one value, given %d", len(x.Args))))
+	if x.Args().Len() != 1 {
+		panic(x.Error(diag.ErrTypeMismatch, fmt.Sprintf("an index is one value, given %d", x.Args().Len())))
 	}
-	c.checkExpr(x.Args[0])
-	c.coerce(x.Args[0], bt.Index(), "the index of "+t.Name())
+	c.checkExpr(x.Args().At(0))
+	c.coerce(x.Args().At(0), bt.Index(), "the index of "+t.Name())
 	return bt.Element()
 }
 
-func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
+func (c *Checker) VisitStructLitExpr(s ast.StructLitExpr) ast.Ty {
 	var target ast.Ty
-	if s.TypeName == "Self" {
+	if s.TypeName() == "Self" {
 		if c.owner != nil {
 			target = c.owner
 		}
@@ -1776,7 +1802,7 @@ func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
 	}
 	rt, ok := target.(*ast.RecordTy)
 	if !ok {
-		panic(s.Error(diag.ErrUnknownType, fmt.Sprintf("'%s' is not a type with fields", s.TypeName)))
+		panic(s.Error(diag.ErrUnknownType, fmt.Sprintf("'%s' is not a type with fields", s.TypeName())))
 	}
 	if rt.Base().IsGeneric() {
 		panic(s.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("a literal of the generic '%s' is written 'Self{...}', which gives it its own type parameters", rt.Name())))
@@ -1787,21 +1813,21 @@ func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
 	fields := rt.FieldList()
 	ordered := make([]ast.Expr, len(fields))
 	c.typing.SetStructLit(s, ast.StructLitInfo{Record: rt, Ordered: ordered})
-	for _, sf := range s.Fields {
-		f := rt.Field(sf.Name)
+	for _, sf := range s.Fields().All() {
+		f := rt.Field(sf.Name())
 		if f == nil {
-			panic(sf.Error(diag.ErrUnknownField, fmt.Sprintf("'%s' has no field '%s'", rt.Name(), sf.Name)))
+			panic(sf.Error(diag.ErrUnknownField, fmt.Sprintf("'%s' has no field '%s'", rt.Name(), sf.Name())))
 		}
-		if ordered[f.Index] != nil {
-			panic(sf.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is given twice", sf.Name)))
+		if !ordered[f.Index].IsNil() {
+			panic(sf.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is given twice", sf.Name())))
 		}
-		c.checkExpecting(sf.Value, rt.FieldType(f))
-		c.coerce(sf.Value, rt.FieldType(f), fmt.Sprintf("field '%s'", sf.Name))
-		ordered[f.Index] = sf.Value
+		c.checkExpecting(sf.Value(), rt.FieldType(f))
+		c.coerce(sf.Value(), rt.FieldType(f), fmt.Sprintf("field '%s'", sf.Name()))
+		ordered[f.Index] = sf.Value()
 	}
 	for _, f := range fields {
-		if ordered[f.Index] == nil {
-			if f.Default == nil {
+		if ordered[f.Index].IsNil() {
+			if f.Default.IsNil() {
 				panic(s.Error(diag.ErrFieldNotInitialized, fmt.Sprintf("field '%s' of '%s' is not initialized", f.Name, rt.Name())))
 			}
 			c.recordUses(f.Uses...)
@@ -1810,13 +1836,13 @@ func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
 	return rt
 }
 
-func (c *Checker) VisitCastExpr(cast *ast.CastExpr) ast.Ty {
-	target := c.resolve(cast.Target, c.owner)
+func (c *Checker) VisitCastExpr(cast ast.CastExpr) ast.Ty {
+	target := c.resolve(cast.Target(), c.owner)
 	ti, ok := target.(*ast.IntTy)
 	if !ok {
 		panic(cast.Error(diag.ErrUnsupported, fmt.Sprintf("a cast to %s is not supported by minimaxon", target.Name())))
 	}
-	src := c.checkExpr(cast.E)
+	src := c.checkExpr(cast.E())
 	switch s := src.(type) {
 	case *ast.ConstIntTy:
 		if !ti.Holds(s.Value) {
@@ -1833,126 +1859,132 @@ func (c *Checker) checkStmt(s ast.Stmt) {
 	ast.VisitStmt(c, s)
 }
 
-func (c *Checker) VisitDiscardStmt(t *ast.DiscardStmt) { c.checkExpr(t.Value) }
+func (c *Checker) VisitDiscardStmt(t ast.DiscardStmt) { c.checkExpr(t.Value()) }
 
-func (c *Checker) VisitExprStmt(t *ast.ExprStmt) {
-	switch t.E.(type) {
-	case *ast.CallExpr, *ast.PanicExpr:
+func (c *Checker) VisitExprStmt(t ast.ExprStmt) {
+	switch t.E().Kind() {
+	case ast.KindCallExpr, ast.KindPanicExpr:
 	default:
 		panic(t.Error(diag.ErrUnexpectedToken, "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='"))
 	}
-	c.checkExpr(t.E)
+	c.checkExpr(t.E())
 }
 
-func (c *Checker) VisitIfStmt(t *ast.IfStmt) {
-	c.requireBool(t.Cond)
-	c.checkBlock(t.Then)
-	if t.HasElse {
-		c.checkBlock(t.Else)
+func (c *Checker) VisitIfStmt(t ast.IfStmt) {
+	c.requireBool(t.Cond())
+	c.checkBlock(t.Then())
+	if t.HasElse() {
+		c.checkBlock(t.Else())
 	}
 }
 
-func (c *Checker) VisitWhileStmt(t *ast.WhileStmt) {
-	c.requireBool(t.Cond)
-	c.pushBlock(t.Label, checkerLoop, t.ID)
-	c.checkBlock(t.Body)
+func (c *Checker) VisitWhileStmt(t ast.WhileStmt) {
+	c.requireBool(t.Cond())
+	c.pushBlock(t.Label(), checkerLoop, t.ID)
+	c.checkBlock(t.Body())
 	c.popBlock()
 }
 
-func (c *Checker) VisitMatchStmt(t *ast.MatchStmt) { c.checkMatch(t.Match, false) }
+func (c *Checker) VisitMatchStmt(t ast.MatchStmt) { c.checkMatch(t.Match(), false) }
 
-func (c *Checker) VisitBreakStmt(t *ast.BreakStmt) {
-	c.typing.SetBreakTarget(t, c.resolveJump(t, t.Label, true))
+func (c *Checker) VisitBreakStmt(t ast.BreakStmt) {
+	c.typing.SetBreakTarget(t, c.resolveJump(t.Stmt(), t.Label(), true))
 }
 
-func (c *Checker) VisitContinueStmt(t *ast.ContinueStmt) {
-	c.typing.SetContinueTarget(t, c.resolveJump(t, t.Label, false))
+func (c *Checker) VisitContinueStmt(t ast.ContinueStmt) {
+	c.typing.SetContinueTarget(t, c.resolveJump(t.Stmt(), t.Label(), false))
 }
 
 func (c *Checker) requireBool(e ast.Expr) {
 	if c.checkExpr(e) != ast.BoolTy {
-		panic(e.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", c.ty(e).Name())))
+		panic(e.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", c.ty(e).Name())))
 	}
 }
 
-func (c *Checker) VisitLetStmt(l *ast.LetStmt) {
-	if l.Name == "_" {
+func (c *Checker) VisitLetStmt(l ast.LetStmt) {
+	if l.Name() == "_" {
 		panic(l.Error(diag.ErrUnexpectedToken, "write '_ = call()' to discard a result"))
 	}
-	if l.Init == nil {
-		t := c.resolve(l.Type, c.owner)
-		c.typing.SetLetLocal(l, c.declareLocal(l.Name, t, l.IsVar, l))
+	if l.Init().IsNil() {
+		t := c.resolve(l.Type(), c.owner)
+		c.typing.SetLetLocal(l, c.declareLocal(l.Name(), t, l.IsVar(), l.Position()))
 		return
 	}
-	t := c.checkExpr(l.Init)
-	c.requireSigned64(l.Init, t)
+	t := c.checkExpr(l.Init())
+	c.requireSigned64(l.Init().Position(), t)
 	if t == ast.VoidTy || t == ast.NeverTy {
-		panic(l.Init.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' is bound to an expression with no value", l.Name)))
+		panic(l.Init().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' is bound to an expression with no value", l.Name())))
 	}
-	if l.IsVar {
+	if l.IsVar() {
 		_, isConst := t.(*ast.ConstIntTy)
 		it, isInt := t.(*ast.IntTy)
 		if isConst || (isInt && it.IsAnonymous()) {
-			panic(l.Init.P().Error(diag.ErrExpressionError, fmt.Sprintf("a var names its alias: write 'var %s = <value> as <Alias>'", l.Name)))
+			panic(l.Init().Position().Error(diag.ErrExpressionError, fmt.Sprintf("a var names its alias: write 'var %s = <value> as <Alias>'", l.Name())))
 		}
 	}
-	c.typing.SetLetLocal(l, c.declareLocal(l.Name, t, l.IsVar, l))
+	c.typing.SetLetLocal(l, c.declareLocal(l.Name(), t, l.IsVar(), l.Position()))
 }
 
-func (c *Checker) VisitAssignStmt(a *ast.AssignStmt) {
+func (c *Checker) VisitAssignStmt(a ast.AssignStmt) {
 	var target ast.Ty
-	switch t := a.Target.(type) {
-	case *ast.NameExpr:
+	switch a.Target().Kind() {
+	case ast.KindNameExpr:
+		t := a.Target().ToNameExpr()
+
 		target = c.VisitNameExpr(t)
-		c.typing.SetType(t, target)
-	case *ast.MemberExpr:
+		c.typing.SetType(t.Expr(), target)
+	case ast.KindMemberExpr:
+		t := a.Target().ToMemberExpr()
+
 		target = c.VisitMemberExpr(t)
-		c.typing.SetType(t, target)
+		c.typing.SetType(t.Expr(), target)
 		if c.typing.Member(t).Kind != ast.MemberField {
-			panic(a.Error(diag.ErrAssignToImmutable, fmt.Sprintf("'%s' cannot be assigned", t.Name)))
+			panic(a.Error(diag.ErrAssignToImmutable, fmt.Sprintf("'%s' cannot be assigned", t.Name())))
 		}
-	case *ast.IndexExpr:
+	case ast.KindIndexExpr:
+		t := a.Target().ToIndexExpr()
+
 		target = c.VisitIndexExpr(t)
-		c.typing.SetType(t, target)
+		c.typing.SetType(t.Expr(), target)
 	default:
 		panic(a.Error(diag.ErrUnexpectedToken, "only a variable, a field or an element can be assigned"))
 	}
-	c.checkExpecting(a.Value, target)
-	c.coerce(a.Value, target, "assignment")
+	c.checkExpecting(a.Value(), target)
+	c.coerce(a.Value(), target, "assignment")
 }
 
-func (c *Checker) VisitForStmt(f *ast.ForStmt) {
-	from := c.checkExpr(f.From)
-	to := c.checkExpr(f.To)
+func (c *Checker) VisitForStmt(f ast.ForStmt) {
+	from := c.checkExpr(f.From())
+	to := c.checkExpr(f.To())
 	if !c.isInt(from) || !c.isInt(to) {
 		panic(f.Error(diag.ErrTypeMismatch, fmt.Sprintf("a range needs integer bounds, found %s and %s", from.Name(), to.Name())))
 	}
 	var varType ast.Ty
 	if c.namedInt(from) != nil || c.namedInt(to) != nil {
-		varType = c.unifyInts(f, from, to)
+		varType = c.unifyInts(f.Position(), from, to)
 	} else {
-		c.requireSigned64(f.From, from)
-		c.requireSigned64(f.To, to)
+		c.requireSigned64(f.From().Position(), from)
+		c.requireSigned64(f.To().Position(), to)
 		lo, _ := c.rangeOf(from)
 		_, hi := c.rangeOf(to)
-		if !f.Inclusive {
+		if !f.Inclusive() {
 			hi = hi.Sub(ast.One)
 		}
 		varType = &ast.IntTy{Min: lo, Max: ast.MaxI(lo, hi)}
 	}
 
-	c.pushBlock(f.Label, checkerLoop, f.ID)
+	c.pushBlock(f.Label(), checkerLoop, f.ID)
 	c.pushScope()
-	c.typing.SetForLocal(f, c.declareLocal(f.Var, varType, false, f))
-	c.checkStmts(f.Body)
+	c.typing.SetForLocal(f, c.declareLocal(f.Var(), varType, false, f.Position()))
+	c.checkStmts(f.Body())
 	c.popScope()
 	c.popBlock()
 }
 
-func (c *Checker) VisitReturnStmt(r *ast.ReturnStmt) {
+func (c *Checker) VisitReturnStmt(r ast.ReturnStmt) {
 	ret := c.returnType(c.fn)
 	if ret == ast.VoidTy {
-		if r.Value != nil {
+		if !r.Value().IsNil() {
 			if c.behaviour != nil {
 				panic(r.Error(diag.ErrTypeMismatch, "a behaviour returns nothing and nothing waits for it: pass a result on by scheduling another behaviour"))
 			}
@@ -1960,11 +1992,11 @@ func (c *Checker) VisitReturnStmt(r *ast.ReturnStmt) {
 		}
 		return
 	}
-	if r.Value == nil {
+	if r.Value().IsNil() {
 		panic(r.Error(diag.ErrMissingReturn, fmt.Sprintf("'%s' must return a %s", c.fn.Name, ret.Name())))
 	}
-	c.checkExpecting(r.Value, ret)
-	c.coerce(r.Value, ret, "return value")
+	c.checkExpecting(r.Value(), ret)
+	c.coerce(r.Value(), ret, "return value")
 }
 
 func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.NodeID {
@@ -1978,7 +2010,7 @@ func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.NodeID
 				return v.Node
 			}
 		}
-		panic(s.P().Error(diag.ErrUnexpectedToken, fmt.Sprintf("'%s' outside a loop", word)))
+		panic(s.Position().Error(diag.ErrUnexpectedToken, fmt.Sprintf("'%s' outside a loop", word)))
 	}
 
 	for _, v := range slices.Backward(c.blocks) {
@@ -1986,39 +2018,39 @@ func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.NodeID
 			continue
 		}
 		if !isBreak && v.Kind != checkerLoop {
-			panic(s.P().Error(diag.ErrUnexpectedToken, fmt.Sprintf("'continue' names '%s', which is not a loop", label)))
+			panic(s.Position().Error(diag.ErrUnexpectedToken, fmt.Sprintf("'continue' names '%s', which is not a loop", label)))
 		}
 		return v.Node
 	}
-	panic(s.P().Error(diag.ErrUnexpectedToken, fmt.Sprintf("no enclosing loop or match is labelled '%s'", label)))
+	panic(s.Position().Error(diag.ErrUnexpectedToken, fmt.Sprintf("no enclosing loop or match is labelled '%s'", label)))
 }
 
-func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
-	subjectTy := c.checkExpr(m.Subject)
+func (c *Checker) checkMatch(m ast.MatchCore, isExpr bool) ast.Ty {
+	subjectTy := c.checkExpr(m.Subject())
 	st := ast.Content(subjectTy)
-	if m.Consumes && ast.IsFrozen(subjectTy) {
-		panic(m.Subject.P().Error(diag.ErrMoveOutOfField, "the contents of a frozen value are shared with its other owners, so 'match consumes' cannot take them apart; match without 'consumes', or use 'thaw(...)' for an owned copy"))
+	if m.Consumes() && ast.IsFrozen(subjectTy) {
+		panic(m.Subject().Position().Error(diag.ErrMoveOutOfField, "the contents of a frozen value are shared with its other owners, so 'match consumes' cannot take them apart; match without 'consumes', or use 'thaw(...)' for an owned copy"))
 	}
-	requireNotCown(m.Subject, st, "matching on it", "")
-	c.requireSigned64(m.Subject, st)
+	requireNotCown(m.Subject().Position(), st, "matching on it", "")
+	c.requireSigned64(m.Subject().Position(), st)
 	_, isEnum := st.(*ast.EnumTy)
 	_, isUnion := st.(*ast.UnionTy)
 	isCases := isEnum || isUnion
 	if !(c.isInt(st) || st == ast.StringTy || st == ast.BoolTy || isCases) {
-		panic(m.Subject.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("cannot match on a value of %s", st.Name())))
+		panic(m.Subject().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("cannot match on a value of %s", st.Name())))
 	}
 
 	expect := c.expect
-	c.pushBlock(m.Label, checkerMatch, m.ID)
+	c.pushBlock(m.Label(), checkerMatch, m.ID)
 	var result ast.Ty
 	hasDefault := false
 	seen := map[int]bool{}
 	seenBools := map[bool]bool{}
 
-	for _, arm := range m.Arms {
+	for _, arm := range m.Arms().All() {
 		c.guard(func() {
-			if arm.IsDefault {
-				if isCases && arm.Kind() != ast.ArmPanic {
+			if arm.IsDefault() {
+				if isCases && arm.Form() != ast.ArmPanic {
 					panic(arm.Error(diag.ErrMatchDefaultEnumMustThrow, "on an enum or union, 'default' is 'default panic(...)'"))
 				}
 				hasDefault = true
@@ -2026,7 +2058,7 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 
 			c.pushScope()
 			defer c.popScope()
-			c.checkArm(arm, st, m.Consumes, isExpr, seen, seenBools, &result, expect)
+			c.checkArm(arm, st, m.Consumes(), isExpr, seen, seenBools, &result, expect)
 		})
 	}
 	c.popBlock()
@@ -2042,37 +2074,37 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 
 // checkArm checks one arm of a match. owned is whether the match consumes its subject, so each payload the arm binds is
 // owned by the arm instead of borrowed from the subject.
-func (c *Checker) checkArm(arm *ast.MatchArm, st ast.Ty, owned, isExpr bool, seen map[int]bool, seenBools map[bool]bool, result *ast.Ty, expect ast.Ty) {
-	for _, pat := range arm.Patterns {
-		c.checkPattern(pat, st, owned, len(arm.Patterns), seen, seenBools)
+func (c *Checker) checkArm(arm ast.MatchArm, st ast.Ty, owned, isExpr bool, seen map[int]bool, seenBools map[bool]bool, result *ast.Ty, expect ast.Ty) {
+	for _, pat := range arm.Patterns().All() {
+		c.checkPattern(pat, st, owned, arm.Patterns().Len(), seen, seenBools)
 	}
 
-	switch arm.Kind() {
+	switch arm.Form() {
 	case ast.ArmThen:
 		if isExpr {
 			panic(arm.Error(diag.ErrUnexpectedToken, "an arm of a match expression 'gives' a value"))
 		}
-		switch arm.Action.(type) {
-		case *ast.IfStmt, *ast.WhileStmt, *ast.ForStmt, *ast.MatchStmt, *ast.WhenStmt:
-			panic(arm.Action.P().Error(diag.ErrMatchBlockStatement, "a block statement cannot be a match arm's action; move it into a function and call that"))
+		switch arm.Action().Kind() {
+		case ast.KindIfStmt, ast.KindWhileStmt, ast.KindForStmt, ast.KindMatchStmt, ast.KindWhenStmt:
+			panic(arm.Action().Position().Error(diag.ErrMatchBlockStatement, "a block statement cannot be a match arm's action; move it into a function and call that"))
 		}
-		c.checkStmt(arm.Action)
+		c.checkStmt(arm.Action())
 	case ast.ArmGives:
 		if !isExpr {
 			panic(arm.Error(diag.ErrUnexpectedToken, "an arm of a match statement uses 'then'"))
 		}
-		t := c.checkExpecting(arm.Value, expect)
+		t := c.checkExpecting(arm.Value(), expect)
 		if *result == nil {
 			*result = t
 		} else {
-			*result = c.join(arm.Value, *result, t)
+			*result = c.join(arm.Value().Position(), *result, t)
 		}
 	case ast.ArmPanic:
-		c.checkExpr(arm.Value)
+		c.checkExpr(arm.Value())
 	}
 }
 
-func (c *Checker) checkExhaustive(m *ast.MatchCore, st ast.Ty, hasDefault bool, seen map[int]bool, seenBools map[bool]bool) {
+func (c *Checker) checkExhaustive(m ast.MatchCore, st ast.Ty, hasDefault bool, seen map[int]bool, seenBools map[bool]bool) {
 	if hasDefault {
 		return
 	}
@@ -2102,36 +2134,36 @@ func (c *Checker) checkExhaustive(m *ast.MatchCore, st ast.Ty, hasDefault bool, 
 	}
 }
 
-func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, owned bool, altCount int, seen map[int]bool, seenBools map[bool]bool) {
-	switch pat.Kind() {
+func (c *Checker) checkPattern(pat ast.Pattern, st ast.Ty, owned bool, altCount int, seen map[int]bool, seenBools map[bool]bool) {
+	switch pat.Form() {
 	case ast.PatternCase:
 		info := c.typing.EditPattern(pat)
 		switch t := st.(type) {
 		case *ast.EnumTy:
-			info.CaseIndex = t.CaseIndex(pat.CaseName)
+			info.CaseIndex = t.CaseIndex(pat.CaseName())
 			if info.CaseIndex < 0 {
-				panic(pat.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), pat.CaseName)))
+				panic(pat.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), pat.CaseName())))
 			}
-			if pat.HasBindings {
+			if pat.HasBindings() {
 				panic(pat.Error(diag.ErrEnumWrongBindingCount, "an enum case carries no payload to bind"))
 			}
 		case *ast.UnionTy:
-			info.CaseIndex = t.CaseIndex(pat.CaseName)
+			info.CaseIndex = t.CaseIndex(pat.CaseName())
 			if info.CaseIndex < 0 {
-				panic(pat.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), pat.CaseName)))
+				panic(pat.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), pat.CaseName())))
 			}
 			payload := t.Payload(info.CaseIndex)
-			if pat.HasBindings {
-				if len(pat.Bindings) != len(payload) {
-					panic(pat.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries %d value(s), %d bound", pat.CaseName, len(payload), len(pat.Bindings))))
+			if pat.HasBindings() {
+				if pat.Bindings().Len() != len(payload) {
+					panic(pat.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries %d value(s), %d bound", pat.CaseName(), len(payload), pat.Bindings().Len())))
 				}
 				if altCount > 1 {
 					panic(pat.Error(diag.ErrEnumWrongBindingCount, "an arm that binds a payload covers exactly one case"))
 				}
 				for i := range payload {
 					var bound *ast.Local
-					if pat.Bindings[i] != "_" {
-						bound = c.declareLocal(pat.Bindings[i], payload[i].Type, false, pat)
+					if pat.Bindings().At(i) != "_" {
+						bound = c.declareLocal(pat.Bindings().At(i), payload[i].Type, false, pat.Position())
 						bound.Projected = payload[i].Type.IsManaged() && !owned
 					}
 					var id ast.LocalID
@@ -2145,23 +2177,23 @@ func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, owned bool, altCount
 			panic(pat.Error(diag.ErrTypeMismatch, fmt.Sprintf("a case pattern needs an enum or union subject, found %s", st.Name())))
 		}
 		if seen[info.CaseIndex] {
-			panic(pat.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("case '%s' is matched twice", pat.CaseName)))
+			panic(pat.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("case '%s' is matched twice", pat.CaseName())))
 		}
 		seen[info.CaseIndex] = true
 	case ast.PatternLiteral:
-		t := c.checkExpr(pat.Value)
-		if bl, ok := pat.Value.(*ast.BoolLit); ok && st == ast.BoolTy {
-			if seenBools[bl.Value] {
+		t := c.checkExpr(pat.Value())
+		if bl, ok := pat.Value().AsBoolLit(); ok && st == ast.BoolTy {
+			if seenBools[bl.Value()] {
 				word := "False"
-				if bl.Value {
+				if bl.Value() {
 					word = "True"
 				}
 				panic(pat.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is matched twice", word)))
 			}
-			seenBools[bl.Value] = true
+			seenBools[bl.Value()] = true
 			return
 		}
-		if sl, ok := pat.Value.(*ast.StrLit); ok && st == ast.StringTy && sl.IsPlain() {
+		if sl, ok := pat.Value().AsStrLit(); ok && st == ast.StringTy && sl.IsPlain() {
 			return
 		}
 		if _, isConst := t.(*ast.ConstIntTy); isConst && c.isInt(st) {
@@ -2169,20 +2201,20 @@ func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, owned bool, altCount
 			if _, stConst := st.(*ast.ConstIntTy); stConst {
 				expected = ast.Anonymous64
 			}
-			c.coerce(pat.Value, expected, "pattern")
+			c.coerce(pat.Value(), expected, "pattern")
 			return
 		}
 		panic(pat.Error(diag.ErrTypeMismatch, fmt.Sprintf("a pattern of %s cannot match %s", t.Name(), st.Name())))
 	case ast.PatternRange:
-		lo := c.checkExpr(pat.Value)
-		hi := c.checkExpr(pat.High)
+		lo := c.checkExpr(pat.Value())
+		hi := c.checkExpr(pat.High())
 		l, loConst := lo.(*ast.ConstIntTy)
 		h, hiConst := hi.(*ast.ConstIntTy)
 		if !c.isInt(st) || !loConst || !hiConst {
 			panic(pat.Error(diag.ErrTypeMismatch, "a range pattern needs integer bounds and an integer subject"))
 		}
 		top := h.Value
-		if !pat.Inclusive {
+		if !pat.Inclusive() {
 			top = top.Sub(ast.One)
 		}
 		if l.Value.Gt(top) {
@@ -2194,12 +2226,12 @@ func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, owned bool, altCount
 func (c *Checker) checkCycle(t ast.NominalTy) {
 	var path []string
 	self := ast.SelfType(t)
-	var site ast.Node
+	var site ast.Pos
 	switch n := t.(type) {
 	case *ast.RecordTy:
-		site = n.Decl
+		site = n.Decl.Position()
 	case *ast.UnionTy:
-		site = n.Decl
+		site = n.Decl.Position()
 	default:
 		panic(diag.Internal("no declaration for %s", t.Name()))
 	}
@@ -2208,10 +2240,10 @@ func (c *Checker) checkCycle(t ast.NominalTy) {
 		return
 	}
 	if growing {
-		panic(site.P().Error(diag.ErrTypeCycle, fmt.Sprintf("type '%s' has no finite size: via %s it contains itself with a larger type argument each time",
+		panic(site.Position().Error(diag.ErrTypeCycle, fmt.Sprintf("type '%s' has no finite size: via %s it contains itself with a larger type argument each time",
 			t.Name(), path[0])))
 	}
-	panic(site.P().Error(diag.ErrTypeCycle, fmt.Sprintf("type '%s' contains a reference cycle (via %s)", t.Name(), strings.Join(path, " -> "))))
+	panic(site.Position().Error(diag.ErrTypeCycle, fmt.Sprintf("type '%s' contains a reference cycle (via %s)", t.Name(), strings.Join(path, " -> "))))
 }
 
 type checkerEdge struct {

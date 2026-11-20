@@ -52,8 +52,14 @@ func (r *Resolution) Reset(nodes int) {
 	r.slotOf = map[binding]uint32{}
 }
 
-// Finish ends the filling of the table: it can be read from then on, and not written.
-func (r *Resolution) Finish() { r.slotOf = nil }
+// Finish ends the filling of the table: it can be read from then on, and not written. The table then covers every node of
+// the module, which includes those that resolution made.
+func (r *Resolution) Finish(nodes int) {
+	r.slotOf = nil
+	if len(r.slots) < nodes+1 {
+		r.slots = append(r.slots, make([]uint32, nodes+1-len(r.slots))...)
+	}
+}
 
 func (r *Resolution) bind(n NodeID, b binding) {
 	if int(n) >= len(r.slots) {

@@ -32,7 +32,7 @@ func frontEnd(t *testing.T, path string) []ast.ModuleResult {
 	project.BuildTables(proj, results, 1)
 	resolve.NewResolver(proj, root, res).Run()
 	check.DeclareAliases(proj, results)
-	res.Typing.Reset(root.Nodes.Slots())
+	res.Typing.Reset(root.Tree)
 	c := check.NewChecker(proj, root, &res.Resolution, &res.Typing, &res.Errors)
 	for _, d := range root.Decls {
 		res.Functions = append(res.Functions, c.Declare(d)...)

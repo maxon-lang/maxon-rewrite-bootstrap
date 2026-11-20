@@ -186,7 +186,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 	// bodies are checked many modules at a time, and allocating the tables of a large project there would make them wait
 	// for the heap one after another.
 	sizeTypings := func() {
-		par.ForEachIndex(len(modules), jobs, func(i int) { results[i].Typing.Reset(modules[i].Nodes.Slots()) })
+		par.ForEachIndex(len(modules), jobs, func(i int) { results[i].Typing.Size(modules[i].Tree) })
 	}
 	if jobs <= 1 {
 		project.IndexNames(proj, declared)
@@ -217,7 +217,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 
 	var main *ast.FuncDecl
 	phase(func(m *ast.Module, res *ast.ModuleResult) {
-		res.Typing.Sync(m.Nodes.Slots())
+		res.Typing.Reset(m.Tree)
 		checker := check.NewChecker(proj, m, &res.Resolution, &res.Typing, &res.Errors)
 		for _, d := range m.Decls {
 			res.Functions = append(res.Functions, checker.Declare(d)...)
@@ -521,7 +521,7 @@ func refusals(fns []*ir.IrFunction, matters func(code string) bool) []*diag.Comp
 	for _, fn := range fns {
 		for _, r := range fn.Refusals {
 			if matters(r.Code) {
-				errs = append(errs, r.Site.P().Error(r.Code, r.Message))
+				errs = append(errs, r.Site.Error(r.Code, r.Message))
 				break
 			}
 		}
@@ -644,92 +644,92 @@ type constRefs struct {
 	resolution *ast.Resolution
 }
 
-func (r constRefs) VisitIntLit(_ *ast.IntLit, into constList) constList { return into }
+func (r constRefs) VisitIntLit(_ ast.IntLit, into constList) constList { return into }
 
-func (r constRefs) VisitBoolLit(_ *ast.BoolLit, into constList) constList { return into }
+func (r constRefs) VisitBoolLit(_ ast.BoolLit, into constList) constList { return into }
 
-func (r constRefs) VisitSelfExpr(_ *ast.SelfExpr, into constList) constList { return into }
+func (r constRefs) VisitSelfExpr(_ ast.SelfExpr, into constList) constList { return into }
 
-func (r constRefs) VisitStrLit(e *ast.StrLit, into constList) constList {
-	for _, p := range e.Parts {
-		if part, ok := p.(ast.Expr); ok {
-			into = r.of(part, into)
+func (r constRefs) VisitStrLit(e ast.StrLit, into constList) constList {
+	for _, p := range e.Parts().All() {
+		if !p.Expr.IsNil() {
+			into = r.of(p.Expr, into)
 		}
 	}
 	return into
 }
 
-func (r constRefs) VisitNameExpr(e *ast.NameExpr, into constList) constList {
+func (r constRefs) VisitNameExpr(e ast.NameExpr, into constList) constList {
 	if c, ok := r.resolution.Decl(r.proj, e.ID).(*ast.ConstDecl); ok {
 		return append(into, c)
 	}
 	return into
 }
 
-func (r constRefs) VisitBinaryExpr(e *ast.BinaryExpr, into constList) constList {
-	return r.of(e.R, r.of(e.L, into))
+func (r constRefs) VisitBinaryExpr(e ast.BinaryExpr, into constList) constList {
+	return r.of(e.R(), r.of(e.L(), into))
 }
 
-func (r constRefs) VisitUnaryExpr(e *ast.UnaryExpr, into constList) constList {
-	return r.of(e.E, into)
+func (r constRefs) VisitUnaryExpr(e ast.UnaryExpr, into constList) constList {
+	return r.of(e.E(), into)
 }
 
-func (r constRefs) VisitCondExpr(e *ast.CondExpr, into constList) constList {
-	return r.of(e.Else, r.of(e.Then, r.of(e.Cond, into)))
+func (r constRefs) VisitCondExpr(e ast.CondExpr, into constList) constList {
+	return r.of(e.Else(), r.of(e.Then(), r.of(e.Cond(), into)))
 }
 
-func (r constRefs) VisitCastExpr(e *ast.CastExpr, into constList) constList {
-	return r.of(e.E, into)
+func (r constRefs) VisitCastExpr(e ast.CastExpr, into constList) constList {
+	return r.of(e.E(), into)
 }
 
-func (r constRefs) VisitIndexExpr(e *ast.IndexExpr, into constList) constList {
-	into = r.of(e.Obj, into)
-	for _, a := range e.Args {
+func (r constRefs) VisitIndexExpr(e ast.IndexExpr, into constList) constList {
+	into = r.of(e.Obj(), into)
+	for _, a := range e.Args().All() {
 		into = r.of(a, into)
 	}
 	return into
 }
 
-func (r constRefs) VisitMemberExpr(e *ast.MemberExpr, into constList) constList {
-	return r.of(e.Obj, into)
+func (r constRefs) VisitMemberExpr(e ast.MemberExpr, into constList) constList {
+	return r.of(e.Obj(), into)
 }
 
-func (r constRefs) VisitCallExpr(e *ast.CallExpr, into constList) constList {
-	into = r.of(e.Callee, into)
-	for _, a := range e.Args {
-		into = r.of(a.Value, into)
+func (r constRefs) VisitCallExpr(e ast.CallExpr, into constList) constList {
+	into = r.of(e.Callee(), into)
+	for _, a := range e.Args().All() {
+		into = r.of(a.Value(), into)
 	}
 	return into
 }
 
-func (r constRefs) VisitStructLitExpr(e *ast.StructLitExpr, into constList) constList {
-	for _, f := range e.Fields {
-		into = r.of(f.Value, into)
+func (r constRefs) VisitStructLitExpr(e ast.StructLitExpr, into constList) constList {
+	for _, f := range e.Fields().All() {
+		into = r.of(f.Value(), into)
 	}
 	return into
 }
 
 // A match expression's arms all give a value; a 'then' arm, the only one holding a statement, is refused in one.
-func (r constRefs) VisitMatchExpr(e *ast.MatchExpr, into constList) constList {
-	into = r.of(e.Match.Subject, into)
-	for _, arm := range e.Match.Arms {
-		for _, p := range arm.Patterns {
-			if p.Value != nil {
-				into = r.of(p.Value, into)
+func (r constRefs) VisitMatchExpr(e ast.MatchExpr, into constList) constList {
+	into = r.of(e.Match().Subject(), into)
+	for _, arm := range e.Match().Arms().All() {
+		for _, p := range arm.Patterns().All() {
+			if !p.Value().IsNil() {
+				into = r.of(p.Value(), into)
 			}
-			if p.High != nil {
-				into = r.of(p.High, into)
+			if !p.High().IsNil() {
+				into = r.of(p.High(), into)
 			}
 		}
-		if arm.Value != nil {
-			into = r.of(arm.Value, into)
+		if !arm.Value().IsNil() {
+			into = r.of(arm.Value(), into)
 		}
 	}
 	return into
 }
 
-func (r constRefs) VisitPanicExpr(e *ast.PanicExpr, into constList) constList {
-	return r.of(e.Message, into)
+func (r constRefs) VisitPanicExpr(e ast.PanicExpr, into constList) constList {
+	return r.of(e.Message(), into)
 }
 
 func suspendCollection(proj *ast.Project, jobs int) (int64, func()) {

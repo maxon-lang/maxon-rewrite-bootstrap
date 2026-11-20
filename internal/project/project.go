@@ -131,7 +131,7 @@ func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
 			diag.Guard(errs, func() { tb.TypeBase().Ty = ast.Shell(tb) })
 		}
 		if kept, ok := m.Names[b.Name]; ok {
-			file, line, _ := m.Positions.Where(kept.P().Off)
+			file, line, _ := m.Positions.Where(kept.Position().Off)
 			*errs = append(*errs, b.Error(diag.ErrDuplicateDefinition,
 				"'"+b.Name+"' is already declared in "+m.Display()+" at "+file+":"+strconv.Itoa(line)))
 			continue
@@ -145,7 +145,7 @@ func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
 		}
 	}
 	sort.SliceStable(decls, func(a, b int) bool {
-		return decls[a].P().Off < decls[b].P().Off
+		return decls[a].Position().Off < decls[b].Position().Off
 	})
 	return decls
 }

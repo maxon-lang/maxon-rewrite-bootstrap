@@ -7,8 +7,9 @@ import "strconv"
 // `when`, or is copied if it is a scalar.
 type Capture struct {
 	// Ref is the use of the variable in the enclosing function, at the `when`. It is an ordinary read marked consumed, so
-	// the ownership pass and lowering move it like any other value that changes owner.
-	Ref *NameExpr
+	// the ownership pass and lowering move it like any other value that changes owner. It is a node that resolution made
+	// for the name in the body that takes the variable (see Tree.AppendCaptureRefs).
+	Ref NameExpr
 	// Inner is the parameter of the behaviour's function that holds the value inside the body.
 	Inner *Local
 }

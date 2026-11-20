@@ -12,7 +12,7 @@ import (
 type ownMove struct {
 	fields []*ast.FieldInfo
 	ty     ast.Ty
-	site   ast.Node
+	site   ast.Pos
 	dest   ownDest
 }
 
@@ -92,7 +92,7 @@ func mergeFacts(a, b ownFact) ownFact {
 
 // requireMayTakeApart is E3139: a move of a part, or a 'match consumes', takes t apart, which a type with destructors only
 // allows inside its own destructors, so that no value of it ends without one.
-func (o *Ownership) requireMayTakeApart(site ast.Node, t ast.Ty, what string) bool {
+func (o *Ownership) requireMayTakeApart(site ast.Pos, t ast.Ty, what string) bool {
 	if !hasDestructors(t) || (o.fn.IsDestructor() && o.fn.SelfLocal.Type == t) {
 		return true
 	}
@@ -104,12 +104,16 @@ func (o *Ownership) requireMayTakeApart(site ast.Node, t ast.Ty, what string) bo
 
 // requireMayTakeApartFrom checks each record along a field path that a move takes a part from.
 func (o *Ownership) requireMayTakeApartFrom(e ast.Expr, what string) bool {
-	switch x := e.(type) {
-	case *ast.MemberExpr:
-		return o.requireMayTakeApartFrom(x.Obj, what) && o.requireMayTakeApart(e, o.ty(x.Obj), what)
-	case *ast.NameExpr:
+	switch e.Kind() {
+	case ast.KindMemberExpr:
+		x := e.ToMemberExpr()
+
+		return o.requireMayTakeApartFrom(x.Obj(), what) && o.requireMayTakeApart(e.Position(), o.ty(x.Obj()), what)
+	case ast.KindNameExpr:
+		x := e.ToNameExpr()
+
 		if o.typing.Name(x).Kind() == ast.NameSelfField {
-			return o.requireMayTakeApart(e, o.fn.SelfLocal.Type, what)
+			return o.requireMayTakeApart(e.Position(), o.fn.SelfLocal.Type, what)
 		}
 	}
 	return true
@@ -118,11 +122,11 @@ func (o *Ownership) requireMayTakeApartFrom(e ast.Expr, what string) bool {
 // movePart moves a field out of the local that e's path starts at: the local is then partly moved, which a fact says by
 // listing the fields that are gone.
 func (o *Ownership) movePart(e ast.Expr, p accessPath, dest ownDest, s *ownState) *ownState {
-	o.requireNotProjected(p, e)
+	o.requireNotProjected(p, e.Position())
 	if !o.requireMayTakeApartFrom(e, "moving '"+p.text()+"'") {
 		return s
 	}
-	m := ownMove{fields: fieldsOf(p), ty: o.ty(e), site: e, dest: dest}
+	m := ownMove{fields: fieldsOf(p), ty: o.ty(e), site: e.Position(), dest: dest}
 	moves := []ownMove{m}
 	if fact, ok := s.tryGet(p.root); ok && fact.parts != nil {
 		for _, old := range fact.parts.moves {
@@ -132,7 +136,7 @@ func (o *Ownership) movePart(e ast.Expr, p accessPath, dest ownDest, s *ownState
 		}
 	}
 	o.partials++
-	return s.with(p.root, ownFact{site: e, kind: factPartlyMoved, parts: &ownParts{moves}})
+	return s.with(p.root, ownFact{site: e.Position(), kind: factPartlyMoved, parts: &ownParts{moves}})
 }
 
 // readPart is a read of a field path of a local, which needs no part of that place to be gone. It is false when the
@@ -148,7 +152,7 @@ func (o *Ownership) readPart(e ast.Expr, s *ownState) (*ownState, bool) {
 	}
 	for _, m := range fact.parts.moves {
 		if m.overlapsPath(p) {
-			o.fail(e, diag.ErrUseAfterMove,
+			o.fail(e.Position(), diag.ErrUseAfterMove,
 				"'%s' overlaps '%s', which was moved into %s at line %d; assign '%s' again before using it",
 				p.text(), m.text(p.root), m.dest, o.lineOf(m.site), m.text(p.root))
 			break
@@ -160,7 +164,7 @@ func (o *Ownership) readPart(e ast.Expr, s *ownState) (*ownState, bool) {
 // assignPart is an assignment to a field path of a local that has lost some of its fields. Assigning a gone field gives
 // it a value again, and the local is whole once it has them all. The old value of a field that is partly gone is dropped
 // in its remaining parts. It is false when the local has lost nothing that the assignment touches.
-func (o *Ownership) assignPart(st *ast.AssignStmt, target ast.Expr, p accessPath, s *ownState) (*ownState, bool) {
+func (o *Ownership) assignPart(st ast.AssignStmt, target ast.Expr, p accessPath, s *ownState) (*ownState, bool) {
 	if o.partials == 0 || s.dead || p.crossesElement() {
 		return s, false
 	}
@@ -179,7 +183,7 @@ func (o *Ownership) assignPart(st *ast.AssignStmt, target ast.Expr, p accessPath
 		case len(m.fields) > len(p.steps):
 			under = append(under, m)
 		default:
-			o.fail(st, diag.ErrUseAfterMove,
+			o.fail(st.Position(), diag.ErrUseAfterMove,
 				"'%s' lies inside '%s', which was moved into %s at line %d; assign '%s' again first",
 				p.text(), m.text(p.root), m.dest, o.lineOf(m.site), m.text(p.root))
 			return s, true
@@ -188,7 +192,7 @@ func (o *Ownership) assignPart(st *ast.AssignStmt, target ast.Expr, p accessPath
 	switch {
 	case reinitialised:
 	case len(under) > 0:
-		o.requireRemainder(st, o.ty(target), len(p.steps), under, p.text(), dropOverwrite, false)
+		o.requireRemainder(st.Position(), o.ty(target), len(p.steps), under, p.text(), dropOverwrite, false)
 	default:
 		o.requireOverwriteDroppable(st, target, s)
 		return s, true
@@ -203,7 +207,7 @@ func (o *Ownership) assignPart(st *ast.AssignStmt, target ast.Expr, p accessPath
 // that is left must be droppable, and a field that is partly gone is judged by what is left of it. moves are the moves
 // inside the value, each reaching the field at depth. A value that nothing was taken from is dropped as a whole, except the
 // self of a destructor, which ends by dropping its fields, so those are judged one by one.
-func (o *Ownership) requireRemainder(site ast.Node, ty ast.Ty, depth int, moves []ownMove, name string, kind ownDropKind, destroys bool) {
+func (o *Ownership) requireRemainder(site ast.Pos, ty ast.Ty, depth int, moves []ownMove, name string, kind ownDropKind, destroys bool) {
 	if len(moves) == 0 && !destroys {
 		o.requireDroppable(site, ty, ownDrop{kind: kind, name: name})
 		return
@@ -238,7 +242,7 @@ func (o *Ownership) requireRemainder(site ast.Node, ty ast.Ty, depth int, moves 
 }
 
 // requireHeld is the drop of an obliged local at the place where it is dropped, whatever its fact says it lost.
-func (o *Ownership) requireHeld(site ast.Node, ob ownObliged, s *ownState, kind ownDropKind) {
+func (o *Ownership) requireHeld(site ast.Pos, ob ownObliged, s *ownState, kind ownDropKind) {
 	fact, has := s.tryGet(ob.local)
 	switch {
 	case has && fact.parts == nil:

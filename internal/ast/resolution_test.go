@@ -9,11 +9,11 @@ import (
 // resolutionProject is a project of a root module that declares f and g, which a Resolution can name by handle.
 func resolutionProject() (proj *Project, f, g *FuncDecl) {
 	root := NewModule("", ".", false)
-	root.Nodes = NewArena(root.ID)
+	root.Tree = NewTree(root.ID, "", 0)
 	proj = NewProject(root)
 	proj.Modules = []*Module{root}
 	declare := func(name string) *FuncDecl {
-		d := root.Nodes.NewFuncDecl()
+		d := root.Tree.NewFuncDecl(0)
 		d.Name, d.Module = name, root
 		root.Declare(d)
 		return d
@@ -25,7 +25,7 @@ func TestResolutionGivesBackTheDeclarationANodeNames(t *testing.T) {
 	proj, f, g := resolutionProject()
 	option := proj.Stdlib.Names["Option"]
 	var res Resolution
-	res.Reset(proj.Root.Nodes.Count())
+	res.Reset(proj.Root.Tree.Count())
 	res.BindDecl(1, f)
 	res.BindDecl(2, g)
 	res.BindDecl(2, option)
@@ -40,7 +40,7 @@ func TestResolutionGivesBackTheDeclarationANodeNames(t *testing.T) {
 func TestANodeBoundToNothingNamesNothing(t *testing.T) {
 	proj, _, _ := resolutionProject()
 	var res Resolution
-	res.Reset(proj.Root.Nodes.Count())
+	res.Reset(proj.Root.Tree.Count())
 	if res.Decl(proj, 1) != nil || res.TypeParam(1) != nil {
 		t.Error("a node that was never bound names something")
 	}
@@ -48,9 +48,9 @@ func TestANodeBoundToNothingNamesNothing(t *testing.T) {
 
 func TestResolutionKeepsTypeParametersApartFromDeclarations(t *testing.T) {
 	proj, f, _ := resolutionProject()
-	param := proj.Root.Nodes.NewTypeParam()
+	param := proj.Root.Tree.NewTypeParam(0)
 	var res Resolution
-	res.Reset(proj.Root.Nodes.Count())
+	res.Reset(proj.Root.Tree.Count())
 	res.BindTypeParam(1, res.AddTypeParam(param))
 	res.BindDecl(2, f)
 	if res.TypeParam(1) != param || res.Decl(proj, 1) != nil {
@@ -64,7 +64,7 @@ func TestResolutionKeepsTypeParametersApartFromDeclarations(t *testing.T) {
 func TestNodesThatNameTheSameDeclarationShareAnEntry(t *testing.T) {
 	proj, f, g := resolutionProject()
 	var res Resolution
-	res.Reset(proj.Root.Nodes.Count())
+	res.Reset(proj.Root.Tree.Count())
 	for n := range NodeID(5) {
 		res.BindDecl(n+1, f)
 	}

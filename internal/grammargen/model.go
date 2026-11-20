@@ -49,6 +49,8 @@ type node struct {
 	set    *set
 	fields []*field
 	line   int
+	// record is whether the node is a record in the module's tree, as opposed to a Go struct (see @ast::Structs).
+	record bool
 }
 
 type field struct {
@@ -61,6 +63,9 @@ type field struct {
 	// uint32.
 	slot string
 	line int
+	// elems are the labelled elements that assign the field, which say what it is made of: a name, a label or a
+	// choice of literals.
+	elems []*elem
 }
 
 func (m *model) fail(line int, format string, args ...any) {
@@ -110,6 +115,7 @@ func buildModel(g *grammar) *model {
 	m.buildNodes()
 	m.checkAstBlocks()
 	m.collectSlots()
+	m.classifyNodes()
 	return m
 }
 
@@ -301,7 +307,7 @@ func (m *model) node(name string, line int) *node {
 	if n := m.nodeByName[name]; n != nil {
 		return n
 	}
-	n := &node{name: name, line: line}
+	n := &node{name: name, line: line, record: !slices.Contains(m.g.structs, name)}
 	m.nodeByName[name] = n
 	m.nodes = append(m.nodes, n)
 	return n
@@ -394,6 +400,9 @@ func (m *model) baseField(n *node, name string) (*field, bool) {
 func (m *model) valueType(r *rule) string {
 	switch m.kind[r] {
 	case rkNode:
+		if n := m.nodeOfRule[r]; n.record {
+			return n.name
+		}
 		return "*" + m.nodeOfRule[r].name
 	case rkSet:
 		return m.setOfRule[r].name
@@ -477,9 +486,10 @@ func (m *model) buildFields(n *node) {
 			if f.typ != t {
 				m.fail(e.line, "label '%s' of %s is %s here and %s elsewhere; give its type in @ast::%s", e.label, n.name, t, f.typ, n.name)
 			}
+			f.elems = append(f.elems, e)
 			return
 		}
-		f := &field{name: name, typ: t}
+		f := &field{name: name, typ: t, elems: []*elem{e}}
 		if d := declared[name]; d != nil {
 			f.init = d.init
 		}

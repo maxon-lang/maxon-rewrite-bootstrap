@@ -215,12 +215,12 @@ type Builtins struct {
 }
 
 func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
-	d := stdlib.Nodes.NewTypeDecl()
+	d := stdlib.Tree.NewTypeDecl(0)
 	d.Name = name
 	d.Visibility = "public"
 	d.Module = stdlib
 	for _, p := range params {
-		tp := stdlib.Nodes.NewTypeParam()
+		tp := stdlib.Tree.NewTypeParam(0)
 		tp.Name = p
 		d.TypeParams = append(d.TypeParams, tp)
 	}
@@ -258,11 +258,11 @@ func NewBuiltins(stdlib *Module, count *IntTy) *Builtins {
 }
 
 func (b *Builtins) declareOption() {
-	d := b.stdlib.Nodes.NewUnionDecl()
+	d := b.stdlib.Tree.NewUnionDecl(0)
 	d.Name = "Option"
 	d.Visibility = "public"
 	d.Module = b.stdlib
-	tp := b.stdlib.Nodes.NewTypeParam()
+	tp := b.stdlib.Tree.NewTypeParam(0)
 	tp.Name = "T"
 	d.TypeParams = []*TypeParam{tp}
 	u := NewUnionTy(d)
@@ -280,7 +280,7 @@ func (b *Builtins) declareOption() {
 }
 
 func (b *Builtins) declareCapability(name string) *InterfaceTy {
-	d := b.stdlib.Nodes.NewInterfaceDecl()
+	d := b.stdlib.Tree.NewInterfaceDecl(0)
 	d.Name = name
 	d.Visibility = "public"
 	d.Module = b.stdlib
@@ -332,7 +332,7 @@ func (b *Builtins) static(owner NominalTy, op Intrinsic, name string, ret Ty, pa
 }
 
 func (b *Builtins) declare(owner NominalTy, op Intrinsic, name string, static bool, self Convention, ret Ty, params []ParamSpec) {
-	f := b.stdlib.Nodes.NewFuncDecl()
+	f := b.stdlib.Tree.NewFuncDecl(0)
 	f.Name = name
 	f.Visibility = "public"
 	f.Module = b.stdlib
@@ -456,7 +456,7 @@ func (b *Builtins) declareGeneric(op Intrinsic, name string, t *TypeParamTy, ret
 }
 
 func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) *FuncDecl {
-	f := b.stdlib.Nodes.NewFuncDecl()
+	f := b.stdlib.Tree.NewFuncDecl(0)
 	f.Name = name
 	f.Visibility = "public"
 	f.Module = b.stdlib

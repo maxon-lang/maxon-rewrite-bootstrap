@@ -23,10 +23,9 @@ type Module struct {
 	Files    []string
 	// Decls are the module's top-level declarations in source order; a declaration's Ordinal is its index here.
 	Decls []Decl
-	// Nodes makes the module's nodes and counts them, so a phase that adds a node (a qualified name that resolution
-	// rewrites, a behaviour that checking splits off) gives it the next NodeID and a table sized by Nodes.Count has
-	// room for it.
-	Nodes *Arena
+	// Tree holds the module's nodes, which are all there are: no phase adds one, so a table sized by Tree.Count has an
+	// entry for every node.
+	Tree *Tree
 	// Positions locate the offsets of the module's nodes.
 	Positions *Positions
 	Names     map[string]Decl
@@ -35,7 +34,7 @@ type Module struct {
 
 // Adopt makes what parsing the module produced the module's own.
 func (m *Module) Adopt(p *Program) {
-	m.Decls, m.Nodes, m.Positions = p.Decls, p.Nodes, p.Positions
+	m.Decls, m.Tree, m.Positions = p.Decls, p.Tree, p.Positions
 }
 
 // Declare adds a declaration that is not parsed, such as the standard library's, at the end of the module's Decls.
@@ -115,7 +114,7 @@ func (p *Project) Locate(errs []*diag.CompileError) {
 func NewProject(root *Module) *Project {
 	p := &Project{Root: root, Stdlib: NewModule("stdlib", "", true), ByName: map[string][]Decl{}}
 	p.Stdlib.ID = StdlibID
-	p.Stdlib.Nodes = NewArena(StdlibID)
+	p.Stdlib.Tree = NewTree(StdlibID, "", 0)
 	p.Stdlib.Positions = stdlibPositions
 	for _, b := range []struct {
 		name     string
@@ -125,7 +124,7 @@ func NewProject(root *Module) *Project {
 		{"Count", Zero, U64Max},
 		{"FullRangeInt", I64Min, I64Max},
 	} {
-		alias := p.Stdlib.Nodes.NewAliasDecl()
+		alias := p.Stdlib.Tree.NewAliasDecl(0)
 		alias.Name = b.name
 		alias.Visibility = "public"
 		alias.Module = p.Stdlib

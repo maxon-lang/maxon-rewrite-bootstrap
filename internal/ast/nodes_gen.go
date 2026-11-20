@@ -2,7 +2,75 @@
 
 package ast
 
+import "fmt"
+
 import "minimaxon/internal/diag"
+
+// Kind says which node a record is: every node of the grammar has one, and a struct's record in the tree holds only
+// its kind and where it starts, so that every node has a number and a position.
+type Kind uint8
+
+const (
+	KindNone Kind = iota
+	KindFuncDecl
+	KindParam
+	KindConstDecl
+	KindTypeDecl
+	KindFieldDecl
+	KindEnumDecl
+	KindEnumCaseDecl
+	KindUnionDecl
+	KindUnionCaseDecl
+	KindAliasDecl
+	KindBound
+	KindTypeRef
+	KindTypeParam
+	KindConstraint
+	KindInterfaceDecl
+	KindFuncSig
+	KindEndLabel
+	KindLetStmt
+	KindDiscardStmt
+	KindAssignStmt
+	KindExprStmt
+	KindIfStmt
+	KindWhileStmt
+	KindForStmt
+	KindReturnStmt
+	KindBreakStmt
+	KindContinueStmt
+	KindMatchStmt
+	KindWhenStmt
+	KindMatchCore
+	KindMatchArm
+	KindPattern
+	KindMemberExpr
+	KindIndexExpr
+	KindCallExpr
+	KindUnaryExpr
+	KindCastExpr
+	KindBinaryExpr
+	KindCondExpr
+	KindIntLit
+	KindStrLit
+	KindBoolLit
+	KindNameExpr
+	KindSelfExpr
+	KindStructLitExpr
+	KindStructField
+	KindArg
+	KindPanicExpr
+	KindMatchExpr
+)
+
+var kindNames = [...]string{"none", "FuncDecl", "Param", "ConstDecl", "TypeDecl", "FieldDecl", "EnumDecl", "EnumCaseDecl", "UnionDecl", "UnionCaseDecl", "AliasDecl", "Bound", "TypeRef", "TypeParam", "Constraint", "InterfaceDecl", "FuncSig", "EndLabel", "LetStmt", "DiscardStmt", "AssignStmt", "ExprStmt", "IfStmt", "WhileStmt", "ForStmt", "ReturnStmt", "BreakStmt", "ContinueStmt", "MatchStmt", "WhenStmt", "MatchCore", "MatchArm", "Pattern", "MemberExpr", "IndexExpr", "CallExpr", "UnaryExpr", "CastExpr", "BinaryExpr", "CondExpr", "IntLit", "StrLit", "BoolLit", "NameExpr", "SelfExpr", "StructLitExpr", "StructField", "Arg", "PanicExpr", "MatchExpr"}
+
+func (k Kind) String() string {
+	if int(k) >= len(kindNames) {
+		return fmt.Sprintf("Kind(%d)", int(k))
+	}
+	return kindNames[k]
+}
 
 type DeclBase struct {
 	Head
@@ -23,10 +91,10 @@ type FuncDecl struct {
 	Receiver   string
 	Params     []*Param
 	TypeParams []*TypeParam
-	Returns    *TypeRef
+	Returns    TypeRef
 	Where      []*Constraint
-	Body       []Stmt
-	End        *EndLabel
+	Body       StmtList
+	End        EndLabel
 
 	Intrinsic Intrinsic
 	Owner     NominalTy
@@ -35,22 +103,21 @@ type FuncDecl struct {
 	Generic   *FuncDecl
 	TypeArgs  []Ty
 	Instances *InstanceTable
-	Uses      []*CallExpr
+	Uses      []CallUse
 
-	Pass       Passing
-	ParamTypes []Ty
-	ReturnType Ty
-	SelfLocal  *Local
-	Locals     []*Local
+	Pass        Passing
+	ParamTypes  []Ty
+	ParamLocals []LocalID
+	ReturnType  Ty
+	SelfLocal   *Local
+	Locals      []*Local
 }
 
 type Param struct {
 	Head
 	Convention string
 	Name       string
-	Type       *TypeRef
-
-	Local uint32
+	Type       TypeRef
 }
 
 type ConstDecl struct {
@@ -64,11 +131,11 @@ type TypeDecl struct {
 	TypeDeclNodeBase
 	Noncopyable bool
 	TypeParams  []*TypeParam
-	Conforms    []*TypeRef
+	Conforms    TypeRefList
 	Where       []*Constraint
 	Fields      []*FieldDecl
 	Methods     []*FuncDecl
-	End         *EndLabel
+	End         EndLabel
 }
 
 type FieldDecl struct {
@@ -76,33 +143,33 @@ type FieldDecl struct {
 	Visibility string
 	IsVar      bool
 	Name       string
-	Type       *TypeRef
+	Type       TypeRef
 	Default    Expr
 }
 
 type EnumDecl struct {
 	TypeDeclNodeBase
-	Conforms []*TypeRef
+	Conforms TypeRefList
 	Cases    []*EnumCaseDecl
 	Methods  []*FuncDecl
-	End      *EndLabel
+	End      EndLabel
 }
 
 type EnumCaseDecl struct {
 	Head
 	Name string
-	Raw  *IntLit
+	Raw  IntLit
 }
 
 type UnionDecl struct {
 	TypeDeclNodeBase
 	Noncopyable bool
 	TypeParams  []*TypeParam
-	Conforms    []*TypeRef
+	Conforms    TypeRefList
 	Where       []*Constraint
 	Cases       []*UnionCaseDecl
 	Methods     []*FuncDecl
-	End         *EndLabel
+	End         EndLabel
 }
 
 type UnionCaseDecl struct {
@@ -116,7 +183,7 @@ type AliasDecl struct {
 	Low       *Bound
 	Inclusive bool
 	High      *Bound
-	Instance  *TypeRef
+	Instance  TypeRef
 }
 
 type Bound struct {
@@ -127,12 +194,33 @@ type Bound struct {
 	Limit    string
 }
 
-type TypeRef struct {
-	Head
-	Qualifier []string
-	Name      string
-	TypeArgs  []*TypeRef
+// TypeRef is a view of a TypeRef node.
+type TypeRef struct{ Ref }
+
+type TypeRefList = List[TypeRef]
+
+func (t *Tree) NewTypeRef(start uint32) TypeRef {
+	id := t.alloc(KindTypeRef, start)
+	t.Records[id].B = t.reserve(2)
+	return TypeRef{Ref{t, id}}
 }
+
+func (n TypeRef) Qualifier() TextList { return TextListAt(n.T, n.T.Records[n.ID].A) }
+
+func (n TypeRef) SetQualifier(l TextList) { n.T.Records[n.ID].A = l.Ref() }
+
+func (n TypeRef) Name() string { return n.T.NameAt(n.T.Lists[n.T.Records[n.ID].B+0]) }
+
+// NameRef is where the text is in the module's text, plus one: 0 is no text.
+func (n TypeRef) NameRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+0] }
+
+func (n TypeRef) SetNameRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+0] = ref }
+
+func (n TypeRef) TypeArgs() TypeRefList {
+	return ListAt[TypeRef](n.T, n.T.Lists[n.T.Records[n.ID].B+1])
+}
+
+func (n TypeRef) SetTypeArgs(l TypeRefList) { n.T.Lists[n.T.Records[n.ID].B+1] = l.Ref() }
 
 type TypeParam struct {
 	Head
@@ -144,13 +232,13 @@ type TypeParam struct {
 type Constraint struct {
 	Head
 	Param  string
-	Bounds []*TypeRef
+	Bounds TypeRefList
 }
 
 type InterfaceDecl struct {
 	TypeDeclNodeBase
 	Methods []*FuncSig
-	End     *EndLabel
+	End     EndLabel
 }
 
 type FuncSig struct {
@@ -158,262 +246,1186 @@ type FuncSig struct {
 	Name     string
 	Receiver string
 	Params   []*Param
-	Returns  *TypeRef
+	Returns  TypeRef
 
 	Pass       Passing
 	ReturnType Ty
 }
 
-type EndLabel struct {
-	Head
-	Name string
+// EndLabel is a view of a EndLabel node.
+type EndLabel struct{ Ref }
+
+type EndLabelList = List[EndLabel]
+
+func (t *Tree) NewEndLabel(start uint32) EndLabel {
+	id := t.alloc(KindEndLabel, start)
+	return EndLabel{Ref{t, id}}
 }
 
-type StmtBase struct {
-	Head
+func (n EndLabel) Name() string { return n.T.LabelAt(n.T.Records[n.ID].A) }
+
+// NameRef is where the text is in the module's text, plus one: 0 is no text.
+func (n EndLabel) NameRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n EndLabel) SetNameRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+// Stmt is a view of a node of one of 12 kinds: use Kind, or one of the As methods, to tell which.
+type Stmt struct{ Ref }
+
+type StmtList = List[Stmt]
+
+func (n LetStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToLetStmt is the view of the node as a LetStmt, for code that has found out it is one.
+func (s Stmt) ToLetStmt() LetStmt { return LetStmt{s.Ref} }
+
+// AsLetStmt is the view of the node as a LetStmt, if it is one.
+func (s Stmt) AsLetStmt() (LetStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindLetStmt {
+		return LetStmt{}, false
+	}
+	return LetStmt{s.Ref}, true
 }
 
-type LetStmt struct {
-	StmtBase
-	Name  string
-	Init  Expr
-	IsVar bool
-	Type  *TypeRef
+func (n DiscardStmt) Stmt() Stmt { return Stmt{n.Ref} }
 
-	Local uint32
+// ToDiscardStmt is the view of the node as a DiscardStmt, for code that has found out it is one.
+func (s Stmt) ToDiscardStmt() DiscardStmt { return DiscardStmt{s.Ref} }
+
+// AsDiscardStmt is the view of the node as a DiscardStmt, if it is one.
+func (s Stmt) AsDiscardStmt() (DiscardStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindDiscardStmt {
+		return DiscardStmt{}, false
+	}
+	return DiscardStmt{s.Ref}, true
 }
 
-type DiscardStmt struct {
-	StmtBase
-	Value Expr
+func (n IfStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToIfStmt is the view of the node as a IfStmt, for code that has found out it is one.
+func (s Stmt) ToIfStmt() IfStmt { return IfStmt{s.Ref} }
+
+// AsIfStmt is the view of the node as a IfStmt, if it is one.
+func (s Stmt) AsIfStmt() (IfStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindIfStmt {
+		return IfStmt{}, false
+	}
+	return IfStmt{s.Ref}, true
 }
 
-type AssignStmt struct {
-	StmtBase
-	Target Expr
-	Value  Expr
+func (n WhileStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToWhileStmt is the view of the node as a WhileStmt, for code that has found out it is one.
+func (s Stmt) ToWhileStmt() WhileStmt { return WhileStmt{s.Ref} }
+
+// AsWhileStmt is the view of the node as a WhileStmt, if it is one.
+func (s Stmt) AsWhileStmt() (WhileStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindWhileStmt {
+		return WhileStmt{}, false
+	}
+	return WhileStmt{s.Ref}, true
 }
 
-type ExprStmt struct {
-	StmtBase
-	E Expr
+func (n ForStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToForStmt is the view of the node as a ForStmt, for code that has found out it is one.
+func (s Stmt) ToForStmt() ForStmt { return ForStmt{s.Ref} }
+
+// AsForStmt is the view of the node as a ForStmt, if it is one.
+func (s Stmt) AsForStmt() (ForStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindForStmt {
+		return ForStmt{}, false
+	}
+	return ForStmt{s.Ref}, true
 }
 
-type IfStmt struct {
-	StmtBase
-	Cond      Expr
-	Label     string
-	Then      []Stmt
-	End       *EndLabel
-	HasElse   bool
-	Else      []Stmt
-	ElseLabel string
-	ElseEnd   *EndLabel
+func (n MatchStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToMatchStmt is the view of the node as a MatchStmt, for code that has found out it is one.
+func (s Stmt) ToMatchStmt() MatchStmt { return MatchStmt{s.Ref} }
+
+// AsMatchStmt is the view of the node as a MatchStmt, if it is one.
+func (s Stmt) AsMatchStmt() (MatchStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindMatchStmt {
+		return MatchStmt{}, false
+	}
+	return MatchStmt{s.Ref}, true
 }
 
-type WhileStmt struct {
-	StmtBase
-	Cond  Expr
-	Label string
-	Body  []Stmt
-	End   *EndLabel
+func (n WhenStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToWhenStmt is the view of the node as a WhenStmt, for code that has found out it is one.
+func (s Stmt) ToWhenStmt() WhenStmt { return WhenStmt{s.Ref} }
+
+// AsWhenStmt is the view of the node as a WhenStmt, if it is one.
+func (s Stmt) AsWhenStmt() (WhenStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindWhenStmt {
+		return WhenStmt{}, false
+	}
+	return WhenStmt{s.Ref}, true
 }
 
-type ForStmt struct {
-	StmtBase
-	Var       string
-	From      Expr
-	Inclusive bool
-	To        Expr
-	Label     string
-	Body      []Stmt
-	End       *EndLabel
+func (n ReturnStmt) Stmt() Stmt { return Stmt{n.Ref} }
 
-	Local uint32
+// ToReturnStmt is the view of the node as a ReturnStmt, for code that has found out it is one.
+func (s Stmt) ToReturnStmt() ReturnStmt { return ReturnStmt{s.Ref} }
+
+// AsReturnStmt is the view of the node as a ReturnStmt, if it is one.
+func (s Stmt) AsReturnStmt() (ReturnStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindReturnStmt {
+		return ReturnStmt{}, false
+	}
+	return ReturnStmt{s.Ref}, true
 }
 
-type ReturnStmt struct {
-	StmtBase
-	Value Expr
+func (n BreakStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToBreakStmt is the view of the node as a BreakStmt, for code that has found out it is one.
+func (s Stmt) ToBreakStmt() BreakStmt { return BreakStmt{s.Ref} }
+
+// AsBreakStmt is the view of the node as a BreakStmt, if it is one.
+func (s Stmt) AsBreakStmt() (BreakStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindBreakStmt {
+		return BreakStmt{}, false
+	}
+	return BreakStmt{s.Ref}, true
 }
 
-type BreakStmt struct {
-	StmtBase
-	Label string
+func (n ContinueStmt) Stmt() Stmt { return Stmt{n.Ref} }
 
-	Jump uint32
+// ToContinueStmt is the view of the node as a ContinueStmt, for code that has found out it is one.
+func (s Stmt) ToContinueStmt() ContinueStmt { return ContinueStmt{s.Ref} }
+
+// AsContinueStmt is the view of the node as a ContinueStmt, if it is one.
+func (s Stmt) AsContinueStmt() (ContinueStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindContinueStmt {
+		return ContinueStmt{}, false
+	}
+	return ContinueStmt{s.Ref}, true
 }
 
-type ContinueStmt struct {
-	StmtBase
-	Label string
+func (n AssignStmt) Stmt() Stmt { return Stmt{n.Ref} }
 
-	Jump uint32
+// ToAssignStmt is the view of the node as a AssignStmt, for code that has found out it is one.
+func (s Stmt) ToAssignStmt() AssignStmt { return AssignStmt{s.Ref} }
+
+// AsAssignStmt is the view of the node as a AssignStmt, if it is one.
+func (s Stmt) AsAssignStmt() (AssignStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindAssignStmt {
+		return AssignStmt{}, false
+	}
+	return AssignStmt{s.Ref}, true
 }
 
-type MatchStmt struct {
-	StmtBase
-	Match *MatchCore
+func (n ExprStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToExprStmt is the view of the node as a ExprStmt, for code that has found out it is one.
+func (s Stmt) ToExprStmt() ExprStmt { return ExprStmt{s.Ref} }
+
+// AsExprStmt is the view of the node as a ExprStmt, if it is one.
+func (s Stmt) AsExprStmt() (ExprStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindExprStmt {
+		return ExprStmt{}, false
+	}
+	return ExprStmt{s.Ref}, true
 }
 
-type WhenStmt struct {
-	StmtBase
-	Cowns []*NameExpr
-	Names []string
-	Label string
-	Body  []Stmt
-	End   *EndLabel
+// LetStmt is a view of a LetStmt node.
+type LetStmt struct{ Ref }
 
-	Info uint32
+type LetStmtList = List[LetStmt]
+
+func (t *Tree) NewLetStmt(start uint32) LetStmt {
+	id := t.alloc(KindLetStmt, start)
+	t.Records[id].B = t.reserve(2)
+	return LetStmt{Ref{t, id}}
 }
 
-type MatchCore struct {
-	Head
-	Consumes bool
-	Subject  Expr
-	Label    string
-	Arms     []*MatchArm
-	End      *EndLabel
+const flagLetStmtIsVar uint8 = 1 << 0
+
+func (n LetStmt) Name() string { return n.T.NameAt(n.T.Records[n.ID].A) }
+
+// NameRef is where the text is in the module's text, plus one: 0 is no text.
+func (n LetStmt) NameRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n LetStmt) SetNameRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+func (n LetStmt) Init() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+0])}} }
+
+func (n LetStmt) SetInit(v Expr) { n.T.Lists[n.T.Records[n.ID].B+0] = uint32(v.ID) }
+
+func (n LetStmt) IsVar() bool { return n.T.Records[n.ID].Flags&flagLetStmtIsVar != 0 }
+
+func (n LetStmt) SetIsVar() { n.T.Records[n.ID].Flags |= flagLetStmtIsVar }
+
+func (n LetStmt) Type() TypeRef { return TypeRef{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+1])}} }
+
+func (n LetStmt) SetType(v TypeRef) { n.T.Lists[n.T.Records[n.ID].B+1] = uint32(v.ID) }
+
+// DiscardStmt is a view of a DiscardStmt node.
+type DiscardStmt struct{ Ref }
+
+type DiscardStmtList = List[DiscardStmt]
+
+func (t *Tree) NewDiscardStmt(start uint32) DiscardStmt {
+	id := t.alloc(KindDiscardStmt, start)
+	return DiscardStmt{Ref{t, id}}
 }
 
-type MatchArm struct {
-	Head
-	IsDefault bool
-	Patterns  []*Pattern
-	Action    Stmt
-	Gives     bool
-	Value     Expr
+func (n DiscardStmt) Value() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n DiscardStmt) SetValue(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+// AssignStmt is a view of a AssignStmt node.
+type AssignStmt struct{ Ref }
+
+type AssignStmtList = List[AssignStmt]
+
+func (t *Tree) NewAssignStmt(start uint32) AssignStmt {
+	id := t.alloc(KindAssignStmt, start)
+	return AssignStmt{Ref{t, id}}
 }
 
-type Pattern struct {
-	Head
-	CaseName    string
-	HasBindings bool
-	Bindings    []string
-	Value       Expr
-	Inclusive   bool
-	High        Expr
+func (n AssignStmt) Target() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
 
-	Info uint32
+func (n AssignStmt) SetTarget(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n AssignStmt) Value() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].B)}} }
+
+func (n AssignStmt) SetValue(v Expr) { n.T.Records[n.ID].B = uint32(v.ID) }
+
+// ExprStmt is a view of a ExprStmt node.
+type ExprStmt struct{ Ref }
+
+type ExprStmtList = List[ExprStmt]
+
+func (t *Tree) NewExprStmt(start uint32) ExprStmt {
+	id := t.alloc(KindExprStmt, start)
+	return ExprStmt{Ref{t, id}}
 }
 
-type ExprBase struct {
-	Head
-	Ord uint32
+func (n ExprStmt) E() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n ExprStmt) SetE(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+// IfStmt is a view of a IfStmt node.
+type IfStmt struct{ Ref }
+
+type IfStmtList = List[IfStmt]
+
+func (t *Tree) NewIfStmt(start uint32) IfStmt {
+	id := t.alloc(KindIfStmt, start)
+	t.Records[id].B = t.reserve(6)
+	return IfStmt{Ref{t, id}}
 }
 
-type MemberExpr struct {
-	ExprBase
-	Obj  Expr
-	Name string
+const flagIfStmtHasElse uint8 = 1 << 0
 
-	Info uint32
+func (n IfStmt) Cond() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n IfStmt) SetCond(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n IfStmt) Label() string { return n.T.LabelAt(n.T.Lists[n.T.Records[n.ID].B+0]) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n IfStmt) LabelRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+0] }
+
+func (n IfStmt) SetLabelRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+0] = ref }
+
+func (n IfStmt) Then() StmtList { return ListAt[Stmt](n.T, n.T.Lists[n.T.Records[n.ID].B+1]) }
+
+func (n IfStmt) SetThen(l StmtList) { n.T.Lists[n.T.Records[n.ID].B+1] = l.Ref() }
+
+func (n IfStmt) End() EndLabel { return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+2])}} }
+
+func (n IfStmt) SetEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+2] = uint32(v.ID) }
+
+func (n IfStmt) HasElse() bool { return n.T.Records[n.ID].Flags&flagIfStmtHasElse != 0 }
+
+func (n IfStmt) SetHasElse() { n.T.Records[n.ID].Flags |= flagIfStmtHasElse }
+
+func (n IfStmt) Else() StmtList { return ListAt[Stmt](n.T, n.T.Lists[n.T.Records[n.ID].B+3]) }
+
+func (n IfStmt) SetElse(l StmtList) { n.T.Lists[n.T.Records[n.ID].B+3] = l.Ref() }
+
+func (n IfStmt) ElseLabel() string { return n.T.LabelAt(n.T.Lists[n.T.Records[n.ID].B+4]) }
+
+// ElseLabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n IfStmt) ElseLabelRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+4] }
+
+func (n IfStmt) SetElseLabelRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+4] = ref }
+
+func (n IfStmt) ElseEnd() EndLabel {
+	return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+5])}}
 }
 
-type IndexExpr struct {
-	ExprBase
-	Obj  Expr
-	Args []Expr
+func (n IfStmt) SetElseEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+5] = uint32(v.ID) }
+
+// WhileStmt is a view of a WhileStmt node.
+type WhileStmt struct{ Ref }
+
+type WhileStmtList = List[WhileStmt]
+
+func (t *Tree) NewWhileStmt(start uint32) WhileStmt {
+	id := t.alloc(KindWhileStmt, start)
+	t.Records[id].B = t.reserve(3)
+	return WhileStmt{Ref{t, id}}
 }
 
-type CallExpr struct {
-	ExprBase
-	Callee Expr
-	Args   []*Arg
+func (n WhileStmt) Cond() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
 
-	Info uint32
+func (n WhileStmt) SetCond(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n WhileStmt) Label() string { return n.T.LabelAt(n.T.Lists[n.T.Records[n.ID].B+0]) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n WhileStmt) LabelRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+0] }
+
+func (n WhileStmt) SetLabelRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+0] = ref }
+
+func (n WhileStmt) Body() StmtList { return ListAt[Stmt](n.T, n.T.Lists[n.T.Records[n.ID].B+1]) }
+
+func (n WhileStmt) SetBody(l StmtList) { n.T.Lists[n.T.Records[n.ID].B+1] = l.Ref() }
+
+func (n WhileStmt) End() EndLabel {
+	return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+2])}}
 }
 
-type UnaryExpr struct {
-	ExprBase
-	Op string
-	E  Expr
+func (n WhileStmt) SetEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+2] = uint32(v.ID) }
+
+// ForStmt is a view of a ForStmt node.
+type ForStmt struct{ Ref }
+
+type ForStmtList = List[ForStmt]
+
+func (t *Tree) NewForStmt(start uint32) ForStmt {
+	id := t.alloc(KindForStmt, start)
+	t.Records[id].B = t.reserve(5)
+	return ForStmt{Ref{t, id}}
 }
 
-type CastExpr struct {
-	ExprBase
-	E      Expr
-	Target *TypeRef
+const flagForStmtInclusive uint8 = 1 << 0
+
+func (n ForStmt) Var() string { return n.T.NameAt(n.T.Records[n.ID].A) }
+
+// VarRef is where the text is in the module's text, plus one: 0 is no text.
+func (n ForStmt) VarRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n ForStmt) SetVarRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+func (n ForStmt) From() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+0])}} }
+
+func (n ForStmt) SetFrom(v Expr) { n.T.Lists[n.T.Records[n.ID].B+0] = uint32(v.ID) }
+
+func (n ForStmt) Inclusive() bool { return n.T.Records[n.ID].Flags&flagForStmtInclusive != 0 }
+
+func (n ForStmt) SetInclusive() { n.T.Records[n.ID].Flags |= flagForStmtInclusive }
+
+func (n ForStmt) To() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+1])}} }
+
+func (n ForStmt) SetTo(v Expr) { n.T.Lists[n.T.Records[n.ID].B+1] = uint32(v.ID) }
+
+func (n ForStmt) Label() string { return n.T.LabelAt(n.T.Lists[n.T.Records[n.ID].B+2]) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n ForStmt) LabelRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+2] }
+
+func (n ForStmt) SetLabelRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+2] = ref }
+
+func (n ForStmt) Body() StmtList { return ListAt[Stmt](n.T, n.T.Lists[n.T.Records[n.ID].B+3]) }
+
+func (n ForStmt) SetBody(l StmtList) { n.T.Lists[n.T.Records[n.ID].B+3] = l.Ref() }
+
+func (n ForStmt) End() EndLabel { return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+4])}} }
+
+func (n ForStmt) SetEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+4] = uint32(v.ID) }
+
+// ReturnStmt is a view of a ReturnStmt node.
+type ReturnStmt struct{ Ref }
+
+type ReturnStmtList = List[ReturnStmt]
+
+func (t *Tree) NewReturnStmt(start uint32) ReturnStmt {
+	id := t.alloc(KindReturnStmt, start)
+	return ReturnStmt{Ref{t, id}}
 }
 
-type BinaryExpr struct {
-	ExprBase
-	L  Expr
-	Op string
-	R  Expr
+func (n ReturnStmt) Value() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n ReturnStmt) SetValue(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+// BreakStmt is a view of a BreakStmt node.
+type BreakStmt struct{ Ref }
+
+type BreakStmtList = List[BreakStmt]
+
+func (t *Tree) NewBreakStmt(start uint32) BreakStmt {
+	id := t.alloc(KindBreakStmt, start)
+	return BreakStmt{Ref{t, id}}
 }
 
-type CondExpr struct {
-	ExprBase
-	Then Expr
-	Cond Expr
-	Else Expr
+func (n BreakStmt) Label() string { return n.T.LabelAt(n.T.Records[n.ID].A) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n BreakStmt) LabelRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n BreakStmt) SetLabelRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+// ContinueStmt is a view of a ContinueStmt node.
+type ContinueStmt struct{ Ref }
+
+type ContinueStmtList = List[ContinueStmt]
+
+func (t *Tree) NewContinueStmt(start uint32) ContinueStmt {
+	id := t.alloc(KindContinueStmt, start)
+	return ContinueStmt{Ref{t, id}}
 }
 
-type IntLit struct {
-	ExprBase
-	Negative  bool
-	Magnitude I128
+func (n ContinueStmt) Label() string { return n.T.LabelAt(n.T.Records[n.ID].A) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n ContinueStmt) LabelRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n ContinueStmt) SetLabelRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+// MatchStmt is a view of a MatchStmt node.
+type MatchStmt struct{ Ref }
+
+type MatchStmtList = List[MatchStmt]
+
+func (t *Tree) NewMatchStmt(start uint32) MatchStmt {
+	id := t.alloc(KindMatchStmt, start)
+	return MatchStmt{Ref{t, id}}
 }
 
-type StrLit struct {
-	ExprBase
-	Parts []any
+func (n MatchStmt) Match() MatchCore { return MatchCore{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n MatchStmt) SetMatch(v MatchCore) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+// WhenStmt is a view of a WhenStmt node.
+type WhenStmt struct{ Ref }
+
+type WhenStmtList = List[WhenStmt]
+
+func (t *Tree) NewWhenStmt(start uint32) WhenStmt {
+	id := t.alloc(KindWhenStmt, start)
+	t.Records[id].B = t.reserve(4)
+	return WhenStmt{Ref{t, id}}
 }
 
-type BoolLit struct {
-	ExprBase
-	Value bool
+func (n WhenStmt) Cowns() NameExprList { return ListAt[NameExpr](n.T, n.T.Records[n.ID].A) }
+
+func (n WhenStmt) SetCowns(l NameExprList) { n.T.Records[n.ID].A = l.Ref() }
+
+func (n WhenStmt) Names() TextList { return TextListAt(n.T, n.T.Lists[n.T.Records[n.ID].B+0]) }
+
+func (n WhenStmt) SetNames(l TextList) { n.T.Lists[n.T.Records[n.ID].B+0] = l.Ref() }
+
+func (n WhenStmt) Label() string { return n.T.LabelAt(n.T.Lists[n.T.Records[n.ID].B+1]) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n WhenStmt) LabelRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+1] }
+
+func (n WhenStmt) SetLabelRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+1] = ref }
+
+func (n WhenStmt) Body() StmtList { return ListAt[Stmt](n.T, n.T.Lists[n.T.Records[n.ID].B+2]) }
+
+func (n WhenStmt) SetBody(l StmtList) { n.T.Lists[n.T.Records[n.ID].B+2] = l.Ref() }
+
+func (n WhenStmt) End() EndLabel { return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+3])}} }
+
+func (n WhenStmt) SetEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+3] = uint32(v.ID) }
+
+// MatchCore is a view of a MatchCore node.
+type MatchCore struct{ Ref }
+
+type MatchCoreList = List[MatchCore]
+
+func (t *Tree) NewMatchCore(start uint32) MatchCore {
+	id := t.alloc(KindMatchCore, start)
+	t.Records[id].B = t.reserve(3)
+	return MatchCore{Ref{t, id}}
 }
 
-type NameExpr struct {
-	ExprBase
-	Name string
+const flagMatchCoreConsumes uint8 = 1 << 0
 
-	Info uint32
+func (n MatchCore) Consumes() bool { return n.T.Records[n.ID].Flags&flagMatchCoreConsumes != 0 }
+
+func (n MatchCore) SetConsumes() { n.T.Records[n.ID].Flags |= flagMatchCoreConsumes }
+
+func (n MatchCore) Subject() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n MatchCore) SetSubject(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n MatchCore) Label() string { return n.T.LabelAt(n.T.Lists[n.T.Records[n.ID].B+0]) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n MatchCore) LabelRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+0] }
+
+func (n MatchCore) SetLabelRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+0] = ref }
+
+func (n MatchCore) Arms() MatchArmList {
+	return ListAt[MatchArm](n.T, n.T.Lists[n.T.Records[n.ID].B+1])
 }
 
-type SelfExpr struct {
-	ExprBase
+func (n MatchCore) SetArms(l MatchArmList) { n.T.Lists[n.T.Records[n.ID].B+1] = l.Ref() }
+
+func (n MatchCore) End() EndLabel {
+	return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+2])}}
 }
 
-type StructLitExpr struct {
-	ExprBase
-	TypeName string
-	Fields   []*StructField
+func (n MatchCore) SetEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+2] = uint32(v.ID) }
 
-	Info uint32
+// MatchArm is a view of a MatchArm node.
+type MatchArm struct{ Ref }
+
+type MatchArmList = List[MatchArm]
+
+func (t *Tree) NewMatchArm(start uint32) MatchArm {
+	id := t.alloc(KindMatchArm, start)
+	t.Records[id].B = t.reserve(2)
+	return MatchArm{Ref{t, id}}
 }
 
-type StructField struct {
-	Head
-	Name  string
-	Value Expr
+const flagMatchArmIsDefault uint8 = 1 << 0
+
+const flagMatchArmGives uint8 = 1 << 1
+
+func (n MatchArm) IsDefault() bool { return n.T.Records[n.ID].Flags&flagMatchArmIsDefault != 0 }
+
+func (n MatchArm) SetIsDefault() { n.T.Records[n.ID].Flags |= flagMatchArmIsDefault }
+
+func (n MatchArm) Patterns() PatternList { return ListAt[Pattern](n.T, n.T.Records[n.ID].A) }
+
+func (n MatchArm) SetPatterns(l PatternList) { n.T.Records[n.ID].A = l.Ref() }
+
+func (n MatchArm) Action() Stmt { return Stmt{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+0])}} }
+
+func (n MatchArm) SetAction(v Stmt) { n.T.Lists[n.T.Records[n.ID].B+0] = uint32(v.ID) }
+
+func (n MatchArm) Gives() bool { return n.T.Records[n.ID].Flags&flagMatchArmGives != 0 }
+
+func (n MatchArm) SetGives() { n.T.Records[n.ID].Flags |= flagMatchArmGives }
+
+func (n MatchArm) Value() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+1])}} }
+
+func (n MatchArm) SetValue(v Expr) { n.T.Lists[n.T.Records[n.ID].B+1] = uint32(v.ID) }
+
+// Pattern is a view of a Pattern node.
+type Pattern struct{ Ref }
+
+type PatternList = List[Pattern]
+
+func (t *Tree) NewPattern(start uint32) Pattern {
+	id := t.alloc(KindPattern, start)
+	t.Records[id].B = t.reserve(3)
+	return Pattern{Ref{t, id}}
 }
 
-type Arg struct {
-	Head
-	Label string
-	Value Expr
+const flagPatternHasBindings uint8 = 1 << 0
+
+const flagPatternInclusive uint8 = 1 << 1
+
+func (n Pattern) CaseName() string { return n.T.NameAt(n.T.Records[n.ID].A) }
+
+// CaseNameRef is where the text is in the module's text, plus one: 0 is no text.
+func (n Pattern) CaseNameRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n Pattern) SetCaseNameRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+func (n Pattern) HasBindings() bool { return n.T.Records[n.ID].Flags&flagPatternHasBindings != 0 }
+
+func (n Pattern) SetHasBindings() { n.T.Records[n.ID].Flags |= flagPatternHasBindings }
+
+func (n Pattern) Bindings() TextList { return TextListAt(n.T, n.T.Lists[n.T.Records[n.ID].B+0]) }
+
+func (n Pattern) SetBindings(l TextList) { n.T.Lists[n.T.Records[n.ID].B+0] = l.Ref() }
+
+func (n Pattern) Value() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+1])}} }
+
+func (n Pattern) SetValue(v Expr) { n.T.Lists[n.T.Records[n.ID].B+1] = uint32(v.ID) }
+
+func (n Pattern) Inclusive() bool { return n.T.Records[n.ID].Flags&flagPatternInclusive != 0 }
+
+func (n Pattern) SetInclusive() { n.T.Records[n.ID].Flags |= flagPatternInclusive }
+
+func (n Pattern) High() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+2])}} }
+
+func (n Pattern) SetHigh(v Expr) { n.T.Lists[n.T.Records[n.ID].B+2] = uint32(v.ID) }
+
+// Expr is a view of a node of one of 15 kinds: use Kind, or one of the As methods, to tell which.
+type Expr struct{ Ref }
+
+type ExprList = List[Expr]
+
+func (n IntLit) Expr() Expr { return Expr{n.Ref} }
+
+// ToIntLit is the view of the node as a IntLit, for code that has found out it is one.
+func (s Expr) ToIntLit() IntLit { return IntLit{s.Ref} }
+
+// AsIntLit is the view of the node as a IntLit, if it is one.
+func (s Expr) AsIntLit() (IntLit, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindIntLit {
+		return IntLit{}, false
+	}
+	return IntLit{s.Ref}, true
 }
 
-type PanicExpr struct {
-	ExprBase
-	Message Expr
+func (n StrLit) Expr() Expr { return Expr{n.Ref} }
+
+// ToStrLit is the view of the node as a StrLit, for code that has found out it is one.
+func (s Expr) ToStrLit() StrLit { return StrLit{s.Ref} }
+
+// AsStrLit is the view of the node as a StrLit, if it is one.
+func (s Expr) AsStrLit() (StrLit, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindStrLit {
+		return StrLit{}, false
+	}
+	return StrLit{s.Ref}, true
 }
 
-type MatchExpr struct {
-	ExprBase
-	Match *MatchCore
+func (n BoolLit) Expr() Expr { return Expr{n.Ref} }
+
+// ToBoolLit is the view of the node as a BoolLit, for code that has found out it is one.
+func (s Expr) ToBoolLit() BoolLit { return BoolLit{s.Ref} }
+
+// AsBoolLit is the view of the node as a BoolLit, if it is one.
+func (s Expr) AsBoolLit() (BoolLit, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindBoolLit {
+		return BoolLit{}, false
+	}
+	return BoolLit{s.Ref}, true
 }
 
-// Arena makes the nodes of one module and counts them: each node gets the module's handle and the next NodeID, and
-// each type's nodes come from chunks of that type, so a module's nodes are contiguous and a parse allocates a chunk at
-// a time and not a node at a time. An arena is used by one worker at a time.
-type Arena struct {
-	module        ModuleID
-	count         NodeID
-	slots         Slots
+func (n StructLitExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToStructLitExpr is the view of the node as a StructLitExpr, for code that has found out it is one.
+func (s Expr) ToStructLitExpr() StructLitExpr { return StructLitExpr{s.Ref} }
+
+// AsStructLitExpr is the view of the node as a StructLitExpr, if it is one.
+func (s Expr) AsStructLitExpr() (StructLitExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindStructLitExpr {
+		return StructLitExpr{}, false
+	}
+	return StructLitExpr{s.Ref}, true
+}
+
+func (n SelfExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToSelfExpr is the view of the node as a SelfExpr, for code that has found out it is one.
+func (s Expr) ToSelfExpr() SelfExpr { return SelfExpr{s.Ref} }
+
+// AsSelfExpr is the view of the node as a SelfExpr, if it is one.
+func (s Expr) AsSelfExpr() (SelfExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindSelfExpr {
+		return SelfExpr{}, false
+	}
+	return SelfExpr{s.Ref}, true
+}
+
+func (n NameExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToNameExpr is the view of the node as a NameExpr, for code that has found out it is one.
+func (s Expr) ToNameExpr() NameExpr { return NameExpr{s.Ref} }
+
+// AsNameExpr is the view of the node as a NameExpr, if it is one.
+func (s Expr) AsNameExpr() (NameExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindNameExpr {
+		return NameExpr{}, false
+	}
+	return NameExpr{s.Ref}, true
+}
+
+func (n PanicExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToPanicExpr is the view of the node as a PanicExpr, for code that has found out it is one.
+func (s Expr) ToPanicExpr() PanicExpr { return PanicExpr{s.Ref} }
+
+// AsPanicExpr is the view of the node as a PanicExpr, if it is one.
+func (s Expr) AsPanicExpr() (PanicExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindPanicExpr {
+		return PanicExpr{}, false
+	}
+	return PanicExpr{s.Ref}, true
+}
+
+func (n MatchExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToMatchExpr is the view of the node as a MatchExpr, for code that has found out it is one.
+func (s Expr) ToMatchExpr() MatchExpr { return MatchExpr{s.Ref} }
+
+// AsMatchExpr is the view of the node as a MatchExpr, if it is one.
+func (s Expr) AsMatchExpr() (MatchExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindMatchExpr {
+		return MatchExpr{}, false
+	}
+	return MatchExpr{s.Ref}, true
+}
+
+func (n MemberExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToMemberExpr is the view of the node as a MemberExpr, for code that has found out it is one.
+func (s Expr) ToMemberExpr() MemberExpr { return MemberExpr{s.Ref} }
+
+// AsMemberExpr is the view of the node as a MemberExpr, if it is one.
+func (s Expr) AsMemberExpr() (MemberExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindMemberExpr {
+		return MemberExpr{}, false
+	}
+	return MemberExpr{s.Ref}, true
+}
+
+func (n IndexExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToIndexExpr is the view of the node as a IndexExpr, for code that has found out it is one.
+func (s Expr) ToIndexExpr() IndexExpr { return IndexExpr{s.Ref} }
+
+// AsIndexExpr is the view of the node as a IndexExpr, if it is one.
+func (s Expr) AsIndexExpr() (IndexExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindIndexExpr {
+		return IndexExpr{}, false
+	}
+	return IndexExpr{s.Ref}, true
+}
+
+func (n CallExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToCallExpr is the view of the node as a CallExpr, for code that has found out it is one.
+func (s Expr) ToCallExpr() CallExpr { return CallExpr{s.Ref} }
+
+// AsCallExpr is the view of the node as a CallExpr, if it is one.
+func (s Expr) AsCallExpr() (CallExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindCallExpr {
+		return CallExpr{}, false
+	}
+	return CallExpr{s.Ref}, true
+}
+
+func (n UnaryExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToUnaryExpr is the view of the node as a UnaryExpr, for code that has found out it is one.
+func (s Expr) ToUnaryExpr() UnaryExpr { return UnaryExpr{s.Ref} }
+
+// AsUnaryExpr is the view of the node as a UnaryExpr, if it is one.
+func (s Expr) AsUnaryExpr() (UnaryExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindUnaryExpr {
+		return UnaryExpr{}, false
+	}
+	return UnaryExpr{s.Ref}, true
+}
+
+func (n CastExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToCastExpr is the view of the node as a CastExpr, for code that has found out it is one.
+func (s Expr) ToCastExpr() CastExpr { return CastExpr{s.Ref} }
+
+// AsCastExpr is the view of the node as a CastExpr, if it is one.
+func (s Expr) AsCastExpr() (CastExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindCastExpr {
+		return CastExpr{}, false
+	}
+	return CastExpr{s.Ref}, true
+}
+
+func (n BinaryExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToBinaryExpr is the view of the node as a BinaryExpr, for code that has found out it is one.
+func (s Expr) ToBinaryExpr() BinaryExpr { return BinaryExpr{s.Ref} }
+
+// AsBinaryExpr is the view of the node as a BinaryExpr, if it is one.
+func (s Expr) AsBinaryExpr() (BinaryExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindBinaryExpr {
+		return BinaryExpr{}, false
+	}
+	return BinaryExpr{s.Ref}, true
+}
+
+func (n CondExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToCondExpr is the view of the node as a CondExpr, for code that has found out it is one.
+func (s Expr) ToCondExpr() CondExpr { return CondExpr{s.Ref} }
+
+// AsCondExpr is the view of the node as a CondExpr, if it is one.
+func (s Expr) AsCondExpr() (CondExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindCondExpr {
+		return CondExpr{}, false
+	}
+	return CondExpr{s.Ref}, true
+}
+
+// MemberExpr is a view of a MemberExpr node.
+type MemberExpr struct{ Ref }
+
+type MemberExprList = List[MemberExpr]
+
+func (t *Tree) NewMemberExpr(start uint32) MemberExpr {
+	id := t.alloc(KindMemberExpr, start)
+	return MemberExpr{Ref{t, id}}
+}
+
+func (n MemberExpr) Obj() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n MemberExpr) SetObj(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n MemberExpr) Name() string { return n.T.NameAt(n.T.Records[n.ID].B) }
+
+// NameRef is where the text is in the module's text, plus one: 0 is no text.
+func (n MemberExpr) NameRef() uint32 { return n.T.Records[n.ID].B }
+
+func (n MemberExpr) SetNameRef(ref uint32) { n.T.Records[n.ID].B = ref }
+
+// IndexExpr is a view of a IndexExpr node.
+type IndexExpr struct{ Ref }
+
+type IndexExprList = List[IndexExpr]
+
+func (t *Tree) NewIndexExpr(start uint32) IndexExpr {
+	id := t.alloc(KindIndexExpr, start)
+	return IndexExpr{Ref{t, id}}
+}
+
+func (n IndexExpr) Obj() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n IndexExpr) SetObj(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n IndexExpr) Args() ExprList { return ListAt[Expr](n.T, n.T.Records[n.ID].B) }
+
+func (n IndexExpr) SetArgs(l ExprList) { n.T.Records[n.ID].B = l.Ref() }
+
+// CallExpr is a view of a CallExpr node.
+type CallExpr struct{ Ref }
+
+type CallExprList = List[CallExpr]
+
+func (t *Tree) NewCallExpr(start uint32) CallExpr {
+	id := t.alloc(KindCallExpr, start)
+	return CallExpr{Ref{t, id}}
+}
+
+func (n CallExpr) Callee() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n CallExpr) SetCallee(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n CallExpr) Args() ArgList { return ListAt[Arg](n.T, n.T.Records[n.ID].B) }
+
+func (n CallExpr) SetArgs(l ArgList) { n.T.Records[n.ID].B = l.Ref() }
+
+// UnaryExpr is a view of a UnaryExpr node.
+type UnaryExpr struct{ Ref }
+
+type UnaryExprList = List[UnaryExpr]
+
+func (t *Tree) NewUnaryExpr(start uint32) UnaryExpr {
+	id := t.alloc(KindUnaryExpr, start)
+	return UnaryExpr{Ref{t, id}}
+}
+
+var unaryExprOpTexts = [...]string{"", "-", "not"}
+
+func (n UnaryExpr) Op() string { return unaryExprOpTexts[uint8(n.T.Records[n.ID].Aux>>0)] }
+
+func (n UnaryExpr) SetOp(text string) {
+	var i uint16
+	switch text {
+	case "-":
+		i = 1
+	case "not":
+		i = 2
+	default:
+		panic(diag.Internal("UnaryExpr.Op cannot be %q", text))
+	}
+	r := &n.T.Records[n.ID]
+	r.Aux = r.Aux&^(0xff<<0) | i<<0
+}
+
+func (n UnaryExpr) E() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n UnaryExpr) SetE(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+// CastExpr is a view of a CastExpr node.
+type CastExpr struct{ Ref }
+
+type CastExprList = List[CastExpr]
+
+func (t *Tree) NewCastExpr(start uint32) CastExpr {
+	id := t.alloc(KindCastExpr, start)
+	return CastExpr{Ref{t, id}}
+}
+
+func (n CastExpr) E() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n CastExpr) SetE(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n CastExpr) Target() TypeRef { return TypeRef{Ref{n.T, NodeID(n.T.Records[n.ID].B)}} }
+
+func (n CastExpr) SetTarget(v TypeRef) { n.T.Records[n.ID].B = uint32(v.ID) }
+
+// BinaryExpr is a view of a BinaryExpr node.
+type BinaryExpr struct{ Ref }
+
+type BinaryExprList = List[BinaryExpr]
+
+func (t *Tree) NewBinaryExpr(start uint32) BinaryExpr {
+	id := t.alloc(KindBinaryExpr, start)
+	return BinaryExpr{Ref{t, id}}
+}
+
+func (n BinaryExpr) L() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n BinaryExpr) SetL(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+var binaryExprOpTexts = [...]string{"", "*", "/", "mod", "+", "-", "shl", "shr", "==", "!=", "<", "<=", ">", ">=", "and", "xor", "or"}
+
+func (n BinaryExpr) Op() string { return binaryExprOpTexts[uint8(n.T.Records[n.ID].Aux>>0)] }
+
+func (n BinaryExpr) SetOp(text string) {
+	var i uint16
+	switch text {
+	case "*":
+		i = 1
+	case "/":
+		i = 2
+	case "mod":
+		i = 3
+	case "+":
+		i = 4
+	case "-":
+		i = 5
+	case "shl":
+		i = 6
+	case "shr":
+		i = 7
+	case "==":
+		i = 8
+	case "!=":
+		i = 9
+	case "<":
+		i = 10
+	case "<=":
+		i = 11
+	case ">":
+		i = 12
+	case ">=":
+		i = 13
+	case "and":
+		i = 14
+	case "xor":
+		i = 15
+	case "or":
+		i = 16
+	default:
+		panic(diag.Internal("BinaryExpr.Op cannot be %q", text))
+	}
+	r := &n.T.Records[n.ID]
+	r.Aux = r.Aux&^(0xff<<0) | i<<0
+}
+
+func (n BinaryExpr) R() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].B)}} }
+
+func (n BinaryExpr) SetR(v Expr) { n.T.Records[n.ID].B = uint32(v.ID) }
+
+// CondExpr is a view of a CondExpr node.
+type CondExpr struct{ Ref }
+
+type CondExprList = List[CondExpr]
+
+func (t *Tree) NewCondExpr(start uint32) CondExpr {
+	id := t.alloc(KindCondExpr, start)
+	t.Records[id].B = t.reserve(2)
+	return CondExpr{Ref{t, id}}
+}
+
+func (n CondExpr) Then() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n CondExpr) SetThen(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n CondExpr) Cond() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+0])}} }
+
+func (n CondExpr) SetCond(v Expr) { n.T.Lists[n.T.Records[n.ID].B+0] = uint32(v.ID) }
+
+func (n CondExpr) Else() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+1])}} }
+
+func (n CondExpr) SetElse(v Expr) { n.T.Lists[n.T.Records[n.ID].B+1] = uint32(v.ID) }
+
+// IntLit is a view of a IntLit node.
+type IntLit struct{ Ref }
+
+type IntLitList = List[IntLit]
+
+func (t *Tree) NewIntLit(start uint32) IntLit {
+	id := t.alloc(KindIntLit, start)
+	return IntLit{Ref{t, id}}
+}
+
+const flagIntLitNegative uint8 = 1 << 0
+
+func (n IntLit) Negative() bool { return n.T.Records[n.ID].Flags&flagIntLitNegative != 0 }
+
+func (n IntLit) SetNegative() { n.T.Records[n.ID].Flags |= flagIntLitNegative }
+
+func (n IntLit) Magnitude() I128 {
+	return I128{Lo: uint64(n.T.Records[n.ID].A) | uint64(n.T.Records[n.ID].B)<<32}
+}
+
+func (n IntLit) SetMagnitude(v I128) {
+	if v.Hi != 0 {
+		panic(diag.Internal("IntLit.Magnitude holds 64 bits, not %v", v))
+	}
+	n.T.Records[n.ID].A = uint32(v.Lo)
+	n.T.Records[n.ID].B = uint32(v.Lo >> 32)
+}
+
+// StrLit is a view of a StrLit node.
+type StrLit struct{ Ref }
+
+type StrLitList = List[StrLit]
+
+func (t *Tree) NewStrLit(start uint32) StrLit {
+	id := t.alloc(KindStrLit, start)
+	return StrLit{Ref{t, id}}
+}
+
+func (n StrLit) PartsRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n StrLit) SetPartsRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+// BoolLit is a view of a BoolLit node.
+type BoolLit struct{ Ref }
+
+type BoolLitList = List[BoolLit]
+
+func (t *Tree) NewBoolLit(start uint32) BoolLit {
+	id := t.alloc(KindBoolLit, start)
+	return BoolLit{Ref{t, id}}
+}
+
+const flagBoolLitValue uint8 = 1 << 0
+
+func (n BoolLit) Value() bool { return n.T.Records[n.ID].Flags&flagBoolLitValue != 0 }
+
+func (n BoolLit) SetValue() { n.T.Records[n.ID].Flags |= flagBoolLitValue }
+
+// NameExpr is a view of a NameExpr node.
+type NameExpr struct{ Ref }
+
+type NameExprList = List[NameExpr]
+
+func (t *Tree) NewNameExpr(start uint32) NameExpr {
+	id := t.alloc(KindNameExpr, start)
+	return NameExpr{Ref{t, id}}
+}
+
+func (n NameExpr) Name() string { return n.T.NameAt(n.T.Records[n.ID].A) }
+
+// NameRef is where the text is in the module's text, plus one: 0 is no text.
+func (n NameExpr) NameRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n NameExpr) SetNameRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+// SelfExpr is a view of a SelfExpr node.
+type SelfExpr struct{ Ref }
+
+type SelfExprList = List[SelfExpr]
+
+func (t *Tree) NewSelfExpr(start uint32) SelfExpr {
+	id := t.alloc(KindSelfExpr, start)
+	return SelfExpr{Ref{t, id}}
+}
+
+// StructLitExpr is a view of a StructLitExpr node.
+type StructLitExpr struct{ Ref }
+
+type StructLitExprList = List[StructLitExpr]
+
+func (t *Tree) NewStructLitExpr(start uint32) StructLitExpr {
+	id := t.alloc(KindStructLitExpr, start)
+	return StructLitExpr{Ref{t, id}}
+}
+
+func (n StructLitExpr) TypeName() string { return n.T.NameAt(n.T.Records[n.ID].A) }
+
+// TypeNameRef is where the text is in the module's text, plus one: 0 is no text.
+func (n StructLitExpr) TypeNameRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n StructLitExpr) SetTypeNameRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+func (n StructLitExpr) Fields() StructFieldList { return ListAt[StructField](n.T, n.T.Records[n.ID].B) }
+
+func (n StructLitExpr) SetFields(l StructFieldList) { n.T.Records[n.ID].B = l.Ref() }
+
+// StructField is a view of a StructField node.
+type StructField struct{ Ref }
+
+type StructFieldList = List[StructField]
+
+func (t *Tree) NewStructField(start uint32) StructField {
+	id := t.alloc(KindStructField, start)
+	return StructField{Ref{t, id}}
+}
+
+func (n StructField) Name() string { return n.T.NameAt(n.T.Records[n.ID].A) }
+
+// NameRef is where the text is in the module's text, plus one: 0 is no text.
+func (n StructField) NameRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n StructField) SetNameRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+func (n StructField) Value() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].B)}} }
+
+func (n StructField) SetValue(v Expr) { n.T.Records[n.ID].B = uint32(v.ID) }
+
+// Arg is a view of a Arg node.
+type Arg struct{ Ref }
+
+type ArgList = List[Arg]
+
+func (t *Tree) NewArg(start uint32) Arg {
+	id := t.alloc(KindArg, start)
+	return Arg{Ref{t, id}}
+}
+
+func (n Arg) Label() string { return n.T.NameAt(n.T.Records[n.ID].A) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n Arg) LabelRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n Arg) SetLabelRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+func (n Arg) Value() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].B)}} }
+
+func (n Arg) SetValue(v Expr) { n.T.Records[n.ID].B = uint32(v.ID) }
+
+// PanicExpr is a view of a PanicExpr node.
+type PanicExpr struct{ Ref }
+
+type PanicExprList = List[PanicExpr]
+
+func (t *Tree) NewPanicExpr(start uint32) PanicExpr {
+	id := t.alloc(KindPanicExpr, start)
+	return PanicExpr{Ref{t, id}}
+}
+
+func (n PanicExpr) Message() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n PanicExpr) SetMessage(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+// MatchExpr is a view of a MatchExpr node.
+type MatchExpr struct{ Ref }
+
+type MatchExprList = List[MatchExpr]
+
+func (t *Tree) NewMatchExpr(start uint32) MatchExpr {
+	id := t.alloc(KindMatchExpr, start)
+	return MatchExpr{Ref{t, id}}
+}
+
+func (n MatchExpr) Match() MatchCore { return MatchCore{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n MatchExpr) SetMatch(v MatchCore) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+// structSlabs make the structs of a module's tree, which are few and read by every phase: each takes its record in the
+// tree for its number and its position, and its struct from a chunk of its type, twice the one before up to a limit.
+type structSlabs struct {
 	funcDecl      slab[FuncDecl]
 	param         slab[Param]
 	constDecl     slab[ConstDecl]
@@ -425,518 +1437,155 @@ type Arena struct {
 	unionCaseDecl slab[UnionCaseDecl]
 	aliasDecl     slab[AliasDecl]
 	bound         slab[Bound]
-	typeRef       slab[TypeRef]
 	typeParam     slab[TypeParam]
 	constraint    slab[Constraint]
 	interfaceDecl slab[InterfaceDecl]
 	funcSig       slab[FuncSig]
-	endLabel      slab[EndLabel]
-	letStmt       slab[LetStmt]
-	discardStmt   slab[DiscardStmt]
-	assignStmt    slab[AssignStmt]
-	exprStmt      slab[ExprStmt]
-	ifStmt        slab[IfStmt]
-	whileStmt     slab[WhileStmt]
-	forStmt       slab[ForStmt]
-	returnStmt    slab[ReturnStmt]
-	breakStmt     slab[BreakStmt]
-	continueStmt  slab[ContinueStmt]
-	matchStmt     slab[MatchStmt]
-	whenStmt      slab[WhenStmt]
-	matchCore     slab[MatchCore]
-	matchArm      slab[MatchArm]
-	pattern       slab[Pattern]
-	memberExpr    slab[MemberExpr]
-	indexExpr     slab[IndexExpr]
-	callExpr      slab[CallExpr]
-	unaryExpr     slab[UnaryExpr]
-	castExpr      slab[CastExpr]
-	binaryExpr    slab[BinaryExpr]
-	condExpr      slab[CondExpr]
-	intLit        slab[IntLit]
-	strLit        slab[StrLit]
-	boolLit       slab[BoolLit]
-	nameExpr      slab[NameExpr]
-	selfExpr      slab[SelfExpr]
-	structLitExpr slab[StructLitExpr]
-	structField   slab[StructField]
-	arg           slab[Arg]
-	panicExpr     slab[PanicExpr]
-	matchExpr     slab[MatchExpr]
 }
 
-// Slots counts the slots of each table that a phase fills in for a kind of node. A node that has a slot field is given
-// the next number of its counter when it is made, so a table is a slice that a counter sizes, and a node that a phase
-// makes later has its slot in it too. Slots count from 1: 0 is no slot.
+func (t *Tree) NewFuncDecl(start uint32) *FuncDecl {
+	n := t.funcDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindFuncDecl, start)
+	n.ReturnType = VoidTy
+	return n
+}
+
+func (t *Tree) NewParam(start uint32) *Param {
+	n := t.param.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindParam, start)
+	return n
+}
+
+func (t *Tree) NewConstDecl(start uint32) *ConstDecl {
+	n := t.constDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindConstDecl, start)
+	return n
+}
+
+func (t *Tree) NewTypeDecl(start uint32) *TypeDecl {
+	n := t.typeDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindTypeDecl, start)
+	return n
+}
+
+func (t *Tree) NewFieldDecl(start uint32) *FieldDecl {
+	n := t.fieldDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindFieldDecl, start)
+	return n
+}
+
+func (t *Tree) NewEnumDecl(start uint32) *EnumDecl {
+	n := t.enumDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindEnumDecl, start)
+	return n
+}
+
+func (t *Tree) NewEnumCaseDecl(start uint32) *EnumCaseDecl {
+	n := t.enumCaseDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindEnumCaseDecl, start)
+	return n
+}
+
+func (t *Tree) NewUnionDecl(start uint32) *UnionDecl {
+	n := t.unionDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindUnionDecl, start)
+	return n
+}
+
+func (t *Tree) NewUnionCaseDecl(start uint32) *UnionCaseDecl {
+	n := t.unionCaseDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindUnionCaseDecl, start)
+	return n
+}
+
+func (t *Tree) NewAliasDecl(start uint32) *AliasDecl {
+	n := t.aliasDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindAliasDecl, start)
+	return n
+}
+
+func (t *Tree) NewBound(start uint32) *Bound {
+	n := t.bound.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindBound, start)
+	return n
+}
+
+func (t *Tree) NewTypeParam(start uint32) *TypeParam {
+	n := t.typeParam.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindTypeParam, start)
+	return n
+}
+
+func (t *Tree) NewConstraint(start uint32) *Constraint {
+	n := t.constraint.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindConstraint, start)
+	return n
+}
+
+func (t *Tree) NewInterfaceDecl(start uint32) *InterfaceDecl {
+	n := t.interfaceDecl.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindInterfaceDecl, start)
+	return n
+}
+
+func (t *Tree) NewFuncSig(start uint32) *FuncSig {
+	n := t.funcSig.next()
+	n.Mod, n.Off, n.ID = t.Module, start, t.alloc(KindFuncSig, start)
+	n.ReturnType = VoidTy
+	return n
+}
+
+// Slots counts the slots of each table that a phase fills in for a kind of node. A node of a kind that has a slot field is
+// numbered from the counter of its table in the order of the tree, so a table is a slice that a counter sizes. Slots
+// count from 1: 0 is no slot.
 type Slots struct {
-	Expr      uint32
 	Local     uint32
 	Jump      uint32
 	When      uint32
 	Pattern   uint32
 	Member    uint32
 	Call      uint32
+	Binary    uint32
 	Name      uint32
 	StructLit uint32
 }
 
-// Slots is how many slots of each counter the arena has given out.
-func (a *Arena) Slots() Slots { return a.slots }
-
-func NewArena(module ModuleID) *Arena { return &Arena{module: module} }
-
-// Seal ends the parse: a node made after it, as a phase makes when it rewrites the tree, comes from a small chunk,
-// not from the next of the doubling chunks that a parse would have filled.
-func (a *Arena) Seal() {
-	a.funcDecl.seal()
-	a.param.seal()
-	a.constDecl.seal()
-	a.typeDecl.seal()
-	a.fieldDecl.seal()
-	a.enumDecl.seal()
-	a.enumCaseDecl.seal()
-	a.unionDecl.seal()
-	a.unionCaseDecl.seal()
-	a.aliasDecl.seal()
-	a.bound.seal()
-	a.typeRef.seal()
-	a.typeParam.seal()
-	a.constraint.seal()
-	a.interfaceDecl.seal()
-	a.funcSig.seal()
-	a.endLabel.seal()
-	a.letStmt.seal()
-	a.discardStmt.seal()
-	a.assignStmt.seal()
-	a.exprStmt.seal()
-	a.ifStmt.seal()
-	a.whileStmt.seal()
-	a.forStmt.seal()
-	a.returnStmt.seal()
-	a.breakStmt.seal()
-	a.continueStmt.seal()
-	a.matchStmt.seal()
-	a.whenStmt.seal()
-	a.matchCore.seal()
-	a.matchArm.seal()
-	a.pattern.seal()
-	a.memberExpr.seal()
-	a.indexExpr.seal()
-	a.callExpr.seal()
-	a.unaryExpr.seal()
-	a.castExpr.seal()
-	a.binaryExpr.seal()
-	a.condExpr.seal()
-	a.intLit.seal()
-	a.strLit.seal()
-	a.boolLit.seal()
-	a.nameExpr.seal()
-	a.selfExpr.seal()
-	a.structLitExpr.seal()
-	a.structField.seal()
-	a.arg.seal()
-	a.panicExpr.seal()
-	a.matchExpr.seal()
-}
-
-// Count is how many nodes the arena has made: the NodeIDs of its nodes are 1 to Count.
-func (a *Arena) Count() int { return int(a.count) }
-
-func (a *Arena) NewFuncDecl() *FuncDecl {
-	n := a.funcDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	n.ReturnType = VoidTy
-	return n
-}
-
-func (a *Arena) NewParam() *Param {
-	n := a.param.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Local++
-	n.Local = a.slots.Local
-	return n
-}
-
-func (a *Arena) NewConstDecl() *ConstDecl {
-	n := a.constDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewTypeDecl() *TypeDecl {
-	n := a.typeDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewFieldDecl() *FieldDecl {
-	n := a.fieldDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewEnumDecl() *EnumDecl {
-	n := a.enumDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewEnumCaseDecl() *EnumCaseDecl {
-	n := a.enumCaseDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewUnionDecl() *UnionDecl {
-	n := a.unionDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewUnionCaseDecl() *UnionCaseDecl {
-	n := a.unionCaseDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewAliasDecl() *AliasDecl {
-	n := a.aliasDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewBound() *Bound {
-	n := a.bound.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewTypeRef() *TypeRef {
-	n := a.typeRef.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewTypeParam() *TypeParam {
-	n := a.typeParam.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewConstraint() *Constraint {
-	n := a.constraint.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewInterfaceDecl() *InterfaceDecl {
-	n := a.interfaceDecl.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewFuncSig() *FuncSig {
-	n := a.funcSig.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	n.ReturnType = VoidTy
-	return n
-}
-
-func (a *Arena) NewEndLabel() *EndLabel {
-	n := a.endLabel.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewLetStmt() *LetStmt {
-	n := a.letStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Local++
-	n.Local = a.slots.Local
-	return n
-}
-
-func (a *Arena) NewDiscardStmt() *DiscardStmt {
-	n := a.discardStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewAssignStmt() *AssignStmt {
-	n := a.assignStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewExprStmt() *ExprStmt {
-	n := a.exprStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewIfStmt() *IfStmt {
-	n := a.ifStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewWhileStmt() *WhileStmt {
-	n := a.whileStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewForStmt() *ForStmt {
-	n := a.forStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Local++
-	n.Local = a.slots.Local
-	return n
-}
-
-func (a *Arena) NewReturnStmt() *ReturnStmt {
-	n := a.returnStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewBreakStmt() *BreakStmt {
-	n := a.breakStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Jump++
-	n.Jump = a.slots.Jump
-	return n
-}
-
-func (a *Arena) NewContinueStmt() *ContinueStmt {
-	n := a.continueStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Jump++
-	n.Jump = a.slots.Jump
-	return n
-}
-
-func (a *Arena) NewMatchStmt() *MatchStmt {
-	n := a.matchStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewWhenStmt() *WhenStmt {
-	n := a.whenStmt.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.When++
-	n.Info = a.slots.When
-	return n
-}
-
-func (a *Arena) NewMatchCore() *MatchCore {
-	n := a.matchCore.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewMatchArm() *MatchArm {
-	n := a.matchArm.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewPattern() *Pattern {
-	n := a.pattern.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Pattern++
-	n.Info = a.slots.Pattern
-	return n
-}
-
-func (a *Arena) NewMemberExpr() *MemberExpr {
-	n := a.memberExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	a.slots.Member++
-	n.Info = a.slots.Member
-	return n
-}
-
-func (a *Arena) NewIndexExpr() *IndexExpr {
-	n := a.indexExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewCallExpr() *CallExpr {
-	n := a.callExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	a.slots.Call++
-	n.Info = a.slots.Call
-	return n
-}
-
-func (a *Arena) NewUnaryExpr() *UnaryExpr {
-	n := a.unaryExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewCastExpr() *CastExpr {
-	n := a.castExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewBinaryExpr() *BinaryExpr {
-	n := a.binaryExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewCondExpr() *CondExpr {
-	n := a.condExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewIntLit() *IntLit {
-	n := a.intLit.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewStrLit() *StrLit {
-	n := a.strLit.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewBoolLit() *BoolLit {
-	n := a.boolLit.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewNameExpr() *NameExpr {
-	n := a.nameExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	a.slots.Name++
-	n.Info = a.slots.Name
-	return n
-}
-
-func (a *Arena) NewSelfExpr() *SelfExpr {
-	n := a.selfExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewStructLitExpr() *StructLitExpr {
-	n := a.structLitExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	a.slots.StructLit++
-	n.Info = a.slots.StructLit
-	return n
-}
-
-func (a *Arena) NewStructField() *StructField {
-	n := a.structField.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewArg() *Arg {
-	n := a.arg.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	return n
-}
-
-func (a *Arena) NewPanicExpr() *PanicExpr {
-	n := a.panicExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
-}
-
-func (a *Arena) NewMatchExpr() *MatchExpr {
-	n := a.matchExpr.next()
-	a.count++
-	n.Mod, n.ID = a.module, a.count
-	a.slots.Expr++
-	n.Ord = a.slots.Expr
-	return n
+// NumberSlots gives each node that has a slot its number in slots, which has an entry for every node and holds zeros: the
+// slot of a node is slots[id], and the counts say how long each table is. A node is read in the kind it has now, so
+// numbering after resolution counts a qualified name as a name.
+func (t *Tree) NumberSlots(slots []uint32) (count Slots) {
+	for id := 1; id < len(t.Records); id++ {
+		switch t.Records[id].Kind {
+		case KindLetStmt, KindForStmt:
+			count.Local++
+			slots[id] = count.Local
+		case KindBreakStmt, KindContinueStmt:
+			count.Jump++
+			slots[id] = count.Jump
+		case KindWhenStmt:
+			count.When++
+			slots[id] = count.When
+		case KindPattern:
+			count.Pattern++
+			slots[id] = count.Pattern
+		case KindMemberExpr:
+			count.Member++
+			slots[id] = count.Member
+		case KindCallExpr:
+			count.Call++
+			slots[id] = count.Call
+		case KindBinaryExpr:
+			count.Binary++
+			slots[id] = count.Binary
+		case KindNameExpr:
+			count.Name++
+			slots[id] = count.Name
+		case KindStructLitExpr:
+			count.StructLit++
+			slots[id] = count.StructLit
+		}
+	}
+	return count
 }
 
 var reservedWords = map[string]bool{
@@ -1189,359 +1838,326 @@ func VisitTypeDeclNodeState[S, R any](v TypeDeclNodeStateVisitor[S, R], n TypeDe
 	panic(diag.Internal("unhandled TypeDeclNode %T", n))
 }
 
-var (
-	_ Stmt = (*LetStmt)(nil)
-	_ Stmt = (*DiscardStmt)(nil)
-	_ Stmt = (*IfStmt)(nil)
-	_ Stmt = (*WhileStmt)(nil)
-	_ Stmt = (*ForStmt)(nil)
-	_ Stmt = (*MatchStmt)(nil)
-	_ Stmt = (*WhenStmt)(nil)
-	_ Stmt = (*ReturnStmt)(nil)
-	_ Stmt = (*BreakStmt)(nil)
-	_ Stmt = (*ContinueStmt)(nil)
-	_ Stmt = (*AssignStmt)(nil)
-	_ Stmt = (*ExprStmt)(nil)
-)
-
 type StmtVisitor interface {
-	VisitLetStmt(n *LetStmt)
-	VisitDiscardStmt(n *DiscardStmt)
-	VisitIfStmt(n *IfStmt)
-	VisitWhileStmt(n *WhileStmt)
-	VisitForStmt(n *ForStmt)
-	VisitMatchStmt(n *MatchStmt)
-	VisitWhenStmt(n *WhenStmt)
-	VisitReturnStmt(n *ReturnStmt)
-	VisitBreakStmt(n *BreakStmt)
-	VisitContinueStmt(n *ContinueStmt)
-	VisitAssignStmt(n *AssignStmt)
-	VisitExprStmt(n *ExprStmt)
+	VisitLetStmt(n LetStmt)
+	VisitDiscardStmt(n DiscardStmt)
+	VisitIfStmt(n IfStmt)
+	VisitWhileStmt(n WhileStmt)
+	VisitForStmt(n ForStmt)
+	VisitMatchStmt(n MatchStmt)
+	VisitWhenStmt(n WhenStmt)
+	VisitReturnStmt(n ReturnStmt)
+	VisitBreakStmt(n BreakStmt)
+	VisitContinueStmt(n ContinueStmt)
+	VisitAssignStmt(n AssignStmt)
+	VisitExprStmt(n ExprStmt)
 }
 
 func VisitStmt(v StmtVisitor, n Stmt) {
-	switch n := n.(type) {
-	case *LetStmt:
-		v.VisitLetStmt(n)
+	switch n.Kind() {
+	case KindLetStmt:
+		v.VisitLetStmt(LetStmt{n.Ref})
 		return
-	case *DiscardStmt:
-		v.VisitDiscardStmt(n)
+	case KindDiscardStmt:
+		v.VisitDiscardStmt(DiscardStmt{n.Ref})
 		return
-	case *IfStmt:
-		v.VisitIfStmt(n)
+	case KindIfStmt:
+		v.VisitIfStmt(IfStmt{n.Ref})
 		return
-	case *WhileStmt:
-		v.VisitWhileStmt(n)
+	case KindWhileStmt:
+		v.VisitWhileStmt(WhileStmt{n.Ref})
 		return
-	case *ForStmt:
-		v.VisitForStmt(n)
+	case KindForStmt:
+		v.VisitForStmt(ForStmt{n.Ref})
 		return
-	case *MatchStmt:
-		v.VisitMatchStmt(n)
+	case KindMatchStmt:
+		v.VisitMatchStmt(MatchStmt{n.Ref})
 		return
-	case *WhenStmt:
-		v.VisitWhenStmt(n)
+	case KindWhenStmt:
+		v.VisitWhenStmt(WhenStmt{n.Ref})
 		return
-	case *ReturnStmt:
-		v.VisitReturnStmt(n)
+	case KindReturnStmt:
+		v.VisitReturnStmt(ReturnStmt{n.Ref})
 		return
-	case *BreakStmt:
-		v.VisitBreakStmt(n)
+	case KindBreakStmt:
+		v.VisitBreakStmt(BreakStmt{n.Ref})
 		return
-	case *ContinueStmt:
-		v.VisitContinueStmt(n)
+	case KindContinueStmt:
+		v.VisitContinueStmt(ContinueStmt{n.Ref})
 		return
-	case *AssignStmt:
-		v.VisitAssignStmt(n)
+	case KindAssignStmt:
+		v.VisitAssignStmt(AssignStmt{n.Ref})
 		return
-	case *ExprStmt:
-		v.VisitExprStmt(n)
+	case KindExprStmt:
+		v.VisitExprStmt(ExprStmt{n.Ref})
 		return
 	}
-	panic(diag.Internal("unhandled Stmt %T", n))
+	panic(diag.Internal("unhandled Stmt %s", n.Kind()))
 }
 
 type StmtResultVisitor[R any] interface {
-	VisitLetStmt(n *LetStmt) R
-	VisitDiscardStmt(n *DiscardStmt) R
-	VisitIfStmt(n *IfStmt) R
-	VisitWhileStmt(n *WhileStmt) R
-	VisitForStmt(n *ForStmt) R
-	VisitMatchStmt(n *MatchStmt) R
-	VisitWhenStmt(n *WhenStmt) R
-	VisitReturnStmt(n *ReturnStmt) R
-	VisitBreakStmt(n *BreakStmt) R
-	VisitContinueStmt(n *ContinueStmt) R
-	VisitAssignStmt(n *AssignStmt) R
-	VisitExprStmt(n *ExprStmt) R
+	VisitLetStmt(n LetStmt) R
+	VisitDiscardStmt(n DiscardStmt) R
+	VisitIfStmt(n IfStmt) R
+	VisitWhileStmt(n WhileStmt) R
+	VisitForStmt(n ForStmt) R
+	VisitMatchStmt(n MatchStmt) R
+	VisitWhenStmt(n WhenStmt) R
+	VisitReturnStmt(n ReturnStmt) R
+	VisitBreakStmt(n BreakStmt) R
+	VisitContinueStmt(n ContinueStmt) R
+	VisitAssignStmt(n AssignStmt) R
+	VisitExprStmt(n ExprStmt) R
 }
 
 func VisitStmtResult[R any](v StmtResultVisitor[R], n Stmt) R {
-	switch n := n.(type) {
-	case *LetStmt:
-		return v.VisitLetStmt(n)
-	case *DiscardStmt:
-		return v.VisitDiscardStmt(n)
-	case *IfStmt:
-		return v.VisitIfStmt(n)
-	case *WhileStmt:
-		return v.VisitWhileStmt(n)
-	case *ForStmt:
-		return v.VisitForStmt(n)
-	case *MatchStmt:
-		return v.VisitMatchStmt(n)
-	case *WhenStmt:
-		return v.VisitWhenStmt(n)
-	case *ReturnStmt:
-		return v.VisitReturnStmt(n)
-	case *BreakStmt:
-		return v.VisitBreakStmt(n)
-	case *ContinueStmt:
-		return v.VisitContinueStmt(n)
-	case *AssignStmt:
-		return v.VisitAssignStmt(n)
-	case *ExprStmt:
-		return v.VisitExprStmt(n)
+	switch n.Kind() {
+	case KindLetStmt:
+		return v.VisitLetStmt(LetStmt{n.Ref})
+	case KindDiscardStmt:
+		return v.VisitDiscardStmt(DiscardStmt{n.Ref})
+	case KindIfStmt:
+		return v.VisitIfStmt(IfStmt{n.Ref})
+	case KindWhileStmt:
+		return v.VisitWhileStmt(WhileStmt{n.Ref})
+	case KindForStmt:
+		return v.VisitForStmt(ForStmt{n.Ref})
+	case KindMatchStmt:
+		return v.VisitMatchStmt(MatchStmt{n.Ref})
+	case KindWhenStmt:
+		return v.VisitWhenStmt(WhenStmt{n.Ref})
+	case KindReturnStmt:
+		return v.VisitReturnStmt(ReturnStmt{n.Ref})
+	case KindBreakStmt:
+		return v.VisitBreakStmt(BreakStmt{n.Ref})
+	case KindContinueStmt:
+		return v.VisitContinueStmt(ContinueStmt{n.Ref})
+	case KindAssignStmt:
+		return v.VisitAssignStmt(AssignStmt{n.Ref})
+	case KindExprStmt:
+		return v.VisitExprStmt(ExprStmt{n.Ref})
 	}
-	panic(diag.Internal("unhandled Stmt %T", n))
+	panic(diag.Internal("unhandled Stmt %s", n.Kind()))
 }
 
 type StmtStateVisitor[S, R any] interface {
-	VisitLetStmt(n *LetStmt, s S) R
-	VisitDiscardStmt(n *DiscardStmt, s S) R
-	VisitIfStmt(n *IfStmt, s S) R
-	VisitWhileStmt(n *WhileStmt, s S) R
-	VisitForStmt(n *ForStmt, s S) R
-	VisitMatchStmt(n *MatchStmt, s S) R
-	VisitWhenStmt(n *WhenStmt, s S) R
-	VisitReturnStmt(n *ReturnStmt, s S) R
-	VisitBreakStmt(n *BreakStmt, s S) R
-	VisitContinueStmt(n *ContinueStmt, s S) R
-	VisitAssignStmt(n *AssignStmt, s S) R
-	VisitExprStmt(n *ExprStmt, s S) R
+	VisitLetStmt(n LetStmt, s S) R
+	VisitDiscardStmt(n DiscardStmt, s S) R
+	VisitIfStmt(n IfStmt, s S) R
+	VisitWhileStmt(n WhileStmt, s S) R
+	VisitForStmt(n ForStmt, s S) R
+	VisitMatchStmt(n MatchStmt, s S) R
+	VisitWhenStmt(n WhenStmt, s S) R
+	VisitReturnStmt(n ReturnStmt, s S) R
+	VisitBreakStmt(n BreakStmt, s S) R
+	VisitContinueStmt(n ContinueStmt, s S) R
+	VisitAssignStmt(n AssignStmt, s S) R
+	VisitExprStmt(n ExprStmt, s S) R
 }
 
 func VisitStmtState[S, R any](v StmtStateVisitor[S, R], n Stmt, s S) R {
-	switch n := n.(type) {
-	case *LetStmt:
-		return v.VisitLetStmt(n, s)
-	case *DiscardStmt:
-		return v.VisitDiscardStmt(n, s)
-	case *IfStmt:
-		return v.VisitIfStmt(n, s)
-	case *WhileStmt:
-		return v.VisitWhileStmt(n, s)
-	case *ForStmt:
-		return v.VisitForStmt(n, s)
-	case *MatchStmt:
-		return v.VisitMatchStmt(n, s)
-	case *WhenStmt:
-		return v.VisitWhenStmt(n, s)
-	case *ReturnStmt:
-		return v.VisitReturnStmt(n, s)
-	case *BreakStmt:
-		return v.VisitBreakStmt(n, s)
-	case *ContinueStmt:
-		return v.VisitContinueStmt(n, s)
-	case *AssignStmt:
-		return v.VisitAssignStmt(n, s)
-	case *ExprStmt:
-		return v.VisitExprStmt(n, s)
+	switch n.Kind() {
+	case KindLetStmt:
+		return v.VisitLetStmt(LetStmt{n.Ref}, s)
+	case KindDiscardStmt:
+		return v.VisitDiscardStmt(DiscardStmt{n.Ref}, s)
+	case KindIfStmt:
+		return v.VisitIfStmt(IfStmt{n.Ref}, s)
+	case KindWhileStmt:
+		return v.VisitWhileStmt(WhileStmt{n.Ref}, s)
+	case KindForStmt:
+		return v.VisitForStmt(ForStmt{n.Ref}, s)
+	case KindMatchStmt:
+		return v.VisitMatchStmt(MatchStmt{n.Ref}, s)
+	case KindWhenStmt:
+		return v.VisitWhenStmt(WhenStmt{n.Ref}, s)
+	case KindReturnStmt:
+		return v.VisitReturnStmt(ReturnStmt{n.Ref}, s)
+	case KindBreakStmt:
+		return v.VisitBreakStmt(BreakStmt{n.Ref}, s)
+	case KindContinueStmt:
+		return v.VisitContinueStmt(ContinueStmt{n.Ref}, s)
+	case KindAssignStmt:
+		return v.VisitAssignStmt(AssignStmt{n.Ref}, s)
+	case KindExprStmt:
+		return v.VisitExprStmt(ExprStmt{n.Ref}, s)
 	}
-	panic(diag.Internal("unhandled Stmt %T", n))
+	panic(diag.Internal("unhandled Stmt %s", n.Kind()))
 }
 
-var (
-	_ Expr = (*IntLit)(nil)
-	_ Expr = (*StrLit)(nil)
-	_ Expr = (*BoolLit)(nil)
-	_ Expr = (*StructLitExpr)(nil)
-	_ Expr = (*SelfExpr)(nil)
-	_ Expr = (*NameExpr)(nil)
-	_ Expr = (*PanicExpr)(nil)
-	_ Expr = (*MatchExpr)(nil)
-	_ Expr = (*MemberExpr)(nil)
-	_ Expr = (*IndexExpr)(nil)
-	_ Expr = (*CallExpr)(nil)
-	_ Expr = (*UnaryExpr)(nil)
-	_ Expr = (*CastExpr)(nil)
-	_ Expr = (*BinaryExpr)(nil)
-	_ Expr = (*CondExpr)(nil)
-)
-
 type ExprVisitor interface {
-	VisitIntLit(n *IntLit)
-	VisitStrLit(n *StrLit)
-	VisitBoolLit(n *BoolLit)
-	VisitStructLitExpr(n *StructLitExpr)
-	VisitSelfExpr(n *SelfExpr)
-	VisitNameExpr(n *NameExpr)
-	VisitPanicExpr(n *PanicExpr)
-	VisitMatchExpr(n *MatchExpr)
-	VisitMemberExpr(n *MemberExpr)
-	VisitIndexExpr(n *IndexExpr)
-	VisitCallExpr(n *CallExpr)
-	VisitUnaryExpr(n *UnaryExpr)
-	VisitCastExpr(n *CastExpr)
-	VisitBinaryExpr(n *BinaryExpr)
-	VisitCondExpr(n *CondExpr)
+	VisitIntLit(n IntLit)
+	VisitStrLit(n StrLit)
+	VisitBoolLit(n BoolLit)
+	VisitStructLitExpr(n StructLitExpr)
+	VisitSelfExpr(n SelfExpr)
+	VisitNameExpr(n NameExpr)
+	VisitPanicExpr(n PanicExpr)
+	VisitMatchExpr(n MatchExpr)
+	VisitMemberExpr(n MemberExpr)
+	VisitIndexExpr(n IndexExpr)
+	VisitCallExpr(n CallExpr)
+	VisitUnaryExpr(n UnaryExpr)
+	VisitCastExpr(n CastExpr)
+	VisitBinaryExpr(n BinaryExpr)
+	VisitCondExpr(n CondExpr)
 }
 
 func VisitExpr(v ExprVisitor, n Expr) {
-	switch n := n.(type) {
-	case *IntLit:
-		v.VisitIntLit(n)
+	switch n.Kind() {
+	case KindIntLit:
+		v.VisitIntLit(IntLit{n.Ref})
 		return
-	case *StrLit:
-		v.VisitStrLit(n)
+	case KindStrLit:
+		v.VisitStrLit(StrLit{n.Ref})
 		return
-	case *BoolLit:
-		v.VisitBoolLit(n)
+	case KindBoolLit:
+		v.VisitBoolLit(BoolLit{n.Ref})
 		return
-	case *StructLitExpr:
-		v.VisitStructLitExpr(n)
+	case KindStructLitExpr:
+		v.VisitStructLitExpr(StructLitExpr{n.Ref})
 		return
-	case *SelfExpr:
-		v.VisitSelfExpr(n)
+	case KindSelfExpr:
+		v.VisitSelfExpr(SelfExpr{n.Ref})
 		return
-	case *NameExpr:
-		v.VisitNameExpr(n)
+	case KindNameExpr:
+		v.VisitNameExpr(NameExpr{n.Ref})
 		return
-	case *PanicExpr:
-		v.VisitPanicExpr(n)
+	case KindPanicExpr:
+		v.VisitPanicExpr(PanicExpr{n.Ref})
 		return
-	case *MatchExpr:
-		v.VisitMatchExpr(n)
+	case KindMatchExpr:
+		v.VisitMatchExpr(MatchExpr{n.Ref})
 		return
-	case *MemberExpr:
-		v.VisitMemberExpr(n)
+	case KindMemberExpr:
+		v.VisitMemberExpr(MemberExpr{n.Ref})
 		return
-	case *IndexExpr:
-		v.VisitIndexExpr(n)
+	case KindIndexExpr:
+		v.VisitIndexExpr(IndexExpr{n.Ref})
 		return
-	case *CallExpr:
-		v.VisitCallExpr(n)
+	case KindCallExpr:
+		v.VisitCallExpr(CallExpr{n.Ref})
 		return
-	case *UnaryExpr:
-		v.VisitUnaryExpr(n)
+	case KindUnaryExpr:
+		v.VisitUnaryExpr(UnaryExpr{n.Ref})
 		return
-	case *CastExpr:
-		v.VisitCastExpr(n)
+	case KindCastExpr:
+		v.VisitCastExpr(CastExpr{n.Ref})
 		return
-	case *BinaryExpr:
-		v.VisitBinaryExpr(n)
+	case KindBinaryExpr:
+		v.VisitBinaryExpr(BinaryExpr{n.Ref})
 		return
-	case *CondExpr:
-		v.VisitCondExpr(n)
+	case KindCondExpr:
+		v.VisitCondExpr(CondExpr{n.Ref})
 		return
 	}
-	panic(diag.Internal("unhandled Expr %T", n))
+	panic(diag.Internal("unhandled Expr %s", n.Kind()))
 }
 
 type ExprResultVisitor[R any] interface {
-	VisitIntLit(n *IntLit) R
-	VisitStrLit(n *StrLit) R
-	VisitBoolLit(n *BoolLit) R
-	VisitStructLitExpr(n *StructLitExpr) R
-	VisitSelfExpr(n *SelfExpr) R
-	VisitNameExpr(n *NameExpr) R
-	VisitPanicExpr(n *PanicExpr) R
-	VisitMatchExpr(n *MatchExpr) R
-	VisitMemberExpr(n *MemberExpr) R
-	VisitIndexExpr(n *IndexExpr) R
-	VisitCallExpr(n *CallExpr) R
-	VisitUnaryExpr(n *UnaryExpr) R
-	VisitCastExpr(n *CastExpr) R
-	VisitBinaryExpr(n *BinaryExpr) R
-	VisitCondExpr(n *CondExpr) R
+	VisitIntLit(n IntLit) R
+	VisitStrLit(n StrLit) R
+	VisitBoolLit(n BoolLit) R
+	VisitStructLitExpr(n StructLitExpr) R
+	VisitSelfExpr(n SelfExpr) R
+	VisitNameExpr(n NameExpr) R
+	VisitPanicExpr(n PanicExpr) R
+	VisitMatchExpr(n MatchExpr) R
+	VisitMemberExpr(n MemberExpr) R
+	VisitIndexExpr(n IndexExpr) R
+	VisitCallExpr(n CallExpr) R
+	VisitUnaryExpr(n UnaryExpr) R
+	VisitCastExpr(n CastExpr) R
+	VisitBinaryExpr(n BinaryExpr) R
+	VisitCondExpr(n CondExpr) R
 }
 
 func VisitExprResult[R any](v ExprResultVisitor[R], n Expr) R {
-	switch n := n.(type) {
-	case *IntLit:
-		return v.VisitIntLit(n)
-	case *StrLit:
-		return v.VisitStrLit(n)
-	case *BoolLit:
-		return v.VisitBoolLit(n)
-	case *StructLitExpr:
-		return v.VisitStructLitExpr(n)
-	case *SelfExpr:
-		return v.VisitSelfExpr(n)
-	case *NameExpr:
-		return v.VisitNameExpr(n)
-	case *PanicExpr:
-		return v.VisitPanicExpr(n)
-	case *MatchExpr:
-		return v.VisitMatchExpr(n)
-	case *MemberExpr:
-		return v.VisitMemberExpr(n)
-	case *IndexExpr:
-		return v.VisitIndexExpr(n)
-	case *CallExpr:
-		return v.VisitCallExpr(n)
-	case *UnaryExpr:
-		return v.VisitUnaryExpr(n)
-	case *CastExpr:
-		return v.VisitCastExpr(n)
-	case *BinaryExpr:
-		return v.VisitBinaryExpr(n)
-	case *CondExpr:
-		return v.VisitCondExpr(n)
+	switch n.Kind() {
+	case KindIntLit:
+		return v.VisitIntLit(IntLit{n.Ref})
+	case KindStrLit:
+		return v.VisitStrLit(StrLit{n.Ref})
+	case KindBoolLit:
+		return v.VisitBoolLit(BoolLit{n.Ref})
+	case KindStructLitExpr:
+		return v.VisitStructLitExpr(StructLitExpr{n.Ref})
+	case KindSelfExpr:
+		return v.VisitSelfExpr(SelfExpr{n.Ref})
+	case KindNameExpr:
+		return v.VisitNameExpr(NameExpr{n.Ref})
+	case KindPanicExpr:
+		return v.VisitPanicExpr(PanicExpr{n.Ref})
+	case KindMatchExpr:
+		return v.VisitMatchExpr(MatchExpr{n.Ref})
+	case KindMemberExpr:
+		return v.VisitMemberExpr(MemberExpr{n.Ref})
+	case KindIndexExpr:
+		return v.VisitIndexExpr(IndexExpr{n.Ref})
+	case KindCallExpr:
+		return v.VisitCallExpr(CallExpr{n.Ref})
+	case KindUnaryExpr:
+		return v.VisitUnaryExpr(UnaryExpr{n.Ref})
+	case KindCastExpr:
+		return v.VisitCastExpr(CastExpr{n.Ref})
+	case KindBinaryExpr:
+		return v.VisitBinaryExpr(BinaryExpr{n.Ref})
+	case KindCondExpr:
+		return v.VisitCondExpr(CondExpr{n.Ref})
 	}
-	panic(diag.Internal("unhandled Expr %T", n))
+	panic(diag.Internal("unhandled Expr %s", n.Kind()))
 }
 
 type ExprStateVisitor[S, R any] interface {
-	VisitIntLit(n *IntLit, s S) R
-	VisitStrLit(n *StrLit, s S) R
-	VisitBoolLit(n *BoolLit, s S) R
-	VisitStructLitExpr(n *StructLitExpr, s S) R
-	VisitSelfExpr(n *SelfExpr, s S) R
-	VisitNameExpr(n *NameExpr, s S) R
-	VisitPanicExpr(n *PanicExpr, s S) R
-	VisitMatchExpr(n *MatchExpr, s S) R
-	VisitMemberExpr(n *MemberExpr, s S) R
-	VisitIndexExpr(n *IndexExpr, s S) R
-	VisitCallExpr(n *CallExpr, s S) R
-	VisitUnaryExpr(n *UnaryExpr, s S) R
-	VisitCastExpr(n *CastExpr, s S) R
-	VisitBinaryExpr(n *BinaryExpr, s S) R
-	VisitCondExpr(n *CondExpr, s S) R
+	VisitIntLit(n IntLit, s S) R
+	VisitStrLit(n StrLit, s S) R
+	VisitBoolLit(n BoolLit, s S) R
+	VisitStructLitExpr(n StructLitExpr, s S) R
+	VisitSelfExpr(n SelfExpr, s S) R
+	VisitNameExpr(n NameExpr, s S) R
+	VisitPanicExpr(n PanicExpr, s S) R
+	VisitMatchExpr(n MatchExpr, s S) R
+	VisitMemberExpr(n MemberExpr, s S) R
+	VisitIndexExpr(n IndexExpr, s S) R
+	VisitCallExpr(n CallExpr, s S) R
+	VisitUnaryExpr(n UnaryExpr, s S) R
+	VisitCastExpr(n CastExpr, s S) R
+	VisitBinaryExpr(n BinaryExpr, s S) R
+	VisitCondExpr(n CondExpr, s S) R
 }
 
 func VisitExprState[S, R any](v ExprStateVisitor[S, R], n Expr, s S) R {
-	switch n := n.(type) {
-	case *IntLit:
-		return v.VisitIntLit(n, s)
-	case *StrLit:
-		return v.VisitStrLit(n, s)
-	case *BoolLit:
-		return v.VisitBoolLit(n, s)
-	case *StructLitExpr:
-		return v.VisitStructLitExpr(n, s)
-	case *SelfExpr:
-		return v.VisitSelfExpr(n, s)
-	case *NameExpr:
-		return v.VisitNameExpr(n, s)
-	case *PanicExpr:
-		return v.VisitPanicExpr(n, s)
-	case *MatchExpr:
-		return v.VisitMatchExpr(n, s)
-	case *MemberExpr:
-		return v.VisitMemberExpr(n, s)
-	case *IndexExpr:
-		return v.VisitIndexExpr(n, s)
-	case *CallExpr:
-		return v.VisitCallExpr(n, s)
-	case *UnaryExpr:
-		return v.VisitUnaryExpr(n, s)
-	case *CastExpr:
-		return v.VisitCastExpr(n, s)
-	case *BinaryExpr:
-		return v.VisitBinaryExpr(n, s)
-	case *CondExpr:
-		return v.VisitCondExpr(n, s)
+	switch n.Kind() {
+	case KindIntLit:
+		return v.VisitIntLit(IntLit{n.Ref}, s)
+	case KindStrLit:
+		return v.VisitStrLit(StrLit{n.Ref}, s)
+	case KindBoolLit:
+		return v.VisitBoolLit(BoolLit{n.Ref}, s)
+	case KindStructLitExpr:
+		return v.VisitStructLitExpr(StructLitExpr{n.Ref}, s)
+	case KindSelfExpr:
+		return v.VisitSelfExpr(SelfExpr{n.Ref}, s)
+	case KindNameExpr:
+		return v.VisitNameExpr(NameExpr{n.Ref}, s)
+	case KindPanicExpr:
+		return v.VisitPanicExpr(PanicExpr{n.Ref}, s)
+	case KindMatchExpr:
+		return v.VisitMatchExpr(MatchExpr{n.Ref}, s)
+	case KindMemberExpr:
+		return v.VisitMemberExpr(MemberExpr{n.Ref}, s)
+	case KindIndexExpr:
+		return v.VisitIndexExpr(IndexExpr{n.Ref}, s)
+	case KindCallExpr:
+		return v.VisitCallExpr(CallExpr{n.Ref}, s)
+	case KindUnaryExpr:
+		return v.VisitUnaryExpr(UnaryExpr{n.Ref}, s)
+	case KindCastExpr:
+		return v.VisitCastExpr(CastExpr{n.Ref}, s)
+	case KindBinaryExpr:
+		return v.VisitBinaryExpr(BinaryExpr{n.Ref}, s)
+	case KindCondExpr:
+		return v.VisitCondExpr(CondExpr{n.Ref}, s)
 	}
-	panic(diag.Internal("unhandled Expr %T", n))
+	panic(diag.Internal("unhandled Expr %s", n.Kind()))
 }

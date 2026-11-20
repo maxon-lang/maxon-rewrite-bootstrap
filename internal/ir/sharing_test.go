@@ -85,7 +85,7 @@ func TestEveryRefusalNamesItsSite(t *testing.T) {
 		t.Fatal("filling an array with a cown reference is not refused")
 	}
 	for _, r := range f.Refusals {
-		if r.Site == nil || r.Code != diag.ErrInterpreterOnly {
+		if r.Site.Off == 0 || r.Code != diag.ErrInterpreterOnly {
 			t.Errorf("refusal %+v", r)
 		}
 	}

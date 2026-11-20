@@ -22,9 +22,9 @@ func lowerNamed(t *testing.T, results []ast.ModuleResult, name string) *IrFuncti
 }
 
 // lineAt is the line of a site in the primitives file.
-func lineAt(t *testing.T, site ast.Node) int {
+func lineAt(t *testing.T, site ast.Pos) int {
 	t.Helper()
-	return 1 + strings.Count(srctest.Read(t, primitivesFile)[:site.P().Off], "\n")
+	return 1 + strings.Count(srctest.Read(t, primitivesFile)[:site.Position().Off], "\n")
 }
 
 func irText(f *IrFunction) string {

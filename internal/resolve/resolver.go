@@ -29,6 +29,8 @@ type Resolver struct {
 	fields map[string]bool
 	// typeParams are the slots, in the module's Resolution, of the type parameters in scope by name.
 	typeParams map[string]int
+	// whenDepth is how many behaviours the name being resolved is in the body of.
+	whenDepth int
 }
 
 func NewResolver(p *ast.Project, m *ast.Module, result *ast.ModuleResult) *Resolver {
@@ -37,12 +39,12 @@ func NewResolver(p *ast.Project, m *ast.Module, result *ast.ModuleResult) *Resol
 
 // Run resolves the module's declarations, then records its dependencies in the module's result.
 func (r *Resolver) Run() {
-	r.result.Resolution.Reset(r.module.Nodes.Count())
+	r.result.Resolution.Reset(r.module.Tree.Count())
 	for _, d := range r.module.Decls {
 		r.typeParams = nil
 		diag.Guard(&r.result.Errors, func() { r.resolveDecl(d) })
 	}
-	r.result.Resolution.Finish()
+	r.result.Resolution.Finish(r.module.Tree.Count())
 	r.result.Deps = r.sortedDeps()
 }
 
@@ -71,12 +73,12 @@ func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
 	outer := r.enterTypeParams(d.Name, d.TypeParams, d.Where)
 	r.resolveConforms(d.Conforms)
 	for _, f := range d.Fields {
-		if f.Type != nil {
+		if !f.Type.IsNil() {
 			r.resolveType(f.Type)
 		}
-		if f.Default != nil {
+		if !f.Default.IsNil() {
 			r.enter(map[string]bool{})
-			f.Default = r.expr(f.Default)
+			r.expr(f.Default)
 		}
 	}
 	for _, m := range d.Methods {
@@ -118,7 +120,7 @@ func (r *Resolver) VisitInterfaceDecl(d *ast.InterfaceDecl) {
 		for _, p := range m.Params {
 			r.resolveType(p.Type)
 		}
-		if m.Returns != nil {
+		if !m.Returns.IsNil() {
 			r.resolveType(m.Returns)
 		}
 	}
@@ -138,7 +140,7 @@ func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where 
 	}
 	for _, c := range where {
 		r.result.Resolution.BindTypeParam(c.ID, r.constrained(owner, where, c))
-		for _, b := range c.Bounds {
+		for _, b := range c.Bounds.All() {
 			r.resolveType(b)
 		}
 	}
@@ -160,27 +162,27 @@ func (r *Resolver) constrained(owner string, where []*ast.Constraint, c *ast.Con
 	return target
 }
 
-func (r *Resolver) resolveConforms(interfaces []*ast.TypeRef) {
-	for _, tr := range interfaces {
+func (r *Resolver) resolveConforms(interfaces ast.TypeRefList) {
+	for _, tr := range interfaces.All() {
 		r.resolveType(tr)
 	}
 }
 
 func (r *Resolver) VisitConstDecl(d *ast.ConstDecl) {
 	r.enter(map[string]bool{})
-	d.Value = r.expr(d.Value)
+	r.expr(d.Value)
 }
 
 func (r *Resolver) VisitAliasDecl(d *ast.AliasDecl) {
-	if d.Instance != nil {
+	if !d.Instance.IsNil() {
 		r.resolveType(d.Instance)
 	}
 }
 
 // checkEnd refuses an 'end' whose label is not the block's.
-func checkEnd(label string, end *ast.EndLabel) {
-	if end != nil && end.Name != label {
-		panic(end.Error(diag.ErrMismatchedEndLabel, fmt.Sprintf("'end' names '%s', but the block is '%s'", end.Name, label)))
+func checkEnd(label string, end ast.EndLabel) {
+	if !end.IsNil() && end.Name() != label {
+		panic(end.Error(diag.ErrMismatchedEndLabel, fmt.Sprintf("'end' names '%s', but the block is '%s'", end.Name(), label)))
 	}
 }
 
@@ -200,7 +202,7 @@ func (r *Resolver) resolveBody(f *ast.FuncDecl, instanceOf *ast.TypeDecl) {
 	for _, p := range f.Params {
 		r.resolveType(p.Type)
 	}
-	if f.Returns != nil {
+	if !f.Returns.IsNil() {
 		r.resolveType(f.Returns)
 	}
 	names := map[string]bool{}
@@ -237,9 +239,9 @@ func (r *Resolver) popScope() {
 	r.scopes = r.scopes[:len(r.scopes)-1]
 }
 
-func (r *Resolver) block(body []ast.Stmt) {
+func (r *Resolver) block(body ast.StmtList) {
 	r.pushScope()
-	for _, s := range body {
+	for _, s := range body.All() {
 		diag.Guard(&r.result.Errors, func() { r.stmt(s) })
 	}
 	r.popScope()
@@ -249,194 +251,192 @@ func (r *Resolver) stmt(s ast.Stmt) {
 	ast.VisitStmt(r, s)
 }
 
-func (r *Resolver) VisitLetStmt(s *ast.LetStmt) {
-	if s.Init != nil {
-		s.Init = r.expr(s.Init)
+func (r *Resolver) VisitLetStmt(s ast.LetStmt) {
+	if !s.Init().IsNil() {
+		r.expr(s.Init())
 	} else {
-		r.resolveType(s.Type)
+		r.resolveType(s.Type())
 	}
-	r.scopes[len(r.scopes)-1][s.Name] = true
+	r.scopes[len(r.scopes)-1][s.Name()] = true
 }
 
-func (r *Resolver) VisitAssignStmt(s *ast.AssignStmt) {
-	s.Target = r.expr(s.Target)
-	s.Value = r.expr(s.Value)
+func (r *Resolver) VisitAssignStmt(s ast.AssignStmt) {
+	r.expr(s.Target())
+	r.expr(s.Value())
 }
 
-func (r *Resolver) VisitDiscardStmt(s *ast.DiscardStmt) {
-	s.Value = r.expr(s.Value)
+func (r *Resolver) VisitDiscardStmt(s ast.DiscardStmt) {
+	r.expr(s.Value())
 }
 
-func (r *Resolver) VisitExprStmt(s *ast.ExprStmt) {
-	s.E = r.expr(s.E)
+func (r *Resolver) VisitExprStmt(s ast.ExprStmt) {
+	r.expr(s.E())
 }
 
-func (r *Resolver) VisitIfStmt(s *ast.IfStmt) {
-	checkEnd(s.Label, s.End)
-	checkEnd(s.ElseLabel, s.ElseEnd)
-	s.Cond = r.expr(s.Cond)
-	r.block(s.Then)
-	if s.HasElse {
-		r.block(s.Else)
+func (r *Resolver) VisitIfStmt(s ast.IfStmt) {
+	checkEnd(s.Label(), s.End())
+	checkEnd(s.ElseLabel(), s.ElseEnd())
+	r.expr(s.Cond())
+	r.block(s.Then())
+	if s.HasElse() {
+		r.block(s.Else())
 	}
 }
 
-func (r *Resolver) VisitWhileStmt(s *ast.WhileStmt) {
-	checkEnd(s.Label, s.End)
-	s.Cond = r.expr(s.Cond)
-	r.block(s.Body)
+func (r *Resolver) VisitWhileStmt(s ast.WhileStmt) {
+	checkEnd(s.Label(), s.End())
+	r.expr(s.Cond())
+	r.block(s.Body())
 }
 
-func (r *Resolver) VisitForStmt(s *ast.ForStmt) {
-	checkEnd(s.Label, s.End)
-	s.From = r.expr(s.From)
-	s.To = r.expr(s.To)
-	r.pushScope(s.Var)
-	r.block(s.Body)
+func (r *Resolver) VisitForStmt(s ast.ForStmt) {
+	checkEnd(s.Label(), s.End())
+	r.expr(s.From())
+	r.expr(s.To())
+	r.pushScope(s.Var())
+	r.block(s.Body())
 	r.popScope()
 }
 
-func (r *Resolver) VisitMatchStmt(s *ast.MatchStmt) {
-	r.match(s.Match)
+func (r *Resolver) VisitMatchStmt(s ast.MatchStmt) {
+	r.match(s.Match())
 }
 
 // VisitWhenStmt resolves the cowns the behaviour names where it is written, and its body with the names that give
 // access to their values in scope.
-func (r *Resolver) VisitWhenStmt(s *ast.WhenStmt) {
-	checkEnd(s.Label, s.End)
-	for _, c := range s.Cowns {
+func (r *Resolver) VisitWhenStmt(s ast.WhenStmt) {
+	checkEnd(s.Label(), s.End())
+	for _, c := range s.Cowns().All() {
 		r.VisitNameExpr(c)
 	}
-	r.pushScope(s.Names...)
-	r.block(s.Body)
+	r.pushScope(s.Names().Strings()...)
+	r.whenDepth++
+	r.block(s.Body())
+	r.whenDepth--
 	r.popScope()
 }
 
-func (r *Resolver) VisitReturnStmt(s *ast.ReturnStmt) {
-	if s.Value != nil {
-		s.Value = r.expr(s.Value)
+func (r *Resolver) VisitReturnStmt(s ast.ReturnStmt) {
+	if !s.Value().IsNil() {
+		r.expr(s.Value())
 	}
 }
 
-func (r *Resolver) VisitBreakStmt(*ast.BreakStmt) {}
+func (r *Resolver) VisitBreakStmt(ast.BreakStmt) {}
 
-func (r *Resolver) VisitContinueStmt(*ast.ContinueStmt) {}
+func (r *Resolver) VisitContinueStmt(ast.ContinueStmt) {}
 
-func (r *Resolver) match(m *ast.MatchCore) {
-	checkEnd(m.Label, m.End)
-	m.Subject = r.expr(m.Subject)
-	for _, arm := range m.Arms {
+func (r *Resolver) match(m ast.MatchCore) {
+	checkEnd(m.Label(), m.End())
+	r.expr(m.Subject())
+	for _, arm := range m.Arms().All() {
 		var names []string
-		for _, p := range arm.Patterns {
-			names = append(names, p.Bindings...)
+		for _, p := range arm.Patterns().All() {
+			names = append(names, p.Bindings().Strings()...)
 		}
 		r.pushScope(names...)
-		if arm.Action != nil {
-			r.stmt(arm.Action)
+		if !arm.Action().IsNil() {
+			r.stmt(arm.Action())
 		}
-		if arm.Value != nil {
-			arm.Value = r.expr(arm.Value)
+		if !arm.Value().IsNil() {
+			r.expr(arm.Value())
 		}
 		r.popScope()
 	}
 }
 
-func (r *Resolver) expr(e ast.Expr) ast.Expr {
-	return ast.VisitExprResult[ast.Expr](r, e)
+func (r *Resolver) expr(e ast.Expr) {
+	ast.VisitExpr(r, e)
 }
 
-func (r *Resolver) VisitIntLit(e *ast.IntLit) ast.Expr { return e }
+func (r *Resolver) VisitIntLit(e ast.IntLit) {}
 
-func (r *Resolver) VisitBoolLit(e *ast.BoolLit) ast.Expr { return e }
+func (r *Resolver) VisitBoolLit(e ast.BoolLit) {}
 
-func (r *Resolver) VisitSelfExpr(e *ast.SelfExpr) ast.Expr { return e }
+func (r *Resolver) VisitSelfExpr(e ast.SelfExpr) {}
 
-func (r *Resolver) VisitNameExpr(e *ast.NameExpr) ast.Expr {
-	if !r.isBound(e.Name) && e.Name != "Self" {
-		r.bindDecl(e.ID, r.take(r.bare(e.Name), e))
+// VisitNameExpr binds a name that is not a variable. A variable named in the body of a behaviour may be one that the
+// behaviour takes from the function around it, once for each behaviour it passes, so the name gets the nodes that stand
+// for it in each of them (see ast.Capture); the checker, which knows which names take a variable, needs them made already.
+func (r *Resolver) VisitNameExpr(e ast.NameExpr) {
+	switch {
+	case e.Name() == "Self":
+	case !r.isBound(e.Name()):
+		r.bindDecl(e.ID, r.take(r.bare(e.Name()), e.Position()))
+	case r.whenDepth > 0:
+		r.module.Tree.AppendCaptureRefs(e, r.whenDepth)
 	}
-	return e
 }
 
-func (r *Resolver) VisitMemberExpr(e *ast.MemberExpr) ast.Expr {
-	return r.member(e)
+func (r *Resolver) VisitMemberExpr(e ast.MemberExpr) {
+	r.member(e)
 }
 
-func (r *Resolver) VisitIndexExpr(e *ast.IndexExpr) ast.Expr {
-	e.Obj = r.expr(e.Obj)
-	for i, a := range e.Args {
-		e.Args[i] = r.expr(a)
+func (r *Resolver) VisitIndexExpr(e ast.IndexExpr) {
+	r.expr(e.Obj())
+	for _, a := range e.Args().All() {
+		r.expr(a)
 	}
-	return e
 }
 
-func (r *Resolver) VisitStrLit(e *ast.StrLit) ast.Expr {
-	for i, p := range e.Parts {
-		if part, ok := p.(ast.Expr); ok {
-			e.Parts[i] = r.expr(part)
+func (r *Resolver) VisitStrLit(e ast.StrLit) {
+	for _, part := range e.Parts().All() {
+		if !part.Expr.IsNil() {
+			r.expr(part.Expr)
 		}
 	}
-	return e
 }
 
-func (r *Resolver) VisitBinaryExpr(e *ast.BinaryExpr) ast.Expr {
-	e.L = r.expr(e.L)
-	e.R = r.expr(e.R)
-	return e
+func (r *Resolver) VisitBinaryExpr(e ast.BinaryExpr) {
+	r.expr(e.L())
+	r.expr(e.R())
 }
 
-func (r *Resolver) VisitUnaryExpr(e *ast.UnaryExpr) ast.Expr {
-	e.E = r.expr(e.E)
-	return e
+func (r *Resolver) VisitUnaryExpr(e ast.UnaryExpr) {
+	r.expr(e.E())
 }
 
-func (r *Resolver) VisitCondExpr(e *ast.CondExpr) ast.Expr {
-	e.Cond = r.expr(e.Cond)
-	e.Then = r.expr(e.Then)
-	e.Else = r.expr(e.Else)
-	return e
+func (r *Resolver) VisitCondExpr(e ast.CondExpr) {
+	r.expr(e.Cond())
+	r.expr(e.Then())
+	r.expr(e.Else())
 }
 
-func (r *Resolver) VisitCallExpr(e *ast.CallExpr) ast.Expr {
-	e.Callee = r.expr(e.Callee)
+func (r *Resolver) VisitCallExpr(e ast.CallExpr) {
+	r.expr(e.Callee())
 	constructsCown := false
-	if n, ok := e.Callee.(*ast.NameExpr); ok {
+	if n, ok := e.Callee().AsNameExpr(); ok {
 		constructsCown = ast.IsCownConstructor(r.result.Resolution.Decl(r.project, n.ID))
 	}
-	for _, a := range e.Args {
+	for _, a := range e.Args().All() {
 		// The argument of dropWith: is the name of a method of the content's type, which only its type can resolve.
-		if constructsCown && a.Label == ast.DropWithLabel {
+		if constructsCown && a.Label() == ast.DropWithLabel {
 			continue
 		}
-		a.Value = r.expr(a.Value)
+		r.expr(a.Value())
 	}
-	return e
 }
 
-func (r *Resolver) VisitStructLitExpr(e *ast.StructLitExpr) ast.Expr {
-	if e.TypeName != "Self" {
-		r.bindDecl(e.ID, r.take(r.bare(e.TypeName), e))
+func (r *Resolver) VisitStructLitExpr(e ast.StructLitExpr) {
+	if e.TypeName() != "Self" {
+		r.bindDecl(e.ID, r.take(r.bare(e.TypeName()), e.Position()))
 	}
-	for _, f := range e.Fields {
-		f.Value = r.expr(f.Value)
+	for _, f := range e.Fields().All() {
+		r.expr(f.Value())
 	}
-	return e
 }
 
-func (r *Resolver) VisitCastExpr(e *ast.CastExpr) ast.Expr {
-	e.E = r.expr(e.E)
-	r.resolveType(e.Target)
-	return e
+func (r *Resolver) VisitCastExpr(e ast.CastExpr) {
+	r.expr(e.E())
+	r.resolveType(e.Target())
 }
 
-func (r *Resolver) VisitMatchExpr(e *ast.MatchExpr) ast.Expr {
-	r.match(e.Match)
-	return e
+func (r *Resolver) VisitMatchExpr(e ast.MatchExpr) {
+	r.match(e.Match())
 }
 
-func (r *Resolver) VisitPanicExpr(e *ast.PanicExpr) ast.Expr {
-	e.Message = r.expr(e.Message)
-	return e
+func (r *Resolver) VisitPanicExpr(e ast.PanicExpr) {
+	r.expr(e.Message())
 }
 
 func isType(d ast.Decl) bool {
@@ -497,63 +497,55 @@ func (r *Resolver) isModuleRoot(name string) bool {
 
 type segment struct {
 	Name string
-	Site ast.Node
+	Site ast.MemberExpr
 }
 
-func (r *Resolver) member(m *ast.MemberExpr) ast.Expr {
+// member resolves a chain of members: the module path at its start, as in 'geometry.units.scale', is one name, which
+// the outermost member of the path becomes in place, and the rest of the chain stays what it was.
+func (r *Resolver) member(m ast.MemberExpr) {
 	var segments []segment
-	var cur ast.Expr = m
+	cur := m.Expr()
 	for {
-		mm, ok := cur.(*ast.MemberExpr)
+		mm, ok := cur.AsMemberExpr()
 		if !ok {
 			break
 		}
-		segments = append(segments, segment{mm.Name, mm})
-		cur = mm.Obj
+		segments = append(segments, segment{mm.Name(), mm})
+		cur = mm.Obj()
 	}
 	for i, j := 0, len(segments)-1; i < j; i, j = i+1, j-1 {
 		segments[i], segments[j] = segments[j], segments[i]
 	}
-	head, ok := cur.(*ast.NameExpr)
-	if !ok || r.isBound(head.Name) || head.Name == "Self" {
-		m.Obj = r.expr(m.Obj)
-		return m
+	head, ok := cur.AsNameExpr()
+	if !ok || r.isBound(head.Name()) || head.Name() == "Self" {
+		r.expr(m.Obj())
+		return
 	}
-	bare := r.bare(head.Name)
+	bare := r.bare(head.Name())
 	decl := bare.Decl
 	if decl != nil {
 		_, isConst := decl.(*ast.ConstDecl)
-		if isConst || (isType(decl) && declaresMember(decl, segments[0].Name)) || !r.isModuleRoot(head.Name) {
-			r.bindDecl(head.ID, r.take(bare, head))
-			return m
+		if isConst || (isType(decl) && declaresMember(decl, segments[0].Name)) || !r.isModuleRoot(head.Name()) {
+			r.bindDecl(head.ID, r.take(bare, head.Position()))
+			return
 		}
 	}
-	if !r.isModuleRoot(head.Name) {
-		return m
+	if !r.isModuleRoot(head.Name()) {
+		return
 	}
 
 	names := make([]string, len(segments))
-	sites := make([]ast.Node, len(segments))
+	sites := make([]ast.Pos, len(segments))
 	for i, s := range segments {
 		names[i] = s.Name
-		sites[i] = s.Site
+		sites[i] = s.Site.Position()
 	}
-	target, used := r.qualified(head.Name, head, names, sites)
-	result := r.module.Nodes.NewNameExpr()
-	result.Name = target.Base().Name
-	result.Pos = head.Pos
+	target, used := r.qualified(head.Name(), head.Position(), names, sites)
+	result := segments[used-1].Site.BecomeName(head)
 	r.bindDecl(result.ID, target)
-	var out ast.Expr = result
-	for _, s := range segments[used:] {
-		next := r.module.Nodes.NewMemberExpr()
-		next.Obj, next.Name = out, s.Name
-		next.Pos = *s.Site.P()
-		out = next
-	}
-	return out
 }
 
-func (r *Resolver) qualified(head string, headSite ast.Node, rest []string, sites []ast.Node) (ast.Decl, int) {
+func (r *Resolver) qualified(head string, headSite ast.Pos, rest []string, sites []ast.Pos) (ast.Decl, int) {
 	var mod *ast.Module
 	switch head {
 	case "export":
@@ -576,11 +568,11 @@ func (r *Resolver) qualified(head string, headSite ast.Node, rest []string, site
 		i++
 	}
 	if i == len(rest) {
-		panic(headSite.P().Error(diag.ErrExpressionError, "'"+head+"."+strings.Join(rest, ".")+"' is a module, not a value"))
+		panic(headSite.Position().Error(diag.ErrExpressionError, "'"+head+"."+strings.Join(rest, ".")+"' is a module, not a value"))
 	}
 	decl, ok := mod.Names[rest[i]]
 	if !ok {
-		panic(sites[i].P().Error("E2073", "module "+mod.Display()+" declares no '"+rest[i]+"'"))
+		panic(sites[i].Position().Error("E2073", "module "+mod.Display()+" declares no '"+rest[i]+"'"))
 	}
 	found := lookup{Decl: decl}
 	if !r.visible(decl) {
@@ -589,36 +581,36 @@ func (r *Resolver) qualified(head string, headSite ast.Node, rest []string, site
 	return r.take(found, sites[i]), i + 1
 }
 
-func (r *Resolver) resolveType(tr *ast.TypeRef) {
-	for _, a := range tr.TypeArgs {
+func (r *Resolver) resolveType(tr ast.TypeRef) {
+	for _, a := range tr.TypeArgs().All() {
 		r.resolveType(a)
 	}
-	if len(tr.Qualifier) == 0 {
-		if slot, ok := r.typeParams[tr.Name]; ok {
+	if tr.Qualifier().Len() == 0 {
+		if slot, ok := r.typeParams[tr.Name()]; ok {
 			r.result.Resolution.BindTypeParam(tr.ID, slot)
 			return
 		}
-		if primitiveTypes[tr.Name] {
+		if primitiveTypes[tr.Name()] {
 			return
 		}
-		found := r.take(r.bare(tr.Name), tr)
+		found := r.take(r.bare(tr.Name()), tr.Position())
 		if found != nil && !isType(found) {
-			panic(tr.Error(diag.ErrUnknownType, "'"+tr.Name+"' is not a type"))
+			panic(tr.Error(diag.ErrUnknownType, "'"+tr.Name()+"' is not a type"))
 		}
 		r.bindDecl(tr.ID, found)
 		return
 	}
-	if !r.isModuleRoot(tr.Qualifier[0]) {
-		panic(tr.Error(diag.ErrUnknownType, "no module '"+tr.Qualifier[0]+"'"))
+	if !r.isModuleRoot(tr.Qualifier().At(0)) {
+		panic(tr.Error(diag.ErrUnknownType, "no module '"+tr.Qualifier().At(0)+"'"))
 	}
-	path := append(append([]string{}, tr.Qualifier[1:]...), tr.Name)
-	sites := make([]ast.Node, len(path))
+	path := append(tr.Qualifier().Strings()[1:], tr.Name())
+	sites := make([]ast.Pos, len(path))
 	for i := range sites {
-		sites[i] = tr
+		sites[i] = tr.Position()
 	}
-	decl, used := r.qualified(tr.Qualifier[0], tr, path, sites)
+	decl, used := r.qualified(tr.Qualifier().At(0), tr.Position(), path, sites)
 	if used != len(path) || !isType(decl) {
-		panic(tr.Error(diag.ErrUnknownType, "'"+strings.Join(tr.Qualifier, ".")+"."+tr.Name+"' is not a type"))
+		panic(tr.Error(diag.ErrUnknownType, "'"+strings.Join(tr.Qualifier().Strings(), ".")+"."+tr.Name()+"' is not a type"))
 	}
 	r.bindDecl(tr.ID, decl)
 }
@@ -628,9 +620,9 @@ func (r *Resolver) visible(d ast.Decl) bool {
 	return b.Module == r.module || b.IsExported()
 }
 
-func hidden(d ast.Decl, site ast.Node) *diag.CompileError {
+func hidden(d ast.Decl, site ast.Pos) *diag.CompileError {
 	b := d.Base()
-	return site.P().Error("E3008", "'"+b.Name+"' is not exported from module "+b.Module.Display())
+	return site.Position().Error("E3008", "'"+b.Name+"' is not exported from module "+b.Module.Display())
 }
 
 // bindDecl records that a node names d, unless it names no declaration, as 'print' does not.
@@ -640,9 +632,9 @@ func (r *Resolver) bindDecl(n ast.NodeID, d ast.Decl) {
 	}
 }
 
-func (r *Resolver) take(found lookup, site ast.Node) ast.Decl {
+func (r *Resolver) take(found lookup, site ast.Pos) ast.Decl {
 	if found.Error != nil {
-		panic(site.P().Error(found.Error.Code, found.Error.Message))
+		panic(site.Position().Error(found.Error.Code, found.Error.Message))
 	}
 	if found.Decl != nil {
 		dm := found.Decl.Base().Module
@@ -651,7 +643,7 @@ func (r *Resolver) take(found lookup, site ast.Node) ast.Decl {
 				r.deps = map[ast.ModuleID]ast.Pos{}
 			}
 			if _, seen := r.deps[dm.ID]; !seen {
-				r.deps[dm.ID] = *site.P()
+				r.deps[dm.ID] = site.Position()
 			}
 		}
 	}
@@ -666,7 +658,7 @@ func (r *Resolver) bare(name string) lookup {
 		if r.visible(root) {
 			return lookup{Decl: root}
 		}
-		return lookup{Decl: root, Error: hidden(root, root)}
+		return lookup{Decl: root, Error: hidden(root, root.Position())}
 	}
 	var candidates, visible []ast.Decl
 	for _, d := range r.project.ByName[name] {
@@ -695,7 +687,7 @@ func (r *Resolver) bare(name string) lookup {
 		return lookup{Error: diag.NewError(code, "'"+name+"' is ambiguous: qualify it as one of "+strings.Join(where, ", "), "", 0, 0)}
 	}
 	if len(candidates) > 0 {
-		return lookup{Error: hidden(candidates[0], candidates[0])}
+		return lookup{Error: hidden(candidates[0], candidates[0].Position())}
 	}
 	return lookup{Decl: r.project.Stdlib.Names[name]}
 }

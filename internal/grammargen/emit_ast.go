@@ -21,29 +21,38 @@ const rootEmbed = "Head"
 
 func emitNodes(m *model) string {
 	w := &writer{}
-	header(w, "ast", "minimaxon/internal/diag")
+	header(w, "ast", "fmt", "minimaxon/internal/diag")
 
+	emitKinds(w, m)
 	emitted := map[*node]bool{}
 	emitNode := func(n *node) {
 		if emitted[n] {
 			return
 		}
 		emitted[n] = true
+		if n.record {
+			emitRecord(w, m, n)
+			return
+		}
 		embed := rootEmbed
 		if n.set != nil {
 			embed = n.set.name + "Base"
 		}
-		emitStruct(w, n.name, embed, n.fields)
+		emitStruct(w, m, n.name, embed, n.fields)
 	}
 	for _, r := range m.g.rules {
 		switch m.kind[r] {
 		case rkSet:
 			s := m.setOfRule[r]
-			embed := rootEmbed
-			if s.parent != nil {
-				embed = s.parent.name + "Base"
+			if len(s.members) > 0 && s.members[0].record {
+				emitRecordSet(w, s)
+			} else {
+				embed := rootEmbed
+				if s.parent != nil {
+					embed = s.parent.name + "Base"
+				}
+				emitStruct(w, m, s.name+"Base", embed, s.base)
 			}
-			emitStruct(w, s.name+"Base", embed, s.base)
 			for _, a := range r.alts {
 				if a.label != "" {
 					emitNode(m.nodeByName[a.label])
@@ -54,41 +63,7 @@ func emitNodes(m *model) string {
 		}
 	}
 
-	w.p("// Arena makes the nodes of one module and counts them: each node gets the module's handle and the next NodeID, and\n")
-	w.p("// each type's nodes come from chunks of that type, so a module's nodes are contiguous and a parse allocates a chunk at\n")
-	w.p("// a time and not a node at a time. An arena is used by one worker at a time.\n")
-	w.p("type Arena struct {\n\tmodule ModuleID\n\tcount  NodeID\n\tslots  Slots\n")
-	for _, n := range m.nodes {
-		w.p("\t%s slab[%s]\n", lowerFirst(n.name), n.name)
-	}
-	w.p("}\n\n")
-	w.p("// Slots counts the slots of each table that a phase fills in for a kind of node. A node that has a slot field is given\n")
-	w.p("// the next number of its counter when it is made, so a table is a slice that a counter sizes, and a node that a phase\n")
-	w.p("// makes later has its slot in it too. Slots count from 1: 0 is no slot.\n")
-	w.p("type Slots struct {\n")
-	for _, c := range m.slots {
-		w.p("\t%s uint32\n", c)
-	}
-	w.p("}\n\n")
-	w.p("// Slots is how many slots of each counter the arena has given out.\n")
-	w.p("func (a *Arena) Slots() Slots { return a.slots }\n\n")
-	w.p("func NewArena(module ModuleID) *Arena { return &Arena{module: module} }\n\n")
-	w.p("// Seal ends the parse: a node made after it, as a phase makes when it rewrites the tree, comes from a small chunk,\n")
-	w.p("// not from the next of the doubling chunks that a parse would have filled.\n")
-	w.p("func (a *Arena) Seal() {\n")
-	for _, n := range m.nodes {
-		w.p("\ta.%s.seal()\n", lowerFirst(n.name))
-	}
-	w.p("}\n\n")
-	w.p("// Count is how many nodes the arena has made: the NodeIDs of its nodes are 1 to Count.\n")
-	w.p("func (a *Arena) Count() int { return int(a.count) }\n\n")
-	for _, n := range m.nodes {
-		w.p("func (a *Arena) New%s() *%s {\n\tn := a.%s.next()\n\ta.count++\n\tn.Mod, n.ID = a.module, a.count\n", n.name, n.name, lowerFirst(n.name))
-		for _, s := range newSteps(n) {
-			w.p("\t%s\n", s)
-		}
-		w.p("\treturn n\n}\n\n")
-	}
+	emitTreeParts(w, m)
 
 	w.p("var reservedWords = map[string]bool{\n")
 	for _, k := range m.keywords {
@@ -102,40 +77,21 @@ func emitNodes(m *model) string {
 	return w.b.String()
 }
 
-// newSteps are the statements that start a new node: its slots from the arena's counters, and the values its fields
-// start with when they are not zero. The set bases' fields come first, outermost first, then the node's own.
-func newSteps(n *node) []string {
-	var steps []string
-	var chain []*set
-	for s := n.set; s != nil; s = s.parent {
-		chain = append([]*set{s}, chain...)
-	}
-	start := func(f *field) {
-		switch {
-		case f.slot != "":
-			steps = append(steps, fmt.Sprintf("a.slots.%s++", f.slot), fmt.Sprintf("n.%s = a.slots.%s", f.name, f.slot))
-		case f.init != "":
-			steps = append(steps, fmt.Sprintf("n.%s = %s", f.name, f.init))
-		}
-	}
-	for _, s := range chain {
-		for _, f := range s.base {
-			start(f)
-		}
-	}
-	for _, f := range n.fields {
-		start(f)
-	}
-	return steps
-}
-
-func emitStruct(w *writer, name, embed string, fields []*field) {
+func emitStruct(w *writer, m *model, name, embed string, fields []*field) {
 	w.p("type %s struct {\n\t%s\n", name, embed)
 	for _, f := range fields {
+		if f.slot != "" {
+			continue
+		}
 		if f.gap {
 			w.p("\n")
 		}
-		w.p("\t%s %s\n", f.name, f.typ)
+		// A field that parsing does not set is written in Go as it is.
+		typ := f.typ
+		if len(f.elems) > 0 {
+			typ = m.goType(typ)
+		}
+		w.p("\t%s %s\n", f.name, typ)
 	}
 	w.p("}\n\n")
 }
@@ -157,28 +113,52 @@ var flavours = []flavour{
 }
 
 func emitVisitors(w *writer, s *set) {
-	w.p("var (\n")
-	for _, n := range s.members {
-		w.p("\t_ %s = (*%s)(nil)\n", s.name, n.name)
+	records := len(s.members) > 0 && s.members[0].record
+	if !records {
+		w.p("var (\n")
+		for _, n := range s.members {
+			w.p("\t_ %s = (*%s)(nil)\n", s.name, n.name)
+		}
+		w.p(")\n\n")
 	}
-	w.p(")\n\n")
+	// A visitor of records takes the view of each node; a visitor of structs, the pointer.
+	param := func(n *node) string {
+		if records {
+			return n.name
+		}
+		return "*" + n.name
+	}
 	for _, f := range flavours {
 		iface := s.name + f.suffix
 		w.p("type %s%s interface {\n", iface, f.typeParams)
 		for _, n := range s.members {
-			w.p("\tVisit%s(n *%s%s)%s\n", n.name, n.name, f.param, f.result)
+			w.p("\tVisit%s(n %s%s)%s\n", n.name, param(n), f.param, f.result)
 		}
 		w.p("}\n\n")
 		fn := "Visit" + s.name + strings.TrimSuffix(f.suffix, "Visitor")
-		w.p("func %s%s(v %s%s, n %s%s)%s {\n\tswitch n := n.(type) {\n", fn, f.typeParams, iface, f.typeArgs, s.name, f.param, f.result)
+		if records {
+			w.p("func %s%s(v %s%s, n %s%s)%s {\n\tswitch n.Kind() {\n", fn, f.typeParams, iface, f.typeArgs, s.name, f.param, f.result)
+		} else {
+			w.p("func %s%s(v %s%s, n %s%s)%s {\n\tswitch n := n.(type) {\n", fn, f.typeParams, iface, f.typeArgs, s.name, f.param, f.result)
+		}
 		for _, m := range s.members {
+			arg := "n"
+			label := "*" + m.name
+			if records {
+				arg = m.name + "{n.Ref}"
+				label = kindName(m)
+			}
 			if f.result == "" {
-				w.p("\tcase *%s:\n\t\tv.Visit%s(n%s)\n\t\treturn\n", m.name, m.name, f.arg)
+				w.p("\tcase %s:\n\t\tv.Visit%s(%s%s)\n\t\treturn\n", label, m.name, arg, f.arg)
 			} else {
-				w.p("\tcase *%s:\n\t\treturn v.Visit%s(n%s)\n", m.name, m.name, f.arg)
+				w.p("\tcase %s:\n\t\treturn v.Visit%s(%s%s)\n", label, m.name, arg, f.arg)
 			}
 		}
-		w.p("\t}\n\tpanic(diag.Internal(\"unhandled %s %%T\", n))\n}\n\n", s.name)
+		if records {
+			w.p("\t}\n\tpanic(diag.Internal(\"unhandled %s %%s\", n.Kind()))\n}\n\n", s.name)
+		} else {
+			w.p("\t}\n\tpanic(diag.Internal(\"unhandled %s %%T\", n))\n}\n\n", s.name)
+		}
 	}
 }
 

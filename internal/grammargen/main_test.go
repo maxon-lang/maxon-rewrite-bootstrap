@@ -32,24 +32,26 @@ func TestGeneratedFilesAreCurrent(t *testing.T) {
 
 const tiny = `grammar Tiny;
 
+@ast::Structs { Circle }
+
 /** a shape */
 shape
     : square
-    | circle
     | l=shape '+' r=shape # Union
     ;
 
-@ast::ShapeBase {
-	Area I128 = Zero
-}
-
-square : 'square' side=Integer named='named'? tags+=Name* ;
+square : 'square' side=Integer named='named'? tags+=Name* op=('big' | 'small')? ;
 
 @ast::Square {
 	Side I128
 }
 
 circle : 'circle' radius=Integer ;
+
+@ast::Circle {
+	Radius I128
+	Area I128 = Zero
+}
 
 /** an integer */
 Integer : [0-9]+ ;
@@ -74,14 +76,23 @@ func generateTiny(t *testing.T, src string) map[string]string {
 func TestNodesTakeTheirFieldsFromLabels(t *testing.T) {
 	nodes := generateTiny(t, tiny)[nodesFile]
 	for _, want := range []string{
-		"type ShapeBase struct {\n\tHead\n\tArea I128\n}",
-		"type Square struct {\n\tShapeBase\n\tSide  I128\n\tNamed bool\n\tTags  []string\n}",
-		"type Union struct {\n\tShapeBase\n\tL Shape\n\tR Shape\n}",
+		// A struct keeps its fields, and what it starts with is its position and number.
+		"type Circle struct {\n\tHead\n\tRadius I128\n\n\tArea I128\n}",
 		"n.Area = Zero",
-		"func NewArena(module ModuleID) *Arena",
-		"n.Mod, n.ID = a.module, a.count",
-		"func (a *Arena) Seal() {\n\ta.union.seal()\n\ta.square.seal()",
-		"VisitUnion(n *Union, s S) R",
+		"func (t *Tree) NewCircle(start uint32) *Circle {",
+		// A record is a view with an accessor for each field, and a constructor that makes its record.
+		"type Square struct{ Ref }",
+		"func (t *Tree) NewSquare(start uint32) Square {\n\tid := t.alloc(KindSquare, start)",
+		"func (n Square) Side() I128 {",
+		"func (n Square) Named() bool { return n.T.Records[n.ID].Flags&flagSquareNamed != 0 }",
+		"func (n Square) Tags() TextList { return TextListAt(n.T, n.T.Lists[n.T.Records[n.ID].B+1]) }",
+		"func (n Square) Op() string { return squareOpTexts[uint8(n.T.Records[n.ID].Aux>>0)] }",
+		"func (n Union) L() Shape {",
+		"type ShapeList = List[Shape]",
+		"func (n Union) Shape() Shape { return Shape{n.Ref} }",
+		"func (s Shape) AsUnion() (Union, bool) {",
+		"VisitUnion(n Union, s S) R",
+		"case KindSquare:\n\t\treturn v.VisitSquare(Square{n.Ref}, s)",
 		`"square": true`,
 	} {
 		if !strings.Contains(nodes, want) {
@@ -90,33 +101,54 @@ func TestNodesTakeTheirFieldsFromLabels(t *testing.T) {
 	}
 }
 
-func TestSlotFieldsAreNumberedByTheArenaFromTheirCounter(t *testing.T) {
+func TestARecordKeepsItsFirstWordAndABlockForTheRest(t *testing.T) {
 	nodes := generateTiny(t, `grammar T;
+@ast::Structs { }
+three : 'three' a=Name b=Name c=Name ;
+two : 'two' a=Name b=Name ;
+Name : [a-z]+ ;
+`)[nodesFile]
+	for _, want := range []string{
+		"t.Records[id].B = t.reserve(2)",
+		"func (n Three) A() string { return n.T.NameAt(n.T.Records[n.ID].A) }",
+		"func (n Three) C() string { return n.T.NameAt(n.T.Lists[n.T.Records[n.ID].B+1]) }",
+		"func (n Two) B() string { return n.T.NameAt(n.T.Records[n.ID].B) }",
+	} {
+		if !strings.Contains(nodes, want) {
+			t.Errorf("nodes lack %q:\n%s", want, nodes)
+		}
+	}
+	if strings.Contains(nodes, "func (t *Tree) NewTwo(start uint32) Two {\n\tid := t.alloc(KindTwo, start)\n\tt.Records[id].B = t.reserve") {
+		t.Errorf("a record of two words reserves a block:\n%s", nodes)
+	}
+}
+
+func TestSlotFieldsAreNumberedAfterTheParseFromTheirCounter(t *testing.T) {
+	nodes := generateTiny(t, `grammar T;
+@ast::Structs { Circle }
 shape
     : square
-    | circle
+    | triangle
     ;
-@ast::ShapeBase {
-	Ord Slot[Shape]
-}
-square : 'square' side=Integer ;
+square : 'square' side=Name ;
+triangle : 'triangle' side=Name ;
 @ast::Square {
 	Info Slot[Sides]
 }
-circle : 'circle' radius=Integer ;
+circle : 'circle' radius=Name ;
 @ast::Circle {
 	Info Slot[Sides]
 	Ring Slot[Rings]
 }
-Integer : [0-9]+ ;
+Name : [a-z]+ ;
 `)[nodesFile]
 	for _, want := range []string{
-		"type ShapeBase struct {\n\tHead\n\tOrd uint32\n}",
-		"type Square struct {\n\tShapeBase\n\tSide string\n\n\tInfo uint32\n}",
-		"type Slots struct {\n\tShape uint32\n\tSides uint32\n\tRings uint32\n}",
-		"func (a *Arena) Slots() Slots { return a.slots }",
-		"a.slots.Shape++\n\tn.Ord = a.slots.Shape\n\ta.slots.Sides++\n\tn.Info = a.slots.Sides\n\treturn n",
-		"a.slots.Rings++\n\tn.Ring = a.slots.Rings",
+		"type Square struct{ Ref }",
+		"type Circle struct {\n\tHead\n\tRadius string\n}",
+		"type Slots struct {\n\tSides uint32\n\tRings uint32\n}",
+		"func (t *Tree) NumberSlots(slots []uint32) (count Slots) {",
+		"case KindSquare, KindCircle:\n\t\t\tcount.Sides++\n\t\t\tslots[id] = count.Sides",
+		"case KindCircle:\n\t\t\tcount.Rings++\n\t\t\tslots[id] = count.Rings",
 	} {
 		if !strings.Contains(nodes, want) {
 			t.Errorf("nodes lack %q:\n%s", want, nodes)
@@ -127,13 +159,17 @@ Integer : [0-9]+ ;
 func TestParserConvertsAndClimbs(t *testing.T) {
 	parser := generateTiny(t, tiny)[parserFile]
 	for _, want := range []string{
-		"n.Side = p.squareSide(p.expect(TInteger, \"an integer\"))",
-		"n.Named = true",
-		"p.lists.string.push(p.text(p.expect(TName, \"a name\")))",
-		"n.Tags = p.lists.string.take(mark_n_Tags)",
-		"n := p.arena.NewSquare()",
+		"n.SetSide(p.squareSide(p.expect(TInteger, \"an integer\")))",
+		"n.SetNamed()",
+		"p.lists.ids_Square_Tags.push(p.textRef(p.expect(TName, \"a name\")))",
+		"n.SetTags(takeTexts(p, &p.lists.ids_Square_Tags, mark_n_Tags))",
+		"n.SetOp(p.text(p.next()))",
+		"n.Radius = p.circleRadius(p.expect(TInteger, \"an integer\"))",
+		"n := p.tree.NewSquare(t.Start)",
 		"func (p *Parser) parseShapePrec(minPrec int) ast.Shape {",
-		"n.R = p.parseShapePrec(2)",
+		"n.SetR(p.parseShapePrec(2))",
+		"left = n.Shape()",
+		"left = p.parseSquare().Shape()",
 	} {
 		if !strings.Contains(parser, want) {
 			t.Errorf("parser lacks %q:\n%s", want, parser)
@@ -145,6 +181,9 @@ func TestJoinsComeFromTokenCommandsAndCarets(t *testing.T) {
 	outs := generateTiny(t, `grammar T;
 call : callee=Name ^'(' arg=neg ')' ;
 neg : op=('-'^ | 'not') v=Integer ;
+@ast::Neg {
+	V I128
+}
 Name : [a-z]+ ;
 Integer : [0-9]+ ;
 LParen : '(' -> noSpaceAfter ;
@@ -192,7 +231,7 @@ func TestGrammarErrorsNameTheLine(t *testing.T) {
 		"grammar G;\na : b ;\n":                             "g.g4:2: rule 'b' is not declared",
 		"grammar G;\na : 'x' ;\na : 'y' ;\n":                "g.g4:3: rule 'a' is declared twice",
 		"grammar G;\na : '$' ;\n":                           "g.g4:2: '$' is neither a keyword nor the text of a token",
-		"grammar G;\na : x='p' | x=b ;\nb : 'q' ;\n":        "g.g4:2: label 'x' of A is *B here and bool elsewhere; give its type in @ast::A",
+		"grammar G;\na : x='p' | x=b ;\nb : 'q' ;\n":        "g.g4:2: label 'x' of A is B here and bool elsewhere; give its type in @ast::A",
 		"grammar G;\na : 'p' | 'p' ;\n":                     "g.g4:2: alternative 2 can never be chosen: every way it can start, an earlier alternative starts",
 		"grammar G;\na : x=a 'p' ;\n":                       "g.g4:2: only a set rule may be left-recursive, and 'a' is not one",
 		"grammar G;\na : 'p' ;\n@ast::Nothing {\n}\n":       "g.g4:3: @ast::Nothing names no node and no set base",
@@ -230,6 +269,9 @@ func (a *dfa) run(s string) (string, int, string) {
 func TestDfaTakesTheLongestMatchAndNeverBacksOff(t *testing.T) {
 	g := parseGrammar("g.g4", `grammar G;
 a : 'if' 'in' n=Name i=Integer '=' '==' ;
+@ast::A {
+	I I128
+}
 /** a name */
 Name : [a-z]+ ;
 /** an integer */
@@ -266,6 +308,7 @@ Slash : '/' ;
 
 func TestAListIsCopiedOutOnceAndNeverOverwritesAnAssignedField(t *testing.T) {
 	parser := generateTiny(t, `grammar T;
+@ast::Structs { Holder }
 holder : 'if' (rest+=Name | 'else' rest=names) ;
 names returns [[]string list] : list+=Name (',' list+=Name)* ;
 Name : [a-z]+ ;
@@ -280,6 +323,39 @@ Comma : ',' ;
 	} {
 		if !strings.Contains(parser, want) {
 			t.Errorf("parser lacks %q:\n%s", want, parser)
+		}
+	}
+}
+
+func TestEachListOfARecordHasAStackOfItsOwn(t *testing.T) {
+	parser := generateTiny(t, `grammar T;
+both : 'both' xs+=Name* 'and' ys+=Name* ;
+Name : [a-z]+ ;
+`)[parserFile]
+	for _, want := range []string{
+		"type listStacks struct {\n\tids_Both_Xs listStack[uint32]\n\tids_Both_Ys listStack[uint32]\n}",
+		"mark_n_Xs := p.lists.ids_Both_Xs.mark()",
+		"mark_n_Ys := p.lists.ids_Both_Ys.mark()",
+		"n.SetXs(takeTexts(p, &p.lists.ids_Both_Xs, mark_n_Xs))",
+		"n.SetYs(takeTexts(p, &p.lists.ids_Both_Ys, mark_n_Ys))",
+	} {
+		if !strings.Contains(parser, want) {
+			t.Errorf("parser lacks %q:\n%s", want, parser)
+		}
+	}
+}
+
+func TestARecordHoldsOnlyWhatARecordCan(t *testing.T) {
+	cases := map[string]string{
+		"grammar G;\na : 'p' x=Integer ;\nInteger : [0-9]+ ;\n":       "g.g4:2: record A: field X is text made of the token Integer; only a Name or a Label can be read back from the module's text",
+		"grammar G;\na : 'p' ;\n@ast::A {\n\tX Go = 1\n}\n":           "g.g4:4: record A: field X has an initial value, which a record cannot hold",
+		"grammar G;\n@ast::Structs { B }\na : 'p' b=b ;\nb : 'q' ;\n": "g.g4:3: record A: field B has the type *B, which a record cannot hold: it holds flags, texts, integers, nodes and lists of nodes",
+		"grammar G;\n@ast::Structs { Nothing }\na : 'p' ;\n":          "g.g4:0: @ast::Structs names 'Nothing', which is no node",
+	}
+	for src, want := range cases {
+		_, err := generate("g.g4", []byte(src))
+		if err == nil || err.Error() != want {
+			t.Errorf("%q: got %v, want %q", src, err, want)
 		}
 	}
 }

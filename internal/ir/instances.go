@@ -17,14 +17,14 @@ import (
 // callers are the module's functions that call a generic or go through a bound, as the check pass recorded them.
 func Instances(typings ast.Typings, callers []*ast.FuncDecl) *InstanceSet {
 	found := &InstanceSet{}
-	visit := func(uses []*ast.CallExpr, b ast.Binding) {
-		for _, call := range uses {
-			target := typings.For(call).Resolved(call, b)
+	visit := func(uses []ast.CallUse, b ast.Binding) {
+		for _, use := range uses {
+			target := typings.Of(use.Site.Mod).Resolved(use, b)
 			if target.Generic == nil || found.has(target) {
 				continue
 			}
 			found.add(target)
-			requireFinite(call, target)
+			requireFinite(use.Site, target)
 			if target.Module.IsStdlib {
 				panic(diag.Internal("%s is a generic of the standard library, which has no body to lower", target.Symbol()))
 			}
@@ -70,10 +70,10 @@ func (s *InstanceSet) has(instance *ast.FuncDecl) bool {
 // requireFinite refuses an instance whose type arguments nest without end: a generic function that calls itself with
 // a larger type each time would otherwise never run out of instances. Every module that reaches such an instance
 // refuses it at the call that asks for the too deep one, so which module found it first does not matter.
-func requireFinite(call *ast.CallExpr, instance *ast.FuncDecl) {
+func requireFinite(site ast.Pos, instance *ast.FuncDecl) {
 	for _, a := range instance.TypeArgs {
 		if ast.TypeDepth(a) > ast.MaxTypeDepth {
-			panic(call.Error(diag.ErrInstantiationTooDeep, fmt.Sprintf(
+			panic(site.Error(diag.ErrInstantiationTooDeep, fmt.Sprintf(
 				"'%s' needs a type that nests more than %d levels deep, so the generic grows its own type argument without end; pass the same type argument on, or end the recursion",
 				instance.Generic.Symbol(), ast.MaxTypeDepth)))
 		}

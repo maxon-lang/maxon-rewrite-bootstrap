@@ -98,15 +98,21 @@ const unnamedPlace = ".."
 
 // placeText is how an index or a collection is written in a message: a name, a literal or a selection from one.
 func placeText(e ast.Expr) string {
-	switch e := e.(type) {
-	case *ast.IntLit:
+	switch e.Kind() {
+	case ast.KindIntLit:
+		e := e.ToIntLit()
+
 		return e.Value().String()
-	case *ast.NameExpr:
-		return e.Name
-	case *ast.SelfExpr:
+	case ast.KindNameExpr:
+		e := e.ToNameExpr()
+
+		return e.Name()
+	case ast.KindSelfExpr:
 		return "self"
-	case *ast.MemberExpr:
-		return placeText(e.Obj) + "." + e.Name
+	case ast.KindMemberExpr:
+		e := e.ToMemberExpr()
+
+		return placeText(e.Obj()) + "." + e.Name()
 	}
 	return unnamedPlace
 }
@@ -114,8 +120,10 @@ func placeText(e ast.Expr) string {
 // pathOf is the place an expression names, with its steps appended to buf, or false for an expression that
 // computes a fresh value. A bare field name selects from the receiver of the function being checked.
 func (o *Ownership) pathOf(e ast.Expr, buf []pathStep) (accessPath, bool) {
-	switch e := e.(type) {
-	case *ast.NameExpr:
+	switch e.Kind() {
+	case ast.KindNameExpr:
+		e := e.ToNameExpr()
+
 		name := o.typing.Name(e)
 		switch name.Kind() {
 		case ast.NameLocal:
@@ -123,23 +131,27 @@ func (o *Ownership) pathOf(e ast.Expr, buf []pathStep) (accessPath, bool) {
 		case ast.NameSelfField:
 			return accessPath{root: o.fn.SelfLocal, steps: append(buf, pathStep{field: name.Field(o.fn)})}, true
 		}
-	case *ast.SelfExpr:
+	case ast.KindSelfExpr:
 		return accessPath{root: o.fn.SelfLocal, steps: buf}, true
-	case *ast.MemberExpr:
+	case ast.KindMemberExpr:
+		e := e.ToMemberExpr()
+
 		if member := o.typing.Member(e); member.Kind == ast.MemberField {
-			p, ok := o.pathOf(e.Obj, buf)
+			p, ok := o.pathOf(e.Obj(), buf)
 			if !ok {
 				return p, false
 			}
-			p.steps = append(withContents(p.steps, o.ty(e.Obj)), pathStep{field: member.Field})
+			p.steps = append(withContents(p.steps, o.ty(e.Obj())), pathStep{field: member.Field})
 			return p, true
 		}
-	case *ast.IndexExpr:
-		p, ok := o.pathOf(e.Obj, buf)
+	case ast.KindIndexExpr:
+		e := e.ToIndexExpr()
+
+		p, ok := o.pathOf(e.Obj(), buf)
 		if !ok {
 			return p, false
 		}
-		p.steps = append(withContents(p.steps, o.ty(e.Obj)), pathStep{index: e.Args[0]})
+		p.steps = append(withContents(p.steps, o.ty(e.Obj())), pathStep{index: e.Args().At(0)})
 		return p, true
 	}
 	return accessPath{}, false
@@ -147,11 +159,13 @@ func (o *Ownership) pathOf(e ast.Expr, buf []pathStep) (accessPath, bool) {
 
 // projectsElement is whether a place is, or lies inside, an element of a primitive, which only the primitive owns.
 func (o *Ownership) projectsElement(e ast.Expr) bool {
-	switch e := e.(type) {
-	case *ast.IndexExpr:
+	switch e.Kind() {
+	case ast.KindIndexExpr:
 		return true
-	case *ast.MemberExpr:
-		return o.typing.Member(e).Kind == ast.MemberField && o.projectsElement(e.Obj)
+	case ast.KindMemberExpr:
+		e := e.ToMemberExpr()
+
+		return o.typing.Member(e).Kind == ast.MemberField && o.projectsElement(e.Obj())
 	}
 	return false
 }

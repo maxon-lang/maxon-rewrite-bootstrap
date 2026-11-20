@@ -33,7 +33,7 @@ func TestAScratchParsesTheModuleAfterAFailedOne(t *testing.T) {
 	if len(errs) != 1 {
 		t.Fatalf("the broken module has %d errors: %v", len(errs), errs)
 	}
-	if left := len(scratch.lists.Stmt.items) + len(scratch.lists.ptr_Arg.items); left != 0 {
+	if left := len(scratch.lists.ids_block.items) + len(scratch.lists.ids_CallExpr_Args.items); left != 0 {
 		t.Errorf("the failed module left %d elements on the stacks", left)
 	}
 	fine := sourceOfText("function f(a Count, b Count) returns Count\n\treturn g(a, b)\nend 'f'\n")
@@ -42,8 +42,7 @@ func TestAScratchParsesTheModuleAfterAFailedOne(t *testing.T) {
 		t.Fatalf("the fine module has errors %v and %d declarations", errs, len(program.Decls))
 	}
 	fn := program.Decls[0].(*ast.FuncDecl)
-	if len(fn.Params) != 2 || cap(fn.Params) != 2 || len(fn.Body) != 1 || cap(fn.Body) != 1 {
-		t.Errorf("the lists are %d parameters with capacity %d and %d statements with capacity %d",
-			len(fn.Params), cap(fn.Params), len(fn.Body), cap(fn.Body))
+	if len(fn.Params) != 2 || cap(fn.Params) != 2 || fn.Body.Len() != 1 {
+		t.Errorf("the lists are %d parameters with capacity %d and %d statements", len(fn.Params), cap(fn.Params), fn.Body.Len())
 	}
 }

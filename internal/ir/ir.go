@@ -300,7 +300,7 @@ type Block struct {
 // the IR stays whole for the interpreter, and the driver turns the first refusal of each function into an error before
 // any code is generated.
 type Refusal struct {
-	Site    ast.Node
+	Site    ast.Pos
 	Code    string
 	Message string
 }

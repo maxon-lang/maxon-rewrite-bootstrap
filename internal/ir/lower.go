@@ -88,7 +88,7 @@ func NewLowering(typings ast.Typings) *Lowering {
 }
 
 // t is the typing of the module a node is in.
-func (l *Lowerer) t(n ast.Node) *ast.Typing { return l.typings.For(n) }
+func (l *Lowerer) t(n ast.Pos) *ast.Typing { return l.typings.For(n) }
 
 // ty is the type the checker gave an expression.
 func (l *Lowerer) ty(e ast.Expr) ast.Ty { return l.typings.Type(e) }
@@ -190,7 +190,7 @@ func (l *Lowerer) adoptParams() {
 			continue
 		}
 		slot := l.adopt(first+i, l.fn.ParamTypes[i])
-		if sym := l.fn.LocalAt(l.typings.Of(prm.Mod).ParamLocal(prm)); sym != nil {
+		if sym := l.fn.LocalAt(l.fn.ParamLocals[i]); sym != nil {
 			l.ownerSlots = append(l.ownerSlots, ownerSlot{local: sym, slot: slot})
 		}
 	}
@@ -310,9 +310,9 @@ func (l *Lowerer) runtime(symbol Rt, kind IrKind, args ...V) V {
 }
 
 // block lowers the live statements of a block, which owns the locals they declare.
-func (l *Lowerer) block(body []ast.Stmt) {
+func (l *Lowerer) block(body ast.StmtList) {
 	l.pushScope(true)
-	for _, s := range ast.Live(body) {
+	for _, s := range ast.Live(body).All() {
 		l.stmt(s)
 	}
 	l.popScope()
@@ -332,88 +332,90 @@ func (l *Lowerer) condition(e ast.Expr) V {
 	return v
 }
 
-func (l *Lowerer) VisitLetStmt(s *ast.LetStmt) {
-	sym := l.fn.LocalAt(l.typings.Of(s.Mod).LetLocal(s))
-	if s.Init != nil {
-		v := l.expr(s.Init)
+func (l *Lowerer) VisitLetStmt(s ast.LetStmt) {
+	sym := l.fn.LocalAt(l.typings.Of(s.T.Module).LetLocal(s))
+	if !s.Init().IsNil() {
+		v := l.expr(s.Init())
 		l.emit(StoreSlot(sym.Slot, v, false))
 	}
 	l.ownLocal(sym.Slot, sym.Type)
 }
 
-func (l *Lowerer) VisitDiscardStmt(s *ast.DiscardStmt) { l.expr(s.Value) }
+func (l *Lowerer) VisitDiscardStmt(s ast.DiscardStmt) { l.expr(s.Value()) }
 
-func (l *Lowerer) VisitExprStmt(s *ast.ExprStmt) { l.expr(s.E) }
+func (l *Lowerer) VisitExprStmt(s ast.ExprStmt) { l.expr(s.E()) }
 
-func (l *Lowerer) VisitIfStmt(s *ast.IfStmt) {
+func (l *Lowerer) VisitIfStmt(s ast.IfStmt) {
 	then := l.b.NewBlock()
 	end := l.b.NewBlock()
 	els := end
-	if s.HasElse {
+	if s.HasElse() {
 		els = l.b.NewBlock()
 	}
-	cond := l.condition(s.Cond)
+	cond := l.condition(s.Cond())
 	l.b.Terminate(l.cur, Branch(cond, then, els))
 	l.cur = then
-	l.block(s.Then)
+	l.block(s.Then())
 	l.goTo(end)
-	if s.HasElse {
+	if s.HasElse() {
 		l.cur = els
-		l.block(s.Else)
+		l.block(s.Else())
 		l.goTo(end)
 	}
 	l.cur = end
 }
 
-func (l *Lowerer) VisitWhileStmt(s *ast.WhileStmt) {
+func (l *Lowerer) VisitWhileStmt(s ast.WhileStmt) {
 	top := l.b.NewBlock()
 	body := l.b.NewBlock()
 	end := l.b.NewBlock()
 	l.pushJumps(s.ID, jumpTargets{brk: end, cont: top, depth: len(l.scopes)})
 	l.goTo(top)
-	cond := l.condition(s.Cond)
+	cond := l.condition(s.Cond())
 	l.b.Terminate(l.cur, Branch(cond, body, end))
 	l.cur = body
-	l.block(s.Body)
+	l.block(s.Body())
 	l.goTo(top)
 	l.popJumps()
 	l.cur = end
 }
 
-func (l *Lowerer) VisitMatchStmt(s *ast.MatchStmt) { l.match(s.Match, nil) }
+func (l *Lowerer) VisitMatchStmt(s ast.MatchStmt) { l.match(s.Match(), nil) }
 
-func (l *Lowerer) VisitReturnStmt(s *ast.ReturnStmt) {
+func (l *Lowerer) VisitReturnStmt(s ast.ReturnStmt) {
 	var v V
-	if s.Value == nil {
+	if s.Value().IsNil() {
 		v = l.konst(0)
 	} else {
-		v = l.expr(s.Value)
+		v = l.expr(s.Value())
 	}
 	l.unwind(0)
 	l.seal(Ret(v))
 }
 
-func (l *Lowerer) VisitBreakStmt(s *ast.BreakStmt) {
-	target := l.jumpsOf(l.typings.Of(s.Mod).BreakTarget(s))
+func (l *Lowerer) VisitBreakStmt(s ast.BreakStmt) {
+	target := l.jumpsOf(l.typings.Of(s.T.Module).BreakTarget(s))
 	l.unwind(target.depth)
 	l.seal(Jump(target.brk))
 }
 
-func (l *Lowerer) VisitContinueStmt(s *ast.ContinueStmt) {
-	target := l.jumpsOf(l.typings.Of(s.Mod).ContinueTarget(s))
+func (l *Lowerer) VisitContinueStmt(s ast.ContinueStmt) {
+	target := l.jumpsOf(l.typings.Of(s.T.Module).ContinueTarget(s))
 	l.unwind(target.depth)
 	l.seal(Jump(target.cont))
 }
 
 // VisitAssignStmt stores a value into a place, dropping the value the place held: the assignment is where that
 // owner's value dies. The value is computed first, so it may read the old one.
-func (l *Lowerer) VisitAssignStmt(a *ast.AssignStmt) {
-	switch t := a.Target.(type) {
-	case *ast.NameExpr:
-		name := l.typings.Of(t.Mod).Name(t)
+func (l *Lowerer) VisitAssignStmt(a ast.AssignStmt) {
+	switch a.Target().Kind() {
+	case ast.KindNameExpr:
+		t := a.Target().ToNameExpr()
+
+		name := l.typings.Of(t.T.Module).Name(t)
 		switch name.Kind() {
 		case ast.NameLocal:
-			v := l.expr(a.Value)
+			v := l.expr(a.Value())
 			loc := name.Local(l.fn)
 			if loc.ByRef() {
 				addr := l.param(loc.ParamIndex, KindScalar)
@@ -427,29 +429,33 @@ func (l *Lowerer) VisitAssignStmt(a *ast.AssignStmt) {
 			}
 			return
 		case ast.NameSelfField:
-			v := l.expr(a.Value)
+			v := l.expr(a.Value())
 			obj := l.self()
-			l.storeField(obj, name.FieldIndex(), l.ty(t), v)
+			l.storeField(obj, name.FieldIndex(), l.ty(t.Expr()), v)
 			return
 		}
-	case *ast.MemberExpr:
-		if member := l.typings.Of(t.Mod).Member(t); member.Kind == ast.MemberField {
-			obj := l.expr(t.Obj)
-			v := l.expr(a.Value)
-			l.storeField(obj, member.Field.Index, l.ty(t), v)
+	case ast.KindMemberExpr:
+		t := a.Target().ToMemberExpr()
+
+		if member := l.typings.Of(t.T.Module).Member(t); member.Kind == ast.MemberField {
+			obj := l.expr(t.Obj())
+			v := l.expr(a.Value())
+			l.storeField(obj, member.Field.Index, l.ty(t.Expr()), v)
 
 			return
 		}
 
-	case *ast.IndexExpr:
-		l.assignElement(t, a.Value)
+	case ast.KindIndexExpr:
+		t := a.Target().ToIndexExpr()
+
+		l.assignElement(t, a.Value())
 		return
 	}
 	panic(diag.Internal("lower: unhandled assignment target"))
 }
 
-func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
-	sym := l.fn.LocalAt(l.typings.Of(s.Mod).ForLocal(s))
+func (l *Lowerer) VisitForStmt(s ast.ForStmt) {
+	sym := l.fn.LocalAt(l.typings.Of(s.T.Module).ForLocal(s))
 	slot := sym.Slot
 	limit := l.f.NewSlot(KindScalar)
 	unsigned := isUnsignedInt(sym.Type)
@@ -459,12 +465,12 @@ func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
 	exit := l.b.NewBlock()
 	l.pushJumps(s.ID, jumpTargets{brk: exit, cont: cont, depth: len(l.scopes)})
 
-	from := l.expr(s.From)
+	from := l.expr(s.From())
 	l.emit(StoreSlot(slot, from, false))
-	to := l.expr(s.To)
+	to := l.expr(s.To())
 	l.emit(StoreSlot(limit, to, false))
 	pastOp := CmpGe
-	if s.Inclusive {
+	if s.Inclusive() {
 		pastOp = CmpGt
 	}
 	pastA := l.load(slot)
@@ -473,10 +479,10 @@ func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
 	l.b.Terminate(l.cur, Branch(past, exit, body))
 
 	l.cur = body
-	l.block(s.Body)
+	l.block(s.Body())
 	l.goTo(cont)
 
-	if s.Inclusive {
+	if s.Inclusive() {
 		a := l.load(slot)
 		b := l.load(limit)
 		done := l.compare(CmpEq, a, b, unsigned)
@@ -490,7 +496,7 @@ func (l *Lowerer) VisitForStmt(s *ast.ForStmt) {
 	one := l.konst(1)
 	l.emit(Bin(next, BinAdd, cur, one, unsigned, false))
 	l.emit(StoreSlot(slot, next, false))
-	if s.Inclusive {
+	if s.Inclusive() {
 		l.b.Terminate(l.cur, Jump(body))
 	} else {
 		lim := l.load(limit)
@@ -523,9 +529,8 @@ func (l *Lowerer) compare(op CmpOp, a, b V, unsigned bool) V {
 // local or a field of an owned one; the pass refuses every other). One that is not consumed only lends its value: a
 // fresh value there is a temporary, dropped when the statement or branch ends.
 func (l *Lowerer) expr(e ast.Expr) V {
-	base := e.Base()
-	typing := l.typings.Of(base.Mod)
-	if c, ok := typing.TypeAt(base).(*ast.ConstIntTy); ok {
+	typing := l.typings.Of(e.T.Module)
+	if c, ok := typing.Type(e).(*ast.ConstIntTy); ok {
 		return l.konst(c.Value.Bits())
 	}
 	v := ast.VisitExprResult[V](l, e)
@@ -534,20 +539,22 @@ func (l *Lowerer) expr(e ast.Expr) V {
 	}
 	switch {
 	case !typing.IsStorage(e):
-		if !typing.ConsumedAt(base) && !l.isImmortal(e) {
-			l.ownTemp(v, typing.TypeAt(base))
+		if !typing.Consumed(e) && !l.isImmortal(e) {
+			l.ownTemp(v, typing.Type(e))
 		}
-	case typing.ConsumedAt(base) && !l.isWholeLocal(e) && !l.isField(e):
-		panic(diag.Internal("lower: an element or a part of a temporary is moved out at offset %d of module %d; the ownership pass should have refused it", e.P().Off, e.P().Mod))
+	case typing.Consumed(e) && !l.isWholeLocal(e) && !l.isField(e):
+		panic(diag.Internal("lower: an element or a part of a temporary is moved out at offset %d of module %d; the ownership pass should have refused it", e.Position().Off, e.Position().Mod))
 	}
 	return v
 }
 
 func (l *Lowerer) isWholeLocal(e ast.Expr) bool {
-	switch e := e.(type) {
-	case *ast.NameExpr:
-		return l.typings.Of(e.Mod).Name(e).Kind() == ast.NameLocal
-	case *ast.SelfExpr:
+	switch e.Kind() {
+	case ast.KindNameExpr:
+		e := e.ToNameExpr()
+
+		return l.typings.Of(e.T.Module).Name(e).Kind() == ast.NameLocal
+	case ast.KindSelfExpr:
 		return true
 	}
 	return false
@@ -555,11 +562,15 @@ func (l *Lowerer) isWholeLocal(e ast.Expr) bool {
 
 // isField is whether a place is a field of a record, which a move leaves empty.
 func (l *Lowerer) isField(e ast.Expr) bool {
-	switch e := e.(type) {
-	case *ast.NameExpr:
-		return l.typings.Of(e.Mod).Name(e).Kind() == ast.NameSelfField
-	case *ast.MemberExpr:
-		return l.typings.Of(e.Mod).Member(e).Kind == ast.MemberField
+	switch e.Kind() {
+	case ast.KindNameExpr:
+		e := e.ToNameExpr()
+
+		return l.typings.Of(e.T.Module).Name(e).Kind() == ast.NameSelfField
+	case ast.KindMemberExpr:
+		e := e.ToMemberExpr()
+
+		return l.typings.Of(e.T.Module).Member(e).Kind == ast.MemberField
 	}
 	return false
 }
@@ -567,65 +578,71 @@ func (l *Lowerer) isField(e ast.Expr) bool {
 // isImmortal is whether a value is a string that lives in the executable, which is never dropped: a literal, or the
 // name of an enum or union case.
 func (l *Lowerer) isImmortal(e ast.Expr) bool {
-	switch e := e.(type) {
-	case *ast.StrLit:
+	switch e.Kind() {
+	case ast.KindStrLit:
+		e := e.ToStrLit()
+
 		return e.IsPlain()
-	case *ast.MemberExpr:
-		kind := l.typings.Of(e.Mod).Member(e).Kind
+	case ast.KindMemberExpr:
+		e := e.ToMemberExpr()
+
+		kind := l.typings.Of(e.T.Module).Member(e).Kind
 		return kind == ast.MemberEnumName || kind == ast.MemberUnionName
-	case *ast.NameExpr:
-		name := l.typings.Of(e.Mod).Name(e)
-		return name.Kind() == ast.NameConst && l.isImmortal(l.typings.Of(e.Mod).Const(name).Value)
+	case ast.KindNameExpr:
+		e := e.ToNameExpr()
+
+		name := l.typings.Of(e.T.Module).Name(e)
+		return name.Kind() == ast.NameConst && l.isImmortal(l.typings.Of(e.T.Module).Const(name).Value)
 	}
 	return false
 }
 
-func (l *Lowerer) VisitIntLit(e *ast.IntLit) V { return l.konst(e.Value().Bits()) }
+func (l *Lowerer) VisitIntLit(e ast.IntLit) V { return l.konst(e.Value().Bits()) }
 
-func (l *Lowerer) VisitBoolLit(e *ast.BoolLit) V {
-	if e.Value {
+func (l *Lowerer) VisitBoolLit(e ast.BoolLit) V {
+	if e.Value() {
 		return l.konst(1)
 	}
 	return l.konst(0)
 }
 
-func (l *Lowerer) VisitSelfExpr(e *ast.SelfExpr) V {
+func (l *Lowerer) VisitSelfExpr(e ast.SelfExpr) V {
 	if l.selfOwner >= 0 {
-		return l.ownedRead(l.selfOwner, e)
+		return l.ownedRead(l.selfOwner, e.Expr())
 	}
 	return l.self()
 }
 
-func (l *Lowerer) VisitCondExpr(e *ast.CondExpr) V {
-	cond := l.expr(e.Cond)
-	return l.choose(l.ty(e), cond,
-		func() V { return l.converted(e.Then, l.ty(e)) },
-		func() V { return l.converted(e.Else, l.ty(e)) })
+func (l *Lowerer) VisitCondExpr(e ast.CondExpr) V {
+	cond := l.expr(e.Cond())
+	return l.choose(l.ty(e.Expr()), cond,
+		func() V { return l.converted(e.Then(), l.ty(e.Expr())) },
+		func() V { return l.converted(e.Else(), l.ty(e.Expr())) })
 }
 
 // choose lowers a value that one of two branches computes. A branch's value is stored into a slot of its own, which
 // owns it until the join gives it to the expression's consumer, and each branch drops its own temporaries.
 
-func (l *Lowerer) VisitStructLitExpr(e *ast.StructLitExpr) V {
-	lit := l.typings.Of(e.Mod).StructLit(e)
+func (l *Lowerer) VisitStructLitExpr(e ast.StructLitExpr) V {
+	lit := l.typings.Of(e.T.Module).StructLit(e)
 	return l.record(len(lit.Ordered), nil, func(i int) ast.Expr {
-		if v := lit.Ordered[i]; v != nil {
+		if v := lit.Ordered[i]; !v.IsNil() {
 			return v
 		}
 		return lit.Record.FieldList()[i].Default
 	})
 }
 
-func (l *Lowerer) VisitCastExpr(e *ast.CastExpr) V {
-	v := l.expr(e.E)
-	l.fit(v, l.ty(e).(*ast.IntTy), l.ty(e.E))
+func (l *Lowerer) VisitCastExpr(e ast.CastExpr) V {
+	v := l.expr(e.E())
+	l.fit(v, l.ty(e.Expr()).(*ast.IntTy), l.ty(e.E()))
 	return v
 }
 
-func (l *Lowerer) VisitMatchExpr(e *ast.MatchExpr) V { return l.match(e.Match, l.ty(e)) }
+func (l *Lowerer) VisitMatchExpr(e ast.MatchExpr) V { return l.match(e.Match(), l.ty(e.Expr())) }
 
-func (l *Lowerer) VisitPanicExpr(e *ast.PanicExpr) V {
-	msg := l.expr(e.Message)
+func (l *Lowerer) VisitPanicExpr(e ast.PanicExpr) V {
+	msg := l.expr(e.Message())
 	l.emit(l.b.CallRuntime(NoReg, RtPanic, []V{msg}, nil))
 	l.seal(Trap())
 	return l.konst(0)
@@ -656,22 +673,22 @@ func (l *Lowerer) converted(e ast.Expr, target ast.Ty) V {
 	// A frozen value given to a let parameter of the type it holds lends its contents.
 	have, want := l.binding.Apply(l.ty(e)), l.binding.Apply(target)
 	for ast.IsFrozen(have) && have != want {
-		v, have = l.contentOnce(e, v, have)
+		v, have = l.contentOnce(e.Position(), v, have)
 	}
 	return v
 }
 
-func (l *Lowerer) VisitNameExpr(n *ast.NameExpr) V {
-	name := l.typings.Of(n.Mod).Name(n)
+func (l *Lowerer) VisitNameExpr(n ast.NameExpr) V {
+	name := l.typings.Of(n.T.Module).Name(n)
 	switch name.Kind() {
 	case ast.NameLocal:
 		loc := name.Local(l.fn)
 		if !loc.IsParam {
-			return l.ownedRead(loc.Slot, n)
+			return l.ownedRead(loc.Slot, n.Expr())
 		}
 		if !loc.ByRef() {
 			if owner := l.ownerOf(loc); owner >= 0 {
-				return l.ownedRead(owner, n)
+				return l.ownedRead(owner, n.Expr())
 			}
 			return l.param(loc.ParamIndex, l.kind(loc.Type))
 		}
@@ -681,13 +698,13 @@ func (l *Lowerer) VisitNameExpr(n *ast.NameExpr) V {
 		l.emit(LoadAt(d, addr))
 		return d
 	case ast.NameSelfField:
-		d := l.reg(l.kind(l.ty(n)))
-		l.loadField(d, l.self(), n, name.FieldIndex())
+		d := l.reg(l.kind(l.ty(n.Expr())))
+		l.loadField(d, l.self(), n.Expr(), name.FieldIndex())
 		return d
 	case ast.NameConst:
-		return l.expr(l.typings.Of(n.Mod).Const(name).Value)
+		return l.expr(l.typings.Of(n.T.Module).Const(name).Value)
 	}
-	panic(diag.Internal("lower: unresolved name '%s'", n.Name))
+	panic(diag.Internal("lower: unresolved name '%s'", n.Name()))
 }
 
 // loadField is the value of a field of a record: a move out of it when the ownership pass found the expression consuming
@@ -703,9 +720,11 @@ func (l *Lowerer) loadField(d, obj V, e ast.Expr, index int) {
 }
 
 func (l *Lowerer) address(e ast.Expr) V {
-	switch e := e.(type) {
-	case *ast.NameExpr:
-		name := l.typings.Of(e.Mod).Name(e)
+	switch e.Kind() {
+	case ast.KindNameExpr:
+		e := e.ToNameExpr()
+
+		name := l.typings.Of(e.T.Module).Name(e)
 		switch name.Kind() {
 		case ast.NameLocal:
 			loc := name.Local(l.fn)
@@ -721,20 +740,24 @@ func (l *Lowerer) address(e ast.Expr) V {
 			l.emit(FieldAddr(d, obj, WordBytes*name.FieldIndex()))
 			return d
 		}
-	case *ast.MemberExpr:
-		if member := l.typings.Of(e.Mod).Member(e); member.Kind == ast.MemberField {
-			obj := l.read(e.Obj)
+	case ast.KindMemberExpr:
+		e := e.ToMemberExpr()
+
+		if member := l.typings.Of(e.T.Module).Member(e); member.Kind == ast.MemberField {
+			obj := l.read(e.Obj())
 			d := l.reg(KindScalar)
 			l.emit(FieldAddr(d, obj, WordBytes*member.Field.Index))
 			return d
 		}
-	case *ast.IndexExpr:
+	case ast.KindIndexExpr:
+		e := e.ToIndexExpr()
+
 		return l.elemAddr(e)
 	}
 	panic(diag.Internal("lower: no address for this expression"))
 }
 
-func (l *Lowerer) VisitCallExpr(node *ast.CallExpr) V {
+func (l *Lowerer) VisitCallExpr(node ast.CallExpr) V {
 	c := l.call(node)
 	switch c.Kind {
 	case ast.CallPrint, ast.CallPrintError:
@@ -751,9 +774,9 @@ func (l *Lowerer) VisitCallExpr(node *ast.CallExpr) V {
 		if c.Kind != ast.CallBound && c.Target.Intrinsic != ast.NotIntrinsic {
 			return l.intrinsic(c)
 		}
-		target := l.callee(c.CallExpr)
+		target := l.callee(ast.CallUse{Info: c.CallInfo, Receiver: c.Receiver, Site: c.Position()})
 		base := len(l.args)
-		if c.Receiver != nil {
+		if !c.Receiver.IsNil() {
 			l.push(l.read(c.Receiver))
 		}
 		for i := range c.Ordered {
@@ -764,8 +787,8 @@ func (l *Lowerer) VisitCallExpr(node *ast.CallExpr) V {
 			}
 		}
 		dst := NoReg
-		if l.ty(c.CallExpr) != ast.Ty(ast.VoidTy) {
-			dst = l.reg(l.kind(l.ty(c.CallExpr)))
+		if l.ty(c.CallExpr.Expr()) != ast.Ty(ast.VoidTy) {
+			dst = l.reg(l.kind(l.ty(c.CallExpr.Expr())))
 		}
 		l.emit(l.b.Call(dst, target, l.args[base:]))
 		l.args = l.args[:base]
@@ -774,7 +797,7 @@ func (l *Lowerer) VisitCallExpr(node *ast.CallExpr) V {
 		}
 		return dst
 	case ast.CallCopy:
-		return l.copyValue(c.CallExpr, l.expr(c.Receiver), l.ty(c.Receiver))
+		return l.copyValue(c.CallExpr.Position(), l.expr(c.Receiver), l.ty(c.Receiver))
 	case ast.CallUnionCtor:
 		tag := int(c.CaseIndex)
 		return l.record(len(c.Ordered), &tag, func(i int) ast.Expr { return c.Ordered[i] })
@@ -784,8 +807,8 @@ func (l *Lowerer) VisitCallExpr(node *ast.CallExpr) V {
 
 // callee is the function a call runs. Every instance a body reaches was found for the module before lowering, so a
 // missing one is a compiler bug: the executable would depend on another module having made the instance.
-func (l *Lowerer) callee(c *ast.CallExpr) *ast.FuncDecl {
-	target := l.typings.Of(c.Mod).Resolved(c, l.binding)
+func (l *Lowerer) callee(use ast.CallUse) *ast.FuncDecl {
+	target := l.typings.Of(use.Site.Mod).Resolved(use, l.binding)
 	if target.Generic != nil && !l.instances.has(target) {
 		panic(diag.Internal("lower: %s was not found among the instances of the module", target.Symbol()))
 	}
@@ -831,7 +854,7 @@ func (l *Lowerer) record(count int, tag *int, value func(i int) ast.Expr) V {
 
 // copyValue is a new value equal to v, which every part of it owns: the deep copy that CopyInstr says. A scalar is
 // the value itself. site is the source that needs the copy, kept when the type holds something that has no native code.
-func (l *Lowerer) copyValue(site ast.Node, v V, t ast.Ty) V {
+func (l *Lowerer) copyValue(site ast.Pos, v V, t ast.Ty) V {
 	ty := l.binding.Apply(t)
 	if kindOf(ty) != KindManaged {
 		return v
@@ -857,13 +880,13 @@ func unionCaseNames(ut *ast.UnionTy) []string {
 	return names
 }
 
-func (l *Lowerer) VisitMemberExpr(m *ast.MemberExpr) V {
-	member := l.typings.Of(m.Mod).Member(m)
+func (l *Lowerer) VisitMemberExpr(m ast.MemberExpr) V {
+	member := l.typings.Of(m.T.Module).Member(m)
 	switch member.Kind {
 	case ast.MemberField:
-		obj := l.read(m.Obj)
-		d := l.reg(l.kind(l.ty(m)))
-		l.loadField(d, obj, m, member.Field.Index)
+		obj := l.read(m.Obj())
+		d := l.reg(l.kind(l.ty(m.Expr())))
+		l.loadField(d, obj, m.Expr(), member.Field.Index)
 		return d
 	case ast.MemberEnumCase:
 		return l.konst(int64(member.CaseIndex))
@@ -871,22 +894,22 @@ func (l *Lowerer) VisitMemberExpr(m *ast.MemberExpr) V {
 		tag := int(member.CaseIndex)
 		return l.record(0, &tag, nil)
 	case ast.MemberEnumOrdinal:
-		return l.expr(m.Obj)
+		return l.expr(m.Obj())
 	case ast.MemberEnumName:
-		v := l.expr(m.Obj)
-		return l.names(v, l.ty(m.Obj).(*ast.EnumTy).Cases)
+		v := l.expr(m.Obj())
+		return l.names(v, l.ty(m.Obj()).(*ast.EnumTy).Cases)
 	case ast.MemberEnumRaw:
-		et := l.ty(m.Obj).(*ast.EnumTy)
-		v := l.expr(m.Obj)
+		et := l.ty(m.Obj()).(*ast.EnumTy)
+		v := l.expr(m.Obj())
 		if et.HasExplicitRaw {
 			return l.selectValue(v, KindScalar, len(et.Raw), func(i int) V { return l.konst(et.Raw[i].Bits()) })
 		}
 		return v
 	case ast.MemberUnionOrdinal:
-		return l.tag(l.expr(m.Obj))
+		return l.tag(l.expr(m.Obj()))
 	case ast.MemberUnionName:
-		t := l.tag(l.expr(m.Obj))
-		return l.names(t, unionCaseNames(l.ty(m.Obj).(*ast.UnionTy)))
+		t := l.tag(l.expr(m.Obj()))
+		return l.names(t, unionCaseNames(l.ty(m.Obj()).(*ast.UnionTy)))
 	}
 	panic(diag.Internal("lower: unresolved member"))
 }
@@ -930,23 +953,24 @@ const (
 
 // VisitStrLit joins the parts of an interpolated literal into a new string, dropping each intermediate string once it
 // has been joined. A literal of a single borrowed string is a copy of it, because the literal's value is its own.
-func (l *Lowerer) VisitStrLit(s *ast.StrLit) V {
-	if s.IsPlain() {
-		if len(s.Parts) == 1 {
-			return l.str(s.Parts[0].(string))
+func (l *Lowerer) VisitStrLit(s ast.StrLit) V {
+	parts := s.Parts()
+	if parts.IsPlain() {
+		if parts.Len() == 1 {
+			return l.str(parts.At(0).Text)
 		}
 		var text strings.Builder
-		for _, p := range s.Parts {
-			text.WriteString(p.(string))
+		for _, p := range parts.All() {
+			text.WriteString(p.Text)
 		}
 		return l.str(text.String())
 	}
-	acc, owner := l.part(s.Parts[0])
-	if len(s.Parts) == 1 && owner == textBorrowed {
-		return l.copyValue(s, acc, ast.StringTy)
+	acc, owner := l.part(parts.At(0))
+	if parts.Len() == 1 && owner == textBorrowed {
+		return l.copyValue(s.Position(), acc, ast.StringTy)
 	}
-	for i := 1; i < len(s.Parts); i++ {
-		next, nextOwner := l.part(s.Parts[i])
+	for i := 1; i < parts.Len(); i++ {
+		next, nextOwner := l.part(parts.At(i))
 		joined := l.runtime(RtConcat, KindManaged, acc, next)
 		if owner == textFresh {
 			l.dropValue(acc, ast.StringTy)
@@ -959,11 +983,11 @@ func (l *Lowerer) VisitStrLit(s *ast.StrLit) V {
 	return acc
 }
 
-func (l *Lowerer) part(part any) (V, textOwner) {
-	if text, ok := part.(string); ok {
-		return l.str(text), textImmortal
+func (l *Lowerer) part(part ast.StrPart) (V, textOwner) {
+	if part.Expr.IsNil() {
+		return l.str(part.Text), textImmortal
 	}
-	e := part.(ast.Expr)
+	e := part.Expr
 	v := l.read(e)
 	switch t := ast.Content(l.binding.Apply(l.ty(e))).(type) {
 	case *ast.PrimTy:
@@ -994,48 +1018,48 @@ func (l *Lowerer) part(part any) (V, textOwner) {
 	panic(diag.Internal("lower: cannot interpolate %s", l.ty(e).Name()))
 }
 
-func (l *Lowerer) VisitBinaryExpr(b *ast.BinaryExpr) V {
-	if (b.Op == "and" || b.Op == "or") && l.ty(b) == ast.Ty(ast.BoolTy) {
+func (l *Lowerer) VisitBinaryExpr(b ast.BinaryExpr) V {
+	if (b.Op() == "and" || b.Op() == "or") && l.ty(b.Expr()) == ast.Ty(ast.BoolTy) {
 		result := l.f.NewSlot(KindScalar)
 		rhs := l.b.NewBlock()
 		end := l.b.NewBlock()
-		lv := l.expr(b.L)
+		lv := l.expr(b.L())
 		l.emit(StoreSlot(result, lv, false))
-		if b.Op == "and" {
+		if b.Op() == "and" {
 			l.b.Terminate(l.cur, Branch(lv, rhs, end))
 		} else {
 			l.b.Terminate(l.cur, Branch(lv, end, rhs))
 		}
 		l.cur = rhs
-		l.scoped(func() { l.emit(StoreSlot(result, l.expr(b.R), false)) })
+		l.scoped(func() { l.emit(StoreSlot(result, l.expr(b.R()), false)) })
 		l.goTo(end)
 		return l.load(result)
 	}
 
-	operand := l.typings.Of(b.Mod).Operand(b)
+	operand := l.typings.Of(b.T.Module).Operand(b)
 	if operand == ast.OperandString {
-		left := l.expr(b.L)
-		right := l.expr(b.R)
+		left := l.expr(b.L())
+		right := l.expr(b.R())
 		eq := l.runtime(RtStreq, KindScalar, left, right)
-		if b.Op == "!=" {
+		if b.Op() == "!=" {
 			return l.flip(eq)
 		}
 		return eq
 	}
 
-	a := l.expr(b.L)
-	c := l.expr(b.R)
+	a := l.expr(b.L())
+	c := l.expr(b.R())
 	unsigned := operand == ast.OperandUnsigned
-	if cmp, ok := lowerCmpOps[b.Op]; ok {
+	if cmp, ok := lowerCmpOps[b.Op()]; ok {
 		return l.compare(cmp, a, c, unsigned)
 	}
 	d := l.reg(KindScalar)
-	op, ok := lowerBinOps[b.Op]
+	op, ok := lowerBinOps[b.Op()]
 	if !ok {
-		panic(diag.Internal("lower: unknown operator '%s'", b.Op))
+		panic(diag.Internal("lower: unknown operator '%s'", b.Op()))
 	}
 	l.emit(Bin(d, op, a, c, unsigned, op == BinAdd || op == BinSub || op == BinMul))
-	if t, ok := l.ty(b).(*ast.IntTy); ok {
+	if t, ok := l.ty(b.Expr()).(*ast.IntTy); ok {
 		l.rangeCheck(d, t)
 	}
 	return d
@@ -1048,18 +1072,18 @@ func (l *Lowerer) flip(boolean V) V {
 	return d
 }
 
-func (l *Lowerer) VisitUnaryExpr(u *ast.UnaryExpr) V {
-	v := l.expr(u.E)
-	if u.Op == "not" && l.ty(u) == ast.Ty(ast.BoolTy) {
+func (l *Lowerer) VisitUnaryExpr(u ast.UnaryExpr) V {
+	v := l.expr(u.E())
+	if u.Op() == "not" && l.ty(u.Expr()) == ast.Ty(ast.BoolTy) {
 		return l.flip(v)
 	}
 	d := l.reg(KindScalar)
-	if u.Op == "not" {
+	if u.Op() == "not" {
 		l.emit(Not(d, v))
 	} else {
 		l.emit(Neg(d, v))
 	}
-	l.rangeCheck(d, l.ty(u).(*ast.IntTy))
+	l.rangeCheck(d, l.ty(u.Expr()).(*ast.IntTy))
 	return d
 }
 
@@ -1106,9 +1130,9 @@ func (l *Lowerer) fit(v V, target *ast.IntTy, source ast.Ty) {
 	}
 }
 
-func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
-	st := ast.Content(l.binding.Apply(l.ty(m.Subject)))
-	subject := l.read(m.Subject)
+func (l *Lowerer) match(m ast.MatchCore, resultType ast.Ty) V {
+	st := ast.Content(l.binding.Apply(l.ty(m.Subject())))
+	subject := l.read(m.Subject())
 	end := l.b.NewBlock()
 	l.pushJumps(m.ID, jumpTargets{brk: end, depth: len(l.scopes)})
 	result := -1
@@ -1116,36 +1140,36 @@ func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 		result = l.f.NewSlot(l.kind(resultType))
 	}
 
-	for _, arm := range m.Arms {
+	for _, arm := range m.Arms().All() {
 		body := l.b.NewBlock()
 		next := l.b.NewBlock()
-		if arm.IsDefault {
+		if arm.IsDefault() {
 			l.goTo(body)
 		} else {
-			for _, pat := range arm.Patterns {
+			for _, pat := range arm.Patterns().All() {
 				l.test(pat, st, subject, body)
 			}
 			l.goTo(next)
 		}
 		l.cur = body
-		if m.Consumes {
+		if m.Consumes() {
 			l.pushScope(true)
 			l.takeApart(arm, subject, st)
 		} else {
 			l.borrowPayloads(arm, subject)
 		}
 
-		switch arm.Kind() {
+		switch arm.Form() {
 		case ast.ArmThen:
-			l.stmt(arm.Action)
+			l.stmt(arm.Action())
 		case ast.ArmGives:
-			l.scoped(func() { l.emit(StoreSlot(result, l.converted(arm.Value, resultType), false)) })
+			l.scoped(func() { l.emit(StoreSlot(result, l.converted(arm.Value(), resultType), false)) })
 		case ast.ArmPanic:
-			l.scoped(func() { l.expr(arm.Value) })
+			l.scoped(func() { l.expr(arm.Value()) })
 		default:
 			panic(diag.Internal("lower: unhandled match arm kind"))
 		}
-		if m.Consumes {
+		if m.Consumes() {
 			l.popScope()
 		}
 		l.goTo(end)
@@ -1163,9 +1187,9 @@ func (l *Lowerer) match(m *ast.MatchCore, resultType ast.Ty) V {
 }
 
 // borrowPayloads binds the payload an arm names to a borrow of the subject's box.
-func (l *Lowerer) borrowPayloads(arm *ast.MatchArm, subject V) {
-	for _, pat := range arm.Patterns {
-		for i, id := range l.typings.Of(pat.Mod).Pattern(pat).Locals {
+func (l *Lowerer) borrowPayloads(arm ast.MatchArm, subject V) {
+	for _, pat := range arm.Patterns().All() {
+		for i, id := range l.typings.Of(pat.T.Module).Pattern(pat).Locals {
 			if local := l.fn.LocalAt(id); local != nil {
 				kind := l.kind(local.Type)
 				d := l.reg(kind)
@@ -1179,9 +1203,9 @@ func (l *Lowerer) borrowPayloads(arm *ast.MatchArm, subject V) {
 // takeApart is the start of an arm of a match that consumes its subject: each payload the arm names moves out of the
 // box into a local that owns it, which leaves the field empty, and then the box is dropped, which skips the empty fields
 // and drops the payloads the arm does not name.
-func (l *Lowerer) takeApart(arm *ast.MatchArm, subject V, st ast.Ty) {
-	for _, pat := range arm.Patterns {
-		for i, id := range l.typings.Of(pat.Mod).Pattern(pat).Locals {
+func (l *Lowerer) takeApart(arm ast.MatchArm, subject V, st ast.Ty) {
+	for _, pat := range arm.Patterns().All() {
+		for i, id := range l.typings.Of(pat.T.Module).Pattern(pat).Locals {
 			local := l.fn.LocalAt(id)
 			if local == nil {
 				continue
@@ -1203,39 +1227,39 @@ func (l *Lowerer) takeApart(arm *ast.MatchArm, subject V, st ast.Ty) {
 	l.dropValue(subject, st)
 }
 
-func (l *Lowerer) test(pat *ast.Pattern, st ast.Ty, subject V, body BlockID) {
+func (l *Lowerer) test(pat ast.Pattern, st ast.Ty, subject V, body BlockID) {
 	unsigned := isUnsignedInt(st)
 	fail := l.b.NewBlock()
 	switch {
-	case pat.Kind() == ast.PatternCase:
+	case pat.Form() == ast.PatternCase:
 		scrutinee := subject
 		if _, ok := st.(*ast.UnionTy); ok {
 			scrutinee = l.tag(subject)
 		}
-		idx := l.konst(int64(l.typings.Of(pat.Mod).Pattern(pat).CaseIndex))
+		idx := l.konst(int64(l.typings.Of(pat.T.Module).Pattern(pat).CaseIndex))
 		cmp := l.compare(CmpEq, scrutinee, idx, false)
 		l.b.Terminate(l.cur, Branch(cmp, body, fail))
-	case pat.Kind() == ast.PatternLiteral && st == ast.Ty(ast.StringTy):
+	case pat.Form() == ast.PatternLiteral && st == ast.Ty(ast.StringTy):
 		testBlock := l.cur
-		lit := l.expr(pat.Value)
+		lit := l.expr(pat.Value())
 		eq := l.runtime(RtStreq, KindScalar, subject, lit)
 		l.b.Terminate(testBlock, Branch(eq, body, fail))
-	case pat.Kind() == ast.PatternLiteral:
+	case pat.Form() == ast.PatternLiteral:
 		var value int64
-		if bl, ok := pat.Value.(*ast.BoolLit); ok {
-			if bl.Value {
+		if bl, ok := pat.Value().AsBoolLit(); ok {
+			if bl.Value() {
 				value = 1
 			}
 		} else {
-			value = l.ty(pat.Value).(*ast.ConstIntTy).Value.Bits()
+			value = l.ty(pat.Value()).(*ast.ConstIntTy).Value.Bits()
 		}
 		c := l.konst(value)
 		cmp := l.compare(CmpEq, subject, c, unsigned)
 		l.b.Terminate(l.cur, Branch(cmp, body, fail))
-	case pat.Kind() == ast.PatternRange:
-		lo := l.ty(pat.Value).(*ast.ConstIntTy).Value
-		hi := l.ty(pat.High).(*ast.ConstIntTy).Value
-		if !pat.Inclusive {
+	case pat.Form() == ast.PatternRange:
+		lo := l.ty(pat.Value()).(*ast.ConstIntTy).Value
+		hi := l.ty(pat.High()).(*ast.ConstIntTy).Value
+		if !pat.Inclusive() {
 			hi = hi.Sub(ast.One)
 		}
 		upper := l.b.NewBlock()

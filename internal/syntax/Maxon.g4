@@ -16,12 +16,20 @@
 //   helper rule        A rule with `returns [Type name]` assigns its labels to that value and returns it.
 //   @ast::Node {...}   Fields of a node that parsing does not set, written `Name Type` or `Name Type = initial`;
 //                      a field with a label's name gives that label its type instead. @ast::SetBase holds the
-//                      fields every member of the set shares. Every node starts with ast.Head, its position and
-//                      its NodeID in its module. A token label whose field is not a string is
+//                      fields every member of the set shares. A token label whose field is not a string is
 //                      converted by the hand-written parser method <node><Field>(Token). A field of the type
-//                      Slot[Counter] is a uint32 that the arena numbers from the counter of that name, 1 for
-//                      the first node that has one: a table a phase fills in for those nodes is that long
-//                      (ast.Slots).
+//                      Slot[Counter] stores nothing: it says that the nodes of its kind are numbered from the
+//                      counter of that name, 1 for the first, after the parse (ast.Tree.NumberSlots), so that a
+//                      table a phase fills in for those nodes is that long (ast.Slots).
+//   @ast::Structs {...} The nodes that are Go structs, which are the declarations: later phases fill in their
+//                      semantic fields and other modules read them. Every other node is a record in its module's
+//                      tree (ast.Tree): a kind, flags, a small field, where it starts and two words, with the rest
+//                      of its fields in a block of the tree's list array. A record holds flags, the offsets of
+//                      names, labels and strings in the module's text, integers that fit 64 bits, the numbers of
+//                      other records, and lists of them; a field of the type Word is one 32-bit word that the
+//                      hand-written conversion makes of a token. Code reads a record through a view of its type
+//                      (`ast.IfStmt`), which has an accessor for each field, and a set of records is a view that
+//                      knows its node's kind. A struct holds views, never a pointer to a record.
 //   /** text */        Describes the rule or token after it in syntax errors: "expected a statement", and in
 //                      the lexer's error for input that stops partway through it: "incomplete label".
 //   Token : regex ;    A token rule: literals, [sets] with ranges, ~ to negate a set or one character, . for any
@@ -49,6 +57,11 @@ grammar Maxon;
 tokens { FileEnd, /** an indented line */ Indent, /** the end of the indented lines */ Dedent }
 
 // Declarations
+
+@ast::Structs {
+	FuncDecl ConstDecl TypeDecl EnumDecl UnionDecl AliasDecl InterfaceDecl
+	Param FieldDecl EnumCaseDecl UnionCaseDecl Bound TypeParam Constraint FuncSig
+}
 
 /** a declaration */
 decl
@@ -95,10 +108,11 @@ funcDecl
 	Generic *FuncDecl
 	TypeArgs []Ty
 	Instances *InstanceTable
-	Uses []*CallExpr
+	Uses []CallUse
 
 	Pass Passing
 	ParamTypes []Ty
+	ParamLocals []LocalID
 	ReturnType Ty = VoidTy
 	SelfLocal *Local
 	Locals []*Local
@@ -108,10 +122,6 @@ funcDecl
 param
     : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_') type=typeRef
     ;
-
-@ast::Param {
-	Local Slot[Local]
-}
 
 constDecl
     : visibility=('export' | 'public')? 'let' name=Name '=' value=expr
@@ -403,10 +413,6 @@ expr
     | <assoc=right> then=expr 'if' cond=expr 'else' else=expr        # CondExpr
     ;
 
-@ast::ExprBase {
-	Ord Slot[Expr]
-}
-
 @ast::MemberExpr {
 	Info Slot[Member]
 }
@@ -417,6 +423,7 @@ expr
 
 @ast::BinaryExpr {
 	Op string
+	Operand Slot[Binary]
 }
 
 /** an integer */
@@ -433,7 +440,7 @@ strLit
     ;
 
 @ast::StrLit {
-	Parts []any
+	Parts Word
 }
 
 boolLit

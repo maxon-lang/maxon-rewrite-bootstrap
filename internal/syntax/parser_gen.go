@@ -31,45 +31,56 @@ var lookahead23 = [numTokens]bool{TMinus: true, TPlus: true}
 var lookahead24 = [numTokens]bool{TKw_shl: true, TKw_shr: true}
 var lookahead25 = [numTokens]bool{TEqEq: true, TGe: true, TGt: true, TLe: true, TLt: true, TNotEq: true}
 
-// listStacks has a stack for each type of element that a list in the grammar holds.
+// listStacks has a stack for each type of element that a list of structs in the grammar holds, and one for the
+// numbers of the records and texts that each list of the tree holds.
 type listStacks struct {
-	ptr_Param         listStack[*ast.Param]
-	ptr_FieldDecl     listStack[*ast.FieldDecl]
-	ptr_FuncDecl      listStack[*ast.FuncDecl]
-	ptr_EnumCaseDecl  listStack[*ast.EnumCaseDecl]
-	ptr_UnionCaseDecl listStack[*ast.UnionCaseDecl]
-	string            listStack[string]
-	ptr_TypeRef       listStack[*ast.TypeRef]
-	ptr_TypeParam     listStack[*ast.TypeParam]
-	ptr_Constraint    listStack[*ast.Constraint]
-	ptr_FuncSig       listStack[*ast.FuncSig]
-	Stmt              listStack[ast.Stmt]
-	ptr_NameExpr      listStack[*ast.NameExpr]
-	ptr_MatchArm      listStack[*ast.MatchArm]
-	ptr_Pattern       listStack[*ast.Pattern]
-	Expr              listStack[ast.Expr]
-	ptr_Arg           listStack[*ast.Arg]
-	ptr_StructField   listStack[*ast.StructField]
+	ids_TypeRef_Qualifier    listStack[uint32]
+	ids_typeArgs             listStack[uint32]
+	ids_Constraint_Bounds    listStack[uint32]
+	ids_conformsClause       listStack[uint32]
+	ids_block                listStack[uint32]
+	ids_IfStmt_Else          listStack[uint32]
+	ids_WhenStmt_Cowns       listStack[uint32]
+	ids_WhenStmt_Names       listStack[uint32]
+	ids_MatchCore_Arms       listStack[uint32]
+	ids_MatchArm_Patterns    listStack[uint32]
+	ids_Pattern_Bindings     listStack[uint32]
+	ids_IndexExpr_Args       listStack[uint32]
+	ids_CallExpr_Args        listStack[uint32]
+	ids_StructLitExpr_Fields listStack[uint32]
+	ptr_Param                listStack[*ast.Param]
+	ptr_FieldDecl            listStack[*ast.FieldDecl]
+	ptr_FuncDecl             listStack[*ast.FuncDecl]
+	ptr_EnumCaseDecl         listStack[*ast.EnumCaseDecl]
+	ptr_UnionCaseDecl        listStack[*ast.UnionCaseDecl]
+	ptr_TypeParam            listStack[*ast.TypeParam]
+	ptr_Constraint           listStack[*ast.Constraint]
+	ptr_FuncSig              listStack[*ast.FuncSig]
 }
 
 func (s *listStacks) reset() {
+	s.ids_TypeRef_Qualifier.reset()
+	s.ids_typeArgs.reset()
+	s.ids_Constraint_Bounds.reset()
+	s.ids_conformsClause.reset()
+	s.ids_block.reset()
+	s.ids_IfStmt_Else.reset()
+	s.ids_WhenStmt_Cowns.reset()
+	s.ids_WhenStmt_Names.reset()
+	s.ids_MatchCore_Arms.reset()
+	s.ids_MatchArm_Patterns.reset()
+	s.ids_Pattern_Bindings.reset()
+	s.ids_IndexExpr_Args.reset()
+	s.ids_CallExpr_Args.reset()
+	s.ids_StructLitExpr_Fields.reset()
 	s.ptr_Param.reset()
 	s.ptr_FieldDecl.reset()
 	s.ptr_FuncDecl.reset()
 	s.ptr_EnumCaseDecl.reset()
 	s.ptr_UnionCaseDecl.reset()
-	s.string.reset()
-	s.ptr_TypeRef.reset()
 	s.ptr_TypeParam.reset()
 	s.ptr_Constraint.reset()
 	s.ptr_FuncSig.reset()
-	s.Stmt.reset()
-	s.ptr_NameExpr.reset()
-	s.ptr_MatchArm.reset()
-	s.ptr_Pattern.reset()
-	s.Expr.reset()
-	s.ptr_Arg.reset()
-	s.ptr_StructField.reset()
 }
 
 func (p *Parser) parseDecl() ast.Decl {
@@ -102,8 +113,7 @@ func (p *Parser) parseTypeDeclNode() ast.TypeDeclNode {
 
 func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	t := p.cur()
-	n := p.arena.NewFuncDecl()
-	place(p, n, t)
+	n := p.tree.NewFuncDecl(t.Start)
 	mark_n_Params := p.lists.ptr_Param.mark()
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
@@ -162,8 +172,7 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 
 func (p *Parser) parseParam() *ast.Param {
 	t := p.cur()
-	n := p.arena.NewParam()
-	place(p, n, t)
+	n := p.tree.NewParam(t.Start)
 	if p.in(&lookahead7) {
 		if !p.in(&lookahead7) {
 			panic(p.expected("'consumes', 'mutates' or 'sets'"))
@@ -180,8 +189,7 @@ func (p *Parser) parseParam() *ast.Param {
 
 func (p *Parser) parseConstDecl() *ast.ConstDecl {
 	t := p.cur()
-	n := p.arena.NewConstDecl()
-	place(p, n, t)
+	n := p.tree.NewConstDecl(t.Start)
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
@@ -197,8 +205,7 @@ func (p *Parser) parseConstDecl() *ast.ConstDecl {
 
 func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	t := p.cur()
-	n := p.arena.NewTypeDecl()
-	place(p, n, t)
+	n := p.tree.NewTypeDecl(t.Start)
 	mark_n_Fields := p.lists.ptr_FieldDecl.mark()
 	mark_n_Methods := p.lists.ptr_FuncDecl.mark()
 	if p.in(&lookahead3) {
@@ -257,8 +264,7 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 
 func (p *Parser) parseFieldDecl() *ast.FieldDecl {
 	t := p.cur()
-	n := p.arena.NewFieldDecl()
-	place(p, n, t)
+	n := p.tree.NewFieldDecl(t.Start)
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
@@ -290,8 +296,7 @@ func (p *Parser) parseFieldDecl() *ast.FieldDecl {
 
 func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	t := p.cur()
-	n := p.arena.NewEnumDecl()
-	place(p, n, t)
+	n := p.tree.NewEnumDecl(t.Start)
 	mark_n_Cases := p.lists.ptr_EnumCaseDecl.mark()
 	mark_n_Methods := p.lists.ptr_FuncDecl.mark()
 	if p.in(&lookahead3) {
@@ -341,8 +346,7 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 
 func (p *Parser) parseEnumCaseDecl() *ast.EnumCaseDecl {
 	t := p.cur()
-	n := p.arena.NewEnumCaseDecl()
-	place(p, n, t)
+	n := p.tree.NewEnumCaseDecl(t.Start)
 	n.Name = p.text(p.expect(TName, "a name"))
 	if p.at(TAssign) {
 		p.expect(TAssign, "'='")
@@ -353,8 +357,7 @@ func (p *Parser) parseEnumCaseDecl() *ast.EnumCaseDecl {
 
 func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 	t := p.cur()
-	n := p.arena.NewUnionDecl()
-	place(p, n, t)
+	n := p.tree.NewUnionDecl(t.Start)
 	mark_n_Cases := p.lists.ptr_UnionCaseDecl.mark()
 	mark_n_Methods := p.lists.ptr_FuncDecl.mark()
 	if p.in(&lookahead3) {
@@ -415,8 +418,7 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 
 func (p *Parser) parseUnionCaseDecl() *ast.UnionCaseDecl {
 	t := p.cur()
-	n := p.arena.NewUnionCaseDecl()
-	place(p, n, t)
+	n := p.tree.NewUnionCaseDecl(t.Start)
 	mark_n_Fields := p.lists.ptr_Param.mark()
 	n.Name = p.text(p.expect(TName, "a name"))
 	if p.at(TLParen) {
@@ -437,8 +439,7 @@ func (p *Parser) parseUnionCaseDecl() *ast.UnionCaseDecl {
 
 func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 	t := p.cur()
-	n := p.arena.NewAliasDecl()
-	place(p, n, t)
+	n := p.tree.NewAliasDecl(t.Start)
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
@@ -475,8 +476,7 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 
 func (p *Parser) parseBound() *ast.Bound {
 	t := p.cur()
-	n := p.arena.NewBound()
-	place(p, n, t)
+	n := p.tree.NewBound(t.Start)
 	if p.at(TMinus) {
 		p.expect(TMinus, "'-'")
 		n.Negative = true
@@ -495,45 +495,44 @@ func (p *Parser) parseBound() *ast.Bound {
 	return n
 }
 
-func (p *Parser) parseTypeRef() *ast.TypeRef {
+func (p *Parser) parseTypeRef() ast.TypeRef {
 	t := p.cur()
-	n := p.arena.NewTypeRef()
-	place(p, n, t)
-	mark_n_Qualifier := p.lists.string.mark()
+	n := p.tree.NewTypeRef(t.Start)
+	mark_n_Qualifier := p.lists.ids_TypeRef_Qualifier.mark()
 	for p.at(TName) && p.peekIs(TDot) {
-		p.lists.string.push(p.text(p.expect(TName, "a name")))
+		p.lists.ids_TypeRef_Qualifier.push(p.textRef(p.expect(TName, "a name")))
 		p.expect(TDot, "'.'")
 	}
 	if !p.in(&lookahead13) {
 		panic(p.expected("'Self' or a name"))
 	}
-	n.Name = p.text(p.next())
+	n.SetNameRef(p.textRef(p.next()))
 	if p.at(TKw_with) {
 		p.expect(TKw_with, "'with'")
-		n.TypeArgs = p.parseTypeArgs()
+		n.SetTypeArgs(p.parseTypeArgs())
 	}
-	n.Qualifier = p.lists.string.take(mark_n_Qualifier)
+	n.SetQualifier(takeTexts(p, &p.lists.ids_TypeRef_Qualifier, mark_n_Qualifier))
 	return n
 }
 
-func (p *Parser) parseTypeArgs() []*ast.TypeRef {
-	var args []*ast.TypeRef
-	mark_args := p.lists.ptr_TypeRef.mark()
+func (p *Parser) parseTypeArgs() ast.TypeRefList {
+	var args ast.TypeRefList
+	mark_args := p.lists.ids_typeArgs.mark()
 	switch p.cur().Kind() {
 	case TKw_Self, TName:
-		p.lists.ptr_TypeRef.push(p.parseTypeRef())
+		p.lists.ids_typeArgs.push(uint32(p.parseTypeRef().ID))
 	case TLParen:
 		p.expect(TLParen, "'('")
-		p.lists.ptr_TypeRef.push(p.parseTypeRef())
+		p.lists.ids_typeArgs.push(uint32(p.parseTypeRef().ID))
 		for p.at(TComma) {
 			p.expect(TComma, "','")
-			p.lists.ptr_TypeRef.push(p.parseTypeRef())
+			p.lists.ids_typeArgs.push(uint32(p.parseTypeRef().ID))
 		}
 		p.expect(TRParen, "')'")
 	default:
 		panic(p.expected("type arguments"))
 	}
-	args = p.lists.ptr_TypeRef.take(mark_args)
+	args = takeList[ast.TypeRef](p, &p.lists.ids_typeArgs, mark_args)
 	return args
 }
 
@@ -552,8 +551,7 @@ func (p *Parser) parseUsesClause() []*ast.TypeParam {
 
 func (p *Parser) parseTypeParam() *ast.TypeParam {
 	t := p.cur()
-	n := p.arena.NewTypeParam()
-	place(p, n, t)
+	n := p.tree.NewTypeParam(t.Start)
 	n.Name = p.text(p.expect(TName, "a name"))
 	return n
 }
@@ -573,37 +571,35 @@ func (p *Parser) parseWhereClause() []*ast.Constraint {
 
 func (p *Parser) parseConstraint() *ast.Constraint {
 	t := p.cur()
-	n := p.arena.NewConstraint()
-	place(p, n, t)
-	mark_n_Bounds := p.lists.ptr_TypeRef.mark()
+	n := p.tree.NewConstraint(t.Start)
+	mark_n_Bounds := p.lists.ids_Constraint_Bounds.mark()
 	n.Param = p.text(p.expect(TName, "a name"))
 	p.expect(TKw_implements, "'implements'")
-	p.lists.ptr_TypeRef.push(p.parseTypeRef())
+	p.lists.ids_Constraint_Bounds.push(uint32(p.parseTypeRef().ID))
 	for p.at(TKw_and) {
 		p.expect(TKw_and, "'and'")
-		p.lists.ptr_TypeRef.push(p.parseTypeRef())
+		p.lists.ids_Constraint_Bounds.push(uint32(p.parseTypeRef().ID))
 	}
-	n.Bounds = p.lists.ptr_TypeRef.take(mark_n_Bounds)
+	n.Bounds = takeList[ast.TypeRef](p, &p.lists.ids_Constraint_Bounds, mark_n_Bounds)
 	return n
 }
 
-func (p *Parser) parseConformsClause() []*ast.TypeRef {
-	var interfaces []*ast.TypeRef
-	mark_interfaces := p.lists.ptr_TypeRef.mark()
+func (p *Parser) parseConformsClause() ast.TypeRefList {
+	var interfaces ast.TypeRefList
+	mark_interfaces := p.lists.ids_conformsClause.mark()
 	p.expect(TKw_implements, "'implements'")
-	p.lists.ptr_TypeRef.push(p.parseTypeRef())
+	p.lists.ids_conformsClause.push(uint32(p.parseTypeRef().ID))
 	for p.at(TKw_and) {
 		p.expect(TKw_and, "'and'")
-		p.lists.ptr_TypeRef.push(p.parseTypeRef())
+		p.lists.ids_conformsClause.push(uint32(p.parseTypeRef().ID))
 	}
-	interfaces = p.lists.ptr_TypeRef.take(mark_interfaces)
+	interfaces = takeList[ast.TypeRef](p, &p.lists.ids_conformsClause, mark_interfaces)
 	return interfaces
 }
 
 func (p *Parser) parseInterfaceDecl() *ast.InterfaceDecl {
 	t := p.cur()
-	n := p.arena.NewInterfaceDecl()
-	place(p, n, t)
+	n := p.tree.NewInterfaceDecl(t.Start)
 	mark_n_Methods := p.lists.ptr_FuncSig.mark()
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
@@ -634,8 +630,7 @@ func (p *Parser) parseInterfaceDecl() *ast.InterfaceDecl {
 
 func (p *Parser) parseFuncSig() *ast.FuncSig {
 	t := p.cur()
-	n := p.arena.NewFuncSig()
-	place(p, n, t)
+	n := p.tree.NewFuncSig(t.Start)
 	mark_n_Params := p.lists.ptr_Param.mark()
 	p.expect(TKw_function, "'function'")
 	n.Name = p.text(p.expect(TName, "a name"))
@@ -671,59 +666,58 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 	return n
 }
 
-func (p *Parser) parseEndLabel() *ast.EndLabel {
+func (p *Parser) parseEndLabel() ast.EndLabel {
 	t := p.cur()
-	n := p.arena.NewEndLabel()
-	place(p, n, t)
-	n.Name = p.text(p.expect(TLabel, "a label"))
+	n := p.tree.NewEndLabel(t.Start)
+	n.SetNameRef(p.textRef(p.expect(TLabel, "a label")))
 	return n
 }
 
-func (p *Parser) parseBlock() []ast.Stmt {
-	var stmts []ast.Stmt
-	mark_stmts := p.lists.Stmt.mark()
+func (p *Parser) parseBlock() ast.StmtList {
+	var stmts ast.StmtList
+	mark_stmts := p.lists.ids_block.mark()
 	p.expect(TNewline, "the end of the line")
 	p.expect(TIndent, "an indented line")
-	p.lists.Stmt.push(p.parseStmt())
+	p.lists.ids_block.push(uint32(p.parseStmt().ID))
 	p.expect(TNewline, "the end of the line")
 	for p.in(&lookahead14) {
-		p.lists.Stmt.push(p.parseStmt())
+		p.lists.ids_block.push(uint32(p.parseStmt().ID))
 		p.expect(TNewline, "the end of the line")
 	}
 	p.expect(TDedent, "the end of the indented lines")
-	stmts = p.lists.Stmt.take(mark_stmts)
+	stmts = takeList[ast.Stmt](p, &p.lists.ids_block, mark_stmts)
 	return stmts
 }
 
 func (p *Parser) parseStmt() ast.Stmt {
 	t := p.cur()
 	if p.in(&lookahead9) {
-		return p.parseLetStmt()
+		return p.parseLetStmt().Stmt()
 	} else if p.at(TKw__) {
-		return p.parseDiscardStmt()
+		return p.parseDiscardStmt().Stmt()
 	} else if p.at(TKw_if) {
-		return p.parseIfStmt()
+		return p.parseIfStmt().Stmt()
 	} else if p.at(TKw_while) {
-		return p.parseWhileStmt()
+		return p.parseWhileStmt().Stmt()
 	} else if p.at(TKw_for) {
-		return p.parseForStmt()
+		return p.parseForStmt().Stmt()
 	} else if p.at(TKw_match) && p.peekIn(&lookahead15) {
-		return p.parseMatchStmt()
+		return p.parseMatchStmt().Stmt()
 	} else if p.at(TKw_when) {
-		return p.parseWhenStmt()
+		return p.parseWhenStmt().Stmt()
 	} else if p.at(TKw_return) {
-		return p.parseReturnStmt()
+		return p.parseReturnStmt().Stmt()
 	} else if p.at(TKw_break) {
-		return p.parseBreakStmt()
+		return p.parseBreakStmt().Stmt()
 	} else if p.at(TKw_continue) {
-		return p.parseContinueStmt()
+		return p.parseContinueStmt().Stmt()
 	} else if p.in(&lookahead16) {
 		first := p.parseExpr()
 		switch p.cur().Kind() {
 		case TAssign:
-			return p.parseAssignStmtAfter(t, first)
+			return p.parseAssignStmtAfter(t, first).Stmt()
 		case TNewline:
-			return p.parseExprStmtAfter(t, first)
+			return p.parseExprStmtAfter(t, first).Stmt()
 		default:
 			panic(p.expected("'=' or the end of the line"))
 		}
@@ -732,27 +726,26 @@ func (p *Parser) parseStmt() ast.Stmt {
 	}
 }
 
-func (p *Parser) parseLetStmt() *ast.LetStmt {
+func (p *Parser) parseLetStmt() ast.LetStmt {
 	t := p.cur()
-	n := p.arena.NewLetStmt()
-	place(p, n, t)
+	n := p.tree.NewLetStmt(t.Start)
 	switch p.cur().Kind() {
 	case TKw_let:
 		p.expect(TKw_let, "'let'")
-		n.Name = p.text(p.expect(TName, "a name"))
+		n.SetNameRef(p.textRef(p.expect(TName, "a name")))
 		p.expect(TAssign, "'='")
-		n.Init = p.parseExpr()
+		n.SetInit(p.parseExpr())
 	case TKw_var:
 		p.expect(TKw_var, "'var'")
-		n.IsVar = true
-		n.Name = p.text(p.expect(TName, "a name"))
+		n.SetIsVar()
+		n.SetNameRef(p.textRef(p.expect(TName, "a name")))
 		switch p.cur().Kind() {
 		case TAssign:
 			p.expect(TAssign, "'='")
-			n.Init = p.parseExpr()
+			n.SetInit(p.parseExpr())
 		case TKw_as:
 			p.expect(TKw_as, "'as'")
-			n.Type = p.parseTypeRef()
+			n.SetType(p.parseTypeRef())
 		default:
 			panic(p.expected("'=' or 'as'"))
 		}
@@ -762,239 +755,226 @@ func (p *Parser) parseLetStmt() *ast.LetStmt {
 	return n
 }
 
-func (p *Parser) parseDiscardStmt() *ast.DiscardStmt {
+func (p *Parser) parseDiscardStmt() ast.DiscardStmt {
 	t := p.cur()
-	n := p.arena.NewDiscardStmt()
-	place(p, n, t)
+	n := p.tree.NewDiscardStmt(t.Start)
 	p.expect(TKw__, "'_'")
 	p.expect(TAssign, "'='")
-	n.Value = p.parseExpr()
+	n.SetValue(p.parseExpr())
 	return n
 }
 
-func (p *Parser) parseAssignStmtAfter(t *Token, first ast.Expr) *ast.AssignStmt {
-	n := p.arena.NewAssignStmt()
-	place(p, n, t)
-	n.Target = first
+func (p *Parser) parseAssignStmtAfter(t *Token, first ast.Expr) ast.AssignStmt {
+	n := p.tree.NewAssignStmt(t.Start)
+	n.SetTarget(first)
 	p.expect(TAssign, "'='")
-	n.Value = p.parseExpr()
+	n.SetValue(p.parseExpr())
 	return n
 }
 
-func (p *Parser) parseAssignStmt() *ast.AssignStmt {
+func (p *Parser) parseAssignStmt() ast.AssignStmt {
 	t := p.cur()
 	return p.parseAssignStmtAfter(t, p.parseExpr())
 }
 
-func (p *Parser) parseExprStmtAfter(t *Token, first ast.Expr) *ast.ExprStmt {
-	n := p.arena.NewExprStmt()
-	place(p, n, t)
-	n.E = first
+func (p *Parser) parseExprStmtAfter(t *Token, first ast.Expr) ast.ExprStmt {
+	n := p.tree.NewExprStmt(t.Start)
+	n.SetE(first)
 	return n
 }
 
-func (p *Parser) parseExprStmt() *ast.ExprStmt {
+func (p *Parser) parseExprStmt() ast.ExprStmt {
 	t := p.cur()
 	return p.parseExprStmtAfter(t, p.parseExpr())
 }
 
-func (p *Parser) parseIfStmt() *ast.IfStmt {
+func (p *Parser) parseIfStmt() ast.IfStmt {
 	t := p.cur()
-	n := p.arena.NewIfStmt()
-	place(p, n, t)
-	mark_n_Else := p.lists.Stmt.mark()
+	n := p.tree.NewIfStmt(t.Start)
+	mark_n_Else := p.lists.ids_IfStmt_Else.mark()
 	p.expect(TKw_if, "'if'")
-	n.Cond = p.parseExpr()
-	n.Label = p.text(p.expect(TLabel, "a label"))
-	n.Then = p.parseBlock()
+	n.SetCond(p.parseExpr())
+	n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
+	n.SetThen(p.parseBlock())
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
-		n.End = p.parseEndLabel()
+		n.SetEnd(p.parseEndLabel())
 	}
 	if p.at(TKw_else) {
 		p.expect(TKw_else, "'else'")
-		n.HasElse = true
+		n.SetHasElse()
 		switch p.cur().Kind() {
 		case TKw_if:
-			p.lists.Stmt.push(p.parseIfStmt())
+			p.lists.ids_IfStmt_Else.push(uint32(p.parseIfStmt().Stmt().ID))
 		case TLabel:
-			n.ElseLabel = p.text(p.expect(TLabel, "a label"))
-			n.Else = p.parseBlock()
+			n.SetElseLabelRef(p.textRef(p.expect(TLabel, "a label")))
+			n.SetElse(p.parseBlock())
 			p.expect(TKw_end, "'end'")
 			if p.at(TLabel) {
-				n.ElseEnd = p.parseEndLabel()
+				n.SetElseEnd(p.parseEndLabel())
 			}
 		default:
 			panic(p.expected("'if' or a label"))
 		}
 	}
-	if p.lists.Stmt.pushedSince(mark_n_Else) {
-		n.Else = p.lists.Stmt.take(mark_n_Else)
+	if p.lists.ids_IfStmt_Else.pushedSince(mark_n_Else) {
+		n.SetElse(takeList[ast.Stmt](p, &p.lists.ids_IfStmt_Else, mark_n_Else))
 	}
 	return n
 }
 
-func (p *Parser) parseWhileStmt() *ast.WhileStmt {
+func (p *Parser) parseWhileStmt() ast.WhileStmt {
 	t := p.cur()
-	n := p.arena.NewWhileStmt()
-	place(p, n, t)
+	n := p.tree.NewWhileStmt(t.Start)
 	p.expect(TKw_while, "'while'")
-	n.Cond = p.parseExpr()
-	n.Label = p.text(p.expect(TLabel, "a label"))
-	n.Body = p.parseBlock()
+	n.SetCond(p.parseExpr())
+	n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
+	n.SetBody(p.parseBlock())
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
-		n.End = p.parseEndLabel()
+		n.SetEnd(p.parseEndLabel())
 	}
 	return n
 }
 
-func (p *Parser) parseForStmt() *ast.ForStmt {
+func (p *Parser) parseForStmt() ast.ForStmt {
 	t := p.cur()
-	n := p.arena.NewForStmt()
-	place(p, n, t)
+	n := p.tree.NewForStmt(t.Start)
 	p.expect(TKw_for, "'for'")
 	if !p.in(&lookahead8) {
 		panic(p.expected("'_' or a name"))
 	}
-	n.Var = p.text(p.next())
+	n.SetVarRef(p.textRef(p.next()))
 	p.expect(TKw_in, "'in'")
-	n.From = p.parseExpr()
+	n.SetFrom(p.parseExpr())
 	switch p.cur().Kind() {
 	case TKw_to:
 		p.expect(TKw_to, "'to'")
-		n.Inclusive = true
+		n.SetInclusive()
 	case TKw_upto:
 		p.expect(TKw_upto, "'upto'")
 	default:
 		panic(p.expected("'to' or 'upto'"))
 	}
-	n.To = p.parseExpr()
-	n.Label = p.text(p.expect(TLabel, "a label"))
-	n.Body = p.parseBlock()
+	n.SetTo(p.parseExpr())
+	n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
+	n.SetBody(p.parseBlock())
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
-		n.End = p.parseEndLabel()
+		n.SetEnd(p.parseEndLabel())
 	}
 	return n
 }
 
-func (p *Parser) parseReturnStmt() *ast.ReturnStmt {
+func (p *Parser) parseReturnStmt() ast.ReturnStmt {
 	t := p.cur()
-	n := p.arena.NewReturnStmt()
-	place(p, n, t)
+	n := p.tree.NewReturnStmt(t.Start)
 	p.expect(TKw_return, "'return'")
 	if p.in(&lookahead16) {
-		n.Value = p.parseExpr()
+		n.SetValue(p.parseExpr())
 	}
 	return n
 }
 
-func (p *Parser) parseBreakStmt() *ast.BreakStmt {
+func (p *Parser) parseBreakStmt() ast.BreakStmt {
 	t := p.cur()
-	n := p.arena.NewBreakStmt()
-	place(p, n, t)
+	n := p.tree.NewBreakStmt(t.Start)
 	p.expect(TKw_break, "'break'")
 	if p.at(TLabel) {
-		n.Label = p.text(p.expect(TLabel, "a label"))
+		n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
 	}
 	return n
 }
 
-func (p *Parser) parseContinueStmt() *ast.ContinueStmt {
+func (p *Parser) parseContinueStmt() ast.ContinueStmt {
 	t := p.cur()
-	n := p.arena.NewContinueStmt()
-	place(p, n, t)
+	n := p.tree.NewContinueStmt(t.Start)
 	p.expect(TKw_continue, "'continue'")
 	if p.at(TLabel) {
-		n.Label = p.text(p.expect(TLabel, "a label"))
+		n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
 	}
 	return n
 }
 
-func (p *Parser) parseMatchStmt() *ast.MatchStmt {
+func (p *Parser) parseMatchStmt() ast.MatchStmt {
 	t := p.cur()
-	n := p.arena.NewMatchStmt()
-	place(p, n, t)
-	n.Match = p.parseMatchCore()
+	n := p.tree.NewMatchStmt(t.Start)
+	n.SetMatch(p.parseMatchCore())
 	return n
 }
 
-func (p *Parser) parseWhenStmt() *ast.WhenStmt {
+func (p *Parser) parseWhenStmt() ast.WhenStmt {
 	t := p.cur()
-	n := p.arena.NewWhenStmt()
-	place(p, n, t)
-	mark_n_Cowns := p.lists.ptr_NameExpr.mark()
-	mark_n_Names := p.lists.string.mark()
+	n := p.tree.NewWhenStmt(t.Start)
+	mark_n_Cowns := p.lists.ids_WhenStmt_Cowns.mark()
+	mark_n_Names := p.lists.ids_WhenStmt_Names.mark()
 	p.expect(TKw_when, "'when'")
-	p.lists.ptr_NameExpr.push(p.parseNameExpr())
+	p.lists.ids_WhenStmt_Cowns.push(uint32(p.parseNameExpr().ID))
 	for p.at(TComma) {
 		p.expect(TComma, "','")
-		p.lists.ptr_NameExpr.push(p.parseNameExpr())
+		p.lists.ids_WhenStmt_Cowns.push(uint32(p.parseNameExpr().ID))
 	}
 	p.expect(TKw_as, "'as'")
-	p.lists.string.push(p.text(p.expect(TName, "a name")))
+	p.lists.ids_WhenStmt_Names.push(p.textRef(p.expect(TName, "a name")))
 	for p.at(TComma) {
 		p.expect(TComma, "','")
-		p.lists.string.push(p.text(p.expect(TName, "a name")))
+		p.lists.ids_WhenStmt_Names.push(p.textRef(p.expect(TName, "a name")))
 	}
-	n.Label = p.text(p.expect(TLabel, "a label"))
-	n.Body = p.parseBlock()
+	n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
+	n.SetBody(p.parseBlock())
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) {
-		n.End = p.parseEndLabel()
+		n.SetEnd(p.parseEndLabel())
 	}
-	n.Cowns = p.lists.ptr_NameExpr.take(mark_n_Cowns)
-	n.Names = p.lists.string.take(mark_n_Names)
+	n.SetCowns(takeList[ast.NameExpr](p, &p.lists.ids_WhenStmt_Cowns, mark_n_Cowns))
+	n.SetNames(takeTexts(p, &p.lists.ids_WhenStmt_Names, mark_n_Names))
 	return n
 }
 
-func (p *Parser) parseMatchCore() *ast.MatchCore {
+func (p *Parser) parseMatchCore() ast.MatchCore {
 	t := p.cur()
-	n := p.arena.NewMatchCore()
-	place(p, n, t)
-	mark_n_Arms := p.lists.ptr_MatchArm.mark()
+	n := p.tree.NewMatchCore(t.Start)
+	mark_n_Arms := p.lists.ids_MatchCore_Arms.mark()
 	p.expect(TKw_match, "'match'")
 	if p.at(TKw_consumes) {
 		p.expect(TKw_consumes, "'consumes'")
-		n.Consumes = true
+		n.SetConsumes()
 	}
-	n.Subject = p.parseExpr()
-	n.Label = p.text(p.expect(TLabel, "a label"))
+	n.SetSubject(p.parseExpr())
+	n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
 		p.expect(TIndent, "an indented line")
-		p.lists.ptr_MatchArm.push(p.parseMatchArm())
+		p.lists.ids_MatchCore_Arms.push(uint32(p.parseMatchArm().ID))
 		p.expect(TNewline, "the end of the line")
 		for p.in(&lookahead17) {
-			p.lists.ptr_MatchArm.push(p.parseMatchArm())
+			p.lists.ids_MatchCore_Arms.push(uint32(p.parseMatchArm().ID))
 			p.expect(TNewline, "the end of the line")
 		}
 		p.expect(TDedent, "the end of the indented lines")
 	}
 	p.expect(TKw_end, "'end'")
 	if p.at(TLabel) && p.peekIn(&lookahead18) {
-		n.End = p.parseEndLabel()
+		n.SetEnd(p.parseEndLabel())
 	}
-	n.Arms = p.lists.ptr_MatchArm.take(mark_n_Arms)
+	n.SetArms(takeList[ast.MatchArm](p, &p.lists.ids_MatchCore_Arms, mark_n_Arms))
 	return n
 }
 
-func (p *Parser) parseMatchArm() *ast.MatchArm {
+func (p *Parser) parseMatchArm() ast.MatchArm {
 	t := p.cur()
-	n := p.arena.NewMatchArm()
-	place(p, n, t)
-	mark_n_Patterns := p.lists.ptr_Pattern.mark()
+	n := p.tree.NewMatchArm(t.Start)
+	mark_n_Patterns := p.lists.ids_MatchArm_Patterns.mark()
 	switch p.cur().Kind() {
 	case TKw_default:
 		p.expect(TKw_default, "'default'")
-		n.IsDefault = true
+		n.SetIsDefault()
 	case TInteger, TKw_false, TKw_true, TMinus, TName, TString:
-		p.lists.ptr_Pattern.push(p.parsePattern())
+		p.lists.ids_MatchArm_Patterns.push(uint32(p.parsePattern().ID))
 		for p.at(TKw_or) {
 			p.expect(TKw_or, "'or'")
 			p.expect(TNewline, "the end of the line")
-			p.lists.ptr_Pattern.push(p.parsePattern())
+			p.lists.ids_MatchArm_Patterns.push(uint32(p.parsePattern().ID))
 		}
 	default:
 		panic(p.expected("an integer, 'default', 'false', 'true', '-', a name or a string"))
@@ -1002,65 +982,64 @@ func (p *Parser) parseMatchArm() *ast.MatchArm {
 	switch p.cur().Kind() {
 	case TKw_then:
 		p.expect(TKw_then, "'then'")
-		n.Action = p.parseStmt()
+		n.SetAction(p.parseStmt())
 	case TKw_gives:
 		p.expect(TKw_gives, "'gives'")
-		n.Gives = true
-		n.Value = p.parseExpr()
+		n.SetGives()
+		n.SetValue(p.parseExpr())
 	case TKw_panic:
-		n.Value = p.parsePanicExpr()
+		n.SetValue(p.parsePanicExpr().Expr())
 	default:
 		panic(p.expected("'gives', 'panic' or 'then'"))
 	}
-	n.Patterns = p.lists.ptr_Pattern.take(mark_n_Patterns)
+	n.SetPatterns(takeList[ast.Pattern](p, &p.lists.ids_MatchArm_Patterns, mark_n_Patterns))
 	return n
 }
 
-func (p *Parser) parsePattern() *ast.Pattern {
+func (p *Parser) parsePattern() ast.Pattern {
 	t := p.cur()
-	n := p.arena.NewPattern()
-	place(p, n, t)
-	mark_n_Bindings := p.lists.string.mark()
+	n := p.tree.NewPattern(t.Start)
+	mark_n_Bindings := p.lists.ids_Pattern_Bindings.mark()
 	switch p.cur().Kind() {
 	case TName:
-		n.CaseName = p.text(p.expect(TName, "a name"))
+		n.SetCaseNameRef(p.textRef(p.expect(TName, "a name")))
 		if p.at(TLParen) {
 			p.joinNext = true
 			p.expect(TLParen, "'('")
-			n.HasBindings = true
+			n.SetHasBindings()
 			if p.in(&lookahead8) {
 				if !p.in(&lookahead8) {
 					panic(p.expected("'_' or a name"))
 				}
-				p.lists.string.push(p.text(p.next()))
+				p.lists.ids_Pattern_Bindings.push(p.textRef(p.next()))
 				for p.at(TComma) {
 					p.expect(TComma, "','")
 					if !p.in(&lookahead8) {
 						panic(p.expected("'_' or a name"))
 					}
-					p.lists.string.push(p.text(p.next()))
+					p.lists.ids_Pattern_Bindings.push(p.textRef(p.next()))
 				}
 			}
 			p.expect(TRParen, "')'")
 		}
 	case TInteger, TKw_false, TKw_true, TMinus, TString:
-		n.Value = p.parsePatternValue()
+		n.SetValue(p.parsePatternValue())
 		if p.in(&lookahead19) {
 			switch p.cur().Kind() {
 			case TKw_to:
 				p.expect(TKw_to, "'to'")
-				n.Inclusive = true
+				n.SetInclusive()
 			case TKw_upto:
 				p.expect(TKw_upto, "'upto'")
 			default:
 				panic(p.expected("'to' or 'upto'"))
 			}
-			n.High = p.parsePatternValue()
+			n.SetHigh(p.parsePatternValue())
 		}
 	default:
 		panic(p.expected("a pattern"))
 	}
-	n.Bindings = p.lists.string.take(mark_n_Bindings)
+	n.SetBindings(takeTexts(p, &p.lists.ids_Pattern_Bindings, mark_n_Bindings))
 	return n
 }
 
@@ -1068,11 +1047,11 @@ func (p *Parser) parsePatternValue() ast.Expr {
 	var value ast.Expr
 	switch p.cur().Kind() {
 	case TInteger, TMinus:
-		value = p.parseIntLit()
+		value = p.parseIntLit().Expr()
 	case TString:
-		value = p.parseStrLit()
+		value = p.parseStrLit().Expr()
 	case TKw_false, TKw_true:
-		value = p.parseBoolLit()
+		value = p.parseBoolLit().Expr()
 	default:
 		panic(p.expected("a literal pattern"))
 	}
@@ -1087,38 +1066,37 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 	t := p.cur()
 	var left ast.Expr
 	if p.at(TInteger) || (p.at(TMinus) && p.peekIs(TInteger)) {
-		left = p.parseIntLit()
+		left = p.parseIntLit().Expr()
 	} else if p.at(TString) {
-		left = p.parseStrLit()
+		left = p.parseStrLit().Expr()
 	} else if p.in(&lookahead20) {
-		left = p.parseBoolLit()
+		left = p.parseBoolLit().Expr()
 	} else if (p.at(TKw_Self) && p.peekIs(TLBrace)) || (p.at(TName) && p.peekIs(TLBrace)) {
-		left = p.parseStructLitExpr()
+		left = p.parseStructLitExpr().Expr()
 	} else if p.at(TKw_self) {
-		left = p.parseSelfExpr()
+		left = p.parseSelfExpr().Expr()
 	} else if p.in(&lookahead13) {
-		left = p.parseNameExpr()
+		left = p.parseNameExpr().Expr()
 	} else if p.at(TKw_panic) {
-		left = p.parsePanicExpr()
+		left = p.parsePanicExpr().Expr()
 	} else if p.at(TKw_match) {
-		left = p.parseMatchExpr()
+		left = p.parseMatchExpr().Expr()
 	} else if p.at(TLParen) {
 		p.expect(TLParen, "'('")
 		left = p.parseExpr()
 		p.expect(TRParen, "')'")
 	} else if p.in(&lookahead21) {
-		n := p.arena.NewUnaryExpr()
-		place(p, n, t)
+		n := p.tree.NewUnaryExpr(t.Start)
 		if !p.in(&lookahead21) {
 			panic(p.expected("'not' or '-'"))
 		}
 		{
 			joins := p.at(TMinus)
-			n.Op = p.text(p.next())
+			n.SetOp(p.text(p.next()))
 			p.joinNext = p.joinNext || joins
 		}
-		n.E = p.parseExprPrec(10)
-		left = n
+		n.SetE(p.parseExprPrec(10))
+		left = n.Expr()
 	} else {
 		panic(p.expected("an expression"))
 	}
@@ -1128,188 +1106,173 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 13 < minPrec {
 				return left
 			}
-			n := p.arena.NewMemberExpr()
-			place(p, n, p.cur())
-			n.Obj = left
+			n := p.tree.NewMemberExpr(p.cur().Start)
+			n.SetObj(left)
 			p.expect(TDot, "'.'")
-			n.Name = p.text(p.expect(TName, "a name"))
-			left = n
+			n.SetNameRef(p.textRef(p.expect(TName, "a name")))
+			left = n.Expr()
 		case TLBracket:
 			if 12 < minPrec {
 				return left
 			}
-			n := p.arena.NewIndexExpr()
-			place(p, n, p.cur())
-			mark_n_Args := p.lists.Expr.mark()
-			n.Obj = left
+			n := p.tree.NewIndexExpr(p.cur().Start)
+			mark_n_Args := p.lists.ids_IndexExpr_Args.mark()
+			n.SetObj(left)
 			p.expect(TLBracket, "'['")
-			p.lists.Expr.push(p.parseExpr())
+			p.lists.ids_IndexExpr_Args.push(uint32(p.parseExpr().ID))
 			for p.at(TComma) {
 				p.expect(TComma, "','")
-				p.lists.Expr.push(p.parseExpr())
+				p.lists.ids_IndexExpr_Args.push(uint32(p.parseExpr().ID))
 			}
 			p.expect(TRBracket, "']'")
-			n.Args = p.lists.Expr.take(mark_n_Args)
-			left = n
+			n.SetArgs(takeList[ast.Expr](p, &p.lists.ids_IndexExpr_Args, mark_n_Args))
+			left = n.Expr()
 		case TLParen:
 			if 11 < minPrec {
 				return left
 			}
-			n := p.arena.NewCallExpr()
-			place(p, n, p.cur())
-			mark_n_Args := p.lists.ptr_Arg.mark()
-			n.Callee = left
+			n := p.tree.NewCallExpr(p.cur().Start)
+			mark_n_Args := p.lists.ids_CallExpr_Args.mark()
+			n.SetCallee(left)
 			p.joinNext = true
 			p.expect(TLParen, "'('")
 			if p.in(&lookahead16) {
-				p.lists.ptr_Arg.push(p.parseArg())
+				p.lists.ids_CallExpr_Args.push(uint32(p.parseArg().ID))
 				for p.at(TComma) {
 					p.expect(TComma, "','")
-					p.lists.ptr_Arg.push(p.parseArg())
+					p.lists.ids_CallExpr_Args.push(uint32(p.parseArg().ID))
 				}
 			}
 			p.expect(TRParen, "')'")
-			n.Args = p.lists.ptr_Arg.take(mark_n_Args)
-			left = n
+			n.SetArgs(takeList[ast.Arg](p, &p.lists.ids_CallExpr_Args, mark_n_Args))
+			left = n.Expr()
 		case TKw_as:
 			if 9 < minPrec {
 				return left
 			}
-			n := p.arena.NewCastExpr()
-			place(p, n, p.cur())
-			n.E = left
+			n := p.tree.NewCastExpr(p.cur().Start)
+			n.SetE(left)
 			p.expect(TKw_as, "'as'")
-			n.Target = p.parseTypeRef()
-			left = n
+			n.SetTarget(p.parseTypeRef())
+			left = n.Expr()
 		case TKw_mod, TSlash, TStar:
 			if 8 < minPrec {
 				return left
 			}
-			n := p.arena.NewBinaryExpr()
-			place(p, n, p.cur())
-			n.L = left
+			n := p.tree.NewBinaryExpr(p.cur().Start)
+			n.SetL(left)
 			if !p.in(&lookahead22) {
 				panic(p.expected("'mod', '/' or '*'"))
 			}
-			n.Op = p.text(p.next())
-			n.R = p.parseExprPrec(9)
-			left = n
+			n.SetOp(p.text(p.next()))
+			n.SetR(p.parseExprPrec(9))
+			left = n.Expr()
 		case TMinus, TPlus:
 			if 7 < minPrec {
 				return left
 			}
-			n := p.arena.NewBinaryExpr()
-			place(p, n, p.cur())
-			n.L = left
+			n := p.tree.NewBinaryExpr(p.cur().Start)
+			n.SetL(left)
 			if !p.in(&lookahead23) {
 				panic(p.expected("'-' or '+'"))
 			}
-			n.Op = p.text(p.next())
-			n.R = p.parseExprPrec(8)
-			left = n
+			n.SetOp(p.text(p.next()))
+			n.SetR(p.parseExprPrec(8))
+			left = n.Expr()
 		case TKw_shl, TKw_shr:
 			if 6 < minPrec {
 				return left
 			}
-			n := p.arena.NewBinaryExpr()
-			place(p, n, p.cur())
-			n.L = left
+			n := p.tree.NewBinaryExpr(p.cur().Start)
+			n.SetL(left)
 			if !p.in(&lookahead24) {
 				panic(p.expected("'shl' or 'shr'"))
 			}
-			n.Op = p.text(p.next())
-			n.R = p.parseExprPrec(7)
-			left = n
+			n.SetOp(p.text(p.next()))
+			n.SetR(p.parseExprPrec(7))
+			left = n.Expr()
 		case TEqEq, TGe, TGt, TLe, TLt, TNotEq:
 			if 5 < minPrec {
 				return left
 			}
-			n := p.arena.NewBinaryExpr()
-			place(p, n, p.cur())
-			n.L = left
+			n := p.tree.NewBinaryExpr(p.cur().Start)
+			n.SetL(left)
 			if !p.in(&lookahead25) {
 				panic(p.expected("'==', '>=', '>', '<=', '<' or '!='"))
 			}
-			n.Op = p.text(p.next())
-			n.R = p.parseExprPrec(6)
-			left = n
+			n.SetOp(p.text(p.next()))
+			n.SetR(p.parseExprPrec(6))
+			left = n.Expr()
 		case TKw_and:
 			if 4 < minPrec {
 				return left
 			}
-			n := p.arena.NewBinaryExpr()
-			place(p, n, p.cur())
-			n.L = left
-			n.Op = p.text(p.expect(TKw_and, "'and'"))
-			n.R = p.parseExprPrec(5)
-			left = n
+			n := p.tree.NewBinaryExpr(p.cur().Start)
+			n.SetL(left)
+			n.SetOp(p.text(p.expect(TKw_and, "'and'")))
+			n.SetR(p.parseExprPrec(5))
+			left = n.Expr()
 		case TKw_xor:
 			if 3 < minPrec {
 				return left
 			}
-			n := p.arena.NewBinaryExpr()
-			place(p, n, p.cur())
-			n.L = left
-			n.Op = p.text(p.expect(TKw_xor, "'xor'"))
-			n.R = p.parseExprPrec(4)
-			left = n
+			n := p.tree.NewBinaryExpr(p.cur().Start)
+			n.SetL(left)
+			n.SetOp(p.text(p.expect(TKw_xor, "'xor'")))
+			n.SetR(p.parseExprPrec(4))
+			left = n.Expr()
 		case TKw_or:
 			if 2 < minPrec {
 				return left
 			}
-			n := p.arena.NewBinaryExpr()
-			place(p, n, p.cur())
-			n.L = left
-			n.Op = p.text(p.expect(TKw_or, "'or'"))
-			n.R = p.parseExprPrec(3)
-			left = n
+			n := p.tree.NewBinaryExpr(p.cur().Start)
+			n.SetL(left)
+			n.SetOp(p.text(p.expect(TKw_or, "'or'")))
+			n.SetR(p.parseExprPrec(3))
+			left = n.Expr()
 		case TKw_if:
 			if 1 < minPrec {
 				return left
 			}
-			n := p.arena.NewCondExpr()
-			place(p, n, p.cur())
-			n.Then = left
+			n := p.tree.NewCondExpr(p.cur().Start)
+			n.SetThen(left)
 			p.expect(TKw_if, "'if'")
-			n.Cond = p.parseExpr()
+			n.SetCond(p.parseExpr())
 			p.expect(TKw_else, "'else'")
-			n.Else = p.parseExprPrec(1)
-			left = n
+			n.SetElse(p.parseExprPrec(1))
+			left = n.Expr()
 		default:
 			return left
 		}
 	}
 }
 
-func (p *Parser) parseIntLit() *ast.IntLit {
+func (p *Parser) parseIntLit() ast.IntLit {
 	t := p.cur()
-	n := p.arena.NewIntLit()
-	place(p, n, t)
+	n := p.tree.NewIntLit(t.Start)
 	if p.at(TMinus) {
 		p.expect(TMinus, "'-'")
-		n.Negative = true
+		n.SetNegative()
 		p.joinNext = true
 	}
-	n.Magnitude = p.intLitMagnitude(p.expect(TInteger, "an integer"))
+	n.SetMagnitude(p.intLitMagnitude(p.expect(TInteger, "an integer")))
 	return n
 }
 
-func (p *Parser) parseStrLit() *ast.StrLit {
+func (p *Parser) parseStrLit() ast.StrLit {
 	t := p.cur()
-	n := p.arena.NewStrLit()
-	place(p, n, t)
-	n.Parts = p.strLitParts(p.expect(TString, "a string"))
+	n := p.tree.NewStrLit(t.Start)
+	n.SetPartsRef(p.strLitParts(p.expect(TString, "a string")))
 	return n
 }
 
-func (p *Parser) parseBoolLit() *ast.BoolLit {
+func (p *Parser) parseBoolLit() ast.BoolLit {
 	t := p.cur()
-	n := p.arena.NewBoolLit()
-	place(p, n, t)
+	n := p.tree.NewBoolLit(t.Start)
 	switch p.cur().Kind() {
 	case TKw_true:
 		p.expect(TKw_true, "'true'")
-		n.Value = true
+		n.SetValue()
 	case TKw_false:
 		p.expect(TKw_false, "'false'")
 	default:
@@ -1318,85 +1281,78 @@ func (p *Parser) parseBoolLit() *ast.BoolLit {
 	return n
 }
 
-func (p *Parser) parseNameExpr() *ast.NameExpr {
+func (p *Parser) parseNameExpr() ast.NameExpr {
 	t := p.cur()
-	n := p.arena.NewNameExpr()
-	place(p, n, t)
+	n := p.tree.NewNameExpr(t.Start)
 	if !p.in(&lookahead13) {
 		panic(p.expected("'Self' or a name"))
 	}
-	n.Name = p.text(p.next())
+	n.SetNameRef(p.textRef(p.next()))
 	return n
 }
 
-func (p *Parser) parseSelfExpr() *ast.SelfExpr {
+func (p *Parser) parseSelfExpr() ast.SelfExpr {
 	t := p.cur()
-	n := p.arena.NewSelfExpr()
-	place(p, n, t)
+	n := p.tree.NewSelfExpr(t.Start)
 	p.expect(TKw_self, "'self'")
 	return n
 }
 
-func (p *Parser) parseStructLitExpr() *ast.StructLitExpr {
+func (p *Parser) parseStructLitExpr() ast.StructLitExpr {
 	t := p.cur()
-	n := p.arena.NewStructLitExpr()
-	place(p, n, t)
-	mark_n_Fields := p.lists.ptr_StructField.mark()
+	n := p.tree.NewStructLitExpr(t.Start)
+	mark_n_Fields := p.lists.ids_StructLitExpr_Fields.mark()
 	if !p.in(&lookahead13) {
 		panic(p.expected("'Self' or a name"))
 	}
-	n.TypeName = p.text(p.next())
+	n.SetTypeNameRef(p.textRef(p.next()))
 	p.expect(TLBrace, "'{'")
 	if p.at(TName) {
-		p.lists.ptr_StructField.push(p.parseStructField())
+		p.lists.ids_StructLitExpr_Fields.push(uint32(p.parseStructField().ID))
 		for p.at(TComma) {
 			p.expect(TComma, "','")
-			p.lists.ptr_StructField.push(p.parseStructField())
+			p.lists.ids_StructLitExpr_Fields.push(uint32(p.parseStructField().ID))
 		}
 	}
 	p.expect(TRBrace, "'}'")
-	n.Fields = p.lists.ptr_StructField.take(mark_n_Fields)
+	n.SetFields(takeList[ast.StructField](p, &p.lists.ids_StructLitExpr_Fields, mark_n_Fields))
 	return n
 }
 
-func (p *Parser) parseStructField() *ast.StructField {
+func (p *Parser) parseStructField() ast.StructField {
 	t := p.cur()
-	n := p.arena.NewStructField()
-	place(p, n, t)
-	n.Name = p.text(p.expect(TName, "a name"))
+	n := p.tree.NewStructField(t.Start)
+	n.SetNameRef(p.textRef(p.expect(TName, "a name")))
 	p.expect(TColon, "':'")
-	n.Value = p.parseExpr()
+	n.SetValue(p.parseExpr())
 	return n
 }
 
-func (p *Parser) parseArg() *ast.Arg {
+func (p *Parser) parseArg() ast.Arg {
 	t := p.cur()
-	n := p.arena.NewArg()
-	place(p, n, t)
+	n := p.tree.NewArg(t.Start)
 	if p.at(TName) && p.peekIs(TColon) {
-		n.Label = p.text(p.expect(TName, "a name"))
+		n.SetLabelRef(p.textRef(p.expect(TName, "a name")))
 		p.expect(TColon, "':'")
 	}
-	n.Value = p.parseExpr()
+	n.SetValue(p.parseExpr())
 	return n
 }
 
-func (p *Parser) parsePanicExpr() *ast.PanicExpr {
+func (p *Parser) parsePanicExpr() ast.PanicExpr {
 	t := p.cur()
-	n := p.arena.NewPanicExpr()
-	place(p, n, t)
+	n := p.tree.NewPanicExpr(t.Start)
 	p.expect(TKw_panic, "'panic'")
 	p.joinNext = true
 	p.expect(TLParen, "'('")
-	n.Message = p.parseExpr()
+	n.SetMessage(p.parseExpr())
 	p.expect(TRParen, "')'")
 	return n
 }
 
-func (p *Parser) parseMatchExpr() *ast.MatchExpr {
+func (p *Parser) parseMatchExpr() ast.MatchExpr {
 	t := p.cur()
-	n := p.arena.NewMatchExpr()
-	place(p, n, t)
-	n.Match = p.parseMatchCore()
+	n := p.tree.NewMatchExpr(t.Start)
+	n.SetMatch(p.parseMatchCore())
 	return n
 }

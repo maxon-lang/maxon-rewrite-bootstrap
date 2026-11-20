@@ -39,7 +39,7 @@ func DeclareAliases(proj *ast.Project, results []ast.ModuleResult) {
 	}
 	for _, m := range proj.Modules {
 		for _, d := range m.Decls {
-			if a, ok := d.(*ast.AliasDecl); ok && a.Instance != nil {
+			if a, ok := d.(*ast.AliasDecl); ok && !a.Instance.IsNil() {
 				diag.Guard(&results[m.ID].Errors, func() { visit(a) })
 			}
 		}
@@ -52,11 +52,11 @@ func DeclareAliases(proj *ast.Project, results []ast.ModuleResult) {
 }
 
 // namedAliases appends the typealiases of instances that a type reference names, itself or in its type arguments.
-func namedAliases(proj *ast.Project, resolution *ast.Resolution, tr *ast.TypeRef, out []*ast.AliasDecl) []*ast.AliasDecl {
-	if a, ok := resolution.Decl(proj, tr.ID).(*ast.AliasDecl); ok && a.Instance != nil {
+func namedAliases(proj *ast.Project, resolution *ast.Resolution, tr ast.TypeRef, out []*ast.AliasDecl) []*ast.AliasDecl {
+	if a, ok := resolution.Decl(proj, tr.ID).(*ast.AliasDecl); ok && !a.Instance.IsNil() {
 		out = append(out, a)
 	}
-	for _, arg := range tr.TypeArgs {
+	for _, arg := range tr.TypeArgs().All() {
 		out = namedAliases(proj, resolution, arg, out)
 	}
 	return out

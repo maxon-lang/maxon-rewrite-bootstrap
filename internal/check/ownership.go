@@ -64,7 +64,7 @@ func (d ownDest) String() string {
 // ownFact is why a local holds no value, or only some of one: a move out of it, a declaration that left it
 // uninitialised, or moves of some of its fields.
 type ownFact struct {
-	site ast.Node
+	site ast.Pos
 	kind ownFactKind
 	dest ownDest
 	// parts is set for a partly moved local only.
@@ -123,7 +123,7 @@ func (d ownDrop) String() string {
 // does. site is where it is declared.
 type ownObliged struct {
 	local *ast.Local
-	site  ast.Node
+	site  ast.Pos
 	// destroys is the self of a destructor: it is not dropped as a whole, it ends by dropping the fields that are left.
 	destroys bool
 }
@@ -296,38 +296,38 @@ func (o *Ownership) run(f *ast.FuncDecl) {
 	s := ownClean
 	switch {
 	case f.IsDestructor():
-		o.obliged = append(o.obliged, ownObliged{local: f.SelfLocal, site: f, destroys: true})
+		o.obliged = append(o.obliged, ownObliged{local: f.SelfLocal, site: f.Position(), destroys: true})
 	case f.IsMethod() && f.SelfLocal.Conv == ast.ConvConsumes:
-		o.oblige(f.SelfLocal, f)
+		o.oblige(f.SelfLocal, f.Position())
 	}
 	for i, prm := range f.Params {
-		sym := f.LocalAt(o.typing.ParamLocal(prm))
+		sym := f.LocalAt(f.ParamLocals[i])
 		switch ast.ConventionOf(prm.Convention) {
 		case ast.ConvSets:
 			o.setParams = append(o.setParams, sym)
-			s = s.with(sym, ownFact{site: prm, kind: factUninitialised})
+			s = s.with(sym, ownFact{site: prm.Position(), kind: factUninitialised})
 		case ast.ConvConsumes:
 			if sym == nil {
-				o.requireDroppable(prm, f.ParamTypes[i], ownDrop{kind: dropParameter, name: prm.Name})
+				o.requireDroppable(prm.Position(), f.ParamTypes[i], ownDrop{kind: dropParameter, name: prm.Name})
 			} else {
-				o.oblige(sym, prm)
+				o.oblige(sym, prm.Position())
 			}
 		}
 	}
 	s = o.walk(f.Body, s)
 	o.endScope(0, s)
-	o.requireSetsInitialised(s, f)
+	o.requireSetsInitialised(s, f.Position())
 }
 
 // oblige records a local that owns a value of a type that cannot be dropped.
-func (o *Ownership) oblige(l *ast.Local, site ast.Node) {
+func (o *Ownership) oblige(l *ast.Local, site ast.Pos) {
 	if l.Type.IsManaged() && o.checker.lacks(droppable, l.Type) != nil {
 		o.obliged = append(o.obliged, ownObliged{local: l, site: site})
 	}
 }
 
 // requireDroppable is E3136: a value of type t is dropped implicitly, which only a type with Droppable allows.
-func (o *Ownership) requireDroppable(site ast.Node, t ast.Ty, d ownDrop) {
+func (o *Ownership) requireDroppable(site ast.Pos, t ast.Ty, d ownDrop) {
 	if !t.IsManaged() {
 		return
 	}
@@ -339,13 +339,13 @@ func (o *Ownership) requireDroppable(site ast.Node, t ast.Ty, d ownDrop) {
 // requireTemporaryDroppable is the drop of a fresh value that the statement does not give to anything.
 func (o *Ownership) requireTemporaryDroppable(e ast.Expr, s *ownState, kind ownDropKind) {
 	if !s.dead && o.ty(e).IsManaged() && !o.typing.IsStorage(e) {
-		o.requireDroppable(e, o.ty(e), ownDrop{kind: kind})
+		o.requireDroppable(e.Position(), o.ty(e), ownDrop{kind: kind})
 	}
 }
 
 // requireEnded checks the obliged locals from index from on at a place where they are dropped: each must hold nothing.
 // The scope's end reports at the declaration, an exit at its own statement.
-func (o *Ownership) requireEnded(from int, s *ownState, site ast.Node, kind ownDropKind) {
+func (o *Ownership) requireEnded(from int, s *ownState, site ast.Pos, kind ownDropKind) {
 	if s.dead {
 		return
 	}
@@ -371,7 +371,7 @@ func (o *Ownership) endScope(mark int, s *ownState) *ownState {
 	if len(o.obliged) == mark {
 		return s
 	}
-	o.requireEnded(mark, s, nil, dropScopeEnd)
+	o.requireEnded(mark, s, ast.Pos{}, dropScopeEnd)
 	s = o.strip(mark, s)
 	o.obliged = o.obliged[:mark]
 	return s
@@ -379,7 +379,7 @@ func (o *Ownership) endScope(mark int, s *ownState) *ownState {
 
 // leave is a jump out of the scopes above from: their obliged locals must hold nothing, and their facts do not travel
 // on to where the jump lands.
-func (o *Ownership) leave(from int, s *ownState, site ast.Node, kind ownDropKind) *ownState {
+func (o *Ownership) leave(from int, s *ownState, site ast.Pos, kind ownDropKind) *ownState {
 	if len(o.obliged) == from {
 		return s
 	}
@@ -434,10 +434,10 @@ func (o *Ownership) report(err *diag.CompileError) {
 }
 
 // lineOf is the line a site is on, for a message that says where a value was moved to.
-func (o *Ownership) lineOf(site ast.Node) int { return o.checker.project.Line(*site.P()) }
+func (o *Ownership) lineOf(site ast.Pos) int { return o.checker.project.Line(site.Position()) }
 
-func (o *Ownership) fail(site ast.Node, code, format string, args ...any) {
-	o.report(site.P().Error(code, fmt.Sprintf(format, args...)))
+func (o *Ownership) fail(site ast.Pos, code, format string, args ...any) {
+	o.report(site.Position().Error(code, fmt.Sprintf(format, args...)))
 }
 
 // pushFrame opens a frame for a loop or match, reusing the frames of earlier ones: a function with loops would
@@ -463,9 +463,9 @@ func (o *Ownership) frameOf(target ast.NodeID) *ownFrame {
 }
 
 // walk checks a block, which is a scope: the locals it declares end with it.
-func (o *Ownership) walk(body []ast.Stmt, s *ownState) *ownState {
+func (o *Ownership) walk(body ast.StmtList, s *ownState) *ownState {
 	mark := len(o.obliged)
-	for _, st := range body {
+	for _, st := range body.All() {
 		s = o.stmt(st, s)
 	}
 	return o.endScope(mark, s)
@@ -475,75 +475,81 @@ func (o *Ownership) stmt(st ast.Stmt, s *ownState) *ownState {
 	return ast.VisitStmtState[*ownState, *ownState](o, st, s)
 }
 
-func (o *Ownership) VisitLetStmt(st *ast.LetStmt, s *ownState) *ownState {
+func (o *Ownership) VisitLetStmt(st ast.LetStmt, s *ownState) *ownState {
 	sym := o.fn.LocalAt(o.typing.LetLocal(st))
-	if st.Init == nil {
-		o.oblige(sym, st)
-		return s.with(sym, ownFact{site: st, kind: factUninitialised})
+	if st.Init().IsNil() {
+		o.oblige(sym, st.Position())
+		return s.with(sym, ownFact{site: st.Position(), kind: factUninitialised})
 	}
-	s = o.consume(st.Init, ownDest{kind: destVariable, name: st.Name}, s)
-	o.oblige(sym, st)
+	s = o.consume(st.Init(), ownDest{kind: destVariable, name: st.Name()}, s)
+	o.oblige(sym, st.Position())
 	return s.without(sym)
 }
 
-func (o *Ownership) VisitAssignStmt(st *ast.AssignStmt, s *ownState) *ownState {
-	switch target := st.Target.(type) {
-	case *ast.NameExpr:
+func (o *Ownership) VisitAssignStmt(st ast.AssignStmt, s *ownState) *ownState {
+	switch st.Target().Kind() {
+	case ast.KindNameExpr:
+		target := st.Target().ToNameExpr()
+
 		name := o.typing.Name(target)
 		switch name.Kind() {
 		case ast.NameLocal:
 			local := name.Local(o.fn)
-			s = o.consume(st.Value, ownDest{kind: destVariable, name: target.Name}, s)
-			o.requireWritable(st, accessPath{root: local})
+			s = o.consume(st.Value(), ownDest{kind: destVariable, name: target.Name()}, s)
+			o.requireWritable(st.Position(), accessPath{root: local})
 			if !s.dead {
-				o.requireHeld(st, ownObliged{local: local}, s, dropOverwrite)
+				o.requireHeld(st.Position(), ownObliged{local: local}, s, dropOverwrite)
 			}
 			return s.without(local)
 		case ast.NameSelfField:
-			s = o.consumeInto(target, st.Value, ownDest{kind: destField, name: target.Name}, s)
-			p, _ := o.pathOf(target, o.steps[:0])
-			o.requireWritable(st, p)
-			if next, done := o.assignPart(st, target, p, s); done {
+			s = o.consumeInto(target.Expr(), st.Value(), ownDest{kind: destField, name: target.Name()}, s)
+			p, _ := o.pathOf(target.Expr(), o.steps[:0])
+			o.requireWritable(st.Position(), p)
+			if next, done := o.assignPart(st, target.Expr(), p, s); done {
 				return next
 			}
-			o.requireOverwriteDroppable(st, target, s)
-			return o.readRoot(o.fn.SelfLocal, target, s)
+			o.requireOverwriteDroppable(st, target.Expr(), s)
+			return o.readRoot(o.fn.SelfLocal, target.Position(), s)
 		case ast.NameConst:
-			s = o.consume(st.Value, ownDest{kind: destVariable, name: target.Name}, s)
-			o.fail(st, diag.ErrAssignToImmutable, "'%s' is a constant and cannot be reassigned", target.Name)
+			s = o.consume(st.Value(), ownDest{kind: destVariable, name: target.Name()}, s)
+			o.fail(st.Position(), diag.ErrAssignToImmutable, "'%s' is a constant and cannot be reassigned", target.Name())
 			return s
 		}
-	case *ast.MemberExpr:
-		s = o.consumeInto(target, st.Value, ownDest{kind: destField, name: target.Name}, s)
-		p, ok := o.pathOf(target, o.steps[:0])
+	case ast.KindMemberExpr:
+		target := st.Target().ToMemberExpr()
+
+		s = o.consumeInto(target.Expr(), st.Value(), ownDest{kind: destField, name: target.Name()}, s)
+		p, ok := o.pathOf(target.Expr(), o.steps[:0])
 		if !ok {
-			o.fail(st, diag.ErrAssignToImmutable, "the field '%s' belongs to a temporary value, so assigning it changes nothing; assign it on a variable", target.Name)
+			o.fail(st.Position(), diag.ErrAssignToImmutable, "the field '%s' belongs to a temporary value, so assigning it changes nothing; assign it on a variable", target.Name())
 			return s
 		}
-		o.requireWritable(st, p)
-		if next, done := o.assignPart(st, target, p, s); done {
+		o.requireWritable(st.Position(), p)
+		if next, done := o.assignPart(st, target.Expr(), p, s); done {
 			return next
 		}
-		o.requireOverwriteDroppable(st, target, s)
-		return o.eval(target.Obj, s)
-	case *ast.IndexExpr:
-		s = o.consumeInto(target, st.Value, ownDest{kind: destElement, name: placeText(target.Obj)}, s)
-		p, ok := o.pathOf(target, o.steps[:0])
+		o.requireOverwriteDroppable(st, target.Expr(), s)
+		return o.eval(target.Obj(), s)
+	case ast.KindIndexExpr:
+		target := st.Target().ToIndexExpr()
+
+		s = o.consumeInto(target.Expr(), st.Value(), ownDest{kind: destElement, name: placeText(target.Obj())}, s)
+		p, ok := o.pathOf(target.Expr(), o.steps[:0])
 		if !ok {
-			o.fail(st, diag.ErrAssignToImmutable, "the element belongs to a temporary collection, so assigning it changes nothing; assign it on a variable")
+			o.fail(st.Position(), diag.ErrAssignToImmutable, "the element belongs to a temporary collection, so assigning it changes nothing; assign it on a variable")
 			return s
 		}
-		o.requireWritable(st, p)
-		o.requireOverwriteDroppable(st, target, s)
-		return o.expr(target.Args[0], o.eval(target.Obj, s))
+		o.requireWritable(st.Position(), p)
+		o.requireOverwriteDroppable(st, target.Expr(), s)
+		return o.expr(target.Args().At(0), o.eval(target.Obj(), s))
 	}
 	panic(diag.Internal("ownership: unhandled assignment target"))
 }
 
 // requireOverwriteDroppable is the drop of the value a field or an element holds when an assignment replaces it.
-func (o *Ownership) requireOverwriteDroppable(st *ast.AssignStmt, target ast.Expr, s *ownState) {
+func (o *Ownership) requireOverwriteDroppable(st ast.AssignStmt, target ast.Expr, s *ownState) {
 	if !s.dead {
-		o.requireDroppable(st, o.ty(target), ownDrop{kind: dropOverwrite, name: placeText(target)})
+		o.requireDroppable(st.Position(), o.ty(target), ownDrop{kind: dropOverwrite, name: placeText(target)})
 	}
 }
 
@@ -558,86 +564,86 @@ func (o *Ownership) consumeInto(target ast.Expr, value ast.Expr, dest ownDest, s
 	return s
 }
 
-func (o *Ownership) VisitDiscardStmt(st *ast.DiscardStmt, s *ownState) *ownState {
-	s = o.eval(st.Value, s)
-	o.requireTemporaryDroppable(st.Value, s, dropDiscard)
+func (o *Ownership) VisitDiscardStmt(st ast.DiscardStmt, s *ownState) *ownState {
+	s = o.eval(st.Value(), s)
+	o.requireTemporaryDroppable(st.Value(), s, dropDiscard)
 	return s
 }
 
-func (o *Ownership) VisitExprStmt(st *ast.ExprStmt, s *ownState) *ownState {
-	s = o.expr(st.E, s)
-	if _, ok := st.E.(*ast.PanicExpr); ok {
+func (o *Ownership) VisitExprStmt(st ast.ExprStmt, s *ownState) *ownState {
+	s = o.expr(st.E(), s)
+	if _, ok := st.E().AsPanicExpr(); ok {
 		return ownUnreachable
 	}
 	return s
 }
 
-func (o *Ownership) VisitIfStmt(st *ast.IfStmt, s *ownState) *ownState {
-	s = o.expr(st.Cond, s)
-	a := o.walk(st.Then, s)
+func (o *Ownership) VisitIfStmt(st ast.IfStmt, s *ownState) *ownState {
+	s = o.expr(st.Cond(), s)
+	a := o.walk(st.Then(), s)
 	b := s
-	if st.HasElse {
-		b = o.walk(st.Else, s)
+	if st.HasElse() {
+		b = o.walk(st.Else(), s)
 	}
 	return o.join(a, b)
 }
 
-func (o *Ownership) VisitWhileStmt(st *ast.WhileStmt, s *ownState) *ownState {
-	return o.loop(st.ID, s, st.Body, st.Cond)
+func (o *Ownership) VisitWhileStmt(st ast.WhileStmt, s *ownState) *ownState {
+	return o.loop(st.ID, s, st.Body(), st.Cond())
 }
 
-func (o *Ownership) VisitForStmt(st *ast.ForStmt, s *ownState) *ownState {
-	return o.loop(st.ID, o.expr(st.To, o.expr(st.From, s)), st.Body, nil)
+func (o *Ownership) VisitForStmt(st ast.ForStmt, s *ownState) *ownState {
+	return o.loop(st.ID, o.expr(st.To(), o.expr(st.From(), s)), st.Body(), ast.Expr{})
 }
 
 // VisitWhenStmt schedules a behaviour. The cowns it names are only read: the behaviour takes a count of its own on each
 // when it is scheduled. Each variable its body uses moves into it, so the enclosing function cannot use it again, and
 // the body is checked as a function of its own.
-func (o *Ownership) VisitWhenStmt(st *ast.WhenStmt, s *ownState) *ownState {
-	for _, cn := range st.Cowns {
-		s = o.expr(cn, s)
+func (o *Ownership) VisitWhenStmt(st ast.WhenStmt, s *ownState) *ownState {
+	for _, cn := range st.Cowns().All() {
+		s = o.expr(cn.Expr(), s)
 	}
 	behaviour := o.typing.When(st)
 	for _, cp := range behaviour.Captures {
-		s = o.consume(cp.Ref, ownDest{kind: destBehaviour}, s)
+		s = o.consume(cp.Ref.Expr(), ownDest{kind: destBehaviour}, s)
 	}
 	NewOwnership(o.errors, o.checker).run(behaviour.Fn)
 	return s
 }
 
-func (o *Ownership) VisitMatchStmt(st *ast.MatchStmt, s *ownState) *ownState {
-	return o.match(st.Match, s)
+func (o *Ownership) VisitMatchStmt(st ast.MatchStmt, s *ownState) *ownState {
+	return o.match(st.Match(), s)
 }
 
-func (o *Ownership) VisitReturnStmt(st *ast.ReturnStmt, s *ownState) *ownState {
-	if st.Value != nil {
-		s = o.consume(st.Value, ownDest{kind: destReturn}, s)
+func (o *Ownership) VisitReturnStmt(st ast.ReturnStmt, s *ownState) *ownState {
+	if !st.Value().IsNil() {
+		s = o.consume(st.Value(), ownDest{kind: destReturn}, s)
 	}
-	o.requireSetsInitialised(s, st)
-	o.requireEnded(0, s, st, dropReturn)
+	o.requireSetsInitialised(s, st.Position())
+	o.requireEnded(0, s, st.Position(), dropReturn)
 	return ownUnreachable
 }
 
-func (o *Ownership) VisitBreakStmt(st *ast.BreakStmt, s *ownState) *ownState {
+func (o *Ownership) VisitBreakStmt(st ast.BreakStmt, s *ownState) *ownState {
 	frame := o.frameOf(o.typing.BreakTarget(st))
-	frame.breaks = o.join(frame.breaks, o.leave(frame.obliged, s, st, dropBreak))
+	frame.breaks = o.join(frame.breaks, o.leave(frame.obliged, s, st.Position(), dropBreak))
 	return ownUnreachable
 }
 
-func (o *Ownership) VisitContinueStmt(st *ast.ContinueStmt, s *ownState) *ownState {
+func (o *Ownership) VisitContinueStmt(st ast.ContinueStmt, s *ownState) *ownState {
 	frame := o.frameOf(o.typing.ContinueTarget(st))
-	frame.continues = o.join(frame.continues, o.leave(frame.obliged, s, st, dropContinue))
+	frame.continues = o.join(frame.continues, o.leave(frame.obliged, s, st.Position(), dropContinue))
 	return ownUnreachable
 }
 
 // loop walks the body again from what the first walk added to the state, which is enough for a fact to reach the
 // top of the next iteration; a first walk that adds nothing needs no second.
-func (o *Ownership) loop(loop ast.NodeID, s *ownState, body []ast.Stmt, cond ast.Expr) *ownState {
+func (o *Ownership) loop(loop ast.NodeID, s *ownState, body ast.StmtList, cond ast.Expr) *ownState {
 	// A loop whose condition is the literal true is left by 'break' alone, so no path leaves it from the top or the
 	// bottom of the body.
 	frame := o.pushFrame(loop)
 	entry := s
-	if cond != nil {
+	if !cond.IsNil() {
 		entry = o.expr(cond, s)
 	}
 	end := ownUnreachable
@@ -648,7 +654,7 @@ func (o *Ownership) loop(loop ast.NodeID, s *ownState, body []ast.Stmt, cond ast
 			break
 		}
 		entry = next
-		if cond != nil {
+		if !cond.IsNil() {
 			entry = o.expr(cond, entry)
 		}
 	}
@@ -660,41 +666,41 @@ func (o *Ownership) loop(loop ast.NodeID, s *ownState, body []ast.Stmt, cond ast
 }
 
 func isTrue(e ast.Expr) bool {
-	b, ok := e.(*ast.BoolLit)
-	return ok && b.Value
+	b, ok := e.AsBoolLit()
+	return ok && b.Value()
 }
 
-func (o *Ownership) match(m *ast.MatchCore, s *ownState) *ownState {
-	if m.Consumes {
-		o.requireMayTakeApart(m.Subject, ast.Content(o.ty(m.Subject)), "a 'match consumes'")
-		s = o.consume(m.Subject, ownDest{kind: destMatch}, s)
+func (o *Ownership) match(m ast.MatchCore, s *ownState) *ownState {
+	if m.Consumes() {
+		o.requireMayTakeApart(m.Subject().Position(), ast.Content(o.ty(m.Subject())), "a 'match consumes'")
+		s = o.consume(m.Subject(), ownDest{kind: destMatch}, s)
 	} else {
-		s = o.expr(m.Subject, s)
+		s = o.expr(m.Subject(), s)
 	}
 	frame := o.pushFrame(m.ID)
 	subject, subjectIsPath, subjectKnown := accessPath{}, false, false
 	result := ownUnreachable
-	for _, arm := range m.Arms {
+	for _, arm := range m.Arms().All() {
 		a := s
 		mark := len(o.obliged)
-		if m.Consumes {
+		if m.Consumes() {
 			o.takeApart(m, arm)
 		}
 		borrows := o.armBorrows(arm)
 		if borrows && !subjectKnown {
-			subject, subjectIsPath = o.pathOf(m.Subject, nil)
+			subject, subjectIsPath = o.pathOf(m.Subject(), nil)
 			subjectKnown = true
 		}
 		if borrows && subjectIsPath {
-			o.projections = append(o.projections, ownProjection{subject: subject, kind: projectMatch, ty: o.ty(m.Subject)})
+			o.projections = append(o.projections, ownProjection{subject: subject, kind: projectMatch, ty: o.ty(m.Subject())})
 		}
-		switch arm.Kind() {
+		switch arm.Form() {
 		case ast.ArmThen:
-			a = o.stmt(arm.Action, a)
+			a = o.stmt(arm.Action(), a)
 		case ast.ArmGives:
-			a = o.consume(arm.Value, ownDest{kind: destResult}, a)
+			a = o.consume(arm.Value(), ownDest{kind: destResult}, a)
 		case ast.ArmPanic:
-			o.expr(arm.Value, a)
+			o.expr(arm.Value(), a)
 			a = ownUnreachable
 		}
 		if borrows && subjectIsPath {
@@ -708,8 +714,8 @@ func (o *Ownership) match(m *ast.MatchCore, s *ownState) *ownState {
 }
 
 // armBorrows is whether an arm binds a payload that is not a scalar, which borrows from the subject.
-func (o *Ownership) armBorrows(arm *ast.MatchArm) bool {
-	for _, pat := range arm.Patterns {
+func (o *Ownership) armBorrows(arm ast.MatchArm) bool {
+	for _, pat := range arm.Patterns().All() {
 		for _, id := range o.typing.Pattern(pat).Locals {
 			if l := o.fn.LocalAt(id); l != nil && l.Projected {
 				return true
@@ -721,36 +727,36 @@ func (o *Ownership) armBorrows(arm *ast.MatchArm) bool {
 
 // takeApart is the start of an arm of a match that consumes its subject: each payload the arm names is an owned local of
 // the arm, and the payloads it does not name are dropped with the subject.
-func (o *Ownership) takeApart(m *ast.MatchCore, arm *ast.MatchArm) {
-	u, ok := ast.Content(o.ty(m.Subject)).(*ast.UnionTy)
+func (o *Ownership) takeApart(m ast.MatchCore, arm ast.MatchArm) {
+	u, ok := ast.Content(o.ty(m.Subject())).(*ast.UnionTy)
 	if !ok {
 		return
 	}
-	for _, pat := range arm.Patterns {
-		if pat.Kind() != ast.PatternCase {
+	for _, pat := range arm.Patterns().All() {
+		if pat.Form() != ast.PatternCase {
 			continue
 		}
 		info := o.typing.Pattern(pat)
 		for i, p := range u.Payload(info.CaseIndex) {
 			if i < len(info.Locals) && info.Locals[i] != 0 {
-				o.oblige(o.fn.LocalAt(info.Locals[i]), pat)
+				o.oblige(o.fn.LocalAt(info.Locals[i]), pat.Position())
 			} else {
-				o.requireDroppable(pat, p.Type, ownDrop{kind: dropPayload, name: p.Name})
+				o.requireDroppable(pat.Position(), p.Type, ownDrop{kind: dropPayload, name: p.Name})
 			}
 		}
 	}
-	if arm.IsDefault {
+	if arm.IsDefault() {
 		o.requireUnnamedCasesDroppable(m, arm, u)
 	}
 }
 
 // requireUnnamedCasesDroppable is the drop of what a default arm leaves in the subject: the payloads of the cases that
 // no arm names.
-func (o *Ownership) requireUnnamedCasesDroppable(m *ast.MatchCore, arm *ast.MatchArm, u *ast.UnionTy) {
+func (o *Ownership) requireUnnamedCasesDroppable(m ast.MatchCore, arm ast.MatchArm, u *ast.UnionTy) {
 	named := make([]bool, len(u.CaseList()))
-	for _, other := range m.Arms {
-		for _, pat := range other.Patterns {
-			if pat.Kind() == ast.PatternCase {
+	for _, other := range m.Arms().All() {
+		for _, pat := range other.Patterns().All() {
+			if pat.Form() == ast.PatternCase {
 				named[o.typing.Pattern(pat).CaseIndex] = true
 			}
 		}
@@ -760,13 +766,13 @@ func (o *Ownership) requireUnnamedCasesDroppable(m *ast.MatchCore, arm *ast.Matc
 			continue
 		}
 		for _, p := range u.Payload(i) {
-			o.requireDroppable(arm, p.Type, ownDrop{kind: dropPayload, name: p.Name})
+			o.requireDroppable(arm.Position(), p.Type, ownDrop{kind: dropPayload, name: p.Name})
 		}
 	}
 }
 
 // readRoot is a use of a local's value, which needs one to exist.
-func (o *Ownership) readRoot(l *ast.Local, site ast.Node, s *ownState) *ownState {
+func (o *Ownership) readRoot(l *ast.Local, site ast.Pos, s *ownState) *ownState {
 	if s.dead {
 		return s
 	}
@@ -809,11 +815,11 @@ func (o *Ownership) consume(e ast.Expr, dest ownDest, s *ownState) *ownState {
 	if !ok {
 		switch {
 		case o.projectsElement(e):
-			o.fail(e, diag.ErrMoveOutOfField,
+			o.fail(e.Position(), diag.ErrMoveOutOfField,
 				"an element of a collection that is not stored in a variable cannot be moved out of it into %s; bind the collection to a variable and take the element out of it, or copy it",
 				dest)
 		case o.typing.IsStorage(e):
-			o.fail(e, diag.ErrMoveOutOfField,
+			o.fail(e.Position(), diag.ErrMoveOutOfField,
 				"a part of a temporary value cannot be moved out of it into %s, because the temporary is dropped when the statement ends; %s",
 				dest, o.checker.copyAdvice(o.ty(e), "copy it with '.copy()'", ""))
 		}
@@ -822,17 +828,17 @@ func (o *Ownership) consume(e ast.Expr, dest ownDest, s *ownState) *ownState {
 
 	switch {
 	case p.crossesFrozen():
-		o.fail(e, diag.ErrMoveOutOfField,
+		o.fail(e.Position(), diag.ErrMoveOutOfField,
 			"'%s' is part of a frozen value, which keeps its contents and shares them with its other owners, so it cannot be moved out of it into %s; %s",
 			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.copy()'", p.text()), ""))
 		return s
 	case p.root.Borrowed():
-		o.fail(e, diag.ErrMoveOutOfBorrow,
+		o.fail(e.Position(), diag.ErrMoveOutOfBorrow,
 			"'%s' is borrowed, not owned, so it cannot be moved into %s; %s",
 			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.copy()' to give it its own copy", p.text()), ""))
 		return s
 	case p.crossesElement():
-		o.fail(e, diag.ErrMoveOutOfField,
+		o.fail(e.Position(), diag.ErrMoveOutOfField,
 			"'%s' is, or lies inside, an element of a collection, which owns it, so it cannot be moved out of it into %s; %s",
 			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.copy()'", p.text()), "take it out of the collection with its remove method"))
 		return s
@@ -840,17 +846,17 @@ func (o *Ownership) consume(e ast.Expr, dest ownDest, s *ownState) *ownState {
 		return o.movePart(e, p, dest, s)
 	}
 	if p.root.IsSelf && o.fn.IsDestructor() && dest.kind != destDestructor && dest.kind != destMatch {
-		o.fail(e, diag.ErrDestructorMisuse,
+		o.fail(e.Position(), diag.ErrDestructorMisuse,
 			"'self' is moved into %s, but inside a destructor it may only be passed whole to another destructor of its type, which ends it there; move its fields out instead, or call a destructor",
 			dest)
 		return s
 	}
-	o.requireNotProjected(p, e)
-	return s.with(p.root, ownFact{site: e, kind: factMoved, dest: dest})
+	o.requireNotProjected(p, e.Position())
+	return s.with(p.root, ownFact{site: e.Position(), kind: factMoved, dest: dest})
 }
 
 // requireWritable refuses a change to a place that is not mutable, and one that a match binding still borrows.
-func (o *Ownership) requireWritable(site ast.Node, p accessPath) {
+func (o *Ownership) requireWritable(site ast.Pos, p accessPath) {
 	root := p.root
 	switch {
 	case p.crossesFrozen():
@@ -891,12 +897,12 @@ func (o *Ownership) requireWritable(site ast.Node, p accessPath) {
 
 // requireNotProjected refuses a change or a move of a place while a binding of an enclosing match, an argument of an
 // enclosing call, or the target of an enclosing assignment still borrows part of it.
-func (o *Ownership) requireNotProjected(p accessPath, site ast.Node) {
+func (o *Ownership) requireNotProjected(p accessPath, site ast.Pos) {
 	for i := range o.projections {
 		pr := &o.projections[i]
-		if pr.place != nil {
+		if !pr.place.IsNil() {
 			pr.subject, _ = o.pathOf(pr.place, nil)
-			pr.place = nil
+			pr.place = ast.Expr{}
 		}
 		if pr.subject.root == nil || !pr.subject.overlaps(p) {
 			continue
@@ -922,7 +928,7 @@ func (o *Ownership) requireNotProjected(p accessPath, site ast.Node) {
 }
 
 // requireSetsInitialised is checked wherever the function returns: each sets parameter holds a value by then.
-func (o *Ownership) requireSetsInitialised(s *ownState, site ast.Node) {
+func (o *Ownership) requireSetsInitialised(s *ownState, site ast.Pos) {
 	if s.dead {
 		return
 	}
@@ -946,57 +952,57 @@ func (o *Ownership) eval(e ast.Expr, s *ownState) *ownState {
 	return ast.VisitExprState[*ownState, *ownState](o, e, s)
 }
 
-func (o *Ownership) VisitIntLit(_ *ast.IntLit, s *ownState) *ownState { return s }
+func (o *Ownership) VisitIntLit(_ ast.IntLit, s *ownState) *ownState { return s }
 
-func (o *Ownership) VisitBoolLit(_ *ast.BoolLit, s *ownState) *ownState { return s }
+func (o *Ownership) VisitBoolLit(_ ast.BoolLit, s *ownState) *ownState { return s }
 
-func (o *Ownership) VisitSelfExpr(e *ast.SelfExpr, s *ownState) *ownState {
-	return o.readRoot(o.fn.SelfLocal, e, s)
+func (o *Ownership) VisitSelfExpr(e ast.SelfExpr, s *ownState) *ownState {
+	return o.readRoot(o.fn.SelfLocal, e.Position(), s)
 }
 
-func (o *Ownership) VisitStrLit(e *ast.StrLit, s *ownState) *ownState {
-	for _, part := range e.Parts {
-		if pe, ok := part.(ast.Expr); ok {
-			s = o.expr(pe, s)
+func (o *Ownership) VisitStrLit(e ast.StrLit, s *ownState) *ownState {
+	for _, part := range e.Parts().All() {
+		if !part.Expr.IsNil() {
+			s = o.expr(part.Expr, s)
 		}
 	}
 	return s
 }
 
-func (o *Ownership) VisitNameExpr(e *ast.NameExpr, s *ownState) *ownState {
+func (o *Ownership) VisitNameExpr(e ast.NameExpr, s *ownState) *ownState {
 	name := o.typing.Name(e)
 	switch name.Kind() {
 	case ast.NameLocal:
-		return o.readRoot(name.Local(o.fn), e, s)
+		return o.readRoot(name.Local(o.fn), e.Position(), s)
 	case ast.NameSelfField:
 		if o.partials > 0 {
-			if next, done := o.readPart(e, s); done {
+			if next, done := o.readPart(e.Expr(), s); done {
 				return next
 			}
 		}
-		return o.readRoot(o.fn.SelfLocal, e, s)
+		return o.readRoot(o.fn.SelfLocal, e.Position(), s)
 	case ast.NameConst:
 		return s
 	}
-	panic(diag.Internal("ownership: unresolved name '%s'", e.Name))
+	panic(diag.Internal("ownership: unresolved name '%s'", e.Name()))
 }
 
-func (o *Ownership) VisitBinaryExpr(e *ast.BinaryExpr, s *ownState) *ownState {
-	return o.expr(e.R, o.expr(e.L, s))
+func (o *Ownership) VisitBinaryExpr(e ast.BinaryExpr, s *ownState) *ownState {
+	return o.expr(e.R(), o.expr(e.L(), s))
 }
 
-func (o *Ownership) VisitUnaryExpr(e *ast.UnaryExpr, s *ownState) *ownState {
-	return o.expr(e.E, s)
+func (o *Ownership) VisitUnaryExpr(e ast.UnaryExpr, s *ownState) *ownState {
+	return o.expr(e.E(), s)
 }
 
 // VisitCondExpr moves from each branch alone: the value it gives is a fresh one, so a place in a branch is moved.
-func (o *Ownership) VisitCondExpr(e *ast.CondExpr, s *ownState) *ownState {
-	s = o.expr(e.Cond, s)
+func (o *Ownership) VisitCondExpr(e ast.CondExpr, s *ownState) *ownState {
+	s = o.expr(e.Cond(), s)
 	dest := ownDest{kind: destResult}
-	return o.join(o.consume(e.Then, dest, s), o.consume(e.Else, dest, s))
+	return o.join(o.consume(e.Then(), dest, s), o.consume(e.Else(), dest, s))
 }
 
-func (o *Ownership) VisitCallExpr(e *ast.CallExpr, s *ownState) *ownState {
+func (o *Ownership) VisitCallExpr(e ast.CallExpr, s *ownState) *ownState {
 	call := o.typing.Call(e)
 	receiver := e.ReceiverFor(call.Kind)
 	switch call.Kind {
@@ -1017,7 +1023,7 @@ func (o *Ownership) VisitCallExpr(e *ast.CallExpr, s *ownState) *ownState {
 }
 
 func (o *Ownership) userCall(e *ast.CallInfo, receiver ast.Expr, s *ownState) *ownState {
-	exclusive := receiver != nil && e.Pass.SelfConv != ast.ConvLet
+	exclusive := !receiver.IsNil() && e.Pass.SelfConv != ast.ConvLet
 	for _, spec := range e.Pass.Specs {
 		exclusive = exclusive || spec.Conv != ast.ConvLet
 	}
@@ -1027,7 +1033,7 @@ func (o *Ownership) userCall(e *ast.CallInfo, receiver ast.Expr, s *ownState) *o
 	held := len(o.projections)
 	outer := o.initialising
 	o.initialising = nil
-	if receiver != nil {
+	if !receiver.IsNil() {
 		s = o.argument(receiver, e.Pass.SelfConv, ownDest{kind: destParameter, name: "self"}, s)
 		o.hold(receiver, e.Pass.SelfConv, len(e.Ordered) > 0)
 	}
@@ -1050,8 +1056,8 @@ func (o *Ownership) userCall(e *ast.CallInfo, receiver ast.Expr, s *ownState) *o
 // requireNotReceiver refuses 'self' as a mutates argument. A mutates parameter may be assigned as a whole, which replaces
 // the caller's value, and 'self' is the receiver of the call that is running, not a place that can be replaced.
 func (o *Ownership) requireNotReceiver(arg ast.Expr, param string) {
-	if _, ok := arg.(*ast.SelfExpr); ok && o.fn.SelfLocal.Mutable() {
-		o.fail(arg, diag.ErrAssignToImmutable,
+	if _, ok := arg.AsSelfExpr(); ok && o.fn.SelfLocal.Mutable() {
+		o.fail(arg.Position(), diag.ErrAssignToImmutable,
 			"'self' cannot be passed to the 'mutates' parameter '%s', which could replace the whole value; pass a field of it, or call a method on it", param)
 	}
 }
@@ -1077,11 +1083,11 @@ func (o *Ownership) argument(e ast.Expr, conv ast.Convention, dest ownDest, s *o
 		s = o.eval(e, s)
 		p, ok := o.pathOf(e, o.steps[:0])
 		if !ok {
-			o.fail(e, diag.ErrAssignToImmutable,
+			o.fail(e.Position(), diag.ErrAssignToImmutable,
 				"the 'mutates' parameter '%s' changes its argument, so pass a variable, or a field or an element of one", dest.name)
 			return s
 		}
-		o.requireWritable(e, p)
+		o.requireWritable(e.Position(), p)
 		return s
 	case ast.ConvConsumes:
 		return o.consume(e, dest, s)
@@ -1095,7 +1101,7 @@ func (o *Ownership) argument(e ast.Expr, conv ast.Convention, dest ownDest, s *o
 
 // initialise is an argument for a sets parameter: a variable that has no value yet, which has one afterwards.
 func (o *Ownership) initialise(e ast.Expr, dest ownDest, s *ownState) *ownState {
-	n, ok := e.(*ast.NameExpr)
+	n, ok := e.AsNameExpr()
 	var name ast.NameInfo
 	if ok {
 		name = o.typing.Name(n)
@@ -1105,7 +1111,7 @@ func (o *Ownership) initialise(e ast.Expr, dest ownDest, s *ownState) *ownState 
 		local = name.Local(o.fn)
 	}
 	if local == nil || !local.Mutable() {
-		o.fail(e, diag.ErrSetArgument,
+		o.fail(e.Position(), diag.ErrSetArgument,
 			"the 'sets' parameter '%s' initialises its argument, so pass a variable declared without a value: 'var x as T'", dest.name)
 		return s
 	}
@@ -1113,9 +1119,9 @@ func (o *Ownership) initialise(e ast.Expr, dest ownDest, s *ownState) *ownState 
 		return s
 	}
 	if fact, found := s.tryGet(local); !found || fact.kind != factUninitialised {
-		o.fail(e, diag.ErrSetArgument,
+		o.fail(e.Position(), diag.ErrSetArgument,
 			"'%s' already has a value, but the 'sets' parameter '%s' initialises its argument; declare a variable without a value: 'var x as T'",
-			n.Name, dest.name)
+			n.Name(), dest.name)
 		return s
 	}
 	o.initialising = append(o.initialising, local)
@@ -1126,7 +1132,7 @@ func (o *Ownership) initialise(e ast.Expr, dest ownDest, s *ownState) *ownState 
 // any other argument, receiver included, because the callee would then reach one place through two names.
 func (o *Ownership) requireExclusive(call *ast.CallInfo, receiver ast.Expr) {
 	o.accesses = o.accesses[:0]
-	if receiver != nil {
+	if !receiver.IsNil() {
 		o.addAccess(receiver, call.Pass.SelfConv)
 	}
 	for i, arg := range call.Ordered {
@@ -1138,7 +1144,7 @@ func (o *Ownership) requireExclusive(call *ast.CallInfo, receiver ast.Expr) {
 			if (a.conv == ast.ConvLet && b.conv == ast.ConvLet) || !a.path.overlaps(b.path) {
 				continue
 			}
-			o.fail(b.expr, diag.ErrExclusivity, "%s", o.overlapMessage(a, b))
+			o.fail(b.expr.Position(), diag.ErrExclusivity, "%s", o.overlapMessage(a, b))
 		}
 	}
 }
@@ -1162,43 +1168,43 @@ func (o *Ownership) overlapMessage(a, b callAccess) string {
 	return message + "; pass separate values"
 }
 
-func (o *Ownership) VisitIndexExpr(e *ast.IndexExpr, s *ownState) *ownState {
-	return o.expr(e.Args[0], o.expr(e.Obj, s))
+func (o *Ownership) VisitIndexExpr(e ast.IndexExpr, s *ownState) *ownState {
+	return o.expr(e.Args().At(0), o.expr(e.Obj(), s))
 }
 
-func (o *Ownership) VisitMemberExpr(e *ast.MemberExpr, s *ownState) *ownState {
+func (o *Ownership) VisitMemberExpr(e ast.MemberExpr, s *ownState) *ownState {
 	kind := o.typing.Member(e).Kind
 	if kind == ast.MemberEnumCase || kind == ast.MemberUnionCase {
 		return s
 	}
 	if o.partials > 0 && kind == ast.MemberField {
-		if next, done := o.readPart(e, s); done {
+		if next, done := o.readPart(e.Expr(), s); done {
 			return next
 		}
 	}
-	return o.expr(e.Obj, s)
+	return o.expr(e.Obj(), s)
 }
 
-func (o *Ownership) VisitStructLitExpr(e *ast.StructLitExpr, s *ownState) *ownState {
+func (o *Ownership) VisitStructLitExpr(e ast.StructLitExpr, s *ownState) *ownState {
 	lit := o.typing.StructLit(e)
 	for i, v := range lit.Ordered {
-		if v != nil {
+		if !v.IsNil() {
 			s = o.consume(v, ownDest{kind: destField, name: lit.Record.FieldList()[i].Name}, s)
 		}
 	}
 	return s
 }
 
-func (o *Ownership) VisitCastExpr(e *ast.CastExpr, s *ownState) *ownState {
-	return o.expr(e.E, s)
+func (o *Ownership) VisitCastExpr(e ast.CastExpr, s *ownState) *ownState {
+	return o.expr(e.E(), s)
 }
 
-func (o *Ownership) VisitMatchExpr(e *ast.MatchExpr, s *ownState) *ownState {
-	return o.match(e.Match, s)
+func (o *Ownership) VisitMatchExpr(e ast.MatchExpr, s *ownState) *ownState {
+	return o.match(e.Match(), s)
 }
 
-func (o *Ownership) VisitPanicExpr(e *ast.PanicExpr, s *ownState) *ownState {
-	return o.expr(e.Message, s)
+func (o *Ownership) VisitPanicExpr(e ast.PanicExpr, s *ownState) *ownState {
+	return o.expr(e.Message(), s)
 }
 
 // valueContext stands for the function around an expression that is not in one: it has no receiver and no locals.
@@ -1214,7 +1220,7 @@ func (v declValues) VisitConstDecl(d *ast.ConstDecl) { v.o.checkValue(d.Value, d
 
 func (v declValues) VisitTypeDecl(d *ast.TypeDecl) {
 	for _, f := range d.Fields {
-		if f.Default != nil {
+		if !f.Default.IsNil() {
 			v.o.checkValue(f.Default, f.Name)
 		}
 	}

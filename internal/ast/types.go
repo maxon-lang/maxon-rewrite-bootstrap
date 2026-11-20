@@ -119,7 +119,7 @@ type FieldInfo struct {
 	Default  Expr
 	Index    int
 	// Uses are the calls to generic functions in the default, which a literal that takes the default also makes.
-	Uses []*CallExpr
+	Uses []CallUse
 }
 
 type RecordTy struct {
@@ -348,7 +348,7 @@ type shell struct{}
 // VisitAliasDecl is the integer type a typealias of a range names. A typealias of an instance has no shell: its type
 // is the instance, which the aliases phase finds once the types it names are known.
 func (shell) VisitAliasDecl(t *AliasDecl) Ty {
-	if t.Instance != nil {
+	if !t.Instance.IsNil() {
 		return nil
 	}
 	lo, hi := t.Low.value(), t.High.value()

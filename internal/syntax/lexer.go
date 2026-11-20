@@ -15,6 +15,9 @@ type StrPart interface {
 
 type TextPart struct {
 	Text string
+	// Begin is where the run starts in the module's text, and Raw says that Text is that run, with no escape in it.
+	Begin int
+	Raw   bool
 }
 
 // ExprPart is an interpolation: the offsets of its expression in the module text.
@@ -463,7 +466,7 @@ func (r *stringReader) flushText() {
 		if r.escaped {
 			text = string(r.buf)
 		}
-		*r.parts = append(*r.parts, TextPart{Text: text})
+		*r.parts = append(*r.parts, TextPart{Text: text, Begin: r.run, Raw: !r.escaped})
 	}
 	r.escaped = false
 	r.buf = r.buf[:0]

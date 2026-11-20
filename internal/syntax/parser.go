@@ -14,9 +14,9 @@ import (
 type Parser struct {
 	src  *Source
 	toks []Token
-	// arena allocates the nodes and lists holds the lists being built; an interpolation's parser shares both with the
-	// parser of the string it is in.
-	arena     *ast.Arena
+	// tree holds the nodes and lists the lists being built; an interpolation's parser shares both with the parser of the
+	// string it is in.
+	tree      *ast.Tree
 	lists     *listStacks
 	decls     *listStack[ast.Decl]
 	p         int
@@ -24,8 +24,9 @@ type Parser struct {
 	Errors    []*diag.CompileError
 	// spare is a token buffer an interpolation's parser borrows, so each one does not allocate its own.
 	spare []Token
-	// parts is reused by each string literal's conversion.
-	parts []StrPart
+	// parts and strParts are reused by each string literal's conversion.
+	parts    []StrPart
+	strParts ast.StrPartsBuilder
 	// interpolation reads the interpolations of the strings this parser reads.
 	interpolation *Parser
 
@@ -61,7 +62,7 @@ const (
 func NewParser(src *Source, toks []Token) *Parser { return newParser(src, toks, &Scratch{}, 0) }
 
 func newParser(src *Source, toks []Token, scratch *Scratch, module ast.ModuleID) *Parser {
-	p := &Parser{src: src, toks: toks, arena: ast.NewArena(module), lists: &scratch.lists, decls: &scratch.decls,
+	p := &Parser{src: src, toks: toks, tree: ast.NewTree(module, src.Text, len(toks)), lists: &scratch.lists, decls: &scratch.decls,
 		prevKind: TFileEnd, blanks: firstInFile}
 	if len(src.Files) > 0 {
 		p.prevEnd = src.Files[0].Begin
@@ -375,7 +376,24 @@ func (p *Parser) expect(k T, what string) Token {
 	return p.next()
 }
 
-func place[N ast.Node](_ *Parser, node N, t *Token) { node.P().Off = t.Start }
+// textRef is what a record holds for the name or label that a token is.
+func (p *Parser) textRef(t Token) uint32 { return ast.TextRef(t.Start) }
+
+// takeList moves the numbers pushed since mark from their stack into the tree's list array, as the list they make.
+func takeList[V ast.Viewer](p *Parser, stack *listStack[uint32], mark int) ast.List[V] {
+	return ast.ListAt[V](p.tree, p.takeIDs(stack, mark))
+}
+
+// takeTexts is takeList for a list of names.
+func takeTexts(p *Parser, stack *listStack[uint32], mark int) ast.TextList {
+	return ast.TextListAt(p.tree, p.takeIDs(stack, mark))
+}
+
+func (p *Parser) takeIDs(stack *listStack[uint32], mark int) uint32 {
+	ref := p.tree.AppendList(stack.items[mark:])
+	stack.items = stack.items[:mark]
+	return ref
+}
 
 // ParseProgram parses every declaration of a module's files. A syntax error abandons the rest of its file, so
 // each file reports its own first error.
@@ -416,8 +434,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 			}
 		}
 	}
-	p.arena.Seal()
-	return &ast.Program{Decls: p.decls.take(declsMark), Nodes: p.arena, Positions: p.src.Positions}
+	return &ast.Program{Decls: p.decls.take(declsMark), Tree: p.tree, Positions: p.src.Positions}
 }
 
 // The conversions below turn a token into a field that is not its text, as Maxon.g4 declares.
@@ -431,28 +448,35 @@ func (p *Parser) integer(t Token) ast.I128 {
 	return value
 }
 
-func (p *Parser) strLitParts(t Token) []any {
+// strLitParts reads the string literal that t is and gives the parts it holds in the tree: a run of the module's text
+// is its offset and length, text that an escape changed is a string of its own, and an interpolation is the
+// expression that its text parses to.
+func (p *Parser) strLitParts(t Token) uint32 {
 	p.parts = p.parts[:0]
 	p.src.readString(p.fileNumber(), int(t.Start), &p.parts)
-	values := make([]any, 0, len(p.parts))
+	p.strParts.Reset()
 	var formatted []string
 	for _, part := range p.parts {
 		switch part := part.(type) {
 		case TextPart:
-			values = append(values, part.Text)
+			if part.Raw {
+				p.strParts.Run(uint32(part.Begin), uint32(len(part.Text)))
+			} else {
+				p.strParts.Decoded(p.tree, part.Text)
+			}
 		case ExprPart:
 			// The sub-parser borrows the spare buffer; an interpolation nested inside it finds none and allocates.
 			toks := lexInterpolation(p.src, p.fileNumber(), part.Begin, part.End, p.spare, p.format != nil)
 			p.spare = nil
 			// The interpolation's first token follows its '{' with no space between them.
 			sub := p.interpolationParser()
-			*sub = Parser{src: p.src, toks: toks, arena: p.arena, lists: p.lists, fileIndex: p.fileNumber(),
+			*sub = Parser{src: p.src, toks: toks, tree: p.tree, lists: p.lists, fileIndex: p.fileNumber(),
 				prevEnd: part.Begin, prevKind: TLBrace, joinNext: true,
-				spare: sub.spare, parts: sub.parts, interpolation: sub.interpolation}
+				spare: sub.spare, parts: sub.parts, strParts: sub.strParts, interpolation: sub.interpolation}
 			if p.format != nil {
 				sub.format = &formatter{}
 			}
-			values = append(values, sub.parseInterpolation())
+			p.strParts.Interpolation(sub.parseInterpolation())
 			if p.format != nil {
 				formatted = append(formatted, string(sub.format.out))
 			}
@@ -464,7 +488,7 @@ func (p *Parser) strLitParts(t Token) []any {
 	if p.format != nil {
 		p.format.replaceString(p.src.Text, t, p.parts, formatted)
 	}
-	return values
+	return p.strParts.Finish(p.tree)
 }
 
 // interpolationParser is the parser of the interpolations of p's strings. Each interpolation reads in it after the one before,

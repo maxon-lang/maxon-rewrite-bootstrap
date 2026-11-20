@@ -59,8 +59,8 @@ func (c *Checker) lookupLocal(name string) *ast.Local {
 
 // useLocal is the variable that a name stands for, for code that uses it. A variable of the enclosing function is
 // captured: the behaviour's body gets a parameter of its own that holds the value.
-func (c *Checker) useLocal(n *ast.NameExpr) *ast.Local {
-	if l := lookupScopes(c.scopes, n.Name); l != nil {
+func (c *Checker) useLocal(n ast.NameExpr) *ast.Local {
+	if l := lookupScopes(c.scopes, n.Name()); l != nil {
 		return l
 	}
 	if c.behaviour == nil {
@@ -71,9 +71,9 @@ func (c *Checker) useLocal(n *ast.NameExpr) *ast.Local {
 
 // captureFrom finds the name in the function that encloses the behaviour b, which may itself be the body of a
 // behaviour that captures it from the one around it, and captures it into b.
-func (c *Checker) captureFrom(b *behaviourBuild, level int, n *ast.NameExpr) *ast.Local {
+func (c *Checker) captureFrom(b *behaviourBuild, level int, n ast.NameExpr) *ast.Local {
 	lv := &c.outers[level]
-	outer := lookupScopes(lv.scopes, n.Name)
+	outer := lookupScopes(lv.scopes, n.Name())
 	if outer == nil && lv.behaviour != nil {
 		outer = c.captureFrom(lv.behaviour, level-1, n)
 	}
@@ -83,18 +83,15 @@ func (c *Checker) captureFrom(b *behaviourBuild, level int, n *ast.NameExpr) *as
 	if inner, ok := b.captured[outer]; ok {
 		return inner
 	}
-	c.requireCapturable(n, outer)
+	c.requireCapturable(n.Position(), outer)
 	inner := ast.NewLocal(outer.Name, outer.Type, false)
 	inner.IsParam = true
 	inner.Conv = ast.ConvConsumes
 	inner.ParamIndex = len(b.accesses) + len(b.captures)
 	b.fn.AddLocal(inner)
-	ref := c.module.Nodes.NewNameExpr()
-	c.made()
-	ref.Pos = n.Pos
-	ref.Name = outer.Name
+	ref := n.CaptureRef(level)
 	c.typing.SetName(ref, ast.LocalName(outer))
-	c.typing.SetType(ref, outer.Type)
+	c.typing.SetType(ref.Expr(), outer.Type)
 	b.captures = append(b.captures, &ast.Capture{Ref: ref, Inner: inner})
 	b.captured[outer] = inner
 	return inner
@@ -103,7 +100,7 @@ func (c *Checker) captureFrom(b *behaviourBuild, level int, n *ast.NameExpr) *as
 // requireCapturable refuses a variable that a behaviour cannot take. The behaviour runs later and in another thread, so
 // what it takes must be a value of its own: a scalar is copied, and an owner gives its whole value away. A borrow ends
 // when its call or match does, long before the behaviour runs.
-func (c *Checker) requireCapturable(site ast.Node, outer *ast.Local) {
+func (c *Checker) requireCapturable(site ast.Pos, outer *ast.Local) {
 	if !outer.Type.IsManaged() || !outer.Borrowed() {
 		return
 	}
@@ -124,7 +121,7 @@ func (c *Checker) requireCapturable(site ast.Node, outer *ast.Local) {
 	} else {
 		fix = c.copyAdvice(outer.Type, fmt.Sprintf("give the behaviour a copy: 'let own = %s.copy()' before the 'when', and use 'own'", outer.Name), "pass what the behaviour needs through a cown")
 	}
-	panic(site.P().Error(diag.ErrBehaviourBorrow,
+	panic(site.Position().Error(diag.ErrBehaviourBorrow,
 		fmt.Sprintf("'%s' is %s, so it only borrows its value, and a behaviour runs later in another thread and cannot keep a borrow; %s", outer.Name, what, fix)))
 }
 
@@ -143,8 +140,8 @@ func (c *Checker) isAccess(l *ast.Local) bool {
 
 // refuseBehaviourSelf is the error for 'self', or a field of it, used inside a behaviour: the receiver is borrowed, and
 // a field is a part of it. t is the type of what was named.
-func (c *Checker) refuseBehaviourSelf(site ast.Node, what string, t ast.Ty) {
-	panic(site.P().Error(diag.ErrBehaviourBorrow,
+func (c *Checker) refuseBehaviourSelf(site ast.Pos, what string, t ast.Ty) {
+	panic(site.Position().Error(diag.ErrBehaviourBorrow,
 		fmt.Sprintf("%s belongs to the receiver, which a method only borrows, and a behaviour runs later in another thread; %s", what,
 			c.copyAdvice(t, "copy what it needs into a variable before the 'when': 'let own = ....copy()'", "pass what the behaviour needs through a cown"))))
 }
@@ -165,39 +162,40 @@ func (c *Checker) selfFieldInBehaviour(name string) (ast.Ty, bool) {
 
 // enterBehaviour starts checking the body of a behaviour as a function of its own, whose first parameters give access
 // to the values of the cowns it names.
-func (c *Checker) enterBehaviour(w *ast.WhenStmt, values []ast.Ty) {
-	fn := c.module.Nodes.NewFuncDecl()
-	fn.Pos = w.Pos
+func (c *Checker) enterBehaviour(w ast.WhenStmt, values []ast.Ty) {
+	fn := &ast.FuncDecl{}
+	fn.ReturnType = ast.VoidTy
+	fn.Pos, fn.ID = w.Position(), w.ID
 	fn.Name = ast.BehaviourName(c.fn.Symbol(), c.whens)
 	fn.Visibility = c.fn.Visibility
 	fn.Module = c.module
-	fn.Body = w.Body
+	fn.Body = w.Body()
 	c.whens++
 	c.outers = append(c.outers, fnLevel{fn: c.fn, scopes: c.scopes, blocks: c.blocks, nextSlot: c.nextSlot, whens: c.whens, behaviour: c.behaviour})
 	b := &behaviourBuild{fn: fn, captured: map[*ast.Local]*ast.Local{}}
 	c.behaviour = b
 	c.fn, c.scopes, c.blocks, c.nextSlot, c.whens = fn, []map[string]*ast.Local{{}}, nil, 0, 0
-	for i, name := range w.Names {
+	for i := range w.Names().Len() {
+		name := w.Names().At(i)
 		access := ast.NewLocal(name, values[i], false)
 		access.IsParam = true
 		access.Conv = ast.ConvMutates
 		access.ParamIndex = i
-		c.bind(access, w)
+		c.bind(access, w.Position())
 		b.accesses = append(b.accesses, access)
 	}
 }
 
 // leaveBehaviour finishes the function of a behaviour body: its parameters are the accesses, then what it captured.
-func (c *Checker) leaveBehaviour(w *ast.WhenStmt) {
+func (c *Checker) leaveBehaviour(w ast.WhenStmt) {
 	b := c.behaviour
 	fn := b.fn
 	add := func(l *ast.Local) {
-		p := c.module.Nodes.NewParam()
-		c.made()
-		p.Pos = w.Pos
+		p := &ast.Param{}
+		p.Pos = w.Position()
 		p.Name = l.Name
 		p.Convention = l.Conv.String()
-		c.typing.SetParamLocal(p, l)
+		fn.ParamLocals = append(fn.ParamLocals, l.ID())
 		fn.Params = append(fn.Params, p)
 		fn.ParamTypes = append(fn.ParamTypes, l.Type)
 		fn.Pass.Specs = append(fn.Pass.Specs, ast.ParamSpec{Name: l.Name, Type: l.Type, Conv: l.Conv})
@@ -217,30 +215,31 @@ func (c *Checker) leaveBehaviour(w *ast.WhenStmt) {
 
 // VisitWhenStmt types a behaviour: it names cowns, and its body runs once it has exclusive access to all of them, with
 // the names after 'as' giving mutable access to their values.
-func (c *Checker) VisitWhenStmt(w *ast.WhenStmt) {
-	if len(w.Cowns) != len(w.Names) {
-		panic(w.Error(diag.ErrWhenCowns, fmt.Sprintf("the behaviour names %d cown(s) but gives %d name(s) to their values after 'as': one name for each", len(w.Cowns), len(w.Names))))
+func (c *Checker) VisitWhenStmt(w ast.WhenStmt) {
+	if w.Cowns().Len() != w.Names().Len() {
+		panic(w.Error(diag.ErrWhenCowns, fmt.Sprintf("the behaviour names %d cown(s) but gives %d name(s) to their values after 'as': one name for each", w.Cowns().Len(), w.Names().Len())))
 	}
-	values := make([]ast.Ty, len(w.Cowns))
-	for i, cn := range w.Cowns {
-		t := c.checkExpr(cn)
+	values := make([]ast.Ty, w.Cowns().Len())
+	for i, cn := range w.Cowns().All() {
+		t := c.checkExpr(cn.Expr())
 		if !ast.IsCown(t) {
-			panic(cn.Error(diag.ErrWhenCowns, fmt.Sprintf("'%s' is %s, and a behaviour names cown references: make one with 'cown(value)'", cn.Name, describeType(t))))
+			panic(cn.Error(diag.ErrWhenCowns, fmt.Sprintf("'%s' is %s, and a behaviour names cown references: make one with 'cown(value)'", cn.Name(), describeType(t))))
 		}
 		values[i] = t.(*ast.BuiltinTy).Held()
-		for _, other := range w.Cowns[:i] {
+		for j := range i {
+			other := w.Cowns().At(j)
 			if c.sameName(other, cn) {
-				panic(cn.Error(diag.ErrWhenSameCown, fmt.Sprintf("'%s' is named twice by one behaviour, which would give it two mutable names for one value; name each cown once", cn.Name)))
+				panic(cn.Error(diag.ErrWhenSameCown, fmt.Sprintf("'%s' is named twice by one behaviour, which would give it two mutable names for one value; name each cown once", cn.Name())))
 			}
 		}
 	}
 	c.enterBehaviour(w, values)
 	defer c.leaveBehaviour(w)
-	c.checkBlock(w.Body)
+	c.checkBlock(w.Body())
 }
 
 // sameName is whether two cown operands are one variable or one field.
-func (c *Checker) sameName(a, b *ast.NameExpr) bool {
+func (c *Checker) sameName(a, b ast.NameExpr) bool {
 	x, y := c.typing.Name(a), c.typing.Name(b)
 	return x == y && (x.Kind() == ast.NameLocal || x.Kind() == ast.NameSelfField)
 }
@@ -254,36 +253,36 @@ func describeType(t ast.Ty) string {
 
 // requireNotCown refuses to reach into a cown reference: its value is touched only inside a behaviour that holds it, and
 // the reference itself is copied, shared and named by a behaviour.
-func requireNotCown(site ast.Node, t ast.Ty, use, name string) {
+func requireNotCown(site ast.Pos, t ast.Ty, use, name string) {
 	if ast.IsCown(t) {
 		if name != "" {
 			use += " '" + name + "'"
 		}
-		panic(site.P().Error(diag.ErrCownAccess,
+		panic(site.Position().Error(diag.ErrCownAccess,
 			fmt.Sprintf("%s needs the value of a %s, which is touched only inside a behaviour that holds the cown: write 'when <name> as x' and use x", use, t.Name())))
 	}
 }
 
 // requireNotFrozenChange refuses a call that would change or consume the contents of a frozen value.
-func requireNotFrozenChange(site ast.Node, recv ast.Ty, conv ast.Convention, method string) {
+func requireNotFrozenChange(site ast.Pos, recv ast.Ty, conv ast.Convention, method string) {
 	if ast.IsFrozen(recv) && conv != ast.ConvLet {
-		panic(site.P().Error(diag.ErrFrozenChange,
+		panic(site.Position().Error(diag.ErrFrozenChange,
 			fmt.Sprintf("'%s' takes its receiver as %s, and the contents of a frozen value are immutable and owned by it; call it on a copy: 'thaw(x).%s(...)' gives an owned value", method, conv, method)))
 	}
 }
 
 // requireFreezable refuses a type argument of frozen that is a plain value: it is copied freely and has nothing to
 // freeze.
-func requireFreezable(site ast.Node, arg ast.Ty) {
+func requireFreezable(site ast.Pos, arg ast.Ty) {
 	if !arg.IsManaged() {
-		panic(site.P().Error(diag.ErrFreezeScalar,
+		panic(site.Position().Error(diag.ErrFreezeScalar,
 			fmt.Sprintf("'%s' is a plain value, which is immutable already and copied freely, so there is nothing to freeze: freeze a record, a union, a String or a collection", arg.Name())))
 	}
 }
 
 // checkIntrinsicArgs refuses an argument of freeze, share or thaw that the generic signature alone cannot: share takes
 // either kind of shared value, and the others take a value of the right kind.
-func (c *Checker) checkIntrinsicArgs(call *ast.CallExpr, target *ast.FuncDecl, ordered []ast.Expr) {
+func (c *Checker) checkIntrinsicArgs(call ast.CallExpr, target *ast.FuncDecl, ordered []ast.Expr) {
 	if len(ordered) != 1 {
 		return
 	}
@@ -292,16 +291,16 @@ func (c *Checker) checkIntrinsicArgs(call *ast.CallExpr, target *ast.FuncDecl, o
 	switch target.Intrinsic {
 	case ast.IntrinsicFreeze:
 		if _, isConst := t.(*ast.ConstIntTy); isConst || (t != ast.NeverTy && t != ast.VoidTy && !t.IsManaged()) {
-			requireFreezable(arg, t)
+			requireFreezable(arg.Position(), t)
 		}
 	case ast.IntrinsicShare:
 		if bt, ok := t.(*ast.BuiltinTy); !ok || !bt.Shared() {
-			panic(arg.P().Error(diag.ErrShareTarget,
+			panic(arg.Position().Error(diag.ErrShareTarget,
 				fmt.Sprintf("share takes a frozen value or a cown reference, found %s; a value that is not shared has one owner, so %s", t.Name(), c.copyAdvice(t, "move it, or copy it with '.copy()'", "move it"))))
 		}
 	case ast.IntrinsicThaw:
 		if !ast.IsFrozen(t) {
-			panic(arg.P().Error(diag.ErrShareTarget,
+			panic(arg.Position().Error(diag.ErrShareTarget,
 				fmt.Sprintf("thaw takes a frozen value, found %s; a value that is not frozen is already owned: %s", t.Name(), c.copyAdvice(t, "use '.copy()' for another one", "move it"))))
 		}
 	}
@@ -310,29 +309,37 @@ func (c *Checker) checkIntrinsicArgs(call *ast.CallExpr, target *ast.FuncDecl, o
 // cownCall types cown(x) and cown(x, dropWith: d). The content of the first is dropped with the last reference, so it
 // must be Droppable. The content of the second is ended by its destructor d, which is a method name and no value, so
 // the argument is taken out of the call before the ordinary arguments are checked.
-func (c *Checker) cownCall(call *ast.CallExpr) ast.Ty {
+func (c *Checker) cownCall(call ast.CallExpr) ast.Ty {
 	b := c.project.Builtins
-	at := slices.IndexFunc(call.Args, func(a *ast.Arg) bool { return a.Label == ast.DropWithLabel })
+	args := call.Args()
+	at := -1
+	for i := range args.Len() {
+		if args.At(i).Label() == ast.DropWithLabel {
+			at = i
+			break
+		}
+	}
 	if at <= 0 {
 		return c.callFunction(call, ast.CallFunction, b.CownNew, nil)
 	}
-	all, drop := call.Args, call.Args[at]
-	call.Args = slices.Delete(slices.Clone(all), at, at+1)
-	defer func() { call.Args = all }()
+	drop := args.At(at)
+	c.omitted.call, c.omitted.arg = call, drop
+	defer func() { c.omitted.call, c.omitted.arg = ast.CallExpr{}, ast.Arg{} }()
 	t := c.callFunction(call, ast.CallFunction, b.CownNewDropWith, nil)
+	c.omitted.call, c.omitted.arg = ast.CallExpr{}, ast.Arg{}
 	dropCall := c.dropWithCall(call, drop, c.ty(c.typing.Call(call).Ordered[0]))
 	c.typing.Call(call).Drop = dropCall
-	c.recordUses(dropCall)
+	c.recordUses(ast.CallUse{Info: dropCall, Site: call.Position()})
 	return t
 }
 
 // dropWithCall is the call of the destructor that a cown of content ends it with. Only content that is not Droppable
 // has something to decide, and the destructor takes nothing else, because the cown has nothing else to give it.
-func (c *Checker) dropWithCall(site *ast.CallExpr, arg *ast.Arg, content ast.Ty) *ast.CallExpr {
+func (c *Checker) dropWithCall(site ast.CallExpr, arg ast.Arg, content ast.Ty) *ast.CallInfo {
 	if c.lacks(droppable, content) == nil {
 		panic(arg.Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is Droppable, so the cown drops it with its last reference and there is nothing to decide: remove 'dropWith:'", content.Name())))
 	}
-	name, isName := arg.Value.(*ast.NameExpr)
+	name, isName := arg.Value().AsNameExpr()
 	if !isName {
 		panic(arg.Error(diag.ErrCapabilityMisuse, "'dropWith:' names a destructor of the content by its name alone, as 'dropWith: rollback'"))
 	}
@@ -340,21 +347,17 @@ func (c *Checker) dropWithCall(site *ast.CallExpr, arg *ast.Arg, content ast.Ty)
 	if !isNominal {
 		panic(arg.Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is a type parameter and has no destructor to name: a value that is not Droppable cannot go into a cown in generic code; add the bound 'where %s implements Droppable'", content.Name(), content.Name())))
 	}
-	method, found := nt.MethodTable()[name.Name]
+	method, found := nt.MethodTable()[name.Name()]
 	if !found || method.IsStatic || !method.IsDestructor() || len(method.Pass.Specs) > 0 || method.ReturnType != ast.Ty(ast.VoidTy) {
-		panic(arg.Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is not a destructor of '%s' that takes no other argument and returns nothing%s", name.Name, nt.Name(), c.dropWithCandidates(nt))))
+		panic(arg.Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is not a destructor of '%s' that takes no other argument and returns nothing%s", name.Name(), nt.Name(), c.dropWithCandidates(nt))))
 	}
-	c.requireExported(arg, method)
-	c.queueMethodBounds(site, method, nt.Base().Args)
-	drop := c.module.Nodes.NewCallExpr()
-	c.made()
-	drop.Pos = *site.P()
-	info := c.typing.Call(drop)
-	info.Kind, info.Target, info.Pass = ast.CallMethod, method, &method.Pass
+	c.requireExported(arg.Position(), method)
+	c.queueMethodBounds(site.Position(), method, nt.Base().Args)
+	info := &ast.CallInfo{Kind: ast.CallMethod, Target: method, Pass: &method.Pass}
 	if len(method.Generics) > 0 {
 		info.Generic = &ast.GenericCall{TypeArgs: nt.Base().Args}
 	}
-	return drop
+	return info
 }
 
 // dropWithCandidates names the destructors that dropWith: may name, in declaration order, for the error that names
@@ -377,12 +380,12 @@ func (c *Checker) dropWithCandidates(t ast.NominalTy) string {
 // other, and counting never frees a cycle. Owned values and frozen values cannot form one: an owner is a tree, and a
 // frozen value refers only to values frozen before it.
 func (c *Checker) checkCownCycle(t ast.NominalTy) {
-	var site ast.Node
+	var site ast.Pos
 	switch n := t.(type) {
 	case *ast.RecordTy:
-		site = n.Decl
+		site = n.Decl.Position()
 	case *ast.UnionTy:
-		site = n.Decl
+		site = n.Decl.Position()
 	default:
 		panic(diag.Internal("no declaration for %s", t.Name()))
 	}
@@ -391,7 +394,7 @@ func (c *Checker) checkCownCycle(t ast.NominalTy) {
 	if !c.reachesThroughCown(self, self, false, &path, map[cownVisit]bool{}) {
 		return
 	}
-	panic(site.P().Error(diag.ErrCownCycle,
+	panic(site.Position().Error(diag.ErrCownCycle,
 		fmt.Sprintf("type '%s' can reach itself through a cown (via %s), so cowns could refer to each other and counting would never free them; store a handle, or a key into a map, instead of the reference",
 			t.Name(), strings.Join(path, " -> "))))
 }
