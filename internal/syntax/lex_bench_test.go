@@ -26,7 +26,7 @@ func BenchmarkLex(b *testing.B) {
 		if len(files) == 0 {
 			continue
 		}
-		src := LoadModuleSource(files)
+		src := NewScratch().LoadModuleSource(files)
 		sources = append(sources, src)
 		total += len(src.Text)
 	}

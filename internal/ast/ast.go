@@ -4,16 +4,36 @@ import (
 	"minimaxon/internal/diag"
 )
 
+// Pos is where a node begins: an offset in the text of its module, which Src locates. A node the compiler makes
+// has the position of the node it stands for, and one that stands for nothing has none.
 type Pos struct {
-	File string
-	Line int
-	Col  int
+	Src *Positions
+	Off uint32
 }
 
 func (p *Pos) P() *Pos { return p }
 
+// Where is the file, line and column of the position, or the zero values if it has none.
+func (p *Pos) Where() (file string, line, col int) {
+	if p.Src == nil {
+		return "", 0, 0
+	}
+	return p.Src.Locate(p.Src.FileOf(int(p.Off)), int(p.Off))
+}
+
+func (p *Pos) Line() int {
+	_, line, _ := p.Where()
+	return line
+}
+
+func (p *Pos) Col() int {
+	_, _, col := p.Where()
+	return col
+}
+
 func (p *Pos) Error(code, msg string) *diag.CompileError {
-	return diag.NewError(code, msg, p.File, p.Line, p.Col)
+	file, line, col := p.Where()
+	return diag.NewError(code, msg, file, line, col)
 }
 
 type Node interface {

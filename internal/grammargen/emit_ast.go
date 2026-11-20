@@ -52,23 +52,7 @@ func emitNodes(m *model) string {
 	}
 
 	for _, n := range m.nodes {
-		var inits []string
-		var chain []*set
-		for s := n.set; s != nil; s = s.parent {
-			chain = append([]*set{s}, chain...)
-		}
-		for _, s := range chain {
-			for _, f := range s.base {
-				if f.init != "" {
-					inits = append(inits, fmt.Sprintf("n.%s = %s", f.name, f.init))
-				}
-			}
-		}
-		for _, f := range n.fields {
-			if f.init != "" {
-				inits = append(inits, fmt.Sprintf("n.%s = %s", f.name, f.init))
-			}
-		}
+		inits := initialValues(n)
 		w.p("func New%s() *%s {\n", n.name, n.name)
 		if len(inits) == 0 {
 			w.p("\treturn &%s{}\n}\n\n", n.name)
@@ -76,6 +60,21 @@ func emitNodes(m *model) string {
 		}
 		w.p("\tn := &%s{}\n", n.name)
 		for _, s := range inits {
+			w.p("\t%s\n", s)
+		}
+		w.p("\treturn n\n}\n\n")
+	}
+
+	w.p("// Arena holds the nodes of one parse: each type's nodes come from chunks of that type, so a module's nodes are\n")
+	w.p("// contiguous and a parse allocates a chunk at a time and not a node at a time.\n")
+	w.p("type Arena struct {\n")
+	for _, n := range m.nodes {
+		w.p("\t%s slab[%s]\n", lowerFirst(n.name), n.name)
+	}
+	w.p("}\n\n")
+	for _, n := range m.nodes {
+		w.p("func (a *Arena) New%s() *%s {\n\tn := a.%s.next()\n", n.name, n.name, lowerFirst(n.name))
+		for _, s := range initialValues(n) {
 			w.p("\t%s\n", s)
 		}
 		w.p("\treturn n\n}\n\n")
@@ -91,6 +90,29 @@ func emitNodes(m *model) string {
 		emitVisitors(w, s)
 	}
 	return w.b.String()
+}
+
+// initialValues are the assignments that give a new node the values its fields start with when they are not zero: the
+// set bases' first, outermost first, then the node's own.
+func initialValues(n *node) []string {
+	var inits []string
+	var chain []*set
+	for s := n.set; s != nil; s = s.parent {
+		chain = append([]*set{s}, chain...)
+	}
+	for _, s := range chain {
+		for _, f := range s.base {
+			if f.init != "" {
+				inits = append(inits, fmt.Sprintf("n.%s = %s", f.name, f.init))
+			}
+		}
+	}
+	for _, f := range n.fields {
+		if f.init != "" {
+			inits = append(inits, fmt.Sprintf("n.%s = %s", f.name, f.init))
+		}
+	}
+	return inits
 }
 
 func emitStruct(w *writer, name, embed string, fields []*field) {

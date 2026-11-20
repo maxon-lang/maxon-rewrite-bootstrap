@@ -219,7 +219,7 @@ func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
 	d.Name = name
 	d.Visibility = "public"
 	d.Module = stdlib
-	d.File = "<stdlib>"
+	d.Src = stdlibPositions
 	for _, p := range params {
 		tp := NewTypeParam()
 		tp.Name = p
@@ -264,7 +264,7 @@ func (b *Builtins) declareOption() {
 	d.Name = "Option"
 	d.Visibility = "public"
 	d.Module = b.stdlib
-	d.File = "<stdlib>"
+	d.Src = stdlibPositions
 	tp := NewTypeParam()
 	tp.Name = "T"
 	d.TypeParams = []*TypeParam{tp}
@@ -288,7 +288,7 @@ func (b *Builtins) declareCapability(name string) *InterfaceTy {
 	d.Name = name
 	d.Visibility = "public"
 	d.Module = b.stdlib
-	d.File = "<stdlib>"
+	d.Src = stdlibPositions
 	t := NewInterfaceTy(d)
 	d.Ty = t
 	b.stdlib.Decls = append(b.stdlib.Decls, d)
@@ -342,7 +342,7 @@ func (b *Builtins) declare(owner NominalTy, op Intrinsic, name string, static bo
 	f.Name = name
 	f.Visibility = "public"
 	f.Module = b.stdlib
-	f.File = "<stdlib>"
+	f.Src = stdlibPositions
 	f.IsStatic = static
 	if self != ConvLet {
 		f.Receiver = self.String()
@@ -467,7 +467,7 @@ func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty
 	f.Name = name
 	f.Visibility = "public"
 	f.Module = b.stdlib
-	f.File = "<stdlib>"
+	f.Src = stdlibPositions
 	f.Generics = []*TypeParamTy{t}
 	f.Instances = &InstanceTable{}
 	f.Intrinsic = op

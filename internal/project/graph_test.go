@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 
 	"minimaxon/internal/ast"
@@ -17,6 +18,9 @@ func graphOf(edges [][]int) (*ast.Project, *Graph) {
 	root := ast.NewModule("", ".", false)
 	proj := ast.NewProject(root)
 	results := make([]ast.ModuleResult, len(edges))
+	// Every line is empty, so line n starts at offset n-1.
+	text := strings.Repeat("\n", 100*len(edges))
+	lines := ast.NewPositions(text, []ast.FileSpan{{File: "f.maxon", End: len(text)}})
 	for i := range edges {
 		m := root
 		if i > 0 {
@@ -25,7 +29,7 @@ func graphOf(edges [][]int) (*ast.Project, *Graph) {
 		m.ID = ast.ModuleID(i)
 		proj.Modules = append(proj.Modules, m)
 		for _, j := range edges[i] {
-			site := &ast.Pos{File: "f.maxon", Line: i*100 + j, Col: 1}
+			site := &ast.Pos{Src: lines, Off: uint32(i*100 + j - 1)}
 			results[i].Deps = append(results[i].Deps, ast.ModuleDep{Module: ast.ModuleID(j), Site: site})
 		}
 		slices.SortFunc(results[i].Deps, func(a, b ast.ModuleDep) int { return int(a.Module) - int(b.Module) })

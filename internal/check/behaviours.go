@@ -89,7 +89,7 @@ func (c *Checker) captureFrom(b *behaviourBuild, level int, n *ast.NameExpr) *as
 	inner.ParamIndex = len(b.accesses) + len(b.node.Captures)
 	b.fn.Locals = append(b.fn.Locals, inner)
 	ref := ast.NewNameExpr()
-	ref.File, ref.Line, ref.Col = n.File, n.Line, n.Col
+	ref.Pos = n.Pos
 	ref.Name, ref.Kind, ref.Local = outer.Name, ast.NameLocal, outer
 	ref.SetTy(outer.Type)
 	b.node.Captures = append(b.node.Captures, &ast.Capture{Ref: ref, Inner: inner})
@@ -164,7 +164,7 @@ func (c *Checker) selfFieldInBehaviour(name string) (ast.Ty, bool) {
 // to the values of the cowns it names.
 func (c *Checker) enterBehaviour(w *ast.WhenStmt, values []ast.Ty) {
 	fn := ast.NewFuncDecl()
-	fn.File, fn.Line, fn.Col = w.File, w.Line, w.Col
+	fn.Pos = w.Pos
 	fn.Name = ast.BehaviourName(c.fn.Symbol(), c.whens)
 	fn.Visibility = c.fn.Visibility
 	fn.Module = c.module
@@ -190,7 +190,7 @@ func (c *Checker) leaveBehaviour(w *ast.WhenStmt) {
 	fn := b.fn
 	add := func(l *ast.Local) {
 		p := ast.NewParam()
-		p.File, p.Line, p.Col = w.File, w.Line, w.Col
+		p.Pos = w.Pos
 		p.Name = l.Name
 		p.Convention = l.Conv.String()
 		p.Sym = l

@@ -537,12 +537,12 @@ func (r *Resolver) member(m *ast.MemberExpr) ast.Expr {
 	}
 	target, used := r.qualified(head.Name, head, names, sites)
 	result := &ast.NameExpr{Name: target.Base().Name, Target: target}
-	result.File, result.Line, result.Col = head.File, head.Line, head.Col
+	result.Pos = head.Pos
 	var out ast.Expr = result
 	for _, s := range segments[used:] {
 		p := s.Site.P()
 		next := &ast.MemberExpr{Obj: out, Name: s.Name}
-		next.File, next.Line, next.Col = p.File, p.Line, p.Col
+		next.Pos = *p
 		out = next
 	}
 	return out
@@ -630,8 +630,7 @@ func hidden(d ast.Decl, site ast.Node) *diag.CompileError {
 
 func (r *Resolver) take(found lookup, site ast.Node) ast.Decl {
 	if found.Error != nil {
-		p := site.P()
-		panic(diag.NewError(found.Error.Code, found.Error.Message, p.File, p.Line, p.Col))
+		panic(site.P().Error(found.Error.Code, found.Error.Message))
 	}
 	if found.Decl != nil {
 		dm := found.Decl.Base().Module

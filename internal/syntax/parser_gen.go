@@ -31,6 +31,47 @@ var lookahead23 = [numTokens]bool{TMinus: true, TPlus: true}
 var lookahead24 = [numTokens]bool{TKw_shl: true, TKw_shr: true}
 var lookahead25 = [numTokens]bool{TEqEq: true, TGe: true, TGt: true, TLe: true, TLt: true, TNotEq: true}
 
+// listStacks has a stack for each type of element that a list in the grammar holds.
+type listStacks struct {
+	ptr_Param         listStack[*ast.Param]
+	ptr_FieldDecl     listStack[*ast.FieldDecl]
+	ptr_FuncDecl      listStack[*ast.FuncDecl]
+	ptr_EnumCaseDecl  listStack[*ast.EnumCaseDecl]
+	ptr_UnionCaseDecl listStack[*ast.UnionCaseDecl]
+	string            listStack[string]
+	ptr_TypeRef       listStack[*ast.TypeRef]
+	ptr_TypeParam     listStack[*ast.TypeParam]
+	ptr_Constraint    listStack[*ast.Constraint]
+	ptr_FuncSig       listStack[*ast.FuncSig]
+	Stmt              listStack[ast.Stmt]
+	ptr_NameExpr      listStack[*ast.NameExpr]
+	ptr_MatchArm      listStack[*ast.MatchArm]
+	ptr_Pattern       listStack[*ast.Pattern]
+	Expr              listStack[ast.Expr]
+	ptr_Arg           listStack[*ast.Arg]
+	ptr_StructField   listStack[*ast.StructField]
+}
+
+func (s *listStacks) reset() {
+	s.ptr_Param.reset()
+	s.ptr_FieldDecl.reset()
+	s.ptr_FuncDecl.reset()
+	s.ptr_EnumCaseDecl.reset()
+	s.ptr_UnionCaseDecl.reset()
+	s.string.reset()
+	s.ptr_TypeRef.reset()
+	s.ptr_TypeParam.reset()
+	s.ptr_Constraint.reset()
+	s.ptr_FuncSig.reset()
+	s.Stmt.reset()
+	s.ptr_NameExpr.reset()
+	s.ptr_MatchArm.reset()
+	s.ptr_Pattern.reset()
+	s.Expr.reset()
+	s.ptr_Arg.reset()
+	s.ptr_StructField.reset()
+}
+
 func (p *Parser) parseDecl() ast.Decl {
 	if p.in(&lookahead0) || (p.at(TKw_export) && p.peekIn(&lookahead0)) || (p.at(TKw_public) && p.peekIn(&lookahead0)) {
 		return p.parseFuncDecl()
@@ -61,8 +102,9 @@ func (p *Parser) parseTypeDeclNode() ast.TypeDeclNode {
 
 func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	t := p.cur()
-	n := ast.NewFuncDecl()
+	n := p.arena.NewFuncDecl()
 	place(p, n, t)
+	mark_n_Params := p.lists.ptr_Param.mark()
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
@@ -86,13 +128,13 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 			p.expect(TKw_self, "'self'")
 			for p.at(TComma) {
 				p.expect(TComma, "','")
-				n.Params = append(n.Params, p.parseParam())
+				p.lists.ptr_Param.push(p.parseParam())
 			}
 		} else if p.in(&lookahead6) {
-			n.Params = append(n.Params, p.parseParam())
+			p.lists.ptr_Param.push(p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
-				n.Params = append(n.Params, p.parseParam())
+				p.lists.ptr_Param.push(p.parseParam())
 			}
 		} else {
 			panic(p.expected("'_', 'consumes', 'destructs', 'mutates', 'sets' or a name"))
@@ -114,12 +156,13 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	if p.at(TLabel) {
 		n.End = p.parseEndLabel()
 	}
+	n.Params = p.lists.ptr_Param.take(mark_n_Params)
 	return n
 }
 
 func (p *Parser) parseParam() *ast.Param {
 	t := p.cur()
-	n := ast.NewParam()
+	n := p.arena.NewParam()
 	place(p, n, t)
 	if p.in(&lookahead7) {
 		if !p.in(&lookahead7) {
@@ -137,7 +180,7 @@ func (p *Parser) parseParam() *ast.Param {
 
 func (p *Parser) parseConstDecl() *ast.ConstDecl {
 	t := p.cur()
-	n := ast.NewConstDecl()
+	n := p.arena.NewConstDecl()
 	place(p, n, t)
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
@@ -154,8 +197,10 @@ func (p *Parser) parseConstDecl() *ast.ConstDecl {
 
 func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	t := p.cur()
-	n := ast.NewTypeDecl()
+	n := p.arena.NewTypeDecl()
 	place(p, n, t)
+	mark_n_Fields := p.lists.ptr_FieldDecl.mark()
+	mark_n_Methods := p.lists.ptr_FuncDecl.mark()
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
@@ -182,18 +227,18 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	if p.at(TIndent) {
 		p.expect(TIndent, "an indented line")
 		if p.in(&lookahead9) || (p.at(TKw_export) && p.peekIn(&lookahead9)) || (p.at(TKw_public) && p.peekIn(&lookahead9)) {
-			n.Fields = append(n.Fields, p.parseFieldDecl())
+			p.lists.ptr_FieldDecl.push(p.parseFieldDecl())
 		} else if p.in(&lookahead10) {
-			n.Methods = append(n.Methods, p.parseFuncDecl())
+			p.lists.ptr_FuncDecl.push(p.parseFuncDecl())
 		} else {
 			panic(p.expected("'export', 'function', 'let', 'public', 'static' or 'var'"))
 		}
 		p.expect(TNewline, "the end of the line")
 		for p.in(&lookahead11) {
 			if p.in(&lookahead9) || (p.at(TKw_export) && p.peekIn(&lookahead9)) || (p.at(TKw_public) && p.peekIn(&lookahead9)) {
-				n.Fields = append(n.Fields, p.parseFieldDecl())
+				p.lists.ptr_FieldDecl.push(p.parseFieldDecl())
 			} else if p.in(&lookahead10) {
-				n.Methods = append(n.Methods, p.parseFuncDecl())
+				p.lists.ptr_FuncDecl.push(p.parseFuncDecl())
 			} else {
 				panic(p.expected("'export', 'function', 'let', 'public', 'static' or 'var'"))
 			}
@@ -205,12 +250,14 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	if p.at(TLabel) {
 		n.End = p.parseEndLabel()
 	}
+	n.Fields = p.lists.ptr_FieldDecl.take(mark_n_Fields)
+	n.Methods = p.lists.ptr_FuncDecl.take(mark_n_Methods)
 	return n
 }
 
 func (p *Parser) parseFieldDecl() *ast.FieldDecl {
 	t := p.cur()
-	n := ast.NewFieldDecl()
+	n := p.arena.NewFieldDecl()
 	place(p, n, t)
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
@@ -243,8 +290,10 @@ func (p *Parser) parseFieldDecl() *ast.FieldDecl {
 
 func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	t := p.cur()
-	n := ast.NewEnumDecl()
+	n := p.arena.NewEnumDecl()
 	place(p, n, t)
+	mark_n_Cases := p.lists.ptr_EnumCaseDecl.mark()
+	mark_n_Methods := p.lists.ptr_FuncDecl.mark()
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
@@ -261,9 +310,9 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 		p.expect(TIndent, "an indented line")
 		switch p.cur().Kind() {
 		case TName:
-			n.Cases = append(n.Cases, p.parseEnumCaseDecl())
+			p.lists.ptr_EnumCaseDecl.push(p.parseEnumCaseDecl())
 		case TKw_export, TKw_function, TKw_public, TKw_static:
-			n.Methods = append(n.Methods, p.parseFuncDecl())
+			p.lists.ptr_FuncDecl.push(p.parseFuncDecl())
 		default:
 			panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 		}
@@ -271,9 +320,9 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 		for p.in(&lookahead12) {
 			switch p.cur().Kind() {
 			case TName:
-				n.Cases = append(n.Cases, p.parseEnumCaseDecl())
+				p.lists.ptr_EnumCaseDecl.push(p.parseEnumCaseDecl())
 			case TKw_export, TKw_function, TKw_public, TKw_static:
-				n.Methods = append(n.Methods, p.parseFuncDecl())
+				p.lists.ptr_FuncDecl.push(p.parseFuncDecl())
 			default:
 				panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 			}
@@ -285,12 +334,14 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	if p.at(TLabel) {
 		n.End = p.parseEndLabel()
 	}
+	n.Cases = p.lists.ptr_EnumCaseDecl.take(mark_n_Cases)
+	n.Methods = p.lists.ptr_FuncDecl.take(mark_n_Methods)
 	return n
 }
 
 func (p *Parser) parseEnumCaseDecl() *ast.EnumCaseDecl {
 	t := p.cur()
-	n := ast.NewEnumCaseDecl()
+	n := p.arena.NewEnumCaseDecl()
 	place(p, n, t)
 	n.Name = p.text(p.expect(TName, "a name"))
 	if p.at(TAssign) {
@@ -302,8 +353,10 @@ func (p *Parser) parseEnumCaseDecl() *ast.EnumCaseDecl {
 
 func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 	t := p.cur()
-	n := ast.NewUnionDecl()
+	n := p.arena.NewUnionDecl()
 	place(p, n, t)
+	mark_n_Cases := p.lists.ptr_UnionCaseDecl.mark()
+	mark_n_Methods := p.lists.ptr_FuncDecl.mark()
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
@@ -331,9 +384,9 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 		p.expect(TIndent, "an indented line")
 		switch p.cur().Kind() {
 		case TName:
-			n.Cases = append(n.Cases, p.parseUnionCaseDecl())
+			p.lists.ptr_UnionCaseDecl.push(p.parseUnionCaseDecl())
 		case TKw_export, TKw_function, TKw_public, TKw_static:
-			n.Methods = append(n.Methods, p.parseFuncDecl())
+			p.lists.ptr_FuncDecl.push(p.parseFuncDecl())
 		default:
 			panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 		}
@@ -341,9 +394,9 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 		for p.in(&lookahead12) {
 			switch p.cur().Kind() {
 			case TName:
-				n.Cases = append(n.Cases, p.parseUnionCaseDecl())
+				p.lists.ptr_UnionCaseDecl.push(p.parseUnionCaseDecl())
 			case TKw_export, TKw_function, TKw_public, TKw_static:
-				n.Methods = append(n.Methods, p.parseFuncDecl())
+				p.lists.ptr_FuncDecl.push(p.parseFuncDecl())
 			default:
 				panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 			}
@@ -355,32 +408,36 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 	if p.at(TLabel) {
 		n.End = p.parseEndLabel()
 	}
+	n.Cases = p.lists.ptr_UnionCaseDecl.take(mark_n_Cases)
+	n.Methods = p.lists.ptr_FuncDecl.take(mark_n_Methods)
 	return n
 }
 
 func (p *Parser) parseUnionCaseDecl() *ast.UnionCaseDecl {
 	t := p.cur()
-	n := ast.NewUnionCaseDecl()
+	n := p.arena.NewUnionCaseDecl()
 	place(p, n, t)
+	mark_n_Fields := p.lists.ptr_Param.mark()
 	n.Name = p.text(p.expect(TName, "a name"))
 	if p.at(TLParen) {
 		p.joinNext = true
 		p.expect(TLParen, "'('")
 		if p.in(&lookahead6) {
-			n.Fields = append(n.Fields, p.parseParam())
+			p.lists.ptr_Param.push(p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
-				n.Fields = append(n.Fields, p.parseParam())
+				p.lists.ptr_Param.push(p.parseParam())
 			}
 		}
 		p.expect(TRParen, "')'")
 	}
+	n.Fields = p.lists.ptr_Param.take(mark_n_Fields)
 	return n
 }
 
 func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 	t := p.cur()
-	n := ast.NewAliasDecl()
+	n := p.arena.NewAliasDecl()
 	place(p, n, t)
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
@@ -418,7 +475,7 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 
 func (p *Parser) parseBound() *ast.Bound {
 	t := p.cur()
-	n := ast.NewBound()
+	n := p.arena.NewBound()
 	place(p, n, t)
 	if p.at(TMinus) {
 		p.expect(TMinus, "'-'")
@@ -440,10 +497,11 @@ func (p *Parser) parseBound() *ast.Bound {
 
 func (p *Parser) parseTypeRef() *ast.TypeRef {
 	t := p.cur()
-	n := ast.NewTypeRef()
+	n := p.arena.NewTypeRef()
 	place(p, n, t)
+	mark_n_Qualifier := p.lists.string.mark()
 	for p.at(TName) && p.peekIs(TDot) {
-		n.Qualifier = append(n.Qualifier, p.text(p.expect(TName, "a name")))
+		p.lists.string.push(p.text(p.expect(TName, "a name")))
 		p.expect(TDot, "'.'")
 	}
 	if !p.in(&lookahead13) {
@@ -454,42 +512,47 @@ func (p *Parser) parseTypeRef() *ast.TypeRef {
 		p.expect(TKw_with, "'with'")
 		n.TypeArgs = p.parseTypeArgs()
 	}
+	n.Qualifier = p.lists.string.take(mark_n_Qualifier)
 	return n
 }
 
 func (p *Parser) parseTypeArgs() []*ast.TypeRef {
 	var args []*ast.TypeRef
+	mark_args := p.lists.ptr_TypeRef.mark()
 	switch p.cur().Kind() {
 	case TKw_Self, TName:
-		args = append(args, p.parseTypeRef())
+		p.lists.ptr_TypeRef.push(p.parseTypeRef())
 	case TLParen:
 		p.expect(TLParen, "'('")
-		args = append(args, p.parseTypeRef())
+		p.lists.ptr_TypeRef.push(p.parseTypeRef())
 		for p.at(TComma) {
 			p.expect(TComma, "','")
-			args = append(args, p.parseTypeRef())
+			p.lists.ptr_TypeRef.push(p.parseTypeRef())
 		}
 		p.expect(TRParen, "')'")
 	default:
 		panic(p.expected("type arguments"))
 	}
+	args = p.lists.ptr_TypeRef.take(mark_args)
 	return args
 }
 
 func (p *Parser) parseUsesClause() []*ast.TypeParam {
 	var params []*ast.TypeParam
+	mark_params := p.lists.ptr_TypeParam.mark()
 	p.expect(TKw_uses, "'uses'")
-	params = append(params, p.parseTypeParam())
+	p.lists.ptr_TypeParam.push(p.parseTypeParam())
 	for p.at(TComma) {
 		p.expect(TComma, "','")
-		params = append(params, p.parseTypeParam())
+		p.lists.ptr_TypeParam.push(p.parseTypeParam())
 	}
+	params = p.lists.ptr_TypeParam.take(mark_params)
 	return params
 }
 
 func (p *Parser) parseTypeParam() *ast.TypeParam {
 	t := p.cur()
-	n := ast.NewTypeParam()
+	n := p.arena.NewTypeParam()
 	place(p, n, t)
 	n.Name = p.text(p.expect(TName, "a name"))
 	return n
@@ -497,44 +560,51 @@ func (p *Parser) parseTypeParam() *ast.TypeParam {
 
 func (p *Parser) parseWhereClause() []*ast.Constraint {
 	var constraints []*ast.Constraint
+	mark_constraints := p.lists.ptr_Constraint.mark()
 	p.expect(TKw_where, "'where'")
-	constraints = append(constraints, p.parseConstraint())
+	p.lists.ptr_Constraint.push(p.parseConstraint())
 	for p.at(TComma) {
 		p.expect(TComma, "','")
-		constraints = append(constraints, p.parseConstraint())
+		p.lists.ptr_Constraint.push(p.parseConstraint())
 	}
+	constraints = p.lists.ptr_Constraint.take(mark_constraints)
 	return constraints
 }
 
 func (p *Parser) parseConstraint() *ast.Constraint {
 	t := p.cur()
-	n := ast.NewConstraint()
+	n := p.arena.NewConstraint()
 	place(p, n, t)
+	mark_n_Bounds := p.lists.ptr_TypeRef.mark()
 	n.Param = p.text(p.expect(TName, "a name"))
 	p.expect(TKw_implements, "'implements'")
-	n.Bounds = append(n.Bounds, p.parseTypeRef())
+	p.lists.ptr_TypeRef.push(p.parseTypeRef())
 	for p.at(TKw_and) {
 		p.expect(TKw_and, "'and'")
-		n.Bounds = append(n.Bounds, p.parseTypeRef())
+		p.lists.ptr_TypeRef.push(p.parseTypeRef())
 	}
+	n.Bounds = p.lists.ptr_TypeRef.take(mark_n_Bounds)
 	return n
 }
 
 func (p *Parser) parseConformsClause() []*ast.TypeRef {
 	var interfaces []*ast.TypeRef
+	mark_interfaces := p.lists.ptr_TypeRef.mark()
 	p.expect(TKw_implements, "'implements'")
-	interfaces = append(interfaces, p.parseTypeRef())
+	p.lists.ptr_TypeRef.push(p.parseTypeRef())
 	for p.at(TKw_and) {
 		p.expect(TKw_and, "'and'")
-		interfaces = append(interfaces, p.parseTypeRef())
+		p.lists.ptr_TypeRef.push(p.parseTypeRef())
 	}
+	interfaces = p.lists.ptr_TypeRef.take(mark_interfaces)
 	return interfaces
 }
 
 func (p *Parser) parseInterfaceDecl() *ast.InterfaceDecl {
 	t := p.cur()
-	n := ast.NewInterfaceDecl()
+	n := p.arena.NewInterfaceDecl()
 	place(p, n, t)
+	mark_n_Methods := p.lists.ptr_FuncSig.mark()
 	if p.in(&lookahead3) {
 		if !p.in(&lookahead3) {
 			panic(p.expected("'export' or 'public'"))
@@ -546,10 +616,10 @@ func (p *Parser) parseInterfaceDecl() *ast.InterfaceDecl {
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
 		p.expect(TIndent, "an indented line")
-		n.Methods = append(n.Methods, p.parseFuncSig())
+		p.lists.ptr_FuncSig.push(p.parseFuncSig())
 		p.expect(TNewline, "the end of the line")
 		for p.at(TKw_function) {
-			n.Methods = append(n.Methods, p.parseFuncSig())
+			p.lists.ptr_FuncSig.push(p.parseFuncSig())
 			p.expect(TNewline, "the end of the line")
 		}
 		p.expect(TDedent, "the end of the indented lines")
@@ -558,13 +628,15 @@ func (p *Parser) parseInterfaceDecl() *ast.InterfaceDecl {
 	if p.at(TLabel) {
 		n.End = p.parseEndLabel()
 	}
+	n.Methods = p.lists.ptr_FuncSig.take(mark_n_Methods)
 	return n
 }
 
 func (p *Parser) parseFuncSig() *ast.FuncSig {
 	t := p.cur()
-	n := ast.NewFuncSig()
+	n := p.arena.NewFuncSig()
 	place(p, n, t)
+	mark_n_Params := p.lists.ptr_Param.mark()
 	p.expect(TKw_function, "'function'")
 	n.Name = p.text(p.expect(TName, "a name"))
 	p.joinNext = true
@@ -578,13 +650,13 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 			p.expect(TKw_self, "'self'")
 			for p.at(TComma) {
 				p.expect(TComma, "','")
-				n.Params = append(n.Params, p.parseParam())
+				p.lists.ptr_Param.push(p.parseParam())
 			}
 		} else if p.in(&lookahead6) {
-			n.Params = append(n.Params, p.parseParam())
+			p.lists.ptr_Param.push(p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
-				n.Params = append(n.Params, p.parseParam())
+				p.lists.ptr_Param.push(p.parseParam())
 			}
 		} else {
 			panic(p.expected("'_', 'consumes', 'destructs', 'mutates', 'sets' or a name"))
@@ -595,12 +667,13 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 		p.expect(TKw_returns, "'returns'")
 		n.Returns = p.parseTypeRef()
 	}
+	n.Params = p.lists.ptr_Param.take(mark_n_Params)
 	return n
 }
 
 func (p *Parser) parseEndLabel() *ast.EndLabel {
 	t := p.cur()
-	n := ast.NewEndLabel()
+	n := p.arena.NewEndLabel()
 	place(p, n, t)
 	n.Name = p.text(p.expect(TLabel, "a label"))
 	return n
@@ -608,15 +681,17 @@ func (p *Parser) parseEndLabel() *ast.EndLabel {
 
 func (p *Parser) parseBlock() []ast.Stmt {
 	var stmts []ast.Stmt
+	mark_stmts := p.lists.Stmt.mark()
 	p.expect(TNewline, "the end of the line")
 	p.expect(TIndent, "an indented line")
-	stmts = append(stmts, p.parseStmt())
+	p.lists.Stmt.push(p.parseStmt())
 	p.expect(TNewline, "the end of the line")
 	for p.in(&lookahead14) {
-		stmts = append(stmts, p.parseStmt())
+		p.lists.Stmt.push(p.parseStmt())
 		p.expect(TNewline, "the end of the line")
 	}
 	p.expect(TDedent, "the end of the indented lines")
+	stmts = p.lists.Stmt.take(mark_stmts)
 	return stmts
 }
 
@@ -659,7 +734,7 @@ func (p *Parser) parseStmt() ast.Stmt {
 
 func (p *Parser) parseLetStmt() *ast.LetStmt {
 	t := p.cur()
-	n := ast.NewLetStmt()
+	n := p.arena.NewLetStmt()
 	place(p, n, t)
 	switch p.cur().Kind() {
 	case TKw_let:
@@ -689,7 +764,7 @@ func (p *Parser) parseLetStmt() *ast.LetStmt {
 
 func (p *Parser) parseDiscardStmt() *ast.DiscardStmt {
 	t := p.cur()
-	n := ast.NewDiscardStmt()
+	n := p.arena.NewDiscardStmt()
 	place(p, n, t)
 	p.expect(TKw__, "'_'")
 	p.expect(TAssign, "'='")
@@ -698,7 +773,7 @@ func (p *Parser) parseDiscardStmt() *ast.DiscardStmt {
 }
 
 func (p *Parser) parseAssignStmtAfter(t *Token, first ast.Expr) *ast.AssignStmt {
-	n := ast.NewAssignStmt()
+	n := p.arena.NewAssignStmt()
 	place(p, n, t)
 	n.Target = first
 	p.expect(TAssign, "'='")
@@ -712,7 +787,7 @@ func (p *Parser) parseAssignStmt() *ast.AssignStmt {
 }
 
 func (p *Parser) parseExprStmtAfter(t *Token, first ast.Expr) *ast.ExprStmt {
-	n := ast.NewExprStmt()
+	n := p.arena.NewExprStmt()
 	place(p, n, t)
 	n.E = first
 	return n
@@ -725,8 +800,9 @@ func (p *Parser) parseExprStmt() *ast.ExprStmt {
 
 func (p *Parser) parseIfStmt() *ast.IfStmt {
 	t := p.cur()
-	n := ast.NewIfStmt()
+	n := p.arena.NewIfStmt()
 	place(p, n, t)
+	mark_n_Else := p.lists.Stmt.mark()
 	p.expect(TKw_if, "'if'")
 	n.Cond = p.parseExpr()
 	n.Label = p.text(p.expect(TLabel, "a label"))
@@ -740,7 +816,7 @@ func (p *Parser) parseIfStmt() *ast.IfStmt {
 		n.HasElse = true
 		switch p.cur().Kind() {
 		case TKw_if:
-			n.Else = append(n.Else, p.parseIfStmt())
+			p.lists.Stmt.push(p.parseIfStmt())
 		case TLabel:
 			n.ElseLabel = p.text(p.expect(TLabel, "a label"))
 			n.Else = p.parseBlock()
@@ -752,12 +828,15 @@ func (p *Parser) parseIfStmt() *ast.IfStmt {
 			panic(p.expected("'if' or a label"))
 		}
 	}
+	if p.lists.Stmt.pushedSince(mark_n_Else) {
+		n.Else = p.lists.Stmt.take(mark_n_Else)
+	}
 	return n
 }
 
 func (p *Parser) parseWhileStmt() *ast.WhileStmt {
 	t := p.cur()
-	n := ast.NewWhileStmt()
+	n := p.arena.NewWhileStmt()
 	place(p, n, t)
 	p.expect(TKw_while, "'while'")
 	n.Cond = p.parseExpr()
@@ -772,7 +851,7 @@ func (p *Parser) parseWhileStmt() *ast.WhileStmt {
 
 func (p *Parser) parseForStmt() *ast.ForStmt {
 	t := p.cur()
-	n := ast.NewForStmt()
+	n := p.arena.NewForStmt()
 	place(p, n, t)
 	p.expect(TKw_for, "'for'")
 	if !p.in(&lookahead8) {
@@ -802,7 +881,7 @@ func (p *Parser) parseForStmt() *ast.ForStmt {
 
 func (p *Parser) parseReturnStmt() *ast.ReturnStmt {
 	t := p.cur()
-	n := ast.NewReturnStmt()
+	n := p.arena.NewReturnStmt()
 	place(p, n, t)
 	p.expect(TKw_return, "'return'")
 	if p.in(&lookahead16) {
@@ -813,7 +892,7 @@ func (p *Parser) parseReturnStmt() *ast.ReturnStmt {
 
 func (p *Parser) parseBreakStmt() *ast.BreakStmt {
 	t := p.cur()
-	n := ast.NewBreakStmt()
+	n := p.arena.NewBreakStmt()
 	place(p, n, t)
 	p.expect(TKw_break, "'break'")
 	if p.at(TLabel) {
@@ -824,7 +903,7 @@ func (p *Parser) parseBreakStmt() *ast.BreakStmt {
 
 func (p *Parser) parseContinueStmt() *ast.ContinueStmt {
 	t := p.cur()
-	n := ast.NewContinueStmt()
+	n := p.arena.NewContinueStmt()
 	place(p, n, t)
 	p.expect(TKw_continue, "'continue'")
 	if p.at(TLabel) {
@@ -835,7 +914,7 @@ func (p *Parser) parseContinueStmt() *ast.ContinueStmt {
 
 func (p *Parser) parseMatchStmt() *ast.MatchStmt {
 	t := p.cur()
-	n := ast.NewMatchStmt()
+	n := p.arena.NewMatchStmt()
 	place(p, n, t)
 	n.Match = p.parseMatchCore()
 	return n
@@ -843,19 +922,21 @@ func (p *Parser) parseMatchStmt() *ast.MatchStmt {
 
 func (p *Parser) parseWhenStmt() *ast.WhenStmt {
 	t := p.cur()
-	n := ast.NewWhenStmt()
+	n := p.arena.NewWhenStmt()
 	place(p, n, t)
+	mark_n_Cowns := p.lists.ptr_NameExpr.mark()
+	mark_n_Names := p.lists.string.mark()
 	p.expect(TKw_when, "'when'")
-	n.Cowns = append(n.Cowns, p.parseNameExpr())
+	p.lists.ptr_NameExpr.push(p.parseNameExpr())
 	for p.at(TComma) {
 		p.expect(TComma, "','")
-		n.Cowns = append(n.Cowns, p.parseNameExpr())
+		p.lists.ptr_NameExpr.push(p.parseNameExpr())
 	}
 	p.expect(TKw_as, "'as'")
-	n.Names = append(n.Names, p.text(p.expect(TName, "a name")))
+	p.lists.string.push(p.text(p.expect(TName, "a name")))
 	for p.at(TComma) {
 		p.expect(TComma, "','")
-		n.Names = append(n.Names, p.text(p.expect(TName, "a name")))
+		p.lists.string.push(p.text(p.expect(TName, "a name")))
 	}
 	n.Label = p.text(p.expect(TLabel, "a label"))
 	n.Body = p.parseBlock()
@@ -863,13 +944,16 @@ func (p *Parser) parseWhenStmt() *ast.WhenStmt {
 	if p.at(TLabel) {
 		n.End = p.parseEndLabel()
 	}
+	n.Cowns = p.lists.ptr_NameExpr.take(mark_n_Cowns)
+	n.Names = p.lists.string.take(mark_n_Names)
 	return n
 }
 
 func (p *Parser) parseMatchCore() *ast.MatchCore {
 	t := p.cur()
-	n := ast.NewMatchCore()
+	n := p.arena.NewMatchCore()
 	place(p, n, t)
+	mark_n_Arms := p.lists.ptr_MatchArm.mark()
 	p.expect(TKw_match, "'match'")
 	if p.at(TKw_consumes) {
 		p.expect(TKw_consumes, "'consumes'")
@@ -880,10 +964,10 @@ func (p *Parser) parseMatchCore() *ast.MatchCore {
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
 		p.expect(TIndent, "an indented line")
-		n.Arms = append(n.Arms, p.parseMatchArm())
+		p.lists.ptr_MatchArm.push(p.parseMatchArm())
 		p.expect(TNewline, "the end of the line")
 		for p.in(&lookahead17) {
-			n.Arms = append(n.Arms, p.parseMatchArm())
+			p.lists.ptr_MatchArm.push(p.parseMatchArm())
 			p.expect(TNewline, "the end of the line")
 		}
 		p.expect(TDedent, "the end of the indented lines")
@@ -892,23 +976,25 @@ func (p *Parser) parseMatchCore() *ast.MatchCore {
 	if p.at(TLabel) && p.peekIn(&lookahead18) {
 		n.End = p.parseEndLabel()
 	}
+	n.Arms = p.lists.ptr_MatchArm.take(mark_n_Arms)
 	return n
 }
 
 func (p *Parser) parseMatchArm() *ast.MatchArm {
 	t := p.cur()
-	n := ast.NewMatchArm()
+	n := p.arena.NewMatchArm()
 	place(p, n, t)
+	mark_n_Patterns := p.lists.ptr_Pattern.mark()
 	switch p.cur().Kind() {
 	case TKw_default:
 		p.expect(TKw_default, "'default'")
 		n.IsDefault = true
 	case TInteger, TKw_false, TKw_true, TMinus, TName, TString:
-		n.Patterns = append(n.Patterns, p.parsePattern())
+		p.lists.ptr_Pattern.push(p.parsePattern())
 		for p.at(TKw_or) {
 			p.expect(TKw_or, "'or'")
 			p.expect(TNewline, "the end of the line")
-			n.Patterns = append(n.Patterns, p.parsePattern())
+			p.lists.ptr_Pattern.push(p.parsePattern())
 		}
 	default:
 		panic(p.expected("an integer, 'default', 'false', 'true', '-', a name or a string"))
@@ -926,13 +1012,15 @@ func (p *Parser) parseMatchArm() *ast.MatchArm {
 	default:
 		panic(p.expected("'gives', 'panic' or 'then'"))
 	}
+	n.Patterns = p.lists.ptr_Pattern.take(mark_n_Patterns)
 	return n
 }
 
 func (p *Parser) parsePattern() *ast.Pattern {
 	t := p.cur()
-	n := ast.NewPattern()
+	n := p.arena.NewPattern()
 	place(p, n, t)
+	mark_n_Bindings := p.lists.string.mark()
 	switch p.cur().Kind() {
 	case TName:
 		n.CaseName = p.text(p.expect(TName, "a name"))
@@ -944,13 +1032,13 @@ func (p *Parser) parsePattern() *ast.Pattern {
 				if !p.in(&lookahead8) {
 					panic(p.expected("'_' or a name"))
 				}
-				n.Bindings = append(n.Bindings, p.text(p.next()))
+				p.lists.string.push(p.text(p.next()))
 				for p.at(TComma) {
 					p.expect(TComma, "','")
 					if !p.in(&lookahead8) {
 						panic(p.expected("'_' or a name"))
 					}
-					n.Bindings = append(n.Bindings, p.text(p.next()))
+					p.lists.string.push(p.text(p.next()))
 				}
 			}
 			p.expect(TRParen, "')'")
@@ -972,6 +1060,7 @@ func (p *Parser) parsePattern() *ast.Pattern {
 	default:
 		panic(p.expected("a pattern"))
 	}
+	n.Bindings = p.lists.string.take(mark_n_Bindings)
 	return n
 }
 
@@ -1018,7 +1107,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		left = p.parseExpr()
 		p.expect(TRParen, "')'")
 	} else if p.in(&lookahead21) {
-		n := ast.NewUnaryExpr()
+		n := p.arena.NewUnaryExpr()
 		place(p, n, t)
 		if !p.in(&lookahead21) {
 			panic(p.expected("'not' or '-'"))
@@ -1039,7 +1128,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 13 < minPrec {
 				return left
 			}
-			n := ast.NewMemberExpr()
+			n := p.arena.NewMemberExpr()
 			place(p, n, p.cur())
 			n.Obj = left
 			p.expect(TDot, "'.'")
@@ -1049,40 +1138,44 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 12 < minPrec {
 				return left
 			}
-			n := ast.NewIndexExpr()
+			n := p.arena.NewIndexExpr()
 			place(p, n, p.cur())
+			mark_n_Args := p.lists.Expr.mark()
 			n.Obj = left
 			p.expect(TLBracket, "'['")
-			n.Args = append(n.Args, p.parseExpr())
+			p.lists.Expr.push(p.parseExpr())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
-				n.Args = append(n.Args, p.parseExpr())
+				p.lists.Expr.push(p.parseExpr())
 			}
 			p.expect(TRBracket, "']'")
+			n.Args = p.lists.Expr.take(mark_n_Args)
 			left = n
 		case TLParen:
 			if 11 < minPrec {
 				return left
 			}
-			n := ast.NewCallExpr()
+			n := p.arena.NewCallExpr()
 			place(p, n, p.cur())
+			mark_n_Args := p.lists.ptr_Arg.mark()
 			n.Callee = left
 			p.joinNext = true
 			p.expect(TLParen, "'('")
 			if p.in(&lookahead16) {
-				n.Args = append(n.Args, p.parseArg())
+				p.lists.ptr_Arg.push(p.parseArg())
 				for p.at(TComma) {
 					p.expect(TComma, "','")
-					n.Args = append(n.Args, p.parseArg())
+					p.lists.ptr_Arg.push(p.parseArg())
 				}
 			}
 			p.expect(TRParen, "')'")
+			n.Args = p.lists.ptr_Arg.take(mark_n_Args)
 			left = n
 		case TKw_as:
 			if 9 < minPrec {
 				return left
 			}
-			n := ast.NewCastExpr()
+			n := p.arena.NewCastExpr()
 			place(p, n, p.cur())
 			n.E = left
 			p.expect(TKw_as, "'as'")
@@ -1092,7 +1185,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 8 < minPrec {
 				return left
 			}
-			n := ast.NewBinaryExpr()
+			n := p.arena.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
 			if !p.in(&lookahead22) {
@@ -1105,7 +1198,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 7 < minPrec {
 				return left
 			}
-			n := ast.NewBinaryExpr()
+			n := p.arena.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
 			if !p.in(&lookahead23) {
@@ -1118,7 +1211,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 6 < minPrec {
 				return left
 			}
-			n := ast.NewBinaryExpr()
+			n := p.arena.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
 			if !p.in(&lookahead24) {
@@ -1131,7 +1224,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 5 < minPrec {
 				return left
 			}
-			n := ast.NewBinaryExpr()
+			n := p.arena.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
 			if !p.in(&lookahead25) {
@@ -1144,7 +1237,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 4 < minPrec {
 				return left
 			}
-			n := ast.NewBinaryExpr()
+			n := p.arena.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
 			n.Op = p.text(p.expect(TKw_and, "'and'"))
@@ -1154,7 +1247,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 3 < minPrec {
 				return left
 			}
-			n := ast.NewBinaryExpr()
+			n := p.arena.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
 			n.Op = p.text(p.expect(TKw_xor, "'xor'"))
@@ -1164,7 +1257,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 2 < minPrec {
 				return left
 			}
-			n := ast.NewBinaryExpr()
+			n := p.arena.NewBinaryExpr()
 			place(p, n, p.cur())
 			n.L = left
 			n.Op = p.text(p.expect(TKw_or, "'or'"))
@@ -1174,7 +1267,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			if 1 < minPrec {
 				return left
 			}
-			n := ast.NewCondExpr()
+			n := p.arena.NewCondExpr()
 			place(p, n, p.cur())
 			n.Then = left
 			p.expect(TKw_if, "'if'")
@@ -1190,7 +1283,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 
 func (p *Parser) parseIntLit() *ast.IntLit {
 	t := p.cur()
-	n := ast.NewIntLit()
+	n := p.arena.NewIntLit()
 	place(p, n, t)
 	if p.at(TMinus) {
 		p.expect(TMinus, "'-'")
@@ -1203,7 +1296,7 @@ func (p *Parser) parseIntLit() *ast.IntLit {
 
 func (p *Parser) parseStrLit() *ast.StrLit {
 	t := p.cur()
-	n := ast.NewStrLit()
+	n := p.arena.NewStrLit()
 	place(p, n, t)
 	n.Parts = p.strLitParts(p.expect(TString, "a string"))
 	return n
@@ -1211,7 +1304,7 @@ func (p *Parser) parseStrLit() *ast.StrLit {
 
 func (p *Parser) parseBoolLit() *ast.BoolLit {
 	t := p.cur()
-	n := ast.NewBoolLit()
+	n := p.arena.NewBoolLit()
 	place(p, n, t)
 	switch p.cur().Kind() {
 	case TKw_true:
@@ -1227,7 +1320,7 @@ func (p *Parser) parseBoolLit() *ast.BoolLit {
 
 func (p *Parser) parseNameExpr() *ast.NameExpr {
 	t := p.cur()
-	n := ast.NewNameExpr()
+	n := p.arena.NewNameExpr()
 	place(p, n, t)
 	if !p.in(&lookahead13) {
 		panic(p.expected("'Self' or a name"))
@@ -1238,7 +1331,7 @@ func (p *Parser) parseNameExpr() *ast.NameExpr {
 
 func (p *Parser) parseSelfExpr() *ast.SelfExpr {
 	t := p.cur()
-	n := ast.NewSelfExpr()
+	n := p.arena.NewSelfExpr()
 	place(p, n, t)
 	p.expect(TKw_self, "'self'")
 	return n
@@ -1246,27 +1339,29 @@ func (p *Parser) parseSelfExpr() *ast.SelfExpr {
 
 func (p *Parser) parseStructLitExpr() *ast.StructLitExpr {
 	t := p.cur()
-	n := ast.NewStructLitExpr()
+	n := p.arena.NewStructLitExpr()
 	place(p, n, t)
+	mark_n_Fields := p.lists.ptr_StructField.mark()
 	if !p.in(&lookahead13) {
 		panic(p.expected("'Self' or a name"))
 	}
 	n.TypeName = p.text(p.next())
 	p.expect(TLBrace, "'{'")
 	if p.at(TName) {
-		n.Fields = append(n.Fields, p.parseStructField())
+		p.lists.ptr_StructField.push(p.parseStructField())
 		for p.at(TComma) {
 			p.expect(TComma, "','")
-			n.Fields = append(n.Fields, p.parseStructField())
+			p.lists.ptr_StructField.push(p.parseStructField())
 		}
 	}
 	p.expect(TRBrace, "'}'")
+	n.Fields = p.lists.ptr_StructField.take(mark_n_Fields)
 	return n
 }
 
 func (p *Parser) parseStructField() *ast.StructField {
 	t := p.cur()
-	n := ast.NewStructField()
+	n := p.arena.NewStructField()
 	place(p, n, t)
 	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TColon, "':'")
@@ -1276,7 +1371,7 @@ func (p *Parser) parseStructField() *ast.StructField {
 
 func (p *Parser) parseArg() *ast.Arg {
 	t := p.cur()
-	n := ast.NewArg()
+	n := p.arena.NewArg()
 	place(p, n, t)
 	if p.at(TName) && p.peekIs(TColon) {
 		n.Label = p.text(p.expect(TName, "a name"))
@@ -1288,7 +1383,7 @@ func (p *Parser) parseArg() *ast.Arg {
 
 func (p *Parser) parsePanicExpr() *ast.PanicExpr {
 	t := p.cur()
-	n := ast.NewPanicExpr()
+	n := p.arena.NewPanicExpr()
 	place(p, n, t)
 	p.expect(TKw_panic, "'panic'")
 	p.joinNext = true
@@ -1300,7 +1395,7 @@ func (p *Parser) parsePanicExpr() *ast.PanicExpr {
 
 func (p *Parser) parseMatchExpr() *ast.MatchExpr {
 	t := p.cur()
-	n := ast.NewMatchExpr()
+	n := p.arena.NewMatchExpr()
 	place(p, n, t)
 	n.Match = p.parseMatchCore()
 	return n

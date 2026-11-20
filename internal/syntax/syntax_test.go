@@ -187,7 +187,7 @@ func TestParseRecoversAtTheNextFile(t *testing.T) {
 	if len(errs) != 1 || errs[0].Code != diag.ErrUnexpectedEnd || errs[0].File != "a.maxon" {
 		t.Fatalf("errors: %v", errs)
 	}
-	if len(prog.Decls) != 1 || prog.Decls[0].Base().Name != "fine" || prog.Decls[0].P().File != "b.maxon" {
+	if len(prog.Decls) != 1 || prog.Decls[0].Base().Name != "fine" || fileOf(prog.Decls[0]) != "b.maxon" {
 		t.Fatalf("decls: %+v", prog.Decls)
 	}
 }
@@ -283,4 +283,9 @@ func TestMarkdownKeywordEditsRenameOnlyCode(t *testing.T) {
 	if refused != 1 {
 		t.Errorf("refused %d spans holding the keyword, want 1 (the IR span)", refused)
 	}
+}
+
+func fileOf(n ast.Node) string {
+	file, _, _ := n.P().Where()
+	return file
 }

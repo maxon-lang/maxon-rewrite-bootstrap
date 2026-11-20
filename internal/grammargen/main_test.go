@@ -92,7 +92,9 @@ func TestParserConvertsAndClimbs(t *testing.T) {
 	for _, want := range []string{
 		"n.Side = p.squareSide(p.expect(TInteger, \"an integer\"))",
 		"n.Named = true",
-		"n.Tags = append(n.Tags, p.text(p.expect(TName, \"a name\")))",
+		"p.lists.string.push(p.text(p.expect(TName, \"a name\")))",
+		"n.Tags = p.lists.string.take(mark_n_Tags)",
+		"n := p.arena.NewSquare()",
 		"func (p *Parser) parseShapePrec(minPrec int) ast.Shape {",
 		"n.R = p.parseShapePrec(2)",
 	} {
@@ -220,6 +222,26 @@ Slash : '/' ;
 		token, n, incomplete := a.run(c.in)
 		if token != c.token || n != c.n || incomplete != c.incomplete {
 			t.Errorf("%q: got %q %d %q, want %q %d %q", c.in, token, n, incomplete, c.token, c.n, c.incomplete)
+		}
+	}
+}
+
+func TestAListIsCopiedOutOnceAndNeverOverwritesAnAssignedField(t *testing.T) {
+	parser := generateTiny(t, `grammar T;
+holder : 'if' (rest+=Name | 'else' rest=names) ;
+names returns [[]string list] : list+=Name (',' list+=Name)* ;
+Name : [a-z]+ ;
+Comma : ',' ;
+`)[parserFile]
+	for _, want := range []string{
+		"mark_n_Rest := p.lists.string.mark()",
+		"if p.lists.string.pushedSince(mark_n_Rest) {\n\t\tn.Rest = p.lists.string.take(mark_n_Rest)\n\t}",
+		"mark_list := p.lists.string.mark()",
+		"list = p.lists.string.take(mark_list)",
+		"type listStacks struct {\n\tstring listStack[string]\n}",
+	} {
+		if !strings.Contains(parser, want) {
+			t.Errorf("parser lacks %q:\n%s", want, parser)
 		}
 	}
 }

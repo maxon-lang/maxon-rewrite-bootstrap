@@ -150,7 +150,7 @@ func (o *Ownership) readPart(e ast.Expr, s *ownState) (*ownState, bool) {
 		if m.overlapsPath(p) {
 			o.fail(e, diag.ErrUseAfterMove,
 				"'%s' overlaps '%s', which was moved into %s at line %d; assign '%s' again before using it",
-				p.text(), m.text(p.root), m.dest, m.site.P().Line, m.text(p.root))
+				p.text(), m.text(p.root), m.dest, m.site.P().Line(), m.text(p.root))
 			break
 		}
 	}
@@ -181,7 +181,7 @@ func (o *Ownership) assignPart(st *ast.AssignStmt, target ast.Expr, p accessPath
 		default:
 			o.fail(st, diag.ErrUseAfterMove,
 				"'%s' lies inside '%s', which was moved into %s at line %d; assign '%s' again first",
-				p.text(), m.text(p.root), m.dest, m.site.P().Line, m.text(p.root))
+				p.text(), m.text(p.root), m.dest, m.site.P().Line(), m.text(p.root))
 			return s, true
 		}
 	}

@@ -10,19 +10,24 @@ import (
 //go:generate go run minimaxon/internal/grammargen
 
 // Parser holds what the generated parse functions (parser_gen.go) share: the module's source, its token stream,
-// the position in it, and the file and line the parser is in.
+// the position in it, and the file the parser is in.
 type Parser struct {
-	src       *Source
-	toks      []Token
+	src  *Source
+	toks []Token
+	// arena allocates the nodes and lists holds the lists being built; an interpolation's parser shares both with the
+	// parser of the string it is in.
+	arena     *ast.Arena
+	lists     *listStacks
+	decls     *listStack[ast.Decl]
 	p         int
 	fileIndex int
-	// line indexes a line near the last position asked for, so finding the next is a short walk.
-	line   int
-	Errors []*diag.CompileError
+	Errors    []*diag.CompileError
 	// spare is a token buffer an interpolation's parser borrows, so each one does not allocate its own.
 	spare []Token
 	// parts is reused by each string literal's conversion.
 	parts []StrPart
+	// interpolation reads the interpolations of the strings this parser reads.
+	interpolation *Parser
 
 	// The layout: where the last token consumed ends and what it was, whether the next token joins it with no
 	// space between them, and which blank lines may come before the next line.
@@ -51,8 +56,11 @@ const (
 	beforeFunction
 )
 
-func NewParser(src *Source, toks []Token) *Parser {
-	p := &Parser{src: src, toks: toks, prevKind: TFileEnd, blanks: firstInFile}
+func NewParser(src *Source, toks []Token) *Parser { return newParser(src, toks, &Scratch{}) }
+
+func newParser(src *Source, toks []Token, scratch *Scratch) *Parser {
+	p := &Parser{src: src, toks: toks, arena: &ast.Arena{}, lists: &scratch.lists, decls: &scratch.decls,
+		prevKind: TFileEnd, blanks: firstInFile}
 	if len(src.Files) > 0 {
 		p.prevEnd = src.Files[0].Begin
 	}
@@ -63,9 +71,7 @@ func (p *Parser) fileNumber() int { return min(p.fileIndex, len(p.src.Files)-1) 
 
 func (p *Parser) file() string { return p.src.Files[p.fileNumber()].File }
 
-func (p *Parser) lineCol(t *Token) (int, int) {
-	return p.src.lineCol(p.fileNumber(), int(t.Start), &p.line)
-}
+func (p *Parser) lineCol(t *Token) (int, int) { return p.src.lineCol(p.fileNumber(), int(t.Start)) }
 
 // text is a token's text: a substring of the module's source.
 func (p *Parser) text(t Token) string { return p.src.Text[t.Start:t.End()] }
@@ -369,14 +375,13 @@ func (p *Parser) expect(k T, what string) Token {
 
 func place[N ast.Node](p *Parser, node N, t *Token) {
 	pos := node.P()
-	pos.File = p.file()
-	pos.Line, pos.Col = p.lineCol(t)
+	pos.Src, pos.Off = p.src.Positions, t.Start
 }
 
 // ParseProgram parses every declaration of a module's files. A syntax error abandons the rest of its file, so
 // each file reports its own first error.
 func (p *Parser) ParseProgram() *ast.Program {
-	prog := &ast.Program{}
+	declsMark := p.decls.mark()
 	decls, failed := 0, false
 	for !p.at(TEof) {
 		if p.at(TFileEnd) {
@@ -400,18 +405,19 @@ func (p *Parser) ParseProgram() *ast.Program {
 			if decls > 0 {
 				p.blanks = afterDecl
 			}
-			prog.Decls = append(prog.Decls, p.parseDecl())
+			p.decls.push(p.parseDecl())
 			p.expect(TNewline, "the end of the line")
 		})
 		decls++
 		if len(p.Errors) != errors {
 			failed = true
+			p.lists.reset()
 			for !p.atEndOfInput() {
 				p.skip()
 			}
 		}
 	}
-	return prog
+	return &ast.Program{Decls: p.decls.take(declsMark)}
 }
 
 // The conversions below turn a token into a field that is not its text, as Maxon.g4 declares.
@@ -439,8 +445,10 @@ func (p *Parser) strLitParts(t Token) []any {
 			toks := lexInterpolation(p.src, p.fileNumber(), part.Begin, part.End, p.spare, p.format != nil)
 			p.spare = nil
 			// The interpolation's first token follows its '{' with no space between them.
-			sub := &Parser{src: p.src, toks: toks, fileIndex: p.fileNumber(), line: p.line,
-				prevEnd: part.Begin, prevKind: TLBrace, joinNext: true}
+			sub := p.interpolationParser()
+			*sub = Parser{src: p.src, toks: toks, arena: p.arena, lists: p.lists, fileIndex: p.fileNumber(),
+				prevEnd: part.Begin, prevKind: TLBrace, joinNext: true,
+				spare: sub.spare, parts: sub.parts, interpolation: sub.interpolation}
 			if p.format != nil {
 				sub.format = &formatter{}
 			}
@@ -457,6 +465,15 @@ func (p *Parser) strLitParts(t Token) []any {
 		p.format.replaceString(p.src.Text, t, p.parts, formatted)
 	}
 	return values
+}
+
+// interpolationParser is the parser of the interpolations of p's strings. Each interpolation reads in it after the one before,
+// so it is made once, and an interpolation nested in an interpolation is read by the one it holds.
+func (p *Parser) interpolationParser() *Parser {
+	if p.interpolation == nil {
+		p.interpolation = &Parser{}
+	}
+	return p.interpolation
 }
 
 func (p *Parser) parseInterpolation() ast.Expr {

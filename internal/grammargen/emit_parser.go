@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -15,6 +16,9 @@ type pgen struct {
 	after   map[*rule]*rule
 	sets    map[string]string
 	setList []string
+	// lists are the element types of the lists the parser builds, in the order they are first used; each has a
+	// stack in listStacks.
+	lists []string
 }
 
 // target says where the values a sequence parses go.
@@ -58,7 +62,15 @@ func emitParser(m *model, a *analysis) string {
 	for _, name := range g.setList {
 		w.p("var %s = [numTokens]bool{%s}\n", name, g.sets[name])
 	}
-	w.p("\n")
+	w.p("\n// listStacks has a stack for each type of element that a list in the grammar holds.\ntype listStacks struct {\n")
+	for _, elem := range g.lists {
+		w.p("\t%s listStack[%s]\n", listField(elem), qualify(elem))
+	}
+	w.p("}\n\nfunc (s *listStacks) reset() {\n")
+	for _, elem := range g.lists {
+		w.p("\ts.%s.reset()\n", listField(elem))
+	}
+	w.p("}\n\n")
 	w.b.WriteString(body.b.String())
 	return w.b.String()
 }
@@ -361,7 +373,7 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 func (g *pgen) assignToken(tg target, e *elem, call string) {
 	if tg.helper != nil {
 		g.checkHelperLabel(tg.helper, e)
-		g.store(tg.helper.returns.name, e.appendTo, "p.text("+call+")")
+		g.store(tg.helper.returns.name, tg.helper.returns.typ, e.appendTo, "p.text("+call+")")
 		return
 	}
 	if tg.node == nil {
@@ -376,30 +388,104 @@ func (g *pgen) assignToken(tg target, e *elem, call string) {
 		}
 		g.p("%s\n%s = true\n", call, dst)
 	case "string":
-		g.store(dst, e.appendTo, "p.text("+call+")")
+		g.store(dst, f.typ, e.appendTo, "p.text("+call+")")
 	default:
-		g.store(dst, e.appendTo, fmt.Sprintf("p.%s%s(%s)", lowerFirst(tg.node.name), f.name, call))
+		g.store(dst, f.typ, e.appendTo, fmt.Sprintf("p.%s%s(%s)", lowerFirst(tg.node.name), f.name, call))
 	}
 }
 
 func (g *pgen) assignValue(tg target, e *elem, value string) {
 	if tg.helper != nil {
 		g.checkHelperLabel(tg.helper, e)
-		g.store(tg.helper.returns.name, e.appendTo, value)
+		g.store(tg.helper.returns.name, tg.helper.returns.typ, e.appendTo, value)
 		return
 	}
 	if tg.node == nil {
 		g.fail(e.line, "label '%s' has no node to go in", e.label)
 	}
 	f := g.m.fieldOf(tg.node, e.label, e.line)
-	g.store("n."+f.name, e.appendTo, value)
+	g.store("n."+f.name, f.typ, e.appendTo, value)
 }
 
-func (g *pgen) store(dst string, appendTo bool, value string) {
+// store assigns value to dst, a field or helper variable of the given type, or pushes it on the stack of its list.
+func (g *pgen) store(dst, typ string, appendTo bool, value string) {
 	if appendTo {
-		g.p("%s = append(%s, %s)\n", dst, dst, value)
+		g.p("p.lists.%s.push(%s)\n", g.listOf(typ), value)
 	} else {
 		g.p("%s = %s\n", dst, value)
+	}
+}
+
+// listOf names the stack for lists of type typ, which is a slice type.
+func (g *pgen) listOf(typ string) string {
+	elem, ok := strings.CutPrefix(typ, "[]")
+	if !ok {
+		panic(fmt.Sprintf("grammargen: %s is not a list type", typ))
+	}
+	if !slices.Contains(g.lists, elem) {
+		g.lists = append(g.lists, elem)
+	}
+	return listField(elem)
+}
+
+func listField(elem string) string {
+	return strings.NewReplacer("*", "ptr_", ".", "_").Replace(elem)
+}
+
+// A list is built on its stack, not by append: the elements are pushed as they are parsed, and when the list ends
+// they are copied out once into a slice of exactly their count. Parsing a list inside one pushes and pops above it.
+type pendingList struct {
+	dst, typ string
+	// mixed is a destination that something other than the list assigns too, so the list sets it only if it has
+	// elements.
+	mixed bool
+}
+
+// pendingLists finds the lists that the alternatives build in tg's destinations, and starts each: it records where on
+// its stack the list begins.
+func (g *pgen) pendingLists(tg target, alts []*alt) []pendingList {
+	var lists []pendingList
+	var assigned []string
+	g.m.walkElems(alts, func(e *elem) {
+		if e.label == "" {
+			return
+		}
+		var dst, typ string
+		if tg.helper != nil {
+			dst, typ = tg.helper.returns.name, tg.helper.returns.typ
+		} else {
+			f := g.m.fieldOf(tg.node, e.label, e.line)
+			dst, typ = "n."+f.name, f.typ
+		}
+		if !e.appendTo {
+			assigned = append(assigned, dst)
+			return
+		}
+		for _, l := range lists {
+			if l.dst == dst {
+				return
+			}
+		}
+		lists = append(lists, pendingList{dst: dst, typ: typ})
+	})
+	for i := range lists {
+		lists[i].mixed = slices.Contains(assigned, lists[i].dst)
+		g.p("%s := p.lists.%s.mark()\n", markName(lists[i].dst), g.listOf(lists[i].typ))
+	}
+	return lists
+}
+
+func markName(dst string) string { return "mark_" + strings.ReplaceAll(dst, ".", "_") }
+
+// finishLists copies each pending list out of its stack into its destination.
+func (g *pgen) finishLists(lists []pendingList) {
+	for _, l := range lists {
+		stack, mark := "p.lists."+g.listOf(l.typ), markName(l.dst)
+		if l.mixed {
+			g.p("if %s.pushedSince(%s) {\n%s = %s.take(%s)\n}\n", stack, mark, l.dst, stack, mark)
+		} else {
+			g.p("%s = %s.take(%s)\n", l.dst, stack, mark)
+		}
 	}
 }
 
@@ -417,15 +503,19 @@ func (g *pgen) nodeRule(r *rule) {
 	if lead := g.after[r]; lead != nil {
 		first := r.alts[0].elems[0]
 		g.p("func (p *Parser) %sAfter(t *Token, first %s) *ast.%s {\n", parseFunc(r), qualify(g.m.valueType(lead)), n.name)
-		g.p("n := ast.New%s()\nplace(p, n, t)\n", n.name)
+		g.p("n := p.arena.New%s()\nplace(p, n, t)\n", n.name)
+		lists := g.pendingLists(g.nodeTarget(n), r.alts)
 		g.assignValue(g.nodeTarget(n), first, "first")
 		g.seq(r.alts[0].elems[1:], c, g.nodeTarget(n))
+		g.finishLists(lists)
 		g.p("return n\n}\n\n")
 		g.p("func (p *Parser) %s() *ast.%s {\nt := p.cur()\nreturn p.%sAfter(t, %s)\n}\n\n", parseFunc(r), n.name, parseFunc(r), g.call(lead))
 		return
 	}
-	g.p("func (p *Parser) %s() *ast.%s {\nt := p.cur()\nn := ast.New%s()\nplace(p, n, t)\n", parseFunc(r), n.name, n.name)
+	g.p("func (p *Parser) %s() *ast.%s {\nt := p.cur()\nn := p.arena.New%s()\nplace(p, n, t)\n", parseFunc(r), n.name, n.name)
+	lists := g.pendingLists(g.nodeTarget(n), r.alts)
 	g.alternatives(r.alts, c, r.desc, r.line, g.nodeTarget(n))
+	g.finishLists(lists)
 	g.p("return n\n}\n\n")
 }
 
@@ -444,7 +534,9 @@ func (g *pgen) alternatives(alts []*alt, c cont, desc string, line int, tg targe
 func (g *pgen) helperRule(r *rule) {
 	v := r.returns
 	g.p("func (p *Parser) %s() %s {\nvar %s %s\n", parseFunc(r), qualify(v.typ), v.name, qualify(v.typ))
+	lists := g.pendingLists(target{helper: r}, r.alts)
 	g.alternatives(r.alts, cont{rule: r}, r.desc, r.line, target{helper: r})
+	g.finishLists(lists)
 	g.p("return %s\n}\n\n", v.name)
 }
 
@@ -548,8 +640,10 @@ func (g *pgen) setRule(r *rule) {
 			})
 		case o.alt.label != "":
 			n := g.m.nodeByName[o.alt.label]
-			g.p("n := ast.New%s()\nplace(p, n, t)\n", n.name)
+			g.p("n := p.arena.New%s()\nplace(p, n, t)\n", n.name)
+			lists := g.pendingLists(g.nodeTarget(n), []*alt{o.alt})
 			g.seq(o.alt.elems, c, g.nodeTarget(n))
+			g.finishLists(lists)
 			g.p("return n\n")
 		case len(o.alt.elems) == 1:
 			ref, _ := g.m.passThrough(o.alt)
@@ -612,7 +706,8 @@ func (g *pgen) operatorRule(r *rule) {
 		switch {
 		case a.label != "":
 			n := g.m.nodeByName[a.label]
-			g.p("n := ast.New%s()\nplace(p, n, t)\n", n.name)
+			g.p("n := p.arena.New%s()\nplace(p, n, t)\n", n.name)
+			lists := g.pendingLists(g.nodeTarget(n), []*alt{a})
 			last := len(a.elems) - 1
 			if prec[a] > 0 {
 				g.seq(a.elems[:last], c.then(a.elems[last:]), g.nodeTarget(n))
@@ -620,6 +715,7 @@ func (g *pgen) operatorRule(r *rule) {
 			} else {
 				g.seq(a.elems, c, g.nodeTarget(n))
 			}
+			g.finishLists(lists)
 			g.p("left = n\n")
 		case len(a.elems) == 1:
 			ref, _ := g.m.passThrough(a)
@@ -648,7 +744,8 @@ func (g *pgen) operatorRule(r *rule) {
 		n := g.m.nodeByName[a.label]
 		tg := g.nodeTarget(n)
 		g.p("case %s:\nif %d < minPrec {\nreturn left\n}\n", strings.Join(terms, ", "), prec[a])
-		g.p("n := ast.New%s()\nplace(p, n, p.cur())\n", n.name)
+		g.p("n := p.arena.New%s()\nplace(p, n, p.cur())\n", n.name)
+		lists := g.pendingLists(tg, []*alt{a})
 		g.assignValue(tg, a.elems[0], "left")
 		last := len(a.elems) - 1
 		if isSelf(a.elems[last]) {
@@ -661,6 +758,7 @@ func (g *pgen) operatorRule(r *rule) {
 		} else {
 			g.seq(a.elems[1:], c, tg)
 		}
+		g.finishLists(lists)
 		g.p("left = n\n")
 	}
 	g.p("default:\nreturn left\n}\n}\n}\n\n")

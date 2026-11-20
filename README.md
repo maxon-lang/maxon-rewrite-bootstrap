@@ -129,9 +129,9 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `diag` | `CompileError`, `Guard`, the error codes | — |
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
-| `ast` | the program model: AST nodes, keywords and visitors (generated), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases | `diag` |
+| `ast` | the program model: AST nodes, keywords and visitors (generated), the arena the parser allocates nodes from, `Positions` (where a node is), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases | `diag` |
 | `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
-| `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
+| `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar and the `Scratch` a worker reuses to read, lex and parse each module, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
 | `resolve` | name resolution, and binding each `where` constraint to its type parameter | `ast`, `diag` |
 | `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture | `ast`, `diag` |
 | `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), and the runtime's symbol names | `ast`, `diag` |
@@ -152,9 +152,9 @@ nodes, such as `stmt` or `expr`, is a closed set of them. `internal/grammargen` 
 
 | File | Holds |
 |---|---|
-| `internal/syntax/parser_gen.go` | a recursive-descent parser with one function per rule; operator precedence comes from the order of `expr`'s alternatives |
+| `internal/syntax/parser_gen.go` | a recursive-descent parser with one function per rule, and the stack for each type of list it builds; operator precedence comes from the order of `expr`'s alternatives |
 | `internal/syntax/tokens_gen.go` | the token kinds and the lexer's DFA: every token rule and keyword compiled into one table over byte classes |
-| `internal/ast/nodes_gen.go` | the node structs and constructors, the reserved words, and three visitors per set |
+| `internal/ast/nodes_gen.go` | the node structs and constructors, the `Arena` that allocates each type's nodes in chunks, the reserved words, and three visitors per set |
 
 The parser decides with one token of lookahead, or two where one is not enough. Where two alternatives start with
 the same rule, as an assignment and an expression statement both start with an expression, it parses that rule once
@@ -240,16 +240,20 @@ the typealiases of instances.
 A module's files are read into one buffer, a string allocated once at the sum of their sizes, as they are written:
 offsets in it are the files' own byte offsets, and a byte order mark is an error. Every token's text is a
 substring of it, so lexing allocates no text and needs no intern table. A string cannot be read into, so each file
-is read into a scratch buffer sized for the module's largest file and copied from there. Comments are `-> skip`
+is read into the worker's scratch buffer, which grows to the largest file the worker has read, and copied from there. Comments are `-> skip`
 token rules, so the lexer drops them; a `///` doc comment stays in the buffer for the LSP to use later.
 
 A token is 8 bytes: its kind and length packed into one 32-bit word (8 bits of kind, 24 of length, so a token is
 at most 16 MB) and its start offset in the buffer. Offsets are 32-bit, so a module's source is at most 4 GB. A
 token carries no text, value or position; the parser reads them from the buffer when it needs them. Its text is a
 substring of the buffer, an integer's value is read again from its digits, and a string's text runs are substrings
-unless an escape forces a copy. A line and column comes from the offset and an index of where each line starts,
-which the parser walks from the last line it asked about, so placing a node costs a step or two. Storing the
-length is about 15% faster than re-lexing a token to find it, and the packing keeps it at 8 bytes.
+unless an escape forces a copy. Storing the length is about 15% faster than re-lexing a token to find it, and the
+packing keeps it at 8 bytes.
+
+A node's position is its token's offset and the module's `ast.Positions`, which knows where each file starts and, once
+something asks for a line, where each line starts. Placing a node therefore stores a pointer and a 32-bit offset and
+reads nothing else; the index of line starts is built only when a diagnostic (or a message that names a line) needs a line and
+column, so a program that compiles never builds it. `Pos.Where` and `Pos.Error` are the ways to ask.
 
 The lexer works on the raw UTF-8 bytes, so a column counts bytes. One lexer pass covers the whole buffer. At each
 file boundary it resets the bracket depth and the indentation, so no token spans two files, and emits a `FileEnd`
@@ -269,7 +273,14 @@ operating system commits and zeroes: on Windows that costs about 0.2 s per GB, a
 allocates is therefore what costs, and the phases avoid it:
 
 - the lexer reuses token buffers of 8-byte tokens and takes token text from the source string, and an
-  interpolation's parser borrows a spare token buffer;
+  interpolation's parser borrows a spare token buffer. `syntax.Scratch` holds what a worker reuses for each module it parses: the
+  file buffer, the token buffer and the stacks the parser builds lists on;
+- the parser takes the nodes of each type from chunks (`ast.Arena`, one chunk list per node type, each chunk twice the one
+  before up to 64 nodes), so a module's nodes are contiguous and a parse makes one allocation for dozens of nodes. A list in the grammar (`stmts+=stmt`,
+  `args+=arg`) is pushed on a stack as it is parsed, and copied out once into a slice of exactly its length, where `append`
+  would have allocated about twice that. The nodes are the biggest share of what parsing allocates, about 85%: every
+  node has room for the types and links the later phases fill in, which is half of most of them;
+- a module's declaration table is made at its final size, and the line index of a module's source is built only when a diagnostic needs it;
 - codegen sizes each unit's code buffer and its symbol and data fixups from the IR it is about to emit, and reuses its
   block labels between functions, because Go grows a large slice by about a quarter at a time, allocating several times
   its final size; the routines are sized the same way, a call names its target by the symbol itself (a function, or an

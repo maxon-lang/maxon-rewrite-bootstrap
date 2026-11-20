@@ -29,14 +29,8 @@ const (
 	bytesAllocatedPerSourceByte = 100
 	minNoGcBudget               = int64(256) << 20
 	bytesPerMegabyte            = 1048576.0
-	initialTokenCapacity        = 1 << 16
 	heapAllocsMetric            = "/gc/heap/allocs:bytes"
 )
-
-var tokenBuffers = sync.Pool{New: func() any {
-	buffer := make([]syntax.Token, 0, initialTokenCapacity)
-	return &buffer
-}}
 
 func DefaultJobs() int { return max(1, runtime.NumCPU()-1) }
 
@@ -149,35 +143,35 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 	// The parse pass builds each module's own declaration table straight after parsing it, while its AST is in cache. A
 	// module's table is built only when it parsed cleanly, and the table's errors count only when every module did, so
 	// the errors a program gets are the same as if the table had a pass of its own after the parse.
-	var readBytes, lexBytes, parseBytes atomic.Uint64
+	var readBytes, lexBytes, parseBytes, tableBytes atomic.Uint64
 	parseStart := heapAllocated()
 	parsed := make([]int, len(modules))
 	declared := make([][]ast.Decl, len(modules))
-	phase(func(m *ast.Module, res *ast.ModuleResult) {
+	par.ForEachIndexWith(len(modules), jobs, syntax.NewScratch, func(scratch *syntax.Scratch, i int) {
+		m, res := modules[i], &results[i]
 		diag.Guard(&res.Errors, func() {
 			a0 := stepAllocated(timings)
-			src := syntax.LoadModuleSource(m.Files)
+			src := scratch.LoadModuleSource(m.Files)
 			a1 := stepAllocated(timings)
-			scratch := tokenBuffers.Get().(*[]syntax.Token)
-			tokens := syntax.Lex(src, *scratch)
+			tokens := scratch.Lex(src)
 			a2 := stepAllocated(timings)
-			parser := syntax.NewParser(src, tokens)
-			m.Decls = append(m.Decls, parser.ParseProgram().Decls...)
-			res.Errors = append(res.Errors, parser.Errors...)
+			program, syntaxErrors := scratch.Parse(src, tokens)
+			m.Decls = program.Decls
+			res.Errors = append(res.Errors, syntaxErrors...)
 			a3 := stepAllocated(timings)
-			*scratch = tokens[:0]
-			tokenBuffers.Put(scratch)
 			readBytes.Add(a1 - a0)
 			lexBytes.Add(a2 - a1)
 			parseBytes.Add(a3 - a2)
 		})
 		parsed[m.ID] = len(res.Errors)
 		if parsed[m.ID] == 0 {
+			a0 := stepAllocated(timings)
 			declared[m.ID] = project.BuildModuleTable(m, &res.Errors)
+			tableBytes.Add(stepAllocated(timings) - a0)
 		}
 	})
 	if timings {
-		reportParseAllocation(heapAllocated()-parseStart, readBytes.Load(), lexBytes.Load(), parseBytes.Load())
+		reportParseAllocation(heapAllocated()-parseStart, readBytes.Load(), lexBytes.Load(), parseBytes.Load(), tableBytes.Load())
 	}
 	mark("parse")
 	if parseErrors := collectErrors(errors, results, parsed); parseErrors != nil {
@@ -521,14 +515,14 @@ func stepAllocated(timings bool) uint64 {
 	return heapAllocated()
 }
 
-func reportParseAllocation(phaseTotal, read, lex, parse uint64) {
-	sum := read + lex + parse
+func reportParseAllocation(phaseTotal, read, lex, parse, table uint64) {
+	sum := read + lex + parse + table
 	scale := 1.0
 	if sum > 0 {
 		scale = float64(phaseTotal) / float64(sum)
 	}
-	fmt.Fprintf(os.Stderr, "  read %.1f MB, lex %.1f MB, parse %.1f MB\n",
-		float64(read)*scale/bytesPerMegabyte, float64(lex)*scale/bytesPerMegabyte, float64(parse)*scale/bytesPerMegabyte)
+	mb := func(n uint64) float64 { return float64(n) * scale / bytesPerMegabyte }
+	fmt.Fprintf(os.Stderr, "  read %.1f MB, lex %.1f MB, parse %.1f MB, table %.1f MB\n", mb(read), mb(lex), mb(parse), mb(table))
 }
 
 type constEntry struct {

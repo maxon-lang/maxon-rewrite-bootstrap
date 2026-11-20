@@ -118,6 +118,8 @@ func BuildTables(p *ast.Project, results []ast.ModuleResult, jobs int) {
 // returns the declarations the table holds, in source order. It reads nothing of another module, so it runs on the
 // worker that parsed the module.
 func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
+	// A table that grows by doubling allocates twice its final size, and it holds one entry per declaration.
+	m.Names = make(map[string]ast.Decl, len(m.Decls))
 	for _, d := range m.Decls {
 		b := d.Base()
 		b.Module = m
@@ -128,9 +130,9 @@ func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
 			diag.Guard(errs, func() { tb.TypeBase().Ty = ast.Shell(tb) })
 		}
 		if kept, ok := m.Names[b.Name]; ok {
-			k := kept.P()
+			file, line, _ := kept.P().Where()
 			*errs = append(*errs, b.Error(diag.ErrDuplicateDefinition,
-				"'"+b.Name+"' is already declared in "+m.Display()+" at "+k.File+":"+strconv.Itoa(k.Line)))
+				"'"+b.Name+"' is already declared in "+m.Display()+" at "+file+":"+strconv.Itoa(line)))
 			continue
 		}
 		m.Names[b.Name] = d
@@ -142,11 +144,7 @@ func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
 		}
 	}
 	sort.SliceStable(decls, func(a, b int) bool {
-		pa, pb := decls[a].P(), decls[b].P()
-		if pa.File != pb.File {
-			return pa.File < pb.File
-		}
-		return pa.Line < pb.Line
+		return decls[a].P().Off < decls[b].P().Off
 	})
 	return decls
 }

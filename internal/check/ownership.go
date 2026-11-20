@@ -763,7 +763,7 @@ func (o *Ownership) readRoot(l *ast.Local, site ast.Node, s *ownState) *ownState
 	case factMoved:
 		o.fail(site, diag.ErrUseAfterMove,
 			"'%s' was moved into %s at line %d; %s",
-			l.Name, fact.dest, fact.site.P().Line, o.checker.copyAdvice(l.Type, fmt.Sprintf("move a copy instead: '%s.copy()'", l.Name), "assign it again before reading it"))
+			l.Name, fact.dest, fact.site.P().Line(), o.checker.copyAdvice(l.Type, fmt.Sprintf("move a copy instead: '%s.copy()'", l.Name), "assign it again before reading it"))
 	case factUninitialised:
 		o.fail(site, diag.ErrUseBeforeInit,
 			"'%s' has no value here; assign it on every path before reading it", l.Name)
@@ -771,7 +771,7 @@ func (o *Ownership) readRoot(l *ast.Local, site ast.Node, s *ownState) *ownState
 		m := fact.parts.moves[0]
 		o.fail(site, diag.ErrUseAfterMove,
 			"'%s' lost '%s', which was moved into %s at line %d, so it cannot be used as a whole; use its other fields, or assign '%s' again first",
-			l.Name, m.text(l), m.dest, m.site.P().Line, m.text(l))
+			l.Name, m.text(l), m.dest, m.site.P().Line(), m.text(l))
 		return s
 	}
 	return s.without(l)

@@ -73,7 +73,7 @@ func NewProject(root *Module) *Project {
 		alias.Name = b.name
 		alias.Visibility = "public"
 		alias.Module = p.Stdlib
-		alias.File = "<stdlib>"
+		alias.Src = stdlibPositions
 		alias.Ty = &IntTy{Alias: b.name, Min: b.min, Max: b.max}
 		p.Stdlib.Decls = append(p.Stdlib.Decls, alias)
 		p.Stdlib.Names[b.name] = alias

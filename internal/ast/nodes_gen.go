@@ -668,6 +668,326 @@ func NewMatchExpr() *MatchExpr {
 	return n
 }
 
+// Arena holds the nodes of one parse: each type's nodes come from chunks of that type, so a module's nodes are
+// contiguous and a parse allocates a chunk at a time and not a node at a time.
+type Arena struct {
+	funcDecl      slab[FuncDecl]
+	param         slab[Param]
+	constDecl     slab[ConstDecl]
+	typeDecl      slab[TypeDecl]
+	fieldDecl     slab[FieldDecl]
+	enumDecl      slab[EnumDecl]
+	enumCaseDecl  slab[EnumCaseDecl]
+	unionDecl     slab[UnionDecl]
+	unionCaseDecl slab[UnionCaseDecl]
+	aliasDecl     slab[AliasDecl]
+	bound         slab[Bound]
+	typeRef       slab[TypeRef]
+	typeParam     slab[TypeParam]
+	constraint    slab[Constraint]
+	interfaceDecl slab[InterfaceDecl]
+	funcSig       slab[FuncSig]
+	endLabel      slab[EndLabel]
+	letStmt       slab[LetStmt]
+	discardStmt   slab[DiscardStmt]
+	assignStmt    slab[AssignStmt]
+	exprStmt      slab[ExprStmt]
+	ifStmt        slab[IfStmt]
+	whileStmt     slab[WhileStmt]
+	forStmt       slab[ForStmt]
+	returnStmt    slab[ReturnStmt]
+	breakStmt     slab[BreakStmt]
+	continueStmt  slab[ContinueStmt]
+	matchStmt     slab[MatchStmt]
+	whenStmt      slab[WhenStmt]
+	matchCore     slab[MatchCore]
+	matchArm      slab[MatchArm]
+	pattern       slab[Pattern]
+	memberExpr    slab[MemberExpr]
+	indexExpr     slab[IndexExpr]
+	callExpr      slab[CallExpr]
+	unaryExpr     slab[UnaryExpr]
+	castExpr      slab[CastExpr]
+	binaryExpr    slab[BinaryExpr]
+	condExpr      slab[CondExpr]
+	intLit        slab[IntLit]
+	strLit        slab[StrLit]
+	boolLit       slab[BoolLit]
+	nameExpr      slab[NameExpr]
+	selfExpr      slab[SelfExpr]
+	structLitExpr slab[StructLitExpr]
+	structField   slab[StructField]
+	arg           slab[Arg]
+	panicExpr     slab[PanicExpr]
+	matchExpr     slab[MatchExpr]
+}
+
+func (a *Arena) NewFuncDecl() *FuncDecl {
+	n := a.funcDecl.next()
+	n.ReturnType = VoidTy
+	return n
+}
+
+func (a *Arena) NewParam() *Param {
+	n := a.param.next()
+	return n
+}
+
+func (a *Arena) NewConstDecl() *ConstDecl {
+	n := a.constDecl.next()
+	return n
+}
+
+func (a *Arena) NewTypeDecl() *TypeDecl {
+	n := a.typeDecl.next()
+	return n
+}
+
+func (a *Arena) NewFieldDecl() *FieldDecl {
+	n := a.fieldDecl.next()
+	return n
+}
+
+func (a *Arena) NewEnumDecl() *EnumDecl {
+	n := a.enumDecl.next()
+	return n
+}
+
+func (a *Arena) NewEnumCaseDecl() *EnumCaseDecl {
+	n := a.enumCaseDecl.next()
+	return n
+}
+
+func (a *Arena) NewUnionDecl() *UnionDecl {
+	n := a.unionDecl.next()
+	return n
+}
+
+func (a *Arena) NewUnionCaseDecl() *UnionCaseDecl {
+	n := a.unionCaseDecl.next()
+	return n
+}
+
+func (a *Arena) NewAliasDecl() *AliasDecl {
+	n := a.aliasDecl.next()
+	return n
+}
+
+func (a *Arena) NewBound() *Bound {
+	n := a.bound.next()
+	return n
+}
+
+func (a *Arena) NewTypeRef() *TypeRef {
+	n := a.typeRef.next()
+	return n
+}
+
+func (a *Arena) NewTypeParam() *TypeParam {
+	n := a.typeParam.next()
+	return n
+}
+
+func (a *Arena) NewConstraint() *Constraint {
+	n := a.constraint.next()
+	return n
+}
+
+func (a *Arena) NewInterfaceDecl() *InterfaceDecl {
+	n := a.interfaceDecl.next()
+	return n
+}
+
+func (a *Arena) NewFuncSig() *FuncSig {
+	n := a.funcSig.next()
+	n.ReturnType = VoidTy
+	return n
+}
+
+func (a *Arena) NewEndLabel() *EndLabel {
+	n := a.endLabel.next()
+	return n
+}
+
+func (a *Arena) NewLetStmt() *LetStmt {
+	n := a.letStmt.next()
+	return n
+}
+
+func (a *Arena) NewDiscardStmt() *DiscardStmt {
+	n := a.discardStmt.next()
+	return n
+}
+
+func (a *Arena) NewAssignStmt() *AssignStmt {
+	n := a.assignStmt.next()
+	return n
+}
+
+func (a *Arena) NewExprStmt() *ExprStmt {
+	n := a.exprStmt.next()
+	return n
+}
+
+func (a *Arena) NewIfStmt() *IfStmt {
+	n := a.ifStmt.next()
+	return n
+}
+
+func (a *Arena) NewWhileStmt() *WhileStmt {
+	n := a.whileStmt.next()
+	return n
+}
+
+func (a *Arena) NewForStmt() *ForStmt {
+	n := a.forStmt.next()
+	return n
+}
+
+func (a *Arena) NewReturnStmt() *ReturnStmt {
+	n := a.returnStmt.next()
+	return n
+}
+
+func (a *Arena) NewBreakStmt() *BreakStmt {
+	n := a.breakStmt.next()
+	return n
+}
+
+func (a *Arena) NewContinueStmt() *ContinueStmt {
+	n := a.continueStmt.next()
+	return n
+}
+
+func (a *Arena) NewMatchStmt() *MatchStmt {
+	n := a.matchStmt.next()
+	return n
+}
+
+func (a *Arena) NewWhenStmt() *WhenStmt {
+	n := a.whenStmt.next()
+	return n
+}
+
+func (a *Arena) NewMatchCore() *MatchCore {
+	n := a.matchCore.next()
+	return n
+}
+
+func (a *Arena) NewMatchArm() *MatchArm {
+	n := a.matchArm.next()
+	return n
+}
+
+func (a *Arena) NewPattern() *Pattern {
+	n := a.pattern.next()
+	n.CaseIndex = -1
+	return n
+}
+
+func (a *Arena) NewMemberExpr() *MemberExpr {
+	n := a.memberExpr.next()
+	n.Type = VoidTy
+	n.CaseIndex = -1
+	return n
+}
+
+func (a *Arena) NewIndexExpr() *IndexExpr {
+	n := a.indexExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewCallExpr() *CallExpr {
+	n := a.callExpr.next()
+	n.Type = VoidTy
+	n.CaseIndex = -1
+	return n
+}
+
+func (a *Arena) NewUnaryExpr() *UnaryExpr {
+	n := a.unaryExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewCastExpr() *CastExpr {
+	n := a.castExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewBinaryExpr() *BinaryExpr {
+	n := a.binaryExpr.next()
+	n.Type = VoidTy
+	n.OperandType = VoidTy
+	return n
+}
+
+func (a *Arena) NewCondExpr() *CondExpr {
+	n := a.condExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewIntLit() *IntLit {
+	n := a.intLit.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewStrLit() *StrLit {
+	n := a.strLit.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewBoolLit() *BoolLit {
+	n := a.boolLit.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewNameExpr() *NameExpr {
+	n := a.nameExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewSelfExpr() *SelfExpr {
+	n := a.selfExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewStructLitExpr() *StructLitExpr {
+	n := a.structLitExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewStructField() *StructField {
+	n := a.structField.next()
+	return n
+}
+
+func (a *Arena) NewArg() *Arg {
+	n := a.arg.next()
+	return n
+}
+
+func (a *Arena) NewPanicExpr() *PanicExpr {
+	n := a.panicExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
+func (a *Arena) NewMatchExpr() *MatchExpr {
+	n := a.matchExpr.next()
+	n.Type = VoidTy
+	return n
+}
+
 var reservedWords = map[string]bool{
 	"export":      true,
 	"public":      true,
