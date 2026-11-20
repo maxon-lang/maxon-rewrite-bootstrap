@@ -218,12 +218,17 @@ const (
 	projectMatch ownProjectionKind = iota
 	projectArgument
 	projectTarget
+	projectOperand
+	projectCollection
+	projectPart
 )
 
 // ownProjection is a place that stays borrowed while code runs which must not change it: a match subject whose
-// payload bindings borrow from it while an arm runs, an argument of a call while the arguments after it are
-// evaluated, or the target of an assignment while its value is computed. The last two are borrows taken before the
-// code runs, which lasts through the call or the store, so what the code changes would leave them pointing at what
+// payload bindings borrow from it while an arm runs, or a place that an expression has evaluated to a borrow and uses
+// again once the rest of the expression has run: an argument of a call while the arguments after it are evaluated, the
+// target of an assignment while its value is computed, the left operand of a string comparison, the collection of a
+// subscript while its index is computed, the first part of an interpolated string while the second is. The borrow is
+// taken before the code runs and lasts until it is used, so what the code changes would leave it pointing at what
 // moved.
 type ownProjection struct {
 	subject accessPath
@@ -541,7 +546,7 @@ func (o *Ownership) VisitAssignStmt(st ast.AssignStmt, s *ownState) *ownState {
 		}
 		o.requireWritable(st.Position(), p)
 		o.requireOverwriteDroppable(st, target.Expr(), s)
-		return o.expr(target.Args().At(0), o.eval(target.Obj(), s))
+		return o.subscript(target, s)
 	}
 	panic(diag.Internal("ownership: unhandled assignment target"))
 }
@@ -558,9 +563,9 @@ func (o *Ownership) requireOverwriteDroppable(st ast.AssignStmt, target ast.Expr
 // store land where the part used to be.
 func (o *Ownership) consumeInto(target ast.Expr, value ast.Expr, dest ownDest, s *ownState) *ownState {
 	held := len(o.projections)
-	o.projections = append(o.projections, ownProjection{place: target, kind: projectTarget, ty: o.ty(target)})
+	o.hold(target, projectTarget, true)
 	s = o.consume(value, dest, s)
-	o.projections = o.projections[:held]
+	o.release(held)
 	return s
 }
 
@@ -895,8 +900,8 @@ func (o *Ownership) requireWritable(site ast.Pos, p accessPath) {
 	o.requireNotProjected(p, site)
 }
 
-// requireNotProjected refuses a change or a move of a place while a binding of an enclosing match, an argument of an
-// enclosing call, or the target of an enclosing assignment still borrows part of it.
+// requireNotProjected refuses a change or a move of a place while a binding of an enclosing match, or a place that an
+// enclosing expression holds, still borrows part of it.
 func (o *Ownership) requireNotProjected(p accessPath, site ast.Pos) {
 	for i := range o.projections {
 		pr := &o.projections[i]
@@ -920,6 +925,18 @@ func (o *Ownership) requireNotProjected(p accessPath, site ast.Pos) {
 			o.fail(site, diag.ErrExclusivity,
 				"'%s' is the target of an assignment whose value is still being computed, and this changes it; compute the value into a variable first",
 				pr.subject.text())
+		case projectOperand:
+			o.fail(site, diag.ErrExclusivity,
+				"'%s' is borrowed by the operand '%s', which the enclosing comparison holds while its other operand is evaluated; %s",
+				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, fmt.Sprintf("compare a copy: '%s.copy()'", pr.subject.text()), "compute this first into a variable"))
+		case projectCollection:
+			o.fail(site, diag.ErrExclusivity,
+				"'%s' is borrowed by '%s', the collection of an enclosing subscript, which holds it while the index is evaluated; compute the index first into a variable",
+				p.text(), pr.subject.text())
+		case projectPart:
+			o.fail(site, diag.ErrExclusivity,
+				"'%s' is borrowed by the part '%s' of an enclosing string, which holds it while the next part is evaluated; %s",
+				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, fmt.Sprintf("interpolate a copy: '%s.copy()'", pr.subject.text()), "compute this first into a variable"))
 		default:
 			panic(diag.Internal("ownership: unknown projection kind %d", int(pr.kind)))
 		}
@@ -960,13 +977,32 @@ func (o *Ownership) VisitSelfExpr(e ast.SelfExpr, s *ownState) *ownState {
 	return o.readRoot(o.fn.SelfLocal, e.Position(), s)
 }
 
+// VisitStrLit holds a first part that is a string while the second is evaluated: lowering joins the parts from the left,
+// and joins the first with the second once both exist. Every later part is joined as soon as it is evaluated, so none of
+// them is held, and a part that is not a string is turned into one as soon as it is evaluated.
 func (o *Ownership) VisitStrLit(e ast.StrLit, s *ownState) *ownState {
-	for _, part := range e.Parts().All() {
+	parts := e.Parts()
+	held := len(o.projections)
+	for i, part := range parts.All() {
 		if !part.Expr.IsNil() {
 			s = o.expr(part.Expr, s)
 		}
+		switch {
+		case i == 0 && parts.Len() > 1:
+			o.holdText(part.Expr, parts.At(1).Expr)
+		case i == 1:
+			o.release(held)
+		}
 	}
 	return s
+}
+
+// holdText holds the first part of an interpolated string while the second is evaluated, when the first is a string
+// and a second part runs after it.
+func (o *Ownership) holdText(first, second ast.Expr) {
+	if !first.IsNil() && !second.IsNil() && !runsNoCode(second) && ast.Content(o.ty(first)) == ast.StringTy {
+		o.hold(first, projectPart, false)
+	}
 }
 
 func (o *Ownership) VisitNameExpr(e ast.NameExpr, s *ownState) *ownState {
@@ -987,8 +1023,15 @@ func (o *Ownership) VisitNameExpr(e ast.NameExpr, s *ownState) *ownState {
 	panic(diag.Internal("ownership: unresolved name '%s'", e.Name()))
 }
 
+// VisitBinaryExpr holds a managed left operand, which only a string comparison has, while the right is evaluated:
+// lowering compares the two strings once both are computed.
 func (o *Ownership) VisitBinaryExpr(e ast.BinaryExpr, s *ownState) *ownState {
-	return o.expr(e.R(), o.expr(e.L(), s))
+	s = o.expr(e.L(), s)
+	held := len(o.projections)
+	o.holdAcross(e.L(), projectOperand, e.R())
+	s = o.expr(e.R(), s)
+	o.release(held)
+	return s
 }
 
 func (o *Ownership) VisitUnaryExpr(e ast.UnaryExpr, s *ownState) *ownState {
@@ -1035,7 +1078,9 @@ func (o *Ownership) userCall(e *ast.CallInfo, receiver ast.Expr, s *ownState) *o
 	o.initialising = nil
 	if !receiver.IsNil() {
 		s = o.argument(receiver, e.Pass.SelfConv, ownDest{kind: destParameter, name: "self"}, s)
-		o.hold(receiver, e.Pass.SelfConv, len(e.Ordered) > 0)
+		if len(e.Ordered) > 0 {
+			o.hold(receiver, projectArgument, e.Pass.SelfConv.ByAddress())
+		}
 	}
 	for i, arg := range e.Ordered {
 		spec := e.Pass.Specs[i]
@@ -1043,9 +1088,11 @@ func (o *Ownership) userCall(e *ast.CallInfo, receiver ast.Expr, s *ownState) *o
 			o.requireNotReceiver(arg, spec.Name)
 		}
 		s = o.argument(arg, spec.Conv, ownDest{kind: destParameter, name: spec.Name}, s)
-		o.hold(arg, spec.Conv, i+1 < len(e.Ordered))
+		if i+1 < len(e.Ordered) {
+			o.hold(arg, projectArgument, spec.Conv.ByAddress())
+		}
 	}
-	o.projections = o.projections[:held]
+	o.release(held)
 	for _, l := range o.initialising {
 		s = s.without(l)
 	}
@@ -1062,16 +1109,38 @@ func (o *Ownership) requireNotReceiver(arg ast.Expr, param string) {
 	}
 }
 
-// hold keeps an argument borrowed while the arguments after it are evaluated. A call nested in one of them that
-// changes an overlapping place would otherwise leave the borrow pointing at what moved: a borrow of a collection's
-// element is taken when its argument is evaluated, and a later argument may remove that element. A scalar read by a
-// let parameter is a value by then and needs no hold.
-func (o *Ownership) hold(arg ast.Expr, conv ast.Convention, laterArguments bool) {
-	if !laterArguments || (conv == ast.ConvLet && !o.ty(arg).IsManaged()) {
-		return
+// hold keeps the place that an expression has evaluated to a borrow borrowed until release, for an expression that uses
+// the borrow again after evaluating more: a call nested in the rest that changes an overlapping place would otherwise
+// leave the borrow pointing at what moved. What lowering keeps across that evaluation is a handle for a managed value,
+// which points into the place, and the place's address when it is passed by address. A scalar that is only read is a
+// value by then and needs no hold, so a correct program pays a push for each borrow, and no look at its path: that
+// is found only when something in the rest changes or moves a place.
+func (o *Ownership) hold(place ast.Expr, kind ownProjectionKind, byAddress bool) {
+	if t := o.ty(place); byAddress || t.IsManaged() {
+		o.projections = append(o.projections, ownProjection{place: place, kind: kind, ty: t})
 	}
-	o.projections = append(o.projections, ownProjection{place: arg, kind: projectArgument, ty: o.ty(arg)})
 }
+
+// holdAcross is hold for a borrow that an expression uses again after evaluating next. Most operands are a name or a
+// literal, which run no code, so a correct program rarely pays for more than the kind of next.
+func (o *Ownership) holdAcross(place ast.Expr, kind ownProjectionKind, next ast.Expr) {
+	if !runsNoCode(next) {
+		o.hold(place, kind, false)
+	}
+}
+
+// runsNoCode is whether evaluating e is the read of a name or a literal, which cannot change a place. It does not look
+// into anything larger: holding is always right, and the walk costs more than the hold it would save.
+func runsNoCode(e ast.Expr) bool {
+	switch e.Kind() {
+	case ast.KindIntLit, ast.KindBoolLit, ast.KindNameExpr, ast.KindSelfExpr:
+		return true
+	}
+	return false
+}
+
+// release ends the holds taken since projections had mark entries.
+func (o *Ownership) release(mark int) { o.projections = o.projections[:mark] }
 
 // argument passes an expression as the convention says: a let borrows it, mutates borrows it to change, consumes
 // takes it, and sets initialises it.
@@ -1168,8 +1237,17 @@ func (o *Ownership) overlapMessage(a, b callAccess) string {
 	return message + "; pass separate values"
 }
 
-func (o *Ownership) VisitIndexExpr(e ast.IndexExpr, s *ownState) *ownState {
-	return o.expr(e.Args().At(0), o.expr(e.Obj(), s))
+func (o *Ownership) VisitIndexExpr(e ast.IndexExpr, s *ownState) *ownState { return o.subscript(e, s) }
+
+// subscript evaluates the collection of a subscript and its index, which lowering takes the element address from only
+// after both: the collection stays borrowed while the index is computed.
+func (o *Ownership) subscript(e ast.IndexExpr, s *ownState) *ownState {
+	s = o.expr(e.Obj(), s)
+	held := len(o.projections)
+	o.holdAcross(e.Obj(), projectCollection, e.Args().At(0))
+	s = o.expr(e.Args().At(0), s)
+	o.release(held)
+	return s
 }
 
 func (o *Ownership) VisitMemberExpr(e ast.MemberExpr, s *ownState) *ownState {

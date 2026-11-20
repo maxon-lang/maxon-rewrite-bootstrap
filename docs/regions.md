@@ -224,8 +224,14 @@ Where this document was open, minimaxon does the following. The operations and t
   for a `let` one, happens when the argument is evaluated, and the call runs after the arguments after it. So an
   argument that is a place stays borrowed through the rest of the call's arguments, and the target of an
   assignment through a field or an element stays borrowed while its value is computed; a nested call that changes an
-  overlapping place is refused. This is the "active projection against the accesses made while it lasts" check of
-  the exclusivity section, extended from match bindings to arguments and assignments, and it closes the gap where
+  overlapping place is refused. The same holds wherever an operand is evaluated to a borrow and used after another
+  operand has run: the left side of a string comparison (`a[0] == wipe(a)` loads the string, then `wipe` frees it, then
+  the compare reads it), the collection of a subscript while its index is computed (`rows[0].cells[shrink(rows)]`
+  loads the row's array, then `shrink` frees the row, then the element's address is taken from it), and the first
+  part of an interpolated string, which is joined with the second only once the second exists. Every later part is
+  joined as soon as it is evaluated and a scalar is a value when it is read, so neither is held. This is the "active
+  projection against the accesses made while it lasts" check of the exclusivity section, extended from match
+  bindings to arguments, assignments, operands, subscripts and string parts, and it closes the gap where
   `f(mutates a[i], g(mutates a))` took an address that `g` could invalidate. It needs no run-time check.
 - **A handle is a key.** `Handle with T` is a scalar word: copied, never moved, not owning. Its generation is part of the
   word, so a stale handle never reaches a reused slot. A handle is typed by its element type and not by its pool, so
@@ -306,7 +312,10 @@ Where this document was open, minimaxon does the following.
   option, as a statement and as a value; conditionals that move; loops with `break` and `continue`; generic functions,
   with and without bounds, and a generic record. About two programs in five break a rule of ownership on purpose
   (moving a field, a borrow or an element; reading a variable that moved; overlapping arguments; changing a collection
-  while one of its elements is borrowed; a match arm that changes its subject), to see the checker refuse each. Of the
+  while one of its elements is borrowed; a match arm that changes its subject; a place borrowed by one operand of a
+  string comparison or the first part of an interpolation, or by the base of a subscript, while a later operand, or the index, is a call that changes or
+  consumes what it lies in), to see the checker refuse each, and the same expressions with a call that only reads or
+  works on another variable, to see it accept them. Of the
   programs it accepts, the ones with no map, list or pool also run natively and must give the interpreter's output and
   exit code. Removing a rule from the checker (exclusivity at a call, held borrows, a use after a move, a move out of a
   borrow, a `sets` or a variable that is not initialised, the hold on the target of an assignment) makes the generator

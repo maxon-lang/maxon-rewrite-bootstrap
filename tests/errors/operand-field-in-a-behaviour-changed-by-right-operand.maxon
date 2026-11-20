@@ -1,0 +1,23 @@
+// expect-error: E3112 at 18:23
+type Person
+	export var name as String
+
+	static function make(consumes name String) returns Person
+		return Person{name: name}
+	end 'make'
+end 'Person'
+
+function rename(mutates p Person) returns String
+	p.name = "z"
+	return "r"
+end 'rename'
+
+function main() returns ExitCode
+	let c = cown(Person.make("a{1}"))
+	when c as p 'check'
+		if p.name == rename(p) 'eq'
+			print("eq\n")
+		end 'eq'
+	end 'check'
+	return 0
+end 'main'

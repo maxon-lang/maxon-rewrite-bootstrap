@@ -159,6 +159,12 @@ type generator struct {
 	// throughout and is nearly always refused for the first of many, so a program with a single sin is the one in which
 	// a rule that the checker lacks shows.
 	sinsLeft int
+	// heldSin makes the one sin of a targeted program a borrowed place held across a call in the same expression.
+	heldSin bool
+	// inMain is set while the statements of main are written, which run: nothing is sure to call another function.
+	inMain bool
+	// sinning is set while the statement that is a targeted program's one sin is written.
+	sinning  bool
 	recent   place
 	recentOK bool
 }
@@ -375,7 +381,7 @@ func (g *generator) fieldType() *ty {
 	if g.sharing && g.chance(9) {
 		return g.sharedTypeBefore()
 	}
-	switch n := g.pick(14); {
+	switch n := g.pick(17); {
 	case n < 4:
 		return tCount
 	case n < 5:
@@ -388,6 +394,12 @@ func (g *generator) fieldType() *ty {
 		return g.option(g.elementTypeBefore())
 	case n < 12 && !g.arraysOnly:
 		return g.handle(g.elementTypeBefore())
+	case n < 13 && !g.arraysOnly:
+		return g.pool(g.elementTypeBefore())
+	case n < 14 && !g.arraysOnly:
+		return g.list(g.elementTypeBefore())
+	case n < 15 && !g.arraysOnly:
+		return g.mapOf(g.keyType(), g.elementTypeBefore())
 	}
 	return g.elementTypeBefore()
 }
@@ -495,6 +507,8 @@ func (g *generator) methods(r *record) {
 		{"bump", kwMutates, []param{{name: "by", t: tCount}}, nil},
 		{"finish", kwConsumes, nil, tCount},
 		{"absorb", kwMutates, []param{{name: "other", t: r.t}}, nil},
+		{"relabel", kwMutates, nil, tString},
+		{"spend", kwConsumes, nil, tString},
 	}
 	for _, spec := range specs {
 		m := &fn{name: spec.name, method: true, recv: spec.recv, owner: r.t, params: spec.params, ret: spec.ret}

@@ -72,14 +72,13 @@ func (g *generator) sharedExpr(t *ty, depth int) string {
 
 // walkFrozen is the places inside a frozen value: its fields, which are immutable. A program that is careless tries to
 // change one.
-func (g *generator) walkFrozen(out []place, p place, want *ty, depth int) []place {
+func (g *generator) walkFrozen(out []place, p place, accept func(*ty) bool, depth int) []place {
 	r := g.recordOf(p.t.args[0])
 	if r == nil {
 		return out
 	}
 	for _, f := range r.fields {
-		next := place{src: p.src + "." + f.name, t: f.t, root: p.root, mutable: f.isVar && g.careless()}
-		out = g.walk(out, next, want, depth-1)
+		out = g.walk(out, p.inside(p.src+"."+f.name, f.t, f.isVar && g.careless()), accept, depth-1)
 	}
 	return out
 }
@@ -339,8 +338,8 @@ func (g *generator) actWhen(depth int) bool {
 // accepted anyway has found a hole. They are written in careless programs, and once in a targeted one.
 
 // sinful says whether a rule of sharing is broken on purpose here: anywhere in a careless program, and in a targeted one
-// until its one sin is written.
-func (g *generator) sinful() bool { return g.carelessPercent > 0 || g.sinsLeft > 0 }
+// until its one sin is written. A targeted program whose sin is a held place breaks no other rule of sharing.
+func (g *generator) sinful() bool { return g.carelessPercent > 0 || (g.sinsLeft > 0 && !g.heldSin) }
 
 // aCown is a cown in scope for a behaviour that exists to hold one statement.
 func (g *generator) aCown() (*variable, bool) {

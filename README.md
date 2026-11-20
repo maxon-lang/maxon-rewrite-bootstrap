@@ -938,11 +938,14 @@ test runner. It has no types; it works from the shape of the values and from the
   on IR that is written to break each rule (and to schedule behaviours: their order, their interleaving, the counts), on
   the order in which values are freed, and on programs from a generator (`generator_*_test.go`): random well-formed
   programs over records, unions, strings, the four conventions, calls with overlapping and disjoint arguments, match
-  bindings, loops, generics with bounds, arrays, maps, lists and pools with handles, and frozen values, cowns and
-  behaviours. The checker refuses most of them, since the generator leans on the edges of the rules: about two
+  bindings, loops, generics with bounds, arrays, maps, lists and pools with handles, a borrowed place held while a later
+  operand of the same expression changes or consumes what it lies in (a string comparison, an interpolation whose first two parts are a place and a call, a subscript whose base is a
+  field or an element and whose index, key or handle is such a call), and frozen values, cowns and behaviours. The
+  checker refuses most of them, since the generator leans on the edges of the rules: about two
   programs in five are careless and break rules throughout, and two in five of the rest break exactly one rule of
   sharing, once (a behaviour that takes a borrow, a variable used after a behaviour took it, a frozen value changed or
-  taken apart, a frozen value's method that changes it, a cown read outside a behaviour), so that a rule the checker
+  taken apart, a frozen value's method that changes it, a cown read outside a behaviour, a borrowed place held across
+  a later operand), so that a rule the checker
   lacked would be all that stands between that program and the interpreter. Every program it accepts must run clean, under several schedules when it
   schedules a behaviour, and one that does not is a hole. `go test ./internal/interp` runs 300 programs, each under 3
   schedules. `MINIMAXON_GEN_PROGRAMS=N`, `MINIMAXON_GEN_SEED=S`, `MINIMAXON_GEN_SEEDS=K` (schedules per program) and
@@ -1290,11 +1293,17 @@ keeps its place and no value is dropped.
   same call: `a.append(a[0])` is refused, and `let x = a[0]; a.append(x)` is the fix for a scalar. An index, a key
   or a handle is an ordinary value, read before the call, so `a[a.count() - 1]` and `a.insert(x, at: a.count())`
   are fine.
-- **A borrow is held while the rest is evaluated.** An argument that borrows a place, and the target of `x.f = v` and
-  `a[i] = v`, stays borrowed while later arguments, or the value, are evaluated, because the address is taken first.
+- **A borrow is held while the rest is evaluated.** Wherever lowering evaluates an operand to a borrow of a managed
+  place, then evaluates the next, then uses the borrow, the place stays borrowed through the next. That is an argument
+  while later arguments are evaluated, the target of `x.f = v` and `a[i] = v` while the value is, the left operand of a
+  string comparison while the right is, the collection of a subscript while its index is, and the first part of an
+  interpolated string while the second is (later parts are joined as soon as they are evaluated, so they hold nothing).
   A call in there that changes an overlapping place is refused (`E3112`): `look(a[0], n: drop(a))`, where `drop`
-  takes `a` as `mutates`, and `a[0].n = drop(a)`. A scalar read by a `let` parameter is a value by then and holds
-  nothing.
+  takes `a` as `mutates`, `a[0].n = drop(a)`, `a[0] == wipe(a)`, `rows[0].cells[shrink(rows)]` (read, assigned,
+  passed `mutates` or matched) and `"{p.name}{take(p)}"`. A scalar that is only read is a value by then and holds
+  nothing, so `a[0].n + shrink(a)` is fine; so is a copy on the left, `a[0].copy() == wipe(a)`, or the other operand
+  computed into a variable first. One helper, `hold`, takes every one of these, and a hold is only a push that is looked
+  at when something in the rest changes or moves a place.
 - **Handles are keys.** A `Handle with T` is a plain word: copy it freely, store it in a field, in a map, in an array or
   in another element, compare it with `==`. It owns nothing. Using one is a lookup, so a handle whose element was
   removed finds nothing, and a slot that was reused does not answer to the old handle, because a handle also

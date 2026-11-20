@@ -57,31 +57,43 @@ type place struct {
 	mutable  bool
 	whole    bool
 	elements bool
+	// outer are the places the path goes through, from the variable inwards, so that a later operand can be made to
+	// overlap any of them.
+	outer []place
+	// guards are the tests that make an element on the path exist.
+	guards []string
 }
 
-func (g *generator) walk(out []place, p place, want *ty, depth int) []place {
-	if p.t == want {
+// inside is the place a field of p names.
+func (p place) inside(src string, t *ty, mutable bool) place {
+	return place{src: src, t: t, root: p.root, mutable: mutable, outer: append(p.outer[:len(p.outer):len(p.outer)], p), guards: p.guards}
+}
+
+// walk is the places in and under p whose type accept takes.
+func (g *generator) walk(out []place, p place, accept func(*ty) bool, depth int) []place {
+	if accept(p.t) {
 		out = append(out, p)
 	}
 	if depth == 0 {
 		return out
 	}
 	if p.t.kind == kFrozen {
-		return g.walkFrozen(out, p, want, depth)
+		return g.walkFrozen(out, p, accept, depth)
 	}
 	r := g.recordOf(p.t)
 	if r == nil {
 		return out
 	}
 	for _, f := range r.fields {
-		next := place{src: p.src + "." + f.name, t: f.t, root: p.root, mutable: p.mutable && f.isVar}
-		out = g.walk(out, next, want, depth-1)
+		out = g.walk(out, p.inside(p.src+"."+f.name, f.t, p.mutable && f.isVar), accept, depth-1)
 	}
 	return out
 }
 
-// places are the places of type want that can be read, or changed when mutable is set.
-func (g *generator) places(want *ty, mutable bool) []place {
+func isType(want *ty) func(*ty) bool { return func(t *ty) bool { return t == want } }
+
+// placesWhere are the places whose type accept takes that can be read, or changed when mutable is set.
+func (g *generator) placesWhere(accept func(*ty) bool, mutable bool) []place {
 	var out []place
 	// Now and then a variable that was moved is read again, to see that the checker notices.
 	careless := g.careless()
@@ -93,7 +105,7 @@ func (g *generator) places(want *ty, mutable bool) []place {
 			continue
 		}
 		root := place{src: v.name, t: v.t, root: v, mutable: v.mutable && (v.frozen == 0 || careless), whole: true}
-		for _, p := range g.walk(nil, root, want, 3) {
+		for _, p := range g.walk(nil, root, accept, 3) {
 			if mutable && !p.mutable {
 				continue
 			}
@@ -101,6 +113,11 @@ func (g *generator) places(want *ty, mutable bool) []place {
 		}
 	}
 	return out
+}
+
+// places are the places of type want that can be read, or changed when mutable is set.
+func (g *generator) places(want *ty, mutable bool) []place {
+	return g.placesWhere(isType(want), mutable)
 }
 
 func (g *generator) place(want *ty, mutable bool) (place, bool) {
@@ -178,7 +195,7 @@ func (g *generator) boolExpr(depth int) string {
 		}
 		return fmt.Sprintf("%s < %s", g.countExpr(0), g.countExpr(0))
 	}
-	switch n := g.pick(8); {
+	switch n := g.pick(9); {
 	case n < 3:
 		return fmt.Sprintf("%s %s %s", g.countExpr(depth-1), []string{"<", "<=", "==", "!=", ">"}[g.pick(5)], g.countExpr(depth-1))
 	case n < 4:
@@ -191,6 +208,14 @@ func (g *generator) boolExpr(depth int) string {
 		}
 	case n < 7:
 		if c, ok := g.callReturning(tBool, depth); ok {
+			return c
+		}
+	case n < 8:
+		compare := g.heldCompare
+		if g.chance(35) {
+			compare = g.heldInterpolationCompare
+		}
+		if c, ok := compare(g.heldBroken(), false); ok {
 			return c
 		}
 	}

@@ -52,34 +52,41 @@ func dedupe(in []string) []string {
 
 // elementOf is a place for an element of a collection variable: it needs the guard that the element exists.
 func (g *generator) elementOf(v *variable, mutable bool) (place, bool) {
+	p, ok := g.elementPlace(v, mutable)
+	if ok {
+		g.guards = append(g.guards, p.guards...)
+	}
+	return p, ok
+}
+
+// elementPlace is a place for an element of a collection variable, with the guard that the element exists among its
+// guards. Nothing is written for it, so a caller that does not use the place leaves no guard behind.
+func (g *generator) elementPlace(v *variable, mutable bool) (place, bool) {
 	if v.moved || (mutable && (!v.mutable || v.frozen > 0)) {
 		return place{}, false
 	}
+	whole := place{src: v.name, t: v.t, root: v, mutable: v.mutable && v.frozen == 0, whole: true}
 	switch v.t.kind {
 	case kArray:
-		g.guards = append(g.guards, v.name+".count() > 0")
-		return place{src: v.name + "[0]", t: v.t.args[0], root: v, mutable: mutable, elements: true}, true
+		return whole.inside(v.name+"[0]", v.t.args[0], mutable).element(v.name + ".count() > 0"), true
 	case kPool, kList:
 		h, ok := g.place(g.handle(v.t.args[0]), false)
 		if !ok {
 			return place{}, false
 		}
-		g.guards = append(g.guards, fmt.Sprintf("%s.contains(%s)", v.name, h.src))
-		return place{src: fmt.Sprintf("%s[%s]", v.name, h.src), t: v.t.args[0], root: v, mutable: mutable, elements: true}, true
+		return whole.inside(fmt.Sprintf("%s[%s]", v.name, h.src), v.t.args[0], mutable).element(fmt.Sprintf("%s.contains(%s)", v.name, h.src)), true
 	case kMap:
-		key := g.keyLiteral(v.t.args[0])
-		g.guards = append(g.guards, fmt.Sprintf("%s.has(%s)", v.name, key))
-		return place{src: fmt.Sprintf("%s[%s]", v.name, key), t: v.t.args[1], root: v, mutable: mutable, elements: true}, true
+		key := keyOf(v.t.args[0], firstElementKey)
+		return whole.inside(fmt.Sprintf("%s[%s]", v.name, key), v.t.args[1], mutable).element(fmt.Sprintf("%s.has(%s)", v.name, key)), true
+	case kFrozen:
+		if v.t.args[0].kind == kArray {
+			return whole.inside(v.name+"[0]", v.t.args[0].args[0], false).element(v.name + ".count() > 0"), true
+		}
 	}
 	return place{}, false
 }
 
-func (g *generator) keyLiteral(k *ty) string {
-	if k == tCount {
-		return g.literal(g.pick(3))
-	}
-	return fmt.Sprintf("\"k%d\"", g.pick(3))
-}
+func (g *generator) keyLiteral(k *ty) string { return keyOf(k, g.pick(3)) }
 
 func (g *generator) stmt(depth int) {
 	g.budget--
@@ -131,15 +138,24 @@ func (g *generator) stmt(depth int) {
 		{2, g.actBorrowedCapture},
 		{2, g.actUseAfterCapture},
 		{2, g.actFrozenAbuse},
+		{3, g.actHeldCompare},
+		{4, g.actHeldIndex},
+		{3, g.actHeldInterpolation},
 	}
-	if g.sinsLeft > 0 && g.chance(targetedChance) {
+	if g.sinsLeft > 0 && (g.inMain || !g.heldSin) && g.chance(targetedChance) {
 		sins := []func(int) bool{g.actBorrowedCapture, g.actUseAfterCapture, g.actFrozenAbuse, g.actFrozenMethod, g.actCownPeek}
+		if g.heldSin {
+			sins = []func(int) bool{g.actHeldCompare, g.actHeldIndex, g.actHeldInterpolation}
+		}
+		g.sinning = true
 		for _, i := range g.r.Perm(len(sins)) {
 			if g.attempt(sins[i], depth) {
+				g.sinning = false
 				g.sinsLeft--
 				return
 			}
 		}
+		g.sinning = false
 	}
 	total := 0
 	for _, a := range actions {
@@ -542,14 +558,20 @@ func (g *generator) actMatch(depth int) bool {
 	if !ok || depth <= 0 {
 		return false
 	}
-	label := g.label()
-	g.line(kwMatch+" %s %s", subject, label)
 	var root *variable
 	for _, v := range g.visible() {
 		if strings.HasPrefix(subject, v.name) && (len(subject) == len(v.name) || subject[len(v.name)] == '.') {
 			root = v
 		}
 	}
+	g.matchOn(subject, root, arms)
+	return true
+}
+
+// matchOn writes a match over the subject, whose arms only borrow from the variable it lies in.
+func (g *generator) matchOn(subject string, root *variable, arms []arm) {
+	label := g.label()
+	g.line(kwMatch+" %s %s", subject, label)
 	if root != nil {
 		root.frozen++
 	}
@@ -573,7 +595,6 @@ func (g *generator) actMatch(depth int) bool {
 		root.frozen--
 	}
 	g.line(kwEnd+" %s", label)
-	return true
 }
 
 // armAction is a single statement for a match arm: what a binding can be used for.
@@ -988,6 +1009,7 @@ func (g *generator) mainFunction() {
 	g.scopes = nil
 	g.push()
 	g.line(kwFunction + " main() " + kwReturns + " ExitCode")
+	g.inMain = true
 	g.ret = nil
 	g.loop = 0
 	g.budget = 40
@@ -1046,7 +1068,7 @@ func (g *generator) preamble() {
 		mt := g.mapOf(key, elem)
 		g.line(kwVar+" %s = %s.new()", m, g.typeExpr(mt))
 		g.declare(m, mt, true, true)
-		g.line("%s.insert(%s, value: %s)", m, g.keyLiteral(key), g.owned(elem, 2))
+		g.line("%s.insert(%s, value: %s)", m, keyOf(key, firstElementKey), g.owned(elem, 2))
 	}
 	g.sharingPreamble()
 }
@@ -1070,6 +1092,7 @@ func Program(seed int64) string {
 	g.arraysOnly = g.chance(arraysOnlyPrograms)
 	if g.carelessPercent == 0 && g.chance(targetedPrograms) {
 		g.sinsLeft = 1
+		g.heldSin = g.chance(heldFamilyPercent)
 	}
 	g.sharing = !g.arraysOnly
 	g.declareTypes()

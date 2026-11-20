@@ -160,7 +160,18 @@ func TestGeneratedProgramsRunClean(t *testing.T) {
 	t.Logf("%d programs: %d accepted and clean (%d of them ended in a trap, %d ran out of steps), %d rejected by the checker [%s], %d failed",
 		programs, accepted, trapped, timedOut, total, strings.Join(parts, " "), failures)
 	t.Logf("%d of the accepted programs scheduled behaviours (%d in all), each under %d schedules", concurrent, behaviours, envInt(seedsEnv, defaultScheduleSeeds))
+	if programs >= minProgramsForAcceptedShare && int64(accepted+failures)*minAcceptedDivisor < int64(programs) {
+		t.Errorf("the checker accepted %d of %d programs, fewer than 1 in %d: a run that accepts almost nothing tests nothing, so the generator or its library no longer follows the language", accepted+failures, programs, minAcceptedDivisor)
+	}
 }
+
+// A run of at least minProgramsForAcceptedShare programs must have 1 in minAcceptedDivisor accepted: only an accepted
+// program reaches the interpreter, so a change to the language that the generator did not follow would otherwise pass
+// with every program refused.
+const (
+	minProgramsForAcceptedShare = 100
+	minAcceptedDivisor          = 10
+)
 
 // keepSource saves a program in the directory, when there is one, to look at it later.
 func keepSource(dir, name, source string) {

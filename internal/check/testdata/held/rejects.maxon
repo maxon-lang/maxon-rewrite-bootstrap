@@ -1,0 +1,134 @@
+// case: string comparison of an element while the array changes
+// expect-error: E3112
+function main() returns ExitCode
+	var a = Names.new()
+	a.append(label(1))
+	if a[0] == wipe(a) 'eq'
+		print("eq\n")
+	end 'eq'
+	return 0
+end 'main'
+
+// case: string inequality of an element while the array changes
+// expect-error: E3112
+function main() returns ExitCode
+	var a = Names.new()
+	a.append(label(1))
+	if a[0] != wipe(a) 'ne'
+		print("ne\n")
+	end 'ne'
+	return 0
+end 'main'
+
+// case: string comparison of a field while the record is consumed
+// expect-error: E3112
+function main() returns ExitCode
+	var p = Person.make(label(1))
+	if p.name == take(p) 'eq'
+		print("eq\n")
+	end 'eq'
+	return 0
+end 'main'
+
+// case: string comparison of a field while the record changes
+// expect-error: E3112
+function main() returns ExitCode
+	var p = Person.make(label(1))
+	if p.name == rename(p) 'eq'
+		print("eq\n")
+	end 'eq'
+	return 0
+end 'main'
+
+// case: string comparison of a variable while it is replaced
+// expect-error: E3112
+function main() returns ExitCode
+	var s = label(1)
+	if s == rewrite(s) 'eq'
+		print("eq\n")
+	end 'eq'
+	return 0
+end 'main'
+
+// case: string comparison of a field inside a behaviour
+// expect-error: E3112
+function main() returns ExitCode
+	let c = cown(Person.make(label(1)))
+	when c as p 'check'
+		if p.name == rename(p) 'eq'
+			print("eq\n")
+		end 'eq'
+	end 'check'
+	return 0
+end 'main'
+
+// case: subscript of a nested element while the index removes the row
+// expect-error: E3112
+function main() returns ExitCode
+	var rows = Rows.new()
+	rows.append(Row.make())
+	print(rows[0].cells[shrink(rows)])
+	return 0
+end 'main'
+
+// case: subscript of a variable while the index replaces it
+// expect-error: E3112
+function main() returns ExitCode
+	var a = Names.new()
+	print(a[reset(a)])
+	return 0
+end 'main'
+
+// case: assigned subscript while the index removes the row
+// expect-error: E3112
+function main() returns ExitCode
+	var rows = Rows.new()
+	rows.append(Row.make())
+	rows[0].cells[shrink(rows)] = "x"
+	return 0
+end 'main'
+
+// case: mutates argument whose subscript removes the row
+// expect-error: E3112
+function main() returns ExitCode
+	var rows = Rows.new()
+	rows.append(Row.make())
+	bump(rows[0].cells[shrink(rows)])
+	return 0
+end 'main'
+
+// case: match subject whose subscript removes the row
+// expect-error: E3112
+function main() returns ExitCode
+	var rows = Rows.new()
+	rows.append(Row.make())
+	match rows[0].items[shrink(rows)] 'm'
+		named(n) then print(n)
+		anonymous then print("none")
+	end 'm'
+	return 0
+end 'main'
+
+// case: subscript of a map while the index replaces it
+// expect-error: E3112
+function main() returns ExitCode
+	var m = CountPersonMap.new()
+	print(m[drain(m)].name)
+	return 0
+end 'main'
+
+// case: subscript of a pool while the index changes it
+// expect-error: E3112
+function main() returns ExitCode
+	var p = CellPool.new()
+	print("{p[reap(p)].n}")
+	return 0
+end 'main'
+
+// case: interpolation of a field while a later part consumes the record
+// expect-error: E3112
+function main() returns ExitCode
+	var p = Person.make(label(1))
+	print("{p.name}{take(p)}")
+	return 0
+end 'main'

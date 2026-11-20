@@ -1,0 +1,61 @@
+typealias Names = array with String
+
+typealias Rows = array with Row
+
+type Row
+	export var cells as array with String
+
+	static function make() returns Row
+		return Row{cells: Names.new()}
+	end 'make'
+end 'Row'
+
+type Person
+	export var name as String
+
+	static function make(consumes name String) returns Person
+		return Person{name: name}
+	end 'make'
+end 'Person'
+
+function wipe(mutates a Names) returns String
+	_ = a.remove(0)
+	return "x"
+end 'wipe'
+
+function take(consumes p Person) returns String
+	return "t"
+end 'take'
+
+function shrink(mutates rows Rows) returns Count
+	_ = rows.remove(0)
+	return 0
+end 'shrink'
+
+function main() returns ExitCode
+	var a = Names.new()
+	a.append("n{1}")
+	if a[0].copy() == wipe(a) 'copy'
+		print("same\n")
+	end 'copy'
+	a.append("n{2}")
+	a.append("n{3}")
+	let w = wipe(a)
+	if a[0] != w 'later'
+		print("{a[0]} differs from {w}\n")
+	end 'later'
+	var p = Person.make("p{1}")
+	let name = p.name.copy()
+	print("{name}{take(p)}\n")
+	var rows = Rows.new()
+	rows.append(Row.make())
+	rows[0].cells.append("c{1}")
+	rows.append(Row.make())
+	let i = shrink(rows)
+	print("{rows.count()} {i}\n")
+	return 0
+end 'main'
+
+//> n3 differs from x
+//> p1t
+//> 1 0

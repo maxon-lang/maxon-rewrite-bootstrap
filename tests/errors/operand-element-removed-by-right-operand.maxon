@@ -1,0 +1,20 @@
+// expect-error: E3112 at 16:18
+typealias Names = array with String
+
+function label(n Count) returns String
+	return "n{n}"
+end 'label'
+
+function wipe(mutates a Names) returns String
+	_ = a.remove(0)
+	return "x"
+end 'wipe'
+
+function main() returns ExitCode
+	var a = Names.new()
+	a.append(label(1))
+	if a[0] == wipe(a) 'eq'
+		print("eq\n")
+	end 'eq'
+	return 0
+end 'main'

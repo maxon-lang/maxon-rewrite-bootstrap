@@ -22,7 +22,7 @@ type Meter implements Scorable and Growable
 	end 'grow'
 end 'Meter'
 
-type Box uses T
+type Box uses T where T implements Droppable
 	var item as T
 
 	static function make(consumes item T) returns Self
@@ -57,7 +57,7 @@ function firstOf(items array with T) uses T returns Option with T where T implem
 	return Option.some(items[0].copy())
 end 'firstOf'
 
-function overwrite(mutates target T, value T) uses T where T implements Copyable
+function overwrite(mutates target T, value T) uses T where T implements Copyable and Droppable
 	target = value.copy()
 end 'overwrite'
 
@@ -78,23 +78,23 @@ function keep(consumes x T) uses T returns T
 	return x
 end 'keep'
 
-function pass2(consumes a T, consumes b T, first bool) uses T returns T
+function pass2(consumes a T, consumes b T, first bool) uses T returns T where T implements Droppable
 	if first 'f'
 		return a
 	end 'f'
 	return b
 end 'pass2'
 
-function both(a A, mutates b B) uses A, B where B implements Copyable, A implements Copyable
+function both(a A, mutates b B) uses A, B where B implements Copyable and Droppable, A implements Copyable and Droppable
 	b = b.copy()
 	let c = a.copy()
 end 'both'
 
-function consume(consumes x T) uses T
+function consume(consumes x T) uses T where T implements Droppable
 	let kept = x
 end 'consume'
 
-function both2(a A, consumes b B) uses A, B where A implements Copyable
+function both2(a A, consumes b B) uses A, B where A implements Copyable and Droppable, B implements Droppable
 	consume(b)
 	let c = a.copy()
 end 'both2'
@@ -103,17 +103,17 @@ function fill(sets out T, from T) uses T where T implements Copyable
 	out = from.copy()
 end 'fill'
 
-function churn(mutates items array with T) uses T returns Count
+function churn(mutates items array with T) uses T returns Count where T implements Droppable
 	let last = items.pop()
 	return items.count()
 end 'churn'
 
-function churnList(mutates items list with T) uses T returns Count
+function churnList(mutates items list with T) uses T returns Count where T implements Droppable
 	let first = items.popFront()
 	return items.count()
 end 'churnList'
 
-function churnMap(mutates m map with (String, V)) uses V returns Count
+function churnMap(mutates m map with (String, V)) uses V returns Count where V implements Droppable
 	let gone = m.remove("k0")
 	return m.count()
 end 'churnMap'
@@ -132,7 +132,30 @@ function bump(mutates x Count)
 	x = x + 1
 end 'bump'
 
-function mint(consumes x T) uses T returns Handle with T
-	var p = pool.new()
+function mint(consumes x T) uses T returns Handle with T where T implements Droppable
+	var p as pool with T
+	p = pool.new()
 	return p.insert(x)
 end 'mint'
+
+function lookReturning(x T, consumes result R) uses T, R returns R
+	return result
+end 'lookReturning'
+
+function rebuildReturning(mutates x T, consumes result R) uses T, R returns R where T implements Copyable and Droppable
+	let again = x.copy()
+	x = again
+	return result
+end 'rebuildReturning'
+
+function swallowReturning(consumes x T, consumes result R) uses T, R returns R where T implements Droppable
+	let kept = x
+	return result
+end 'swallowReturning'
+
+function eraseReturning(mutates items array with T, consumes result R) uses T, R returns R where T implements Droppable
+	if items.count() > 0 'e'
+		_ = items.remove(0)
+	end 'e'
+	return result
+end 'eraseReturning'

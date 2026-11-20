@@ -1,0 +1,36 @@
+// expect-error: E3112 at 34:29
+typealias Names = array with String
+
+typealias Rows = array with Row
+
+typealias Items = array with Item
+
+union Item
+	named(name String)
+	anonymous
+end 'Item'
+
+type Row
+	export var cells as array with String
+	export var items as array with Item
+
+	static function make() returns Row
+		return Row{cells: Names.new(), items: Items.new()}
+	end 'make'
+end 'Row'
+
+function shrink(mutates rows Rows) returns Count
+	_ = rows.remove(0)
+	return 0
+end 'shrink'
+
+function bump(mutates s String)
+	s = "b"
+end 'bump'
+
+function main() returns ExitCode
+	var rows = Rows.new()
+	rows.append(Row.make())
+	print(rows[0].cells[shrink(rows)])
+	return 0
+end 'main'

@@ -1,0 +1,20 @@
+// expect-error: E3112 at 16:20
+type Person
+	export var name as String
+
+	static function make(consumes name String) returns Person
+		return Person{name: name}
+	end 'make'
+end 'Person'
+
+function take(consumes p Person) returns String
+	return "t"
+end 'take'
+
+function main() returns ExitCode
+	var p = Person.make("a{1}")
+	if p.name == take(p) 'eq'
+		print("eq\n")
+	end 'eq'
+	return 0
+end 'main'
