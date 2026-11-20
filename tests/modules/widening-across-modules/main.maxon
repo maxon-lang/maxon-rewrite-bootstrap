@@ -1,0 +1,11 @@
+// An argument takes the type of its parameter whichever module the callee is in: 'a + a' is a Score here, as it would be
+// for a function of this module, and is checked where it is computed.
+function main() returns ExitCode
+	let a = 300 as lib.Score
+	print("{lib.half(try a + a otherwise 0)}\n")
+	print("{lib.half(try a + a + a + a otherwise 0)}\n")
+	return 0
+end 'main'
+
+//> 300
+//> 0

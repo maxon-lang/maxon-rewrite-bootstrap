@@ -1,0 +1,13 @@
+enum Problem
+	broken
+end 'Problem'
+
+function work() returns Count throws Problem
+	return 1
+end 'work'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3142 at 5:38

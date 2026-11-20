@@ -1,0 +1,17 @@
+interface Halves
+	function half() returns Count throws ArithmeticError
+end 'Halves'
+
+type Pile implements Halves
+	var n as Count
+
+	function half() returns Count
+		return n
+	end 'half'
+end 'Pile'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3120 at 5:1

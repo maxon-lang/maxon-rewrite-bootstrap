@@ -1,0 +1,10 @@
+function half(n Count) returns Count throws ArithmeticError
+	return try n / 2
+end 'half'
+
+function main() returns ExitCode
+	let h = half(8)
+	return 0
+end 'main'
+
+// expect-error: E3140 at 6:14

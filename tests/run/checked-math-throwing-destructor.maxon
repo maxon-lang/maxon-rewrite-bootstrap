@@ -1,0 +1,25 @@
+// A function that throws and takes a value ends it itself when it fails, so the caller has nothing to drop.
+typealias Score = int(i64.min to i64.max)
+
+type Txn
+	var id as Score
+
+	static function begin(id Score) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function finish(destructs self, d Score) returns Score throws ArithmeticError
+		print("finish {id}\n")
+		return try 10 / d
+	end 'finish'
+end 'Txn'
+
+function main() returns ExitCode
+	let t = Txn.begin(1)
+	let r = try t.finish(0) otherwise -1
+	print("{r}\n")
+	return 0
+end 'main'
+
+//> finish 1
+//> -1

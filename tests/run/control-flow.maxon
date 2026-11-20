@@ -11,7 +11,7 @@ function classify(n Score) returns String
 end 'classify'
 
 function bump(mutates counter Score)
-	counter = counter + 1
+	counter = try counter + 1 otherwise counter
 end 'bump'
 
 function main() returns ExitCode
@@ -21,7 +21,7 @@ function main() returns ExitCode
 	bump(k)
 	print("k {k}\n")
 	var i = 0 as Score
-	while true 'outer'
+	while i < 10 'outer'
 		i = i + 1
 		if i == 2 'skip'
 			continue

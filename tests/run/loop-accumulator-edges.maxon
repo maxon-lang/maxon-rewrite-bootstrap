@@ -1,0 +1,82 @@
+typealias Small = int(0 to 100)
+
+typealias Tiny = int(0 to 10)
+
+typealias Edge = int(-100 to 100)
+
+// A break, a continue and a failure that a try catches only make the loop add less than its bound allows.
+function withBreak(n Tiny) returns Count
+	var total = 0 as Count
+	for i in 0 to n 'each'
+		if i == 4 'stop'
+			break
+		end 'stop'
+		if i == 2 'skip'
+			continue
+		end 'skip'
+		total = total + (i as Count)
+	end 'each'
+	return total
+end 'withBreak'
+
+function inTry(n Tiny) returns Small
+	var total = 0 as Small
+	for i in 0 to 9 'each'
+		try 'work'
+			let q = 100 / (n as Small)
+			total = total + 1
+			total = total + (q as Small)
+		end 'work' otherwise 'failed'
+			continue
+		end 'failed'
+	end 'each'
+	return total
+end 'inTry'
+
+function down(n Tiny) returns Edge
+	var v = 0 as Edge
+	for i in 0 upto n 'each'
+		v = v - 9
+	end 'each'
+	return v
+end 'down'
+
+function mixed(n Tiny) returns Edge
+	var v = 50 as Edge
+	for i in 0 upto n 'each'
+		v = v - 9
+		v = v + 4
+	end 'each'
+	return v
+end 'mixed'
+
+// The bound is read once, so a loop that changes it still runs as often as it said when it began.
+function movingBound(n Tiny) returns Tiny
+	var total = 0 as Tiny
+	var bound = n as Count
+	for i in 0 upto bound 'each'
+		total = total + 1
+		bound = bound + 100
+	end 'each'
+	return total
+end 'movingBound'
+
+function neverRuns() returns Small
+	var total = 7 as Small
+	for i in 5 upto 5 'empty'
+		total = total + 100
+	end 'empty'
+	for i in 9 to 3 'backwards'
+		total = total + 100
+	end 'backwards'
+	return total
+end 'neverRuns'
+
+function main() returns ExitCode
+	print("{withBreak(10)} {withBreak(3)} {inTry(5)} {inTry(10)} {down(10)} {mixed(10)} {mixed(0)}\n")
+	print("{movingBound(10)} {movingBound(3)} {movingBound(0)} {neverRuns()}\n")
+	return 0
+end 'main'
+
+//> 4 4 90 100 -90 0 50
+//> 10 3 0 7

@@ -26,6 +26,9 @@ func (v V) String() string { return "%" + strconv.Itoa(int(v)) }
 // BlockID is a basic block: an index into IrFunction.Blocks.
 type BlockID int32
 
+// NoBlock is the failure target of an operation that cannot fail.
+const NoBlock BlockID = -1
+
 type BinOp uint8
 
 const (
@@ -64,9 +67,10 @@ const (
 	GuardSignedAtMost
 	GuardUnsignedAtLeast
 	GuardUnsignedAtMost
+	GuardNonZero
 )
 
-var guardNames = [...]string{"NonNegative", "SignedAtLeast", "SignedAtMost", "UnsignedAtLeast", "UnsignedAtMost"}
+var guardNames = [...]string{"NonNegative", "SignedAtLeast", "SignedAtMost", "UnsignedAtLeast", "UnsignedAtMost", "NonZero"}
 
 // Opcode says what an Instr does, which is also what each of its fields means (below). The set is closed, and a pass
 // that handles every opcode ends in a panic for one it does not know.
@@ -111,8 +115,12 @@ const (
 	FlagBorrow InstrFlags = 1 << iota
 	// FlagUnsigned is on a Bin or a Cmp that treats its operands as unsigned.
 	FlagUnsigned
-	// FlagChecked is on a Bin that traps on overflow.
+	// FlagChecked is on a Bin or a Neg whose result may not fit the word: when it does not, the instruction goes to the block
+	// C instead of to the next instruction.
 	FlagChecked
+	// FlagThrows is on a Call of a function that throws: Imm is the register that receives its error, 0 when it
+	// returned and the error's case plus 1 when it failed.
+	FlagThrows
 )
 
 // NoRoutine is the C of a CallRuntime that stores no routine.
@@ -135,12 +143,14 @@ const NoRoutine = -1
 //	OpLoadAt       Dst = word at A
 //	OpStoreAt      word at A = B
 //	OpLoadGlobal   Dst = the global Imm (a Rt)
-//	OpBin          Dst = A op Sub B (FlagUnsigned, FlagChecked)
+//	OpBin          Dst = A op Sub B (FlagUnsigned; FlagChecked: to block C when the result does not fit, which for a
+//	               signed '/' is i64.min / -1)
 //	OpCmp          Dst = A cmp Sub B (FlagUnsigned)
-//	OpNeg, OpNot   Dst = op A
-//	OpGuard        traps unless A is in range Sub of bound Imm
+//	OpNeg, OpNot   Dst = op A (FlagChecked on a Neg: to block C when A is i64.min)
+//	OpGuard        to block C unless A is in range Sub of bound Imm
 //	OpAlloc        Dst = a new box of Imm bytes
-//	OpCall         Dst (or NoReg) = Callees[C] applied to the arguments Args[A : A+B]
+//	OpCall         Dst (or NoReg) = Callees[C] applied to the arguments Args[A : A+B]; FlagThrows: the register Imm
+//	               receives the error
 //	OpCallRuntime  Dst (or NoReg) = the entry Imm (a Rt) applied to Args[A : A+B]; C is the index in Callees of the routine
 //	               the entry stores to call later (the destructor of a cown), or NoRoutine
 //	OpWhen         schedules the behaviour Behaviours[Imm] on the cowns Args[A : A+B], capturing Args[A+B : A+B+C]
@@ -162,6 +172,18 @@ type Instr struct {
 }
 
 func (i Instr) Has(flag InstrFlags) bool { return i.Flags&flag != 0 }
+
+// Fail is the block an instruction goes to when its check fails, if it has one: a checked Bin or Neg, or a Guard.
+func (i Instr) Fail() (BlockID, bool) {
+	switch {
+	case i.Op == OpGuard, (i.Op == OpBin || i.Op == OpNeg) && i.Has(FlagChecked):
+		return BlockID(i.C), true
+	}
+	return NoBlock, false
+}
+
+// ErrorReg is the register that receives the error of a call of a function that throws.
+func (i Instr) ErrorReg() V { return V(i.Imm) }
 
 func flags(borrow, unsigned, checked bool) InstrFlags {
 	var f InstrFlags
@@ -209,20 +231,26 @@ func StoreAt(addr, src V) Instr { return Instr{Op: OpStoreAt, A: addr, B: src} }
 
 func LoadGlobal(dst V, symbol Rt) Instr { return Instr{Op: OpLoadGlobal, Dst: dst, Imm: int64(symbol)} }
 
-func Bin(dst V, op BinOp, a, b V, unsigned, checked bool) Instr {
-	return Instr{Op: OpBin, Dst: dst, A: a, B: b, Sub: uint8(op), Flags: flags(false, unsigned, checked)}
+// Bin is a binary operation; fail is where it goes when its result does not fit the word, or NoBlock for one that
+// cannot fail.
+func Bin(dst V, op BinOp, a, b V, unsigned bool, fail BlockID) Instr {
+	return Instr{Op: OpBin, Dst: dst, A: a, B: b, Sub: uint8(op), Flags: flags(false, unsigned, fail != NoBlock), C: int32(fail)}
 }
 
 func Cmp(dst V, op CmpOp, a, b V, unsigned bool) Instr {
 	return Instr{Op: OpCmp, Dst: dst, A: a, B: b, Sub: uint8(op), Flags: flags(false, unsigned, false)}
 }
 
-func Neg(dst, src V) Instr { return Instr{Op: OpNeg, Dst: dst, A: src} }
+// Neg is a negation; fail is where it goes for i64.min, or NoBlock for one that cannot fail.
+func Neg(dst, src V, fail BlockID) Instr {
+	return Instr{Op: OpNeg, Dst: dst, A: src, Flags: flags(false, false, fail != NoBlock), C: int32(fail)}
+}
 
 func Not(dst, src V) Instr { return Instr{Op: OpNot, Dst: dst, A: src} }
 
-func Guard(src V, kind GuardKind, bound int64) Instr {
-	return Instr{Op: OpGuard, A: src, Sub: uint8(kind), Imm: bound}
+// Guard checks that a value is in a range, and goes to fail when it is not.
+func Guard(src V, kind GuardKind, bound int64, fail BlockID) Instr {
+	return Instr{Op: OpGuard, A: src, Sub: uint8(kind), Imm: bound, C: int32(fail)}
 }
 
 func Alloc(dst V, bytes int) Instr { return Instr{Op: OpAlloc, Dst: dst, Imm: int64(bytes)} }
@@ -256,6 +284,7 @@ const (
 	TermSwitch
 	TermRet
 	TermTrap
+	TermThrow
 )
 
 // SwitchCase is a value of a switch and the block it goes to.
@@ -271,6 +300,7 @@ type SwitchCase struct {
 //	TermSwitch  to the target of the case of Cases[First : First+Count] that Value equals, else to Then
 //	TermRet     returns Value
 //	TermTrap    stops the program
+//	TermThrow   returns the error Value, a case of ArithmeticError plus 1, from a function that throws
 type Term struct {
 	Kind  TermKind
 	Value V
@@ -289,6 +319,8 @@ func Branch(cond V, then, els BlockID) Term {
 func Ret(value V) Term { return Term{Kind: TermRet, Value: value} }
 
 func Trap() Term { return Term{Kind: TermTrap} }
+
+func Throw(err V) Term { return Term{Kind: TermThrow, Value: err} }
 
 // Block is a run of instructions, Instrs[First:End] of its function, and how it ends.
 type Block struct {
@@ -466,10 +498,11 @@ func (f *IrFunction) InstrString(i Instr) string {
 		if i.Has(FlagUnsigned) {
 			suffix += ".u"
 		}
-		if i.Has(FlagChecked) {
-			suffix += ".checked"
+		text := fmt.Sprintf("%s = %s%s %s, %s", i.Dst, binOpNames[i.Sub], suffix, i.A, i.B)
+		if fail, ok := i.Fail(); ok {
+			text += fmt.Sprintf(" else b%d", fail)
 		}
-		return fmt.Sprintf("%s = %s%s %s, %s", i.Dst, binOpNames[i.Sub], suffix, i.A, i.B)
+		return text
 	case OpCmp:
 		suffix := ""
 		if i.Has(FlagUnsigned) {
@@ -477,15 +510,22 @@ func (f *IrFunction) InstrString(i Instr) string {
 		}
 		return fmt.Sprintf("%s = cmp.%s%s %s, %s", i.Dst, cmpOpNames[i.Sub], suffix, i.A, i.B)
 	case OpNeg:
-		return fmt.Sprintf("%s = neg.checked %s", i.Dst, i.A)
+		if fail, ok := i.Fail(); ok {
+			return fmt.Sprintf("%s = neg %s else b%d", i.Dst, i.A, fail)
+		}
+		return fmt.Sprintf("%s = neg %s", i.Dst, i.A)
 	case OpNot:
 		return fmt.Sprintf("%s = not %s", i.Dst, i.A)
 	case OpGuard:
-		return fmt.Sprintf("guard %s %s %d", i.A, guardNames[i.Sub], i.Imm)
+		return fmt.Sprintf("guard %s %s %d else b%d", i.A, guardNames[i.Sub], i.Imm, i.C)
 	case OpAlloc:
 		return fmt.Sprintf("%s = alloc %d", i.Dst, i.Imm)
 	case OpCall:
-		return fmt.Sprintf("%scall %s(%s)", dstPrefix(i.Dst), f.Callee(i).Symbol(), argList(f.CallArgs(i)))
+		text := fmt.Sprintf("%scall %s(%s)", dstPrefix(i.Dst), f.Callee(i).Symbol(), argList(f.CallArgs(i)))
+		if i.Has(FlagThrows) {
+			text += fmt.Sprintf(" error %s", i.ErrorReg())
+		}
+		return text
 	case OpCallRuntime:
 		text := fmt.Sprintf("%sruntime %s(%s)", dstPrefix(i.Dst), i.Symbol(), argList(f.CallArgs(i)))
 		if routine := f.Routine(i); routine != nil {
@@ -529,6 +569,8 @@ func (f *IrFunction) TermString(t Term) string {
 		return fmt.Sprintf("ret %s", t.Value)
 	case TermTrap:
 		return "trap"
+	case TermThrow:
+		return fmt.Sprintf("throw %s", t.Value)
 	}
 	panic(diag.Internal("printer: a block has no terminator"))
 }

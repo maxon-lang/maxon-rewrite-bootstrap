@@ -1,19 +1,23 @@
 export typealias Length = int(0 to 1000)
 
-export function area(width Length, height Length) returns Length
+export function area(width Length, height Length) returns Count
 	return width * height
 end 'area'
 
-export function perimeter(width Length, height Length) returns Length
+export function perimeter(width Length, height Length) returns Count
 	return double(width + height)
 end 'perimeter'
 
-function double(n Length) returns Length
+typealias Span = int(0 to 2000)
+
+function double(n Span) returns Count
 	return n * 2
 end 'double'
 
 export function grow(mutates n Length)
-	n = n + 1
+	if n < 1000 'room'
+		n = n + 1
+	end 'room'
 end 'grow'
 
 export enum Corner

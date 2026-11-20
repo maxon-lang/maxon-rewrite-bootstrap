@@ -11,10 +11,10 @@ type Doc
 		return Doc{title: title, words: words}
 	end 'make'
 
-	function total() returns Count
+	function total() returns Count throws ArithmeticError
 		var sum = 0 as Count
 		for i in 0 upto words.count() 'each'
-			sum = sum + words[i]
+			sum = try sum + words[i]
 		end 'each'
 		return sum
 	end 'total'
@@ -33,33 +33,37 @@ type Library
 	end 'make'
 end 'Library'
 
-function describe(d Doc) returns String
-	return "{d.title}: {d.total()}"
+function describe(d Doc) returns String throws ArithmeticError
+	return "{d.title}: {try d.total()}"
 end 'describe'
 
 function main() returns ExitCode
-	let doc = freeze(Doc.make("notes"))
-	print("{doc.title} {doc.total()} {doc.words[1]} {doc.words.count()}\n")
-	print("{describe(doc)}\n")
-	let again = share(doc)
-	print("{again.title}\n")
-	var mine = thaw(doc)
-	mine.grow()
-	mine.title = "mine"
-	print("{mine.title} {mine.total()} {doc.total()}\n")
-	var parts = doc.words.copy()
-	parts.append(2)
-	var name = doc.title.copy()
-	name = "{name}!"
-	print("{parts.count()} {doc.words.count()} {name} {doc.title}\n")
-	let lib = freeze(Library.make(share(doc), name: "lib"))
-	print("{lib.name} {lib.first.title} {lib.first.total()}\n")
-	let copied = lib.copy()
-	print("{copied.first.title}\n")
-	match doc.title 'check'
-		"notes" then print("matched\n")
-		default then print("other\n")
-	end 'check'
+	try 'run'
+		let doc = freeze(Doc.make("notes"))
+		print("{doc.title} {doc.total()} {doc.words[1]} {doc.words.count()}\n")
+		print("{describe(doc)}\n")
+		let again = share(doc)
+		print("{again.title}\n")
+		var mine = thaw(doc)
+		mine.grow()
+		mine.title = "mine"
+		print("{mine.title} {mine.total()} {doc.total()}\n")
+		var parts = doc.words.copy()
+		parts.append(2)
+		var name = doc.title.copy()
+		name = "{name}!"
+		print("{parts.count()} {doc.words.count()} {name} {doc.title}\n")
+		let lib = freeze(Library.make(share(doc), name: "lib"))
+		print("{lib.name} {lib.first.title} {lib.first.total()}\n")
+		let copied = lib.copy()
+		print("{copied.first.title}\n")
+		match doc.title 'check'
+			"notes" then print("matched\n")
+			default then print("other\n")
+		end 'check'
+	end 'run' otherwise 'failed'
+		return 1
+	end 'failed'
 	return 0
 end 'main'
 

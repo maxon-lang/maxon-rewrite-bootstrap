@@ -2,9 +2,13 @@ export typealias Score = int(i64.min to i64.max)
 
 export typealias ScoreBox = Box with Score
 
+export typealias Length = int(0 to 1000)
+
+export typealias Area = int(0 to 1000000)
+
 export interface Shape
-	function area() returns Score
-	function grow(mutates self, by Score)
+	function area() returns Area
+	function grow(mutates self, by Length) throws ArithmeticError
 end 'Shape'
 
 export type Box uses T
@@ -37,12 +41,12 @@ export function swap(mutates a T, mutates b T) uses T where T implements Copyabl
 	b = tmp
 end 'swap'
 
-export function total(a T, b T) uses T returns Score where T implements Shape
+export function total(a T, b T) uses T returns Count where T implements Shape
 	return a.area() + b.area()
 end 'total'
 
-export function enlarge(mutates item T, by Score) uses T returns Box with T where T implements Shape and Copyable
-	item.grow(by)
+export function enlarge(mutates item T, by Length) uses T returns Box with T throws ArithmeticError where T implements Shape and Copyable
+	try item.grow(by)
 	return Box.make(item.copy())
 end 'enlarge'
 

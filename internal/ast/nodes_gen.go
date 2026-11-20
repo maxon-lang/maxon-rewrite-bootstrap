@@ -36,6 +36,7 @@ const (
 	KindIfStmt
 	KindWhileStmt
 	KindForStmt
+	KindTryStmt
 	KindReturnStmt
 	KindBreakStmt
 	KindContinueStmt
@@ -51,6 +52,7 @@ const (
 	KindCastExpr
 	KindBinaryExpr
 	KindCondExpr
+	KindTryExpr
 	KindIntLit
 	KindStrLit
 	KindBoolLit
@@ -63,7 +65,7 @@ const (
 	KindMatchExpr
 )
 
-var kindNames = [...]string{"none", "FuncDecl", "Param", "ConstDecl", "TypeDecl", "FieldDecl", "EnumDecl", "EnumCaseDecl", "UnionDecl", "UnionCaseDecl", "AliasDecl", "Bound", "TypeRef", "TypeParam", "Constraint", "InterfaceDecl", "FuncSig", "EndLabel", "LetStmt", "DiscardStmt", "AssignStmt", "ExprStmt", "IfStmt", "WhileStmt", "ForStmt", "ReturnStmt", "BreakStmt", "ContinueStmt", "MatchStmt", "WhenStmt", "MatchCore", "MatchArm", "Pattern", "MemberExpr", "IndexExpr", "CallExpr", "UnaryExpr", "CastExpr", "BinaryExpr", "CondExpr", "IntLit", "StrLit", "BoolLit", "NameExpr", "SelfExpr", "StructLitExpr", "StructField", "Arg", "PanicExpr", "MatchExpr"}
+var kindNames = [...]string{"none", "FuncDecl", "Param", "ConstDecl", "TypeDecl", "FieldDecl", "EnumDecl", "EnumCaseDecl", "UnionDecl", "UnionCaseDecl", "AliasDecl", "Bound", "TypeRef", "TypeParam", "Constraint", "InterfaceDecl", "FuncSig", "EndLabel", "LetStmt", "DiscardStmt", "AssignStmt", "ExprStmt", "IfStmt", "WhileStmt", "ForStmt", "TryStmt", "ReturnStmt", "BreakStmt", "ContinueStmt", "MatchStmt", "WhenStmt", "MatchCore", "MatchArm", "Pattern", "MemberExpr", "IndexExpr", "CallExpr", "UnaryExpr", "CastExpr", "BinaryExpr", "CondExpr", "TryExpr", "IntLit", "StrLit", "BoolLit", "NameExpr", "SelfExpr", "StructLitExpr", "StructField", "Arg", "PanicExpr", "MatchExpr"}
 
 func (k Kind) String() string {
 	if int(k) >= len(kindNames) {
@@ -92,6 +94,7 @@ type FuncDecl struct {
 	Params     []*Param
 	TypeParams []*TypeParam
 	Returns    TypeRef
+	Throws     TypeRef
 	Where      []*Constraint
 	Body       StmtList
 	End        EndLabel
@@ -110,6 +113,7 @@ type FuncDecl struct {
 	ParamTypes  []Ty
 	ParamLocals []LocalID
 	ReturnType  Ty
+	ErrorType   Ty
 	SelfLocal   *Local
 	Locals      []*Local
 }
@@ -126,6 +130,8 @@ type ConstDecl struct {
 	Value Expr
 
 	Type Ty
+	Low  I128
+	High I128
 }
 
 type TypeDecl struct {
@@ -248,9 +254,11 @@ type FuncSig struct {
 	Receiver string
 	Params   []*Param
 	Returns  TypeRef
+	Throws   TypeRef
 
 	Pass       Passing
 	ReturnType Ty
+	ErrorType  Ty
 }
 
 // EndLabel is a view of a EndLabel node.
@@ -270,7 +278,7 @@ func (n EndLabel) NameRef() uint32 { return n.T.Records[n.ID].A }
 
 func (n EndLabel) SetNameRef(ref uint32) { n.T.Records[n.ID].A = ref }
 
-// Stmt is a view of a node of one of 12 kinds: use Kind, or one of the As methods, to tell which.
+// Stmt is a view of a node of one of 13 kinds: use Kind, or one of the As methods, to tell which.
 type Stmt struct{ Ref }
 
 type StmtList = List[Stmt]
@@ -364,6 +372,19 @@ func (s Stmt) AsWhenStmt() (WhenStmt, bool) {
 		return WhenStmt{}, false
 	}
 	return WhenStmt{s.Ref}, true
+}
+
+func (n TryStmt) Stmt() Stmt { return Stmt{n.Ref} }
+
+// ToTryStmt is the view of the node as a TryStmt, for code that has found out it is one.
+func (s Stmt) ToTryStmt() TryStmt { return TryStmt{s.Ref} }
+
+// AsTryStmt is the view of the node as a TryStmt, if it is one.
+func (s Stmt) AsTryStmt() (TryStmt, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindTryStmt {
+		return TryStmt{}, false
+	}
+	return TryStmt{s.Ref}, true
 }
 
 func (n ReturnStmt) Stmt() Stmt { return Stmt{n.Ref} }
@@ -641,6 +662,62 @@ func (n ForStmt) End() EndLabel { return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.
 
 func (n ForStmt) SetEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+4] = uint32(v.ID) }
 
+// TryStmt is a view of a TryStmt node.
+type TryStmt struct{ Ref }
+
+type TryStmtList = List[TryStmt]
+
+func (t *Tree) NewTryStmt(start uint32) TryStmt {
+	id := t.alloc(KindTryStmt, start)
+	t.Records[id].B = t.reserve(6)
+	return TryStmt{Ref{t, id}}
+}
+
+const flagTryStmtHasOtherwise uint8 = 1 << 0
+
+func (n TryStmt) Label() string { return n.T.LabelAt(n.T.Records[n.ID].A) }
+
+// LabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n TryStmt) LabelRef() uint32 { return n.T.Records[n.ID].A }
+
+func (n TryStmt) SetLabelRef(ref uint32) { n.T.Records[n.ID].A = ref }
+
+func (n TryStmt) Body() StmtList { return ListAt[Stmt](n.T, n.T.Lists[n.T.Records[n.ID].B+0]) }
+
+func (n TryStmt) SetBody(l StmtList) { n.T.Lists[n.T.Records[n.ID].B+0] = l.Ref() }
+
+func (n TryStmt) End() EndLabel { return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+1])}} }
+
+func (n TryStmt) SetEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+1] = uint32(v.ID) }
+
+func (n TryStmt) HasOtherwise() bool { return n.T.Records[n.ID].Flags&flagTryStmtHasOtherwise != 0 }
+
+func (n TryStmt) SetHasOtherwise() { n.T.Records[n.ID].Flags |= flagTryStmtHasOtherwise }
+
+func (n TryStmt) Binding() string { return n.T.NameAt(n.T.Lists[n.T.Records[n.ID].B+2]) }
+
+// BindingRef is where the text is in the module's text, plus one: 0 is no text.
+func (n TryStmt) BindingRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+2] }
+
+func (n TryStmt) SetBindingRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+2] = ref }
+
+func (n TryStmt) HandlerLabel() string { return n.T.LabelAt(n.T.Lists[n.T.Records[n.ID].B+3]) }
+
+// HandlerLabelRef is where the text is in the module's text, plus one: 0 is no text.
+func (n TryStmt) HandlerLabelRef() uint32 { return n.T.Lists[n.T.Records[n.ID].B+3] }
+
+func (n TryStmt) SetHandlerLabelRef(ref uint32) { n.T.Lists[n.T.Records[n.ID].B+3] = ref }
+
+func (n TryStmt) Handler() StmtList { return ListAt[Stmt](n.T, n.T.Lists[n.T.Records[n.ID].B+4]) }
+
+func (n TryStmt) SetHandler(l StmtList) { n.T.Lists[n.T.Records[n.ID].B+4] = l.Ref() }
+
+func (n TryStmt) HandlerEnd() EndLabel {
+	return EndLabel{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+5])}}
+}
+
+func (n TryStmt) SetHandlerEnd(v EndLabel) { n.T.Lists[n.T.Records[n.ID].B+5] = uint32(v.ID) }
+
 // ReturnStmt is a view of a ReturnStmt node.
 type ReturnStmt struct{ Ref }
 
@@ -854,7 +931,7 @@ func (n Pattern) High() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records
 
 func (n Pattern) SetHigh(v Expr) { n.T.Lists[n.T.Records[n.ID].B+2] = uint32(v.ID) }
 
-// Expr is a view of a node of one of 15 kinds: use Kind, or one of the As methods, to tell which.
+// Expr is a view of a node of one of 16 kinds: use Kind, or one of the As methods, to tell which.
 type Expr struct{ Ref }
 
 type ExprList = List[Expr]
@@ -1054,6 +1131,19 @@ func (s Expr) AsCondExpr() (CondExpr, bool) {
 	return CondExpr{s.Ref}, true
 }
 
+func (n TryExpr) Expr() Expr { return Expr{n.Ref} }
+
+// ToTryExpr is the view of the node as a TryExpr, for code that has found out it is one.
+func (s Expr) ToTryExpr() TryExpr { return TryExpr{s.Ref} }
+
+// AsTryExpr is the view of the node as a TryExpr, if it is one.
+func (s Expr) AsTryExpr() (TryExpr, bool) {
+	if s.ID == 0 || s.T.Records[s.ID].Kind != KindTryExpr {
+		return TryExpr{}, false
+	}
+	return TryExpr{s.Ref}, true
+}
+
 // MemberExpr is a view of a MemberExpr node.
 type MemberExpr struct{ Ref }
 
@@ -1247,6 +1337,43 @@ func (n CondExpr) SetCond(v Expr) { n.T.Lists[n.T.Records[n.ID].B+0] = uint32(v.
 func (n CondExpr) Else() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+1])}} }
 
 func (n CondExpr) SetElse(v Expr) { n.T.Lists[n.T.Records[n.ID].B+1] = uint32(v.ID) }
+
+// TryExpr is a view of a TryExpr node.
+type TryExpr struct{ Ref }
+
+type TryExprList = List[TryExpr]
+
+func (t *Tree) NewTryExpr(start uint32) TryExpr {
+	id := t.alloc(KindTryExpr, start)
+	t.Records[id].B = t.reserve(4)
+	return TryExpr{Ref{t, id}}
+}
+
+func (n TryExpr) E() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+
+func (n TryExpr) SetE(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+
+func (n TryExpr) Value() Expr { return Expr{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+0])}} }
+
+func (n TryExpr) SetValue(v Expr) { n.T.Lists[n.T.Records[n.ID].B+0] = uint32(v.ID) }
+
+func (n TryExpr) Ret() ReturnStmt {
+	return ReturnStmt{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+1])}}
+}
+
+func (n TryExpr) SetRet(v ReturnStmt) { n.T.Lists[n.T.Records[n.ID].B+1] = uint32(v.ID) }
+
+func (n TryExpr) Brk() BreakStmt {
+	return BreakStmt{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+2])}}
+}
+
+func (n TryExpr) SetBrk(v BreakStmt) { n.T.Lists[n.T.Records[n.ID].B+2] = uint32(v.ID) }
+
+func (n TryExpr) Cont() ContinueStmt {
+	return ContinueStmt{Ref{n.T, NodeID(n.T.Lists[n.T.Records[n.ID].B+3])}}
+}
+
+func (n TryExpr) SetCont(v ContinueStmt) { n.T.Lists[n.T.Records[n.ID].B+3] = uint32(v.ID) }
 
 // IntLit is a view of a IntLit node.
 type IntLit struct{ Ref }
@@ -1546,7 +1673,7 @@ type Slots struct {
 	Pattern   uint32
 	Member    uint32
 	Call      uint32
-	Binary    uint32
+	Arith     uint32
 	Name      uint32
 	StructLit uint32
 }
@@ -1557,7 +1684,7 @@ type Slots struct {
 func (t *Tree) NumberSlots(slots []uint32) (count Slots) {
 	for id := 1; id < len(t.Records); id++ {
 		switch t.Records[id].Kind {
-		case KindLetStmt, KindForStmt:
+		case KindLetStmt, KindForStmt, KindTryStmt:
 			count.Local++
 			slots[id] = count.Local
 		case KindBreakStmt, KindContinueStmt:
@@ -1575,9 +1702,9 @@ func (t *Tree) NumberSlots(slots []uint32) (count Slots) {
 		case KindCallExpr:
 			count.Call++
 			slots[id] = count.Call
-		case KindBinaryExpr:
-			count.Binary++
-			slots[id] = count.Binary
+		case KindUnaryExpr, KindCastExpr, KindBinaryExpr:
+			count.Arith++
+			slots[id] = count.Arith
 		case KindNameExpr:
 			count.Name++
 			slots[id] = count.Name
@@ -1599,6 +1726,7 @@ var reservedWords = map[string]bool{
 	"destructs":   true,
 	"self":        true,
 	"returns":     true,
+	"throws":      true,
 	"end":         true,
 	"sets":        true,
 	"_":           true,
@@ -1626,6 +1754,8 @@ var reservedWords = map[string]bool{
 	"while":       true,
 	"for":         true,
 	"in":          true,
+	"try":         true,
+	"otherwise":   true,
 	"return":      true,
 	"break":       true,
 	"continue":    true,
@@ -1847,6 +1977,7 @@ type StmtVisitor interface {
 	VisitForStmt(n ForStmt)
 	VisitMatchStmt(n MatchStmt)
 	VisitWhenStmt(n WhenStmt)
+	VisitTryStmt(n TryStmt)
 	VisitReturnStmt(n ReturnStmt)
 	VisitBreakStmt(n BreakStmt)
 	VisitContinueStmt(n ContinueStmt)
@@ -1877,6 +2008,9 @@ func VisitStmt(v StmtVisitor, n Stmt) {
 	case KindWhenStmt:
 		v.VisitWhenStmt(WhenStmt{n.Ref})
 		return
+	case KindTryStmt:
+		v.VisitTryStmt(TryStmt{n.Ref})
+		return
 	case KindReturnStmt:
 		v.VisitReturnStmt(ReturnStmt{n.Ref})
 		return
@@ -1904,6 +2038,7 @@ type StmtResultVisitor[R any] interface {
 	VisitForStmt(n ForStmt) R
 	VisitMatchStmt(n MatchStmt) R
 	VisitWhenStmt(n WhenStmt) R
+	VisitTryStmt(n TryStmt) R
 	VisitReturnStmt(n ReturnStmt) R
 	VisitBreakStmt(n BreakStmt) R
 	VisitContinueStmt(n ContinueStmt) R
@@ -1927,6 +2062,8 @@ func VisitStmtResult[R any](v StmtResultVisitor[R], n Stmt) R {
 		return v.VisitMatchStmt(MatchStmt{n.Ref})
 	case KindWhenStmt:
 		return v.VisitWhenStmt(WhenStmt{n.Ref})
+	case KindTryStmt:
+		return v.VisitTryStmt(TryStmt{n.Ref})
 	case KindReturnStmt:
 		return v.VisitReturnStmt(ReturnStmt{n.Ref})
 	case KindBreakStmt:
@@ -1949,6 +2086,7 @@ type StmtStateVisitor[S, R any] interface {
 	VisitForStmt(n ForStmt, s S) R
 	VisitMatchStmt(n MatchStmt, s S) R
 	VisitWhenStmt(n WhenStmt, s S) R
+	VisitTryStmt(n TryStmt, s S) R
 	VisitReturnStmt(n ReturnStmt, s S) R
 	VisitBreakStmt(n BreakStmt, s S) R
 	VisitContinueStmt(n ContinueStmt, s S) R
@@ -1972,6 +2110,8 @@ func VisitStmtState[S, R any](v StmtStateVisitor[S, R], n Stmt, s S) R {
 		return v.VisitMatchStmt(MatchStmt{n.Ref}, s)
 	case KindWhenStmt:
 		return v.VisitWhenStmt(WhenStmt{n.Ref}, s)
+	case KindTryStmt:
+		return v.VisitTryStmt(TryStmt{n.Ref}, s)
 	case KindReturnStmt:
 		return v.VisitReturnStmt(ReturnStmt{n.Ref}, s)
 	case KindBreakStmt:
@@ -2002,6 +2142,7 @@ type ExprVisitor interface {
 	VisitCastExpr(n CastExpr)
 	VisitBinaryExpr(n BinaryExpr)
 	VisitCondExpr(n CondExpr)
+	VisitTryExpr(n TryExpr)
 }
 
 func VisitExpr(v ExprVisitor, n Expr) {
@@ -2051,6 +2192,9 @@ func VisitExpr(v ExprVisitor, n Expr) {
 	case KindCondExpr:
 		v.VisitCondExpr(CondExpr{n.Ref})
 		return
+	case KindTryExpr:
+		v.VisitTryExpr(TryExpr{n.Ref})
+		return
 	}
 	panic(diag.Internal("unhandled Expr %s", n.Kind()))
 }
@@ -2071,6 +2215,7 @@ type ExprResultVisitor[R any] interface {
 	VisitCastExpr(n CastExpr) R
 	VisitBinaryExpr(n BinaryExpr) R
 	VisitCondExpr(n CondExpr) R
+	VisitTryExpr(n TryExpr) R
 }
 
 func VisitExprResult[R any](v ExprResultVisitor[R], n Expr) R {
@@ -2105,6 +2250,8 @@ func VisitExprResult[R any](v ExprResultVisitor[R], n Expr) R {
 		return v.VisitBinaryExpr(BinaryExpr{n.Ref})
 	case KindCondExpr:
 		return v.VisitCondExpr(CondExpr{n.Ref})
+	case KindTryExpr:
+		return v.VisitTryExpr(TryExpr{n.Ref})
 	}
 	panic(diag.Internal("unhandled Expr %s", n.Kind()))
 }
@@ -2125,6 +2272,7 @@ type ExprStateVisitor[S, R any] interface {
 	VisitCastExpr(n CastExpr, s S) R
 	VisitBinaryExpr(n BinaryExpr, s S) R
 	VisitCondExpr(n CondExpr, s S) R
+	VisitTryExpr(n TryExpr, s S) R
 }
 
 func VisitExprState[S, R any](v ExprStateVisitor[S, R], n Expr, s S) R {
@@ -2159,6 +2307,8 @@ func VisitExprState[S, R any](v ExprStateVisitor[S, R], n Expr, s S) R {
 		return v.VisitBinaryExpr(BinaryExpr{n.Ref}, s)
 	case KindCondExpr:
 		return v.VisitCondExpr(CondExpr{n.Ref}, s)
+	case KindTryExpr:
+		return v.VisitTryExpr(TryExpr{n.Ref}, s)
 	}
 	panic(diag.Internal("unhandled Expr %s", n.Kind()))
 }

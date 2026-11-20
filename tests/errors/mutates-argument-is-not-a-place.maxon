@@ -12,26 +12,26 @@ type Box
 		name = value
 	end 'rename'
 
-	function bump(mutates self, by Score)
-		v = v + by
-	end 'bump'
+	function assign(mutates self, value Score)
+		v = value
+	end 'assign'
 
 	static function create(v Score, consumes name String) returns Box
 		return Box{v: v, name: name}
 	end 'create'
 end 'Box'
 
-function bump(mutates n Score, by Score)
-	n = n + by
-end 'bump'
+function assign(mutates n Score, value Score)
+	n = value
+end 'assign'
 
 function make() returns Score
 	return 3
 end 'make'
 
 function main() returns ExitCode
-	bump(make(), by: 1)
+	assign(make(), value: 1)
 	return 0
 end 'main'
 
-// expect-error: E2013 at 33:11
+// expect-error: E2013 at 33:13

@@ -1,0 +1,23 @@
+typealias Score = int(i64.min to i64.max)
+
+type Txn
+	var id as Score
+
+	static function begin(id Score) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function finish(destructs self) returns bool
+		return true
+	end 'finish'
+end 'Txn'
+
+function main() returns ExitCode
+	let ok = false
+	let t = Txn.begin(1)
+	let r = ok and t.finish()
+	print("{r}\n")
+	return 0
+end 'main'
+
+// expect-error: E3136 at 18:17

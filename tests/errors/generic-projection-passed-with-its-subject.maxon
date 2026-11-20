@@ -15,11 +15,6 @@ type Box uses T
 	function replace(mutates self, consumes next T)
 		item = next
 	end 'replace'
-
-	function bump(mutates self, by Score)
-		var next = by
-		next = next + 1
-	end 'bump'
 end 'Box'
 
 union Slot uses T
@@ -60,4 +55,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3112 at 54:23
+// expect-error: E3112 at 49:23

@@ -56,22 +56,22 @@ function showTwin(item T) uses T returns String where T implements Describe and 
 	return show(item.twin())
 end 'showTwin'
 
-function depth(x T, n Score) uses T returns Score where T implements Copyable
+function depth(x T, n Score) uses T returns Score throws ArithmeticError where T implements Copyable
 	if n == 0 'done'
 		return 0
 	end 'done'
-	return 1 + depth(x.copy(), n: n - 1)
+	return try 1 + depth(x.copy(), n: n - 1)
 end 'depth'
 
-function ping(x T, n Score) uses T returns Score where T implements Copyable
+function ping(x T, n Score) uses T returns Score throws ArithmeticError where T implements Copyable
 	if n == 0 'done'
 		return 0
 	end 'done'
-	return pong(x.copy(), n: n - 1)
+	return try pong(x.copy(), n: n - 1)
 end 'ping'
 
-function pong(x T, n Score) uses T returns Score where T implements Copyable
-	return 1 + ping(x.copy(), n: n)
+function pong(x T, n Score) uses T returns Score throws ArithmeticError where T implements Copyable
+	return try 1 + ping(x.copy(), n: n)
 end 'pong'
 
 function main() returns ExitCode
@@ -84,7 +84,7 @@ function main() returns ExitCode
 	print("{show(w2)}\n")
 	let t = Tally.create()
 	print("{t.total.describe()} {t.count}\n")
-	print("{depth("x", n: 4)} {depth(Color.red, n: 2)} {ping(3 as Score, n: 5)}\n")
+	print("{try depth("x", n: 4) otherwise return 1} {try depth(Color.red, n: 2) otherwise return 1} {try ping(3 as Score, n: 5) otherwise return 1}\n")
 	return 0
 end 'main'
 

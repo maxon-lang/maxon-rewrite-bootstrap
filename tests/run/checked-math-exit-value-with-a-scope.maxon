@@ -1,0 +1,21 @@
+// The return of an 'otherwise' has a value that opens scopes of its own, and the temporaries the try made are still
+// dropped on the path that did not fail.
+typealias Score = int(i64.min to i64.max)
+
+function label(n Score) returns String
+	return "item {n}"
+end 'label'
+
+function weigh(s String, d Score) returns Score throws ArithmeticError
+	return try 10 / d
+end 'weigh'
+
+function main() returns ExitCode
+	let d = 3 as Score
+	let c = d > 2
+	let r = (try weigh(label(1), d: d) otherwise return (0 if c else 1)) if c else 5
+	print("{r}\n")
+	return 0
+end 'main'
+
+//> 3

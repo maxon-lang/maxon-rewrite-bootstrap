@@ -1,0 +1,85 @@
+// A failure leaves what it interrupts: the values computed for a call or a record that never runs, the temporaries of the
+// statement, and the locals of the blocks it leaves are all dropped, and the executable ends with no box live.
+typealias Score = int(i64.min to i64.max)
+
+type Entry
+	export var name as String
+	export var weight as Score
+
+	static function make(consumes name String, weight Score) returns Entry
+		return Entry{name: name, weight: weight}
+	end 'make'
+
+	static function share(n Score) returns Entry throws ArithmeticError
+		return Entry{name: label(n), weight: try 10 / n}
+	end 'share'
+end 'Entry'
+
+union Tagged
+	named(label String, size Score)
+	empty
+end 'Tagged'
+
+function label(n Score) returns String
+	return "item {n}"
+end 'label'
+
+function weigh(a Score, b Score) returns Score throws ArithmeticError
+	let note = label(a)
+	let w = try a / b
+	print("{note} weighs {w}\n")
+	return w
+end 'weigh'
+
+function main() returns ExitCode
+	let zero = 0 as Score
+	let big = 9223372036854775807 as Score
+	var kept = Entry.make("first", weight: 1)
+	try 'calls'
+		kept = Entry.make(label(1), weight: big + 1)
+	end 'calls' otherwise 'failed'
+		print("the call never ran, {kept.name} stays\n")
+	end 'failed'
+	try 'records'
+		let e = Entry.share(zero)
+		print("{e.name}\n")
+	end 'records' otherwise 'failed'
+		print("the record was never made\n")
+	end 'failed'
+	try 'unions'
+		let t = Tagged.named(label(3), size: big * 3)
+		print("{t}\n")
+	end 'unions' otherwise 'failed'
+		print("the union was never made\n")
+	end 'failed'
+	let text = "{label(4)} and {try big + 5 otherwise -1} and {label(5)}"
+	print("{text}\n")
+	try 'blocks'
+		let local = label(6)
+		let other = Entry.make(label(7), weight: 5)
+		print("{local} {other.name}\n")
+		let n = try weigh(4, b: 2) otherwise 0
+		print("{n}\n")
+		_ = weigh(other.weight, b: zero)
+		print("not reached\n")
+	end 'blocks' otherwise (e) 'failed'
+		print("blocks: {e}\n")
+	end 'failed'
+	for i in 0 upto 3 'loop'
+		let name = label(i)
+		let w = try 10 / (i - 1) otherwise continue
+		print("{name} {w}\n")
+	end 'loop'
+	return 0
+end 'main'
+
+//> the call never ran, first stays
+//> the record was never made
+//> the union was never made
+//> item 4 and -1 and item 5
+//> item 6 item 7
+//> item 4 weighs 2
+//> 2
+//> blocks: divisionByZero
+//> item 0 -10
+//> item 2 10

@@ -3,9 +3,11 @@ enum Shade
 	dark
 end 'Shade'
 
+typealias Dim = int(0 to 1000)
+
 union Shape
 	dot
-	box(width Count, height Count)
+	box(width Dim, height Dim)
 end 'Shape'
 
 type Pair
@@ -33,27 +35,27 @@ function join(consumes p Pair) returns String
 	return "{p.left}{p.right}"
 end 'join'
 
-function total(items array with Count, bonus Count) returns Count
-	var sum = 0 as Count
+function pick(items array with Count, bonus Count) returns Count
+	var chosen = 0 as Count
 	for i in 0 upto items.count() 'each'
 		if items[i] > bonus and items[i] != 4 'big'
-			sum = sum + items[i]
+			chosen = items[i]
 		end 'big' else 'small'
-			sum = sum + bonus
+			chosen = bonus
 		end 'small'
 	end 'each'
-	return sum
-end 'total'
+	return chosen
+end 'pick'
 
 function grow(mutates items array with Count, by Count)
 	items.append(by)
-	items[0] = items[0] + by
+	items[0] = by
 end 'grow'
 
 function main() returns ExitCode
 	var items = Counts.new()
 	grow(items, by: 3)
-	let pair = Pair.make(label(total(items, bonus: 1), shade: Shade.dark), right: "!")
+	let pair = Pair.make(label(pick(items, bonus: 1), shade: Shade.dark), right: "!")
 	print(join(pair))
 	print("{area(Shape.box(2, height: 3))}\n")
 	return 0

@@ -1,0 +1,14 @@
+function main() returns ExitCode
+	print("{try numbers.ratio(9, b: 3) otherwise 0}\n")
+	try 'means'
+		print("{numbers.mean(10, n: 2)}\n")
+		print("{numbers.mean(10, n: 0)}\n")
+	end 'means' otherwise (e) 'failed'
+		print("{e}\n")
+	end 'failed'
+	return 0
+end 'main'
+
+//> 3
+//> 5
+//> divisionByZero

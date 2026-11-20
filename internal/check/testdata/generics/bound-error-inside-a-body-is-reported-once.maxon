@@ -3,7 +3,7 @@ function f(a T) uses T returns Score
 end 'f'
 
 function g() returns Score
-	return f(Square.create(1)) + f(Square.create(2))
+	return f(Square.create(1))
 end 'g'
 
 function main() returns ExitCode

@@ -1,0 +1,23 @@
+// A left shift fails when its exact result does not fit, past the alias's range or past the word.
+typealias Small = int(0 to 1000)
+
+typealias ShiftBy = int(0 to 70)
+
+typealias Score = int(i64.min to i64.max)
+
+function shift(a Small, n ShiftBy) returns Small
+	return try a shl n otherwise 999
+end 'shift'
+
+function wide(a Score, n ShiftBy) returns Score
+	return try a shl n otherwise -1
+end 'wide'
+
+function main() returns ExitCode
+	print("{shift(1, n: 9)} {shift(1, n: 10)} {shift(1, n: 64)} {shift(500, n: 62)} {shift(0, n: 70)}\n")
+	print("{wide(1, n: 62)} {wide(1, n: 63)} {wide(-1, n: 63)} {wide(3, n: 62)} {wide(0, n: 64)}\n")
+	return 0
+end 'main'
+
+//> 512 999 999 999 0
+//> 4611686018427387904 -1 -9223372036854775808 -1 0

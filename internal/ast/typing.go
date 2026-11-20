@@ -68,6 +68,31 @@ func OperandOf(t Ty) Operand {
 	return OperandWord
 }
 
+// Fails are the ways an integer operation can fail that the check pass could not rule out: the range analysis proves the
+// others impossible, and lowering checks only these. An operation with none needs no check at all.
+type Fails uint8
+
+const (
+	// FailOverflow is a result past the 64 bits the operation computes in: an add, a subtract, a multiply or a negation
+	// past the word, or i64.min / -1.
+	FailOverflow Fails = 1 << iota
+	// FailZero is a divisor of '/' or 'mod' that is 0.
+	FailZero
+	// FailBelow is a result below the minimum of its type that the word still holds.
+	FailBelow
+	// FailAbove is a result above the maximum of its type that the word still holds.
+	FailAbove
+	// FailShift is a shift count that is negative.
+	FailShift
+)
+
+// ArithInfo is what lowering needs to know about an operator or a cast beyond its operands: how to compare and divide the
+// operands of a binary operator, and how the operation can fail.
+type ArithInfo struct {
+	Operand Operand
+	Fails   Fails
+}
+
 // NameInfo is what a name written as an expression stands for, in 4 bytes: a local variable of the function the name is
 // in, a constant, or a field of the receiver. What it says is a handle, and the accessors give the thing itself. The kind
 // is the two top bits, which NameKind's values fit, and the rest is the local's LocalID, the field's index in its record,
@@ -217,7 +242,7 @@ type Typing struct {
 
 	types    []Ty
 	consumed []uint64
-	operands []Operand
+	arith    []ArithInfo
 
 	names      []NameInfo
 	members    []MemberInfo
@@ -255,7 +280,7 @@ func (t *Typing) Reset(tree *Tree) {
 	}
 	clear(t.slots)
 	t.count = tree.NumberSlots(t.slots)
-	t.operands = make([]Operand, t.count.Binary+1)
+	t.arith = make([]ArithInfo, t.count.Arith+1)
 	t.names = make([]NameInfo, t.count.Name+1)
 	t.members = make([]MemberInfo, t.count.Member+1)
 	t.calls = make([]CallInfo, t.count.Call+1)
@@ -331,9 +356,16 @@ func (t *Typing) MarkConsumed(e Expr) {
 }
 
 // Operand is how the operands of a binary operator are compared and divided.
-func (t *Typing) Operand(b BinaryExpr) Operand { return *entry(t, t.operands, b.ID, "operand") }
+func (t *Typing) Operand(b BinaryExpr) Operand { return entry(t, t.arith, b.ID, "arithmetic").Operand }
 
-func (t *Typing) SetOperand(b BinaryExpr, o Operand) { *entry(t, t.operands, b.ID, "operand") = o }
+func (t *Typing) SetOperand(b BinaryExpr, o Operand) {
+	entry(t, t.arith, b.ID, "arithmetic").Operand = o
+}
+
+// Fails is how an operator or a cast can fail: a binary or unary operator, or a cast.
+func (t *Typing) Fails(e Expr) Fails { return entry(t, t.arith, e.ID, "arithmetic").Fails }
+
+func (t *Typing) SetFails(e Expr, f Fails) { entry(t, t.arith, e.ID, "arithmetic").Fails = f }
 
 func (t *Typing) Name(n NameExpr) NameInfo { return *entry(t, t.names, n.ID, "name") }
 
@@ -391,12 +423,17 @@ func (t *Typing) When(w WhenStmt) WhenInfo { return *entry(t, t.whens, w.ID, "be
 // EditWhen is the entry of a behaviour, for the checker to fill in.
 func (t *Typing) EditWhen(w WhenStmt) *WhenInfo { return entry(t, t.whens, w.ID, "behaviour") }
 
-// LetLocal and ForLocal are the local a let or a for declares, in the function it is in: 0 for a 'for' named '_'.
+// LetLocal, ForLocal and TryLocal are the local a let, a for or the handler of a try declares, in the function it is in: 0
+// for a 'for' named '_' and for a handler that binds no error.
 func (t *Typing) LetLocal(l LetStmt) LocalID { return *entry(t, t.locals, l.ID, "local") }
 
 func (t *Typing) ForLocal(f ForStmt) LocalID { return *entry(t, t.locals, f.ID, "local") }
 
+func (t *Typing) TryLocal(s TryStmt) LocalID { return *entry(t, t.locals, s.ID, "local") }
+
 func (t *Typing) SetLetLocal(l LetStmt, local *Local) { *entry(t, t.locals, l.ID, "local") = local.id }
+
+func (t *Typing) SetTryLocal(s TryStmt, local *Local) { *entry(t, t.locals, s.ID, "local") = local.id }
 
 func (t *Typing) SetForLocal(f ForStmt, local *Local) { *entry(t, t.locals, f.ID, "local") = local.id }
 
@@ -417,6 +454,7 @@ func (t *Typing) SetContinueTarget(c ContinueStmt, target NodeID) {
 // so borrows it, as opposed to making a new value. It asks about four members of Expr, so it is a type switch and not a
 // visitor.
 func (t *Typing) IsStorage(e Expr) bool {
+	e = Through(e)
 	switch e.Kind() {
 	case KindNameExpr:
 		kind := t.Name(NameExpr{e.Ref}).Kind()
@@ -427,6 +465,19 @@ func (t *Typing) IsStorage(e Expr) bool {
 		return t.Member(MemberExpr{e.Ref}).Kind == MemberField
 	}
 	return false
+}
+
+// Through is the expression whose value e gives: e itself, or for a try with no 'otherwise' value the expression it
+// covers, whose value is the try's own.
+func Through(e Expr) Expr {
+	for e.Kind() == KindTryExpr {
+		t := e.ToTryExpr()
+		if !t.Value().IsNil() {
+			break
+		}
+		e = t.E()
+	}
+	return e
 }
 
 // Resolved is the function a call runs once the type parameters of the code it is in are bound: the target itself, or

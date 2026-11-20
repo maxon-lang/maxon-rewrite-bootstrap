@@ -14,17 +14,17 @@ type Point
 end 'Point'
 
 function bump(mutates n Count)
-	n = n + 1
+	n = try n + 1 otherwise n
 end 'bump'
 
 function shift(mutates p Point)
-	p.x = p.x + 10
+	p.x = try p.x + 10 otherwise p.x
 end 'shift'
 
-function total(items array with Count) returns Count
+function total(items array with Count) returns Count throws ArithmeticError
 	var sum = 0 as Count
 	for i in 0 upto items.count() 'sum'
-		sum = sum + items[i]
+		sum = try sum + items[i]
 	end 'sum'
 	return sum
 end 'total'
@@ -50,15 +50,16 @@ function main() returns ExitCode
 	for i in 0 upto 1000 'grow'
 		a.append(i as Count)
 	end 'grow'
-	print("{a.count()} {total(a)} {a[999]}\n")
+	let sum = try total(a) otherwise return 1
+	print("{a.count()} {sum} {a[999]}\n")
 	var b = CountArray.filled(3, value: 7)
 	b.insert(1, at: 0)
 	b.insert(2, at: 2)
 	b.insert(3, at: b.count())
 	print("{b[0]} {b[1]} {b[2]} {b[3]} {b[4]} {b[5]}\n")
-	print("{b.remove(1)} {b.count()} {b.remove(b.count() - 1)} {b.count()}\n")
+	print("{b.remove(1)} {b.count()} {b.remove(try b.count() - 1 otherwise 0)} {b.count()}\n")
 	bump(b[0])
-	b[1] = b[0] + b[1]
+	b[1] = try b[0] + b[1] otherwise b[1]
 	print("{b[0]} {b[1]} {b[2]} {b[3]}\n")
 	var empty = CountArray.new()
 	print("{empty.isEmpty()} {b.isEmpty()} {popOr(empty, fallback: 42)} {popOr(b, fallback: 42)} {b.count()}\n")

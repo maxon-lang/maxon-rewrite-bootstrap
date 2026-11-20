@@ -60,6 +60,11 @@ type Lowerer struct {
 	// args holds the values of the arguments of the calls being lowered, the innermost call's last, so a call needs no list
 	// of its own.
 	args []V
+	// handlers are the trys around the code being lowered, innermost last.
+	handlers []tryHandler
+	// pending are the values computed for something that takes them, which has not run yet: a failure before it runs
+	// drops them, since nothing else would.
+	pending []pendingDrop
 }
 
 var lowerBinOps = map[string]BinOp{
@@ -133,6 +138,7 @@ func (l *Lowerer) begin(fn *ast.FuncDecl, binding ast.Binding, instances *Instan
 	l.b.Start(fn, name, paramCount)
 	l.fn, l.f, l.instances, l.binding = fn, &l.b.F, instances, binding
 	l.jumps, l.scopes, l.ownerSlots, l.args = l.jumps[:0], l.scopes[:0], l.ownerSlots[:0], l.args[:0]
+	l.handlers, l.pending = l.handlers[:0], l.pending[:0]
 	l.selfOwner = -1
 	l.declareSlots()
 	l.cur = l.b.NewBlock()
@@ -318,11 +324,14 @@ func (l *Lowerer) block(body ast.StmtList) {
 	l.popScope()
 }
 
-// stmt lowers a statement, which owns the temporaries it makes: they are dropped when it ends.
+// stmt lowers a statement, which owns the temporaries it makes: they are dropped when it ends, and every value it computes
+// for something to take has been taken by then.
 func (l *Lowerer) stmt(s ast.Stmt) {
+	mark := len(l.pending)
 	l.pushScope(false)
 	ast.VisitStmt(l, s)
 	l.popScope()
+	l.pending = l.pending[:mark]
 }
 
 // condition lowers a condition, dropping its temporaries before the branch: the value it gives is a scalar.
@@ -494,7 +503,7 @@ func (l *Lowerer) VisitForStmt(s ast.ForStmt) {
 	next := l.reg(KindScalar)
 	cur := l.load(slot)
 	one := l.konst(1)
-	l.emit(Bin(next, BinAdd, cur, one, unsigned, false))
+	l.emit(Bin(next, BinAdd, cur, one, unsigned, NoBlock))
 	l.emit(StoreSlot(slot, next, false))
 	if s.Inclusive() {
 		l.b.Terminate(l.cur, Jump(body))
@@ -528,12 +537,20 @@ func (l *Lowerer) compare(op CmpOp, a, b V, unsigned bool) V {
 // ownership pass marked consumed passes to its new owner, and a place that is consumed is moved out of (a whole
 // local or a field of an owned one; the pass refuses every other). One that is not consumed only lends its value: a
 // fresh value there is a temporary, dropped when the statement or branch ends.
+//
+// A value that is consumed is in flight until what takes it runs, which is the expression around it or the statement: a
+// failure before then drops it (see failure).
 func (l *Lowerer) expr(e ast.Expr) V {
 	typing := l.typings.Of(e.T.Module)
 	if c, ok := typing.Type(e).(*ast.ConstIntTy); ok {
 		return l.konst(c.Value.Bits())
 	}
+	if t, ok := e.AsTryExpr(); ok && t.Value().IsNil() {
+		return l.through(t)
+	}
+	mark := len(l.pending)
 	v := ast.VisitExprResult[V](l, e)
+	l.pending = l.pending[:mark]
 	if l.f.Regs[v] != KindManaged {
 		return v
 	}
@@ -545,10 +562,14 @@ func (l *Lowerer) expr(e ast.Expr) V {
 	case typing.Consumed(e) && !l.isWholeLocal(e) && !l.isField(e):
 		panic(diag.Internal("lower: an element or a part of a temporary is moved out at offset %d of module %d; the ownership pass should have refused it", e.Position().Off, e.Position().Mod))
 	}
+	if typing.Consumed(e) && !l.isImmortal(e) {
+		l.pending = append(l.pending, pendingDrop{reg: v, ty: l.dropType(typing.Type(e))})
+	}
 	return v
 }
 
 func (l *Lowerer) isWholeLocal(e ast.Expr) bool {
+	e = ast.Through(e)
 	switch e.Kind() {
 	case ast.KindNameExpr:
 		e := e.ToNameExpr()
@@ -562,6 +583,7 @@ func (l *Lowerer) isWholeLocal(e ast.Expr) bool {
 
 // isField is whether a place is a field of a record, which a move leaves empty.
 func (l *Lowerer) isField(e ast.Expr) bool {
+	e = ast.Through(e)
 	switch e.Kind() {
 	case ast.KindNameExpr:
 		e := e.ToNameExpr()
@@ -578,6 +600,7 @@ func (l *Lowerer) isField(e ast.Expr) bool {
 // isImmortal is whether a value is a string that lives in the executable, which is never dropped: a literal, or the
 // name of an enum or union case.
 func (l *Lowerer) isImmortal(e ast.Expr) bool {
+	e = ast.Through(e)
 	switch e.Kind() {
 	case ast.KindStrLit:
 		e := e.ToStrLit()
@@ -625,7 +648,7 @@ func (l *Lowerer) VisitCondExpr(e ast.CondExpr) V {
 
 func (l *Lowerer) VisitStructLitExpr(e ast.StructLitExpr) V {
 	lit := l.typings.Of(e.T.Module).StructLit(e)
-	return l.record(len(lit.Ordered), nil, func(i int) ast.Expr {
+	return l.record(l.ty(e.Expr()), len(lit.Ordered), nil, func(i int) ast.Expr {
 		if v := lit.Ordered[i]; !v.IsNil() {
 			return v
 		}
@@ -635,7 +658,8 @@ func (l *Lowerer) VisitStructLitExpr(e ast.StructLitExpr) V {
 
 func (l *Lowerer) VisitCastExpr(e ast.CastExpr) V {
 	v := l.expr(e.E())
-	l.fit(v, l.ty(e.Expr()).(*ast.IntTy), l.ty(e.E()))
+	fails := l.typings.Of(e.T.Module).Fails(e.Expr())
+	l.fit(v, l.ty(e.Expr()).(*ast.IntTy), l.ty(e.E()), fails, l.overflowTo(fails))
 	return v
 }
 
@@ -655,21 +679,24 @@ func (l *Lowerer) choose(typ ast.Ty, cond V, then, els func() V) V {
 	end := l.b.NewBlock()
 	l.b.Terminate(l.cur, Branch(cond, a, b))
 	l.cur = a
-	l.scoped(func() { l.emit(StoreSlot(result, then(), false)) })
+	l.scoped(func() { l.store(result, then) })
 	l.goTo(end)
 	l.cur = b
-	l.scoped(func() { l.emit(StoreSlot(result, els(), false)) })
+	l.scoped(func() { l.store(result, els) })
 	l.goTo(end)
 	return l.fetch(result)
 }
 
+// store puts the value of one branch of an expression into the slot that holds it until the branches join, which takes
+// the value: it is no longer in flight, and the other branch never had it.
+func (l *Lowerer) store(slot int, value func() V) {
+	mark := len(l.pending)
+	l.emit(StoreSlot(slot, value(), false))
+	l.pending = l.pending[:mark]
+}
+
 func (l *Lowerer) converted(e ast.Expr, target ast.Ty) V {
 	v := l.expr(e)
-	if ti, ok := target.(*ast.IntTy); ok {
-		if _, isInt := l.ty(e).(*ast.IntTy); isInt {
-			l.fit(v, ti, l.ty(e))
-		}
-	}
 	// A frozen value given to a let parameter of the type it holds lends its contents.
 	have, want := l.binding.Apply(l.ty(e)), l.binding.Apply(target)
 	for ast.IsFrozen(have) && have != want {
@@ -758,6 +785,7 @@ func (l *Lowerer) address(e ast.Expr) V {
 }
 
 func (l *Lowerer) VisitCallExpr(node ast.CallExpr) V {
+	mark := len(l.pending)
 	c := l.call(node)
 	switch c.Kind {
 	case ast.CallPrint, ast.CallPrintError:
@@ -790,8 +818,20 @@ func (l *Lowerer) VisitCallExpr(node ast.CallExpr) V {
 		if l.ty(c.CallExpr.Expr()) != ast.Ty(ast.VoidTy) {
 			dst = l.reg(l.kind(l.ty(c.CallExpr.Expr())))
 		}
-		l.emit(l.b.Call(dst, target, l.args[base:]))
-		l.args = l.args[:base]
+		if target.ErrorType == nil {
+			l.emit(l.b.Call(dst, target, l.args[base:]))
+			l.args = l.args[:base]
+		} else {
+			err := l.reg(KindScalar)
+			l.emit(l.b.ThrowingCall(dst, target, l.args[base:], err))
+			l.args = l.args[:base]
+			// The callee has the arguments now, and drops them itself when it fails.
+			l.pending = l.pending[:mark]
+			ok := l.b.NewBlock()
+			failed := l.compare(CmpNe, err, l.konst(0), false)
+			l.b.Terminate(l.cur, Branch(failed, l.failure(0, err), ok))
+			l.cur = ok
+		}
 		if dst == NoReg {
 			return l.konst(0)
 		}
@@ -800,7 +840,7 @@ func (l *Lowerer) VisitCallExpr(node ast.CallExpr) V {
 		return l.copyValue(c.CallExpr.Position(), l.expr(c.Receiver), l.ty(c.Receiver))
 	case ast.CallUnionCtor:
 		tag := int(c.CaseIndex)
-		return l.record(len(c.Ordered), &tag, func(i int) ast.Expr { return c.Ordered[i] })
+		return l.record(l.ty(c.CallExpr.Expr()), len(c.Ordered), &tag, func(i int) ast.Expr { return c.Ordered[i] })
 	}
 	panic(diag.Internal("lower: unresolved call"))
 }
@@ -833,8 +873,9 @@ func FieldOffset(index int, tagged bool) int {
 	return WordBytes * index
 }
 
-// record is a new box of count fields, which the tag, when it has one, makes a union: value is the expression of each field.
-func (l *Lowerer) record(count int, tag *int, value func(i int) ast.Expr) V {
+// record is a new box of count fields of the type t, which the tag, when it has one, makes a union: value is the expression
+// of each field. The box is in flight while its fields are computed, and owns each one once it is stored.
+func (l *Lowerer) record(t ast.Ty, count int, tag *int, value func(i int) ast.Expr) V {
 	baseOffset := 0
 	if tag != nil {
 		baseOffset = WordBytes
@@ -845,10 +886,16 @@ func (l *Lowerer) record(count int, tag *int, value func(i int) ast.Expr) V {
 		t := l.konst(int64(*tag))
 		l.emit(StoreField(p, TagOffset, t))
 	}
+	mark := len(l.pending)
+	if count > 0 {
+		l.pending = append(l.pending, pendingDrop{reg: p, ty: l.dropType(t)})
+	}
 	for i := range count {
 		v := l.expr(value(i))
 		l.emit(StoreField(p, baseOffset+WordBytes*i, v))
+		l.pending = l.pending[:mark+1]
 	}
+	l.pending = l.pending[:mark]
 	return p
 }
 
@@ -892,7 +939,7 @@ func (l *Lowerer) VisitMemberExpr(m ast.MemberExpr) V {
 		return l.konst(int64(member.CaseIndex))
 	case ast.MemberUnionCase:
 		tag := int(member.CaseIndex)
-		return l.record(0, &tag, nil)
+		return l.record(l.ty(m.Expr()), 0, &tag, nil)
 	case ast.MemberEnumOrdinal:
 		return l.expr(m.Obj())
 	case ast.MemberEnumName:
@@ -970,7 +1017,12 @@ func (l *Lowerer) VisitStrLit(s ast.StrLit) V {
 		return l.copyValue(s.Position(), acc, ast.StringTy)
 	}
 	for i := 1; i < parts.Len(); i++ {
+		mark := len(l.pending)
+		if owner == textFresh {
+			l.pending = append(l.pending, pendingDrop{reg: acc, ty: ast.StringTy})
+		}
 		next, nextOwner := l.part(parts.At(i))
+		l.pending = l.pending[:mark]
 		joined := l.runtime(RtConcat, KindManaged, acc, next)
 		if owner == textFresh {
 			l.dropValue(acc, ast.StringTy)
@@ -1058,17 +1110,38 @@ func (l *Lowerer) VisitBinaryExpr(b ast.BinaryExpr) V {
 	if !ok {
 		panic(diag.Internal("lower: unknown operator '%s'", b.Op()))
 	}
-	l.emit(Bin(d, op, a, c, unsigned, op == BinAdd || op == BinSub || op == BinMul))
+	fails := l.typings.Of(b.T.Module).Fails(b.Expr())
+	if fails&ast.FailZero != 0 {
+		l.emit(Guard(c, GuardNonZero, 0, l.failure(ast.ErrorDivisionByZero, NoReg)))
+	}
+	if fails&ast.FailShift != 0 {
+		l.emit(Guard(c, GuardNonNegative, 0, l.failure(ast.ErrorNegativeShift, NoReg)))
+	}
+	overflow := l.overflowTo(fails)
+	wordFail := NoBlock
+	if fails&ast.FailOverflow != 0 {
+		wordFail = overflow
+	}
+	l.emit(Bin(d, op, a, c, unsigned, wordFail))
 	if t, ok := l.ty(b.Expr()).(*ast.IntTy); ok {
-		l.rangeCheck(d, t)
+		l.rangeCheck(d, t, unsigned, fails, overflow)
 	}
 	return d
+}
+
+// overflowTo is where an operation that can fail as fails says goes when its result does not fit, or NoBlock when it
+// always fits.
+func (l *Lowerer) overflowTo(fails ast.Fails) BlockID {
+	if fails&(ast.FailOverflow|ast.FailBelow|ast.FailAbove) == 0 {
+		return NoBlock
+	}
+	return l.failure(ast.ErrorOverflow, NoReg)
 }
 
 func (l *Lowerer) flip(boolean V) V {
 	d := l.reg(KindScalar)
 	one := l.konst(1)
-	l.emit(Bin(d, BinXor, boolean, one, false, false))
+	l.emit(Bin(d, BinXor, boolean, one, false, NoBlock))
 	return d
 }
 
@@ -1077,25 +1150,36 @@ func (l *Lowerer) VisitUnaryExpr(u ast.UnaryExpr) V {
 	if u.Op() == "not" && l.ty(u.Expr()) == ast.Ty(ast.BoolTy) {
 		return l.flip(v)
 	}
+	fails := l.typings.Of(u.T.Module).Fails(u.Expr())
+	overflow := l.overflowTo(fails)
 	d := l.reg(KindScalar)
 	if u.Op() == "not" {
 		l.emit(Not(d, v))
 	} else {
-		l.emit(Neg(d, v))
+		wordFail := NoBlock
+		if fails&ast.FailOverflow != 0 {
+			wordFail = overflow
+		}
+		l.emit(Neg(d, v, wordFail))
 	}
-	l.rangeCheck(d, l.ty(u.Expr()).(*ast.IntTy))
+	t := l.ty(u.Expr()).(*ast.IntTy)
+	l.rangeCheck(d, t, u.Op() == "not" && t.Unsigned(), fails, overflow)
 	return d
 }
 
-func (l *Lowerer) rangeCheck(v V, t *ast.IntTy) {
-	if t.Unsigned() {
-		l.fit(v, t, &ast.IntTy{Min: ast.Zero, Max: ast.U64Max})
+// rangeCheck checks that a result computed in a word, unsigned or signed, is in its type's range, where fails says it
+// may not be. The word is the operands', which the type of the result need not share.
+func (l *Lowerer) rangeCheck(v V, t *ast.IntTy, unsigned bool, fails ast.Fails, fail BlockID) {
+	if unsigned {
+		l.fit(v, t, ast.AnonymousU64, fails, fail)
 	} else {
-		l.fit(v, t, ast.Anonymous64)
+		l.fit(v, t, ast.Anonymous64, fails, fail)
 	}
 }
 
-func (l *Lowerer) fit(v V, target *ast.IntTy, source ast.Ty) {
+// fit checks that a value of the type source is in the range of target, which goes to fail when it is not. It checks only
+// the bounds that fails says the value may be past, below or above: the range analysis proved the others.
+func (l *Lowerer) fit(v V, target *ast.IntTy, source ast.Ty, fails ast.Fails, fail BlockID) {
 	if _, ok := source.(*ast.ConstIntTy); ok {
 		return
 	}
@@ -1103,36 +1187,43 @@ func (l *Lowerer) fit(v V, target *ast.IntTy, source ast.Ty) {
 	if target.Covers(src) && target.Unsigned() == src.Unsigned() {
 		return
 	}
+	below, above := fails&ast.FailBelow != 0, fails&ast.FailAbove != 0
 
 	if target.Unsigned() {
-		if !src.Unsigned() && src.Min.IsNeg() {
-			l.emit(Guard(v, GuardNonNegative, 0))
+		if below && !src.Unsigned() && src.Min.IsNeg() {
+			l.emit(Guard(v, GuardNonNegative, 0, fail))
 		}
-		if target.Min.Gt(ast.MaxI(src.Min, ast.Zero)) {
-			l.emit(Guard(v, GuardUnsignedAtLeast, target.Min.Bits()))
+		if below && target.Min.Gt(ast.MaxI(src.Min, ast.Zero)) {
+			l.emit(Guard(v, GuardUnsignedAtLeast, target.Min.Bits(), fail))
 		}
-		if target.Max.Lt(src.Max) {
-			l.emit(Guard(v, GuardUnsignedAtMost, target.Max.Bits()))
+		if above && target.Max.Lt(src.Max) {
+			l.emit(Guard(v, GuardUnsignedAtMost, target.Max.Bits(), fail))
 		}
 		return
 	}
 
 	srcMax := src.Max
 	if src.Unsigned() && src.Max.Gt(ast.I64Max) {
-		l.emit(Guard(v, GuardNonNegative, 0))
+		// A value past i64.max reads as negative in a signed word.
+		if above {
+			l.emit(Guard(v, GuardNonNegative, 0, fail))
+		}
 		srcMax = ast.I64Max
 	}
-	if target.Min.Gt(src.Min) {
-		l.emit(Guard(v, GuardSignedAtLeast, target.Min.Bits()))
+	if below && target.Min.Gt(src.Min) {
+		l.emit(Guard(v, GuardSignedAtLeast, target.Min.Bits(), fail))
 	}
-	if target.Max.Lt(srcMax) {
-		l.emit(Guard(v, GuardSignedAtMost, target.Max.Bits()))
+	if above && target.Max.Lt(srcMax) {
+		l.emit(Guard(v, GuardSignedAtMost, target.Max.Bits(), fail))
 	}
 }
 
 func (l *Lowerer) match(m ast.MatchCore, resultType ast.Ty) V {
 	st := ast.Content(l.binding.Apply(l.ty(m.Subject())))
+	mark := len(l.pending)
 	subject := l.read(m.Subject())
+	// A subject that the match consumes is the match's from here: each arm takes it apart before anything can fail.
+	l.pending = l.pending[:mark]
 	end := l.b.NewBlock()
 	l.pushJumps(m.ID, jumpTargets{brk: end, depth: len(l.scopes)})
 	result := -1
@@ -1163,7 +1254,7 @@ func (l *Lowerer) match(m ast.MatchCore, resultType ast.Ty) V {
 		case ast.ArmThen:
 			l.stmt(arm.Action())
 		case ast.ArmGives:
-			l.scoped(func() { l.emit(StoreSlot(result, l.converted(arm.Value(), resultType), false)) })
+			l.scoped(func() { l.store(result, func() V { return l.converted(arm.Value(), resultType) }) })
 		case ast.ArmPanic:
 			l.scoped(func() { l.expr(arm.Value()) })
 		default:

@@ -349,7 +349,7 @@ end 'otherRun'
 end 'main'
 `
 	instanceMainWithOther = `function main() returns ExitCode
-	print("{user.userRun() + other.otherRun()}\n")
+	print("{try user.userRun() + other.otherRun() otherwise 0}\n")
 	return 0
 end 'main'
 `
@@ -542,7 +542,7 @@ end 'wrap'
 end 'viaMiddle'
 `
 	chainUpper = `export function viaUpper() returns Count
-	return middle.viaMiddle() + 1
+	return try middle.viaMiddle() + 1 otherwise 0
 end 'viaUpper'
 `
 	chainMain = `function main() returns ExitCode

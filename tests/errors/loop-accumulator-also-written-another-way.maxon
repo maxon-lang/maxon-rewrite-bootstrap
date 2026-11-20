@@ -1,0 +1,24 @@
+typealias Small = int(0 to 100)
+
+typealias SmallArray = array with Small
+
+function sum(items SmallArray) returns Count
+	let n = items.count()
+	if n > 1000 'big'
+		return 0
+	end 'big'
+	var total = 0 as Count
+	for i in 0 upto n 'each'
+		total = total + (items[i] as Count)
+		if i == 5 'reset'
+			total = total * 2
+		end 'reset'
+	end 'each'
+	return total
+end 'sum'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3140 at 12:17

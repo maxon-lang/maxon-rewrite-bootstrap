@@ -1,0 +1,268 @@
+// case: a divisor checked against 0
+function f(a Count, b Count) returns Count
+	if b != 0 'checked'
+		return a / b
+	end 'checked'
+	return 0
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a signed divisor that is positive, which rules out i64.min / -1 too
+function f(a Score, b Score) returns Score
+	if b > 0 'checked'
+		return a / b
+	end 'checked'
+	return 0
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: an early return guards the rest of the block
+function f(a Count, b Count) returns Count
+	if b == 0 'none'
+		return 0
+	end 'none'
+	return a mod b
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: the right operand of 'and' runs only when the left is true
+function f(a Count, b Count) returns bool
+	return b != 0 and a / b > 1
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: the else branch of 'or' knows both are false
+function f(a Count, b Count) returns Count
+	if a >= 1000 or b >= 1000 'large'
+		return 0
+	end 'large'
+	return a * b
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a loop's condition bounds its counter
+function f(n Count) returns Count
+	var i = 0 as Count
+	while i < n 'count'
+		i = i + 1
+	end 'count'
+	return i
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a for loop's variable stays within its bounds
+function f(d Digit) returns Count
+	var total = 0 as Count
+	for i in 0 to d 'each'
+		let square = (i as Count) * (i as Count)
+		if total <= 100 'room'
+			total = total + square
+		end 'room'
+	end 'each'
+	return total
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: one operand known to be at least the other
+function f(a Count, b Count) returns Count
+	return a - b if a >= b else b - a
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a field guarded where the code uses it
+function f(mutates c Cell)
+	if c.n < 100 'room'
+		c.n = c.n + 1
+	end 'room'
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: an arm of a match on a range
+function f(d Digit) returns Digit
+	return match d 'which'
+		0 to 8 gives d + 1
+		default gives 0
+	end 'which'
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a remainder and a mask are smaller than what they are taken by
+function f(n Count) returns Digit
+	return (n mod 10) as Digit
+end 'f'
+
+function g(n Count) returns Digit
+	return (n and 7) as Digit
+end 'g'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a try inside a try block hands its failures to the block
+function f(a Count, b Count) returns Count
+	try 'work'
+		let q = try a / b
+		return q + a
+	end 'work' otherwise 'failed'
+		return 0
+	end 'failed'
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a try that covers nothing that can fail
+function f(a Count) returns Count
+	return try a / 2 otherwise 0
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: an intermediate result keeps its exact range, so the average of two digits is a digit
+function mean(a Digit, b Digit) returns Digit
+	return (a + b) / 2
+end 'mean'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: the sum of two digits is held whole and compares with a digit or a constant
+function f(a Digit, b Digit) returns bool
+	let sum = a + b
+	return a < sum and sum != 19 and -sum > -19
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a count and a range that is not negative are compared as unsigned
+function f(c Count) returns bool
+	for i in 0 to 9 'each'
+		if c > i 'past'
+			return true
+		end 'past'
+	end 'each'
+	return false
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a loop that runs at most nine times moves an accumulator by at most nine times what one run adds
+typealias Small = int(0 to 100)
+
+function f(n Digit, x Small) returns Count
+	var total = 0 as Count
+	for i in 0 upto n 'each'
+		total = total + (x as Count)
+	end 'each'
+	return total
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a sum fits its type only because of how often the loop runs
+typealias Small = int(0 to 100)
+
+typealias Thousand = int(0 to 1000)
+
+function f(x Small) returns Thousand
+	var total = 0 as Thousand
+	for i in 0 to 9 'ten'
+		total = (x as Thousand) + total
+	end 'ten'
+	return total
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: the statements of a nested loop run as often as both loops do
+typealias Small = int(0 to 100)
+
+function f(rows Digit, columns Digit, x Small) returns Count
+	var total = 0 as Count
+	for r in 0 upto rows 'rows'
+		for c in 0 upto columns 'columns'
+			total = total + (x as Count)
+		end 'columns'
+		total = total + 1
+	end 'rows'
+	return total
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: an accumulator that goes down stays above the minimum of its type
+function f(x Digit) returns Score
+	var balance = 0 as Score
+	for i in 0 to 9 'each'
+		balance = balance - (x as Score)
+	end 'each'
+	return balance
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// case: a loop inside the loop that bounds an accumulator keeps the bound, and so does the code after both
+function f(n Digit) returns Count
+	var total = 0 as Count
+	for i in 0 upto n 'outer'
+		total = total + 1
+		for j in 0 upto n 'inner'
+			let next = total + 1
+			if next > 0 'seen'
+				total = total + 1
+			end 'seen'
+		end 'inner'
+	end 'outer'
+	return total + 1
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

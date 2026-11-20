@@ -18,7 +18,7 @@ type Meter implements Scorable and Growable
 	end 'score'
 
 	function grow(mutates self, by Count)
-		n = n + by
+		n = n + by if n < 1000 and by < 1000 else n
 	end 'grow'
 end 'Meter'
 
@@ -129,7 +129,7 @@ function shrink(mutates items array with Count) returns Count
 end 'shrink'
 
 function bump(mutates x Count)
-	x = x + 1
+	x = x + 1 if x < 1000 else x
 end 'bump'
 
 function mint(consumes x T) uses T returns Handle with T where T implements Droppable

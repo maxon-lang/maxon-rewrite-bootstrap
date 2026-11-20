@@ -1,0 +1,86 @@
+// Each operation below can fail for some values of its operands, and a condition in front of it rules those out, so none
+// needs a try.
+typealias Score = int(i64.min to i64.max)
+
+typealias Digit = int(0 to 9)
+
+function ratio(a Count, b Count) returns Count
+	if b != 0 'checked'
+		return a / b
+	end 'checked'
+	return 0
+end 'ratio'
+
+function signedRatio(a Score, b Score) returns Score
+	if b > 0 'positive'
+		return a / b
+	end 'positive' else 'rest'
+		return 0
+	end 'rest'
+end 'signedRatio'
+
+function remainder(a Count, b Count) returns Count
+	if b == 0 'none'
+		return 0
+	end 'none'
+	return a mod b
+end 'remainder'
+
+function both(a Count, b Count) returns Count
+	if a < 1000 and b < 1000 'small'
+		return a * b
+	end 'small'
+	return 0
+end 'both'
+
+function either(a Count, b Count) returns Count
+	if a >= 1000 or b >= 1000 'large'
+		return 0
+	end 'large'
+	return a + b
+end 'either'
+
+function sum(n Count) returns Count
+	var total = 0 as Count
+	var i = 0 as Count
+	while i < n 'count'
+		i = i + 1
+		if total < 1000000 'room'
+			total = total + 1
+		end 'room'
+	end 'count'
+	return total
+end 'sum'
+
+function squares(limit Digit) returns Count
+	var total = 0 as Count
+	for i in 0 to limit 'each'
+		let square = (i as Count) * (i as Count)
+		if total <= 1000 'room'
+			total = total + square
+		end 'room'
+	end 'each'
+	return total
+end 'squares'
+
+function step(d Digit) returns Digit
+	return match d 'which'
+		0 to 8 gives d + 1
+		default gives 0
+	end 'which'
+end 'step'
+
+function pick(a Count, b Count) returns Count
+	return a - b if a >= b else b - a
+end 'pick'
+
+function main() returns ExitCode
+	print("{ratio(7, b: 2)} {ratio(7, b: 0)} {signedRatio(-9, b: 2)} {remainder(7, b: 3)} {remainder(7, b: 0)}\n")
+	print("{both(30, b: 40)} {both(3000, b: 4)} {either(30, b: 40)} {either(3000, b: 4)}\n")
+	print("{sum(5)} {squares(4)} {step(3)} {step(9)} {pick(3, b: 10)} {pick(10, b: 3)}\n")
+	return 0
+end 'main'
+
+//> 3 0 -4 1 0
+//> 1200 0 70 0
+//> 5 30 4 0 7 7

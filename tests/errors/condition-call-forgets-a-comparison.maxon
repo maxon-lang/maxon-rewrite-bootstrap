@@ -1,0 +1,19 @@
+typealias Small = int(0 to 100)
+
+function raise(mutates b Small) returns Small
+	b = 100
+	return 1
+end 'raise'
+
+function check(mutates a Small, mutates b Small) returns Small
+	if a >= b and raise(b) > 0 'ok'
+		return a - b
+	end 'ok'
+	return 0
+end 'check'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3140 at 10:12

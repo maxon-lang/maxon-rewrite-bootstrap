@@ -18,7 +18,7 @@ end 'main'
 	cutoffMid = `export function run() returns Count
 	let p = core.Point.make(2, y: 3)
 	let c = gen.Config.make()
-	return core.scale(p.sum()) + gen.keep(c.level) + gen.BASE
+	return try core.scale(p.sum()) + gen.keep(c.level) + gen.BASE otherwise 0
 end 'run'
 `
 	cutoffCore = `export type Point
@@ -30,11 +30,11 @@ end 'run'
 	end 'make'
 
 	export function sum() returns Count
-		return x + y
+		return try x + y otherwise 0
 	end 'sum'
 
 	export function twice() returns Count
-		return x * 2
+		return try x * 2 otherwise 0
 	end 'twice'
 end 'Point'
 
@@ -45,11 +45,11 @@ export function width() returns Small
 end 'width'
 
 export function scale(n Count) returns Count
-	return helper(n) * 2
+	return try helper(n) * 2 otherwise 0
 end 'scale'
 
 function helper(n Count) returns Count
-	return n + 1
+	return try n + 1 otherwise 0
 end 'helper'
 `
 	cutoffGen = `export type Config
@@ -98,15 +98,15 @@ func (s scenario) misses() int { return 4 - s.hits }
 
 func TestAnEditThatNoOtherModuleCanSeeRebuildsOneModule(t *testing.T) {
 	scenarios := []scenario{
-		{"the body of an exported function of a module with no generic", "core/core.maxon", edit{{"return helper(n) * 2", "return helper(n) * 3"}}, 3, 3},
-		{"the body of a method", "core/core.maxon", edit{{"return x + y", "return y + x"}}, 3, 3},
-		{"a private helper's body", "core/core.maxon", edit{{"return n + 1", "return n + 2"}}, 3, 3},
-		{"a private helper's signature", "core/core.maxon", edit{{"helper(n Count) returns Count\n\treturn n + 1", "helper(k Count) returns Count\n\treturn k + 1"}}, 3, 3},
-		{"a comment in a function", "core/core.maxon", edit{{"\treturn helper(n) * 2\n", "\t// Twice.\n\treturn helper(n) * 2\n"}}, 3, 3},
+		{"the body of an exported function of a module with no generic", "core/core.maxon", edit{{"return try helper(n) * 2 otherwise 0", "return try helper(n) * 3 otherwise 0"}}, 3, 3},
+		{"the body of a method", "core/core.maxon", edit{{"return try x + y otherwise 0", "return try y + x otherwise 0"}}, 3, 3},
+		{"a private helper's body", "core/core.maxon", edit{{"return try n + 1 otherwise 0", "return try n + 2 otherwise 0"}}, 3, 3},
+		{"a private helper's signature", "core/core.maxon", edit{{"helper(n Count) returns Count\n\treturn try n + 1 otherwise 0", "helper(k Count) returns Count\n\treturn try k + 1 otherwise 0"}}, 3, 3},
+		{"a comment in a function", "core/core.maxon", edit{{"\treturn try helper(n) * 2 otherwise 0\n", "\t// Twice.\n\treturn try helper(n) * 2 otherwise 0\n"}}, 3, 3},
 		{"a function of a module that has a generic, which is not generic", "gen/gen.maxon", edit{{"return 1\nend 'plain'", "return 2\nend 'plain'"}}, 3, 3},
 		{"a comment above a generic function", "gen/gen.maxon", edit{{"export function keep", "// Keeps a value.\nexport function keep"}}, 3, 3},
 		{"the body of the module that calls the others", "mid/mid.maxon", edit{{"gen.BASE", "gen.BASE + 1"}}, 3, 2},
-		{"the body of the root", "main.maxon", edit{{"print(\"{mid.run()}\\n\")", "print(\"{mid.run() + 1}\\n\")"}}, 3, 2},
+		{"the body of the root", "main.maxon", edit{{"print(\"{mid.run()}\\n\")", "print(\"{try mid.run() + 1 otherwise 0}\\n\")"}}, 3, 2},
 	}
 	runScenarios(t, scenarios)
 }
@@ -114,7 +114,7 @@ func TestAnEditThatNoOtherModuleCanSeeRebuildsOneModule(t *testing.T) {
 func TestAnEditThatOtherModulesCanSeeRebuildsEveryModuleThatReachesIt(t *testing.T) {
 	scenarios := []scenario{
 		// core is reached by mid and the root.
-		{"an exported function's parameter", "core/core.maxon", edit{{"scale(n Count) returns Count\n\treturn helper(n)", "scale(m Count) returns Count\n\treturn helper(m)"}}, 1, 0},
+		{"an exported function's parameter", "core/core.maxon", edit{{"scale(n Count) returns Count\n\treturn try helper(n)", "scale(m Count) returns Count\n\treturn try helper(m)"}}, 1, 0},
 		{"an exported function's return type", "core/core.maxon", edit{{"width() returns Small", "width() returns Count"}}, 1, 0},
 		{"an export added", "core/core.maxon", edit{{"function helper", "export function more() returns Count\n\treturn 1\nend 'more'\n\nfunction helper"}}, 1, 0},
 		{"a field added to a type", "core/core.maxon", edit{{"export var y as Count\n", "export var y as Count\n\texport var z as Count\n"}, {"Point{x: x, y: y}", "Point{x: x, y: y, z: 1}"}}, 1, 0},
@@ -205,7 +205,7 @@ func TestAChangeThatBreaksAnUnchangedModuleReportsTheErrorsOfABuildWithNoCache(t
 		"a function that is no longer exported, which one calls":    {"core/core.maxon", edit{{"export function scale", "function scale"}}},
 		"a function that is removed, which another calls":           {"gen/gen.maxon", edit{{"export function keep(consumes x T) uses T returns T\n\treturn x\nend 'keep'\n\n", ""}}},
 		"a generic that no longer takes what a module gives it":     {"gen/gen.maxon", edit{{"keep(consumes x T) uses T returns T", "keep(consumes x T, extra T) uses T returns T"}}},
-		"a method that is no longer there, which a module calls":    {"core/core.maxon", edit{{"\texport function sum() returns Count\n\t\treturn x + y\n\tend 'sum'\n", ""}}},
+		"a method that is no longer there, which a module calls":    {"core/core.maxon", edit{{"\texport function sum() returns Count\n\t\treturn try x + y otherwise 0\n\tend 'sum'\n", ""}}},
 		"a type that no longer has a field a module's literal sets": {"gen/gen.maxon", edit{{"export var level = 3 as Count\n\n", ""}}},
 	}
 	for name, b := range breaks {
@@ -256,10 +256,10 @@ func TestAHitThatAMissReachesIsCheckedOnlyIfItShowsItsCheckResults(t *testing.T)
 		checked []string
 	}{
 		{"nothing is built", "", nil, nil},
-		{"core is built, and reaches nothing", "core/core.maxon", edit{{"return n + 1", "return n + 2"}}, []string{"core"}},
+		{"core is built, and reaches nothing", "core/core.maxon", edit{{"return try n + 1 otherwise 0", "return try n + 2 otherwise 0"}}, []string{"core"}},
 		{"gen is built, and reaches nothing", "gen/gen.maxon", edit{{"return 1\nend 'plain'", "return 2\nend 'plain'"}}, []string{"gen"}},
 		{"mid is built, and reaches core, which shows nothing, and gen, which shows its generic", "mid/mid.maxon", edit{{"gen.BASE", "gen.BASE + 1"}}, []string{"gen", "mid"}},
-		{"the root is built, and reaches gen through mid, which shows nothing", "main.maxon", edit{{"mid.run()", "mid.run() + 1"}}, []string{"export", "gen"}},
+		{"the root is built, and reaches gen through mid, which shows nothing", "main.maxon", edit{{"mid.run()", "try mid.run() + 1 otherwise 0"}}, []string{"export", "gen"}},
 		{"core's summary changed, so mid and the root are built and reach gen", "core/core.maxon", edit{{"export function scale", "export function more() returns Count\n\treturn 1\nend 'more'\n\nexport function scale"}}, []string{"export", "core", "gen", "mid"}},
 	}
 	for _, c := range cases {

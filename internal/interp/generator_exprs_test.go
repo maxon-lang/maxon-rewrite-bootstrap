@@ -153,7 +153,7 @@ func (g *generator) countExpr(depth int) string {
 	}
 	switch n := g.pick(12); {
 	case n < 3:
-		return fmt.Sprintf("%s + %s", g.countExpr(depth-1), g.countExpr(depth-1))
+		return g.arithmetic(depth)
 	case n < 7:
 		if c, ok := g.countOfCollection(); ok {
 			return c
@@ -166,6 +166,29 @@ func (g *generator) countExpr(depth int) string {
 		return g.condExpr(tCount, depth)
 	}
 	return g.literal(g.pick(10))
+}
+
+// arithmeticOps are the operators on counts that the generator writes, each of which can fail.
+var arithmeticOps = []string{"+", "-", "*", "/", "mod"}
+
+// arithmetic is an operation on two counts. Inside a try block it may stand bare, its failure going to the block's
+// handler; elsewhere a try gives the value it has when it fails.
+// Its left operand is a count that is stored, cast to Count as a loop's variable needs, so the operation is on Count and
+// not on constants or a loop's range, whose result would be a signed word.
+func (g *generator) arithmetic(depth int) string {
+	p, ok := g.place(tCount, false)
+	if !ok {
+		return g.literal(g.pick(10))
+	}
+	op := arithmeticOps[g.pick(len(arithmeticOps))]
+	left, right := "("+p.src+" "+kwAs+" Count)", g.countExpr(depth-1)
+	if (op == "/" || op == "mod") && right == g.literal(0) {
+		right = g.literal(1)
+	}
+	if g.tries > 0 && g.chance(50) {
+		return fmt.Sprintf("(%s %s %s)", left, op, right)
+	}
+	return fmt.Sprintf("(%s %s %s %s %s %s)", kwTry, left, op, right, kwOtherwise, g.literal(g.pick(10)))
 }
 
 func (g *generator) countOfCollection() (string, bool) {

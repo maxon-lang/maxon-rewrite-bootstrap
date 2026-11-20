@@ -1,0 +1,33 @@
+typealias Small = int(0 to 100)
+
+typealias Delta = int(-10 to 10)
+
+function up(c Count) returns Small throws ArithmeticError
+	return try c + 1
+end 'up'
+
+function shifted(d Delta) returns Count throws ArithmeticError
+	return try d + 3
+end 'shifted'
+
+function negated(d Delta) returns Count throws ArithmeticError
+	return try -d
+end 'negated'
+
+function show(v Count) returns String
+	let r = try up(v) otherwise return "fail"
+	return "{r}"
+end 'show'
+
+function main() returns ExitCode
+	print("{show(5)} {show(99)} {show(100)} {show(18446744073709551615)}\n")
+	let a = try shifted(-2) otherwise 7777
+	let b = try shifted(-5) otherwise 7777
+	let c = try negated(-4) otherwise 7777
+	let d = try negated(4) otherwise 7777
+	print("{a} {b} {c} {d}\n")
+	return 0
+end 'main'
+
+//> 6 100 fail fail
+//> 1 7777 4 7777

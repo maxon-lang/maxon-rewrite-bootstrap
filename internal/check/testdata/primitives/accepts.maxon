@@ -5,7 +5,7 @@ function main() returns ExitCode
 	var a = CountArray.new()
 	a.append(1)
 	let n = a[0]
-	a[0] = n + a[0]
+	a[0] = n
 	bump(a[0])
 	print("{a[0]}")
 	return 0
@@ -26,8 +26,8 @@ typealias CountArray = array with Count
 function main() returns ExitCode
 	var a = CountArray.new()
 	a.append(1)
-	a.append(a[a.count() - 1] + 1)
-	a[a.count() - 1] = 2
+	a.append(a[a.count() / 2] / 2)
+	a[a.count() / 2] = 2
 	return 0
 end 'main'
 
@@ -102,7 +102,7 @@ typealias CountArray = array with Count
 function main() returns ExitCode
 	var a = CountArray.filled(3, value: 0)
 	for i in 0 upto a.count() 'l'
-		a[i] = a[i] + 1
+		a[i] = 1
 	end 'l'
 	return 0
 end 'main'
@@ -116,7 +116,7 @@ function main() returns ExitCode
 	var g = CountArrayArray.new()
 	g.append(CountArray.new())
 	g[0].append(1)
-	g[0][0] = g[0][0] + 1
+	g[0][0] = 2
 	return 0
 end 'main'
 

@@ -289,13 +289,13 @@ func TestAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle(t *testing.T) {
 	live := b.runtime(ir.RtPoolContains, ir.KindScalar, p, fresh)
 	// The answer is 100*same + 10*found + live, which must be 1.
 	hundred := b.reg(ir.KindScalar)
-	b.emit(ir.Bin(hundred, ir.BinMul, same, b.konst(100), false, false))
+	b.emit(ir.Bin(hundred, ir.BinMul, same, b.konst(100), false, ir.NoBlock))
 	ten := b.reg(ir.KindScalar)
-	b.emit(ir.Bin(ten, ir.BinMul, found, b.konst(10), false, false))
+	b.emit(ir.Bin(ten, ir.BinMul, found, b.konst(10), false, ir.NoBlock))
 	sum := b.reg(ir.KindScalar)
-	b.emit(ir.Bin(sum, ir.BinAdd, hundred, ten, false, false))
+	b.emit(ir.Bin(sum, ir.BinAdd, hundred, ten, false, ir.NoBlock))
 	answer := b.reg(ir.KindScalar)
-	b.emit(ir.Bin(answer, ir.BinAdd, sum, live, false, false))
+	b.emit(ir.Bin(answer, ir.BinAdd, sum, live, false, ir.NoBlock))
 	b.emit(b.ir.DropSlot(pool, ast.StringTy))
 	r := run(b.ret(answer))
 	if len(r.Violations) != 0 || r.ExitCode != 1 {
@@ -318,13 +318,16 @@ func TestAStaleHandleTrapsLikeTheCompiledProgram(t *testing.T) {
 	}
 }
 
-func TestOverflowAndPanicsExitWithOne(t *testing.T) {
+func TestACheckedAddThatOverflowsGoesToItsFailureBlock(t *testing.T) {
 	b, _ := newFunction("main")
+	failed := b.ir.NewBlock()
 	max := b.konst(1<<63 - 1)
 	sum := b.reg(ir.KindScalar)
-	b.emit(ir.Bin(sum, ir.BinAdd, max, b.konst(1), false, true))
-	r := run(b.ret(sum))
-	if r.ExitCode != 1 || len(r.Violations) != 0 {
+	b.emit(ir.Bin(sum, ir.BinAdd, max, b.konst(1), false, failed))
+	b.ir.Terminate(b.cur, ir.Ret(sum))
+	b.cur = failed
+	r := run(b.ret(b.konst(7)))
+	if r.ExitCode != 7 || len(r.Violations) != 0 {
 		t.Fatalf("exit %d, %v", r.ExitCode, r.Violations)
 	}
 }

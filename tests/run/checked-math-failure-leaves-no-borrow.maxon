@@ -1,0 +1,53 @@
+// A failure skips the call it interrupts, which then no longer holds its arguments: the handler, and the caller after a
+// return or a failure from a function, may change what they borrowed.
+typealias Score = int(i64.min to i64.max)
+
+type Entry
+	export var name as String
+	export var weight as Score
+
+	static function make(consumes name String, weight Score) returns Entry
+		return Entry{name: name, weight: weight}
+	end 'make'
+
+	function add(by Score) returns Score
+		return try by + weight otherwise 0
+	end 'add'
+end 'Entry'
+
+function g(e Entry, n Score) returns Score
+	return try e.add(3 / n) otherwise return -1
+end 'g'
+
+function h(e Entry, n Score) returns Score throws ArithmeticError
+	return try e.add(3 / n)
+end 'h'
+
+function main() returns ExitCode
+	var e = Entry.make("x", weight: 1)
+	let n = 0 as Score
+	try 'b'
+		let r = e.add(3 / n)
+		print("{r}\n")
+	end 'b' otherwise 'h'
+		e.weight = 5
+		print("handled {e.weight}\n")
+	end 'h'
+	print("{g(e, n: 0)}\n")
+	e.weight = 6
+	print("{try h(e, n: 0) otherwise -2}\n")
+	e.weight = 7
+	var total = 0 as Score
+	for i in 0 upto 3 'each'
+		let r = try e.add(6 / (1 - i)) otherwise continue
+		total = try total + r otherwise 0
+	end 'each'
+	e.weight = 8
+	print("{total}\n")
+	return 0
+end 'main'
+
+//> handled 5
+//> -1
+//> -2
+//> 14

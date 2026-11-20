@@ -12,9 +12,9 @@ type Box
 		name = value
 	end 'rename'
 
-	function bump(mutates self, by Score)
-		v = v + by
-	end 'bump'
+	function assign(mutates self, value Score)
+		v = value
+	end 'assign'
 
 	static function create(v Score, consumes name String) returns Box
 		return Box{v: v, name: name}
@@ -23,7 +23,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create(1, name: "a")
-	b.bump(2)
+	b.assign(2)
 	return 0
 end 'main'
 

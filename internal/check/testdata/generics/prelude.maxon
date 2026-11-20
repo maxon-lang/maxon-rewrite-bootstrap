@@ -13,11 +13,11 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Score
-		return side * side
+		return side
 	end 'area'
 
 	function grow(mutates self, by Score)
-		side = side + by
+		side = by
 	end 'grow'
 end 'Square'
 
@@ -58,5 +58,5 @@ function consume(consumes a T) uses T returns Score where T implements Droppable
 end 'consume'
 
 function total(a T, b T) uses T returns Score where T implements Shape
-	return a.area() + b.area()
+	return a.area() if a.area() > b.area() else b.area()
 end 'total'

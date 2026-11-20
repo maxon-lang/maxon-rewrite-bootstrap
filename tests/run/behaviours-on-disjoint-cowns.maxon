@@ -10,14 +10,15 @@ function bump(c cown with Counter, times Count)
 	for i in 0 upto times 'each'
 		let mine = share(c)
 		when mine as x 'bump'
-			x.n = x.n + 1
+			x.n = try x.n + 1 otherwise return
 		end 'bump'
 	end 'each'
 end 'bump'
 
 function total(a cown with Counter, b cown with Counter, c cown with Counter)
 	when a, b, c as x, y, z 'total'
-		print("{x.n} {y.n} {z.n} {x.n + y.n + z.n}\n")
+		let sum = try x.n + y.n + z.n otherwise return
+		print("{x.n} {y.n} {z.n} {sum}\n")
 	end 'total'
 end 'total'
 

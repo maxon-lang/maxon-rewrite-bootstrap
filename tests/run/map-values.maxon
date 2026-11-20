@@ -16,7 +16,7 @@ type Cell
 end 'Cell'
 
 function bump(mutates c Cell)
-	c.n = c.n + 1
+	c.n = try c.n + 1 otherwise c.n
 end 'bump'
 
 enum Color
@@ -51,7 +51,7 @@ function main() returns ExitCode
 	var counts = ColorCountMap.new()
 	counts.insert(Color.red, value: 1)
 	counts.insert(Color.green, value: 2)
-	counts[Color.red] = counts[Color.red] + counts[Color.green]
+	counts[Color.red] = try counts[Color.red] + counts[Color.green] otherwise return 1
 	print("{counts[Color.red]} {counts[Color.green]}\n")
 	var handles = StringPool.new()
 	let h = handles.insert("pooled")

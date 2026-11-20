@@ -8,7 +8,7 @@ end 'Account'
 
 export function credit(into cown with Account, amount Count)
 	when into as a 'credit'
-		a.balance = a.balance + amount
+		a.balance = try a.balance + amount otherwise a.balance
 	end 'credit'
 end 'credit'
 

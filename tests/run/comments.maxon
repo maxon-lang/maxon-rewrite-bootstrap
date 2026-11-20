@@ -1,11 +1,11 @@
 // A comment line
 // over two lines.
 
-typealias Score = int(i64.min to i64.max)
+typealias Score = int(0 to 1000)
 
 /// A doc comment stays in the module buffer.
 /// So does this second line.
-function twice(n Score) returns Score
+function twice(n Score) returns Count
 	// A comment line inside a body, indented like the line after it.
 	return n * 2 // a trailing comment
 end 'twice'

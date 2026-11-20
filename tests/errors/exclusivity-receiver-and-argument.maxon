@@ -12,9 +12,9 @@ type Box
 		name = value
 	end 'rename'
 
-	function bump(mutates self, by Score)
-		v = v + by
-	end 'bump'
+	function assign(mutates self, value Score)
+		v = value
+	end 'assign'
 
 	static function create(v Score, consumes name String) returns Box
 		return Box{v: v, name: name}
@@ -23,8 +23,8 @@ end 'Box'
 
 function main() returns ExitCode
 	var b = Box.create(1, name: "a")
-	b.bump(b.v)
+	b.assign(b.v)
 	return 0
 end 'main'
 
-// expect-error: E3112 at 26:10
+// expect-error: E3112 at 26:12

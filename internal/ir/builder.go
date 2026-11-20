@@ -77,12 +77,15 @@ type Builder struct {
 	instrBlock []BlockID
 	terms      []Term
 
-	// reach and the counts are the scratch of Finish.
-	reached []bool
-	counts  []int32
-	places  []int32
-	newID   []BlockID
-	work    []BlockID
+	// reach and the counts are the scratch of Finish; edges are the blocks that the instructions of each block can fail
+	// to, edgeStart where each block's begin.
+	reached   []bool
+	counts    []int32
+	places    []int32
+	newID     []BlockID
+	work      []BlockID
+	edges     []BlockID
+	edgeStart []int32
 }
 
 // Start begins a function, forgetting the one before it.
@@ -137,6 +140,14 @@ func (b *Builder) typed(op Opcode, ty ast.Ty) Instr {
 func (b *Builder) Call(dst V, target *ast.FuncDecl, args []V) Instr {
 	i := Instr{Op: OpCall, Dst: dst, C: b.callee(target)}
 	i.A, i.B = b.arguments(args)
+	return i
+}
+
+// ThrowingCall calls a function that throws, whose error err receives.
+func (b *Builder) ThrowingCall(dst V, target *ast.FuncDecl, args []V, err V) Instr {
+	i := b.Call(dst, target, args)
+	i.Flags |= FlagThrows
+	i.Imm = int64(err)
 	return i
 }
 
@@ -222,10 +233,34 @@ func (b *Builder) successors(t Term, visit func(BlockID)) {
 			visit(c.Target)
 		}
 		visit(t.Then)
-	case TermRet, TermTrap:
+	case TermRet, TermTrap, TermThrow:
 	default:
 		panic(diag.Internal("a block has no terminator"))
 	}
+}
+
+// failEdges lists, for each block, the blocks its instructions can fail to.
+func (b *Builder) failEdges() {
+	n := len(b.terms)
+	b.edgeStart = append(b.edgeStart[:0], make([]int32, n+1)...)
+	for i, in := range b.instrs {
+		if _, ok := in.Fail(); ok {
+			b.edgeStart[b.instrBlock[i]+1]++
+		}
+	}
+	for blk := range n {
+		b.edgeStart[blk+1] += b.edgeStart[blk]
+	}
+	b.edges = append(b.edges[:0], make([]BlockID, b.edgeStart[n])...)
+	fill := append(b.counts[:0], b.edgeStart[:n]...)
+	for i, in := range b.instrs {
+		if fail, ok := in.Fail(); ok {
+			blk := b.instrBlock[i]
+			b.edges[fill[blk]] = fail
+			fill[blk]++
+		}
+	}
+	b.counts = fill[:0]
 }
 
 // markReachable finds the blocks that the entry reaches.
@@ -243,10 +278,14 @@ func (b *Builder) markReachable() {
 			b.work = append(b.work, next)
 		}
 	}
+	b.failEdges()
 	for len(b.work) > 0 {
 		blk := b.work[len(b.work)-1]
 		b.work = b.work[:len(b.work)-1]
 		b.successors(b.terms[blk], visit)
+		for _, fail := range b.edges[b.edgeStart[blk]:b.edgeStart[blk+1]] {
+			visit(fail)
+		}
 	}
 }
 
@@ -290,6 +329,9 @@ func (b *Builder) Finish(a *Arena) *IrFunction {
 	}
 	for i, in := range b.instrs {
 		if blk := b.instrBlock[i]; b.reached[blk] {
+			if fail, ok := in.Fail(); ok {
+				in.C = int32(b.newID[fail])
+			}
 			instrs[b.places[blk]] = in
 			b.places[blk]++
 		}
@@ -320,7 +362,7 @@ func (b *Builder) remapped(t Term) Term {
 		t.Then, t.Else = b.newID[t.Then], b.newID[t.Else]
 	case TermSwitch:
 		t.Then = b.newID[t.Then]
-	case TermRet, TermTrap:
+	case TermRet, TermTrap, TermThrow:
 	default:
 		panic(diag.Internal("a block has no terminator"))
 	}

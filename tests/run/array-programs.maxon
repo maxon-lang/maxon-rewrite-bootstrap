@@ -10,7 +10,7 @@ type Counter
 	end 'make'
 
 	function bump(mutates self)
-		n = n + 1
+		n = try n + 1 otherwise n
 	end 'bump'
 
 	function value() returns Count
@@ -49,10 +49,10 @@ function primesBelow(limit Count) returns Count
 	for i in 2 upto limit 'candidates'
 		if prime[i] 'is'
 			found = found + 1
-			var j = i * i
+			var j = try i * i otherwise limit
 			while j < limit 'strike'
 				prime[j] = false
-				j = j + i
+				j = try j + i otherwise limit
 			end 'strike'
 		end 'is'
 	end 'candidates'
@@ -103,7 +103,7 @@ function main() returns ExitCode
 	fib.append(1)
 	let rounds = 30 as Count
 	for i in 2 upto rounds 'memo'
-		fib.append(fib[i - 1] + fib[i - 2])
+		fib.append(try fib[i - 1] + fib[i - 2] otherwise break)
 	end 'memo'
 	print("{fib[29]} {fib.count()}\n")
 	let shape = Shape.row(a)

@@ -1,0 +1,88 @@
+typealias Small = int(0 to 100)
+
+typealias SmallArray = array with Small
+
+typealias Grid = array with SmallArray
+
+typealias Score = int(i64.min to i64.max)
+
+typealias Percent = int(0 to 1000)
+
+// A loop that runs a bounded number of times cannot push an accumulator that only grows by a small amount past what the
+// bound allows, so none of the sums below needs a 'try'.
+function sum(items SmallArray) returns Count
+	let n = items.count()
+	if n > 1000000 'big'
+		return 0
+	end 'big'
+	var total = 0 as Count
+	for i in 0 upto n 'each'
+		total = total + (items[i] as Count)
+	end 'each'
+	return total
+end 'sum'
+
+function gridSum(grid Grid) returns Count
+	let rows = grid.count()
+	if rows > 1000 'many'
+		return 0
+	end 'many'
+	var total = 0 as Count
+	for r in 0 upto rows 'rows'
+		let row = grid[r].count()
+		if row > 1000 'long'
+			return 0
+		end 'long'
+		for c in 0 upto row 'columns'
+			total = total + (grid[r][c] as Count)
+		end 'columns'
+	end 'rows'
+	return total
+end 'gridSum'
+
+function countdown(start Count) returns Score
+	var balance = 0 as Score
+	if start > 1000 'big'
+		return 0
+	end 'big'
+	for i in 0 to start 'each'
+		balance = balance - (i as Score)
+	end 'each'
+	return balance
+end 'countdown'
+
+function net(items SmallArray) returns Score
+	let n = items.count()
+	if n > 1000 'big'
+		return 0
+	end 'big'
+	var balance = 0 as Score
+	for i in 0 upto n 'each'
+		balance = balance + (items[i] as Score)
+		balance = balance - 3
+	end 'each'
+	return balance
+end 'net'
+
+// The sum fits a Percent only because ten values of at most 100 cannot pass 1000.
+function percent(items SmallArray) returns Percent
+	var total = 0 as Percent
+	for i in 0 to 9 'ten'
+		total = total + (items[i] as Percent)
+	end 'ten'
+	return total
+end 'percent'
+
+function main() returns ExitCode
+	var items = SmallArray.new()
+	for i in 0 upto 12 'fill'
+		items.append((i * 9) as Small)
+	end 'fill'
+	var grid = Grid.new()
+	grid.append(items.copy())
+	grid.append(items.copy())
+	print("{sum(items)} {gridSum(grid)} {countdown(10)} {net(items)} {percent(items)}\n")
+	return 0
+end 'main'
+
+//> 594 1188 -55 558 405

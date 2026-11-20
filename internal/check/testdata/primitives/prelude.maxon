@@ -32,11 +32,11 @@ interface Shape
 end 'Shape'
 
 function touch(mutates c Cell)
-	c.n = c.n + 1
+	c.n = c.n + 1 if c.n < 1000 else c.n
 end 'touch'
 
 function bump(mutates n Count)
-	n = n + 1
+	n = n + 1 if n < 1000 else n
 end 'bump'
 
 function pair(mutates a Cell, mutates b Cell)
@@ -52,7 +52,7 @@ function drop(mutates xs array with Cell) returns Count
 end 'drop'
 
 function look(c Cell, n Count) returns Count
-	return c.n + n
+	return n if n > c.n else c.n
 end 'look'
 
 function take(consumes c Cell) returns Count

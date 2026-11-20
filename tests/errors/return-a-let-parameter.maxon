@@ -12,10 +12,6 @@ type Box
 		name = value
 	end 'rename'
 
-	function bump(mutates self, by Score)
-		v = v + by
-	end 'bump'
-
 	static function create(v Score, consumes name String) returns Box
 		return Box{v: v, name: name}
 	end 'create'
@@ -29,4 +25,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3110 at 25:9
+// expect-error: E3110 at 21:9

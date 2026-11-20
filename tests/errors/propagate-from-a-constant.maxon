@@ -1,0 +1,9 @@
+let Base = 9223372036854775807 as Count
+
+let Next = try (Base * 4) as Count
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3141 at 3:12

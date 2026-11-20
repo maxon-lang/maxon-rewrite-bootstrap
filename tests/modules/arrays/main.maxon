@@ -12,7 +12,8 @@ function main() returns ExitCode
 	var shelf = inventory.Shelf.make()
 	shelf.add(inventory.Item.make(3, weight: 9))
 	shelf.add(inventory.Item.make(4, weight: 2))
-	print("{shelf.total()} {shelf.size()}\n")
+	let total = try shelf.total() otherwise return 1
+	print("{total} {shelf.size()}\n")
 	let moved = inventory.drain(shelf)
 	print("{moved.count()} {shelf.size()} {inventory.heaviest(moved)}\n")
 	var numbers = CountArray.new()

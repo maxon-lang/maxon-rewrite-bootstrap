@@ -85,7 +85,7 @@ func newSched(seed int64) sched {
 // violation, a timeout) or an internal error ends it at once and is left in vm.fatal.
 func (vm *vm) run(main *ir.IrFunction) {
 	vm.start(&thread{name: main.Symbol()}, func() {
-		exit := vm.call(main, nil)
+		exit, _ := vm.call(main, nil)
 		vm.mainExit = int(int32(exit.n))
 	})
 	for vm.fatal == nil {

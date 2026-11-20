@@ -1,7 +1,7 @@
 typealias Score = int(i64.min to i64.max)
 
 function f(n Score) returns Score
-	n = n + 1
+	n = 1
 	return n
 end 'f'
 

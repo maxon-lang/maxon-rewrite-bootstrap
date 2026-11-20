@@ -163,6 +163,9 @@ type generator struct {
 	heldSin bool
 	// inMain is set while the statements of main are written, which run: nothing is sure to call another function.
 	inMain bool
+	// tries is how many try blocks with a handler enclose the statement being written, in its own function: the body of
+	// a behaviour is not in the trys around its 'when'.
+	tries int
 	// sinning is set while the statement that is a targeted program's one sin is written.
 	sinning  bool
 	recent   place

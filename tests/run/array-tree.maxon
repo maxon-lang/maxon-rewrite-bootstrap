@@ -8,10 +8,10 @@ type Tree
 		return Tree{value: value}
 	end 'make'
 
-	function sum() returns Count
+	function sum() returns Count throws ArithmeticError
 		var total = value
 		for i in 0 upto kids.count() 'each'
-			total = total + kids[i].sum()
+			total = try total + kids[i].sum()
 		end 'each'
 		return total
 	end 'sum'
@@ -20,15 +20,15 @@ type Tree
 		kids.append(kid)
 	end 'add'
 
-	function depth() returns Count
+	function depth() returns Count throws ArithmeticError
 		var deepest = 0 as Count
 		for i in 0 upto kids.count() 'each'
-			let d = kids[i].depth()
+			let d = try kids[i].depth()
 			if d > deepest 'deeper'
 				deepest = d
 			end 'deeper'
 		end 'each'
-		return deepest + 1
+		return try deepest + 1
 	end 'depth'
 end 'Tree'
 
@@ -39,10 +39,14 @@ function main() returns ExitCode
 	left.add(Tree.make(5))
 	root.add(left)
 	root.add(Tree.make(3))
-	print("{root.sum()} {root.depth()} {root.kids[0].kids.count()}\n")
-	root.kids[0].kids[1].value = 50
-	root.kids[1].add(Tree.make(7))
-	print("{root.sum()} {root.depth()}\n")
+	try 'report'
+		print("{root.sum()} {root.depth()} {root.kids[0].kids.count()}\n")
+		root.kids[0].kids[1].value = 50
+		root.kids[1].add(Tree.make(7))
+		print("{root.sum()} {root.depth()}\n")
+	end 'report' otherwise 'failed'
+		return 1
+	end 'failed'
 	return 0
 end 'main'
 

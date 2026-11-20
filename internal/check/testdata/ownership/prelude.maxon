@@ -5,9 +5,9 @@ type Pair
 	export var second as Score
 	export var label as String
 
-	function bump(mutates self, by Score)
-		first = first + by
-	end 'bump'
+	function assign(mutates self, value Score)
+		first = value
+	end 'assign'
 
 	static function create(first Score, second Score) returns Pair
 		return Pair{first: first, second: second, label: "pair"}

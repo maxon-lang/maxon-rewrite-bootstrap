@@ -16,7 +16,7 @@ type Square implements Shape
 	end 'make'
 
 	function area() returns Score
-		return side * side
+		return side
 	end 'area'
 end 'Square'
 

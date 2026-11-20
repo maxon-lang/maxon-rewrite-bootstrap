@@ -1,0 +1,21 @@
+typealias Small = int(0 to 100)
+
+typealias Score = int(i64.min to i64.max)
+
+function zero(mutates a Small) returns Score
+	a = 0
+	return 1
+end 'zero'
+
+function check(mutates a Small) returns Small
+	if a > 5 and zero(a) > 0 'both'
+		return a - 1
+	end 'both'
+	return 7
+end 'check'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3140 at 12:12

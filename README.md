@@ -139,7 +139,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
 | `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar and the `Scratch` a worker reuses to read, lex and parse each module, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
 | `resolve` | name resolution, and binding each `where` constraint to its type parameter, into the module's `Resolution` | `ast`, `diag` |
-| `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag` |
+| `check` | the type checker, the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag` |
 | `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag` |
 | `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer, and the format a code unit is written in for the build cache | `ast`, `cache`, `diag`, `ir`, `par` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives in Go and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `diag`, `ir` |
@@ -223,7 +223,7 @@ merged in source order, which keeps the output deterministic.
 | aliases | `check` | serial and cheap: each typealias of an instance gets its type, after the typealiases it names, in source order (a cycle is `E2012`) |
 | declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass. It also numbers the module's nodes that have a slot, now that resolve has changed the kind of some, and sizes the tables of the `Typing` that only some nodes have |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
-| check | `check` | the first task of the modules phase: two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3117`), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3110` to `E3115`, `E3125`, `E2013`) A module's verify stage runs only if its bodies had no errors and no module's bodies have had errors yet, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
+| check | `check` | the first task of the modules phase: two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3117`), then the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3140`, `E3141`; see "Checked arithmetic"), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3110` to `E3115`, `E3125`, `E2013`) A module's verify stage runs only if its bodies had no errors and no module's bodies have had errors yet, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
 | generate | `ir`, `backend` | the last task of the modules phase: two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules. A module whose entry the build cache holds is not lowered or emitted at all (see "Build cache") |
 | routines | `backend` | serial to start, then parallel: the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), made in waves of units of 256 routines; the order of the routines comes from the modules in source order, so it does not depend on `--jobs` |
 | link | `backend` | each function and routine is a section, each string and reserved value a piece of data, and only those the entry reaches through symbol and data references are kept (the runtime units are one section each). Every function is still compiled; what nothing calls is dropped here, as Go's linker does. Every step runs on all jobs: each unit enters its definitions into one table (a hash table of ids whose slots are claimed with a compare and swap, so it needs no lock; the ids count over the units in order, each definition having one; a symbol is its text, a link name, see "Build cache"). An instance is defined by every module that needs it, so the symbol of an instance may be defined more than once, and the table keeps the lowest id, which is the definition of the first unit, whichever job entered its own first: a definition that finds a lower id gives way and one that finds a higher id takes the slot. The other copies are never looked up, so the mark never reaches them and they are dropped like any dead section, as a C++ linker does with COMDAT "any". Any other symbol defined twice is an internal error; the mark follows the calls a round at a time, resolving a fixup only where live code uses it, with each round's sections shared out in chunks and the next round gathered in chunk order; each unit places its live parts from its own aligned start, and a running sum over the units in order gives each unit its base; each unit copies and patches its code into the image, which is the file in memory, while the file is created in the background and written in chunks as the code in front becomes final. The units go in module-path order after a runtime unit, then the routines, and the array runtime comes last. The layout depends only on which sections are live, so it is the same for any `--jobs` |
@@ -408,7 +408,7 @@ records), and the one table `Typing.slots` finds a node's slot by its `NodeID`:
 | slots | `NodeID` | the slot, for the kinds below that have one | 4 |
 | types | `NodeID` | the `Ty` | 16 |
 | consumed | `NodeID` | a bit, which the ownership pass sets | 1/8 |
-| operands | `Binary` slot | how lowering compares the operands of a binary operator: word, unsigned or string | 1 |
+| arithmetic | `Arith` slot: a binary or unary operator, a cast | how lowering compares the operands of a binary operator (word, unsigned or string), and how the operation can fail, which the range analysis decides (`ast.Fails`) | 2 |
 | names | `Name` slot: a name written as an expression | what it stands for, as a handle: a `LocalID`, a field's index, or a constant | 4 |
 | members | `Member` slot | the kind, the field, the case | 16 |
 | calls | `Call` slot | the kind, target, passing, generic call, union and case, ordered arguments, the destructor call of a `dropWith` | 72 |
@@ -712,13 +712,18 @@ The checker works on the AST, which mirrors what the author wrote. Everything af
 `internal/ir`, which is what a later pass such as reference counting or an optimization changes.
 
 - A function is a list of basic blocks, each a run of instructions ending in one terminator (`jump`, `branch`,
-  `switch`, `ret`, `trap`). The instructions of every block are one slice (`IrFunction.Instrs`), block after block,
+  `switch`, `ret`, `trap`, `throw`). The instructions of every block are one slice (`IrFunction.Instrs`), block after block,
   and a block is the range of it that it holds (`Blocks[b].First`, `.End`) with its terminator beside the range.
 - Instructions read and write virtual registers (`%3`). Locals and temporaries live in numbered slots (`s0`).
   It is not SSA.
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
-- Checks are explicit: a range check is a `guard` with its bound, an allocation is `alloc`, and only overflow,
-  a zero divisor and a negative shift are left to codegen.
+- Checks are explicit, and only the ones the range analysis could not rule out are there (see "Checked arithmetic"):
+  a range check, a divisor that may be 0 and a shift count that may be negative are each a `guard` with its bound, and a
+  `bin` or a `neg` whose result may not fit the word is checked. Each of them names the block it goes to when the check
+  fails, `else b4`, which is the only way an instruction leaves its block before its end: there the failure drops what it
+  leaves and goes to the handler of its `try`, or returns the error with `throw`. A function that throws returns its
+  error beside its value, 0 when it returned and the error's case plus 1 when it failed (`rdx` in the executable), and
+  a `call` of one names the register that receives it (`error %7`). An allocation is `alloc`.
 - An instruction is one fixed-size record (`ir.Instr`, 32 bytes): an opcode, three registers, a small index and an
   immediate, whose meaning the opcode says (`internal/ir/ir.go` has the table), and a terminator is a record of its
   own (`ir.Term`). What does not fit a record (a type, a callee, a string, the arguments of a call, the cases of a
@@ -930,8 +935,7 @@ test runner. It has no types; it works from the shape of the values and from the
   reference, where a call cannot be made. The interpreter takes the value out of the cown, frees the cown, and appends
   (destructor, value) to a list; once the instruction that dropped has finished, the thread that ran it calls the
   destructors in list order, which is the order of the frees (`Result.Frees`), so it is deterministic.
-- **Traps** behave as the executable does: `rt.panic`, an overflow, a zero divisor, a negative shift, a failed range
-  check, an index out of range, a stale handle, an unwrap of none and a behaviour that names one cown twice write to
+- **Traps** behave as the executable does: `rt.panic`, an index out of range, a stale handle, an unwrap of none and a behaviour that names one cown twice write to
   standard error and exit with 1; the same standard output and the same exit code. A trap is not a violation.
 - **How tests use it.** `minimaxon test` runs every program under it, under 20 schedules when the program schedules
   behaviours, and requires the same stdout and exit code as the directives and no violation. `internal/interp` tests it
@@ -965,26 +969,128 @@ test runner. It has no types; it works from the shape of the values and from the
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `while`, `for i in a to|upto b`, `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms), `break`/`continue`
-  with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours").
+  with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), and a `try` block with or
+  without a handler (see "Checked arithmetic").
 - Code after a statement that ends its block (`return`, a `panic`, `break`, `continue`, or an `if`/`else` or `match`
   whose every branch returns or panics) is allowed and type-checked, but never compiled (`ast.Live`): its calls make no
   instance of a generic. A `break` or `continue` inside a branch does not end the code after the `if` or `match`,
   since a `break` can leave a `match`.
 - Integer, bool and string literals, interpolation, arithmetic and bitwise operators, `shl`/`shr`,
-  comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, calls with Maxon's
+  comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, `try e` and `try e otherwise ...`, a function that
+  `throws ArithmeticError`, calls with Maxon's
   positional-then-labelled arguments, parameter conventions (`mutates`, `consumes`, `sets`), `x.copy()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
 - Built in: `print`, `printError`, `panic`, `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the aliases `ExitCode`, `Count`,
-  `FullRangeInt`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
+  `FullRangeInt`, the enum `ArithmeticError`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib.
 
 ### Integers
 
 Every typealias is its own type. An integer literal is an untyped constant: it fits any alias whose range
 holds it, and constant expressions fold at compile time. A value whose range is known but has no alias,
-such as a `for` variable or arithmetic over constants, fits any alias whose range contains it. Mixing two
-different aliases is `E3005`. Arithmetic traps on 64-bit overflow, and on leaving the alias's range,
-checked where the result is computed. `as` checks at compile time for a constant and at run time otherwise.
+such as a `for` variable or an intermediate result (below), fits any alias whose range contains it, and goes into
+one that does not only through `as`, which checks at compile time for a constant and is otherwise an operation that can
+fail. Mixing two different aliases is `E3005`. A `var` and a constant name their alias: `var x = a + b` and
+`let Total = a + b` are errors until the value is cast, `as <Alias>`.
+
+**The type of an operation.** `+`, `-`, `*`, `/`, `mod` and unary `-` take their type from where the result goes, and
+are computed in a 64-bit word that their operands decide:
+
+- The **word** is unsigned when an operand's type reaches past `i64.max` (a `Count`), and signed otherwise. No word holds
+  a type that may be negative together with one past `i64.max`, so the operands are `E3005` and one of them is cast.
+- Where the context **expects an integer type** (the target of an assignment, an argument, a return value, a field's
+  value or default, an index, a payload, and the branches of a `x if c else y`, a `match` or a `try` that is itself in
+  such a place) the result is that type, checked at the operation: `x = x + 1` of a `Score` fails above its maximum. The
+  operands need not fit it; only the result must.
+- **Anywhere else** (the initialiser of a `let`, an operand of another operator, a comparison, a condition, an
+  interpolation, a `for` bound, an argument whose callee is generic, so its parameter's type is not known yet) the
+  result is an anonymous range: the exact interval of the operation over the ranges of its operands' types, cut to the
+  word. `a + b` of two `Score` values (`int(0 to 1000)`) is `int(0 to 2000)`, so `(a + b) / 2` returned as a `Score`
+  needs no check, and `let t = a + b` holds the whole sum. A result past the word is cut to it and the operation can fail
+  with `overflow`: `a - b` of two `Count` values is `int(0 to u64.max)` and fails below 0.
+- `and`, `or` and `xor` take the alias of an operand, which must hold the other, and a shift the type of its left
+  operand.
+
+An anonymous range goes into an alias only if the alias holds all of it, else it is `E3005` and asks for a cast
+(`try t as Score`). Comparisons take any two integers one word holds, an alias against an anonymous range or a constant
+included; only two different aliases are `E3005`. The branches of a conditional, a `match` or a `try` with no type to
+take give their alias when both are of it, or one is and holds the other, and otherwise a range that holds both.
+
+### Checked arithmetic
+
+An integer operation that can fail says so. The failures are the cases of the built-in enum `ArithmeticError`:
+
+| Case | Of |
+|---|---|
+| `overflow` | `+`, `-`, `*`, unary `-`, `shl` and `not` whose result is past the range of its type (the type the context expects, or else the 64-bit word, see "Integers"), `i64.min / -1`, and an `as` whose value is past the target's range |
+| `divisionByZero` | `/` and `mod` by 0 |
+| `negativeShift` | `shl` and `shr` by a negative count |
+
+An operation that can fail must be covered by a `try`, or it is `E3140`, which names how it can fail and a condition
+that would rule it out:
+
+```maxon
+function sums(a Count, b Count, c Count) returns Count throws ArithmeticError
+	let q = try a / b otherwise 0 // the value on a failure
+	let r = try a / b otherwise return 0 // or a return, a break or a continue
+	let s = try a / b otherwise panic("b is 0")
+	let t = try a / b // passes the failure to the caller
+	var total = 0 as Count
+	try 'calc'
+		let p = a * b // no try in the block
+		total = total + p / c
+	end 'calc' otherwise (e) 'failed'
+		print("{e}\n") // e is the ArithmeticError
+	end 'failed'
+	return total
+end 'sums'
+```
+
+- A `try` covers every operation in its expression, and a `try` block every operation in its body, except what a `try`
+  inside covers with an `otherwise` of its own. A call of a function that `throws ArithmeticError` can fail too.
+- A `try` with no `otherwise`, and a `try` block with no handler, pass a failure to the `try` around them, or with none
+  to the caller: only a function that `throws ArithmeticError` has one (`E3141` otherwise, and in a constant, a field's
+  default and a behaviour's body). `main` cannot throw, and neither can a function with a `sets` parameter, which a
+  failure would leave set or not (`E3142`); a method throws exactly when the interface's signature does (`E3120`).
+- A `try` that covers nothing that can fail is allowed, so a sharper analysis never breaks a program.
+- A failure leaves what it interrupts, as a jump out of it would: the temporaries of the statement and the locals of
+  the blocks it leaves are dropped, and so are the values computed for a call, a record or a union that never runs
+  (`ir.Lowerer.pending`). The ownership pass follows each failure to its handler, so a value moved before a failure may
+  be gone in the handler (`E3102`), and a value that cannot be dropped may not be in flight where something can fail
+  (`E3136`).
+
+**Guards.** The range analysis (`internal/check/ranges.go`) proves most operations safe, and those need no `try` and
+compile to no check at all: lowering emits only the checks it leaves (`ast.Fails`). It is one walk over each function,
+and knows:
+
+- the span of each integer local: its type's, narrowed by what is assigned to it and by the conditions that guard the
+  code (`if b != 0`, `while i < n`, the `else` of an `if`, the code after an `if` whose block returns, breaks or
+  continues, the right operand of `and` and `or`, the branches of `x if c else y`, the arms of a `match` on ranges),
+  and a `for` variable's bounds;
+- the span of a field up to two deep (`c.n`, `self.total`, `p.pos.x`) that a condition narrowed;
+- that one place is at least another (`a >= b`, `a > b`), which `a - b` reads;
+- a constant's exact value.
+
+What may be assigned (a `var`, a `mutates` or `sets` parameter, and their fields) loses what is known of it at the top
+of a loop, and a place loses it when it is assigned or passed to a call that may change it, so no loop is walked twice
+(but see accumulators, below); a condition says nothing of a place that it changes itself, as in `if a > 5 and reset(a)`. A
+divisor that is not 0 may still be -1, so a signed `a / b` needs `b > 0`, or `b != 0` and `b != -1`. Proven code is
+faster than it was before checked arithmetic, when every operation was checked.
+
+**Accumulators.** A `for i in a upto b` (or `to b`) loop runs at most `max(0, b.hi - a.lo)` times (one more for `to`),
+by the spans of `a` and of `b` where the loop is entered: `b` is evaluated once. A mutable integer local that the body
+changes only by `v = v + e`, `v = e + v` and `v = v - e` is an accumulator of the loop, and keeps a span at the top of the
+loop: where it was on entry, widened by the trip count times the most that the statements, counted as often as they can
+run in one iteration (a statement in an inner `for` runs as often as that loop's trips, and one in an inner `while` is not
+bounded), add and subtract. That span holds everywhere in the loop and after it, so a sum of small values over a loop of a
+guarded length needs no `try`, and an operation is judged against it too, which is how a sum that fits only because the
+loop is short is proven. Any other write to the local in the body (another assignment, a call that takes it as `mutates`
+or `sets`, its declaration in the body), and a `when` in the body, make it an ordinary variable again, and so does a bound
+that is not smaller than the type's. What `e` adds is found by a probe, a walk of the body from the state that forgetting
+gives, which records no error and no `Fails` and leaves no state behind; only a loop that contains such a statement, and
+that is not inside a probe, is probed, so the cost is at most one extra walk of each loop's body per loop around it. A
+`while` loop has no such bound, and neither has a loop whose `e` names the accumulator itself, since `v = v + v` has no
+span that a count of runs decides.
 
 ### Ownership
 
@@ -1451,9 +1557,11 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   a frozen value, a cown and a behaviour have no native code: the interpreter counts a frozen value and a cown, schedules
   behaviours, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.
-- `/` and `mod` panic on a zero divisor instead of throwing `DivisionByZero` under `try`.
-- No alias subtyping (an alias implementing another), floats, characters, tuples, closures,
-  `try`/`throws`, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
+- `try` covers integer operations and calls of functions that throw `ArithmeticError`, the only error: there are no
+  error types of the program's own, no `throw`, no `if try`, no `otherwise ignore` and no `otherwise (e)` on an
+  expression. A `try` covers every operation of its expression, not one call, and a condition that rules a failure out
+  is a proof the compiler checks (see "Checked arithmetic").
+- No alias subtyping (an alias implementing another), floats, characters, tuples, closures, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
   parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs

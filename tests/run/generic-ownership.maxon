@@ -1,4 +1,4 @@
-typealias Score = int(i64.min to i64.max)
+typealias Score = int(0 to 1000)
 
 typealias ScoreSlot = Slot with Score
 
@@ -51,12 +51,11 @@ function hold(consumes a T) uses T returns Pair with (T, T) where T implements C
 	return Pair.make(a, second: keep)
 end 'hold'
 
-function reuse(consumes a T, b T) uses T returns Score where T implements Copyable
+function reuse(consumes a T, b T) uses T returns Count where T implements Copyable
 	var held = a
-	var total = eat(held)
+	let first = eat(held)
 	held = b.copy()
-	total = total + eat(held)
-	return total
+	return first + eat(held)
 end 'reuse'
 
 function later(a T, b T, flag bool) uses T returns T where T implements Copyable

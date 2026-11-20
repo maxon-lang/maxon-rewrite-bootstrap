@@ -101,7 +101,7 @@ func (l *Lowerer) countedLoop(limit V, body func(index V)) {
 	l.cur = inside
 	body(l.load(index))
 	next := l.reg(KindScalar)
-	l.emit(Bin(next, BinAdd, l.load(index), l.konst(1), true, false))
+	l.emit(Bin(next, BinAdd, l.load(index), l.konst(1), true, NoBlock))
 	l.emit(StoreSlot(index, next, false))
 	l.goTo(top)
 	l.cur = exit
@@ -222,7 +222,7 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		n := l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
 		return l.optional(l.nonZero(n), func() V {
 			last := l.reg(KindScalar)
-			l.emit(Bin(last, BinSub, n, l.konst(1), true, false))
+			l.emit(Bin(last, BinSub, n, l.konst(1), true, NoBlock))
 			return l.entry(c.CallExpr.Position(), RtArrayRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, last)
 		})
 

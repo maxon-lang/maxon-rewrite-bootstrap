@@ -6,6 +6,7 @@ import (
 	"minimaxon/internal/ast"
 	"minimaxon/internal/backend"
 	"minimaxon/internal/cache"
+	"minimaxon/internal/check"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/interp"
 	"minimaxon/internal/ir"
@@ -210,7 +211,7 @@ func (p *modulePhase) task(w *generateScratch, task int) {
 	}
 	switch kind {
 	case taskCheck:
-		p.check(m)
+		p.check(w, m)
 	case taskClosure:
 		p.closure(m)
 	case taskGenerate:
@@ -228,7 +229,7 @@ func (p *modulePhase) emitRuntime() {
 // check types a module's bodies and then verifies it, while its AST and types are in cache. Verify does not run on a module
 // that has body errors, nor once any module has had them, which keeps the errors independent of which worker got there
 // first: a verify that ran meanwhile is dropped by collectErrors.
-func (p *modulePhase) check(id ast.ModuleID) {
+func (p *modulePhase) check(w *generateScratch, id ast.ModuleID) {
 	if p.skipsCheck(id) {
 		p.verified[id] = true
 		return
@@ -243,7 +244,7 @@ func (p *modulePhase) check(id ast.ModuleID) {
 		p.anyFailed.Store(true)
 		p.bodiesFailed.Store(true)
 	case !p.bodiesFailed.Load():
-		verifyModule(p.proj, m, res)
+		verifyModule(p.proj, m, res, &w.flow)
 		p.verified[id] = len(res.Errors) == 0
 		if !p.verified[id] {
 			p.anyFailed.Store(true)
@@ -332,11 +333,13 @@ func (p *modulePhase) generate(w *generateScratch, id ast.ModuleID) {
 	}
 }
 
-// generateScratch is what a worker reuses from one module to the next, so lowering a module allocates nothing once the
-// buffers have grown to the largest one. A worker that only checks never makes the lowering.
+// generateScratch is what a worker reuses from one module to the next, so lowering a module, and following the values of its
+// functions in verify, allocate nothing once the buffers have grown to the largest one. A worker that only checks never
+// makes the lowering.
 type generateScratch struct {
 	lowering *ir.Lowering
 	fns      []*ir.IrFunction
+	flow     check.FlowScratch
 }
 
 // raiseCrash raises the panic of the first module whose generate had one.

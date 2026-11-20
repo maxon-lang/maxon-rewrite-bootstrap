@@ -123,6 +123,9 @@ func (r *Resolver) VisitInterfaceDecl(d *ast.InterfaceDecl) {
 		if !m.Returns.IsNil() {
 			r.resolveType(m.Returns)
 		}
+		if !m.Throws.IsNil() {
+			r.resolveType(m.Throws)
+		}
 	}
 }
 
@@ -204,6 +207,9 @@ func (r *Resolver) resolveBody(f *ast.FuncDecl, instanceOf *ast.TypeDecl) {
 	}
 	if !f.Returns.IsNil() {
 		r.resolveType(f.Returns)
+	}
+	if !f.Throws.IsNil() {
+		r.resolveType(f.Throws)
 	}
 	names := map[string]bool{}
 	if instanceOf != nil {
@@ -316,6 +322,22 @@ func (r *Resolver) VisitWhenStmt(s ast.WhenStmt) {
 	r.popScope()
 }
 
+// VisitTryStmt resolves the body, and the handler with the error it binds in scope.
+func (r *Resolver) VisitTryStmt(s ast.TryStmt) {
+	checkEnd(s.Label(), s.End())
+	r.block(s.Body())
+	if s.HasOtherwise() {
+		checkEnd(s.HandlerLabel(), s.HandlerEnd())
+		var names []string
+		if s.Binding() != "" {
+			names = append(names, s.Binding())
+		}
+		r.pushScope(names...)
+		r.block(s.Handler())
+		r.popScope()
+	}
+}
+
 func (r *Resolver) VisitReturnStmt(s ast.ReturnStmt) {
 	if !s.Value().IsNil() {
 		r.expr(s.Value())
@@ -400,6 +422,16 @@ func (r *Resolver) VisitCondExpr(e ast.CondExpr) {
 	r.expr(e.Cond())
 	r.expr(e.Then())
 	r.expr(e.Else())
+}
+
+func (r *Resolver) VisitTryExpr(e ast.TryExpr) {
+	r.expr(e.E())
+	switch {
+	case !e.Value().IsNil():
+		r.expr(e.Value())
+	case !e.Ret().IsNil():
+		r.VisitReturnStmt(e.Ret())
+	}
 }
 
 func (r *Resolver) VisitCallExpr(e ast.CallExpr) {

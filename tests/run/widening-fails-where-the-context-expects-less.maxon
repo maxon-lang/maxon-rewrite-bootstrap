@@ -1,0 +1,17 @@
+typealias Score = int(0 to 1000)
+
+function add(a Score, b Score) returns Score throws ArithmeticError
+	return try a + b
+end 'add'
+
+function main() returns ExitCode
+	let a = 900 as Score
+	let wide = a + a
+	print("{wide}\n")
+	let sum = try add(a, b: a) otherwise panic("a score is at most 1000")
+	print("{sum}\n")
+	return 0
+end 'main'
+
+//> 1800
+// expect-exit: 1

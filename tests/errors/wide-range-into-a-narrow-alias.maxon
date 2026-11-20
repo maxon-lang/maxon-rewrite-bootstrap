@@ -1,0 +1,14 @@
+typealias Score = int(0 to 1000)
+
+function show(s Score)
+	print("{s}\n")
+end 'show'
+
+function main() returns ExitCode
+	let a = 3 as Score
+	let t = a + a
+	show(t)
+	return 0
+end 'main'
+
+// expect-error: E3005 at 10:7

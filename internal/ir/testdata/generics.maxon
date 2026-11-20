@@ -14,7 +14,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Score
-		return side * side
+		return side
 	end 'area'
 end 'Square'
 
@@ -37,7 +37,7 @@ function swap(mutates a T, mutates b T) uses T where T implements Copyable
 end 'swap'
 
 function total(a T, b T) uses T returns Score where T implements Shape
-	return a.area() + b.area()
+	return a.area() if a.area() > b.area() else b.area()
 end 'total'
 
 function both(a T) uses T returns Score where T implements Shape and Copyable

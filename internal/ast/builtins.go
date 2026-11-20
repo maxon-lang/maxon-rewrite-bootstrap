@@ -210,8 +210,37 @@ type Builtins struct {
 	// cown(x, dropWith: d) calls: its content needs no Droppable bound, because the destructor d ends it.
 	CownNew, CownNewDropWith *FuncDecl
 	// Count is the type of a length and of a position in an array.
-	Count  *IntTy
-	stdlib *Module
+	Count *IntTy
+	// ArithmeticError is the error of an integer operation that fails, which 'try' catches.
+	ArithmeticError *EnumTy
+	stdlib          *Module
+}
+
+// The cases of ArithmeticError, by index.
+const (
+	// ErrorOverflow is a result that does not fit its type.
+	ErrorOverflow = iota
+	// ErrorDivisionByZero is a '/' or a 'mod' by 0.
+	ErrorDivisionByZero
+	// ErrorNegativeShift is a shift by a negative count.
+	ErrorNegativeShift
+)
+
+var arithmeticErrorCases = []string{"overflow", "divisionByZero", "negativeShift"}
+
+func (b *Builtins) declareArithmeticError() {
+	d := b.stdlib.Tree.NewEnumDecl(0)
+	d.Name = "ArithmeticError"
+	d.Visibility = "public"
+	d.Module = b.stdlib
+	t := NewEnumTy(d)
+	t.Cases = arithmeticErrorCases
+	for i := range arithmeticErrorCases {
+		t.Raw = append(t.Raw, I64(int64(i)))
+	}
+	d.Ty = t
+	b.ArithmeticError = t
+	b.stdlib.Declare(d)
 }
 
 func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
@@ -247,6 +276,7 @@ func NewBuiltins(stdlib *Module, count *IntTy) *Builtins {
 	b.Frozen = b.newPrimitive(BuiltinFrozen, "T")
 	b.Cown = b.newPrimitive(BuiltinCown, "T")
 	b.declareOption()
+	b.declareArithmeticError()
 	b.Copyable = b.declareCapability("Copyable")
 	b.Droppable = b.declareCapability("Droppable")
 	b.declareArray()

@@ -52,7 +52,7 @@ function loops(limit Count) returns Count
 	return kept
 end 'loops'
 
-function grow(n Count) returns Count
+function grow(n Count) returns Count throws ArithmeticError
 	var notes = NoteArray.new()
 	for i in 0 upto n 'fill'
 		notes.append(Note.make(label(i)))
@@ -72,10 +72,10 @@ function grow(n Count) returns Count
 	end 'm'
 	let again = notes.pop().unwrap()
 	print("{again.text} {kept[0].text} {notes.count()}\n")
-	return notes.count() + kept.count()
+	return try notes.count() + kept.count()
 end 'grow'
 
-function slots() returns Count
+function slots() returns Count throws ArithmeticError
 	var held = SlotArray.new()
 	held.append(Slot.filled(Note.make("a"), rank: 1))
 	held.append(Slot.named(label(2)))
@@ -86,12 +86,12 @@ function slots() returns Count
 	var total = 0 as Count
 	for i in 0 upto copy.count() 'each'
 		match copy[i] 'm'
-			filled(note, rank) then total = total + rank
-			named(text) then total = total + 10
-			vacant then total = total + 100
+			filled(note, rank) then total = try total + rank
+			named(text) then total = try total + 10
+			vacant then total = try total + 100
 		end 'm'
 	end 'each'
-	return total + held.count()
+	return try total + held.count()
 end 'slots'
 
 function nested() returns Count
@@ -116,7 +116,7 @@ end 'choose'
 
 function main() returns ExitCode
 	print("{early(true, n: 1)} {early(false, n: 5)} {loops(10)}\n")
-	print("{grow(6)} {slots()} {nested()} {choose(true)} {choose(false)}\n")
+	print("{try grow(6) otherwise return 1} {try slots() otherwise return 1} {nested()} {choose(true)} {choose(false)}\n")
 	return 0
 end 'main'
 

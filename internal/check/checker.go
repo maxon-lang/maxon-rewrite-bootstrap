@@ -161,6 +161,32 @@ func (c *Checker) Verify(calls []ast.PendingCall) {
 	}
 }
 
+// VerifyFlow follows the values of a module's declarations and functions, once its calls are verified: the ranges of the
+// integers, which decide what can fail and must be caught, then ownership, which follows the failures to their handlers.
+// Each runs only on a module that has no error yet.
+//
+// scratch is what a worker reuses from one module to the next.
+func (c *Checker) VerifyFlow(decls []ast.Decl, functions []*ast.FuncDecl, scratch *FlowScratch) {
+	if len(*c.errs) == 0 {
+		ranges := newRanges(c.project, c.typing, c.errs, &scratch.states)
+		for _, d := range decls {
+			ranges.CheckValues(d)
+		}
+		for _, f := range functions {
+			ranges.Check(f)
+		}
+	}
+	if len(*c.errs) == 0 {
+		ownership := NewOwnership(c.errs, c)
+		for _, d := range decls {
+			ownership.CheckValues(d)
+		}
+		for _, f := range functions {
+			ownership.Check(f)
+		}
+	}
+}
+
 // VerifyBounds checks the type arguments that the module's instances and inferred calls give against their parameters'
 // bounds.
 func (c *Checker) VerifyBounds(bounds []ast.PendingBound) {
@@ -456,6 +482,7 @@ func (c *Checker) declareSignature(it *ast.InterfaceTy, m *ast.FuncSig) {
 	m.Pass.SelfConv = ast.ConventionOf(m.Receiver)
 	_, m.Pass.Specs = c.paramSpecs(m.Params, it.Self)
 	m.ReturnType = c.returnOf(m.Returns, it.Self)
+	m.ErrorType = c.errorOf(m.Throws, m.Pass.Specs)
 	it.Methods[m.Name] = m
 }
 
@@ -506,6 +533,24 @@ func (c *Checker) returnOf(returns ast.TypeRef, self ast.Ty) ast.Ty {
 	return c.resolve(returns, self)
 }
 
+// errorOf is the error a function's 'throws' names, or nil for a function that throws nothing. ArithmeticError is the one
+// error there is.
+func (c *Checker) errorOf(throws ast.TypeRef, specs []ast.ParamSpec) ast.Ty {
+	if throws.IsNil() {
+		return nil
+	}
+	t := c.resolve(throws, nil)
+	if t != ast.Ty(c.project.Builtins.ArithmeticError) {
+		panic(throws.Error(diag.ErrThrows, fmt.Sprintf("a function throws ArithmeticError, the error of an integer operation, not %s: write 'throws ArithmeticError'", t.Name())))
+	}
+	for _, spec := range specs {
+		if spec.Conv == ast.ConvSets {
+			panic(throws.Error(diag.ErrThrows, fmt.Sprintf("a failure would leave the 'sets' parameter '%s' set or not, which its caller cannot tell: return the value instead, or catch the failures in the function", spec.Name)))
+		}
+	}
+	return t
+}
+
 // declareGenerics gives a function its type parameters: its own, or for a method the ones of its type, which its
 // 'where' may bound further.
 func (c *Checker) declareGenerics(f *ast.FuncDecl, nt ast.NominalTy) {
@@ -550,6 +595,7 @@ func (c *Checker) addFunction(f *ast.FuncDecl, nt ast.NominalTy, declared *[]*as
 	f.Pass.SelfConv = ast.ConventionOf(f.Receiver)
 	f.ParamTypes, f.Pass.Specs = c.paramSpecs(f.Params, self)
 	f.ReturnType = c.returnOf(f.Returns, self)
+	f.ErrorType = c.errorOf(f.Throws, f.Pass.Specs)
 	*declared = append(*declared, f)
 }
 
@@ -578,6 +624,9 @@ func (c *Checker) CheckMain() *ast.FuncDecl {
 		}
 		if !returnsExitCode {
 			panic(main.Error(diag.ErrMainWrongReturnType, "'main' must return ExitCode"))
+		}
+		if !main.Throws.IsNil() {
+			panic(main.Throws.Error(diag.ErrThrows, "'main' has no caller to pass a failure to: remove 'throws', and catch the failures in 'main' with 'try ... otherwise'"))
 		}
 		result = main
 	})
@@ -637,7 +686,7 @@ func (c *Checker) checkFieldDefaults(td *ast.TypeDecl) {
 		c.guard(func() {
 			c.enterContext(nil, ast.SelfType(rt), true)
 			c.uses = &fi.Uses
-			c.checkExpr(fi.Default)
+			c.checkExpecting(fi.Default, fi.Type)
 			c.coerce(fi.Default, fi.Type, fmt.Sprintf("the default of field '%s'", fi.Name))
 		})
 	}
@@ -647,7 +696,10 @@ func (c *Checker) CheckConst(cd *ast.ConstDecl) {
 	c.guard(func() {
 		c.enterContext(nil, nil, false)
 		t := c.checkExpr(cd.Value)
-		if it, ok := t.(*ast.IntTy); (ok && it.IsAnonymous()) || t == ast.VoidTy || t == ast.NeverTy {
+		if it, ok := t.(*ast.IntTy); ok && it.IsAnonymous() {
+			panic(cd.Error("E3220", fmt.Sprintf("constant '%s' has the range %s, which no type names: give it an alias, 'as <Alias>'", cd.Name, t.Name())))
+		}
+		if t == ast.VoidTy || t == ast.NeverTy {
 			panic(cd.Error("E3220", fmt.Sprintf("constant '%s' must be a value known before the program runs", cd.Name)))
 		}
 		if s, ok := cd.Value.AsStrLit(); ok && t == ast.StringTy {
@@ -662,6 +714,7 @@ func (c *Checker) CheckConst(cd *ast.ConstDecl) {
 				cd.Name, t.Name(), why, fix)))
 		}
 		cd.Type = t
+		newRanges(c.project, c.typing, c.errs, &states{}).Constant(cd)
 	})
 }
 
@@ -847,20 +900,57 @@ func (c *Checker) namedInt(t ast.Ty) *ast.IntTy {
 	return nil
 }
 
-func (c *Checker) unifyInts(site ast.Pos, l, r ast.Ty) *ast.IntTy {
-	la := c.namedInt(l)
-	ra := c.namedInt(r)
+// requireOneAlias refuses operands of two different aliases: each is its own type, and neither converts to the other.
+func (c *Checker) requireOneAlias(site ast.Pos, l, r ast.Ty) {
+	la, ra := c.namedInt(l), c.namedInt(r)
 	if la != nil && ra != nil && la != ra {
 		panic(site.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("the operands are %s and %s; cast one so both are the same type", la.Name(), ra.Name())))
 	}
+}
+
+// wordOf is the 64-bit word an operation on two integers computes in, as the anonymous type of all its values: an
+// unsigned word when either operand reaches past i64.max, else a signed one. No word holds a value that may be negative
+// together with one past i64.max.
+func (c *Checker) wordOf(site ast.Pos, l, r ast.Ty) *ast.IntTy {
+	lmin, lmax := c.rangeOf(l)
+	rmin, rmax := c.rangeOf(r)
+	if !lmax.Gt(ast.I64Max) && !rmax.Gt(ast.I64Max) {
+		return ast.Anonymous64
+	}
+	if lmin.IsNeg() || rmin.IsNeg() {
+		panic(site.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("no 64-bit word holds both %s and %s: one may be negative and the other is past i64.max; cast one with 'as <Alias>' to a range that is not negative, or that stays within i64.max", l.Name(), r.Name())))
+	}
+	return ast.AnonymousU64
+}
+
+// operandWord is the word an arithmetic or comparison operator takes its operands in.
+func (c *Checker) operandWord(site ast.Pos, l, r ast.Ty) *ast.IntTy {
+	c.requireOneAlias(site, l, r)
+	return c.wordOf(site, l, r)
+}
+
+// exactType is the anonymous type of the values an operation gives, which is the span exact of its exact result cut to
+// the word it computes in: a result past the word is what makes the operation fail.
+func exactType(word *ast.IntTy, exact span) *ast.IntTy {
+	in := exact.clamp(typeSpan(word))
+	if in.empty() || (in.lo == word.Min && in.hi == word.Max) {
+		return word
+	}
+	return &ast.IntTy{Min: in.lo, Max: in.hi}
+}
+
+// unifyInts is the type of two integers that one type must hold: the alias of either, which must hold the other, or
+// else the word they are computed in.
+func (c *Checker) unifyInts(site ast.Pos, l, r ast.Ty) *ast.IntTy {
+	c.requireOneAlias(site, l, r)
+	la := c.namedInt(l)
+	ra := c.namedInt(r)
 	alias := la
 	if alias == nil {
 		alias = ra
 	}
 	if alias == nil {
-		c.requireSigned64(site, l)
-		c.requireSigned64(site, r)
-		return ast.Anonymous64
+		return c.wordOf(site, l, r)
 	}
 	other := r
 	if la == nil {
@@ -880,9 +970,18 @@ func (c *Checker) join(site ast.Pos, a, b ast.Ty) ast.Ty {
 		return a
 	}
 	if c.isInt(a) && c.isInt(b) {
-		if c.namedInt(a) != nil || c.namedInt(b) != nil {
-			return c.unifyInts(site, a, b)
+		// Branches of one alias give it; an alias and a range it holds give the alias; anything else gives a range that
+		// holds both, which one word must.
+		c.requireOneAlias(site, a, b)
+		if alias, other := c.namedInt(a), b; alias != nil || c.namedInt(b) != nil {
+			if alias == nil {
+				alias, other = c.namedInt(b), a
+			}
+			if c.assignable(other, alias) {
+				return alias
+			}
 		}
+		c.wordOf(site, a, b)
 		amin, amax := c.rangeOf(a)
 		bmin, bmax := c.rangeOf(b)
 		return &ast.IntTy{Min: ast.MinI(amin, bmin), Max: ast.MaxI(amax, bmax)}
@@ -1034,6 +1133,7 @@ func (c *Checker) fold(site ast.Pos, op string, a, b ast.I128) ast.I128 {
 }
 
 func (c *Checker) VisitBinaryExpr(b ast.BinaryExpr) ast.Ty {
+	want := c.expect
 	l := c.checkExpr(b.L())
 	r := c.checkExpr(b.R())
 
@@ -1058,9 +1158,18 @@ func (c *Checker) VisitBinaryExpr(b ast.BinaryExpr) ast.Ty {
 			c.typing.SetOperand(b, ast.OperandOf(lt))
 			return lt
 		}
-		t := c.unifyInts(b.Position(), l, r)
-		c.typing.SetOperand(b, ast.OperandOf(t))
-		return t
+		if checkerLogical[b.Op()] {
+			t := c.unifyInts(b.Position(), l, r)
+			c.typing.SetOperand(b, ast.OperandOf(t))
+			return t
+		}
+		word := c.operandWord(b.Position(), l, r)
+		c.typing.SetOperand(b, ast.OperandOf(word))
+		if expected, ok := want.(*ast.IntTy); ok {
+			return expected
+		}
+		exact, _ := arithmetic(b.Op(), typeSpan(l), typeSpan(r), typeSpan(word))
+		return exactType(word, exact)
 	}
 
 	if checkerLogical[b.Op()] {
@@ -1072,7 +1181,7 @@ func (c *Checker) VisitBinaryExpr(b ast.BinaryExpr) ast.Ty {
 
 	if checkerComparison[b.Op()] {
 		if c.isInt(l) && c.isInt(r) {
-			c.typing.SetOperand(b, ast.OperandOf(c.unifyInts(b.Position(), l, r)))
+			c.typing.SetOperand(b, ast.OperandOf(c.operandWord(b.Position(), l, r)))
 			return ast.BoolTy
 		}
 		equality := b.Op() == "==" || b.Op() == "!="
@@ -1099,6 +1208,7 @@ func (c *Checker) isHandle(t ast.Ty) bool {
 }
 
 func (c *Checker) VisitUnaryExpr(u ast.UnaryExpr) ast.Ty {
+	want := c.expect
 	t := c.checkExpr(u.E())
 	if u.Op() == "not" {
 		if t == ast.BoolTy {
@@ -1119,10 +1229,10 @@ func (c *Checker) VisitUnaryExpr(u ast.UnaryExpr) ast.Ty {
 		if x.Unsigned() {
 			panic(u.Error(diag.ErrUnsignedNegation, fmt.Sprintf("cannot negate a value of the unsigned %s", t.Name())))
 		}
-		if x.IsAnonymous() {
-			return ast.Anonymous64
+		if expected, ok := want.(*ast.IntTy); ok {
+			return expected
 		}
-		return x
+		return exactType(ast.Anonymous64, span{lo: x.Max.Neg(), hi: x.Min.Neg()})
 	}
 	panic(u.Error(diag.ErrTypeMismatch, fmt.Sprintf("'-' needs an integer, found %s", t.Name())))
 }
@@ -1136,11 +1246,49 @@ func (c *Checker) VisitCondExpr(cd ast.CondExpr) ast.Ty {
 	return c.join(cd.Position(), then, els)
 }
 
+// VisitTryExpr types a try: the value of its expression, or on a failure the value 'otherwise' gives or the jump it makes.
+func (c *Checker) VisitTryExpr(t ast.TryExpr) ast.Ty {
+	result := c.checkExpecting(t.E(), c.expect)
+	switch {
+	case !t.Value().IsNil():
+		want := c.expect
+		if want == nil {
+			want = result
+		}
+		other := c.checkExpecting(t.Value(), want)
+		return c.join(t.Value().Position(), result, other)
+	case !t.Ret().IsNil():
+		if c.fn == nil {
+			panic(t.Ret().Error(diag.ErrUnexpectedToken, "a constant or a default is in no function to return from: give 'otherwise' the value to use"))
+		}
+		c.VisitReturnStmt(t.Ret())
+	case !t.Brk().IsNil():
+		c.VisitBreakStmt(t.Brk())
+	case !t.Cont().IsNil():
+		c.VisitContinueStmt(t.Cont())
+	}
+	return result
+}
+
 func (c *Checker) VisitPanicExpr(p ast.PanicExpr) ast.Ty {
 	if c.checkExpr(p.Message()) != ast.StringTy {
 		panic(p.Message().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("panic takes a String, found %s", c.ty(p.Message()).Name())))
 	}
 	return ast.NeverTy
+}
+
+// argSlot is the parameter that the index-th argument given stands for: the first by its place, every other by its label.
+// It is -1 for an argument that names no parameter after the first, or that no label names.
+func argSlot(index int, arg ast.Arg, ps []ast.ParamSpec) int {
+	if index == 0 {
+		return 0
+	}
+	for j, q := range ps {
+		if j > 0 && q.Name == arg.Label() {
+			return j
+		}
+	}
+	return -1
 }
 
 // orderArgs puts a call's arguments in the order of the parameters, which labels name after the first.
@@ -1173,13 +1321,7 @@ func (c *Checker) orderArgs(call ast.CallExpr, callee string, ps []ast.ParamSpec
 			if arg.Label() == "" {
 				panic(arg.Error(diag.ErrCallArgMissingLabel, fmt.Sprintf("argument %d of '%s' needs its label", i+1, callee)))
 			}
-			slot = -1
-			for j, q := range ps {
-				if q.Name == arg.Label() {
-					slot = j
-					break
-				}
-			}
+			slot = argSlot(i, arg, ps)
 			if slot <= 0 {
 				panic(arg.Error(diag.ErrCallUnknownArgLabel, fmt.Sprintf("'%s' has no parameter '%s' after its first", callee, arg.Label())))
 			}
@@ -1385,10 +1527,18 @@ func (c *Checker) callFunction(call ast.CallExpr, kind ast.CallKind, target *ast
 	if c.declares(target) {
 		info.Ordered = c.bindArgs(call, target.Symbol(), target.Pass.Specs, false)
 	} else {
-		for _, a := range call.Args().All() {
-			c.checkExpr(a.Value())
+		// The call is verified later, but its arguments are typed now: each takes the type of the parameter it stands for
+		// as its expected type, as a call in the module does, so an argument means the same whichever module the callee
+		// is in. One that stands for no parameter is an error that verify reports.
+		specs := target.Pass.Specs
+		for i, a := range call.Args().All() {
+			var want ast.Ty
+			if slot := argSlot(i, a, specs); slot >= 0 && slot < len(specs) && call.Args().Len() == len(specs) {
+				want = specs[slot].Type
+			}
+			c.checkExpecting(a.Value(), want)
 		}
-		c.Pending = append(c.Pending, ast.PendingCall{Call: call, Callee: target.Symbol(), Params: target.Pass.Specs})
+		c.Pending = append(c.Pending, ast.PendingCall{Call: call, Callee: target.Symbol(), Params: specs})
 	}
 	return c.returnType(target)
 }
@@ -1658,18 +1808,18 @@ func (c *Checker) requireImplements(site ast.Pos, nt ast.NominalTy, iface *ast.I
 		panic(site.Position().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it implements %s, but its method '%s' adds a 'where' on the type's parameters, so '%s' would implement %s only for some instances: remove the 'where' from the method, or put the bound on the type",
 			nt.Name(), iface.Name(), sig.Name, nt.Name(), iface.Name())))
 	}
-	if !found || m.IsStatic || m.Pass.SelfConv != sig.Pass.SelfConv || !slices.Equal(m.Pass.Specs, wantSpecs) || m.ReturnType != wantReturn {
+	if !found || m.IsStatic || m.Pass.SelfConv != sig.Pass.SelfConv || !slices.Equal(m.Pass.Specs, wantSpecs) || m.ReturnType != wantReturn || m.ErrorType != sig.ErrorType {
 		problem := "does not have it"
 		if found {
-			problem = "has it as '" + signatureText(m.Name, m.Pass.SelfConv, m.Pass.Specs, m.ReturnType) + "'"
+			problem = "has it as '" + signatureText(m.Name, m.Pass.SelfConv, m.Pass.Specs, m.ReturnType, m.ErrorType) + "'"
 		}
 		panic(site.Position().Error(diag.ErrConformance, fmt.Sprintf("'%s' says it implements %s, which needs '%s', but '%s' %s: add or change the method to match it",
-			nt.Name(), iface.Name(), signatureText(sig.Name, sig.Pass.SelfConv, wantSpecs, wantReturn), nt.Name(), problem)))
+			nt.Name(), iface.Name(), signatureText(sig.Name, sig.Pass.SelfConv, wantSpecs, wantReturn, sig.ErrorType), nt.Name(), problem)))
 	}
 }
 
 // signatureText is a method as it is written in a declaration.
-func signatureText(name string, selfConv ast.Convention, specs []ast.ParamSpec, ret ast.Ty) string {
+func signatureText(name string, selfConv ast.Convention, specs []ast.ParamSpec, ret, err ast.Ty) string {
 	var parts []string
 	if selfConv != ast.ConvLet {
 		parts = append(parts, selfConv.String()+" self")
@@ -1679,11 +1829,14 @@ func signatureText(name string, selfConv ast.Convention, specs []ast.ParamSpec, 
 		if s.Conv != ast.ConvLet {
 			word = s.Conv.String() + " "
 		}
-		parts = append(parts, s.Name+" "+word+s.Type.Name())
+		parts = append(parts, word+s.Name+" "+s.Type.Name())
 	}
 	text := "function " + name + "(" + strings.Join(parts, ", ") + ")"
 	if ret != ast.Ty(ast.VoidTy) {
 		text += " returns " + ret.Name()
+	}
+	if err != nil {
+		text += " throws " + err.Name()
 	}
 	return text
 }
@@ -1787,7 +1940,7 @@ func (c *Checker) VisitIndexExpr(x ast.IndexExpr) ast.Ty {
 	if x.Args().Len() != 1 {
 		panic(x.Error(diag.ErrTypeMismatch, fmt.Sprintf("an index is one value, given %d", x.Args().Len())))
 	}
-	c.checkExpr(x.Args().At(0))
+	c.checkExpecting(x.Args().At(0), bt.Index())
 	c.coerce(x.Args().At(0), bt.Index(), "the index of "+t.Name())
 	return bt.Element()
 }
@@ -1863,7 +2016,11 @@ func (c *Checker) checkStmt(s ast.Stmt) {
 func (c *Checker) VisitDiscardStmt(t ast.DiscardStmt) { c.checkExpr(t.Value()) }
 
 func (c *Checker) VisitExprStmt(t ast.ExprStmt) {
-	switch t.E().Kind() {
+	e := t.E()
+	if try, ok := e.AsTryExpr(); ok {
+		e = try.E()
+	}
+	switch e.Kind() {
 	case ast.KindCallExpr, ast.KindPanicExpr:
 	default:
 		panic(t.Error(diag.ErrUnexpectedToken, "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='"))
@@ -1887,6 +2044,20 @@ func (c *Checker) VisitWhileStmt(t ast.WhileStmt) {
 }
 
 func (c *Checker) VisitMatchStmt(t ast.MatchStmt) { c.checkMatch(t.Match(), false) }
+
+// VisitTryStmt types the body of a try block and its handler, which may name the error that failed.
+func (c *Checker) VisitTryStmt(t ast.TryStmt) {
+	c.checkBlock(t.Body())
+	if !t.HasOtherwise() {
+		return
+	}
+	c.pushScope()
+	if t.Binding() != "" {
+		c.typing.SetTryLocal(t, c.declareLocal(t.Binding(), c.project.Builtins.ArithmeticError, false, t.Position()))
+	}
+	c.checkStmts(t.Handler())
+	c.popScope()
+}
 
 func (c *Checker) VisitBreakStmt(t ast.BreakStmt) {
 	c.typing.SetBreakTarget(t, c.resolveJump(t.Stmt(), t.Label(), true))

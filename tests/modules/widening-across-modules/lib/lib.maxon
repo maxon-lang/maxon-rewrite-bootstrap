@@ -1,0 +1,5 @@
+export typealias Score = int(0 to 1000)
+
+export function half(s Score) returns Score
+	return s / 2
+end 'half'

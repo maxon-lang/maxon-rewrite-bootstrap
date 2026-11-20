@@ -17,9 +17,9 @@ function glance(d Doc) returns Count
 	return d.n
 end 'glance'
 
-function frozenFields(f frozen with Doc) returns Count
+function frozenFields(f frozen with Doc) returns Count throws ArithmeticError
 	print(f.title)
-	return f.n + f.read() + glance(f)
+	return try f.n + f.read() + glance(f)
 end 'frozenFields'
 
 function sharedAndThawed(f frozen with Doc) returns Doc
@@ -34,7 +34,7 @@ end 'copied'
 
 function schedule(c cown with Doc, consumes note Doc, n Count)
 	when c as x 'run'
-		x.n = note.n + n
+		x.n = note.n if note.n > n else n
 	end 'run'
 end 'schedule'
 

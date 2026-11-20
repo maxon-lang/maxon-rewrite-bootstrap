@@ -14,7 +14,7 @@ function drop(mutates xs array with Cell) returns Count
 end 'drop'
 
 function look(c Cell, n Count) returns Count
-	return c.n + n
+	return n if n > c.n else c.n
 end 'look'
 
 function main() returns ExitCode

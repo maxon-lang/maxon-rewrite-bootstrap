@@ -95,7 +95,7 @@ funcDecl
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
-      ')' typeParams=usesClause? ('returns' returns=typeRef)? where=whereClause?
+      ')' typeParams=usesClause? ('returns' returns=typeRef)? ('throws' throws=typeRef)? where=whereClause?
       body=block
       'end' end=endLabel?
     ;
@@ -115,6 +115,7 @@ funcDecl
 	ParamTypes []Ty
 	ParamLocals []LocalID
 	ReturnType Ty = VoidTy
+	ErrorType Ty
 	SelfLocal *Local
 	Locals []*Local
 }
@@ -130,6 +131,8 @@ constDecl
 
 @ast::ConstDecl {
 	Type Ty
+	Low I128
+	High I128
 }
 
 typeDecl
@@ -225,12 +228,13 @@ funcSig
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
-      ')' ('returns' returns=typeRef)?
+      ')' ('returns' returns=typeRef)? ('throws' throws=typeRef)?
     ;
 
 @ast::FuncSig {
 	Pass Passing
 	ReturnType Ty = VoidTy
+	ErrorType Ty
 }
 
 endLabel
@@ -253,6 +257,7 @@ stmt
     | forStmt
     | matchStmt
     | whenStmt
+    | tryStmt
     | returnStmt
     | breakStmt
     | continueStmt
@@ -309,6 +314,20 @@ forStmt
     ;
 
 @ast::ForStmt {
+	Local Slot[Local]
+}
+
+tryStmt
+    : 'try' label=Label
+      body=block
+      'end' end=endLabel?
+      ( hasOtherwise='otherwise' ('(' binding=Name ')')? handlerLabel=Label
+        handler=block
+        'end' handlerEnd=endLabel?
+      )?
+    ;
+
+@ast::TryStmt {
 	Local Slot[Local]
 }
 
@@ -412,6 +431,7 @@ expr
     | l=expr op='xor' r=expr                                         # BinaryExpr
     | l=expr op='or' r=expr                                          # BinaryExpr
     | <assoc=right> then=expr 'if' cond=expr 'else' else=expr        # CondExpr
+    | 'try' e=expr ('otherwise' (value=expr | ret=returnStmt | brk=breakStmt | cont=continueStmt))? # TryExpr
     ;
 
 @ast::MemberExpr {
@@ -424,7 +444,15 @@ expr
 
 @ast::BinaryExpr {
 	Op string
-	Operand Slot[Binary]
+	Arith Slot[Arith]
+}
+
+@ast::UnaryExpr {
+	Arith Slot[Arith]
+}
+
+@ast::CastExpr {
+	Arith Slot[Arith]
 }
 
 /** an integer */

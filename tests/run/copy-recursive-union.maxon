@@ -4,10 +4,10 @@ union Node
 	leaf(value Count, note String)
 	branch(label String, kids array with Node)
 
-	function size() returns Count
+	function size() returns Count throws ArithmeticError
 		return match self 'm'
 			leaf(v, note) gives 1
-			branch(label, kids) gives 1 + sizeOf(kids)
+			branch(label, kids) gives try 1 + sizeOf(kids)
 		end 'm'
 	end 'size'
 
@@ -19,10 +19,10 @@ union Node
 	end 'text'
 end 'Node'
 
-function sizeOf(kids array with Node) returns Count
+function sizeOf(kids array with Node) returns Count throws ArithmeticError
 	var total = 0 as Count
 	for i in 0 upto kids.count() 'each'
-		total = total + kids[i].size()
+		total = try total + kids[i].size()
 	end 'each'
 	return total
 end 'sizeOf'
@@ -49,12 +49,16 @@ end 'tree'
 function main() returns ExitCode
 	let a = tree(2)
 	let b = a.copy()
-	print("{a.size()} {b.size()}\n{a.text()}\n{b.text()}\n")
-	var kept = NodeArray.new()
-	kept.append(b.copy())
-	kept.append(a)
-	let c = kept.copy()
-	print("{sizeOf(c)} {sizeOf(kept)}\n")
+	try 'report'
+		print("{a.size()} {b.size()}\n{a.text()}\n{b.text()}\n")
+		var kept = NodeArray.new()
+		kept.append(b.copy())
+		kept.append(a)
+		let c = kept.copy()
+		print("{sizeOf(c)} {sizeOf(kept)}\n")
+	end 'report' otherwise 'failed'
+		return 1
+	end 'failed'
 	return 0
 end 'main'
 

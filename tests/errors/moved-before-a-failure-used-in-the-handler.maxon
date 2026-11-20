@@ -1,0 +1,17 @@
+function take(consumes s String, n Count) returns Count
+	print(s)
+	return n
+end 'take'
+
+function main() returns ExitCode
+	let name = "a name {7}"
+	let big = 18446744073709551615 as Count
+	try 'work'
+		_ = take(name, n: big + 1)
+	end 'work' otherwise 'failed'
+		print(name)
+	end 'failed'
+	return 0
+end 'main'
+
+// expect-error: E3102 at 12:9

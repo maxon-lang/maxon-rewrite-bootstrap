@@ -9,7 +9,7 @@ type Cell
 end 'Cell'
 
 function bump(mutates c Cell)
-	c.n = c.n + 1
+	c.n = try c.n + 1 otherwise c.n
 end 'bump'
 
 function main() returns ExitCode

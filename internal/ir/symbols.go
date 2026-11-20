@@ -15,10 +15,6 @@ const (
 	RtConcat
 	RtItoa
 	RtStreq
-	RtPanicRange
-	RtPanicOverflow
-	RtPanicDiv
-	RtPanicShift
 	RtPanicIndex
 	RtHeap
 	RtStdout
@@ -103,10 +99,6 @@ var rtNames = [...]string{
 	RtConcat:          "rt.concat",
 	RtItoa:            "rt.itoa",
 	RtStreq:           "rt.streq",
-	RtPanicRange:      "rt.panicRange",
-	RtPanicOverflow:   "rt.panicOverflow",
-	RtPanicDiv:        "rt.panicDiv",
-	RtPanicShift:      "rt.panicShift",
 	RtPanicIndex:      "rt.panicIndex",
 	RtHeap:            "g.heap",
 	RtStdout:          "g.stdout",

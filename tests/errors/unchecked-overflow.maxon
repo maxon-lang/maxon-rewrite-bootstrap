@@ -1,0 +1,9 @@
+function grow(n Count) returns Count
+	return n + 1
+end 'grow'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3140 at 2:11

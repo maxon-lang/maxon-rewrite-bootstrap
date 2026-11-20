@@ -1,0 +1,30 @@
+typealias Score = int(0 to 1000)
+
+function mean(a Score, b Score) returns Score
+	return (a + b) / 2
+end 'mean'
+
+function capped(a Score, b Score) returns Score
+	return try a + b otherwise 1000
+end 'capped'
+
+function clamped(a Score, b Score) returns Score
+	let sum = a + b
+	return try sum as Score otherwise 1000
+end 'clamped'
+
+function main() returns ExitCode
+	let a = 900 as Score
+	let b = 800 as Score
+	let t = a + b
+	print("{t} {t > a} {a < t} {t == 1700} {a + b > 1000} {-t}\n")
+	print("{mean(a, b: b)} {capped(a, b: b)} {capped(3, b: 4)} {clamped(a, b: b)} {clamped(30, b: 40)}\n")
+	let c = 5 as Count
+	let d = 9 as Count
+	print("{try c - d otherwise 0} {d - c} {d + c} {c < d + c}\n")
+	return 0
+end 'main'
+
+//> 1700 true true true true -1700
+//> 850 1000 7 1000 70
+//> 0 4 14 true

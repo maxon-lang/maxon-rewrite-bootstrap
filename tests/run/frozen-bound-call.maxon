@@ -1,11 +1,13 @@
+typealias Length = int(0 to 1000)
+
 interface Shape
 	function area() returns Count
 end 'Shape'
 
 type Square implements Shape
-	var side as Count
+	var side as Length
 
-	static function make(side Count) returns Square
+	static function make(side Length) returns Square
 		return Square{side: side}
 	end 'make'
 

@@ -18,7 +18,7 @@ end 'main'
 // case: mutates receiver of a var
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
-	a.bump(a.second.copy())
+	a.assign(a.second.copy())
 	return 0
 end 'main'
 

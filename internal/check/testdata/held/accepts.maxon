@@ -49,8 +49,8 @@ end 'main'
 function main() returns ExitCode
 	var cs = Cells.new()
 	cs.append(Cell.make(1))
-	let total = cs[0].n + trim(cs)
-	print("{total}")
+	let same = cs[0].n == trim(cs)
+	print("{same}")
 	return 0
 end 'main'
 
@@ -58,7 +58,7 @@ end 'main'
 function main() returns ExitCode
 	var a = Names.new()
 	a.append(label(1))
-	print(a[a.count() - 1])
+	print(a[a.count() / 2])
 	return 0
 end 'main'
 
@@ -78,9 +78,9 @@ function main() returns ExitCode
 	var rows = Rows.new()
 	rows.append(Row.make())
 	rows[0].cells.append(label(1))
-	print(rows[0].cells[rows.count() - 1])
-	rows[0].cells[rows.count() - 1] = "x"
-	bump(rows[0].cells[rows.count() - 1])
+	print(rows[0].cells[rows.count() / 2])
+	rows[0].cells[rows.count() / 2] = "x"
+	bump(rows[0].cells[rows.count() / 2])
 	return 0
 end 'main'
 

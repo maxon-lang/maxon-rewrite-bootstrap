@@ -1,0 +1,9 @@
+function half(n Count) returns Count
+	return try n / 2
+end 'half'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3141 at 2:9

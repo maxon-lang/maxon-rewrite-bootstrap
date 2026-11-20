@@ -1,0 +1,9 @@
+function fill(sets out Count, n Count) throws ArithmeticError
+	out = try n * 2
+end 'fill'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3142 at 1:47

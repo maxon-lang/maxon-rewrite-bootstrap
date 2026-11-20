@@ -5,11 +5,13 @@
 // native-only
 typealias PointArray = array with Point
 
-type Point
-	export var x as Count
-	export var y as Count
+typealias Coord = int(0 to 1000000)
 
-	static function make(x Count, y Count) returns Point
+type Point
+	export var x as Coord
+	export var y as Coord
+
+	static function make(x Coord, y Coord) returns Point
 		return Point{x: x, y: y}
 	end 'make'
 end 'Point'
@@ -18,7 +20,7 @@ type Entry
 	export var label as String
 	export var points = PointArray.new()
 
-	static function make(n Count) returns Entry
+	static function make(n Coord) returns Entry
 		var e = Entry{label: "entry {n}"}
 		e.points.append(Point.make(n, y: n))
 		e.points.append(Point.make(n, y: 1))
@@ -31,7 +33,7 @@ function main() returns ExitCode
 	for i in 0 upto 500000 'loop'
 		let e = Entry.make(i)
 		let copied = e.copy()
-		total = total + copied.points[1].y + e.points[0].x
+		total = total + (copied.points[1].y + e.points[0].x)
 	end 'loop'
 	print("{total}\n")
 	return 0

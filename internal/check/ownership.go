@@ -85,6 +85,7 @@ const (
 	dropParameter
 	dropPayload
 	dropOtherPath
+	dropFailure
 )
 
 // ownDrop is an implicit drop: the kind, and the name of the variable, parameter or payload it concerns.
@@ -115,6 +116,8 @@ func (d ownDrop) String() string {
 		return "this arm drops the payload '" + d.name + "' that it does not name"
 	case dropOtherPath:
 		return "'" + d.name + "' is moved on one path only, so the other path drops it"
+	case dropFailure:
+		return "'" + d.name + "' still holds its value where this can fail, and a failure leaves its scope, which drops it"
 	}
 	panic(diag.Internal("ownership: unknown drop %d", int(d.kind)))
 }
@@ -273,6 +276,19 @@ type Ownership struct {
 	// partials counts the partly moved facts the function has made: while it is 0, a read or an assignment of a field
 	// path needs no look at the facts.
 	partials int
+	// catches are the trys around the code being checked, innermost last.
+	catches []ownCatch
+	// inFlight are the values of the expression being checked that have been computed for something that takes them and
+	// that cannot be dropped: a failure before the taker runs would drop them.
+	inFlight []ast.Expr
+}
+
+// ownCatch is a try being checked. A failure in what it covers goes to its handler, leaving the scopes opened since the
+// try began, or with no handler leaves the function; entry is the join of the states at those failures.
+type ownCatch struct {
+	propagates bool
+	entry      *ownState
+	obliged    int
 }
 
 const ownStepCapacity = 8
@@ -298,6 +314,8 @@ func (o *Ownership) run(f *ast.FuncDecl) {
 	o.setParams = o.setParams[:0]
 	o.obliged = o.obliged[:0]
 	o.partials = 0
+	o.catches = o.catches[:0]
+	o.inFlight = o.inFlight[:0]
 	s := ownClean
 	switch {
 	case f.IsDestructor():
@@ -477,6 +495,8 @@ func (o *Ownership) walk(body ast.StmtList, s *ownState) *ownState {
 }
 
 func (o *Ownership) stmt(st ast.Stmt, s *ownState) *ownState {
+	mark := len(o.inFlight)
+	defer o.land(mark)
 	return ast.VisitStmtState[*ownState, *ownState](o, st, s)
 }
 
@@ -620,6 +640,112 @@ func (o *Ownership) VisitMatchStmt(st ast.MatchStmt, s *ownState) *ownState {
 	return o.match(st.Match(), s)
 }
 
+// VisitTryStmt checks the body of a try block with its failures going to the handler, which starts from the join of the
+// states where they happen.
+func (o *Ownership) VisitTryStmt(st ast.TryStmt, s *ownState) *ownState {
+	if !o.enterTry(st.HasOtherwise()) {
+		return o.walk(st.Body(), s)
+	}
+	end := o.walk(st.Body(), s)
+	c := o.leaveTry()
+	if !st.HasOtherwise() {
+		return end
+	}
+	return o.join(end, o.walk(st.Handler(), c.entry))
+}
+
+// enterTry starts a try: one with a handler catches what it covers, and one without passes it to the try around it, or
+// with none around it to the caller. It gives whether the try added a catch.
+func (o *Ownership) enterTry(handles bool) bool {
+	if !handles && len(o.catches) > 0 {
+		return false
+	}
+	o.catches = append(o.catches, ownCatch{propagates: !handles, entry: ownUnreachable, obliged: len(o.obliged)})
+	return true
+}
+
+// leaveTry ends a try that enterTry added a catch for, and gives the catch.
+func (o *Ownership) leaveTry() ownCatch {
+	c := o.catches[len(o.catches)-1]
+	o.catches = o.catches[:len(o.catches)-1]
+	return c
+}
+
+// failure is a place where the operation just checked can fail: the state there goes to the innermost try's handler, or
+// out of the function. Either way the scopes the failure leaves are dropped, and so is what is in flight.
+func (o *Ownership) failure(site ast.Pos, s *ownState) {
+	if s.dead || len(o.catches) == 0 {
+		return
+	}
+	if len(o.inFlight) > 0 {
+		e := o.inFlight[len(o.inFlight)-1]
+		o.fail(e.Position(), diag.ErrNotDroppable,
+			"a failure at line %d would drop this value before what takes it runs, but '%s' cannot be dropped; compute what can fail first, into a variable",
+			o.lineOf(site), o.ty(e).Name())
+	}
+	c := &o.catches[len(o.catches)-1]
+	if c.propagates {
+		o.requireEnded(0, s, site, dropFailure)
+		return
+	}
+	c.entry = o.join(c.entry, o.leave(c.obliged, s, site, dropFailure))
+}
+
+// land forgets the values in flight since mark: what took them has run.
+func (o *Ownership) land(mark int) { o.inFlight = o.inFlight[:mark] }
+
+// try checks a try expression, whose expression check runs with the failures going to the try, and gives the state after
+// it and the state where its handler starts.
+func (o *Ownership) try(e ast.TryExpr, s *ownState, check func(*ownState) *ownState) (*ownState, *ownState) {
+	if !o.enterTry(!isPropagating(e)) {
+		return check(s), ownUnreachable
+	}
+	s = check(s)
+	return s, o.leaveTry().entry
+}
+
+// isPropagating is whether a try has no 'otherwise', so it passes its failures to the caller.
+func isPropagating(e ast.TryExpr) bool {
+	return e.Value().IsNil() && e.Ret().IsNil() && e.Brk().IsNil() && e.Cont().IsNil()
+}
+
+// isTransparent is whether a try gives the value of its expression itself, with no other value on a failure: its
+// expression is then read or moved as the try is.
+func isTransparent(e ast.Expr) (ast.TryExpr, bool) {
+	t, ok := e.AsTryExpr()
+	return t, ok && t.Value().IsNil()
+}
+
+// handled checks what a transparent try does on a failure: return, break or continue, or nothing for a try that passes
+// it to the caller.
+func (o *Ownership) handled(e ast.TryExpr, entry *ownState) {
+	mark := len(o.inFlight)
+	switch {
+	case !e.Ret().IsNil():
+		o.VisitReturnStmt(e.Ret(), entry)
+	case !e.Brk().IsNil():
+		o.VisitBreakStmt(e.Brk(), entry)
+	case !e.Cont().IsNil():
+		o.VisitContinueStmt(e.Cont(), entry)
+	}
+	o.land(mark)
+}
+
+// VisitTryExpr is a try whose value comes from its expression or from 'otherwise', like the branches of a conditional, or
+// a transparent one, whose expression is only read.
+func (o *Ownership) VisitTryExpr(e ast.TryExpr, s *ownState) *ownState {
+	if _, ok := isTransparent(e.Expr()); ok {
+		end, entry := o.try(e, s, func(s *ownState) *ownState { return o.eval(e.E(), s) })
+		o.handled(e, entry)
+		return end
+	}
+	dest := ownDest{kind: destResult}
+	mark := len(o.inFlight)
+	end, entry := o.try(e, s, func(s *ownState) *ownState { return o.consume(e.E(), dest, s) })
+	o.land(mark)
+	return o.join(end, o.consume(e.Value(), dest, entry))
+}
+
 func (o *Ownership) VisitReturnStmt(st ast.ReturnStmt, s *ownState) *ownState {
 	if !st.Value().IsNil() {
 		s = o.consume(st.Value(), ownDest{kind: destReturn}, s)
@@ -703,7 +829,9 @@ func (o *Ownership) match(m ast.MatchCore, s *ownState) *ownState {
 		case ast.ArmThen:
 			a = o.stmt(arm.Action(), a)
 		case ast.ArmGives:
+			mark := len(o.inFlight)
 			a = o.consume(arm.Value(), ownDest{kind: destResult}, a)
+			o.land(mark)
 		case ast.ArmPanic:
 			o.expr(arm.Value(), a)
 			a = ownUnreachable
@@ -808,6 +936,11 @@ func (o *Ownership) readRoot(l *ast.Local, site ast.Pos, s *ownState) *ownState 
 // nothing. A place holding a managed value is moved out of, which only a whole local that owns its value allows;
 // everything else is refused and says to copy.
 func (o *Ownership) consume(e ast.Expr, dest ownDest, s *ownState) *ownState {
+	if t, ok := isTransparent(e); ok {
+		end, entry := o.try(t, s, func(s *ownState) *ownState { return o.consume(t.E(), dest, s) })
+		o.handled(t, entry)
+		return end
+	}
 	s = o.eval(e, s)
 	if s.dead {
 		return s
@@ -815,6 +948,9 @@ func (o *Ownership) consume(e ast.Expr, dest ownDest, s *ownState) *ownState {
 	o.typing.MarkConsumed(e)
 	if !o.ty(e).IsManaged() {
 		return s
+	}
+	if o.checker.lacks(droppable, o.ty(e)) != nil {
+		o.inFlight = append(o.inFlight, e)
 	}
 	p, ok := o.pathOf(e, o.steps[:0])
 	if !ok {
@@ -966,7 +1102,10 @@ func (o *Ownership) expr(e ast.Expr, s *ownState) *ownState {
 
 // eval checks an expression and leaves what happens to its value to the caller.
 func (o *Ownership) eval(e ast.Expr, s *ownState) *ownState {
-	return ast.VisitExprState[*ownState, *ownState](o, e, s)
+	mark := len(o.inFlight)
+	s = ast.VisitExprState[*ownState, *ownState](o, e, s)
+	o.land(mark)
+	return s
 }
 
 func (o *Ownership) VisitIntLit(_ ast.IntLit, s *ownState) *ownState { return s }
@@ -1026,23 +1165,39 @@ func (o *Ownership) VisitNameExpr(e ast.NameExpr, s *ownState) *ownState {
 // VisitBinaryExpr holds a managed left operand, which only a string comparison has, while the right is evaluated:
 // lowering compares the two strings once both are computed.
 func (o *Ownership) VisitBinaryExpr(e ast.BinaryExpr, s *ownState) *ownState {
+	if (e.Op() == "and" || e.Op() == "or") && o.ty(e.Expr()) == ast.Ty(ast.BoolTy) {
+		// The right operand runs only when the left one does not decide.
+		s = o.expr(e.L(), s)
+		return o.join(s, o.expr(e.R(), s))
+	}
 	s = o.expr(e.L(), s)
 	held := len(o.projections)
 	o.holdAcross(e.L(), projectOperand, e.R())
 	s = o.expr(e.R(), s)
 	o.release(held)
+	return o.failed(e.Expr(), s)
+}
+
+// failed is the failure of an operator or a cast that the range analysis could not rule out.
+func (o *Ownership) failed(e ast.Expr, s *ownState) *ownState {
+	if o.typing.Fails(e) != 0 {
+		o.failure(e.Position(), s)
+	}
 	return s
 }
 
 func (o *Ownership) VisitUnaryExpr(e ast.UnaryExpr, s *ownState) *ownState {
-	return o.expr(e.E(), s)
+	return o.failed(e.Expr(), o.expr(e.E(), s))
 }
 
 // VisitCondExpr moves from each branch alone: the value it gives is a fresh one, so a place in a branch is moved.
 func (o *Ownership) VisitCondExpr(e ast.CondExpr, s *ownState) *ownState {
 	s = o.expr(e.Cond(), s)
 	dest := ownDest{kind: destResult}
-	return o.join(o.consume(e.Then(), dest, s), o.consume(e.Else(), dest, s))
+	mark := len(o.inFlight)
+	then := o.consume(e.Then(), dest, s)
+	o.land(mark)
+	return o.join(then, o.consume(e.Else(), dest, s))
 }
 
 func (o *Ownership) VisitCallExpr(e ast.CallExpr, s *ownState) *ownState {
@@ -1060,12 +1215,12 @@ func (o *Ownership) VisitCallExpr(e ast.CallExpr, s *ownState) *ownState {
 		}
 		return s
 	case ast.CallFunction, ast.CallStatic, ast.CallMethod, ast.CallBound:
-		return o.userCall(call, receiver, s)
+		return o.userCall(e.Position(), call, receiver, s)
 	}
 	panic(diag.Internal("ownership: unresolved call"))
 }
 
-func (o *Ownership) userCall(e *ast.CallInfo, receiver ast.Expr, s *ownState) *ownState {
+func (o *Ownership) userCall(site ast.Pos, e *ast.CallInfo, receiver ast.Expr, s *ownState) *ownState {
 	exclusive := !receiver.IsNil() && e.Pass.SelfConv != ast.ConvLet
 	for _, spec := range e.Pass.Specs {
 		exclusive = exclusive || spec.Conv != ast.ConvLet
@@ -1074,6 +1229,7 @@ func (o *Ownership) userCall(e *ast.CallInfo, receiver ast.Expr, s *ownState) *o
 		o.requireExclusive(e, receiver)
 	}
 	held := len(o.projections)
+	arguments := len(o.inFlight)
 	outer := o.initialising
 	o.initialising = nil
 	if !receiver.IsNil() {
@@ -1093,6 +1249,11 @@ func (o *Ownership) userCall(e *ast.CallInfo, receiver ast.Expr, s *ownState) *o
 		}
 	}
 	o.release(held)
+	if callThrows(e) {
+		// The callee has its arguments by now, and ends them itself when it fails.
+		o.land(arguments)
+		o.failure(site, s)
+	}
 	for _, l := range o.initialising {
 		s = s.without(l)
 	}
@@ -1274,7 +1435,7 @@ func (o *Ownership) VisitStructLitExpr(e ast.StructLitExpr, s *ownState) *ownSta
 }
 
 func (o *Ownership) VisitCastExpr(e ast.CastExpr, s *ownState) *ownState {
-	return o.expr(e.E(), s)
+	return o.failed(e.Expr(), o.expr(e.E(), s))
 }
 
 func (o *Ownership) VisitMatchExpr(e ast.MatchExpr, s *ownState) *ownState {
@@ -1321,5 +1482,7 @@ func (o *Ownership) checkValue(e ast.Expr, name string) {
 	o.setParams = o.setParams[:0]
 	o.obliged = o.obliged[:0]
 	o.partials = 0
+	o.catches = o.catches[:0]
+	o.inFlight = o.inFlight[:0]
 	o.consume(e, ownDest{kind: destField, name: name}, ownClean)
 }

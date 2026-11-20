@@ -5,12 +5,12 @@ type Point
 	export var y as Coord
 	export let name = "point"
 
-	function sum() returns Coord
-		return x + y
+	function sum() returns Coord throws ArithmeticError
+		return try x + y
 	end 'sum'
 
-	function move(mutates self, dx Coord)
-		x = x + dx
+	function move(mutates self, dx Coord) throws ArithmeticError
+		x = try x + dx
 	end 'move'
 
 	function describe() returns String
@@ -24,8 +24,9 @@ end 'Point'
 
 function main() returns ExitCode
 	var p = Point.create(1, y: 2)
-	p.move(10)
-	print("{p.x} {p.y} {p.sum()}\n")
+	try p.move(10) otherwise return 1
+	let sum = try p.sum() otherwise return 1
+	print("{p.x} {p.y} {sum}\n")
 	var q = p.copy()
 	q.x = 5
 	print("{p.describe()}\n")

@@ -1,0 +1,8 @@
+export function ratio(a Count, b Count) returns Count throws ArithmeticError
+	return try a / b
+end 'ratio'
+
+export function mean(total Count, n Count) returns Count throws ArithmeticError
+	let r = try ratio(total, b: n)
+	return r
+end 'mean'

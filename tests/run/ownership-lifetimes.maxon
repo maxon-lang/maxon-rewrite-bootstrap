@@ -19,10 +19,10 @@ type Crate
 		return Crate{label: label, parts: PartArray.new()}
 	end 'make'
 
-	function total() returns Count
+	function total() returns Count throws ArithmeticError
 		var sum = 0 as Count
 		for i in 0 upto parts.count() 'each'
-			sum = sum + parts[i].weight
+			sum = try sum + parts[i].weight
 		end 'each'
 		return sum
 	end 'total'
@@ -31,8 +31,8 @@ type Crate
 		parts.append(Part.make(name, weight: weight))
 	end 'add'
 
-	function take(consumes self) returns Count
-		return self.total()
+	function take(consumes self) returns Count throws ArithmeticError
+		return try self.total()
 	end 'take'
 end 'Crate'
 
@@ -42,9 +42,9 @@ union Shape
 	none
 end 'Shape'
 
-function describe(shape Shape) returns String
+function describe(shape Shape) returns String throws ArithmeticError
 	return match shape 'd'
-		whole(c) gives "crate {c.label} {c.total()}"
+		whole(c) gives "crate {c.label} {try c.total()}"
 		pair(l, r) gives "{l}+{r}"
 		none gives "nothing"
 	end 'd'
@@ -82,30 +82,34 @@ function reassign() returns String
 end 'reassign'
 
 function main() returns ExitCode
-	var crate = Crate.make("c{1}")
-	crate.add("bolt", weight: 3)
-	crate.add("nut{2}", weight: 4)
-	print("{crate.label} {crate.total()}\n")
-	let copied = crate.copy()
-	crate.add("washer", weight: 1)
-	print("{copied.total()} {crate.total()}\n")
-	let shape = Shape.whole(copied)
-	let other = Shape.pair("x{1}", right: "y{2}")
-	print("{describe(shape)} {describe(other)} {describe(Shape.none)}\n")
-	print("{early(0)} {early(1)} {early(3)} {early(9)}\n")
-	print("{choose("p{1}", second: "q{2}", pickFirst: true)} {choose("p{1}", second: "q{2}", pickFirst: false)}\n")
-	print("{reassign()}\n")
-	var popped = crate.parts.pop()
-	print("{popped.isSome()}\n")
-	let part = popped.unwrap()
-	print("{part.name} {part.weight}\n")
-	let removed = crate.parts.remove(0)
-	_ = crate.parts.remove(0)
-	print("{removed.name} {crate.parts.count()}\n")
-	var filled = StringArray.filled(3, value: "f{7}")
-	filled[1] = "g{8}"
-	print("{filled[0]} {filled[1]} {filled[2]}\n")
-	print("{crate.take()}\n")
+	try 'run'
+		var crate = Crate.make("c{1}")
+		crate.add("bolt", weight: 3)
+		crate.add("nut{2}", weight: 4)
+		print("{crate.label} {crate.total()}\n")
+		let copied = crate.copy()
+		crate.add("washer", weight: 1)
+		print("{copied.total()} {crate.total()}\n")
+		let shape = Shape.whole(copied)
+		let other = Shape.pair("x{1}", right: "y{2}")
+		print("{describe(shape)} {describe(other)} {describe(Shape.none)}\n")
+		print("{early(0)} {early(1)} {early(3)} {early(9)}\n")
+		print("{choose("p{1}", second: "q{2}", pickFirst: true)} {choose("p{1}", second: "q{2}", pickFirst: false)}\n")
+		print("{reassign()}\n")
+		var popped = crate.parts.pop()
+		print("{popped.isSome()}\n")
+		let part = popped.unwrap()
+		print("{part.name} {part.weight}\n")
+		let removed = crate.parts.remove(0)
+		_ = crate.parts.remove(0)
+		print("{removed.name} {crate.parts.count()}\n")
+		var filled = StringArray.filled(3, value: "f{7}")
+		filled[1] = "g{8}"
+		print("{filled[0]} {filled[1]} {filled[2]}\n")
+		print("{crate.take()}\n")
+	end 'run' otherwise 'failed'
+		return 1
+	end 'failed'
 	return 0
 end 'main'
 

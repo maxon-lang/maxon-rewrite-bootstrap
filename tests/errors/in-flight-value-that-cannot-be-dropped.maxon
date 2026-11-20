@@ -1,0 +1,27 @@
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+end 'Txn'
+
+function finish(consumes t Txn, steps Count)
+	t.commit()
+end 'finish'
+
+function main() returns ExitCode
+	let big = 18446744073709551615 as Count
+	try 'work'
+		finish(Txn.begin(1), steps: big + 1)
+	end 'work' otherwise 'failed'
+		print("failed\n")
+	end 'failed'
+	return 0
+end 'main'
+
+// expect-error: E3136 at 20:19

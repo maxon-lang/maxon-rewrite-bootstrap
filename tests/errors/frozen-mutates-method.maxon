@@ -1,4 +1,4 @@
-// expect-error: E3125 at 32:8
+// expect-error: E3125 at 32:9
 typealias CountArray = array with Count
 
 type Doc
@@ -10,18 +10,18 @@ type Doc
 		return Doc{title: title, n: 1, words: CountArray.new()}
 	end 'make'
 
-	function grow(mutates self)
-		n = n + 1
-	end 'grow'
+	function reset(mutates self)
+		n = 0
+	end 'reset'
 
 	function peek() returns Count
 		return n
 	end 'peek'
 end 'Doc'
 
-function bump(mutates x Count)
-	x = x + 1
-end 'bump'
+function zero(mutates x Count)
+	x = 0
+end 'zero'
 
 function take(consumes d Doc)
 	let kept = d
@@ -29,6 +29,6 @@ end 'take'
 
 function main() returns ExitCode
 	let d = freeze(Doc.make("a"))
-	d.grow()
+	d.reset()
 	return 0
 end 'main'

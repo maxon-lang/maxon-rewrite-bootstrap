@@ -10,7 +10,7 @@ type Mark implements Scale
 	end 'create'
 
 	function doubled() returns Mark
-		return Mark{n: n * 2}
+		return Mark{n: n}
 	end 'doubled'
 end 'Mark'
 

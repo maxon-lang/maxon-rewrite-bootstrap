@@ -16,10 +16,9 @@ type Box uses T
 		item = next
 	end 'replace'
 
-	function bump(mutates self, by Score)
-		var next = by
-		next = next + 1
-	end 'bump'
+	function note(mutates self, value Score)
+		let seen = value
+	end 'note'
 end 'Box'
 
 union Slot uses T
@@ -46,11 +45,11 @@ function consume(consumes a T) uses T returns Score
 end 'consume'
 
 function grow(mutates b Box with T) uses T where T implements Copyable
-	b.bump(b.tag)
+	b.note(b.tag)
 end 'grow'
 
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3112 at 49:10
+// expect-error: E3112 at 48:10

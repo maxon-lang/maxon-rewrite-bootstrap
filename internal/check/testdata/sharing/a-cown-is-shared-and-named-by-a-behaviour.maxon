@@ -4,7 +4,7 @@ function main() returns ExitCode
 	let note = Doc.make("b")
 	let label = 3
 	when c as x 'run'
-		x.n = note.n + label
+		x.n = note.n if note.n > label else label
 		x.grow()
 	end 'run'
 	when other as y 'again'

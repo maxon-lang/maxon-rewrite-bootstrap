@@ -1,5 +1,5 @@
 function main() returns ExitCode
-	print("{alpha.runAlpha() + beta.runBeta()}\n")
+	print("{try alpha.runAlpha() + beta.runBeta() otherwise 0}\n")
 	return 0
 end 'main'
 

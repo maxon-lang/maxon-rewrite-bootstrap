@@ -1,0 +1,16 @@
+// The branches of a conditional give a Score and a wider range: with no type to give it, the conditional holds both.
+typealias Score = int(0 to 1000)
+
+function main() returns ExitCode
+	let a = 700 as Score
+	let b = 600 as Score
+	let big = a > b
+	let pick = a + b if big else a
+	print("{pick}\n")
+	let score = try pick as Score otherwise 1000
+	print("{score}\n")
+	return 0
+end 'main'
+
+//> 1300
+//> 1000

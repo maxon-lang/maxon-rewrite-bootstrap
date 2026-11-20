@@ -1,0 +1,11 @@
+typealias Digit = int(0 to 9)
+
+function digit(n Count) returns Digit
+	return n as Digit
+end 'digit'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3140 at 4:11

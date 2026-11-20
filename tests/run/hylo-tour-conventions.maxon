@@ -1,4 +1,6 @@
-typealias Number = int(i64.min to i64.max)
+typealias Number = int(-1000 to 1000)
+
+typealias Sum = int(-2000 to 2000)
 
 type Pair
 	export var first as Number
@@ -17,20 +19,20 @@ type Wrapper
 	end 'wrap'
 end 'Wrapper'
 
-function total(p Pair) returns Number
+function total(p Pair) returns Sum
 	return p.first + p.second
 end 'total'
 
-function double(mutates p Pair)
-	p.first = p.first * 2
-	p.second = p.second * 2
+function double(mutates p Pair) throws ArithmeticError
+	p.first = try p.first * 2
+	p.second = try p.second * 2
 end 'double'
 
 function replace(mutates p Pair, consumes other Pair)
 	p = other
 end 'replace'
 
-function consume(consumes p Pair) returns Number
+function consume(consumes p Pair) returns Sum
 	let wrapper = Wrapper.wrap(p)
 	return total(wrapper.pair)
 end 'consume'
@@ -50,7 +52,7 @@ end 'makeOrdered'
 function main() returns ExitCode
 	var pair = Pair.create(3, second: 4)
 	print("{total(pair)}\n")
-	double(pair)
+	try double(pair) otherwise return 1
 	print("{pair.first} {pair.second}\n")
 	replace(pair, other: Pair.create(7, second: 8))
 	print("{pair.first} {pair.second}\n")

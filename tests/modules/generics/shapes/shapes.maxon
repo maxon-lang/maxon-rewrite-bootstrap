@@ -1,15 +1,15 @@
 export type Square implements containers.Shape
-	export var side as containers.Score
+	export var side as containers.Length
 
-	export static function make(side containers.Score) returns Square
+	export static function make(side containers.Length) returns Square
 		return Square{side: side}
 	end 'make'
 
-	export function area() returns containers.Score
+	export function area() returns containers.Area
 		return side * side
 	end 'area'
 
-	function grow(mutates self, by containers.Score)
-		side = side + by
+	function grow(mutates self, by containers.Length) throws ArithmeticError
+		side = try side + by
 	end 'grow'
 end 'Square'

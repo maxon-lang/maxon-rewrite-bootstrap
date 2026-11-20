@@ -14,7 +14,7 @@ type Doc
 	end 'read'
 
 	function grow(mutates self)
-		n = n + 1
+		n = n + 1 if n < 1000 else n
 	end 'grow'
 
 	function finish(consumes self) returns Count
@@ -36,7 +36,7 @@ function glance(d Doc) returns Count
 end 'glance'
 
 function bump(mutates x Count)
-	x = x + 1
+	x = x + 1 if x < 1000 else x
 end 'bump'
 
 function keep(consumes d Doc)

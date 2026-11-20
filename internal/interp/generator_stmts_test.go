@@ -102,6 +102,7 @@ func (g *generator) stmt(depth int) {
 		{5, g.actPrint},
 		{6, g.actMove},
 		{4, g.actIf},
+		{3, g.actTry},
 		{3, g.actWhile},
 		{3, g.actFor},
 		{5, g.actMatch},
@@ -461,6 +462,28 @@ func (g *generator) actIf(depth int) bool {
 	g.line(kwEnd+" %s", label2)
 	stateB := g.moveState()
 	g.mergeMoves(stateA, stateB)
+	return true
+}
+
+// actTry writes a try block, whose body may hold bare arithmetic, and its handler. The handler starts wherever the body
+// failed, so it takes what the body moved as moved.
+func (g *generator) actTry(depth int) bool {
+	if depth <= 0 {
+		return false
+	}
+	label := g.label()
+	g.line(kwTry+" %s", label)
+	state := g.moveState()
+	g.tries++
+	g.nonEmptyBlock(3, depth-1)
+	g.tries--
+	body := g.moveState()
+	g.mergeMoves(state, body)
+	handler := g.label()
+	g.line(kwEnd+" %s "+kwOtherwise+" %s", label, handler)
+	g.nonEmptyBlock(2, depth-1)
+	g.line(kwEnd+" %s", handler)
+	g.mergeMoves(body, g.moveState())
 	return true
 }
 

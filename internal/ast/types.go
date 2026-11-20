@@ -18,7 +18,11 @@ type IntTy struct {
 	Max   I128
 }
 
-var Anonymous64 = &IntTy{Min: I64Min, Max: I64Max}
+// The anonymous types of the two words an integer operation computes in.
+var (
+	Anonymous64  = &IntTy{Min: I64Min, Max: I64Max}
+	AnonymousU64 = &IntTy{Min: Zero, Max: U64Max}
+)
 
 func (t *IntTy) Name() string {
 	if t.Alias != "" {

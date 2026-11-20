@@ -308,22 +308,6 @@ func (g *runtimeUnit) emitRuntime() {
 	a.MovImm(Rax, 0)
 	a.Bind(done)
 	g.epilogue()
-
-	panics := []struct {
-		symbol  ir.Rt
-		message string
-	}{
-		{ir.RtPanicRange, "integer value out of range"},
-		{ir.RtPanicOverflow, "integer overflow"},
-		{ir.RtPanicDiv, "division by zero"},
-		{ir.RtPanicShift, "negative shift count"},
-	}
-	for _, p := range panics {
-		u.DefineCode(p.symbol.String())
-		a.LeaData(Rax, data.String(p.message))
-		a.Push(Rax)
-		a.Call(g.rtPanic)
-	}
 }
 
 // countLive adds to the number of live boxes, keeping every register but rcx.

@@ -47,6 +47,12 @@ func (termination) VisitMatchStmt(t MatchStmt) bool {
 	return true
 }
 
+// VisitTryStmt: a failure in the body goes to the handler, or out of the function when there is none, so the statement
+// terminates when the body does and the handler, if there is one, does too.
+func (termination) VisitTryStmt(t TryStmt) bool {
+	return TerminatesBody(t.Body()) && (!t.HasOtherwise() || TerminatesBody(t.Handler()))
+}
+
 func (termination) VisitLetStmt(LetStmt) bool { return false }
 
 func (termination) VisitAssignStmt(AssignStmt) bool { return false }

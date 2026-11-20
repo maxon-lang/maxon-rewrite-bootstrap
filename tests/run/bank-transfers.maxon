@@ -9,15 +9,17 @@ end 'Account'
 function transfer(from cown with Account, dest cown with Account, amount Count)
 	when from, dest as f, t 'move'
 		if f.balance >= amount 'enough'
+			let credited = try t.balance + amount otherwise return
 			f.balance = f.balance - amount
-			t.balance = t.balance + amount
+			t.balance = credited
 		end 'enough'
 	end 'move'
 end 'transfer'
 
 function report(a cown with Account, b cown with Account, c cown with Account)
 	when a, b, c as x, y, z 'report'
-		print("a {x.balance} b {y.balance} c {z.balance} total {x.balance + y.balance + z.balance}\n")
+		let total = try x.balance + y.balance + z.balance otherwise return
+		print("a {x.balance} b {y.balance} c {z.balance} total {total}\n")
 	end 'report'
 end 'report'
 

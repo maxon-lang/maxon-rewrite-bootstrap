@@ -1,0 +1,9 @@
+function main() returns ExitCode
+	let c = 5 as Count
+	for i in -5 to 5 'each'
+		print("{c + i}\n")
+	end 'each'
+	return 0
+end 'main'
+
+// expect-error: E3005 at 4:13

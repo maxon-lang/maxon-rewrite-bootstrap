@@ -1,7 +1,7 @@
-function sumOf(items array with Count) returns Count
+function sumOf(items array with Count) returns Count throws ArithmeticError
 	var sum = 0 as Count
 	for i in 0 upto items.count() 'each'
-		sum = sum + items[i]
+		sum = try sum + items[i]
 	end 'each'
 	return sum
 end 'sumOf'

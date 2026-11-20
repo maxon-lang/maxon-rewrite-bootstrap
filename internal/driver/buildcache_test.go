@@ -404,7 +404,7 @@ func TestTwoModulesWithTheSameTextHaveEntriesOfTheirOwn(t *testing.T) {
 	const same = "export function f() returns Count\n\treturn 7\nend 'f'\n"
 	project := writeProject(t, map[string]string{
 		"main.maxon": `function main() returns ExitCode
-	print("{one.f() + two.f()}\n")
+	print("{try one.f() + two.f() otherwise 0}\n")
 	return 0
 end 'main'
 `,

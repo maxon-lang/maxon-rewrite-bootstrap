@@ -22,7 +22,7 @@ type Round implements Shape
 	end 'area'
 
 	function grow(mutates self, by Score)
-		r = r + by
+		r = by
 	end 'grow'
 end 'Round'
 

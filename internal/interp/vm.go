@@ -12,6 +12,7 @@ import (
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/ir"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -22,8 +23,6 @@ const (
 	// illegalInstructionExitCode is what a program that reaches a trap terminator exits with when compiled: the
 	// ud2 instruction raises STATUS_ILLEGAL_INSTRUCTION.
 	illegalInstructionExitCode = -1073741795
-	// integerOverflowExitCode is the exit code of the x64 division that overflows, STATUS_INTEGER_OVERFLOW.
-	integerOverflowExitCode = -1073741675
 	// stackOverflowExitCode is STATUS_STACK_OVERFLOW.
 	stackOverflowExitCode = -1073741571
 	maxCallDepth          = 100000
@@ -77,11 +76,13 @@ type timeoutSignal struct{}
 // window is a borrow that a call holds while the arguments after it are evaluated: the address or pointer is taken
 // when its argument is, and used when the call runs.
 type window struct {
-	call   *ir.Instr
-	frame  *frame
-	region region
-	at     site
-	taken  string
+	call *ir.Instr
+	// block is the block the call is in, and def the block of the instruction whose borrow the window holds.
+	block, def int
+	frame      *frame
+	region     region
+	at         site
+	taken      string
 }
 
 type vm struct {
@@ -114,7 +115,13 @@ type ending struct {
 // info is what a function's IR says before it runs: for each instruction, the calls that hold its result as an argument
 // while the arguments after it are evaluated.
 type info struct {
-	windowAt [][][]*ir.Instr
+	windowAt [][][]waitingCall
+}
+
+// waitingCall is a call that holds a borrow while its later arguments are evaluated, and the block it is in.
+type waitingCall struct {
+	call  *ir.Instr
+	block int
 }
 
 // Options say how a program runs. The scheduler of behaviours is random, and a seed makes one schedule: the same seed
@@ -190,12 +197,12 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 	if in, ok := vm.infos[fn]; ok {
 		return in
 	}
-	in := &info{windowAt: make([][][]*ir.Instr, len(fn.Blocks))}
+	in := &info{windowAt: make([][][]waitingCall, len(fn.Blocks))}
 	type position struct{ block, pc int }
 	defs := map[ir.V]position{}
 	for bi := range fn.Blocks {
 		instrs := fn.BlockInstrs(bi)
-		in.windowAt[bi] = make([][]*ir.Instr, len(instrs))
+		in.windowAt[bi] = make([][]waitingCall, len(instrs))
 		for pc, ins := range instrs {
 			if dst, ok := destination(ins); ok {
 				defs[dst] = position{bi, pc}
@@ -216,7 +223,7 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 					continue
 				}
 				if def, ok := defs[arg]; ok && borrowsStorage(fn.BlockInstrs(def.block)[def.pc]) {
-					in.windowAt[def.block][def.pc] = append(in.windowAt[def.block][def.pc], call)
+					in.windowAt[def.block][def.pc] = append(in.windowAt[def.block][def.pc], waitingCall{call: call, block: bi})
 				}
 			}
 		}
@@ -263,7 +270,9 @@ func destination(i ir.Instr) (ir.V, bool) {
 	panic(diag.Internal("interp: unhandled opcode %d", int(i.Op)))
 }
 
-func (vm *vm) call(fn *ir.IrFunction, args []value) value {
+// call runs a function, and gives its value and its error: 0 when it returned, and for a function that throws, the error's
+// case plus 1 when it failed.
+func (vm *vm) call(fn *ir.IrFunction, args []value) (value, int64) {
 	if vm.depth >= maxCallDepth {
 		vm.stderr = append(vm.stderr, "stack overflow\n"...)
 		panic(&exitSignal{code: stackOverflowExitCode})
@@ -286,15 +295,23 @@ func (vm *vm) call(fn *ir.IrFunction, args []value) value {
 	for {
 		fr.block = block
 		instrs := fn.BlockInstrs(block)
+		failed := false
 		for pc := range instrs {
 			ins := &instrs[pc]
 			fr.pc = pc
 			vm.tick()
-			vm.exec(fr, ins)
-			vm.runEndings()
-			for _, call := range in.windowAt[block][pc] {
-				vm.openWindow(fr, ins, call)
+			if vm.exec(fr, ins) {
+				block, failed = int(ins.C), true
+				vm.skipWindows(fr, block)
+				break
 			}
+			vm.runEndings()
+			for _, w := range in.windowAt[block][pc] {
+				vm.openWindow(fr, ins, w, block)
+			}
+		}
+		if failed {
+			continue
 		}
 		fr.pc = -1
 		vm.tick()
@@ -316,7 +333,12 @@ func (vm *vm) call(fn *ir.IrFunction, args []value) value {
 				}
 			}
 		case ir.TermRet:
-			return vm.ret(fr, t)
+			vm.endWindows(fr)
+			return vm.ret(fr, t), 0
+		case ir.TermThrow:
+			vm.endWindows(fr)
+			vm.requireSlotsDropped(fr)
+			return value{}, fr.regs[t.Value].n
 		case ir.TermTrap:
 			vm.stderr = append(vm.stderr, "trap\n"...)
 			panic(&exitSignal{code: illegalInstructionExitCode})
@@ -352,16 +374,21 @@ func (vm *vm) ret(fr *frame, t ir.Term) value {
 			vm.violate(Ownership, "the function returns %s, which %s still owns: a return moves its value", v.ref, v.ref.owner)
 		}
 	}
+	vm.requireSlotsDropped(fr)
+	return v
+}
+
+// requireSlotsDropped is a violation for each slot that still owns a value when its function returns or fails.
+func (vm *vm) requireSlotsDropped(fr *frame) {
 	for i := range fr.slots {
 		c := &fr.slots[i]
 		if o := c.v.ref; o != nil && !o.immortal && !o.freed && o.heldBy(c) {
 			vm.violate(Leak, "slot s%d still owns %s when the function returns: no drop frees it", i, o)
 		}
 	}
-	return v
 }
 
-func (vm *vm) openWindow(fr *frame, ins *ir.Instr, call *ir.Instr) {
+func (vm *vm) openWindow(fr *frame, ins *ir.Instr, waiting waitingCall, def int) {
 	dst, _ := destination(*ins)
 	v := fr.regs[dst]
 	var r region
@@ -373,7 +400,62 @@ func (vm *vm) openWindow(fr *frame, ins *ir.Instr, call *ir.Instr) {
 	default:
 		return
 	}
-	vm.windows = append(vm.windows, window{call: call, frame: fr, region: r, at: fr.site(), taken: fr.fn.InstrString(*ins)})
+	vm.windows = append(vm.windows, window{call: waiting.call, block: waiting.block, def: def, frame: fr, region: r, at: fr.site(), taken: fr.fn.InstrString(*ins)})
+}
+
+// skipWindows closes the windows of the calls that a failure, which goes to the block target, skips. A call that a path
+// from there reaches without computing its argument again, such as the one an 'otherwise' value is an argument of, still
+// runs and keeps its window; one that runs again only after its argument is computed again gets a new window then.
+func (vm *vm) skipWindows(fr *frame, target int) {
+	vm.windows = slices.DeleteFunc(vm.windows, func(w window) bool {
+		return w.frame == fr && !pathEnters(fr.fn, target, w.block, w.def)
+	})
+}
+
+// endWindows closes the windows of a frame that ends: a return or a failure out of it skips the calls still waiting.
+func (vm *vm) endWindows(fr *frame) {
+	vm.windows = slices.DeleteFunc(vm.windows, func(w window) bool { return w.frame == fr })
+}
+
+// pathEnters is whether a path from the block from enters the block to without entering the block avoid first.
+func pathEnters(fn *ir.IrFunction, from, to, avoid int) bool {
+	if from == to {
+		return true
+	}
+	reached := make([]bool, len(fn.Blocks))
+	work := []int{from}
+	reached[from] = true
+	visit := func(b int) {
+		if !reached[b] && b != avoid {
+			reached[b] = true
+			work = append(work, b)
+		}
+	}
+	for len(work) > 0 {
+		b := work[len(work)-1]
+		work = work[:len(work)-1]
+		for _, in := range fn.BlockInstrs(b) {
+			if fail, ok := in.Fail(); ok {
+				visit(int(fail))
+			}
+		}
+		switch t := fn.Blocks[b].Term; t.Kind {
+		case ir.TermJump:
+			visit(int(t.Then))
+		case ir.TermBranch:
+			visit(int(t.Then))
+			visit(int(t.Else))
+		case ir.TermSwitch:
+			for _, c := range fn.Cases[t.First : t.First+t.Count] {
+				visit(int(c.Target))
+			}
+			visit(int(t.Then))
+		case ir.TermRet, ir.TermTrap, ir.TermThrow:
+		default:
+			panic(diag.Internal("interp: block b%d of %s has no terminator", b, fn.Symbol()))
+		}
+	}
+	return reached[to]
 }
 
 func (vm *vm) closeWindows(fr *frame, call *ir.Instr) {

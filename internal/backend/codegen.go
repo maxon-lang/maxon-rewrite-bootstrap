@@ -6,6 +6,10 @@ import (
 	"minimaxon/internal/ir"
 )
 
+// errorReg is where a function that throws returns its error: 0 when it returned, and the error's case plus 1 when it
+// failed.
+const errorReg = Rdx
+
 const (
 	pageSize        = 4096
 	frameAlignment  = 16
@@ -26,15 +30,11 @@ const (
 )
 
 type codegen struct {
-	u             *CodeUnit
-	asm           *Asm
-	rtAlloc       *Label
-	panicRange    *Label
-	panicOverflow *Label
-	panicDiv      *Label
-	panicShift    *Label
-	f             *ir.IrFunction
-	labels        []Label
+	u       *CodeUnit
+	asm     *Asm
+	rtAlloc *Label
+	f       *ir.IrFunction
+	labels  []Label
 }
 
 func EmitModule(fns []*ir.IrFunction) *CodeUnit {
@@ -54,39 +54,20 @@ func EmitModule(fns []*ir.IrFunction) *CodeUnit {
 	u.Asm.DataFixups = make([]DataFixup, 0, data)
 	u.Sections = make([]Section, 0, len(fns))
 	u.CodeSymbols = make([]SymbolDef, 0, len(fns))
-	g := &codegen{
-		u:             u,
-		asm:           u.Asm,
-		rtAlloc:       ExternLabel(ir.RtAlloc.String()),
-		panicRange:    ExternLabel(ir.RtPanicRange.String()),
-		panicOverflow: ExternLabel(ir.RtPanicOverflow.String()),
-		panicDiv:      ExternLabel(ir.RtPanicDiv.String()),
-		panicShift:    ExternLabel(ir.RtPanicShift.String()),
-	}
+	g := &codegen{u: u, asm: u.Asm, rtAlloc: ExternLabel(ir.RtAlloc.String())}
 	for _, f := range fns {
 		g.function(f)
 	}
 	return u
 }
 
-// symbolFixups is how many references to a symbol the code of an instruction holds: a call, a global, or a jump to a
-// trap that the runtime defines. The unit's fixups are sized from it, and from the strings it loads, because a slice grown
-// by appending allocates several times its final size.
+// symbolFixups is how many references to a symbol the code of an instruction holds: a call, a global, or a routine. The
+// unit's fixups are sized from it, and from the strings it loads, because a slice grown by appending allocates several
+// times its final size.
 func symbolFixups(in ir.Instr) int {
 	switch in.Op {
-	case ir.OpLoadGlobal, ir.OpCall, ir.OpCallRuntime, ir.OpAlloc, ir.OpDrop, ir.OpDropSlot, ir.OpDropAt, ir.OpCopy,
-		ir.OpNeg, ir.OpGuard:
+	case ir.OpLoadGlobal, ir.OpCall, ir.OpCallRuntime, ir.OpAlloc, ir.OpDrop, ir.OpDropSlot, ir.OpDropAt, ir.OpCopy:
 		return 1
-	case ir.OpBin:
-		switch in.BinOp() {
-		case ir.BinAdd, ir.BinSub, ir.BinMul:
-			if in.Has(ir.FlagChecked) {
-				return 1
-			}
-			return 0
-		case ir.BinDiv, ir.BinMod, ir.BinShl, ir.BinShr:
-			return 1
-		}
 	}
 	return 0
 }
@@ -294,7 +275,9 @@ func (g *codegen) instr(x ir.Instr) {
 	case ir.OpNeg:
 		g.get(Rax, x.A)
 		a.Neg(Rax)
-		a.Jcc(CcO, g.panicOverflow)
+		if fail, ok := x.Fail(); ok {
+			a.Jcc(CcO, &g.labels[fail])
+		}
 		g.put(x.Dst, Rax)
 	case ir.OpNot:
 		g.get(Rax, x.A)
@@ -310,6 +293,9 @@ func (g *codegen) instr(x ir.Instr) {
 		g.put(x.Dst, Rax)
 	case ir.OpCall:
 		g.call(functionSymbol(g.f.Callee(x)), g.f.CallArgs(x), x.Dst)
+		if x.Has(ir.FlagThrows) {
+			g.put(x.ErrorReg(), errorReg)
+		}
 	case ir.OpCallRuntime:
 		g.call(x.Symbol().String(), g.f.CallArgs(x), x.Dst)
 	case ir.OpWhen:
@@ -349,42 +335,30 @@ func (g *codegen) condition(c ir.Instr) Cc {
 	panic(diag.Internal("codegen: comparison %d", int(c.Sub)))
 }
 
+// binary computes an operation on rax and rcx into rax. A checked one jumps to its failure block when the result does not
+// fit: the carry flag says so for an unsigned word and the overflow flag for a signed one.
 func (g *codegen) binary(b ir.Instr) {
 	a := g.asm
 	unsigned := b.Has(ir.FlagUnsigned)
-	checked := b.Has(ir.FlagChecked)
+	overflow := CcO
+	if unsigned {
+		overflow = CcB
+	}
+	fail, checked := b.Fail()
 	switch b.BinOp() {
 	case ir.BinAdd:
 		a.Add(Rax, Rcx)
-		g.overflow(unsigned, checked)
 	case ir.BinSub:
 		a.Sub(Rax, Rcx)
-		g.overflow(unsigned, checked)
 	case ir.BinMul:
 		if unsigned {
 			a.MulRax(Rcx)
-			if checked {
-				a.Jcc(CcB, g.panicOverflow)
-			}
 		} else {
 			a.Imul(Rax, Rcx)
-			if checked {
-				a.Jcc(CcO, g.panicOverflow)
-			}
 		}
 	case ir.BinDiv, ir.BinMod:
-		a.Test(Rcx, Rcx)
-		a.Jcc(CcE, g.panicDiv)
-		if unsigned {
-			a.Xor(Rdx, Rdx)
-			a.Div(Rcx)
-		} else {
-			a.Cqo()
-			a.Idiv(Rcx)
-		}
-		if b.BinOp() == ir.BinMod {
-			a.Mov(Rax, Rdx)
-		}
+		g.divide(b.BinOp() == ir.BinMod, unsigned, fail, checked)
+		return
 	case ir.BinAnd:
 		a.And(Rax, Rcx)
 	case ir.BinOr:
@@ -392,40 +366,87 @@ func (g *codegen) binary(b ir.Instr) {
 	case ir.BinXor:
 		a.Xor(Rax, Rcx)
 	case ir.BinShl, ir.BinShr:
-		g.shift(b.BinOp() == ir.BinShl, unsigned)
+		g.shift(b.BinOp() == ir.BinShl, unsigned, fail, checked)
+		return
 	default:
 		panic(diag.Internal("codegen: operator %d", int(b.Sub)))
 	}
+	if checked {
+		a.Jcc(overflow, &g.labels[fail])
+	}
 }
 
-func (g *codegen) overflow(unsigned, checked bool) {
-	if !checked {
+// divide divides rax by rcx, which a guard or the range analysis has found is not 0, into rax: the quotient, or the
+// remainder when mod is set. A signed division by -1 is the one that the processor faults on, for i64.min: the quotient is
+// then the failure of a checked division, and the remainder is 0.
+func (g *codegen) divide(mod, unsigned bool, fail ir.BlockID, checked bool) {
+	a := g.asm
+	if unsigned {
+		a.Xor(Rdx, Rdx)
+		a.Div(Rcx)
+		if mod {
+			a.Mov(Rax, Rdx)
+		}
 		return
 	}
-	if unsigned {
-		g.asm.Jcc(CcB, g.panicOverflow)
+	divide := NewLabel()
+	done := NewLabel()
+	a.CmpImm(Rcx, -1)
+	a.Jcc(CcNE, divide)
+	if mod {
+		a.Xor(Rax, Rax)
 	} else {
-		g.asm.Jcc(CcO, g.panicOverflow)
+		a.Neg(Rax)
+		if checked {
+			a.Jcc(CcO, &g.labels[fail])
+		}
 	}
+	a.Jmp(done)
+	a.Bind(divide)
+	a.Cqo()
+	a.Idiv(Rcx)
+	if mod {
+		a.Mov(Rax, Rdx)
+	}
+	a.Bind(done)
 }
 
-func (g *codegen) shift(left, unsigned bool) {
+// shift shifts rax by rcx, which a guard or the range analysis has found is not negative. A checked left shift goes to its
+// failure block when a bit that is not 0, or the sign, leaves the word: shifting the result back must give the value.
+func (g *codegen) shift(left, unsigned bool, fail ir.BlockID, checked bool) {
 	a := g.asm
 	big := NewLabel()
 	done := NewLabel()
-	a.CmpImm(Rcx, 0)
-	a.Jcc(CcL, g.panicShift)
+	checkLeft := left && checked
+	if checkLeft {
+		a.Mov(Rdx, Rax)
+	}
 	a.CmpImm(Rcx, shiftBitCount)
 	a.Jcc(CcGE, big)
-	if left {
+	switch {
+	case left:
 		a.ShlCl(Rax)
-	} else if unsigned {
+		if checkLeft {
+			a.Mov(R8, Rax)
+			if unsigned {
+				a.ShrCl(R8)
+			} else {
+				a.SarCl(R8)
+			}
+			a.Cmp(R8, Rdx)
+			a.Jcc(CcNE, &g.labels[fail])
+		}
+	case unsigned:
 		a.ShrCl(Rax)
-	} else {
+	default:
 		a.SarCl(Rax)
 	}
 	a.Jmp(done)
 	a.Bind(big)
+	if checkLeft {
+		a.Test(Rdx, Rdx)
+		a.Jcc(CcNE, &g.labels[fail])
+	}
 	if !left && !unsigned {
 		a.SarImm(Rax, signBitShift)
 	} else {
@@ -434,12 +455,19 @@ func (g *codegen) shift(left, unsigned bool) {
 	a.Bind(done)
 }
 
+// guard jumps to the guard's failure block unless the value is in its range.
 func (g *codegen) guard(x ir.Instr) {
 	a := g.asm
+	fail, _ := x.Fail()
 	g.get(Rax, x.A)
-	if x.GuardKind() == ir.GuardNonNegative {
+	switch x.GuardKind() {
+	case ir.GuardNonNegative:
 		a.Test(Rax, Rax)
-		a.Jcc(CcS, g.panicRange)
+		a.Jcc(CcS, &g.labels[fail])
+		return
+	case ir.GuardNonZero:
+		a.Test(Rax, Rax)
+		a.Jcc(CcE, &g.labels[fail])
 		return
 	}
 	a.MovImm(Rcx, x.Imm)
@@ -457,7 +485,7 @@ func (g *codegen) guard(x ir.Instr) {
 	default:
 		panic(diag.Internal("codegen: guard %d", int(x.Sub)))
 	}
-	a.Jcc(cc, g.panicRange)
+	a.Jcc(cc, &g.labels[fail])
 }
 
 func (g *codegen) term(t ir.Term, next ir.BlockID) {
@@ -480,6 +508,15 @@ func (g *codegen) term(t ir.Term, next ir.BlockID) {
 		g.jumpUnlessNext(t.Then, next)
 	case ir.TermRet:
 		g.get(Rax, t.Value)
+		if g.f.Decl.ErrorType != nil {
+			a.Xor(errorReg, errorReg)
+		}
+		a.Mov(Rsp, Rbp)
+		a.Pop(Rbp)
+		a.Ret()
+	case ir.TermThrow:
+		g.get(errorReg, t.Value)
+		a.Xor(Rax, Rax)
 		a.Mov(Rsp, Rbp)
 		a.Pop(Rbp)
 		a.Ret()

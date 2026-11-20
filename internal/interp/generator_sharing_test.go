@@ -307,6 +307,8 @@ func (g *generator) actWhen(depth int) bool {
 	}
 	g.ret, g.loop, g.budget = nil, 0, 2+g.pick(4)
 	g.behaviours++
+	outerTries := g.tries
+	g.tries = 0
 	g.indent++
 	g.push()
 	for i, o := range operands {
@@ -323,6 +325,7 @@ func (g *generator) actWhen(depth int) bool {
 	g.pop()
 	g.indent--
 	g.behaviours--
+	g.tries = outerTries
 	g.scopes, g.ret, g.loop, g.budget, g.guards = savedScopes, savedRet, savedLoop, savedBudget, savedGuards
 	g.line(kwEnd+" %s", label)
 

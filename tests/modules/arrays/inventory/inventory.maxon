@@ -20,10 +20,10 @@ export type Shelf
 		items.append(item)
 	end 'add'
 
-	export function total() returns Count
+	export function total() returns Count throws ArithmeticError
 		var sum = 0 as Count
 		for i in 0 upto items.count() 'each'
-			sum = sum + items[i].weight
+			sum = try sum + items[i].weight
 		end 'each'
 		return sum
 	end 'total'

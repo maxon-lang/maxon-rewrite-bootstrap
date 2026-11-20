@@ -1,6 +1,6 @@
-typealias Score = int(i64.min to i64.max)
+typealias Score = int(0 to 10000)
 
-function twice(n Score) returns Score
+function twice(n Score) returns Count
 	return n * 2
 end 'twice'
 
@@ -9,7 +9,7 @@ function main() returns ExitCode
 	let side = 7 as geometry.Length
 	print("area {a} side {side} perimeter {perimeter(2, height: 5)}\n")
 	var p = geometry.Point.create(1, y: 2)
-	p.shift(10)
+	try p.shift(10) otherwise return 1
 	print("point {p.x} {p.y} {p.describe()}\n")
 	let c = geometry.Corner.topLeft
 	print("corner {c} {twice(geometry.units.scale(3) as Score)}\n")

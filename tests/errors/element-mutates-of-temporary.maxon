@@ -10,7 +10,7 @@ type Cell
 end 'Cell'
 
 function touch(mutates c Cell)
-	c.n = c.n + 1
+	c.n = 1
 end 'touch'
 
 function make() returns array with Cell

@@ -291,21 +291,13 @@ func checkBodies(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
 	res.Callers = append(res.Callers, checker.Callers...)
 }
 
-// verifyModule checks the calls and type arguments that checkBodies recorded, then ownership, which only runs on a
-// module that has no error yet.
-func verifyModule(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
+// verifyModule checks the calls and type arguments that checkBodies recorded, then follows the values of the module
+// (check.VerifyFlow).
+func verifyModule(proj *ast.Project, m *ast.Module, res *ast.ModuleResult, flow *check.FlowScratch) {
 	verifier := check.NewChecker(proj, m, &res.Resolution, &res.Typing, &res.Errors)
 	verifier.Verify(res.Pending)
 	verifier.VerifyBounds(res.Bounds)
-	if len(res.Errors) == 0 {
-		ownership := check.NewOwnership(&res.Errors, verifier)
-		for _, d := range m.Decls {
-			ownership.CheckValues(d)
-		}
-		for _, f := range res.Functions {
-			ownership.Check(f)
-		}
-	}
+	verifier.VerifyFlow(m.Decls, res.Functions, flow)
 }
 
 // collectErrors gathers the errors of the compile so far, sorted, or nil if there are none. A pass that fuses two
@@ -527,6 +519,14 @@ func (r constRefs) VisitBinaryExpr(e ast.BinaryExpr, into constList) constList {
 
 func (r constRefs) VisitUnaryExpr(e ast.UnaryExpr, into constList) constList {
 	return r.of(e.E(), into)
+}
+
+func (r constRefs) VisitTryExpr(e ast.TryExpr, into constList) constList {
+	into = r.of(e.E(), into)
+	if !e.Value().IsNil() {
+		into = r.of(e.Value(), into)
+	}
+	return into
 }
 
 func (r constRefs) VisitCondExpr(e ast.CondExpr, into constList) constList {

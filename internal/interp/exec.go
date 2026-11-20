@@ -10,12 +10,8 @@ import (
 )
 
 const (
-	integerOverflowMessage = "integer overflow"
-	rangeMessage           = "integer value out of range"
-	divisionMessage        = "division by zero"
-	shiftMessage           = "negative shift count"
-	wordBits               = 64
-	signShift              = 63
+	wordBits  = 64
+	signShift = 63
 )
 
 // trap is a panic of the program: the compiled code writes the message to standard error and exits with 1.
@@ -26,7 +22,8 @@ func (vm *vm) trap(message string) {
 	panic(&exitSignal{code: panicExitCode})
 }
 
-func (vm *vm) exec(fr *frame, x *ir.Instr) {
+// exec runs an instruction, and gives whether its check failed, which sends the code to the instruction's failure block.
+func (vm *vm) exec(fr *frame, x *ir.Instr) (failed bool) {
 	switch x.Op {
 	case ir.OpConst:
 		fr.regs[x.Dst] = value{n: x.Imm}
@@ -71,19 +68,23 @@ func (vm *vm) exec(fr *frame, x *ir.Instr) {
 	case ir.OpLoadGlobal:
 		fr.regs[x.Dst] = value{n: vm.global(x.Symbol())}
 	case ir.OpBin:
-		fr.regs[x.Dst] = value{n: vm.binary(*x, fr.regs[x.A].n, fr.regs[x.B].n)}
+		n, fits := vm.binary(*x, fr.regs[x.A].n, fr.regs[x.B].n)
+		if !fits {
+			return true
+		}
+		fr.regs[x.Dst] = value{n: n}
 	case ir.OpCmp:
 		fr.regs[x.Dst] = value{n: compare(*x, fr.regs[x.A].n, fr.regs[x.B].n)}
 	case ir.OpNeg:
 		a := fr.regs[x.A].n
-		if a == math.MinInt64 {
-			vm.trap(integerOverflowMessage)
+		if a == math.MinInt64 && x.Has(ir.FlagChecked) {
+			return true
 		}
 		fr.regs[x.Dst] = value{n: -a}
 	case ir.OpNot:
 		fr.regs[x.Dst] = value{n: ^fr.regs[x.A].n}
 	case ir.OpGuard:
-		vm.guard(*x, fr.regs[x.A].n)
+		return !inRange(*x, fr.regs[x.A].n)
 	case ir.OpAlloc:
 		fr.regs[x.Dst] = value{ref: vm.newBox(max(int(x.Imm)/wordBytes, 1))}
 	case ir.OpCall:
@@ -113,6 +114,7 @@ func (vm *vm) exec(fr *frame, x *ir.Instr) {
 	default:
 		panic(diag.Internal("interp: unhandled opcode %d", int(x.Op)))
 	}
+	return false
 }
 
 func (vm *vm) global(symbol ir.Rt) int64 {
@@ -211,9 +213,12 @@ func (vm *vm) execCall(fr *frame, c *ir.Instr) {
 	}
 	vm.requireDisjoint(target, args)
 	vm.closeWindows(fr, c)
-	result := vm.call(callee, args)
+	result, err := vm.call(callee, args)
 	if c.Dst != ir.NoReg {
 		fr.regs[c.Dst] = result
+	}
+	if c.Has(ir.FlagThrows) {
+		fr.regs[c.ErrorReg()] = value{n: err}
 	}
 }
 
@@ -289,70 +294,72 @@ func compare(c ir.Instr, a, b int64) int64 {
 	return 0
 }
 
-func (vm *vm) binary(b ir.Instr, x, y int64) int64 {
+// binary computes an operation in a word, and gives whether the result fits it, which only a checked operation asks.
+// The range analysis proved that an operation without a check fits, and a guard before it rules out a divisor of 0 and a
+// negative shift count, so finding one is a compiler bug.
+func (vm *vm) binary(b ir.Instr, x, y int64) (int64, bool) {
 	unsigned, checked := b.Has(ir.FlagUnsigned), b.Has(ir.FlagChecked)
 	switch b.BinOp() {
 	case ir.BinAdd:
 		r := x + y
-		if checked {
-			if unsigned && uint64(r) < uint64(x) || !unsigned && (x^r)&(y^r) < 0 {
-				vm.trap(integerOverflowMessage)
-			}
-		}
-		return r
+		return r, !checked || !(unsigned && uint64(r) < uint64(x) || !unsigned && (x^r)&(y^r) < 0)
 	case ir.BinSub:
 		r := x - y
-		if checked {
-			if unsigned && uint64(x) < uint64(y) || !unsigned && (x^y)&(x^r) < 0 {
-				vm.trap(integerOverflowMessage)
-			}
-		}
-		return r
+		return r, !checked || !(unsigned && uint64(x) < uint64(y) || !unsigned && (x^y)&(x^r) < 0)
 	case ir.BinMul:
 		r := x * y
-		if checked {
-			if unsigned {
-				if hi, _ := bits.Mul64(uint64(x), uint64(y)); hi != 0 {
-					vm.trap(integerOverflowMessage)
-				}
-			} else if x != 0 && (r/x != y || x == -1 && y == math.MinInt64) {
-				vm.trap(integerOverflowMessage)
-			}
+		if !checked {
+			return r, true
 		}
-		return r
+		if unsigned {
+			hi, _ := bits.Mul64(uint64(x), uint64(y))
+			return r, hi == 0
+		}
+		return r, x == 0 || (r/x == y && !(x == -1 && y == math.MinInt64))
 	case ir.BinDiv, ir.BinMod:
 		if y == 0 {
-			vm.trap(divisionMessage)
+			panic(diag.Internal("interp: a division by 0 that no guard checked"))
 		}
 		if unsigned {
 			if b.BinOp() == ir.BinDiv {
-				return int64(uint64(x) / uint64(y))
+				return int64(uint64(x) / uint64(y)), true
 			}
-			return int64(uint64(x) % uint64(y))
+			return int64(uint64(x) % uint64(y)), true
+		}
+		if b.BinOp() == ir.BinMod {
+			return x % y, true
 		}
 		if x == math.MinInt64 && y == -1 {
-			vm.stderr = append(vm.stderr, "integer overflow in a division\n"...)
-			panic(&exitSignal{code: integerOverflowExitCode})
+			if !checked {
+				panic(diag.Internal("interp: i64.min / -1 in a division that is not checked"))
+			}
+			return 0, false
 		}
-		if b.BinOp() == ir.BinDiv {
-			return x / y
-		}
-		return x % y
+		return x / y, true
 	case ir.BinAnd:
-		return x & y
+		return x & y, true
 	case ir.BinOr:
-		return x | y
+		return x | y, true
 	case ir.BinXor:
-		return x ^ y
-	case ir.BinShl, ir.BinShr:
-		return vm.shift(b.BinOp() == ir.BinShl, unsigned, x, y)
+		return x ^ y, true
+	case ir.BinShr:
+		return shift(false, unsigned, x, y), true
+	case ir.BinShl:
+		r := shift(true, unsigned, x, y)
+		if !checked {
+			return r, true
+		}
+		if y >= wordBits {
+			return r, x == 0
+		}
+		return r, shift(false, unsigned, r, y) == x
 	}
 	panic(diag.Internal("interp: operator %d", int(b.Sub)))
 }
 
-func (vm *vm) shift(left, unsigned bool, x, count int64) int64 {
+func shift(left, unsigned bool, x, count int64) int64 {
 	if count < 0 {
-		vm.trap(shiftMessage)
+		panic(diag.Internal("interp: a negative shift count that no guard checked"))
 	}
 	switch {
 	case left && count >= wordBits:
@@ -369,23 +376,21 @@ func (vm *vm) shift(left, unsigned bool, x, count int64) int64 {
 	return x >> uint(count)
 }
 
-func (vm *vm) guard(g ir.Instr, v int64) {
-	var bad bool
+// inRange is whether a value passes a guard.
+func inRange(g ir.Instr, v int64) bool {
 	switch g.GuardKind() {
 	case ir.GuardNonNegative:
-		bad = v < 0
+		return v >= 0
 	case ir.GuardSignedAtLeast:
-		bad = v < g.Imm
+		return v >= g.Imm
 	case ir.GuardSignedAtMost:
-		bad = v > g.Imm
+		return v <= g.Imm
 	case ir.GuardUnsignedAtLeast:
-		bad = uint64(v) < uint64(g.Imm)
+		return uint64(v) >= uint64(g.Imm)
 	case ir.GuardUnsignedAtMost:
-		bad = uint64(v) > uint64(g.Imm)
-	default:
-		panic(diag.Internal("interp: guard %d", int(g.Sub)))
+		return uint64(v) <= uint64(g.Imm)
+	case ir.GuardNonZero:
+		return v != 0
 	}
-	if bad {
-		vm.trap(rangeMessage)
-	}
+	panic(diag.Internal("interp: guard %d", int(g.Sub)))
 }

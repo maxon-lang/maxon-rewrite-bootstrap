@@ -1,16 +1,18 @@
-typealias Number = int(i64.min to i64.max)
+typealias Number = int(-1000 to 1000)
+
+typealias Dot = int(-2000000 to 2000000)
 
 type Vector2
 	export var x as Number
 	export var y as Number
 
-	function dot(other Vector2) returns Number
+	function dot(other Vector2) returns Dot
 		return x * other.x + y * other.y
 	end 'dot'
 
-	function scale(mutates self, by Number)
-		x = x * by
-		y = y * by
+	function scale(mutates self, by Number) throws ArithmeticError
+		x = try x * by
+		y = try y * by
 	end 'scale'
 
 	function describe() returns String
@@ -31,7 +33,7 @@ end 'swap'
 function main() returns ExitCode
 	var a = Vector2.create(1, y: 2)
 	var b = a.copy()
-	b.scale(10)
+	try b.scale(10) otherwise return 1
 	print("{a.describe()} {b.describe()} {a.dot(b)}\n")
 	var left = 1 as Number
 	var right = 2 as Number

@@ -103,3 +103,39 @@ func FromBig(v *big.Int) (I128, bool) {
 }
 
 func (a I128) String() string { return a.Big().String() }
+
+// saturation is where MulWide stops: past every value a word holds, and far enough inside the range of an I128 that a sum
+// of two saturated values still fits.
+var saturation = I128{Hi: 1 << 62}
+
+// magnitude is |a| for a whose magnitude is below 2^64, which every value a word holds is.
+func (a I128) magnitude() uint64 {
+	if a.IsNeg() {
+		return a.Neg().Lo
+	}
+	return a.Lo
+}
+
+// withSign is the magnitude made negative when neg is set.
+func withSign(m I128, neg bool) I128 {
+	if neg {
+		return m.Neg()
+	}
+	return m
+}
+
+// MulWide is a * b for two values a word holds, saturated at ±2^126.
+func MulWide(a, b I128) I128 {
+	hi, lo := bits.Mul64(a.magnitude(), b.magnitude())
+	m := I128{Hi: int64(hi), Lo: lo}
+	if hi >= uint64(saturation.Hi) {
+		m = saturation
+	}
+	return withSign(m, a.IsNeg() != b.IsNeg())
+}
+
+// QuoTrunc is a / b rounded toward zero, as a division of integers computes it, for two values a word holds and a b
+// that is not 0.
+func QuoTrunc(a, b I128) I128 {
+	return withSign(U64(a.magnitude()/b.magnitude()), a.IsNeg() != b.IsNeg())
+}

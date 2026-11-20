@@ -120,6 +120,7 @@ func placeText(e ast.Expr) string {
 // pathOf is the place an expression names, with its steps appended to buf, or false for an expression that
 // computes a fresh value. A bare field name selects from the receiver of the function being checked.
 func (o *Ownership) pathOf(e ast.Expr, buf []pathStep) (accessPath, bool) {
+	e = ast.Through(e)
 	switch e.Kind() {
 	case ast.KindNameExpr:
 		e := e.ToNameExpr()
@@ -159,6 +160,7 @@ func (o *Ownership) pathOf(e ast.Expr, buf []pathStep) (accessPath, bool) {
 
 // projectsElement is whether a place is, or lies inside, an element of a primitive, which only the primitive owns.
 func (o *Ownership) projectsElement(e ast.Expr) bool {
+	e = ast.Through(e)
 	switch e.Kind() {
 	case ast.KindIndexExpr:
 		return true

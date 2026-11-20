@@ -1,0 +1,11 @@
+typealias Score = int(i64.min to i64.max)
+
+function scale(n Score, by Score) returns Score
+	return n shr by
+end 'scale'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3140 at 4:11

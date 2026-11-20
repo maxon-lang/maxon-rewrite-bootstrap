@@ -1,0 +1,136 @@
+typealias Score = int(i64.min to i64.max)
+
+typealias Small = int(0 to 10)
+
+function quotient(a Score, b Score) returns Score
+	return try a / b otherwise -1
+end 'quotient'
+
+function firstFailure(values array with Score) returns Count
+	var i = 0 as Count
+	while i < values.count() 'scan'
+		let v = try values[i] * values[i] otherwise return i
+		print("square {v}\n")
+		i = i + 1
+	end 'scan'
+	return values.count()
+end 'firstFailure'
+
+function skipFailures(values array with Score) returns Score
+	var total = 0 as Score
+	for i in 0 upto values.count() 'each'
+		let v = try 100 / values[i] otherwise continue
+		total = try total + v otherwise break
+	end 'each'
+	return total
+end 'skipFailures'
+
+function mean(total Score, n Score) returns Score throws ArithmeticError
+	return try total / n
+end 'mean'
+
+function meanOfTwo(a Score, b Score, n Score) returns Score throws ArithmeticError
+	try 'sum'
+		let sum = a + b
+		return mean(sum, n: n)
+	end 'sum'
+end 'meanOfTwo'
+
+function describe(e ArithmeticError) returns String
+	return match e 'why'
+		overflow gives "overflow"
+		divisionByZero gives "division by zero"
+		negativeShift gives "negative shift"
+	end 'why'
+end 'describe'
+
+function main() returns ExitCode
+	print("{quotient(7, b: 2)} {quotient(7, b: 0)}\n")
+	var values = array.filled(3 as Count, value: 5 as Score)
+	values[1] = 9223372036854775807
+	print("first failure {firstFailure(values)}\n")
+	values[1] = 0
+	print("skipped {skipFailures(values)}\n")
+	print("mean {try meanOfTwo(3, b: 5, n: 2) otherwise 0}\n")
+	print("mean {try meanOfTwo(3, b: 5, n: 0) otherwise -7}\n")
+	print("mean {try meanOfTwo(9223372036854775807, b: 1, n: 2) otherwise -8}\n")
+	let big = 9223372036854775807 as Score
+	let zero = 0 as Score
+	let lowest = -9223372036854775807 as Score - 1
+	let shift = -1 as Score
+	var small = 9 as Small
+	try 'cases'
+		print("{big + 1}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("add: {describe(e)}\n")
+	end 'failed'
+	try 'cases'
+		print("{lowest - 1}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("subtract: {describe(e)}\n")
+	end 'failed'
+	try 'cases'
+		print("{big * 2}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("multiply: {describe(e)}\n")
+	end 'failed'
+	try 'cases'
+		print("{-lowest}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("negate: {describe(e)}\n")
+	end 'failed'
+	try 'cases'
+		print("{big / zero}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("divide: {describe(e)}\n")
+	end 'failed'
+	try 'cases'
+		print("{big mod zero}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("mod: {describe(e)}\n")
+	end 'failed'
+	try 'cases'
+		print("{lowest / shift}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("i64.min / -1: {describe(e)}\n")
+	end 'failed'
+	print("i64.min mod -1: {lowest mod shift}\n")
+	try 'cases'
+		print("{big shl shift}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("shift: {describe(e)}\n")
+	end 'failed'
+	try 'cases'
+		print("{big as Count as Small}\n")
+	end 'cases' otherwise (e) 'failed'
+		print("cast: {describe(e)}\n")
+	end 'failed'
+	try 'cases'
+		small = small + 1
+		small = small + 1
+	end 'cases' otherwise 'failed'
+		print("range: small stays {small}\n")
+	end 'failed'
+	print("panics {try big + 1 otherwise panic("big + 1 overflows")}\n")
+	return 0
+end 'main'
+
+//> 3 -1
+//> square 25
+//> first failure 1
+//> skipped 40
+//> mean 4
+//> mean -7
+//> mean -8
+//> add: overflow
+//> subtract: overflow
+//> multiply: overflow
+//> negate: overflow
+//> divide: division by zero
+//> mod: division by zero
+//> i64.min / -1: overflow
+//> i64.min mod -1: 0
+//> shift: negative shift
+//> cast: overflow
+//> range: small stays 10
+// expect-exit: 1

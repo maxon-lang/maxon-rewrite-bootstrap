@@ -4,8 +4,8 @@ type Point
 	export var x as Score
 	export var y as Score
 
-	function add(mutates self, amount Score)
-		x = x + amount
+	function add(mutates self, amount Score) throws ArithmeticError
+		x = try x + amount
 	end 'add'
 
 	static function create(x Score, y Score) returns Point
@@ -22,8 +22,8 @@ type Segment
 	end 'create'
 end 'Segment'
 
-function bump(mutates n Score, by Score)
-	n = n + by
+function bump(mutates n Score, by Score) throws ArithmeticError
+	n = try n + by
 end 'bump'
 
 function swap(mutates a Score, mutates b Score)
@@ -38,11 +38,11 @@ function main() returns ExitCode
 	print("{p.x} {p.y}\n")
 	var s = Segment.create(Point.create(1, y: 1), finish: Point.create(5, y: 5))
 	swap(s.start.x, b: s.finish.x)
-	bump(s.start.y, by: s.finish.y.copy())
+	try bump(s.start.y, by: s.finish.y.copy()) otherwise return 1
 	print("{s.start.x} {s.start.y} {s.finish.x} {s.finish.y}\n")
-	s.start.add(s.finish.y)
+	try s.start.add(s.finish.y) otherwise return 1
 	print("{s.start.x}\n")
-	p.add(p.y.copy())
+	try p.add(p.y.copy()) otherwise return 1
 	print("{p.x}\n")
 	return 0
 end 'main'

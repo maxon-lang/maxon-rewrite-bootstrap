@@ -49,7 +49,7 @@ const summaryModule = `export type Point
 	end 'make'
 
 	export function sum() returns Count
-		return px + py
+		return try px + py otherwise 0
 	end 'sum'
 
 	function hidden() returns Count
@@ -84,15 +84,15 @@ export function width() returns Small
 end 'width'
 
 export function area(w Count, h Count) returns Count
-	return w * h
+	return try w * h otherwise 0
 end 'area'
 
 export function span(lo Count, hi Count) returns Count
-	return hi - lo
+	return try hi - lo otherwise 0
 end 'span'
 
 function helper(n Count) returns Count
-	return n + 1
+	return try n + 1 otherwise 0
 end 'helper'
 
 let stash = 7
@@ -127,7 +127,7 @@ end 'secret'
 let hidden = 5
 
 export function area(w Count, h Count) returns Count
-	return w * h
+	return try w * h otherwise 0
 end 'area'
 `
 
@@ -154,16 +154,18 @@ func summaryProject(module string) map[string]string {
 func TestEachThingAModuleShowsIsInItsSummary(t *testing.T) {
 	cases := map[string]edit{
 		"the name of an exported function":                   {{"width", "breadth"}},
-		"the parameter of an exported function":              {{"span(lo Count, hi Count) returns Count\n\treturn hi - lo", "span(lo Count, up Count) returns Count\n\treturn up - lo"}},
+		"the parameter of an exported function":              {{"span(lo Count, hi Count) returns Count\n\treturn try hi - lo otherwise 0", "span(lo Count, up Count) returns Count\n\treturn try up - lo otherwise 0"}},
 		"the convention of a parameter":                      {{"span(lo Count, hi Count)", "span(consumes lo Count, hi Count)"}},
 		"the return type of a function":                      {{"width() returns Small", "width() returns Count"}},
+		"a function that comes to throw":                     {{"span(lo Count, hi Count) returns Count\n\treturn try hi - lo otherwise 0", "span(lo Count, hi Count) returns Count throws ArithmeticError\n\treturn try hi - lo"}},
+		"an interface's method that comes to throw":          {{"\tfunction size() returns Count\n", "\tfunction size() returns Count throws ArithmeticError\n"}},
 		"a function that stops being exported":               {{"export function width", "function width"}},
 		"a function that is exported":                        {{"function helper", "export function helper"}},
 		"an exported function added":                         {{"let stash = 7", "let stash = 7\n\nexport function more() returns Count\n\treturn 1\nend 'more'"}},
 		"the signature of a method":                          {{"export function sum() returns Count", "export function sum(extra Count) returns Count"}},
 		"the visibility of a method":                         {{"function hidden()", "export function hidden()"}},
-		"a method added":                                     {{"\tfunction hidden()", "\texport function twice() returns Count\n\t\treturn px * 2\n\tend 'twice'\n\n\tfunction hidden()"}},
-		"a method that is static":                            {{"export function sum() returns Count\n\t\treturn px + py", "export static function sum() returns Count\n\t\treturn 1"}},
+		"a method added":                                     {{"\tfunction hidden()", "\texport function twice() returns Count\n\t\treturn try px * 2 otherwise 0\n\tend 'twice'\n\n\tfunction hidden()"}},
+		"a method that is static":                            {{"export function sum() returns Count\n\t\treturn try px + py otherwise 0", "export static function sum() returns Count\n\t\treturn 1"}},
 		"the visibility of a field":                          {{"var py as Count", "export var py as Count"}},
 		"the mutability of a field":                          {{"export var px as Count", "export let px as Count"}},
 		"the name of a field":                                {{"py", "pz"}},
@@ -203,14 +205,14 @@ func TestEachThingAModuleShowsIsInItsSummary(t *testing.T) {
 // rebuilt and nothing that reaches it is.
 func TestWhatAModuleKeepsToItselfIsNotInItsSummary(t *testing.T) {
 	cases := map[string]edit{
-		"the body of an exported function":                  {{"return w * h", "return w * h + 1"}},
-		"the body of a method":                              {{"return px + py", "return px + py + 1"}},
-		"the body of a private method":                      {{"\t\treturn py\n\tend 'hidden'", "\t\treturn py + 1\n\tend 'hidden'"}},
-		"the body of a private function":                    {{"return n + 1", "return n + 2"}},
-		"the signature of a private function":               {{"helper(n Count) returns Count\n\treturn n + 1", "helper(k Count) returns Count\n\treturn k + 1"}},
+		"the body of an exported function":                  {{"return try w * h otherwise 0", "return try w * h + 1 otherwise 0"}},
+		"the body of a method":                              {{"return try px + py otherwise 0", "return try px + py + 1 otherwise 0"}},
+		"the body of a private method":                      {{"\t\treturn py\n\tend 'hidden'", "\t\treturn try py + 1 otherwise 0\n\tend 'hidden'"}},
+		"the body of a private function":                    {{"return try n + 1 otherwise 0", "return try n + 2 otherwise 0"}},
+		"the signature of a private function":               {{"helper(n Count) returns Count\n\treturn try n + 1 otherwise 0", "helper(k Count) returns Count\n\treturn try k + 1 otherwise 0"}},
 		"a private function added":                          {{"let stash = 7", "let stash = 7\n\nfunction another() returns Count\n\treturn 2\nend 'another'"}},
 		"a comment between declarations":                    {{"export enum Color", "// Colors.\nexport enum Color"}},
-		"a comment in a body":                               {{"\treturn w * h\n", "\t// The area.\n\treturn w * h\n"}},
+		"a comment in a body":                               {{"\treturn try w * h otherwise 0\n", "\t// The area.\n\treturn try w * h otherwise 0\n"}},
 		"the body of the function width, which is exported": {{"\treturn 4\n", "\treturn 5\n"}},
 	}
 	before := summariesOf(t, summaryProject(summaryModule), 1)
@@ -262,9 +264,9 @@ func TestAModuleThatHasGenericsShowsTheirSourceAndEverythingTheyCanUse(t *testin
 	}
 	same := map[string]edit{
 		"the body of a function that is not generic": {{"return 1\nend 'plain'", "return 2\nend 'plain'"}},
-		"the body of a private function":             {{"return n\nend 'secret'", "return n + 1\nend 'secret'"}},
+		"the body of a private function":             {{"return n\nend 'secret'", "return try n + 1 otherwise 0\nend 'secret'"}},
 		"a comment above a function":                 {{"// A comment above a function.\n", "// Another comment.\n\n// And one more.\n"}},
-		"the body of an exported function":           {{"return w * h", "return w * h + 1"}},
+		"the body of an exported function":           {{"return try w * h otherwise 0", "return try w * h + 1 otherwise 0"}},
 	}
 	project := func(module string) map[string]string {
 		return map[string]string{"main.maxon": strings.Replace(summaryMain, "user.run()", "m.area(1, h: 2)", 1), "m/m.maxon": module}

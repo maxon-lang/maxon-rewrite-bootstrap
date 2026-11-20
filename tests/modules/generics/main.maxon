@@ -8,7 +8,7 @@ function main() returns ExitCode
 	var a = shapes.Square.make(3)
 	var b = shapes.Square.make(4)
 	print("{containers.total(a, b: b)}\n")
-	let boxed = containers.enlarge(a, by: 2)
+	let boxed = try containers.enlarge(a, by: 2) otherwise return 1
 	print("{a.side} {boxed.peek().side}\n")
 	containers.swap(a, b: b)
 	print("{a.side} {b.side}\n")

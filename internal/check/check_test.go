@@ -51,15 +51,7 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 	}
 	c.Verify(c.Pending)
 	c.VerifyBounds(append(res.Bounds, c.Bounds...))
-	if len(res.Errors) == 0 {
-		o := NewOwnership(&res.Errors, c)
-		for _, d := range root.Decls {
-			o.CheckValues(d)
-		}
-		for _, f := range res.Functions {
-			o.Check(f)
-		}
-	}
+	c.VerifyFlow(root.Decls, res.Functions, &FlowScratch{})
 	return res.Errors
 }
 
