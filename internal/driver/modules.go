@@ -144,9 +144,10 @@ type modulePhase struct {
 	crashes []*par.WorkerPanic
 	units   []*backend.CodeUnit
 
-	// keys, cached and needCheck are the build cache's part of the phase, made by consultCache for a compile that makes an
-	// executable with a cache: the key of each module's entry, the entry that was found (nil for a miss) and whether the
-	// module's check has to run. Without a cache they are nil.
+	// summaries, keys, cached and needCheck are the build cache's part of the phase, made by consultCache for a compile that
+	// makes an executable with a cache: what each module shows to the modules that reach it, the key of each module's entry,
+	// the entry that was found (nil for a miss) and whether the module's check has to run. Without a cache they are nil.
+	summaries []moduleSummary
 	keys      []cache.Key
 	cached    []*cachedModule
 	needCheck []bool

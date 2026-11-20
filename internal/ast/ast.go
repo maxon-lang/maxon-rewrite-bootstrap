@@ -35,11 +35,16 @@ type Node interface {
 	Position() Pos
 }
 
-// Head is what every struct node starts with: where it is and which node it is in its module.
+// Head is what every struct node starts with: where it is and which node it is in its module, and how many bytes of the
+// module's text it covers, from its start to the end of its last token, which is what a digest of the node's source reads.
 type Head struct {
 	Pos
-	ID NodeID
+	ID  NodeID
+	Len uint32
 }
+
+// Source is the text the node is written as, which a node that the parser made covers from its first token to its last.
+func (h Head) Source(m *Module) string { return m.Tree.Text[h.Off : h.Off+h.Len] }
 
 func (h Head) Position() Pos { return h.Pos }
 

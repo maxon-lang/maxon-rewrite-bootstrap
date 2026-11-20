@@ -1,0 +1,17 @@
+// A comment above the constant is not part of it.
+export let limit = 10
+
+// A comment above the function.
+export function twice(x Count) returns Count
+	// A comment inside it is.
+	return x + x
+end 'twice'
+
+type Counter
+	var total = 0 as Count
+	let name = "counter" // A comment after a field.
+
+	function bump(mutates self)
+		self.total = self.total + 1
+	end
+end 'Counter'

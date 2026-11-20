@@ -16,7 +16,6 @@ const (
 	jobObjectLimitProcessMemory       = 0x100
 	processSetQuota                   = 0x0100
 	processTerminate                  = 0x0001
-	bytesPerMegabyte                  = 1 << 20
 )
 
 type jobBasicLimits struct {

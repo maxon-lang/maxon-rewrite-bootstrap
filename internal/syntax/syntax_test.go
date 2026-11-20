@@ -331,3 +331,36 @@ func TestParsingNumbersTheNodesOfTheModuleInItsTree(t *testing.T) {
 		t.Error("the program does not say where its text is")
 	}
 }
+
+// A declaration, a field and a method each know how much of the text they cover, from their first token to their last, which
+// leaves out the comments around them and keeps the ones inside.
+func TestEveryStructNodeKnowsTheTextItCovers(t *testing.T) {
+	prog, errs := parseFiles(t, "testdata/spans.maxon")
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	source := func(h ast.Head) string { return prog.Tree.Text[h.Off : h.Off+h.Len] }
+	if len(prog.Decls) != 3 {
+		t.Fatalf("the program has %d declarations, want 3", len(prog.Decls))
+	}
+	limit := prog.Decls[0].(*ast.ConstDecl)
+	twice := prog.Decls[1].(*ast.FuncDecl)
+	counter := prog.Decls[2].(*ast.TypeDecl)
+	for _, c := range []struct {
+		what string
+		got  string
+		want string
+	}{
+		{"a constant", source(limit.Head), "export let limit = 10"},
+		{"a function", source(twice.Head), "export function twice(x Count) returns Count\n\t// A comment inside it is.\n\treturn x + x\nend 'twice'"},
+		{"a parameter", source(twice.Params[0].Head), "x Count"},
+		{"a field with a default", source(counter.Fields[0].Head), "var total = 0 as Count"},
+		{"a field before a comment", source(counter.Fields[1].Head), `let name = "counter"`},
+		{"a method", source(counter.Methods[0].Head), "function bump(mutates self)\n\t\tself.total = self.total + 1\n\tend"},
+		{"a type", source(counter.Head), "type Counter\n\tvar total = 0 as Count\n\tlet name = \"counter\" // A comment after a field.\n\n\tfunction bump(mutates self)\n\t\tself.total = self.total + 1\n\tend\nend 'Counter'"},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s covers %q, want %q", c.what, c.got, c.want)
+		}
+	}
+}

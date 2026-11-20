@@ -167,6 +167,7 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 		n.End = p.parseEndLabel()
 	}
 	n.Params = p.lists.ptr_Param.take(mark_n_Params)
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -184,6 +185,7 @@ func (p *Parser) parseParam() *ast.Param {
 	}
 	n.Name = p.text(p.next())
 	n.Type = p.parseTypeRef()
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -200,6 +202,7 @@ func (p *Parser) parseConstDecl() *ast.ConstDecl {
 	n.Name = p.text(p.expect(TName, "a name"))
 	p.expect(TAssign, "'='")
 	n.Value = p.parseExpr()
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -259,6 +262,7 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	}
 	n.Fields = p.lists.ptr_FieldDecl.take(mark_n_Fields)
 	n.Methods = p.lists.ptr_FuncDecl.take(mark_n_Methods)
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -291,6 +295,7 @@ func (p *Parser) parseFieldDecl() *ast.FieldDecl {
 	default:
 		panic(p.expected("'=' or 'as'"))
 	}
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -341,6 +346,7 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	}
 	n.Cases = p.lists.ptr_EnumCaseDecl.take(mark_n_Cases)
 	n.Methods = p.lists.ptr_FuncDecl.take(mark_n_Methods)
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -352,6 +358,7 @@ func (p *Parser) parseEnumCaseDecl() *ast.EnumCaseDecl {
 		p.expect(TAssign, "'='")
 		n.Raw = p.parseIntLit()
 	}
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -413,6 +420,7 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 	}
 	n.Cases = p.lists.ptr_UnionCaseDecl.take(mark_n_Cases)
 	n.Methods = p.lists.ptr_FuncDecl.take(mark_n_Methods)
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -434,6 +442,7 @@ func (p *Parser) parseUnionCaseDecl() *ast.UnionCaseDecl {
 		p.expect(TRParen, "')'")
 	}
 	n.Fields = p.lists.ptr_Param.take(mark_n_Fields)
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -471,6 +480,7 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 	default:
 		panic(p.expected("'Self', 'int' or a name"))
 	}
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -492,6 +502,7 @@ func (p *Parser) parseBound() *ast.Bound {
 	default:
 		panic(p.expected("an integer or a name"))
 	}
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -553,6 +564,7 @@ func (p *Parser) parseTypeParam() *ast.TypeParam {
 	t := p.cur()
 	n := p.tree.NewTypeParam(t.Start)
 	n.Name = p.text(p.expect(TName, "a name"))
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -581,6 +593,7 @@ func (p *Parser) parseConstraint() *ast.Constraint {
 		p.lists.ids_Constraint_Bounds.push(uint32(p.parseTypeRef().ID))
 	}
 	n.Bounds = takeList[ast.TypeRef](p, &p.lists.ids_Constraint_Bounds, mark_n_Bounds)
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -625,6 +638,7 @@ func (p *Parser) parseInterfaceDecl() *ast.InterfaceDecl {
 		n.End = p.parseEndLabel()
 	}
 	n.Methods = p.lists.ptr_FuncSig.take(mark_n_Methods)
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 
@@ -663,6 +677,7 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 		n.Returns = p.parseTypeRef()
 	}
 	n.Params = p.lists.ptr_Param.take(mark_n_Params)
+	n.Len = uint32(p.prevEnd) - n.Off
 	return n
 }
 

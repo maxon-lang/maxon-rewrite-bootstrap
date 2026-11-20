@@ -36,6 +36,7 @@ go test ./...
 | `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
+| `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many
@@ -132,7 +133,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 |---|---|---|
 | `diag` | `CompileError`, `Guard`, the error codes | — |
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item; `Run`: runs a `Plan`, tasks that wait for other tasks, on the pool, preferring the group a worker was just on and then the lowest task; a panic is raised by item or task number, not by time | — |
-| `cache` | the store of the build cache: entries found by a key in a directory, written whole by a rename and read so that damage is a miss, the hasher that keys are made with, the hash of the running compiler, and the wire format an entry is written in (see "Build cache") | — |
+| `cache` | the store of the build cache: entries found by a key in a directory, written whole by a rename and read so that damage is a miss, the hasher that keys are made with, the hash of the running compiler, trimming what has not been used for days, and the wire format an entry is written in (see "Build cache") | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
 | `ast` | the program model: `Tree`, a module's nodes as 16-byte records with the views that read them and the lists they point into, the structs that stay (the declarations), their kinds and the visitors (generated), `Pos` and `Positions` (where a node is), the handles (`ModuleID`, `NodeID`, `DeclRef`, `LocalID`), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases, with `Resolution` and `Typing`, the tables that phases fill in (see "The AST") | `diag` |
 | `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
@@ -142,7 +143,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag` |
 | `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer, and the format a code unit is written in for the build cache | `ast`, `cache`, `diag`, `ir`, `par` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives in Go and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `diag`, `ir` |
-| `driver` | `Compile`: runs the phases, the modules phase (check and generate of each module) as one scheduled phase, with the build cache's keys and entries; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
+| `driver` | `Compile`: runs the phases, the modules phase (check and generate of each module) as one scheduled phase, with the build cache's export summaries, keys and entries; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
 that generates code from the grammar; nothing imports it.
@@ -243,7 +244,7 @@ each task the tasks it needs, and its group):
 | closure | the module's check, and the closure of each module it depends on (the edges of `project.Graph`) | no work but a join: it is done exactly when the checks of the module and of every module it reaches are, so the plan has one edge per dependency and no module holds the set of the modules it reaches |
 | generate | the module's closure | the instances, and the lowering and codegen, or only the instances for a compile that makes nothing; it reads the bodies and check results of the generics it reaches in other modules and the marks verify leaves on their constants, which are all in modules it reaches, and nothing of a module that depends on it |
 
-With a build cache, a module's key and entry are looked up before the phase starts, a module whose entry is there has no generate to run, and a module that nothing that is not a hit reaches has no check to run either (see "Build cache"); those tasks are scheduled and end at once. A compile that makes an executable has one more task, with no prerequisites and the lowest number, that emits the runtime unit. A
+With a build cache, a module's key and entry are looked up before the phase starts, a module whose entry is there has no generate to run, and a hit has no check to run unless a module that is not a hit reaches it and reads its check results (see "Build cache"); those tasks are scheduled and end at once. A compile that makes an executable has one more task, with no prerequisites and the lowest number, that emits the runtime unit. A
 module that depends on nothing is therefore generated while others are still being checked, and a module's generate does not wait
 for the modules that depend on it. A worker that finishes a task goes on to a task that has just become ready in the same group
 (the same module), where its data is in cache, and otherwise takes the ready task of the lowest number, which is the lowest module
@@ -375,8 +376,8 @@ view is compared with `==`, and a diagnostic at a node is `n.Error(code, message
 
 **What stays a struct.** The declarations (`@ast::Structs` in the grammar): functions, constants, the type declarations and what
 only they hold (parameters, fields, cases, bounds, type parameters, constraints, interface signatures). Later phases fill in
-their semantic fields, and other modules read them, so they are structs with the `ast.Head` that gives them their position and
-number, in chunks of their type, and each has a record in the tree that holds only its kind and where it starts, so that every
+their semantic fields, and other modules read them, so they are structs with the `ast.Head` that gives them their position, their
+number and the length of the text they cover (the parser sets it; the build cache's export summary reads a generic's source from it), in chunks of their type, and each has a record in the tree that holds only its kind and where it starts, so that every
 node has a number and a position. A struct holds views of the records it has (`Body StmtList`, `Returns TypeRef`) and never a
 pointer to one. A function that checking makes, the body of a behaviour, is a struct that is in no tree.
 
@@ -548,50 +549,106 @@ unit.
 
 A module's key is a SHA-256 of: the compiler (the hash of the executable, computed once per process), the flags that change what a module
 compiles to (`--count-allocations`; not `--jobs`, `--timings`, `--trace` or `--emit-ir`), the module's link path, a digest of its source
-(its text and where each file ends in it; a file's name is only where a diagnostic says a thing is), and **the keys of the modules it
-depends on**, in module order. The keys are made in the order of the module graph, so a key holds the source of every module the module
-reaches and the shape of the graph between them. The directory a project is in, the handles of the modules and the schedule are not in a
-key; adding or removing a module that nothing in a module's closure names changes none of its key (the handles move, and the entries do
-not care).
+(its text and where each file ends in it; a file's name is only where a diagnostic says a thing is), and **the export summaries of the
+modules it depends on**, in module order. A summary is a digest of what the modules that reach a module can depend on (the next section), so
+a key holds the module's own source in full and, of everything it reaches, only what the module can read. An edit that no module can see
+makes a miss of the edited module alone. The directory a project is in, the handles of the modules and the schedule are not in a key;
+adding or removing a module that nothing in a module's closure names changes none of its key (the handles move, and the entries do not
+care).
+
+### The export summary
+
+`internal/driver/summary.go` is the one place that says what a module shows to the others. Its digest holds, in the order the source gives
+them and with every list's length, nothing that a handle or an address decides: a type is its link name, a module its link path.
+
+| Shown | What is written |
+|---|---|
+| every type declaration, exported or not | parameters and their bounds, what it implements, `noncopyable`; a record's fields (name, visibility, mutability, type, and the source of a default); an enum's cases and raw values; a union's cases and payloads; a typealias's type; an interface's signatures; and every method's signature, visibility and convention |
+| each function that other modules can use | its name, visibility, conventions, parameter names and types, return type, type parameters and bounds; a generic's **source** |
+| each constant that other modules can use | its type, which holds an integer constant's value, and its **source** |
+| the source of each field's default, and of each generic function and method | which a module that builds a record or calls the generic lowers in its own unit |
+
+Types are shown whole, whoever may name them, because a signature that mentions a type lets a module that cannot name it read its layout,
+its fields and what it implements. A function or constant is shown only if another module can use it: an exported one, and, in a module that
+has a generic or a field's default, every function, since a generic or a default can call any of them and the module that lowers it reads
+the callee's signature; a module that shows a constant shows all of its constants, since an exported one may be written with a private
+one. In a module with no generic and no default the signature of a private function is not shown, nor is any body that is not generic,
+nor a comment outside a generic, a constant or a default. The summary of a module also says whether the modules that reach it read its
+check results (`ReadThrough`): it does if the module has a generic, an exported constant or a field's default.
+
+A summary is **transitive**: a module's summary folds in the summaries of the modules it depends on, in module order, so it changes when
+anything the module can show through them does. It has to, for two reasons that an edge of the graph does not give. A signature of a module
+mentions the types of the modules it depends on, and a module that calls it reads those types' layouts and members without naming their
+modules, so no edge leads to them; and the check results of a generic that another module reads are made from what the generic's own
+module reaches. Folding is the same information as putting the summaries of the whole closure in the key, computed in one pass over the
+edges instead of one walk per module. What it costs is that a change to what a module shows makes a miss of every module that reaches it,
+though one of them may read none of it; folding only the dependencies that a shown declaration names, and only the private declarations a
+generic reaches, would be finer, and is left for later.
 
 ### What a hit skips, and why that is right
 
 A **hit** is a module whose entry is there, whole, and holds what the build needs. Its `generate` does not run. Its `check` runs only if some
-module that is **not** a hit reaches it, because that module's generate reads the bodies and check results of the generics it reaches and
-the marks that verify leaves on the constants it reaches, and nothing else of another module's check. So `check` runs for a miss and for each
-module a miss reaches (the modules phase's own reverse closure), and a module that no miss reaches runs neither. A miss does what it always
-did.
+module that is **not** a hit reaches it and its summary says that module reads its check results (it has a generic, an exported constant or
+a field's default), since that is all a generate reads of another module's check: a hit that shows none of them is never checked, and a
+module that no miss reaches runs neither. A miss does what it always did. A miss reaches the whole closure of the modules it depends on,
+not only the ones it names: it can instantiate a generic that a signature of a module it names leads to, so a hit between a miss and a
+generic is not a reason to skip the generic's check.
 
-Why a hit is the right output, for each thing `generate(m)` reads of another module:
+Why a hit is the right output, for each thing `check(m)` and `generate(m)` read of another module d. Each read is of d's summary or of
+something that the summary of a module d reaches holds, and the key holds the summaries:
 
-- **Bodies and check results of generics, constants and field defaults of other modules.** A generic, a constant or a record is in a module
-  that `m` names (an edge of the graph) or that a module it names names, and so on: the key holds the source of that whole closure.
-- **Layouts and signatures.** The offset of a field, the size of a box, a union's cases, an enum's values and a callee's conventions come
-  from declarations. A type reaches `m`'s code only through a declaration in a module `m` names, and that declaration names the type's
-  module itself, so the closure holds it. Callees are named by link names and never inlined, so a non-generic body of another module is
-  not read.
-- **Bare names.** A bare name is the module's own declaration, else the root's, else the one exported declaration anywhere (`E3095` for
-  two). Which one it is decides an edge of the graph, and the keys hold the edges: a declaration that the root gains and that a module's
-  bare name now resolves to is a dependency the module did not have, so its key changes though its own text does not; a declaration that
-  another module gains, or one that moves, changes the source of a module in the closure; and one that makes two candidates is `E3095`,
-  which the front reports before any entry is read. The module's own declarations cannot be changed from outside.
+- **Declarations, for the check of m.** Types' fields, cases, raw values, layouts, method tables with their conventions and visibility,
+  signatures, bounds, interfaces and conformance, aliases, and constants' types and values are what the front leaves in the declarations,
+  and the summary writes each of them. A function or constant that is not exported cannot be named from m (`E3008`, which the front
+  reports for every build, cache or none), and one that m reaches without naming is a method, which is in the type. A type that d's
+  signature leads m to is in a module d depends on, whose summary is folded into d's.
+- **Which names resolve where.** A bare name is the module's own declaration, else the root's, else the one exported declaration anywhere
+  (`E3095`, `E3063` for two, which the front reports). A declaration that the root gains and that a bare name now resolves to is a
+  dependency m did not have, so the list of summaries in m's key changes; one that is exported by a module m already depends on changes
+  that module's summary, since the names a module exports are in it; a private one is not a candidate; the module's own declarations are
+  m's source. So no way for a name to resolve elsewhere leaves m's key as it was.
+- **The bodies and check results of generics.** An instance is lowered in the module that needs it, from the generic's body and the
+  results of checking it. They are made from the generic's source (in the summary), the declarations of its module (all of them, since
+  the module shows every function when it has a generic) and what its module reaches (folded). The same holds for the instances that the
+  generic's body needs in turn.
+- **Constants.** A constant's value is lowered inline, from its expression (in the summary), the other constants that the expression names
+  (all of the module's constants are shown) and the marks that the ownership pass leaves on it (made from the same inputs).
+- **Field defaults.** A record literal in a generic method lowers the default of a field it leaves out: the default's source is in the
+  summary, and its check results are made from what the generics' are.
+- **Layouts, drops, conventions.** The offset of a field, the size of a box, a union's cases, an enum's values, whether a type has a
+  destructor and how a callee takes its arguments come from declarations, so from the summary. Callees are named by link names and never
+  inlined, so the body of a function that is not generic is not read: that is why an edit to one is not in the summary.
 - **The root, the runtime and the standard library.** The root is a module like any other. The runtime unit, and the entry that calls
   `main`, are made by every build and are not cached; the standard library and the code generator are the compiler, which is in the key.
-- **The module's own name**, which every symbol in its unit holds, is in its key: two modules of the same text have two entries.
+- **The module's own name**, which every symbol in its unit holds, is in its key and its summary: two modules of the same text have two
+  entries.
 
 Errors stay as without a cache, because the cache is only consulted for a module that would compile: a module has an entry only if its
-check and its generate found nothing, its check reads nothing outside its closure's declarations, which its key holds, and so a module
-with the same key finds nothing again, so skipping its check hides no error. A module that is unchanged and would now fail, because a
-module it reaches changed, has another key, is a miss, and is checked, so the build reports the errors of a build with no cache. The
-front runs in full for every module, so its errors, which come before the modules phase, are reported as ever; and an error in the modules
-phase is reported only for modules that were checked, which are the ones that can have one.
+check and its generate found nothing, so a module with the same key finds nothing again, since its check reads nothing outside the
+summaries it is keyed by and its own text. A module that is unchanged and would now fail, because a module it reaches changed in a way it
+can see, has another key, is a miss, and is checked, so the build reports the errors of a build with no cache. A change that it cannot see
+cannot make it fail. The front runs in full for every module, so its errors are reported as ever, and an error in the modules phase is
+reported only for modules that were checked, which are the ones that can have one.
+
+What an edit costs, in a project whose modules are `core` (nothing generic), `gen` (a generic, a constant and a field's default), `mid`
+(calls both) and the root (calls `mid`):
+
+| Edit | Misses |
+|---|---|
+| the body, a private helper's body or signature, or a comment in a function of `core` (not generic) | `core` |
+| a function of `gen` that is not generic, or a comment between its declarations | `gen` |
+| the body of `mid` or of the root | that module |
+| a signature, an export added or removed, a field, a method's signature or a visibility in `core` | `core`, `mid`, the root |
+| the body of a generic, a constant's value, a field's default in `gen` | `gen`, `mid`, the root |
+| a private function's signature in `gen`, which has a generic and so shows every function | `gen`, `mid`, the root |
+| an export added and then taken away | none: the summaries are as they were, and the entries from before the addition are found again |
 
 ### Storage
 
 The cache is a directory, by default `minimaxon\cache` in the user's cache directory (`%LocalAppData%` on Windows). `MINIMAXON_CACHE`
 names another directory, or says `off` to turn the cache off, and `--no-cache` turns it off for one `build` or `run`. `minimaxon test` and
 `go test` never use the user's: the runner does not use a cache, and the tests that do use a temporary directory. The directory can be
-deleted at any time, and a compiler that finds nothing in it makes what it needs; nothing evicts an entry yet.
+deleted at any time, and a compiler that finds nothing in it makes what it needs.
 
 An entry is a file `<first two hex digits of the key>/<the rest>`. It is written whole to a file of its own in that directory and
 renamed over the name, so a reader sees the old entry or the new one and never part of one, a crash leaves at most a stray `tmp-*` file,
@@ -606,29 +663,48 @@ count and its items; nothing is aligned and no reflection or `encoding/gob` is i
 array entry, whether the IR text is there, the IR text, and the unit, whose layout `backend/unitcodec.go` documents. A decoder checks every
 count against the bytes that are left, so a damaged entry asks for no memory.
 
+### Trimming
+
+Every build of the compiler makes a fresh set of entries, since the compiler is in each key, so nothing could be kept for ever. The cache is
+trimmed as Go's build cache is: an entry that was not used for five days is removed, and a trim runs at most once a day.
+
+- **Use** is the entry file's modification time. Reading an entry whose time is more than an hour old sets it to now, so a build writes to
+  the disk for an entry once an hour at most and a trim sees a use to within the hour.
+- **When.** A `build` or a `run` that used the cache trims it after the executable is made and its diagnostics are printed, if the cache
+  was not trimmed in the last day, which the file `trim.txt` in the directory records (the time, in seconds since 1970; one that is
+  garbled or still to come counts as never). A `run` trims while the program runs and waits for the trim when the program ends, a `build`
+  at its end, so producing an executable never waits for a trim. `check`, `interp` and `test` do not touch the cache.
+- **Safety.** A trim only removes files, and writes the record. A compiler that reads an entry that goes meanwhile has a miss; one that
+  writes renames a whole file over a name that may or may not still be there; two trims at once remove the same files. A file that is open
+  where the system will not remove it stays for the next trim. Only the cache's own files are touched: an entry (a file of 62 hex digits in
+  a directory of two), and a `tmp-*` file a day old, which a compiler that stopped left; anything else in the directory, and the directory
+  itself, stay.
+
+| Command | What it does |
+|---|---|
+| `minimaxon cache` | says where the cache is, how many entries it holds and how big they are, and when it was last trimmed |
+| `minimaxon cache trim` | trims now, whenever it was last trimmed, and says how much it removed |
+| `minimaxon cache clean` | removes every entry and the record of the last trim |
+
+The commands work on the directory `MINIMAXON_CACHE` names whichever compiler made the entries, and say so when the cache is off.
+
 ### Reading the cache
 
 `--timings` prints, above the `modules` line, `cache: N hits, M misses, K checks skipped, X MB read, Y MB written` and the time the lookup
-took (summed over the workers). The lookup, which makes the keys and reads and decodes every entry, runs on all `--jobs` before the
-modules phase, and the writes are part of each module's generate. A compile is the same bytes for any `--jobs`, and a cold, a warm and a
-partly warm build make the same executable and the same `--emit-ir`.
+took (summed over the workers). The lookup, which makes the summaries and the keys and reads and decodes every entry, runs on all `--jobs`
+before the modules phase, and the writes are part of each module's generate. A compile is the same bytes for any `--jobs`, and a cold, a
+warm and a partly warm build make the same executable and the same `--emit-ir`. `driver.CacheStats` also says, for each module, whether it
+was a hit and whether its check ran, and its summary, which the tests read.
 
 ### What comes next
 
-The key holds the source of the whole closure, which is conservative: an edit to the body of a function that no other module can read still
-makes a miss of every module that reaches it. **Early cutoff** is the next step: a module's key would hold, for each module it depends on,
-a digest of what that module shows to others instead of its key: the signatures and layouts of its declarations, the bodies of its generic
-functions and methods (an instance is lowered in the module that needs it), and its constants and field defaults. The front already has
-those after `declare`; a body edit to a non-generic function would then change that module's own key and no other's.
-
-A hit that a miss reaches is checked now, which a program whose root reaches every module pays for each edit. The miss's `generate` can
-only read the check results of a module that declares a generic function or method, a constant, or a field default, which `declare`
-knows, so a module that declares none of them could skip its check as well.
+A hit that a miss reaches and that shows its check results is still checked, to make the results the miss's generate reads. They could be
+kept in the cache beside the unit and read instead, if checking a generic's module for each edit that reaches it is too much.
 
 A language server needs more of the same: to keep the front's products of a module that did not change (its tree, resolution and typing
 tables are indexed by `NodeID`, which depends only on the module's own text, and only the `ModuleID`s in them need renumbering when
 modules are added or removed), to cache a failing module's diagnostics under the same key, and to keep decoded units in memory rather
-than read them again.
+than read them again. The export summary is what tells it whether a module's dependents have to be looked at again.
 
 ## The IR
 

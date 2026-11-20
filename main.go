@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -33,6 +34,7 @@ const usage = `usage:
   minimaxon interp <file.maxon|dir>               run under the tracking interpreter (development only)
   minimaxon rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths
   minimaxon fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files under the paths in the one layout
+  minimaxon cache [trim|clean]                    show the build cache's directory and size; trim it now; remove everything in it
 
 A directory is a project: each directory under it is a module. --jobs=N sets how many modules
 compile at once (default: one fewer than the processor count). --timings prints each phase's time and busy cores;
@@ -94,12 +96,26 @@ var (
 	seed            int64
 )
 
-func compileWithFlags(path, output string) []*diag.CompileError {
+// compileWithFlags compiles with the options the flags set, and reads and writes store (which may be nil) if it makes an
+// executable.
+func compileWithFlags(path, output string, store *cache.Cache) []*diag.CompileError {
 	options := flagOptions()
 	if output != "" {
-		options.Cache = buildCache()
+		options.Cache = store
 	}
 	return driver.Compile(path, output, options)
+}
+
+// trimInBackground trims the cache if it is due (at most once a day, see the README, "Build cache"), after the
+// executable is made so that the build never waits for it, and returns what waits for the trim to end. A compile that
+// does not use the cache has nothing to trim.
+func trimInBackground(store *cache.Cache) (wait func()) {
+	if store == nil {
+		return func() {}
+	}
+	var done sync.WaitGroup
+	done.Go(func() { store.TrimIfDue() })
+	return done.Wait
 }
 
 // buildCache is the cache that building an executable reads and writes: the directory MINIMAXON_CACHE names, by default one
@@ -225,18 +241,25 @@ func run(args []string) int {
 			trimmed := strings.TrimRight(args[1], "/\\")
 			output = strings.TrimSuffix(trimmed, filepath.Ext(trimmed)) + executableExtension
 		}
-		if report(compileWithFlags(args[1], output)) {
+		store := buildCache()
+		ok := report(compileWithFlags(args[1], output, store))
+		trimInBackground(store)()
+		if ok {
 			return 0
 		}
 		return 1
 	case args[0] == "check" && len(args) >= 2:
-		if report(compileWithFlags(args[1], "")) {
+		if report(compileWithFlags(args[1], "", nil)) {
 			return 0
 		}
 		return 1
 	case args[0] == "run" && len(args) >= 2:
 		exe := tempExe(args[1])
-		if !report(compileWithFlags(args[1], exe)) {
+		store := buildCache()
+		ok := report(compileWithFlags(args[1], exe, store))
+		// The program runs while the cache is trimmed, and the exit waits for the trim.
+		defer trimInBackground(store)()
+		if !ok {
 			return 1
 		}
 		cmd := exec.Command(exe)
@@ -263,6 +286,8 @@ func run(args []string) int {
 			return usageExitCode
 		}
 		return formatFiles(paths, check)
+	case args[0] == "cache" && len(args) <= 2:
+		return cacheCommand(args[1:], os.Stdout, os.Stderr)
 	case args[0] == "test":
 		if len(args) >= 2 {
 			return runTests(args[1])

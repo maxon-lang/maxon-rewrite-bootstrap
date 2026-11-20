@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Version is the layout of an entry's file. It is written in the entry, and an entry with another is a miss, so a compiler
@@ -30,12 +31,17 @@ func (k Key) String() string { return hex.EncodeToString(k[:]) }
 
 // Hasher builds a Key. Every value is written with its length or its width, so two different lists of values never
 // write the same bytes.
-type Hasher struct{ sum hash.Hash }
+type Hasher struct {
+	sum hash.Hash
+	// word is where an integer is written before it is hashed, so that writing one allocates nothing.
+	word [8]byte
+}
 
 func NewHasher() *Hasher { return &Hasher{sum: sha256.New()} }
 
 func (h *Hasher) Int(v int) {
-	h.sum.Write(binary.LittleEndian.AppendUint64(nil, uint64(v)))
+	binary.LittleEndian.PutUint64(h.word[:], uint64(v))
+	h.sum.Write(h.word[:])
 }
 
 func (h *Hasher) Bool(v bool) {
@@ -109,16 +115,32 @@ func Dir(env string) (dir string, enabled bool) {
 	return env, true
 }
 
+// Clock says what time it is. The cache asks it when it notes that an entry was used and when it trims, so a test can
+// give it a time of its own instead of waiting.
+type Clock func() time.Time
+
 // Cache is a directory of entries, for one compiler.
 type Cache struct {
 	dir      string
 	compiler Key
+	now      Clock
 	read     atomic.Int64
 	written  atomic.Int64
 }
 
 // Open is the cache in a directory, for the compiler that has the hash. Nothing is created until an entry is written.
-func Open(dir string, compiler Key) *Cache { return &Cache{dir: dir, compiler: compiler} }
+func Open(dir string, compiler Key) *Cache {
+	return &Cache{dir: dir, compiler: compiler, now: time.Now}
+}
+
+// WithClock makes the cache read the time from now, and is the cache itself.
+func (c *Cache) WithClock(now Clock) *Cache {
+	c.now = now
+	return c
+}
+
+// Dir is the directory the cache keeps its entries in.
+func (c *Cache) Dir() string { return c.dir }
 
 // Compiler is the hash of the compiler this cache is for, which every key holds.
 func (c *Cache) Compiler() Key { return c.compiler }
@@ -179,10 +201,11 @@ func (c *Cache) Put(key Key, payload []byte) error {
 }
 
 // Get is the payload stored under the key. An entry that is missing, cut short, longer than it says, of another version
-// or damaged is no entry.
+// or damaged is no entry, and so is one that trimming removes while it is read. An entry that is used and was last used
+// long ago is marked as used now, which is what keeps trimming from removing it.
 func (c *Cache) Get(key Key) (payload []byte, ok bool) {
 	_, file := c.path(key)
-	entry, err := os.ReadFile(file)
+	entry, modified, err := readEntryFile(file)
 	if err != nil {
 		return nil, false
 	}
@@ -191,7 +214,35 @@ func (c *Cache) Get(key Key) (payload []byte, ok bool) {
 		return nil, false
 	}
 	c.read.Add(int64(len(entry)))
+	c.markUsed(file, modified)
 	return payload, true
+}
+
+// markUsed gives the entry the modification time of now when it is older than touchInterval. Marking each use would
+// write to the disk for every module of every build; marking at most once an interval keeps the time accurate to within
+// it, which is all trimming, which counts days, needs. A failure leaves the time as it was and is no failure of the
+// compile.
+func (c *Cache) markUsed(file string, modified time.Time) {
+	now := c.now()
+	if now.Sub(modified) > touchInterval {
+		_ = os.Chtimes(file, now, now)
+	}
+}
+
+// readEntryFile is the whole file and when it was last modified.
+func readEntryFile(file string) ([]byte, time.Time, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	entry := make([]byte, info.Size())
+	_, err = io.ReadFull(f, entry)
+	return entry, info.ModTime(), err
 }
 
 var errBadEntry = errors.New("cache: the entry is not whole")

@@ -649,6 +649,7 @@ func (g *pgen) nodeRule(r *rule) {
 		g.assignValue(g.nodeTarget(n), first, "first")
 		g.seq(r.alts[0].elems[1:], c, g.nodeTarget(n))
 		g.finishLists(lists)
+		g.endOfNode(n)
 		g.p("return n\n}\n\n")
 		g.p("func (p *Parser) %s() %s {\nt := p.cur()\nreturn p.%sAfter(t, %s)\n}\n\n", parseFunc(r), g.nodeType(n), parseFunc(r), g.call(lead))
 		return
@@ -657,7 +658,16 @@ func (g *pgen) nodeRule(r *rule) {
 	lists := g.pendingLists(g.nodeTarget(n), r.alts)
 	g.alternatives(r.alts, c, r.desc, r.line, g.nodeTarget(n))
 	g.finishLists(lists)
+	g.endOfNode(n)
 	g.p("return n\n}\n\n")
+}
+
+// endOfNode records, for a node that is a struct, how much of the text it covers: from where it began to where the last token
+// it consumed ends. A record in the tree has no room for it, and nothing reads it there.
+func (g *pgen) endOfNode(n *node) {
+	if !n.record {
+		g.p("n.Len = uint32(p.prevEnd) - n.Off\n")
+	}
 }
 
 func (g *pgen) alternatives(alts []*alt, c cont, desc string, line int, tg target) {

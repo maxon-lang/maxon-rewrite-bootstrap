@@ -120,18 +120,20 @@ func TestAWarmBuildTakesEveryModuleFromTheCache(t *testing.T) {
 	}
 }
 
-// An edit makes a miss of the module and of every module that reaches it, and a check runs for a miss and for every module
-// that a miss reaches; the others come from the cache and run nothing. The result is the build with no cache.
+// An edit to the body of a function that is not generic makes a miss of its module alone, since no other module can read it, and
+// a check runs for a miss and for every module that a miss reaches that shows its check results; the others come from the cache
+// and run nothing. An edit to a generic is another module's code too, so it makes a miss of every module that reaches it. The
+// result is the build with no cache.
 func TestAnEditRebuildsOnlyTheModuleAndTheModulesThatReachIt(t *testing.T) {
 	for _, jobs := range []int{1, 5} {
 		project, dir := cacheProject(t), t.TempDir()
 		cachedBuild(t, project, dir, "c1", jobs, nil)
 
-		// user is edited: it and the root, which calls it, are rebuilt, and lib is checked because user reaches it. other
-		// is neither.
+		// user is edited: it alone is rebuilt, since the root calls it and reads nothing of its body, and lib is checked because
+		// user reaches it and has generics. The root and other are neither.
 		editFile(t, project, "user/user.maxon", "lib.deep(3 as Count)", "lib.deep(4 as Count)")
 		got := cachedBuild(t, project, dir, "c1", jobs, nil)
-		requireStats(t, "user edited", got.stats, 2, 2, 1)
+		requireStats(t, "user edited", got.stats, 3, 1, 2)
 		requireSameAsWithoutCache(t, project, got, jobs)
 
 		// other is edited and nothing depends on it: it alone is rebuilt, and lib is checked for it.
@@ -140,7 +142,7 @@ func TestAnEditRebuildsOnlyTheModuleAndTheModulesThatReachIt(t *testing.T) {
 		requireStats(t, "other edited", got.stats, 3, 1, 2)
 		requireSameAsWithoutCache(t, project, got, jobs)
 
-		// lib is edited, which every other module reaches.
+		// lib is edited in a generic, which every other module lowers an instance of.
 		editFile(t, project, "lib/lib.maxon", "return wrap(x)", "return Box.make(x)")
 		got = cachedBuild(t, project, dir, "c1", jobs, nil)
 		requireStats(t, "lib edited", got.stats, 0, 4, 0)
