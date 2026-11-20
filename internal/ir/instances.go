@@ -15,11 +15,11 @@ import (
 // The instances are in the order they are found, so the result does not depend on how many modules lower at once.
 //
 // callers are the module's functions that call a generic or go through a bound, as the check pass recorded them.
-func Instances(callers []*ast.FuncDecl) *InstanceSet {
+func Instances(typings ast.Typings, callers []*ast.FuncDecl) *InstanceSet {
 	found := &InstanceSet{}
 	visit := func(uses []*ast.CallExpr, b ast.Binding) {
 		for _, call := range uses {
-			target := call.Resolved(b)
+			target := typings.For(call).Resolved(call, b)
 			if target.Generic == nil || found.has(target) {
 				continue
 			}

@@ -57,11 +57,21 @@ func emitNodes(m *model) string {
 	w.p("// Arena makes the nodes of one module and counts them: each node gets the module's handle and the next NodeID, and\n")
 	w.p("// each type's nodes come from chunks of that type, so a module's nodes are contiguous and a parse allocates a chunk at\n")
 	w.p("// a time and not a node at a time. An arena is used by one worker at a time.\n")
-	w.p("type Arena struct {\n\tmodule ModuleID\n\tcount  NodeID\n")
+	w.p("type Arena struct {\n\tmodule ModuleID\n\tcount  NodeID\n\tslots  Slots\n")
 	for _, n := range m.nodes {
 		w.p("\t%s slab[%s]\n", lowerFirst(n.name), n.name)
 	}
 	w.p("}\n\n")
+	w.p("// Slots counts the slots of each table that a phase fills in for a kind of node. A node that has a slot field is given\n")
+	w.p("// the next number of its counter when it is made, so a table is a slice that a counter sizes, and a node that a phase\n")
+	w.p("// makes later has its slot in it too. Slots count from 1: 0 is no slot.\n")
+	w.p("type Slots struct {\n")
+	for _, c := range m.slots {
+		w.p("\t%s uint32\n", c)
+	}
+	w.p("}\n\n")
+	w.p("// Slots is how many slots of each counter the arena has given out.\n")
+	w.p("func (a *Arena) Slots() Slots { return a.slots }\n\n")
 	w.p("func NewArena(module ModuleID) *Arena { return &Arena{module: module} }\n\n")
 	w.p("// Seal ends the parse: a node made after it, as a phase makes when it rewrites the tree, comes from a small chunk,\n")
 	w.p("// not from the next of the doubling chunks that a parse would have filled.\n")
@@ -74,7 +84,7 @@ func emitNodes(m *model) string {
 	w.p("func (a *Arena) Count() int { return int(a.count) }\n\n")
 	for _, n := range m.nodes {
 		w.p("func (a *Arena) New%s() *%s {\n\tn := a.%s.next()\n\ta.count++\n\tn.Mod, n.ID = a.module, a.count\n", n.name, n.name, lowerFirst(n.name))
-		for _, s := range initialValues(n) {
+		for _, s := range newSteps(n) {
 			w.p("\t%s\n", s)
 		}
 		w.p("\treturn n\n}\n\n")
@@ -92,27 +102,31 @@ func emitNodes(m *model) string {
 	return w.b.String()
 }
 
-// initialValues are the assignments that give a new node the values its fields start with when they are not zero: the
-// set bases' first, outermost first, then the node's own.
-func initialValues(n *node) []string {
-	var inits []string
+// newSteps are the statements that start a new node: its slots from the arena's counters, and the values its fields
+// start with when they are not zero. The set bases' fields come first, outermost first, then the node's own.
+func newSteps(n *node) []string {
+	var steps []string
 	var chain []*set
 	for s := n.set; s != nil; s = s.parent {
 		chain = append([]*set{s}, chain...)
 	}
+	start := func(f *field) {
+		switch {
+		case f.slot != "":
+			steps = append(steps, fmt.Sprintf("a.slots.%s++", f.slot), fmt.Sprintf("n.%s = a.slots.%s", f.name, f.slot))
+		case f.init != "":
+			steps = append(steps, fmt.Sprintf("n.%s = %s", f.name, f.init))
+		}
+	}
 	for _, s := range chain {
 		for _, f := range s.base {
-			if f.init != "" {
-				inits = append(inits, fmt.Sprintf("n.%s = %s", f.name, f.init))
-			}
+			start(f)
 		}
 	}
 	for _, f := range n.fields {
-		if f.init != "" {
-			inits = append(inits, fmt.Sprintf("n.%s = %s", f.name, f.init))
-		}
+		start(f)
 	}
-	return inits
+	return steps
 }
 
 func emitStruct(w *writer, name, embed string, fields []*field) {

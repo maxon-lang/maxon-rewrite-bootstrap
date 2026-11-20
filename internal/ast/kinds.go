@@ -16,7 +16,7 @@ const (
 	ArmPanic
 )
 
-type NameKind int
+type NameKind uint8
 
 const (
 	NameUnresolved NameKind = iota
@@ -25,7 +25,7 @@ const (
 	NameSelfField
 )
 
-type CallKind int
+type CallKind uint8
 
 const (
 	CallUnresolved CallKind = iota
@@ -39,7 +39,7 @@ const (
 	CallBound
 )
 
-type MemberKind int
+type MemberKind uint8
 
 const (
 	MemberUnresolved MemberKind = iota

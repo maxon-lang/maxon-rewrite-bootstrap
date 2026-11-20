@@ -10,6 +10,8 @@ type ModuleResult struct {
 	Errors []*diag.CompileError
 	// Resolution is what name resolution bound the module's nodes to.
 	Resolution Resolution
+	// Typing is what the check pass decided about the module's bodies.
+	Typing Typing
 	// Deps are the modules this one names a declaration of, by handle in ascending order, each with the first place
 	// it is named. The standard library is not a module of the project and is never a dependency.
 	Deps      []ModuleDep

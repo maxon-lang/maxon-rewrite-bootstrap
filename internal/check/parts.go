@@ -106,9 +106,9 @@ func (o *Ownership) requireMayTakeApart(site ast.Node, t ast.Ty, what string) bo
 func (o *Ownership) requireMayTakeApartFrom(e ast.Expr, what string) bool {
 	switch x := e.(type) {
 	case *ast.MemberExpr:
-		return o.requireMayTakeApartFrom(x.Obj, what) && o.requireMayTakeApart(e, x.Obj.Ty(), what)
+		return o.requireMayTakeApartFrom(x.Obj, what) && o.requireMayTakeApart(e, o.ty(x.Obj), what)
 	case *ast.NameExpr:
-		if x.Kind == ast.NameSelfField {
+		if o.typing.Name(x).Kind() == ast.NameSelfField {
 			return o.requireMayTakeApart(e, o.fn.SelfLocal.Type, what)
 		}
 	}
@@ -122,7 +122,7 @@ func (o *Ownership) movePart(e ast.Expr, p accessPath, dest ownDest, s *ownState
 	if !o.requireMayTakeApartFrom(e, "moving '"+p.text()+"'") {
 		return s
 	}
-	m := ownMove{fields: fieldsOf(p), ty: e.Ty(), site: e, dest: dest}
+	m := ownMove{fields: fieldsOf(p), ty: o.ty(e), site: e, dest: dest}
 	moves := []ownMove{m}
 	if fact, ok := s.tryGet(p.root); ok && fact.parts != nil {
 		for _, old := range fact.parts.moves {
@@ -138,7 +138,7 @@ func (o *Ownership) movePart(e ast.Expr, p accessPath, dest ownDest, s *ownState
 // readPart is a read of a field path of a local, which needs no part of that place to be gone. It is false when the
 // local has lost none of its fields, and the caller then reads the local as a whole.
 func (o *Ownership) readPart(e ast.Expr, s *ownState) (*ownState, bool) {
-	p, ok := pathOf(e, o.fn.SelfLocal, o.steps[:0])
+	p, ok := o.pathOf(e, o.steps[:0])
 	if !ok || p.crossesElement() {
 		return s, false
 	}
@@ -188,7 +188,7 @@ func (o *Ownership) assignPart(st *ast.AssignStmt, target ast.Expr, p accessPath
 	switch {
 	case reinitialised:
 	case len(under) > 0:
-		o.requireRemainder(st, target.Ty(), len(p.steps), under, p.text(), dropOverwrite, false)
+		o.requireRemainder(st, o.ty(target), len(p.steps), under, p.text(), dropOverwrite, false)
 	default:
 		o.requireOverwriteDroppable(st, target, s)
 		return s, true

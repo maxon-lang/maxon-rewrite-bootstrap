@@ -182,7 +182,21 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 		return parseErrors
 	}
 
-	project.IndexNames(proj, declared)
+	// The name index is serial and cheap, so the cores it leaves idle size the tables that the check pass fills in: the
+	// bodies are checked many modules at a time, and allocating the tables of a large project there would make them wait
+	// for the heap one after another.
+	sizeTypings := func() {
+		par.ForEachIndex(len(modules), jobs, func(i int) { results[i].Typing.Reset(modules[i].Nodes.Slots()) })
+	}
+	if jobs <= 1 {
+		project.IndexNames(proj, declared)
+		sizeTypings()
+	} else {
+		var sized sync.WaitGroup
+		sized.Go(sizeTypings)
+		project.IndexNames(proj, declared)
+		sized.Wait()
+	}
 	mark("names")
 
 	phase(func(m *ast.Module, res *ast.ModuleResult) { resolve.NewResolver(proj, m, res).Run() })
@@ -203,7 +217,8 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 
 	var main *ast.FuncDecl
 	phase(func(m *ast.Module, res *ast.ModuleResult) {
-		checker := check.NewChecker(proj, m, &res.Resolution, &res.Errors)
+		res.Typing.Sync(m.Nodes.Slots())
+		checker := check.NewChecker(proj, m, &res.Resolution, &res.Typing, &res.Errors)
 		for _, d := range m.Decls {
 			res.Functions = append(res.Functions, checker.Declare(d)...)
 		}
@@ -243,18 +258,22 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 		return checkErrors
 	}
 
-	if output != "" || capture != nil {
-		return generate(proj, results, main, output, o, capture, mark)
+	typings := make(ast.Typings, len(results))
+	for i := range results {
+		typings[i] = &results[i].Typing
 	}
-	return checkInstances(results, jobs, mark)
+	if output != "" || capture != nil {
+		return generate(proj, results, typings, main, output, o, capture, mark)
+	}
+	return checkInstances(results, typings, jobs, mark)
 }
 
 // checkInstances is what a compile that makes nothing runs in place of generate: each module finds its instances, which
 // is where a generic function that grows its own type argument without end is refused (E3122).
-func checkInstances(results []ast.ModuleResult, jobs int, mark func(string)) []*diag.CompileError {
+func checkInstances(results []ast.ModuleResult, typings ast.Typings, jobs int, mark func(string)) []*diag.CompileError {
 	failures := make([][]*diag.CompileError, len(results))
 	par.ForEachIndex(len(results), jobs, func(i int) {
-		diag.Guard(&failures[i], func() { ir.Instances(results[i].Callers) })
+		diag.Guard(&failures[i], func() { ir.Instances(typings, results[i].Callers) })
 	})
 	mark("instances")
 	return firstFailure(failures)
@@ -274,7 +293,7 @@ func firstFailure(failures [][]*diag.CompileError) []*diag.CompileError {
 
 // checkBodies types the module's type declarations and functions, and records what verify and the instances need.
 func checkBodies(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
-	checker := check.NewChecker(proj, m, &res.Resolution, &res.Errors)
+	checker := check.NewChecker(proj, m, &res.Resolution, &res.Typing, &res.Errors)
 	for _, d := range m.Decls {
 		switch d.(type) {
 		case *ast.TypeDecl, *ast.UnionDecl, *ast.EnumDecl:
@@ -292,7 +311,7 @@ func checkBodies(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
 // verifyModule checks the calls and type arguments that checkBodies recorded, then ownership, which only runs on a
 // module that has no error yet.
 func verifyModule(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
-	verifier := check.NewChecker(proj, m, &res.Resolution, &res.Errors)
+	verifier := check.NewChecker(proj, m, &res.Resolution, &res.Typing, &res.Errors)
 	verifier.Verify(res.Pending)
 	verifier.VerifyBounds(res.Bounds)
 	if len(res.Errors) == 0 {
@@ -339,7 +358,7 @@ type moduleOutput struct {
 // needs too lowers and emits it as well, and the link keeps one copy. With capture it hands the IR to the interpreter
 // instead of emitting code. A program that has refusals gets no executable and the code emitted for it is dropped; a
 // module with a refusal is not emitted at all, because its IR holds what codegen cannot handle.
-func generate(proj *ast.Project, results []ast.ModuleResult, main *ast.FuncDecl, output string, o Options, capture **interp.Program, mark func(string)) []*diag.CompileError {
+func generate(proj *ast.Project, results []ast.ModuleResult, typings ast.Typings, main *ast.FuncDecl, output string, o Options, capture **interp.Program, mark func(string)) []*diag.CompileError {
 	modules := proj.Modules
 	matters := func(string) bool { return true }
 	if capture != nil {
@@ -350,10 +369,10 @@ func generate(proj *ast.Project, results []ast.ModuleResult, main *ast.FuncDecl,
 	units := make([]*backend.CodeUnit, len(modules)+1)
 	var refused atomic.Bool
 	generateModules := func() {
-		par.ForEachIndexWith(len(modules), o.Jobs, newGenerateScratch, func(w *generateScratch, i int) {
+		par.ForEachIndexWith(len(modules), o.Jobs, func() *generateScratch { return newGenerateScratch(typings) }, func(w *generateScratch, i int) {
 			out := &outputs[i]
 			var instances *ir.InstanceSet
-			diag.Guard(&unfinite[i], func() { instances = ir.Instances(results[i].Callers) })
+			diag.Guard(&unfinite[i], func() { instances = ir.Instances(typings, results[i].Callers) })
 			if len(unfinite[i]) > 0 {
 				refused.Store(true)
 				return
@@ -449,7 +468,9 @@ type generateScratch struct {
 	fns      []*ir.IrFunction
 }
 
-func newGenerateScratch() *generateScratch { return &generateScratch{lowering: ir.NewLowering()} }
+func newGenerateScratch(typings ast.Typings) *generateScratch {
+	return &generateScratch{lowering: ir.NewLowering(typings)}
+}
 
 // functionsOnce is the IR of every function the interpreter runs. An instance that several modules lowered is there once,
 // as lowered by the first of them in module order.
@@ -599,7 +620,8 @@ func checkConstants(proj *ast.Project, results []ast.ModuleResult, jobs int, err
 		waveErrors := make([][]*diag.CompileError, len(items))
 		par.ForEachIndex(len(items), jobs, func(k int) {
 			entry := consts[items[k]]
-			check.NewChecker(proj, entry.module, &results[entry.module.ID].Resolution, &waveErrors[k]).CheckConst(entry.decl)
+			res := &results[entry.module.ID]
+			check.NewChecker(proj, entry.module, &res.Resolution, &res.Typing, &waveErrors[k]).CheckConst(entry.decl)
 		})
 		for _, e := range waveErrors {
 			*errs = append(*errs, e...)

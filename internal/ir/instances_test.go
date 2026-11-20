@@ -32,7 +32,8 @@ func frontEnd(t *testing.T, path string) []ast.ModuleResult {
 	project.BuildTables(proj, results, 1)
 	resolve.NewResolver(proj, root, res).Run()
 	check.DeclareAliases(proj, results)
-	c := check.NewChecker(proj, root, &res.Resolution, &res.Errors)
+	res.Typing.Reset(root.Nodes.Slots())
+	c := check.NewChecker(proj, root, &res.Resolution, &res.Typing, &res.Errors)
 	for _, d := range root.Decls {
 		res.Functions = append(res.Functions, c.Declare(d)...)
 	}
@@ -65,6 +66,15 @@ func frontEnd(t *testing.T, path string) []ast.ModuleResult {
 
 const genericsFile = "testdata/generics.maxon"
 
+// typingsOf are the typings of the modules a front end checked.
+func typingsOf(results []ast.ModuleResult) ast.Typings {
+	typings := make(ast.Typings, len(results))
+	for i := range results {
+		typings[i] = &results[i].Typing
+	}
+	return typings
+}
+
 func instanceNames(fns []*ast.FuncDecl) []string {
 	names := make([]string, len(fns))
 	for i, f := range fns {
@@ -75,13 +85,13 @@ func instanceNames(fns []*ast.FuncDecl) []string {
 
 func TestEachInstanceIsFoundOnceInDiscoveryOrder(t *testing.T) {
 	results := frontEnd(t, genericsFile)
-	got := strings.Join(instanceNames(Instances(results[0].Callers).List), " ")
+	got := strings.Join(instanceNames(Instances(typingsOf(results), results[0].Callers).List), " ")
 	// main's calls come first, in the order they are written, then the calls inside each instance.
 	want := "swap[Score] swap[Square] (Box with Score).make both[Square] total[Square] (Box with Score).peek"
 	if got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}
-	if again := strings.Join(instanceNames(Instances(results[0].Callers).List), " "); again != want {
+	if again := strings.Join(instanceNames(Instances(typingsOf(results), results[0].Callers).List), " "); again != want {
 		t.Fatalf("the second walk found %s, not %s", again, want)
 	}
 }
@@ -89,9 +99,9 @@ func TestEachInstanceIsFoundOnceInDiscoveryOrder(t *testing.T) {
 func TestInstancesAreLoweredWithTheirOwnKinds(t *testing.T) {
 	results := frontEnd(t, genericsFile)
 	slots := map[string][]IrKind{}
-	instances := Instances(results[0].Callers)
+	instances := Instances(typingsOf(results), results[0].Callers)
 	for _, f := range instances.List {
-		slots[f.Symbol()] = Lower(f, instances).Slots
+		slots[f.Symbol()] = Lower(typingsOf(results), f, instances).Slots
 	}
 	if got := slots["swap[Score]"]; len(got) != 1 || got[0] != KindScalar {
 		t.Errorf("swap at a scalar has slots %v", got)
@@ -103,14 +113,14 @@ func TestInstancesAreLoweredWithTheirOwnKinds(t *testing.T) {
 
 func TestNothingIsInstantiatedForAProgramWithoutGenerics(t *testing.T) {
 	results := frontEnd(t, "testdata/no-generics.maxon")
-	if found := Instances(results[0].Callers).List; len(found) != 0 {
+	if found := Instances(typingsOf(results), results[0].Callers).List; len(found) != 0 {
 		t.Fatalf("found %v", instanceNames(found))
 	}
 }
 
 func TestStatementsAfterATerminatingStatementInstantiateNothing(t *testing.T) {
 	results := frontEnd(t, "testdata/dead-statements.maxon")
-	if found := Instances(results[0].Callers).List; len(found) != 0 {
+	if found := Instances(typingsOf(results), results[0].Callers).List; len(found) != 0 {
 		t.Fatalf("found %v", instanceNames(found))
 	}
 }
@@ -119,7 +129,7 @@ func TestStatementsAfterATerminatingStatementInstantiateNothing(t *testing.T) {
 // lowering refuses, however the instance came to exist.
 func TestLoweringACallOfAnInstanceTheModuleDidNotFindIsRefused(t *testing.T) {
 	results := frontEnd(t, genericsFile)
-	found := Instances(results[0].Callers)
+	found := Instances(typingsOf(results), results[0].Callers)
 	var main *ast.FuncDecl
 	for _, f := range results[0].Functions {
 		if f.Name == "main" {
@@ -132,6 +142,6 @@ func TestLoweringACallOfAnInstanceTheModuleDidNotFindIsRefused(t *testing.T) {
 			t.Errorf("got %v, want an internal error that names the instance", message)
 		}
 	}()
-	Lower(main, &InstanceSet{})
+	Lower(typingsOf(results), main, &InstanceSet{})
 	t.Errorf("main was lowered without the %d instances it needs", len(found.List))
 }

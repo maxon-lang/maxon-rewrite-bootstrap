@@ -22,12 +22,13 @@ type fnLevel struct {
 
 // behaviourBuild is a behaviour body being checked: the parameters it has taken so far.
 type behaviourBuild struct {
-	node *ast.WhenStmt
-	fn   *ast.FuncDecl
+	fn *ast.FuncDecl
 	// accesses are the parameters that give access to the values of the cowns, first among the parameters.
 	accesses []*ast.Local
 	// captured maps a variable of the enclosing function to the parameter that holds it in the body.
 	captured map[*ast.Local]*ast.Local
+	// captures are the variables taken so far, in the order they were first named.
+	captures []*ast.Capture
 }
 
 func lookupScopes(scopes []map[string]*ast.Local, name string) *ast.Local {
@@ -86,13 +87,15 @@ func (c *Checker) captureFrom(b *behaviourBuild, level int, n *ast.NameExpr) *as
 	inner := ast.NewLocal(outer.Name, outer.Type, false)
 	inner.IsParam = true
 	inner.Conv = ast.ConvConsumes
-	inner.ParamIndex = len(b.accesses) + len(b.node.Captures)
-	b.fn.Locals = append(b.fn.Locals, inner)
+	inner.ParamIndex = len(b.accesses) + len(b.captures)
+	b.fn.AddLocal(inner)
 	ref := c.module.Nodes.NewNameExpr()
+	c.made()
 	ref.Pos = n.Pos
-	ref.Name, ref.Kind, ref.Local = outer.Name, ast.NameLocal, outer
-	ref.SetTy(outer.Type)
-	b.node.Captures = append(b.node.Captures, &ast.Capture{Ref: ref, Inner: inner})
+	ref.Name = outer.Name
+	c.typing.SetName(ref, ast.LocalName(outer))
+	c.typing.SetType(ref, outer.Type)
+	b.captures = append(b.captures, &ast.Capture{Ref: ref, Inner: inner})
 	b.captured[outer] = inner
 	return inner
 }
@@ -171,7 +174,7 @@ func (c *Checker) enterBehaviour(w *ast.WhenStmt, values []ast.Ty) {
 	fn.Body = w.Body
 	c.whens++
 	c.outers = append(c.outers, fnLevel{fn: c.fn, scopes: c.scopes, blocks: c.blocks, nextSlot: c.nextSlot, whens: c.whens, behaviour: c.behaviour})
-	b := &behaviourBuild{node: w, fn: fn, captured: map[*ast.Local]*ast.Local{}}
+	b := &behaviourBuild{fn: fn, captured: map[*ast.Local]*ast.Local{}}
 	c.behaviour = b
 	c.fn, c.scopes, c.blocks, c.nextSlot, c.whens = fn, []map[string]*ast.Local{{}}, nil, 0, 0
 	for i, name := range w.Names {
@@ -190,10 +193,11 @@ func (c *Checker) leaveBehaviour(w *ast.WhenStmt) {
 	fn := b.fn
 	add := func(l *ast.Local) {
 		p := c.module.Nodes.NewParam()
+		c.made()
 		p.Pos = w.Pos
 		p.Name = l.Name
 		p.Convention = l.Conv.String()
-		p.Sym = l
+		c.typing.SetParamLocal(p, l)
 		fn.Params = append(fn.Params, p)
 		fn.ParamTypes = append(fn.ParamTypes, l.Type)
 		fn.Pass.Specs = append(fn.Pass.Specs, ast.ParamSpec{Name: l.Name, Type: l.Type, Conv: l.Conv})
@@ -201,10 +205,11 @@ func (c *Checker) leaveBehaviour(w *ast.WhenStmt) {
 	for _, a := range b.accesses {
 		add(a)
 	}
-	for _, cp := range w.Captures {
+	for _, cp := range b.captures {
 		add(cp.Inner)
 	}
-	w.Fn = fn
+	info := c.typing.EditWhen(w)
+	info.Fn, info.Captures = fn, b.captures
 	outer := c.outers[len(c.outers)-1]
 	c.outers = c.outers[:len(c.outers)-1]
 	c.fn, c.scopes, c.blocks, c.nextSlot, c.whens, c.behaviour = outer.fn, outer.scopes, outer.blocks, outer.nextSlot, outer.whens, outer.behaviour
@@ -224,7 +229,7 @@ func (c *Checker) VisitWhenStmt(w *ast.WhenStmt) {
 		}
 		values[i] = t.(*ast.BuiltinTy).Held()
 		for _, other := range w.Cowns[:i] {
-			if sameName(other, cn) {
+			if c.sameName(other, cn) {
 				panic(cn.Error(diag.ErrWhenSameCown, fmt.Sprintf("'%s' is named twice by one behaviour, which would give it two mutable names for one value; name each cown once", cn.Name)))
 			}
 		}
@@ -235,14 +240,9 @@ func (c *Checker) VisitWhenStmt(w *ast.WhenStmt) {
 }
 
 // sameName is whether two cown operands are one variable or one field.
-func sameName(a, b *ast.NameExpr) bool {
-	switch {
-	case a.Kind == ast.NameLocal && b.Kind == ast.NameLocal:
-		return a.Local == b.Local
-	case a.Kind == ast.NameSelfField && b.Kind == ast.NameSelfField:
-		return a.Field == b.Field
-	}
-	return false
+func (c *Checker) sameName(a, b *ast.NameExpr) bool {
+	x, y := c.typing.Name(a), c.typing.Name(b)
+	return x == y && (x.Kind() == ast.NameLocal || x.Kind() == ast.NameSelfField)
 }
 
 func describeType(t ast.Ty) string {
@@ -288,7 +288,7 @@ func (c *Checker) checkIntrinsicArgs(call *ast.CallExpr, target *ast.FuncDecl, o
 		return
 	}
 	arg := ordered[0]
-	t := arg.Ty()
+	t := c.ty(arg)
 	switch target.Intrinsic {
 	case ast.IntrinsicFreeze:
 		if _, isConst := t.(*ast.ConstIntTy); isConst || (t != ast.NeverTy && t != ast.VoidTy && !t.IsManaged()) {
@@ -314,14 +314,15 @@ func (c *Checker) cownCall(call *ast.CallExpr) ast.Ty {
 	b := c.project.Builtins
 	at := slices.IndexFunc(call.Args, func(a *ast.Arg) bool { return a.Label == ast.DropWithLabel })
 	if at <= 0 {
-		return c.callFunction(call, ast.CallFunction, b.CownNew, nil, nil)
+		return c.callFunction(call, ast.CallFunction, b.CownNew, nil)
 	}
 	all, drop := call.Args, call.Args[at]
 	call.Args = slices.Delete(slices.Clone(all), at, at+1)
 	defer func() { call.Args = all }()
-	t := c.callFunction(call, ast.CallFunction, b.CownNewDropWith, nil, nil)
-	call.Drop = c.dropWithCall(call, drop, call.Ordered[0].Ty())
-	c.recordUses(call.Drop)
+	t := c.callFunction(call, ast.CallFunction, b.CownNewDropWith, nil)
+	dropCall := c.dropWithCall(call, drop, c.ty(c.typing.Call(call).Ordered[0]))
+	c.typing.Call(call).Drop = dropCall
+	c.recordUses(dropCall)
 	return t
 }
 
@@ -345,10 +346,13 @@ func (c *Checker) dropWithCall(site *ast.CallExpr, arg *ast.Arg, content ast.Ty)
 	}
 	c.requireExported(arg, method)
 	c.queueMethodBounds(site, method, nt.Base().Args)
-	drop := &ast.CallExpr{Kind: ast.CallMethod, Target: method, Pass: &method.Pass}
+	drop := c.module.Nodes.NewCallExpr()
+	c.made()
 	drop.Pos = *site.P()
+	info := c.typing.Call(drop)
+	info.Kind, info.Target, info.Pass = ast.CallMethod, method, &method.Pass
 	if len(method.Generics) > 0 {
-		drop.Generic = &ast.GenericCall{TypeArgs: nt.Base().Args}
+		info.Generic = &ast.GenericCall{TypeArgs: nt.Base().Args}
 	}
 	return drop
 }

@@ -129,12 +129,12 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `diag` | `CompileError`, `Guard`, the error codes | — |
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
-| `ast` | the program model: AST nodes, keywords and visitors (generated), the arena that makes a module's nodes and numbers them, `Pos` and `Positions` (where a node is), the handles (`ModuleID`, `NodeID`, `DeclRef`), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases, with `Resolution`, the first of the tables that phases fill in (see "The AST") | `diag` |
+| `ast` | the program model: AST nodes, keywords and visitors (generated), the arena that makes a module's nodes, numbers them and gives them their slots, `Pos` and `Positions` (where a node is), the handles (`ModuleID`, `NodeID`, `DeclRef`, `LocalID`), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases, with `Resolution` and `Typing`, the tables that phases fill in (see "The AST") | `diag` |
 | `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
 | `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar and the `Scratch` a worker reuses to read, lex and parse each module, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
 | `resolve` | name resolution, and binding each `where` constraint to its type parameter, into the module's `Resolution` | `ast`, `diag` |
-| `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture | `ast`, `diag` |
-| `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), and the runtime's symbol names | `ast`, `diag` |
+| `check` | the type checker, the generic bounds, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag` |
+| `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag` |
 | `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer | `ast`, `diag`, `ir`, `par` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives in Go and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `diag`, `ir` |
 | `driver` | `Compile`: runs the phases; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
@@ -147,14 +147,15 @@ that generates code from the grammar; nothing imports it.
 Code that only restates a fact is generated from the one place that fact is written, so it cannot drift from it
 or be written wrong. That place is `internal/syntax/Maxon.g4`, the grammar, in a subset of ANTLR 4 notation that its
 header explains. It says how each construct is written and which AST node it builds: a label such as `cond=expr` is
-a field of the node, `@ast::Node { ... }` adds the fields later phases fill in, and a rule whose alternatives are
-nodes, such as `stmt` or `expr`, is a closed set of them. `internal/grammargen` turns it into:
+a field of the node, `@ast::Node { ... }` adds the fields later phases fill in or, written `Name Slot[Counter]`, a slot
+that the arena numbers from a counter (see "The AST"), and a rule whose alternatives are nodes, such as `stmt` or `expr`,
+is a closed set of them. `internal/grammargen` turns it into:
 
 | File | Holds |
 |---|---|
 | `internal/syntax/parser_gen.go` | a recursive-descent parser with one function per rule, and the stack for each type of list it builds; operator precedence comes from the order of `expr`'s alternatives |
 | `internal/syntax/tokens_gen.go` | the token kinds and the lexer's DFA: every token rule and keyword compiled into one table over byte classes |
-| `internal/ast/nodes_gen.go` | the node structs, each starting with `ast.Head`, the `Arena` that makes a module's nodes in chunks of each type and numbers them, the reserved words, and three visitors per set |
+| `internal/ast/nodes_gen.go` | the node structs, each starting with `ast.Head`, the `Arena` that makes a module's nodes in chunks of each type, numbers them and counts their slots (`Slots`), the reserved words, and three visitors per set |
 
 The parser decides with one token of lookahead, or two where one is not enough. Where two alternatives start with
 the same rule, as an assignment and an expression statement both start with an expression, it parses that rule once
@@ -186,9 +187,9 @@ go generate ./internal/syntax
 ```
 
 `go test ./internal/grammargen` fails if a generated file is not what the grammar generates. A package exports only what another
-package uses. What resolution decides is no longer in the nodes but in a table beside them (see "The AST"); the nodes
-still carry the semantic types that declare and check fill in, which is why `ast` holds both. Moving those into tables
-too, as `go/ast` and `go/types` do, would let the two separate.
+package uses. What resolution and the check of the bodies decide is no longer in the nodes but in tables beside them (see
+"The AST"); the declarations still carry the semantic types that declare fills in, which is why `ast` holds both. Moving
+those into tables too, as `go/ast` and `go/types` do, would let the two separate.
 
 An edit rebuilds only its package and the packages that import it: after a change to `check`, the compiler
 rebuilds in about 0.4 s, and `go test ./internal/check` runs in about 0.3 s.
@@ -206,10 +207,10 @@ unit per item). Results are merged in source order, which keeps the output deter
 |---|---|---|
 | discover | `project` | walks the directory tree, one goroutine per subdirectory |
 | parse | `syntax`, `project` | reads the module's files into one buffer, lexes the whole buffer in one pass and parses the token stream into the AST; anything the grammar does not allow is a syntax error. A module that parsed cleanly then gets its declaration table and an empty type object for each of its types, while its AST is in cache (a duplicate declaration is `E3006`, reported only if no module has a syntax error) |
-| names | `project` | serial and cheap: the project-wide name index, which lists the declarations of each name in module order |
+| names | `project` | serial and cheap: the project-wide name index, which lists the declarations of each name in module order. The cores it leaves idle meanwhile size each module's `Typing` from its arena's slots (see "The AST") |
 | resolve | `resolve` | binds every name to its declaration and records the modules the module depends on in its result, and each `where` constraint to the type parameter it names (`E3133`) |
 | aliases | `check` | serial and cheap: each typealias of an instance gets its type, after the typealiases it names, in source order (a cycle is `E2012`) |
-| declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass |
+| declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass. It also grows the module's `Typing` for the nodes that resolve made |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
 | check | `check` | two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3117`), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3110` to `E3115`, `E3125`, `E2013`) A module's verify stage runs only if its bodies had no errors, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
 | generate | `ir`, `backend` | two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules |
@@ -270,9 +271,10 @@ syntax error.
 
 The AST is on its way from nodes that point at each other to flat arrays indexed by handles, in three stages, each
 leaving the executable and the diagnostics byte for byte as they were. **Stage A (done): handles.** Every node has an
-index in its module and is named from outside its owner by a handle, never a pointer. **Stage B (resolve done): what a
-phase finds out is not part of a node.** It is a table the phase owns, indexed by node. **Stage C (planned): nodes as
-records.** Nodes then hold only syntax, in arrays, and children are indexes.
+index in its module and is named from outside its owner by a handle, never a pointer. **Stage B (resolve and the bodies
+done; the declarations left): what a phase finds out is not part of a node.** It is a table the phase owns, indexed by
+node or by a slot the node was given. **Stage C (planned): nodes as records.** Nodes then hold only syntax, in arrays, and
+children are indexes.
 
 **Handles and widths.** Each number is 32 bits, and a handle is two of them:
 
@@ -283,6 +285,8 @@ records.** Nodes then hold only syntax, in arrays, and children are indexes.
 | `Pos` | where a node begins: its module (`Mod`) and the byte offset `Off` | 8 bytes |
 | `Head` | what every generated node starts with: its `Pos` and its `NodeID` | 12 bytes |
 | `DeclRef` | a top-level declaration: its module and its `Ordinal`, its index in `Module.Decls` | 8 bytes |
+| `LocalID` | a local variable of a function: its place in the function's `Locals`, plus one; 0 is no local | `uint32` |
+| a slot | a node's place among the nodes of its kind that a table has an entry for (see "Side tables"); 0 is no slot | `uint32` |
 
 A module has at most 4 GB of text and a node covers at least one byte of it, so 32 bits count its nodes, and a project
 has fewer than 2^31 modules. Packing a module and a node into one 64-bit word would cap one of them and cost a shift on
@@ -291,17 +295,19 @@ every use, to save nothing: the pair is 8 bytes as a struct. In stage C a refere
 
 **Who assigns an index.** The generator emits each module's `ast.Arena`, which the parser makes nodes from and the module
 keeps (`Module.Nodes`): each `New<Node>` takes the next number, sets the node's `Head`, and takes the node from a chunk of
-its type as before. `Count` is how many nodes the module has, so a table is sized by it. A phase that has to make a node
-does it in the module's arena (resolution makes the name that replaces a qualified one, checking splits a behaviour off),
-so the node takes the next number and a table grows by it. `Seal` ends the parse: the first node made after it takes a
+its type as before. `Count` is how many nodes the module has, so a table is sized by it. A node that a table has an entry
+for also takes the next number of its slot counter (below), and `Slots` is how many of each the arena has given. A phase
+that has to make a node does it in the module's arena (resolution makes the name that replaces a qualified one, checking
+splits a behaviour off and makes the call of a `dropWith` destructor), so the node takes the next numbers and a table grows
+by them. `Seal` ends the parse: the first node made after it takes a
 chunk of 4, not the next of the doubling chunks that the parse would have filled. An index depends only on the module's
 text and on what its own phases make, never on another module, so a module that did not change keeps its indexes, its
 tables and its text when a later compile reuses it (the language server, a build cache). What is project-relative is
 `ModuleID`, in `Pos.Mod` and in the lists that a table holds: it is the one number to renumber when modules have been
 added or removed.
 
-**Side tables.** A table is a slice indexed by `NodeID`, owned by the per-module result (`ModuleResult`), made by the one
-phase that fills it (`Reset` sizes it by `Count`) and only read after it. `ModuleResult.Resolution` is the first: which
+**Side tables.** A table is a slice owned by the per-module result (`ModuleResult`), made by the one phase that fills it
+(`Reset` sizes it by the arena's counts) and only read after it. `ModuleResult.Resolution` is indexed by `NodeID`: which
 declaration each name, struct literal and type reference names, and which type parameter each type reference and
 constraint binds. About one node in ten is bound, and to few things, since a module names a handful of declarations many
 times, so an entry is 4 bytes: a slot in the list of the distinct things the module bound anything to, each a `DeclRef`
@@ -309,6 +315,58 @@ or a type parameter, and slot 0 binds nothing, as for a local, a field or a prim
 every node has, such as the type of an expression, would hold its entries directly. The checker, the driver's constants
 and the alias pass read a table through `Resolution.Decl(project, node.ID)` and `Resolution.TypeParam(node.ID)`, which
 return nil where a node names none; a node outside the table is an internal error, not a default.
+
+`ModuleResult.Typing` is what the check pass decided about the bodies. It is not indexed by `NodeID`, because almost every
+table of it is for some kinds of node only: a type is the entry of an expression, and a table of one per node would
+hold sixteen bytes for each of the statements, declarations and type references too. A node that a table has entries for
+carries a slot, a `uint32` the arena numbers from a counter shared by the kinds that the table serves (the grammar says
+it: `Ord Slot[Expr]`, `Info Slot[Call]`; the generator writes the field, the counter and the assignment, so nothing is
+numbered by hand). An expression's slot fits the padding after its `Head`, so the node does not grow for it. A table is as
+long as its counter, and an entry is found by `typing.Type(e)`, `typing.Call(c)` and the like, which are one index and no
+search:
+
+| Table | Slot | Entry | Bytes |
+|---|---|---|---|
+| types | `Expr`: every expression | the `Ty` | 16 |
+| consumed | `Expr` | a bit, which the ownership pass sets | 1/8 |
+| operands | `Expr` | for a binary operator, how lowering compares its operands: word, unsigned or string | 1 |
+| names | `Name`: a name written as an expression | what it stands for, as a handle: a `LocalID`, a field's index, or a constant | 4 |
+| members | `Member` | the kind, the field, the case | 16 |
+| calls | `Call` | the kind, target, passing, generic call, union and case, ordered arguments, drop | 72 |
+| struct literals | `StructLit` | the record and the field values in order | 32 |
+| patterns | `Pattern` | the case and a `LocalID` for each binding | 32 |
+| behaviours | `When` | the function the body became and what it captures | 32 |
+| locals | `Local`: a `let`, a `for`, a parameter | a `LocalID` | 4 |
+| jumps | `Jump`: a `break`, a `continue` | the `NodeID` of the loop or match | 4 |
+
+A name is a third of the expressions or more and a call a tenth or fewer, so a name's entry is four bytes (its kind and a
+handle share a word) and a call's is not paid by the expressions that are not calls; the receiver of a call is not stored,
+because it is the object of the member the call names; the types, which every expression has, are the one table as long as the
+expressions. Moving a field out of a node does not make the compiler smaller by itself, since the data is the same: what is
+saved is what the node held and a table does not, namely the padding after a flag, a name's three pointers (a local, a
+field and a constant became one handle, the constant being read from a short list of the constants the module's names
+stand for), a binary operator's `Ty` (a byte now, since lowering asks only whether the operands are strings or unsigned),
+and the local of a `self`, which is its method's. Interning the types, four bytes an expression and a hash lookup to find
+each, is the lever that remains if their sixteen bytes ever matter more than the lookups' time.
+
+An entry is read with the `Typing` of the module its node is in. The check of a module only needs its own, but lowering
+follows a call into another module's generic, a constant into the module that declares it, and a field's default into the
+record's: `ast.Typings`, the typings of every module by `ModuleID`, is what the lowerer and the instance finder
+(`ir.Instances`) hold, and the node's own `Pos.Mod` says which. The check pass has finished for every module before the
+generate pass starts, so reading them needs no lock: the typings are the ones in the results the driver owns, and
+lowering only calls their read methods (the `Set` and `Edit` ones are the checker's). Reading an entry that does not exist (a node no arena made, a slot past the table, or
+an expression that was never typed) is an internal error and not a default. A local is read through the function whose
+body holds the name (`name.Local(fn)`), because it is a position in that function's `Locals`; the local that a capture
+names in the function around a behaviour is read through that function.
+
+The nodes that the check pass makes while it works (a behaviour's function and parameters, the name that stands for a
+captured variable in the function around it, the call of a `dropWith` destructor) have their entries made with them:
+`Typing.Sync` grows each table to the arena's counts. Only the worker that checks the module's bodies calls it. The
+constants of a module are checked at the same time as each other, so the tables are sized before the first of them (while
+the serial name index runs, since sizing allocates and the bodies are checked many modules at a time) and a constant
+makes no node: each writes the entries of its own expressions. Naming a constant takes a lock for the one list
+that the constants share. `Consumed` is a bitset the ownership pass writes while it verifies the module, and lowering,
+including that of another module's constant, only reads it, which is after every module's verify.
 
 **Positions.** `Pos` names its module and does not point at its text: `Module.Positions` holds it, and the line index is
 built only when something asks, as before. Raising a diagnostic at a node, `node.Error(code, message)`, records a
@@ -337,19 +395,22 @@ visitors of a set take the view of a node and the dispatch switches on `Kind`, s
 from `n.Cond` to `n.Cond()`, and a new node still fails the build where it is not handled. A rewrite that resolution
 makes becomes a change of one record's kind in place (the outermost member of a qualified name becomes the name and keeps
 its index), so resolution and checking make no node, and `Seal` and the growing of a table go away. The tables of stage B
-are the same slices they are now.
+are the same slices they are now, except that a slot, which needs the padding that a Go struct has and a 16-byte record
+does not, becomes a four-byte entry indexed by `NodeID`, as `Resolution` has.
 
 **In Maxon.** A tree is a struct that owns an `Array` of `Node` records, an `Array` of `U32` and the module's text; a
 `NodeID` is an integer, a record is a struct with an enum, a table is an `Array` of a small struct, and a view is a value
 that borrows the tree, so nothing in it is a shared pointer and a program can own every part of it.
 
-**What is left of stage B.** What declare and check write into nodes is still in them: a declaration's `Ty` and the
-semantic fields of a function (owner, generics, bounds, instances, parameter and return types, locals, intrinsic),
-every expression's type and `Consumed`, a name's `Kind`, `Local`, `Const` and `Field`, a member's kind, field and case, a
-call's kind, target, passing, generic call and ordered arguments, a pattern's case and locals, the local of a `let` and a
-`for`, a `break`'s target, a `when`'s function and captures, a struct literal's record and arguments, and a type
-parameter's `Ty`. The pointers between nodes that remain are the ones in those fields, a declaration's `Module`, and
-what a result keeps for the check (`PendingCall.Call`, `ir.Refusal.Site`).
+**What is left of stage B.** What declare writes into declarations is still in them, because other modules read it: a
+declaration's `Ty` (`TypeDeclNodeBase`, `TypeParam`, `ConstDecl.Type`), a signature's passing and return type
+(`FuncSig`), and the semantic fields of a function (owner, generics, bounds, instances, the calls it records, parameter
+and return types, passing, its locals and the receiver's, intrinsic). The pointers that remain are those, the ones inside
+the entries of a `Typing` (a call's target, passing, generic call, union and drop; a member's and a struct literal's
+field and record; a behaviour's function and captures, whose `Ref` and `Inner` are nodes and locals; the constants a
+module's names stand for), a declaration's `Module`, and what a result keeps for the check (`PendingCall.Call`,
+`FuncDecl.Uses`, `FieldInfo.Uses` and `Default`, `ir.Refusal.Site`). A method is not a top-level declaration and has
+no `DeclRef`, so a call's target becomes a handle together with the function it names.
 
 ### Allocation
 
@@ -365,9 +426,9 @@ allocates is therefore what costs, and the phases avoid it:
 - the parser takes the nodes of each type from chunks (`ast.Arena`, one chunk list per node type, each chunk twice the one
   before up to 64 nodes), so a module's nodes are contiguous and a parse makes one allocation for dozens of nodes. A list in the grammar (`stmts+=stmt`,
   `args+=arg`) is pushed on a stack as it is parsed, and copied out once into a slice of exactly its length, where `append`
-  would have allocated about twice that. The nodes are the biggest share of what parsing allocates, about 85%: a node
-  still has room for the types and links that declare and check fill in, which is most of what is left of it now that
-  resolution's results are in a table (see "The AST"); a node that a phase makes after the parse comes from a small chunk;
+  would have allocated about twice that. The nodes are the biggest share of what parsing allocates, about 70%: a declaration
+  still has room for the types and links that declare fills in, and an expression a 4-byte slot, now that what resolution and
+  the check of the bodies decide are in tables (see "The AST"); a node that a phase makes after the parse comes from a small chunk;
 - a module's declaration table is made at its final size, and the line index of a module's source is built only when a diagnostic needs it;
 - codegen sizes each unit's code buffer and its symbol and data fixups from the IR it is about to emit, and reuses its
   block labels between functions, because Go grows a large slice by about a quarter at a time, allocating several times
@@ -515,7 +576,7 @@ no-op, so one drop at the end of a scope serves every path to it and no analysis
 drops a value that holds a map, a list, a pool, a frozen value or a cown is refused natively like one that makes it.
 
 -  **One place decides what moves.** The ownership pass marks each expression whose value changes owner
-  (`ast.Expr.IsConsumed`): a binding, an assignment, a `consumes` argument, a return, a field or a payload, a branch of
+  (`ast.Typing.Consumed`): a binding, an assignment, a `consumes` argument, a return, a field or a payload, a branch of
   a conditional or a match. Lowering reads that mark and nothing else. A consumed place is moved out of, and the pass
   refuses every consumed place that is neither a whole local nor a field of one; a consumed fresh value goes to its new owner; a fresh value
   that is not consumed is a temporary. The values a declaration holds outside any function, a constant and a field's

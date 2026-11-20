@@ -325,31 +325,3 @@ func (b Binding) ApplySpecs(specs []ParamSpec) []ParamSpec {
 	}
 	return out
 }
-
-// Resolved is the function a call runs once the type parameters of the code it is in are bound: the target itself, or
-// the instance of a generic one, or for a call through a bound the method of the type that stands in for the
-// parameter.
-func (c *CallExpr) Resolved(b Binding) *FuncDecl {
-	switch c.Kind {
-	case CallFunction, CallStatic, CallMethod:
-		if len(c.Target.Generics) == 0 {
-			return c.Target
-		}
-		return c.Target.Instance(b.applyAll(c.Generic.TypeArgs))
-	case CallBound:
-		// A frozen receiver lends its contents, so the method is the one of the type it holds.
-		recv, ok := Content(b.Apply(c.Receiver.Ty())).(NominalTy)
-		if !ok {
-			panic(diag.Internal("a call through a bound has a receiver of %s, which has no methods", b.Apply(c.Receiver.Ty()).Name()))
-		}
-		method, found := recv.MethodTable()[c.Generic.Method.Name]
-		if !found {
-			panic(diag.Internal("%s has no method '%s' for the bound that declares it", recv.Name(), c.Generic.Method.Name))
-		}
-		if len(method.Generics) == 0 {
-			return method
-		}
-		return method.Instance(recv.Base().Args)
-	}
-	panic(diag.Internal("call kind %d has no function to resolve", int(c.Kind)))
-}

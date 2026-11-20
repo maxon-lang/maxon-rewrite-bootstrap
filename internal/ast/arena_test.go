@@ -14,8 +14,8 @@ func TestSlabNodesKeepTheirAddressAsItGrows(t *testing.T) {
 		if n.Name != string(rune('a'+i%26)) {
 			t.Fatalf("node %d was overwritten: %q", i, n.Name)
 		}
-		if n.Ty() != VoidTy {
-			t.Fatalf("node %d does not start with the type %v", i, VoidTy)
+		if n.Ord != uint32(i+1) || n.Info != uint32(i+1) {
+			t.Fatalf("node %d has the slots %d and %d, want %d", i, n.Ord, n.Info, i+1)
 		}
 	}
 }
@@ -51,6 +51,24 @@ func TestArenaNumbersNodesFromOneInTheOrderTheyAreMade(t *testing.T) {
 	}
 	if arena.Count() != 3 {
 		t.Errorf("the arena made 3 nodes and counts %d", arena.Count())
+	}
+}
+
+func TestArenaCountsEachSlotOnlyForTheNodesThatHaveIt(t *testing.T) {
+	arena := NewArena(3)
+	name := arena.NewNameExpr()
+	call := arena.NewCallExpr()
+	lit := arena.NewIntLit()
+	decl := arena.NewFuncDecl()
+	arena.NewCallExpr()
+	if name.Ord != 1 || call.Ord != 2 || lit.Ord != 3 {
+		t.Errorf("the expressions are %d, %d and %d of the module's expressions, want 1, 2 and 3", name.Ord, call.Ord, lit.Ord)
+	}
+	if got := arena.Slots(); got.Expr != 4 || got.Name != 1 || got.Call != 2 || got.Member != 0 {
+		t.Errorf("the arena counts the slots %+v, want 4 expressions, 1 name, 2 calls and no member", got)
+	}
+	if decl.ID != 4 {
+		t.Errorf("a node without slots is node %d, want 4: the numbering of nodes counts every kind", decl.ID)
 	}
 }
 

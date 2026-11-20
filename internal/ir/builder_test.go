@@ -50,14 +50,14 @@ func TestFinishRefusesABlockWithoutATerminator(t *testing.T) {
 // never show in a later one: each function lowered after others, with the arena reset in between, is the IR it is alone.
 func TestLoweringOverReusedBuffersGivesTheSameIr(t *testing.T) {
 	results := frontEnd(t, "testdata/reuse.maxon")
-	instances := Instances(results[0].Callers)
+	instances := Instances(typingsOf(results), results[0].Callers)
 	var alone []string
 	for _, f := range results[0].Functions {
 		if len(f.Generics) == 0 {
-			alone = append(alone, irText(Lower(f, instances)))
+			alone = append(alone, irText(Lower(typingsOf(results), f, instances)))
 		}
 	}
-	w := NewLowering()
+	w := NewLowering(typingsOf(results))
 	for round := range 3 {
 		var reused []string
 		for _, f := range results[0].Functions {
@@ -75,8 +75,8 @@ func TestLoweringOverReusedBuffersGivesTheSameIr(t *testing.T) {
 // After its buffers have grown to a module, a lowerer allocates nothing for the same module again.
 func TestLoweringAReusedModuleAllocatesNothing(t *testing.T) {
 	results := frontEnd(t, "testdata/reuse.maxon")
-	instances := Instances(results[0].Callers)
-	w := NewLowering()
+	instances := Instances(typingsOf(results), results[0].Callers)
+	w := NewLowering(typingsOf(results))
 	lowerAll := func() {
 		w.Reset()
 		for _, f := range results[0].Functions {

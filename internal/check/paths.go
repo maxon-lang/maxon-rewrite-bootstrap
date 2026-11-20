@@ -112,45 +112,46 @@ func placeText(e ast.Expr) string {
 }
 
 // pathOf is the place an expression names, with its steps appended to buf, or false for an expression that
-// computes a fresh value. self is the receiver of the function being checked, which a bare field name selects from.
-func pathOf(e ast.Expr, self *ast.Local, buf []pathStep) (accessPath, bool) {
+// computes a fresh value. A bare field name selects from the receiver of the function being checked.
+func (o *Ownership) pathOf(e ast.Expr, buf []pathStep) (accessPath, bool) {
 	switch e := e.(type) {
 	case *ast.NameExpr:
-		switch e.Kind {
+		name := o.typing.Name(e)
+		switch name.Kind() {
 		case ast.NameLocal:
-			return accessPath{root: e.Local, steps: buf}, true
+			return accessPath{root: name.Local(o.fn), steps: buf}, true
 		case ast.NameSelfField:
-			return accessPath{root: self, steps: append(buf, pathStep{field: e.Field})}, true
+			return accessPath{root: o.fn.SelfLocal, steps: append(buf, pathStep{field: name.Field(o.fn)})}, true
 		}
 	case *ast.SelfExpr:
-		return accessPath{root: e.Local, steps: buf}, true
+		return accessPath{root: o.fn.SelfLocal, steps: buf}, true
 	case *ast.MemberExpr:
-		if e.Kind == ast.MemberField {
-			p, ok := pathOf(e.Obj, self, buf)
+		if member := o.typing.Member(e); member.Kind == ast.MemberField {
+			p, ok := o.pathOf(e.Obj, buf)
 			if !ok {
 				return p, false
 			}
-			p.steps = append(withContents(p.steps, e.Obj.Ty()), pathStep{field: e.Field})
+			p.steps = append(withContents(p.steps, o.ty(e.Obj)), pathStep{field: member.Field})
 			return p, true
 		}
 	case *ast.IndexExpr:
-		p, ok := pathOf(e.Obj, self, buf)
+		p, ok := o.pathOf(e.Obj, buf)
 		if !ok {
 			return p, false
 		}
-		p.steps = append(withContents(p.steps, e.Obj.Ty()), pathStep{index: e.Args[0]})
+		p.steps = append(withContents(p.steps, o.ty(e.Obj)), pathStep{index: e.Args[0]})
 		return p, true
 	}
 	return accessPath{}, false
 }
 
 // projectsElement is whether a place is, or lies inside, an element of a primitive, which only the primitive owns.
-func projectsElement(e ast.Expr) bool {
+func (o *Ownership) projectsElement(e ast.Expr) bool {
 	switch e := e.(type) {
 	case *ast.IndexExpr:
 		return true
 	case *ast.MemberExpr:
-		return e.Kind == ast.MemberField && projectsElement(e.Obj)
+		return o.typing.Member(e).Kind == ast.MemberField && o.projectsElement(e.Obj)
 	}
 	return false
 }

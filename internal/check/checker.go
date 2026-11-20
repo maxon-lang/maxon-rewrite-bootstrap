@@ -19,7 +19,7 @@ const (
 type checkerBlock struct {
 	Label string
 	Kind  checkerBlockKind
-	Node  ast.Node
+	Node  ast.NodeID
 }
 
 var (
@@ -38,7 +38,9 @@ type Checker struct {
 	module  *ast.Module
 	// resolution is what name resolution bound the module's nodes to; the checker only reads it.
 	resolution *ast.Resolution
-	errs       *[]*diag.CompileError
+	// typing is where the checker records what it decides about the module's nodes, and what ownership finds.
+	typing *ast.Typing
+	errs   *[]*diag.CompileError
 
 	Pending []ast.PendingCall
 	Bounds  []ast.PendingBound
@@ -74,9 +76,16 @@ type Checker struct {
 	caps capabilities
 }
 
-func NewChecker(p *ast.Project, m *ast.Module, resolution *ast.Resolution, errs *[]*diag.CompileError) *Checker {
-	return &Checker{project: p, module: m, resolution: resolution, errs: errs}
+func NewChecker(p *ast.Project, m *ast.Module, resolution *ast.Resolution, typing *ast.Typing, errs *[]*diag.CompileError) *Checker {
+	return &Checker{project: p, module: m, resolution: resolution, typing: typing, errs: errs}
 }
+
+// made gives the typing room for the nodes that the checker has just made, which a phase does while it checks the bodies of
+// the module, one worker at a time.
+func (c *Checker) made() { c.typing.Sync(c.module.Nodes.Slots()) }
+
+// ty is the type the checker gave an expression.
+func (c *Checker) ty(e ast.Expr) ast.Ty { return c.typing.Type(e) }
 
 // target is the declaration that a node of the module names, or nil if it names none.
 func (c *Checker) target(n ast.NodeID) ast.Decl { return c.resolution.Decl(c.project, n) }
@@ -143,7 +152,10 @@ func (c *Checker) CheckBody(d ast.Decl) {
 
 func (c *Checker) Verify(calls []ast.PendingCall) {
 	for _, p := range calls {
-		c.guard(func() { p.Call.Ordered = c.bindArgs(p.Call, p.Callee, p.Params, true) })
+		c.guard(func() {
+			ordered := c.bindArgs(p.Call, p.Callee, p.Params, true)
+			c.typing.Call(p.Call).Ordered = ordered
+		})
 	}
 }
 
@@ -678,7 +690,7 @@ func (c *Checker) popScope() {
 	c.scopes = c.scopes[:len(c.scopes)-1]
 }
 
-func (c *Checker) pushBlock(label string, kind checkerBlockKind, node ast.Node) {
+func (c *Checker) pushBlock(label string, kind checkerBlockKind, node ast.NodeID) {
 	c.blocks = append(c.blocks, checkerBlock{Label: label, Kind: kind, Node: node})
 }
 
@@ -713,7 +725,7 @@ func (c *Checker) bind(local *ast.Local, site ast.Node) {
 		panic(site.P().Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is declared twice in this scope", name)))
 	}
 	top[name] = local
-	c.fn.Locals = append(c.fn.Locals, local)
+	c.fn.AddLocal(local)
 }
 
 func (c *Checker) checkFunction(f *ast.FuncDecl) {
@@ -728,11 +740,11 @@ func (c *Checker) checkFunction(f *ast.FuncDecl) {
 		self.ParamIndex = index
 		index++
 		f.SelfLocal = self
-		f.Locals = append(f.Locals, self)
+		f.AddLocal(self)
 	}
 	for i, prm := range f.Params {
 		if prm.Name != "_" {
-			prm.Sym = c.declareParam(prm, f.ParamTypes[i], index)
+			c.typing.SetParamLocal(prm, c.declareParam(prm, f.ParamTypes[i], index))
 		}
 		index++
 	}
@@ -778,7 +790,7 @@ func (c *Checker) assignable(src, dst ast.Ty) bool {
 }
 
 func (c *Checker) coerce(e ast.Expr, target ast.Ty, what string) {
-	src := e.Ty()
+	src := c.ty(e)
 	if c.assignable(src, target) {
 		return
 	}
@@ -881,7 +893,7 @@ func (c *Checker) checkExpecting(e ast.Expr, want ast.Ty) ast.Ty {
 	c.expect = want
 	t := ast.VisitExprResult[ast.Ty](c, e)
 	c.expect = outer
-	e.SetTy(t)
+	c.typing.SetType(e, t)
 	return t
 }
 
@@ -910,14 +922,12 @@ func (c *Checker) VisitStrLit(s *ast.StrLit) ast.Ty {
 
 func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
 	if local := c.useLocal(n); local != nil {
-		n.Kind = ast.NameLocal
-		n.Local = local
+		c.typing.SetName(n, ast.LocalName(local))
 		return local.Type
 	}
 	if rt := c.selfRecord(); rt != nil {
 		if field := rt.Field(n.Name); field != nil {
-			n.Kind = ast.NameSelfField
-			n.Field = field
+			c.typing.SetName(n, ast.FieldName(field))
 			return rt.FieldType(field)
 		}
 	}
@@ -928,8 +938,7 @@ func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
 	}
 	switch d := c.target(n.ID).(type) {
 	case *ast.ConstDecl:
-		n.Kind = ast.NameConst
-		n.Const = d
+		c.typing.SetName(n, c.typing.ConstName(d))
 		if d.Type == nil {
 			panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("constant '%s' has no value", d.Name)))
 		}
@@ -952,7 +961,6 @@ func (c *Checker) VisitSelfExpr(s *ast.SelfExpr) ast.Ty {
 	if c.fn == nil || !c.fn.IsMethod() {
 		panic(s.Error(diag.ErrUnexpectedToken, "'self' is used only inside an instance method"))
 	}
-	s.Local = c.fn.SelfLocal
 	return c.owner
 }
 
@@ -1028,7 +1036,7 @@ func (c *Checker) VisitBinaryExpr(b *ast.BinaryExpr) ast.Ty {
 		lc, lConst := l.(*ast.ConstIntTy)
 		rc, rConst := r.(*ast.ConstIntTy)
 		if lConst && rConst {
-			b.OperandType = ast.Anonymous64
+			c.typing.SetOperand(b, ast.OperandOf(ast.Anonymous64))
 			return &ast.ConstIntTy{Value: c.fold(b, b.Op, lc.Value, rc.Value)}
 		}
 		if (b.Op == "/" || b.Op == "mod") && rConst && rc.Value.IsZero() {
@@ -1039,11 +1047,11 @@ func (c *Checker) VisitBinaryExpr(b *ast.BinaryExpr) ast.Ty {
 			if !lConst {
 				lt = l.(*ast.IntTy)
 			}
-			b.OperandType = lt
+			c.typing.SetOperand(b, ast.OperandOf(lt))
 			return lt
 		}
 		t := c.unifyInts(b, l, r)
-		b.OperandType = t
+		c.typing.SetOperand(b, ast.OperandOf(t))
 		return t
 	}
 
@@ -1056,7 +1064,7 @@ func (c *Checker) VisitBinaryExpr(b *ast.BinaryExpr) ast.Ty {
 
 	if checkerComparison[b.Op] {
 		if c.isInt(l) && c.isInt(r) {
-			b.OperandType = c.unifyInts(b, l, r)
+			c.typing.SetOperand(b, ast.OperandOf(c.unifyInts(b, l, r)))
 			return ast.BoolTy
 		}
 		equality := b.Op == "==" || b.Op == "!="
@@ -1067,7 +1075,7 @@ func (c *Checker) VisitBinaryExpr(b *ast.BinaryExpr) ast.Ty {
 		}
 		_, lEnum := l.(*ast.EnumTy)
 		if equality && l == r && (l == ast.BoolTy || l == ast.StringTy || lEnum || c.isHandle(l)) {
-			b.OperandType = l
+			c.typing.SetOperand(b, ast.OperandOf(l))
 			return ast.BoolTy
 		}
 		panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' cannot compare %s and %s", b.Op, l.Name(), r.Name())))
@@ -1113,7 +1121,7 @@ func (c *Checker) VisitUnaryExpr(u *ast.UnaryExpr) ast.Ty {
 
 func (c *Checker) VisitCondExpr(cd *ast.CondExpr) ast.Ty {
 	if c.checkExpr(cd.Cond) != ast.BoolTy {
-		panic(cd.Cond.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", cd.Cond.Ty().Name())))
+		panic(cd.Cond.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", c.ty(cd.Cond).Name())))
 	}
 	then := c.checkExpecting(cd.Then, c.expect)
 	els := c.checkExpecting(cd.Else, c.expect)
@@ -1122,7 +1130,7 @@ func (c *Checker) VisitCondExpr(cd *ast.CondExpr) ast.Ty {
 
 func (c *Checker) VisitPanicExpr(p *ast.PanicExpr) ast.Ty {
 	if c.checkExpr(p.Message) != ast.StringTy {
-		panic(p.Message.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("panic takes a String, found %s", p.Message.Ty().Name())))
+		panic(p.Message.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("panic takes a String, found %s", c.ty(p.Message).Name())))
 	}
 	return ast.NeverTy
 }
@@ -1188,7 +1196,7 @@ func (c *Checker) coerceArg(value ast.Expr, callee string, ps ast.ParamSpec) {
 	switch {
 	case ps.Conv.ByAddress():
 		c.checkSameType(value, ps)
-	case ast.IsFrozen(value.Ty()) && ast.Content(value.Ty()) == ps.Type:
+	case ast.IsFrozen(c.ty(value)) && ast.Content(c.ty(value)) == ps.Type:
 		// A let parameter borrows, and the contents of a frozen value can be borrowed: the callee reads them and
 		// cannot change them. A parameter that changes or keeps them cannot have them.
 		if ps.Conv != ast.ConvLet {
@@ -1200,8 +1208,8 @@ func (c *Checker) coerceArg(value ast.Expr, callee string, ps ast.ParamSpec) {
 }
 
 func (c *Checker) checkSameType(value ast.Expr, ps ast.ParamSpec) {
-	if value.Ty() != ps.Type {
-		panic(value.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("the %s parameter '%s' is %s; the argument is %s", ps.Conv, ps.Name, ps.Type.Name(), value.Ty().Name())))
+	if c.ty(value) != ps.Type {
+		panic(value.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("the %s parameter '%s' is %s; the argument is %s", ps.Conv, ps.Name, ps.Type.Name(), c.ty(value).Name())))
 	}
 }
 
@@ -1222,7 +1230,7 @@ func nameable(t ast.Ty) bool {
 func (c *Checker) infer(site ast.Node, callee string, params []*ast.TypeParamTy, specs []ast.ParamSpec, ordered []ast.Expr, result ast.Ty) []ast.Ty {
 	args := make([]ast.Ty, len(params))
 	for i, spec := range specs {
-		unifyType(spec.Type, ordered[i].Ty(), params, args)
+		unifyType(spec.Type, c.ty(ordered[i]), params, args)
 	}
 	return c.inferRest(site, callee, params, args, result)
 }
@@ -1307,16 +1315,17 @@ func (c *Checker) callGeneric(call *ast.CallExpr, target *ast.FuncDecl, given []
 		specs = ast.Binding{Params: target.Generics, Args: args}.ApplySpecs(target.Pass.Specs)
 	}
 	c.queueMethodBounds(call, target, args)
-	call.Generic = &ast.GenericCall{SelfConv: target.Pass.SelfConv, Specs: specs, TypeArgs: args}
-	call.Pass = &call.Generic.Passing
-	call.Ordered = ordered
+	info := c.typing.Call(call)
+	info.Generic = &ast.GenericCall{SelfConv: target.Pass.SelfConv, Specs: specs, TypeArgs: args}
+	info.Pass = &info.Generic.Passing
+	info.Ordered = ordered
 	if target.Intrinsic == ast.NotIntrinsic {
 		c.recordUses(call)
 	}
 	if !c.declares(target) {
-		c.Pending = append(c.Pending, ast.PendingCall{Call: call, Callee: callee, Params: call.Pass.Specs})
+		c.Pending = append(c.Pending, ast.PendingCall{Call: call, Callee: callee, Params: info.Pass.Specs})
 	} else {
-		for i, spec := range call.Pass.Specs {
+		for i, spec := range info.Pass.Specs {
 			c.coerceArg(ordered[i], callee, spec)
 		}
 	}
@@ -1337,17 +1346,17 @@ func (c *Checker) requireExported(site ast.Node, target *ast.FuncDecl) {
 	}
 }
 
-func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, receiver ast.Expr, given []ast.Ty) ast.Ty {
+func (c *Checker) callFunction(call *ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, given []ast.Ty) ast.Ty {
 	c.requireExported(call, target)
-	call.Kind = kind
-	call.Target = target
-	call.Receiver = receiver
-	call.Pass = &target.Pass
+	info := c.typing.Call(call)
+	info.Kind = kind
+	info.Target = target
+	info.Pass = &target.Pass
 	if len(target.Generics) > 0 {
 		return c.callGeneric(call, target, given)
 	}
 	if c.declares(target) {
-		call.Ordered = c.bindArgs(call, target.Symbol(), target.Pass.Specs, false)
+		info.Ordered = c.bindArgs(call, target.Symbol(), target.Pass.Specs, false)
 	} else {
 		for _, a := range call.Args {
 			c.checkExpr(a.Value)
@@ -1405,16 +1414,17 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 	if n, ok := call.Callee.(*ast.NameExpr); ok && c.lookupLocal(n.Name) == nil {
 		callee := c.target(n.ID)
 		if callee == nil && (n.Name == "print" || n.Name == "printError") {
+			info := c.typing.Call(call)
 			if n.Name == "print" {
-				call.Kind = ast.CallPrint
+				info.Kind = ast.CallPrint
 			} else {
-				call.Kind = ast.CallPrintError
+				info.Kind = ast.CallPrintError
 			}
-			call.Ordered = c.bindArgs(call, n.Name, []ast.ParamSpec{{Name: "text", Type: ast.StringTy, Conv: ast.ConvLet}}, false)
+			info.Ordered = c.bindArgs(call, n.Name, []ast.ParamSpec{{Name: "text", Type: ast.StringTy, Conv: ast.ConvLet}}, false)
 			return ast.VoidTy
 		}
 		if f, isFunc := callee.(*ast.FuncDecl); isFunc {
-			return c.callFunction(call, ast.CallFunction, f, nil, nil)
+			return c.callFunction(call, ast.CallFunction, f, nil)
 		}
 		if ast.IsCownConstructor(callee) {
 			return c.cownCall(call)
@@ -1430,14 +1440,14 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 				}
 			}
 			if sm, found := nt.MethodTable()[m.Name]; found && sm.IsStatic {
-				return c.callFunction(call, ast.CallStatic, sm, nil, nt.Base().Args)
+				return c.callFunction(call, ast.CallStatic, sm, nt.Base().Args)
 			}
 			panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("'%s' has no static function or case '%s'", nt.Name(), m.Name)))
 		}
 
 		rt := c.checkExpr(m.Obj)
 		if m.Name == copyMethod {
-			return c.copyCall(call, m.Obj, rt)
+			return c.copyCall(call, rt)
 		}
 		content := ast.Content(rt)
 		requireNotCown(call, content, "calling", m.Name)
@@ -1447,7 +1457,7 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 		if recv, isNominal := content.(ast.NominalTy); isNominal {
 			if method, found := recv.MethodTable()[m.Name]; found && !method.IsStatic {
 				requireNotFrozenChange(call, rt, method.Pass.SelfConv, m.Name)
-				return c.callFunction(call, ast.CallMethod, method, m.Obj, recv.Base().Args)
+				return c.callFunction(call, ast.CallMethod, method, recv.Base().Args)
 			}
 		}
 		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'", rt.Name(), m.Name)))
@@ -1463,8 +1473,9 @@ func (c *Checker) unionConstructor(call *ast.CallExpr, ut *ast.UnionTy, caseInde
 	if len(uc.Payload) == 0 {
 		panic(call.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries no payload: write '%s.%s'", uc.Name, ut.Name(), uc.Name)))
 	}
-	call.Kind = ast.CallUnionCtor
-	call.CaseIndex = caseIndex
+	info := c.typing.Call(call)
+	info.Kind = ast.CallUnionCtor
+	info.CaseIndex = int32(caseIndex)
 	specsOf := func(u *ast.UnionTy) []ast.ParamSpec {
 		payload := u.Payload(caseIndex)
 		specs := make([]ast.ParamSpec, len(payload))
@@ -1482,12 +1493,12 @@ func (c *Checker) unionConstructor(call *ast.CallExpr, ut *ast.UnionTy, caseInde
 		for i, spec := range specs {
 			c.coerceArg(ordered[i], callee, spec)
 		}
-		call.Ordered = ordered
+		info.Ordered = ordered
 	} else {
-		call.Ordered = c.bindArgs(call, callee, specs, false)
+		info.Ordered = c.bindArgs(call, callee, specs, false)
 	}
-	call.Union = ut
-	call.Pass = &ast.Passing{Specs: specs}
+	info.Union = ut
+	info.Pass = &ast.Passing{Specs: specs}
 	return ut
 }
 
@@ -1512,14 +1523,14 @@ func (c *Checker) boundCall(call *ast.CallExpr, m *ast.MemberExpr, param *ast.Ty
 	}
 	requireNotFrozenChange(call, receiver, sig.Pass.SelfConv, m.Name)
 	b := ast.Binding{Params: []*ast.TypeParamTy{iface.Self}, Args: []ast.Ty{param}}
-	call.Kind = ast.CallBound
-	call.Receiver = m.Obj
-	call.Generic = &ast.GenericCall{
+	info := c.typing.Call(call)
+	info.Kind = ast.CallBound
+	info.Generic = &ast.GenericCall{
 		SelfConv: sig.Pass.SelfConv, Specs: b.ApplySpecs(sig.Pass.Specs),
 		Method: sig,
 	}
-	call.Pass = &call.Generic.Passing
-	call.Ordered = c.bindArgs(call, param.Name()+"."+m.Name, call.Pass.Specs, false)
+	info.Pass = &info.Generic.Passing
+	info.Ordered = c.bindArgs(call, param.Name()+"."+m.Name, info.Pass.Specs, false)
 	c.recordUses(call)
 	return b.Apply(sig.ReturnType)
 }
@@ -1650,16 +1661,16 @@ func signatureText(name string, selfConv ast.Convention, specs []ast.ParamSpec, 
 	return text
 }
 
-func (c *Checker) copyCall(call *ast.CallExpr, receiver ast.Expr, t ast.Ty) ast.Ty {
+func (c *Checker) copyCall(call *ast.CallExpr, t ast.Ty) ast.Ty {
 	if t == ast.VoidTy || t == ast.NeverTy {
 		panic(call.Error(diag.ErrTypeMismatch, "an expression with no value cannot be copied"))
 	}
 	if why, fix, lacking := c.whyNot(copyable, t); lacking {
 		panic(call.Error(diag.ErrNotCopyable, fmt.Sprintf("a value of '%s' cannot be copied: %s; %s, or move the value instead of copying it", t.Name(), why, fix)))
 	}
-	call.Kind = ast.CallCopy
-	call.Receiver = receiver
-	call.Ordered = c.bindArgs(call, copyMethod, nil, false)
+	info := c.typing.Call(call)
+	info.Kind = ast.CallCopy
+	info.Ordered = c.bindArgs(call, copyMethod, nil, false)
 	return t
 }
 
@@ -1672,21 +1683,21 @@ func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
 		c.requireInstance(m.Obj, nt)
 		switch t := nt.(type) {
 		case *ast.EnumTy:
-			m.CaseIndex = t.CaseIndex(m.Name)
-			if m.CaseIndex < 0 {
+			caseIndex := t.CaseIndex(m.Name)
+			if caseIndex < 0 {
 				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name)))
 			}
-			m.Kind = ast.MemberEnumCase
+			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberEnumCase, CaseIndex: int32(caseIndex)})
 			return t
 		case *ast.UnionTy:
-			m.CaseIndex = t.CaseIndex(m.Name)
-			if m.CaseIndex < 0 {
+			caseIndex := t.CaseIndex(m.Name)
+			if caseIndex < 0 {
 				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name)))
 			}
-			if len(t.CaseList()[m.CaseIndex].Payload) > 0 {
+			if len(t.CaseList()[caseIndex].Payload) > 0 {
 				panic(m.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries a payload: construct it with arguments", m.Name)))
 			}
-			m.Kind = ast.MemberUnionCase
+			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberUnionCase, CaseIndex: int32(caseIndex)})
 			return t
 		}
 		panic(m.Error(diag.ErrUnknownField, fmt.Sprintf("'%s.%s' is not a value", nt.Name(), m.Name)))
@@ -1699,21 +1710,20 @@ func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
 			if rt.Decl.Module != c.module && !f.Exported {
 				panic(m.Error("E3014", fmt.Sprintf("field '%s.%s' is not exported", rt.Name(), f.Name)))
 			}
-			m.Kind = ast.MemberField
-			m.Field = f
+			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberField, Field: f})
 			return rt.FieldType(f)
 		}
 	}
 	if et, ok := t.(*ast.EnumTy); ok && (m.Name == "name" || m.Name == "ordinal" || m.Name == "rawValue") {
 		switch m.Name {
 		case "name":
-			m.Kind = ast.MemberEnumName
+			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberEnumName})
 			return ast.StringTy
 		case "ordinal":
-			m.Kind = ast.MemberEnumOrdinal
+			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberEnumOrdinal})
 			return c.countTy()
 		}
-		m.Kind = ast.MemberEnumRaw
+		c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberEnumRaw})
 		for _, r := range et.Raw {
 			if r.IsNeg() {
 				return c.fullRangeTy()
@@ -1723,10 +1733,10 @@ func (c *Checker) VisitMemberExpr(m *ast.MemberExpr) ast.Ty {
 	}
 	if _, ok := t.(*ast.UnionTy); ok && (m.Name == "name" || m.Name == "ordinal") {
 		if m.Name == "name" {
-			m.Kind = ast.MemberUnionName
+			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberUnionName})
 			return ast.StringTy
 		}
-		m.Kind = ast.MemberUnionOrdinal
+		c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberUnionOrdinal})
 		return c.countTy()
 	}
 	if nom, ok := t.(ast.NominalTy); ok {
@@ -1775,22 +1785,22 @@ func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
 		panic(s.Error(diag.ErrConstructorRestriction, fmt.Sprintf("a '%s' literal is written only inside the methods of '%s'; call a factory", rt.Name(), rt.Name())))
 	}
 	fields := rt.FieldList()
-	s.Record = rt
-	s.Ordered = make([]ast.Expr, len(fields))
+	ordered := make([]ast.Expr, len(fields))
+	c.typing.SetStructLit(s, ast.StructLitInfo{Record: rt, Ordered: ordered})
 	for _, sf := range s.Fields {
 		f := rt.Field(sf.Name)
 		if f == nil {
 			panic(sf.Error(diag.ErrUnknownField, fmt.Sprintf("'%s' has no field '%s'", rt.Name(), sf.Name)))
 		}
-		if s.Ordered[f.Index] != nil {
+		if ordered[f.Index] != nil {
 			panic(sf.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is given twice", sf.Name)))
 		}
 		c.checkExpecting(sf.Value, rt.FieldType(f))
 		c.coerce(sf.Value, rt.FieldType(f), fmt.Sprintf("field '%s'", sf.Name))
-		s.Ordered[f.Index] = sf.Value
+		ordered[f.Index] = sf.Value
 	}
 	for _, f := range fields {
-		if s.Ordered[f.Index] == nil {
+		if ordered[f.Index] == nil {
 			if f.Default == nil {
 				panic(s.Error(diag.ErrFieldNotInitialized, fmt.Sprintf("field '%s' of '%s' is not initialized", f.Name, rt.Name())))
 			}
@@ -1844,20 +1854,24 @@ func (c *Checker) VisitIfStmt(t *ast.IfStmt) {
 
 func (c *Checker) VisitWhileStmt(t *ast.WhileStmt) {
 	c.requireBool(t.Cond)
-	c.pushBlock(t.Label, checkerLoop, t)
+	c.pushBlock(t.Label, checkerLoop, t.ID)
 	c.checkBlock(t.Body)
 	c.popBlock()
 }
 
 func (c *Checker) VisitMatchStmt(t *ast.MatchStmt) { c.checkMatch(t.Match, false) }
 
-func (c *Checker) VisitBreakStmt(t *ast.BreakStmt) { t.Target = c.resolveJump(t, t.Label, true) }
+func (c *Checker) VisitBreakStmt(t *ast.BreakStmt) {
+	c.typing.SetBreakTarget(t, c.resolveJump(t, t.Label, true))
+}
 
-func (c *Checker) VisitContinueStmt(t *ast.ContinueStmt) { t.Target = c.resolveJump(t, t.Label, false) }
+func (c *Checker) VisitContinueStmt(t *ast.ContinueStmt) {
+	c.typing.SetContinueTarget(t, c.resolveJump(t, t.Label, false))
+}
 
 func (c *Checker) requireBool(e ast.Expr) {
 	if c.checkExpr(e) != ast.BoolTy {
-		panic(e.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", e.Ty().Name())))
+		panic(e.P().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", c.ty(e).Name())))
 	}
 }
 
@@ -1867,7 +1881,7 @@ func (c *Checker) VisitLetStmt(l *ast.LetStmt) {
 	}
 	if l.Init == nil {
 		t := c.resolve(l.Type, c.owner)
-		l.Sym = c.declareLocal(l.Name, t, l.IsVar, l)
+		c.typing.SetLetLocal(l, c.declareLocal(l.Name, t, l.IsVar, l))
 		return
 	}
 	t := c.checkExpr(l.Init)
@@ -1882,7 +1896,7 @@ func (c *Checker) VisitLetStmt(l *ast.LetStmt) {
 			panic(l.Init.P().Error(diag.ErrExpressionError, fmt.Sprintf("a var names its alias: write 'var %s = <value> as <Alias>'", l.Name)))
 		}
 	}
-	l.Sym = c.declareLocal(l.Name, t, l.IsVar, l)
+	c.typing.SetLetLocal(l, c.declareLocal(l.Name, t, l.IsVar, l))
 }
 
 func (c *Checker) VisitAssignStmt(a *ast.AssignStmt) {
@@ -1890,16 +1904,16 @@ func (c *Checker) VisitAssignStmt(a *ast.AssignStmt) {
 	switch t := a.Target.(type) {
 	case *ast.NameExpr:
 		target = c.VisitNameExpr(t)
-		t.SetTy(target)
+		c.typing.SetType(t, target)
 	case *ast.MemberExpr:
 		target = c.VisitMemberExpr(t)
-		t.SetTy(target)
-		if t.Kind != ast.MemberField {
+		c.typing.SetType(t, target)
+		if c.typing.Member(t).Kind != ast.MemberField {
 			panic(a.Error(diag.ErrAssignToImmutable, fmt.Sprintf("'%s' cannot be assigned", t.Name)))
 		}
 	case *ast.IndexExpr:
 		target = c.VisitIndexExpr(t)
-		t.SetTy(target)
+		c.typing.SetType(t, target)
 	default:
 		panic(a.Error(diag.ErrUnexpectedToken, "only a variable, a field or an element can be assigned"))
 	}
@@ -1927,9 +1941,9 @@ func (c *Checker) VisitForStmt(f *ast.ForStmt) {
 		varType = &ast.IntTy{Min: lo, Max: ast.MaxI(lo, hi)}
 	}
 
-	c.pushBlock(f.Label, checkerLoop, f)
+	c.pushBlock(f.Label, checkerLoop, f.ID)
 	c.pushScope()
-	f.Sym = c.declareLocal(f.Var, varType, false, f)
+	c.typing.SetForLocal(f, c.declareLocal(f.Var, varType, false, f))
 	c.checkStmts(f.Body)
 	c.popScope()
 	c.popBlock()
@@ -1953,7 +1967,7 @@ func (c *Checker) VisitReturnStmt(r *ast.ReturnStmt) {
 	c.coerce(r.Value, ret, "return value")
 }
 
-func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.Node {
+func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.NodeID {
 	word := "continue"
 	if isBreak {
 		word = "break"
@@ -1995,7 +2009,7 @@ func (c *Checker) checkMatch(m *ast.MatchCore, isExpr bool) ast.Ty {
 	}
 
 	expect := c.expect
-	c.pushBlock(m.Label, checkerMatch, m)
+	c.pushBlock(m.Label, checkerMatch, m.ID)
 	var result ast.Ty
 	hasDefault := false
 	seen := map[int]bool{}
@@ -2091,21 +2105,22 @@ func (c *Checker) checkExhaustive(m *ast.MatchCore, st ast.Ty, hasDefault bool, 
 func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, owned bool, altCount int, seen map[int]bool, seenBools map[bool]bool) {
 	switch pat.Kind() {
 	case ast.PatternCase:
+		info := c.typing.EditPattern(pat)
 		switch t := st.(type) {
 		case *ast.EnumTy:
-			pat.CaseIndex = t.CaseIndex(pat.CaseName)
-			if pat.CaseIndex < 0 {
+			info.CaseIndex = t.CaseIndex(pat.CaseName)
+			if info.CaseIndex < 0 {
 				panic(pat.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), pat.CaseName)))
 			}
 			if pat.HasBindings {
 				panic(pat.Error(diag.ErrEnumWrongBindingCount, "an enum case carries no payload to bind"))
 			}
 		case *ast.UnionTy:
-			pat.CaseIndex = t.CaseIndex(pat.CaseName)
-			if pat.CaseIndex < 0 {
+			info.CaseIndex = t.CaseIndex(pat.CaseName)
+			if info.CaseIndex < 0 {
 				panic(pat.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), pat.CaseName)))
 			}
-			payload := t.Payload(pat.CaseIndex)
+			payload := t.Payload(info.CaseIndex)
 			if pat.HasBindings {
 				if len(pat.Bindings) != len(payload) {
 					panic(pat.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries %d value(s), %d bound", pat.CaseName, len(payload), len(pat.Bindings))))
@@ -2119,16 +2134,20 @@ func (c *Checker) checkPattern(pat *ast.Pattern, st ast.Ty, owned bool, altCount
 						bound = c.declareLocal(pat.Bindings[i], payload[i].Type, false, pat)
 						bound.Projected = payload[i].Type.IsManaged() && !owned
 					}
-					pat.BindingLocals = append(pat.BindingLocals, bound)
+					var id ast.LocalID
+					if bound != nil {
+						id = bound.ID()
+					}
+					info.Locals = append(info.Locals, id)
 				}
 			}
 		default:
 			panic(pat.Error(diag.ErrTypeMismatch, fmt.Sprintf("a case pattern needs an enum or union subject, found %s", st.Name())))
 		}
-		if seen[pat.CaseIndex] {
+		if seen[info.CaseIndex] {
 			panic(pat.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("case '%s' is matched twice", pat.CaseName)))
 		}
-		seen[pat.CaseIndex] = true
+		seen[info.CaseIndex] = true
 	case ast.PatternLiteral:
 		t := c.checkExpr(pat.Value)
 		if bl, ok := pat.Value.(*ast.BoolLit); ok && st == ast.BoolTy {

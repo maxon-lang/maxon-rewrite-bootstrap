@@ -18,7 +18,10 @@
 //                      a field with a label's name gives that label its type instead. @ast::SetBase holds the
 //                      fields every member of the set shares. Every node starts with ast.Head, its position and
 //                      its NodeID in its module. A token label whose field is not a string is
-//                      converted by the hand-written parser method <node><Field>(Token).
+//                      converted by the hand-written parser method <node><Field>(Token). A field of the type
+//                      Slot[Counter] is a uint32 that the arena numbers from the counter of that name, 1 for
+//                      the first node that has one: a table a phase fills in for those nodes is that long
+//                      (ast.Slots).
 //   /** text */        Describes the rule or token after it in syntax errors: "expected a statement", and in
 //                      the lexer's error for input that stops partway through it: "incomplete label".
 //   Token : regex ;    A token rule: literals, [sets] with ranges, ~ to negate a set or one character, . for any
@@ -107,7 +110,7 @@ param
     ;
 
 @ast::Param {
-	Sym *Local
+	Local Slot[Local]
 }
 
 constDecl
@@ -252,7 +255,7 @@ letStmt
     ;
 
 @ast::LetStmt {
-	Sym *Local
+	Local Slot[Local]
 }
 
 discardStmt
@@ -295,7 +298,7 @@ forStmt
     ;
 
 @ast::ForStmt {
-	Sym *Local
+	Local Slot[Local]
 }
 
 returnStmt
@@ -307,7 +310,7 @@ breakStmt
     ;
 
 @ast::BreakStmt {
-	Target Node
+	Jump Slot[Jump]
 }
 
 continueStmt
@@ -315,7 +318,7 @@ continueStmt
     ;
 
 @ast::ContinueStmt {
-	Target Node
+	Jump Slot[Jump]
 }
 
 matchStmt
@@ -329,8 +332,7 @@ whenStmt
     ;
 
 @ast::WhenStmt {
-	Fn *FuncDecl
-	Captures []*Capture
+	Info Slot[When]
 }
 
 // Match
@@ -363,8 +365,7 @@ pattern
     ;
 
 @ast::Pattern {
-	CaseIndex int = -1
-	BindingLocals []*Local
+	Info Slot[Pattern]
 }
 
 /** a literal pattern */
@@ -403,31 +404,19 @@ expr
     ;
 
 @ast::ExprBase {
-	Consumed bool
-	Type Ty = VoidTy
+	Ord Slot[Expr]
 }
 
 @ast::MemberExpr {
-	Kind MemberKind
-	Field *FieldInfo
-	CaseIndex int = -1
+	Info Slot[Member]
 }
 
 @ast::CallExpr {
-	Kind CallKind
-	Target *FuncDecl
-	Pass *Passing
-	Generic *GenericCall
-	Receiver Expr
-	Union *UnionTy
-	CaseIndex int = -1
-	Ordered []Expr
-	Drop *CallExpr
+	Info Slot[Call]
 }
 
 @ast::BinaryExpr {
 	Op string
-	OperandType Ty = VoidTy
 }
 
 /** an integer */
@@ -457,27 +446,19 @@ nameExpr
     ;
 
 @ast::NameExpr {
-	Kind NameKind
-	Local *Local
-	Const *ConstDecl
-	Field *FieldInfo
+	Info Slot[Name]
 }
 
 selfExpr
     : 'self'
     ;
 
-@ast::SelfExpr {
-	Local *Local
-}
-
 structLitExpr
     : typeName=(Name | 'Self') '{' (fields+=structField (',' fields+=structField)*)? '}'
     ;
 
 @ast::StructLitExpr {
-	Record *RecordTy
-	Ordered []Expr
+	Info Slot[StructLit]
 }
 
 structField

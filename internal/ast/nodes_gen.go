@@ -50,7 +50,7 @@ type Param struct {
 	Name       string
 	Type       *TypeRef
 
-	Sym *Local
+	Local uint32
 }
 
 type ConstDecl struct {
@@ -180,7 +180,7 @@ type LetStmt struct {
 	IsVar bool
 	Type  *TypeRef
 
-	Sym *Local
+	Local uint32
 }
 
 type DiscardStmt struct {
@@ -229,7 +229,7 @@ type ForStmt struct {
 	Body      []Stmt
 	End       *EndLabel
 
-	Sym *Local
+	Local uint32
 }
 
 type ReturnStmt struct {
@@ -241,14 +241,14 @@ type BreakStmt struct {
 	StmtBase
 	Label string
 
-	Target Node
+	Jump uint32
 }
 
 type ContinueStmt struct {
 	StmtBase
 	Label string
 
-	Target Node
+	Jump uint32
 }
 
 type MatchStmt struct {
@@ -264,8 +264,7 @@ type WhenStmt struct {
 	Body  []Stmt
 	End   *EndLabel
 
-	Fn       *FuncDecl
-	Captures []*Capture
+	Info uint32
 }
 
 type MatchCore struct {
@@ -295,14 +294,12 @@ type Pattern struct {
 	Inclusive   bool
 	High        Expr
 
-	CaseIndex     int
-	BindingLocals []*Local
+	Info uint32
 }
 
 type ExprBase struct {
 	Head
-	Consumed bool
-	Type     Ty
+	Ord uint32
 }
 
 type MemberExpr struct {
@@ -310,9 +307,7 @@ type MemberExpr struct {
 	Obj  Expr
 	Name string
 
-	Kind      MemberKind
-	Field     *FieldInfo
-	CaseIndex int
+	Info uint32
 }
 
 type IndexExpr struct {
@@ -326,15 +321,7 @@ type CallExpr struct {
 	Callee Expr
 	Args   []*Arg
 
-	Kind      CallKind
-	Target    *FuncDecl
-	Pass      *Passing
-	Generic   *GenericCall
-	Receiver  Expr
-	Union     *UnionTy
-	CaseIndex int
-	Ordered   []Expr
-	Drop      *CallExpr
+	Info uint32
 }
 
 type UnaryExpr struct {
@@ -354,8 +341,6 @@ type BinaryExpr struct {
 	L  Expr
 	Op string
 	R  Expr
-
-	OperandType Ty
 }
 
 type CondExpr struct {
@@ -385,15 +370,11 @@ type NameExpr struct {
 	ExprBase
 	Name string
 
-	Kind  NameKind
-	Local *Local
-	Const *ConstDecl
-	Field *FieldInfo
+	Info uint32
 }
 
 type SelfExpr struct {
 	ExprBase
-	Local *Local
 }
 
 type StructLitExpr struct {
@@ -401,8 +382,7 @@ type StructLitExpr struct {
 	TypeName string
 	Fields   []*StructField
 
-	Record  *RecordTy
-	Ordered []Expr
+	Info uint32
 }
 
 type StructField struct {
@@ -433,6 +413,7 @@ type MatchExpr struct {
 type Arena struct {
 	module        ModuleID
 	count         NodeID
+	slots         Slots
 	funcDecl      slab[FuncDecl]
 	param         slab[Param]
 	constDecl     slab[ConstDecl]
@@ -483,6 +464,24 @@ type Arena struct {
 	panicExpr     slab[PanicExpr]
 	matchExpr     slab[MatchExpr]
 }
+
+// Slots counts the slots of each table that a phase fills in for a kind of node. A node that has a slot field is given
+// the next number of its counter when it is made, so a table is a slice that a counter sizes, and a node that a phase
+// makes later has its slot in it too. Slots count from 1: 0 is no slot.
+type Slots struct {
+	Expr      uint32
+	Local     uint32
+	Jump      uint32
+	When      uint32
+	Pattern   uint32
+	Member    uint32
+	Call      uint32
+	Name      uint32
+	StructLit uint32
+}
+
+// Slots is how many slots of each counter the arena has given out.
+func (a *Arena) Slots() Slots { return a.slots }
 
 func NewArena(module ModuleID) *Arena { return &Arena{module: module} }
 
@@ -555,6 +554,8 @@ func (a *Arena) NewParam() *Param {
 	n := a.param.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
+	a.slots.Local++
+	n.Local = a.slots.Local
 	return n
 }
 
@@ -668,6 +669,8 @@ func (a *Arena) NewLetStmt() *LetStmt {
 	n := a.letStmt.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
+	a.slots.Local++
+	n.Local = a.slots.Local
 	return n
 }
 
@@ -710,6 +713,8 @@ func (a *Arena) NewForStmt() *ForStmt {
 	n := a.forStmt.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
+	a.slots.Local++
+	n.Local = a.slots.Local
 	return n
 }
 
@@ -724,6 +729,8 @@ func (a *Arena) NewBreakStmt() *BreakStmt {
 	n := a.breakStmt.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
+	a.slots.Jump++
+	n.Jump = a.slots.Jump
 	return n
 }
 
@@ -731,6 +738,8 @@ func (a *Arena) NewContinueStmt() *ContinueStmt {
 	n := a.continueStmt.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
+	a.slots.Jump++
+	n.Jump = a.slots.Jump
 	return n
 }
 
@@ -745,6 +754,8 @@ func (a *Arena) NewWhenStmt() *WhenStmt {
 	n := a.whenStmt.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
+	a.slots.When++
+	n.Info = a.slots.When
 	return n
 }
 
@@ -766,7 +777,8 @@ func (a *Arena) NewPattern() *Pattern {
 	n := a.pattern.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.CaseIndex = -1
+	a.slots.Pattern++
+	n.Info = a.slots.Pattern
 	return n
 }
 
@@ -774,8 +786,10 @@ func (a *Arena) NewMemberExpr() *MemberExpr {
 	n := a.memberExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
-	n.CaseIndex = -1
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
+	a.slots.Member++
+	n.Info = a.slots.Member
 	return n
 }
 
@@ -783,7 +797,8 @@ func (a *Arena) NewIndexExpr() *IndexExpr {
 	n := a.indexExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -791,8 +806,10 @@ func (a *Arena) NewCallExpr() *CallExpr {
 	n := a.callExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
-	n.CaseIndex = -1
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
+	a.slots.Call++
+	n.Info = a.slots.Call
 	return n
 }
 
@@ -800,7 +817,8 @@ func (a *Arena) NewUnaryExpr() *UnaryExpr {
 	n := a.unaryExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -808,7 +826,8 @@ func (a *Arena) NewCastExpr() *CastExpr {
 	n := a.castExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -816,8 +835,8 @@ func (a *Arena) NewBinaryExpr() *BinaryExpr {
 	n := a.binaryExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
-	n.OperandType = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -825,7 +844,8 @@ func (a *Arena) NewCondExpr() *CondExpr {
 	n := a.condExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -833,7 +853,8 @@ func (a *Arena) NewIntLit() *IntLit {
 	n := a.intLit.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -841,7 +862,8 @@ func (a *Arena) NewStrLit() *StrLit {
 	n := a.strLit.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -849,7 +871,8 @@ func (a *Arena) NewBoolLit() *BoolLit {
 	n := a.boolLit.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -857,7 +880,10 @@ func (a *Arena) NewNameExpr() *NameExpr {
 	n := a.nameExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
+	a.slots.Name++
+	n.Info = a.slots.Name
 	return n
 }
 
@@ -865,7 +891,8 @@ func (a *Arena) NewSelfExpr() *SelfExpr {
 	n := a.selfExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -873,7 +900,10 @@ func (a *Arena) NewStructLitExpr() *StructLitExpr {
 	n := a.structLitExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
+	a.slots.StructLit++
+	n.Info = a.slots.StructLit
 	return n
 }
 
@@ -895,7 +925,8 @@ func (a *Arena) NewPanicExpr() *PanicExpr {
 	n := a.panicExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 
@@ -903,7 +934,8 @@ func (a *Arena) NewMatchExpr() *MatchExpr {
 	n := a.matchExpr.next()
 	a.count++
 	n.Mod, n.ID = a.module, a.count
-	n.Type = VoidTy
+	a.slots.Expr++
+	n.Ord = a.slots.Expr
 	return n
 }
 

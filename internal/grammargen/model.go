@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -28,6 +29,8 @@ type model struct {
 	nodeByName  map[string]*node
 	astByName   map[string]*astBlock
 	leftRec     map[*rule]bool
+	// slots are the counters of the slot fields, in the order the nodes first have them.
+	slots []string
 }
 
 type set struct {
@@ -53,6 +56,11 @@ type field struct {
 	typ  string
 	init string
 	gap  bool
+	// slot names the counter of a field declared `Slot[Name]`: the arena gives each node that has the field the next
+	// number of that counter, so a table a phase fills in for those nodes is a slice the counter sizes. The field is a
+	// uint32.
+	slot string
+	line int
 }
 
 func (m *model) fail(line int, format string, args ...any) {
@@ -101,7 +109,39 @@ func buildModel(g *grammar) *model {
 	m.buildSets()
 	m.buildNodes()
 	m.checkAstBlocks()
+	m.collectSlots()
 	return m
+}
+
+// A field says it holds a slot in its type: Slot[Counter].
+const slotTypePrefix, slotTypeSuffix = "Slot[", "]"
+
+// collectSlots turns each field declared `Slot[Counter]` into a uint32 that the arena numbers from that counter.
+func (m *model) collectSlots() {
+	take := func(f *field) {
+		counter, ok := strings.CutPrefix(f.typ, slotTypePrefix)
+		if !ok {
+			return
+		}
+		counter, ok = strings.CutSuffix(counter, slotTypeSuffix)
+		if !ok || counter == "" {
+			m.fail(f.line, "the type of field %s is %s; a slot is written Slot[Counter]", f.name, f.typ)
+		}
+		f.slot, f.typ = counter, "uint32"
+		if !slices.Contains(m.slots, counter) {
+			m.slots = append(m.slots, counter)
+		}
+	}
+	for _, s := range m.sets {
+		for _, f := range s.base {
+			take(f)
+		}
+	}
+	for _, n := range m.nodes {
+		for _, f := range n.fields {
+			take(f)
+		}
+	}
 }
 
 func (m *model) walkElems(alts []*alt, visit func(*elem)) {
@@ -251,7 +291,7 @@ func (m *model) buildSets() {
 	for _, s := range m.sets {
 		if b := m.astByName[s.name+"Base"]; b != nil {
 			for _, f := range b.fields {
-				s.base = append(s.base, &field{name: f.name, typ: f.typ, init: f.init, gap: f.gap})
+				s.base = append(s.base, &field{name: f.name, typ: f.typ, init: f.init, gap: f.gap, line: f.line})
 			}
 		}
 	}
@@ -457,7 +497,7 @@ func (m *model) buildFields(n *node) {
 		if _, inBase := m.baseField(n, d.name); inBase {
 			m.fail(d.line, "%s already has '%s' from its set's base", n.name, d.name)
 		}
-		f := &field{name: d.name, typ: d.typ, init: d.init, gap: d.gap || (first && len(n.fields) > 0)}
+		f := &field{name: d.name, typ: d.typ, init: d.init, gap: d.gap || (first && len(n.fields) > 0), line: d.line}
 		first = false
 		byName[d.name] = f
 		n.fields = append(n.fields, f)

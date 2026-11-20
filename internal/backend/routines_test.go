@@ -36,7 +36,8 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 	project.BuildTables(proj, results, 1)
 	resolve.NewResolver(proj, root, res).Run()
 	check.DeclareAliases(proj, results)
-	c := check.NewChecker(proj, root, &res.Resolution, &res.Errors)
+	res.Typing.Reset(root.Nodes.Slots())
+	c := check.NewChecker(proj, root, &res.Resolution, &res.Typing, &res.Errors)
 	for _, d := range root.Decls {
 		res.Functions = append(res.Functions, c.Declare(d)...)
 	}
@@ -65,14 +66,14 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 		t.Fatalf("errors: %v", res.Errors)
 	}
 	var fns []*ir.IrFunction
-	instances := ir.Instances(results[0].Callers)
+	instances := ir.Instances(ast.Typings{&res.Typing}, results[0].Callers)
 	for _, f := range res.Functions {
 		if len(f.Generics) == 0 {
-			fns = append(fns, ir.Lower(f, instances))
+			fns = append(fns, ir.Lower(ast.Typings{&res.Typing}, f, instances))
 		}
 	}
 	for _, inst := range instances.List {
-		fns = append(fns, ir.Lower(inst, instances))
+		fns = append(fns, ir.Lower(ast.Typings{&res.Typing}, inst, instances))
 	}
 	return fns
 }

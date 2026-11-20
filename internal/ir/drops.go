@@ -12,7 +12,7 @@ import (
 // jump that leaves several scopes drops all of them.
 //
 // Which values are temporaries, and which places are moved out of, is not decided here: the ownership pass marks each
-// expression whose value changes owner (ast.Expr.IsConsumed), and lowering reads that mark.
+// expression whose value changes owner (ast.Typing.Consumed), and lowering reads that mark.
 type scope struct {
 	block bool
 	drops []pendingDrop

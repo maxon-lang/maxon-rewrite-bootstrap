@@ -90,6 +90,40 @@ func TestNodesTakeTheirFieldsFromLabels(t *testing.T) {
 	}
 }
 
+func TestSlotFieldsAreNumberedByTheArenaFromTheirCounter(t *testing.T) {
+	nodes := generateTiny(t, `grammar T;
+shape
+    : square
+    | circle
+    ;
+@ast::ShapeBase {
+	Ord Slot[Shape]
+}
+square : 'square' side=Integer ;
+@ast::Square {
+	Info Slot[Sides]
+}
+circle : 'circle' radius=Integer ;
+@ast::Circle {
+	Info Slot[Sides]
+	Ring Slot[Rings]
+}
+Integer : [0-9]+ ;
+`)[nodesFile]
+	for _, want := range []string{
+		"type ShapeBase struct {\n\tHead\n\tOrd uint32\n}",
+		"type Square struct {\n\tShapeBase\n\tSide string\n\n\tInfo uint32\n}",
+		"type Slots struct {\n\tShape uint32\n\tSides uint32\n\tRings uint32\n}",
+		"func (a *Arena) Slots() Slots { return a.slots }",
+		"a.slots.Shape++\n\tn.Ord = a.slots.Shape\n\ta.slots.Sides++\n\tn.Info = a.slots.Sides\n\treturn n",
+		"a.slots.Rings++\n\tn.Ring = a.slots.Rings",
+	} {
+		if !strings.Contains(nodes, want) {
+			t.Errorf("nodes lack %q:\n%s", want, nodes)
+		}
+	}
+}
+
 func TestParserConvertsAndClimbs(t *testing.T) {
 	parser := generateTiny(t, tiny)[parserFile]
 	for _, want := range []string{
@@ -155,20 +189,21 @@ Assign : '=' ;
 
 func TestGrammarErrorsNameTheLine(t *testing.T) {
 	cases := map[string]string{
-		"grammar G;\na : b ;\n":                       "g.g4:2: rule 'b' is not declared",
-		"grammar G;\na : 'x' ;\na : 'y' ;\n":          "g.g4:3: rule 'a' is declared twice",
-		"grammar G;\na : '$' ;\n":                     "g.g4:2: '$' is neither a keyword nor the text of a token",
-		"grammar G;\na : x='p' | x=b ;\nb : 'q' ;\n":  "g.g4:2: label 'x' of A is *B here and bool elsewhere; give its type in @ast::A",
-		"grammar G;\na : 'p' | 'p' ;\n":               "g.g4:2: alternative 2 can never be chosen: every way it can start, an earlier alternative starts",
-		"grammar G;\na : x=a 'p' ;\n":                 "g.g4:2: only a set rule may be left-recursive, and 'a' is not one",
-		"grammar G;\na : 'p' ;\n@ast::Nothing {\n}\n": "g.g4:3: @ast::Nothing names no node and no set base",
-		"grammar G;\nh returns [int v] : w='p' ;\n":   "g.g4:2: helper rule 'h' returns 'v'; label 'w' names nothing",
-		"grammar G;\nA : 'x' ;\nB : 'x' ;\n":          "g.g4:3: token 'B' can never be matched: an earlier token always wins",
-		"grammar G;\nA : 'x'* ;\n":                    "g.g4:2: token 'A' matches the empty string, so the lexer would never move on",
-		"grammar G;\nA : 'x' .*? 'y' ;\n":             "g.g4:2: the DFA lexer takes the longest match; a non-greedy loop cannot be compiled",
-		"grammar G;\na : W ;\nW : ' ' -> skip ;\n":    "g.g4:2: token 'W' is skipped, so no rule can use it",
-		"grammar G;\na : b^ ;\nb : 'x' ;\n":           "g.g4:2: ^ joins a token to its neighbour; put it on a literal or a token",
-		"grammar G;\nA : 'x' -> more ;\n":             "g.g4:2: token 'A' has the command 'more'; a token takes skip, scan, noSpaceBefore, noSpaceAfter or noSpace",
+		"grammar G;\na : b ;\n":                             "g.g4:2: rule 'b' is not declared",
+		"grammar G;\na : 'x' ;\na : 'y' ;\n":                "g.g4:3: rule 'a' is declared twice",
+		"grammar G;\na : '$' ;\n":                           "g.g4:2: '$' is neither a keyword nor the text of a token",
+		"grammar G;\na : x='p' | x=b ;\nb : 'q' ;\n":        "g.g4:2: label 'x' of A is *B here and bool elsewhere; give its type in @ast::A",
+		"grammar G;\na : 'p' | 'p' ;\n":                     "g.g4:2: alternative 2 can never be chosen: every way it can start, an earlier alternative starts",
+		"grammar G;\na : x=a 'p' ;\n":                       "g.g4:2: only a set rule may be left-recursive, and 'a' is not one",
+		"grammar G;\na : 'p' ;\n@ast::Nothing {\n}\n":       "g.g4:3: @ast::Nothing names no node and no set base",
+		"grammar G;\na : 'p' ;\n@ast::A {\n\tX Slot[]\n}\n": "g.g4:4: the type of field X is Slot[]; a slot is written Slot[Counter]",
+		"grammar G;\nh returns [int v] : w='p' ;\n":         "g.g4:2: helper rule 'h' returns 'v'; label 'w' names nothing",
+		"grammar G;\nA : 'x' ;\nB : 'x' ;\n":                "g.g4:3: token 'B' can never be matched: an earlier token always wins",
+		"grammar G;\nA : 'x'* ;\n":                          "g.g4:2: token 'A' matches the empty string, so the lexer would never move on",
+		"grammar G;\nA : 'x' .*? 'y' ;\n":                   "g.g4:2: the DFA lexer takes the longest match; a non-greedy loop cannot be compiled",
+		"grammar G;\na : W ;\nW : ' ' -> skip ;\n":          "g.g4:2: token 'W' is skipped, so no rule can use it",
+		"grammar G;\na : b^ ;\nb : 'x' ;\n":                 "g.g4:2: ^ joins a token to its neighbour; put it on a literal or a token",
+		"grammar G;\nA : 'x' -> more ;\n":                   "g.g4:2: token 'A' has the command 'more'; a token takes skip, scan, noSpaceBefore, noSpaceAfter or noSpace",
 	}
 	for src, want := range cases {
 		_, err := generate("g.g4", []byte(src))

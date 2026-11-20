@@ -15,7 +15,7 @@ func DeclareAliases(proj *ast.Project, results []ast.ModuleResult) {
 	checkers := map[*ast.Module]*Checker{}
 	checkerOf := func(m *ast.Module) *Checker {
 		if checkers[m] == nil {
-			checkers[m] = NewChecker(proj, m, &results[m.ID].Resolution, &results[m.ID].Errors)
+			checkers[m] = NewChecker(proj, m, &results[m.ID].Resolution, &results[m.ID].Typing, &results[m.ID].Errors)
 		}
 		return checkers[m]
 	}

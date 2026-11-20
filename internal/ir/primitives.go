@@ -116,16 +116,30 @@ func (l *Lowerer) payloadKind(option ast.Ty) IrKind {
 	return kindOf(u.Payload(ast.OptionSome)[0].Type)
 }
 
+// call is a call being lowered: its node, which is where a refusal is reported, and what the checker found out about it.
+// The node's own fields and methods are promoted next to the call's. Receiver is the object it is made on, found once.
+type call struct {
+	*ast.CallExpr
+	*ast.CallInfo
+	Receiver ast.Expr
+}
+
+// call is the call a node is, with what its module's checker found out about it.
+func (l *Lowerer) call(c *ast.CallExpr) call {
+	info := l.typings.Of(c.Mod).Call(c)
+	return call{c, info, c.ReceiverFor(info.Kind)}
+}
+
 // elemAddr is the address of a[i]: the element of a primitive that a subscript names, lent for as long as the
 // primitive is not changed.
 func (l *Lowerer) elemAddr(e *ast.IndexExpr) V {
 	coll := l.read(e.Obj)
 	index := l.indexOf(e)
-	return l.elemEntry(e, e.Obj.Ty(), coll, index)
+	return l.elemEntry(e, l.ty(e.Obj), coll, index)
 }
 
 func (l *Lowerer) indexOf(e *ast.IndexExpr) V {
-	bt := ast.Content(l.binding.Apply(e.Obj.Ty())).(*ast.BuiltinTy)
+	bt := ast.Content(l.binding.Apply(l.ty(e.Obj))).(*ast.BuiltinTy)
 	return l.converted(e.Args[0], bt.Index())
 }
 
@@ -149,7 +163,7 @@ func (l *Lowerer) elemEntry(site ast.Node, collection ast.Ty, coll, index V) V {
 
 func (l *Lowerer) VisitIndexExpr(e *ast.IndexExpr) V {
 	addr := l.elemAddr(e)
-	d := l.reg(l.kind(e.Ty()))
+	d := l.reg(l.kind(l.ty(e)))
 	l.emit(LoadAt(d, addr))
 	return d
 }
@@ -160,13 +174,13 @@ func (l *Lowerer) assignElement(t *ast.IndexExpr, value ast.Expr) {
 	coll := l.expr(t.Obj)
 	index := l.indexOf(t)
 	v := l.expr(value)
-	addr := l.elemEntry(t, t.Obj.Ty(), coll, index)
-	l.dropAt(addr, t.Ty())
+	addr := l.elemEntry(t, l.ty(t.Obj), coll, index)
+	l.dropAt(addr, l.ty(t))
 	l.emit(StoreAt(addr, v))
 }
 
 // intrinsic lowers a call of a built-in method into the runtime entries of its primitive.
-func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
+func (l *Lowerer) intrinsic(c call) V {
 	if c.Target.Intrinsic == ast.IntrinsicExchange {
 		return l.exchange(c)
 	}
@@ -184,103 +198,103 @@ func (l *Lowerer) intrinsic(c *ast.CallExpr) V {
 }
 
 // intrinsicCall lowers a built-in method whose receiver and arguments are lowered.
-func (l *Lowerer) intrinsicCall(c *ast.CallExpr, recv V, args []V) V {
+func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 	switch c.Target.Intrinsic {
 	case ast.IntrinsicArrayNew:
-		return l.entry(c, RtArrayNew, KindManaged)
+		return l.entry(c.CallExpr, RtArrayNew, KindManaged)
 	case ast.IntrinsicArrayFilled:
 		return l.arrayFilled(c, args[0], args[1])
 	case ast.IntrinsicArrayCount:
-		return l.entry(c, RtArrayLen, KindScalar, recv)
+		return l.entry(c.CallExpr, RtArrayLen, KindScalar, recv)
 	case ast.IntrinsicArrayIsEmpty:
-		return l.isZero(l.entry(c, RtArrayLen, KindScalar, recv))
+		return l.isZero(l.entry(c.CallExpr, RtArrayLen, KindScalar, recv))
 	case ast.IntrinsicArrayAppend:
-		l.entryVoid(c, RtArrayInsert, recv, l.entry(c, RtArrayLen, KindScalar, recv), args[0])
+		l.entryVoid(c.CallExpr, RtArrayInsert, recv, l.entry(c.CallExpr, RtArrayLen, KindScalar, recv), args[0])
 		return l.konst(0)
 	case ast.IntrinsicArrayInsert:
-		l.entryVoid(c, RtArrayInsert, recv, args[1], args[0])
+		l.entryVoid(c.CallExpr, RtArrayInsert, recv, args[1], args[0])
 		return l.konst(0)
 	case ast.IntrinsicArrayRemove:
-		return l.entry(c, RtArrayRemove, l.kind(c.Ty()), recv, args[0])
+		return l.entry(c.CallExpr, RtArrayRemove, l.kind(l.ty(c.CallExpr)), recv, args[0])
 	case ast.IntrinsicArrayDropEmpty:
 		return l.dropEmpty(c, RtArrayLen, recv)
 	case ast.IntrinsicArrayPop:
-		n := l.entry(c, RtArrayLen, KindScalar, recv)
+		n := l.entry(c.CallExpr, RtArrayLen, KindScalar, recv)
 		return l.optional(l.nonZero(n), func() V {
 			last := l.reg(KindScalar)
 			l.emit(Bin(last, BinSub, n, l.konst(1), true, false))
-			return l.entry(c, RtArrayRemove, l.payloadKind(c.Ty()), recv, last)
+			return l.entry(c.CallExpr, RtArrayRemove, l.payloadKind(l.ty(c.CallExpr)), recv, last)
 		})
 
 	case ast.IntrinsicMapNew:
-		return l.entry(c, RtMapNew, KindManaged)
+		return l.entry(c.CallExpr, RtMapNew, KindManaged)
 	case ast.IntrinsicMapCount:
-		return l.entry(c, RtMapLen, KindScalar, recv)
+		return l.entry(c.CallExpr, RtMapLen, KindScalar, recv)
 	case ast.IntrinsicMapIsEmpty:
-		return l.isZero(l.entry(c, RtMapLen, KindScalar, recv))
+		return l.isZero(l.entry(c.CallExpr, RtMapLen, KindScalar, recv))
 	case ast.IntrinsicMapHas:
-		return l.entry(c, RtMapHas, KindScalar, recv, args[0])
+		return l.entry(c.CallExpr, RtMapHas, KindScalar, recv, args[0])
 	case ast.IntrinsicMapInsert:
-		l.entryVoid(c, RtMapInsert, recv, args[0], args[1])
+		l.entryVoid(c.CallExpr, RtMapInsert, recv, args[0], args[1])
 		return l.konst(0)
 	case ast.IntrinsicMapReplace:
 		return l.mapReplace(c, recv, args[0], args[1])
 	case ast.IntrinsicMapDropEmpty:
 		return l.dropEmpty(c, RtMapLen, recv)
 	case ast.IntrinsicMapRemove:
-		return l.optional(l.entry(c, RtMapHas, KindScalar, recv, args[0]), func() V {
-			return l.entry(c, RtMapRemove, l.payloadKind(c.Ty()), recv, args[0])
+		return l.optional(l.entry(c.CallExpr, RtMapHas, KindScalar, recv, args[0]), func() V {
+			return l.entry(c.CallExpr, RtMapRemove, l.payloadKind(l.ty(c.CallExpr)), recv, args[0])
 		})
 
 	case ast.IntrinsicListNew:
-		return l.entry(c, RtListNew, KindManaged)
+		return l.entry(c.CallExpr, RtListNew, KindManaged)
 	case ast.IntrinsicListCount:
-		return l.entry(c, RtListLen, KindScalar, recv)
+		return l.entry(c.CallExpr, RtListLen, KindScalar, recv)
 	case ast.IntrinsicListIsEmpty:
-		return l.isZero(l.entry(c, RtListLen, KindScalar, recv))
+		return l.isZero(l.entry(c.CallExpr, RtListLen, KindScalar, recv))
 	case ast.IntrinsicListContains:
-		return l.entry(c, RtListContains, KindScalar, recv, args[0])
+		return l.entry(c.CallExpr, RtListContains, KindScalar, recv, args[0])
 	case ast.IntrinsicListPushFront:
-		return l.entry(c, RtListPushFront, KindScalar, recv, args[0])
+		return l.entry(c.CallExpr, RtListPushFront, KindScalar, recv, args[0])
 	case ast.IntrinsicListPushBack:
-		return l.entry(c, RtListPushBack, KindScalar, recv, args[0])
+		return l.entry(c.CallExpr, RtListPushBack, KindScalar, recv, args[0])
 	case ast.IntrinsicListPopFront:
 		return l.popped(c, RtListLen, RtListPopFront, recv)
 	case ast.IntrinsicListPopBack:
 		return l.popped(c, RtListLen, RtListPopBack, recv)
 	case ast.IntrinsicListFirst:
-		return l.handleOrNone(l.entry(c, RtListFirst, KindScalar, recv))
+		return l.handleOrNone(l.entry(c.CallExpr, RtListFirst, KindScalar, recv))
 	case ast.IntrinsicListLast:
-		return l.handleOrNone(l.entry(c, RtListLast, KindScalar, recv))
+		return l.handleOrNone(l.entry(c.CallExpr, RtListLast, KindScalar, recv))
 	case ast.IntrinsicListNext:
-		return l.handleOrNone(l.entry(c, RtListNext, KindScalar, recv, args[0]))
+		return l.handleOrNone(l.entry(c.CallExpr, RtListNext, KindScalar, recv, args[0]))
 	case ast.IntrinsicListPrev:
-		return l.handleOrNone(l.entry(c, RtListPrev, KindScalar, recv, args[0]))
+		return l.handleOrNone(l.entry(c.CallExpr, RtListPrev, KindScalar, recv, args[0]))
 	case ast.IntrinsicListRemove:
-		return l.optional(l.entry(c, RtListContains, KindScalar, recv, args[0]), func() V {
-			return l.entry(c, RtListRemove, l.payloadKind(c.Ty()), recv, args[0])
+		return l.optional(l.entry(c.CallExpr, RtListContains, KindScalar, recv, args[0]), func() V {
+			return l.entry(c.CallExpr, RtListRemove, l.payloadKind(l.ty(c.CallExpr)), recv, args[0])
 		})
 	case ast.IntrinsicListDropEmpty:
 		return l.dropEmpty(c, RtListLen, recv)
 	case ast.IntrinsicListMoveToFront:
-		l.entryVoid(c, RtListMoveToFront, recv, args[0])
+		l.entryVoid(c.CallExpr, RtListMoveToFront, recv, args[0])
 		return l.konst(0)
 
 	case ast.IntrinsicPoolNew:
-		return l.entry(c, RtPoolNew, KindManaged)
+		return l.entry(c.CallExpr, RtPoolNew, KindManaged)
 	case ast.IntrinsicPoolCount:
-		return l.entry(c, RtPoolLen, KindScalar, recv)
+		return l.entry(c.CallExpr, RtPoolLen, KindScalar, recv)
 	case ast.IntrinsicPoolIsEmpty:
-		return l.isZero(l.entry(c, RtPoolLen, KindScalar, recv))
+		return l.isZero(l.entry(c.CallExpr, RtPoolLen, KindScalar, recv))
 	case ast.IntrinsicPoolContains:
-		return l.entry(c, RtPoolContains, KindScalar, recv, args[0])
+		return l.entry(c.CallExpr, RtPoolContains, KindScalar, recv, args[0])
 	case ast.IntrinsicPoolInsert:
-		return l.entry(c, RtPoolInsert, KindScalar, recv, args[0])
+		return l.entry(c.CallExpr, RtPoolInsert, KindScalar, recv, args[0])
 	case ast.IntrinsicPoolDropEmpty:
 		return l.dropEmpty(c, RtPoolLen, recv)
 	case ast.IntrinsicPoolRemove:
-		return l.optional(l.entry(c, RtPoolContains, KindScalar, recv, args[0]), func() V {
-			return l.entry(c, RtPoolRemove, l.payloadKind(c.Ty()), recv, args[0])
+		return l.optional(l.entry(c.CallExpr, RtPoolContains, KindScalar, recv, args[0]), func() V {
+			return l.entry(c.CallExpr, RtPoolRemove, l.payloadKind(l.ty(c.CallExpr)), recv, args[0])
 		})
 
 	case ast.IntrinsicOptionIsSome:
@@ -296,9 +310,9 @@ func (l *Lowerer) intrinsicCall(c *ast.CallExpr, recv V, args []V) V {
 
 // unwrap takes the value out of an Option that the call consumes. A payload that is owned leaves the box, which is
 // then dropped empty; the box is the call's to drop either way.
-func (l *Lowerer) unwrap(c *ast.CallExpr, option V) V {
+func (l *Lowerer) unwrap(c call, option V) V {
 	l.requireOrTrap(l.compare(CmpEq, l.tag(option), l.konst(ast.OptionSome), false), unwrapNoneMessage)
-	kind := l.kind(c.Ty())
+	kind := l.kind(l.ty(c.CallExpr))
 	d := l.reg(kind)
 	if kind == KindManaged {
 		addr := l.reg(KindScalar)
@@ -307,15 +321,15 @@ func (l *Lowerer) unwrap(c *ast.CallExpr, option V) V {
 	} else {
 		l.emit(LoadField(d, option, optionPayloadOffset))
 	}
-	l.dropValue(option, c.Receiver.Ty())
+	l.dropValue(option, l.ty(c.Receiver))
 	return d
 }
 
 // dropEmpty ends a collection that the call consumes, and traps if an element is left: dropping it would drop the
 // element, which a type with a destructor must never be left to do.
-func (l *Lowerer) dropEmpty(c *ast.CallExpr, length Rt, collection V) V {
-	l.requireOrTrap(l.isZero(l.entry(c, length, KindScalar, collection)), dropEmptyMessage)
-	l.dropValue(collection, c.Receiver.Ty())
+func (l *Lowerer) dropEmpty(c call, length Rt, collection V) V {
+	l.requireOrTrap(l.isZero(l.entry(c.CallExpr, length, KindScalar, collection)), dropEmptyMessage)
+	l.dropValue(collection, l.ty(c.Receiver))
 	return l.konst(0)
 }
 
@@ -334,23 +348,23 @@ func (l *Lowerer) moveOutAt(addr V, t ast.Ty) V {
 // exchange moves the new value into a place and gives the value that was there to the caller, so the place is never
 // dropped and a type without Droppable can be replaced. The value is computed before the place is addressed, so that
 // computing it cannot leave the address stale.
-func (l *Lowerer) exchange(c *ast.CallExpr) V {
+func (l *Lowerer) exchange(c call) V {
 	value := l.converted(c.Ordered[1], c.Pass.Specs[1].Type)
 	addr := l.address(c.Ordered[0])
-	old := l.moveOutAt(addr, c.Ty())
+	old := l.moveOutAt(addr, l.ty(c.CallExpr))
 	l.emit(StoreAt(addr, value))
 	return old
 }
 
 // mapReplace is map.insert that gives back the value the key had: it moves that value out of its entry, and the insert
 // then finds the entry empty, keeps its place and drops nothing.
-func (l *Lowerer) mapReplace(c *ast.CallExpr, m, key, value V) V {
-	elem := ast.Content(l.binding.Apply(c.Receiver.Ty())).(*ast.BuiltinTy).Element()
-	old := l.optional(l.entry(c, RtMapHas, KindScalar, m, key), func() V {
-		addr := l.entry(c, RtMapElem, KindScalar, m, key)
+func (l *Lowerer) mapReplace(c call, m, key, value V) V {
+	elem := ast.Content(l.binding.Apply(l.ty(c.Receiver))).(*ast.BuiltinTy).Element()
+	old := l.optional(l.entry(c.CallExpr, RtMapHas, KindScalar, m, key), func() V {
+		addr := l.entry(c.CallExpr, RtMapElem, KindScalar, m, key)
 		return l.moveOutAt(addr, elem)
 	})
-	l.entryVoid(c, RtMapInsert, m, key, value)
+	l.entryVoid(c.CallExpr, RtMapInsert, m, key, value)
 	return old
 }
 
@@ -359,10 +373,10 @@ func (l *Lowerer) isZero(v V) V { return l.compare(CmpEq, v, l.konst(0), false) 
 func (l *Lowerer) nonZero(v V) V { return l.compare(CmpNe, v, l.konst(0), false) }
 
 // popped is some(element) from the end of a list that has one, and none from an empty list.
-func (l *Lowerer) popped(c *ast.CallExpr, length, pop Rt, list V) V {
-	n := l.entry(c, length, KindScalar, list)
+func (l *Lowerer) popped(c call, length, pop Rt, list V) V {
+	n := l.entry(c.CallExpr, length, KindScalar, list)
 	return l.optional(l.nonZero(n), func() V {
-		return l.entry(c, pop, l.payloadKind(c.Ty()), list)
+		return l.entry(c.CallExpr, pop, l.payloadKind(l.ty(c.CallExpr)), list)
 	})
 }
 
@@ -373,11 +387,11 @@ func (l *Lowerer) handleOrNone(handle V) V {
 
 // arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that
 // every element has an owner of its own.
-func (l *Lowerer) arrayFilled(c *ast.CallExpr, count, value V) V {
-	out := l.entry(c, RtArrayNew, KindManaged)
-	elem := l.binding.Apply(c.Ty()).(*ast.BuiltinTy).Element()
+func (l *Lowerer) arrayFilled(c call, count, value V) V {
+	out := l.entry(c.CallExpr, RtArrayNew, KindManaged)
+	elem := l.binding.Apply(l.ty(c.CallExpr)).(*ast.BuiltinTy).Element()
 	l.countedLoop(count, func(i V) {
-		l.entryVoid(c, RtArrayInsert, out, i, l.copyValue(c, value, elem))
+		l.entryVoid(c.CallExpr, RtArrayInsert, out, i, l.copyValue(c.CallExpr, value, elem))
 	})
 	l.dropValue(value, elem)
 	return out

@@ -14,7 +14,7 @@ func lowerNamed(t *testing.T, results []ast.ModuleResult, name string) *IrFuncti
 	t.Helper()
 	for _, f := range results[0].Functions {
 		if f.Name == name {
-			return Lower(f, Instances(results[0].Callers))
+			return Lower(typingsOf(results), f, Instances(typingsOf(results), results[0].Callers))
 		}
 	}
 	t.Fatalf("no function %s", name)

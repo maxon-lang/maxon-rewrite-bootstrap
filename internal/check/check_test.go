@@ -34,7 +34,8 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 		return res.Errors
 	}
 
-	c := NewChecker(proj, root, &res.Resolution, &res.Errors)
+	res.Typing.Reset(root.Nodes.Slots())
+	c := NewChecker(proj, root, &res.Resolution, &res.Typing, &res.Errors)
 	for _, d := range root.Decls {
 		res.Functions = append(res.Functions, c.Declare(d)...)
 	}

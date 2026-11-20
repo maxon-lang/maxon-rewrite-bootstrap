@@ -318,6 +318,8 @@ type Local struct {
 	Projected  bool
 	ParamIndex int
 	Slot       int
+	// id is the local's handle in the function that lists it.
+	id LocalID
 }
 
 func NewLocal(name string, t Ty, isVar bool) *Local {
