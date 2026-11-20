@@ -55,8 +55,7 @@ type Options struct {
 	CountAllocations bool
 }
 
-func Compile(path, output string, o Options) (errs []*diag.CompileError) {
-	defer recoverCompileError(&errs)
+func Compile(path, output string, o Options) []*diag.CompileError {
 	if o.Trace != "" {
 		defer startTrace(o.Trace)()
 	}
@@ -79,20 +78,9 @@ func startTrace(path string) (stop func()) {
 	}
 }
 
-func recoverCompileError(errs *[]*diag.CompileError) {
-	if r := recover(); r != nil {
-		ce, ok := r.(*diag.CompileError)
-		if !ok {
-			panic(r)
-		}
-		*errs = []*diag.CompileError{ce}
-	}
-}
-
 // Prepare compiles a program as far as IR, which the tracking interpreter (internal/interp) runs. The program can be run
 // more than once, under different schedules of its behaviours.
 func Prepare(path string, jobs int) (program *interp.Program, errs []*diag.CompileError) {
-	defer recoverCompileError(&errs)
 	errs = compileProject(path, "", Options{Jobs: jobs}, &program)
 	if len(errs) > 0 {
 		return nil, errs
@@ -114,14 +102,30 @@ func Interpret(path string, jobs int, stepLimit int64) (result *interp.Result, e
 
 // compileProject runs the phases. With a non-empty output it generates an executable; with capture it lowers the program
 // and hands the IR to the interpreter instead.
-func compileProject(path, output string, o Options, capture **interp.Program) []*diag.CompileError {
+//
+// An error raised at a node is located (given its file, line and column) here, the first time anything needs it, and an
+// error that stops the compile outside a pass's own guard is the compile's only error.
+func compileProject(path, output string, o Options, capture **interp.Program) (errs []*diag.CompileError) {
 	jobs, timings := o.Jobs, o.Timings
 	var errors []*diag.CompileError
 	timer := newPhaseTimer(timings)
 	defer timer.total()
 	mark := timer.mark
 
-	proj := project.Discover(path, &errors)
+	var proj *ast.Project
+	defer func() {
+		if r := recover(); r != nil {
+			ce, ok := r.(*diag.CompileError)
+			if !ok {
+				panic(r)
+			}
+			errs = []*diag.CompileError{ce}
+		}
+		if proj != nil {
+			proj.Locate(errs)
+		}
+	}()
+	proj = project.Discover(path, &errors)
 	budget, restore := suspendCollection(proj, jobs)
 	defer restore()
 	if timings {
@@ -129,7 +133,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 	}
 	mark("discover")
 	if len(errors) > 0 {
-		return sortedErrors(errors)
+		return sortedErrors(proj, errors)
 	}
 	modules := proj.Modules
 	results := make([]ast.ModuleResult, len(modules))
@@ -138,7 +142,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 		par.ForEachIndex(len(modules), jobs, func(i int) { work(modules[i], &results[i]) })
 	}
 
-	failed := func() []*diag.CompileError { return collectErrors(errors, results, nil) }
+	failed := func() []*diag.CompileError { return collectErrors(proj, errors, results, nil) }
 
 	// The parse pass builds each module's own declaration table straight after parsing it, while its AST is in cache. A
 	// module's table is built only when it parsed cleanly, and the table's errors count only when every module did, so
@@ -155,8 +159,8 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 			a1 := stepAllocated(timings)
 			tokens := scratch.Lex(src)
 			a2 := stepAllocated(timings)
-			program, syntaxErrors := scratch.Parse(src, tokens)
-			m.Decls = program.Decls
+			program, syntaxErrors := scratch.Parse(src, tokens, m.ID)
+			m.Adopt(program)
 			res.Errors = append(res.Errors, syntaxErrors...)
 			a3 := stepAllocated(timings)
 			readBytes.Add(a1 - a0)
@@ -174,7 +178,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 		reportParseAllocation(heapAllocated()-parseStart, readBytes.Load(), lexBytes.Load(), parseBytes.Load(), tableBytes.Load())
 	}
 	mark("parse")
-	if parseErrors := collectErrors(errors, results, parsed); parseErrors != nil {
+	if parseErrors := collectErrors(proj, errors, results, parsed); parseErrors != nil {
 		return parseErrors
 	}
 
@@ -187,7 +191,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 		return resolveErrors
 	}
 	if cycle := project.NewGraph(results).CheckAcyclic(proj); cycle != nil {
-		return sortedErrors([]*diag.CompileError{cycle})
+		return sortedErrors(proj, []*diag.CompileError{cycle})
 	}
 	mark("cycles")
 
@@ -199,7 +203,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 
 	var main *ast.FuncDecl
 	phase(func(m *ast.Module, res *ast.ModuleResult) {
-		checker := check.NewChecker(proj, m, &res.Errors)
+		checker := check.NewChecker(proj, m, &res.Resolution, &res.Errors)
 		for _, d := range m.Decls {
 			res.Functions = append(res.Functions, checker.Declare(d)...)
 		}
@@ -213,7 +217,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 		return declareErrors
 	}
 
-	checkConstants(proj, jobs, &errors)
+	checkConstants(proj, results, jobs, &errors)
 	mark("constants")
 	if constErrors := failed(); constErrors != nil {
 		return constErrors
@@ -235,7 +239,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) []
 		}
 	})
 	mark("check")
-	if checkErrors := collectErrors(errors, results, bodied); checkErrors != nil {
+	if checkErrors := collectErrors(proj, errors, results, bodied); checkErrors != nil {
 		return checkErrors
 	}
 
@@ -270,7 +274,7 @@ func firstFailure(failures [][]*diag.CompileError) []*diag.CompileError {
 
 // checkBodies types the module's type declarations and functions, and records what verify and the instances need.
 func checkBodies(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
-	checker := check.NewChecker(proj, m, &res.Errors)
+	checker := check.NewChecker(proj, m, &res.Resolution, &res.Errors)
 	for _, d := range m.Decls {
 		switch d.(type) {
 		case *ast.TypeDecl, *ast.UnionDecl, *ast.EnumDecl:
@@ -288,7 +292,7 @@ func checkBodies(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
 // verifyModule checks the calls and type arguments that checkBodies recorded, then ownership, which only runs on a
 // module that has no error yet.
 func verifyModule(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
-	verifier := check.NewChecker(proj, m, &res.Errors)
+	verifier := check.NewChecker(proj, m, &res.Resolution, &res.Errors)
 	verifier.Verify(res.Pending)
 	verifier.VerifyBounds(res.Bounds)
 	if len(res.Errors) == 0 {
@@ -305,7 +309,7 @@ func verifyModule(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
 // collectErrors gathers the errors of the compile so far, sorted, or nil if there are none. A pass that fuses two
 // stages gives stageEnds, how many errors each module had when its first stage ended: if any module had errors then,
 // only those count, and what the second stage found is dropped.
-func collectErrors(errors []*diag.CompileError, results []ast.ModuleResult, stageEnds []int) []*diag.CompileError {
+func collectErrors(proj *ast.Project, errors []*diag.CompileError, results []ast.ModuleResult, stageEnds []int) []*diag.CompileError {
 	firstStageFailed := slices.ContainsFunc(stageEnds, func(n int) bool { return n > 0 })
 	all := append([]*diag.CompileError{}, errors...)
 	for i := range results {
@@ -318,7 +322,7 @@ func collectErrors(errors []*diag.CompileError, results []ast.ModuleResult, stag
 	if len(all) == 0 {
 		return nil
 	}
-	return sortedErrors(all)
+	return sortedErrors(proj, all)
 }
 
 // moduleOutput is what the generate pass keeps of a module once its functions are lowered and its code is emitted.
@@ -422,7 +426,7 @@ func generate(proj *ast.Project, results []ast.ModuleResult, main *ast.FuncDecl,
 		blocked = append(blocked, outputs[i].refusals...)
 	}
 	if len(blocked) > 0 {
-		return withoutRepeats(sortedErrors(blocked))
+		return withoutRepeats(sortedErrors(proj, blocked))
 	}
 	if capture != nil {
 		*capture = interp.NewProgram(functionsOnce(outputs), main)
@@ -530,7 +534,7 @@ type constEntry struct {
 	decl   *ast.ConstDecl
 }
 
-func checkConstants(proj *ast.Project, jobs int, errs *[]*diag.CompileError) {
+func checkConstants(proj *ast.Project, results []ast.ModuleResult, jobs int, errs *[]*diag.CompileError) {
 	var consts []constEntry
 	for _, m := range proj.Modules {
 		for _, d := range m.Decls {
@@ -542,7 +546,8 @@ func checkConstants(proj *ast.Project, jobs int, errs *[]*diag.CompileError) {
 	deps := make([][]*ast.ConstDecl, len(consts))
 	par.ForEachIndex(len(consts), jobs, func(i int) {
 		seen := map[*ast.ConstDecl]bool{}
-		for _, c := range referencedConsts(consts[i].decl.Value, nil) {
+		refs := constRefs{proj, &results[consts[i].module.ID].Resolution}
+		for _, c := range refs.of(consts[i].decl.Value, nil) {
 			if !seen[c] {
 				seen[c] = true
 				deps[i] = append(deps[i], c)
@@ -594,7 +599,7 @@ func checkConstants(proj *ast.Project, jobs int, errs *[]*diag.CompileError) {
 		waveErrors := make([][]*diag.CompileError, len(items))
 		par.ForEachIndex(len(items), jobs, func(k int) {
 			entry := consts[items[k]]
-			check.NewChecker(proj, entry.module, &waveErrors[k]).CheckConst(entry.decl)
+			check.NewChecker(proj, entry.module, &results[entry.module.ID].Resolution, &waveErrors[k]).CheckConst(entry.decl)
 		})
 		for _, e := range waveErrors {
 			*errs = append(*errs, e...)
@@ -607,98 +612,102 @@ type constList = []*ast.ConstDecl
 // referencedConsts appends the constants that e names, so the constants phase types them first. It walks every
 // expression a constant could hold, including ones the checker then refuses, because a missed reference would
 // check a constant in the same wave as one it reads.
-func referencedConsts(e ast.Expr, into constList) constList {
-	return ast.VisitExprState[constList, constList](constRefs{}, e, into)
+func (r constRefs) of(e ast.Expr, into constList) constList {
+	return ast.VisitExprState[constList, constList](r, e, into)
 }
 
-type constRefs struct{}
+// constRefs reads what the module that holds the expression resolved its names to.
+type constRefs struct {
+	proj       *ast.Project
+	resolution *ast.Resolution
+}
 
-func (constRefs) VisitIntLit(_ *ast.IntLit, into constList) constList { return into }
+func (r constRefs) VisitIntLit(_ *ast.IntLit, into constList) constList { return into }
 
-func (constRefs) VisitBoolLit(_ *ast.BoolLit, into constList) constList { return into }
+func (r constRefs) VisitBoolLit(_ *ast.BoolLit, into constList) constList { return into }
 
-func (constRefs) VisitSelfExpr(_ *ast.SelfExpr, into constList) constList { return into }
+func (r constRefs) VisitSelfExpr(_ *ast.SelfExpr, into constList) constList { return into }
 
-func (constRefs) VisitStrLit(e *ast.StrLit, into constList) constList {
+func (r constRefs) VisitStrLit(e *ast.StrLit, into constList) constList {
 	for _, p := range e.Parts {
 		if part, ok := p.(ast.Expr); ok {
-			into = referencedConsts(part, into)
+			into = r.of(part, into)
 		}
 	}
 	return into
 }
 
-func (constRefs) VisitNameExpr(e *ast.NameExpr, into constList) constList {
-	if c, ok := e.Target.(*ast.ConstDecl); ok {
+func (r constRefs) VisitNameExpr(e *ast.NameExpr, into constList) constList {
+	if c, ok := r.resolution.Decl(r.proj, e.ID).(*ast.ConstDecl); ok {
 		return append(into, c)
 	}
 	return into
 }
 
-func (constRefs) VisitBinaryExpr(e *ast.BinaryExpr, into constList) constList {
-	return referencedConsts(e.R, referencedConsts(e.L, into))
+func (r constRefs) VisitBinaryExpr(e *ast.BinaryExpr, into constList) constList {
+	return r.of(e.R, r.of(e.L, into))
 }
 
-func (constRefs) VisitUnaryExpr(e *ast.UnaryExpr, into constList) constList {
-	return referencedConsts(e.E, into)
+func (r constRefs) VisitUnaryExpr(e *ast.UnaryExpr, into constList) constList {
+	return r.of(e.E, into)
 }
 
-func (constRefs) VisitCondExpr(e *ast.CondExpr, into constList) constList {
-	return referencedConsts(e.Else, referencedConsts(e.Then, referencedConsts(e.Cond, into)))
+func (r constRefs) VisitCondExpr(e *ast.CondExpr, into constList) constList {
+	return r.of(e.Else, r.of(e.Then, r.of(e.Cond, into)))
 }
 
-func (constRefs) VisitCastExpr(e *ast.CastExpr, into constList) constList {
-	return referencedConsts(e.E, into)
+func (r constRefs) VisitCastExpr(e *ast.CastExpr, into constList) constList {
+	return r.of(e.E, into)
 }
 
-func (constRefs) VisitIndexExpr(e *ast.IndexExpr, into constList) constList {
-	into = referencedConsts(e.Obj, into)
+func (r constRefs) VisitIndexExpr(e *ast.IndexExpr, into constList) constList {
+	into = r.of(e.Obj, into)
 	for _, a := range e.Args {
-		into = referencedConsts(a, into)
+		into = r.of(a, into)
 	}
 	return into
 }
 
-func (constRefs) VisitMemberExpr(e *ast.MemberExpr, into constList) constList {
-	return referencedConsts(e.Obj, into)
+func (r constRefs) VisitMemberExpr(e *ast.MemberExpr, into constList) constList {
+	return r.of(e.Obj, into)
 }
 
-func (constRefs) VisitCallExpr(e *ast.CallExpr, into constList) constList {
-	into = referencedConsts(e.Callee, into)
+func (r constRefs) VisitCallExpr(e *ast.CallExpr, into constList) constList {
+	into = r.of(e.Callee, into)
 	for _, a := range e.Args {
-		into = referencedConsts(a.Value, into)
+		into = r.of(a.Value, into)
 	}
 	return into
 }
 
-func (constRefs) VisitStructLitExpr(e *ast.StructLitExpr, into constList) constList {
+func (r constRefs) VisitStructLitExpr(e *ast.StructLitExpr, into constList) constList {
 	for _, f := range e.Fields {
-		into = referencedConsts(f.Value, into)
+		into = r.of(f.Value, into)
 	}
 	return into
 }
 
 // A match expression's arms all give a value; a 'then' arm, the only one holding a statement, is refused in one.
-func (constRefs) VisitMatchExpr(e *ast.MatchExpr, into constList) constList {
-	into = referencedConsts(e.Match.Subject, into)
+func (r constRefs) VisitMatchExpr(e *ast.MatchExpr, into constList) constList {
+	into = r.of(e.Match.Subject, into)
 	for _, arm := range e.Match.Arms {
 		for _, p := range arm.Patterns {
 			if p.Value != nil {
-				into = referencedConsts(p.Value, into)
+				into = r.of(p.Value, into)
 			}
 			if p.High != nil {
-				into = referencedConsts(p.High, into)
+				into = r.of(p.High, into)
 			}
 		}
 		if arm.Value != nil {
-			into = referencedConsts(arm.Value, into)
+			into = r.of(arm.Value, into)
 		}
 	}
 	return into
 }
 
-func (constRefs) VisitPanicExpr(e *ast.PanicExpr, into constList) constList {
-	return referencedConsts(e.Message, into)
+func (r constRefs) VisitPanicExpr(e *ast.PanicExpr, into constList) constList {
+	return r.of(e.Message, into)
 }
 
 func suspendCollection(proj *ast.Project, jobs int) (int64, func()) {
@@ -719,7 +728,8 @@ func suspendCollection(proj *ast.Project, jobs int) (int64, func()) {
 	}
 }
 
-func sortedErrors(errs []*diag.CompileError) []*diag.CompileError {
+func sortedErrors(proj *ast.Project, errs []*diag.CompileError) []*diag.CompileError {
+	proj.Locate(errs)
 	out := append([]*diag.CompileError{}, errs...)
 	sort.SliceStable(out, func(a, b int) bool {
 		x, y := out[a], out[b]

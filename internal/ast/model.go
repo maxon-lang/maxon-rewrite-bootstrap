@@ -1,11 +1,15 @@
 package ast
 
-import "sort"
+import (
+	"minimaxon/internal/diag"
+	"sort"
+)
 
 // ModuleID is a handle to a module: its index in Project.Modules, which lists the root first and then each module's
 // children in name order, depth first, so the order is the same for every run.
-// Anything that refers to a module without owning it, such as a dependency or a per-module result, holds this.
-type ModuleID int
+// Anything that refers to a module without owning it, such as a dependency, a position or a per-module result, holds
+// this. It is 32 bits, so a position names its module in half of its 8 bytes.
+type ModuleID int32
 
 // StdlibID is the handle of the standard library, which is not one of the project's modules: no per-module result has
 // an index for it, so using it as one fails instead of reading the root's.
@@ -17,9 +21,28 @@ type Module struct {
 	Dir      string
 	IsStdlib bool
 	Files    []string
-	Decls    []Decl
-	Names    map[string]Decl
-	Children map[string]*Module
+	// Decls are the module's top-level declarations in source order; a declaration's Ordinal is its index here.
+	Decls []Decl
+	// Nodes makes the module's nodes and counts them, so a phase that adds a node (a qualified name that resolution
+	// rewrites, a behaviour that checking splits off) gives it the next NodeID and a table sized by Nodes.Count has
+	// room for it.
+	Nodes *Arena
+	// Positions locate the offsets of the module's nodes.
+	Positions *Positions
+	Names     map[string]Decl
+	Children  map[string]*Module
+}
+
+// Adopt makes what parsing the module produced the module's own.
+func (m *Module) Adopt(p *Program) {
+	m.Decls, m.Nodes, m.Positions = p.Decls, p.Nodes, p.Positions
+}
+
+// Declare adds a declaration that is not parsed, such as the standard library's, at the end of the module's Decls.
+func (m *Module) Declare(d Decl) {
+	d.Base().Ordinal = uint32(len(m.Decls))
+	m.Decls = append(m.Decls, d)
+	m.Names[d.Base().Name] = d
 }
 
 func NewModule(path, dir string, isStdlib bool) *Module {
@@ -58,9 +81,42 @@ type Project struct {
 	ByName  map[string][]Decl
 }
 
+// Module is the module a handle names, the standard library included.
+func (p *Project) Module(id ModuleID) *Module {
+	if id == StdlibID {
+		return p.Stdlib
+	}
+	return p.Modules[id]
+}
+
+// Decl is the declaration a reference names.
+func (p *Project) Decl(ref DeclRef) Decl { return p.Module(ref.Module).Decls[ref.Ordinal] }
+
+// Where is the file, line and column of a position.
+func (p *Project) Where(pos Pos) (file string, line, col int) {
+	return p.Module(pos.Mod).Positions.Where(pos.Off)
+}
+
+// Line is the line of a position, for a message that names where something else is.
+func (p *Project) Line(pos Pos) int {
+	_, line, _ := p.Where(pos)
+	return line
+}
+
+// Locate gives each error that was raised at a node its file, line and column.
+func (p *Project) Locate(errs []*diag.CompileError) {
+	for _, e := range errs {
+		if !e.Located() {
+			e.Locate(p.Where(Pos{Mod: ModuleID(e.Site.Module), Off: e.Site.Offset}))
+		}
+	}
+}
+
 func NewProject(root *Module) *Project {
 	p := &Project{Root: root, Stdlib: NewModule("stdlib", "", true), ByName: map[string][]Decl{}}
 	p.Stdlib.ID = StdlibID
+	p.Stdlib.Nodes = NewArena(StdlibID)
+	p.Stdlib.Positions = stdlibPositions
 	for _, b := range []struct {
 		name     string
 		min, max I128
@@ -69,14 +125,12 @@ func NewProject(root *Module) *Project {
 		{"Count", Zero, U64Max},
 		{"FullRangeInt", I64Min, I64Max},
 	} {
-		alias := NewAliasDecl()
+		alias := p.Stdlib.Nodes.NewAliasDecl()
 		alias.Name = b.name
 		alias.Visibility = "public"
 		alias.Module = p.Stdlib
-		alias.Src = stdlibPositions
 		alias.Ty = &IntTy{Alias: b.name, Min: b.min, Max: b.max}
-		p.Stdlib.Decls = append(p.Stdlib.Decls, alias)
-		p.Stdlib.Names[b.name] = alias
+		p.Stdlib.Declare(alias)
 	}
 	p.Builtins = NewBuiltins(p.Stdlib, p.Stdlib.Names["Count"].(*AliasDecl).Ty.(*IntTy))
 	return p

@@ -20,13 +20,15 @@ var primitiveTypes = map[string]bool{"bool": true, "String": true, "Self": true,
 type Resolver struct {
 	project *ast.Project
 	module  *ast.Module
-	// result is the module's own result: the resolver records its errors and, when it is done, its dependencies.
+	// result is the module's own result: the resolver records its errors, what each node names and, when it is done,
+	// its dependencies.
 	result *ast.ModuleResult
 	// deps holds the first place each other module is named.
-	deps       map[ast.ModuleID]ast.Node
-	scopes     []map[string]bool
-	fields     map[string]bool
-	typeParams map[string]*ast.TypeParam
+	deps   map[ast.ModuleID]ast.Pos
+	scopes []map[string]bool
+	fields map[string]bool
+	// typeParams are the slots, in the module's Resolution, of the type parameters in scope by name.
+	typeParams map[string]int
 }
 
 func NewResolver(p *ast.Project, m *ast.Module, result *ast.ModuleResult) *Resolver {
@@ -35,10 +37,12 @@ func NewResolver(p *ast.Project, m *ast.Module, result *ast.ModuleResult) *Resol
 
 // Run resolves the module's declarations, then records its dependencies in the module's result.
 func (r *Resolver) Run() {
+	r.result.Resolution.Reset(r.module.Nodes.Count())
 	for _, d := range r.module.Decls {
 		r.typeParams = nil
 		diag.Guard(&r.result.Errors, func() { r.resolveDecl(d) })
 	}
+	r.result.Resolution.Finish()
 	r.result.Deps = r.sortedDeps()
 }
 
@@ -123,17 +127,17 @@ func (r *Resolver) VisitInterfaceDecl(d *ast.InterfaceDecl) {
 // enterTypeParams puts the type parameters of the declaration named owner in scope and returns the scope to restore
 // afterwards. Each constraint of its 'where' clause binds one of them, and its bounds are resolved with the
 // parameters in scope. A method's constraint may also bind a parameter of its type, which is in scope already.
-func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where []*ast.Constraint) map[string]*ast.TypeParam {
+func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where []*ast.Constraint) map[string]int {
 	outer := r.typeParams
 	if len(params) > 0 {
-		r.typeParams = make(map[string]*ast.TypeParam, len(outer)+len(params))
+		r.typeParams = make(map[string]int, len(outer)+len(params))
 		maps.Copy(r.typeParams, outer)
 		for _, p := range params {
-			r.typeParams[p.Name] = p
+			r.typeParams[p.Name] = r.result.Resolution.AddTypeParam(p)
 		}
 	}
 	for _, c := range where {
-		c.Target = constrained(owner, params, outer, where, c)
+		r.result.Resolution.BindTypeParam(c.ID, r.constrained(owner, where, c))
 		for _, b := range c.Bounds {
 			r.resolveType(b)
 		}
@@ -141,13 +145,12 @@ func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where 
 	return outer
 }
 
-// constrained is the type parameter a constraint binds: one the declaration itself declares, or one of the type the
-// declaration is a method of (enclosing), and constrains once.
-func constrained(owner string, params []*ast.TypeParam, enclosing map[string]*ast.TypeParam, where []*ast.Constraint, c *ast.Constraint) *ast.TypeParam {
-	var target *ast.TypeParam
-	if i := slices.IndexFunc(params, func(p *ast.TypeParam) bool { return p.Name == c.Param }); i >= 0 {
-		target = params[i]
-	} else if target = enclosing[c.Param]; target == nil {
+// constrained is the slot of the type parameter a constraint binds: one the declaration itself declares, or one of the
+// type the declaration is a method of, which the type parameters in scope hold with the declaration's own first. It
+// constrains each once.
+func (r *Resolver) constrained(owner string, where []*ast.Constraint, c *ast.Constraint) int {
+	target, declared := r.typeParams[c.Param]
+	if !declared {
 		panic(c.Error(diag.ErrUnknownTypeParam, fmt.Sprintf("'%s' is not a type parameter of '%s': declare it with 'uses %s', or constrain one that '%s' declares",
 			c.Param, owner, c.Param, owner)))
 	}
@@ -350,7 +353,7 @@ func (r *Resolver) VisitSelfExpr(e *ast.SelfExpr) ast.Expr { return e }
 
 func (r *Resolver) VisitNameExpr(e *ast.NameExpr) ast.Expr {
 	if !r.isBound(e.Name) && e.Name != "Self" {
-		e.Target = r.take(r.bare(e.Name), e)
+		r.bindDecl(e.ID, r.take(r.bare(e.Name), e))
 	}
 	return e
 }
@@ -398,7 +401,7 @@ func (r *Resolver) VisitCallExpr(e *ast.CallExpr) ast.Expr {
 	e.Callee = r.expr(e.Callee)
 	constructsCown := false
 	if n, ok := e.Callee.(*ast.NameExpr); ok {
-		constructsCown = ast.IsCownConstructor(n.Target)
+		constructsCown = ast.IsCownConstructor(r.result.Resolution.Decl(r.project, n.ID))
 	}
 	for _, a := range e.Args {
 		// The argument of dropWith: is the name of a method of the content's type, which only its type can resolve.
@@ -412,7 +415,7 @@ func (r *Resolver) VisitCallExpr(e *ast.CallExpr) ast.Expr {
 
 func (r *Resolver) VisitStructLitExpr(e *ast.StructLitExpr) ast.Expr {
 	if e.TypeName != "Self" {
-		e.Target = r.take(r.bare(e.TypeName), e)
+		r.bindDecl(e.ID, r.take(r.bare(e.TypeName), e))
 	}
 	for _, f := range e.Fields {
 		f.Value = r.expr(f.Value)
@@ -521,7 +524,7 @@ func (r *Resolver) member(m *ast.MemberExpr) ast.Expr {
 	if decl != nil {
 		_, isConst := decl.(*ast.ConstDecl)
 		if isConst || (isType(decl) && declaresMember(decl, segments[0].Name)) || !r.isModuleRoot(head.Name) {
-			head.Target = r.take(bare, head)
+			r.bindDecl(head.ID, r.take(bare, head))
 			return m
 		}
 	}
@@ -536,13 +539,15 @@ func (r *Resolver) member(m *ast.MemberExpr) ast.Expr {
 		sites[i] = s.Site
 	}
 	target, used := r.qualified(head.Name, head, names, sites)
-	result := &ast.NameExpr{Name: target.Base().Name, Target: target}
+	result := r.module.Nodes.NewNameExpr()
+	result.Name = target.Base().Name
 	result.Pos = head.Pos
+	r.bindDecl(result.ID, target)
 	var out ast.Expr = result
 	for _, s := range segments[used:] {
-		p := s.Site.P()
-		next := &ast.MemberExpr{Obj: out, Name: s.Name}
-		next.Pos = *p
+		next := r.module.Nodes.NewMemberExpr()
+		next.Obj, next.Name = out, s.Name
+		next.Pos = *s.Site.P()
 		out = next
 	}
 	return out
@@ -589,8 +594,8 @@ func (r *Resolver) resolveType(tr *ast.TypeRef) {
 		r.resolveType(a)
 	}
 	if len(tr.Qualifier) == 0 {
-		if p, ok := r.typeParams[tr.Name]; ok {
-			tr.Param = p
+		if slot, ok := r.typeParams[tr.Name]; ok {
+			r.result.Resolution.BindTypeParam(tr.ID, slot)
 			return
 		}
 		if primitiveTypes[tr.Name] {
@@ -600,7 +605,7 @@ func (r *Resolver) resolveType(tr *ast.TypeRef) {
 		if found != nil && !isType(found) {
 			panic(tr.Error(diag.ErrUnknownType, "'"+tr.Name+"' is not a type"))
 		}
-		tr.Target = found
+		r.bindDecl(tr.ID, found)
 		return
 	}
 	if !r.isModuleRoot(tr.Qualifier[0]) {
@@ -615,7 +620,7 @@ func (r *Resolver) resolveType(tr *ast.TypeRef) {
 	if used != len(path) || !isType(decl) {
 		panic(tr.Error(diag.ErrUnknownType, "'"+strings.Join(tr.Qualifier, ".")+"."+tr.Name+"' is not a type"))
 	}
-	tr.Target = decl
+	r.bindDecl(tr.ID, decl)
 }
 
 func (r *Resolver) visible(d ast.Decl) bool {
@@ -628,6 +633,13 @@ func hidden(d ast.Decl, site ast.Node) *diag.CompileError {
 	return site.P().Error("E3008", "'"+b.Name+"' is not exported from module "+b.Module.Display())
 }
 
+// bindDecl records that a node names d, unless it names no declaration, as 'print' does not.
+func (r *Resolver) bindDecl(n ast.NodeID, d ast.Decl) {
+	if d != nil {
+		r.result.Resolution.BindDecl(n, d)
+	}
+}
+
 func (r *Resolver) take(found lookup, site ast.Node) ast.Decl {
 	if found.Error != nil {
 		panic(site.P().Error(found.Error.Code, found.Error.Message))
@@ -636,10 +648,10 @@ func (r *Resolver) take(found lookup, site ast.Node) ast.Decl {
 		dm := found.Decl.Base().Module
 		if dm != r.module && !dm.IsStdlib {
 			if r.deps == nil {
-				r.deps = map[ast.ModuleID]ast.Node{}
+				r.deps = map[ast.ModuleID]ast.Pos{}
 			}
 			if _, seen := r.deps[dm.ID]; !seen {
-				r.deps[dm.ID] = site
+				r.deps[dm.ID] = *site.P()
 			}
 		}
 	}

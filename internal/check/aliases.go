@@ -15,7 +15,7 @@ func DeclareAliases(proj *ast.Project, results []ast.ModuleResult) {
 	checkers := map[*ast.Module]*Checker{}
 	checkerOf := func(m *ast.Module) *Checker {
 		if checkers[m] == nil {
-			checkers[m] = NewChecker(proj, m, &results[m.ID].Errors)
+			checkers[m] = NewChecker(proj, m, &results[m.ID].Resolution, &results[m.ID].Errors)
 		}
 		return checkers[m]
 	}
@@ -29,7 +29,7 @@ func DeclareAliases(proj *ast.Project, results []ast.ModuleResult) {
 		}
 		state[a] = visiting
 		defer func() { state[a] = done }()
-		for _, dep := range namedAliases(a.Instance, nil) {
+		for _, dep := range namedAliases(proj, &results[a.Module.ID].Resolution, a.Instance, nil) {
 			visit(dep)
 			if dep.Ty == nil {
 				return
@@ -52,12 +52,12 @@ func DeclareAliases(proj *ast.Project, results []ast.ModuleResult) {
 }
 
 // namedAliases appends the typealiases of instances that a type reference names, itself or in its type arguments.
-func namedAliases(tr *ast.TypeRef, out []*ast.AliasDecl) []*ast.AliasDecl {
-	if a, ok := tr.Target.(*ast.AliasDecl); ok && a.Instance != nil {
+func namedAliases(proj *ast.Project, resolution *ast.Resolution, tr *ast.TypeRef, out []*ast.AliasDecl) []*ast.AliasDecl {
+	if a, ok := resolution.Decl(proj, tr.ID).(*ast.AliasDecl); ok && a.Instance != nil {
 		out = append(out, a)
 	}
 	for _, arg := range tr.TypeArgs {
-		out = namedAliases(arg, out)
+		out = namedAliases(proj, resolution, arg, out)
 	}
 	return out
 }

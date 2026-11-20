@@ -38,3 +38,33 @@ func TestSlabChunksGrowToTheBound(t *testing.T) {
 		}
 	}
 }
+
+func TestArenaNumbersNodesFromOneInTheOrderTheyAreMade(t *testing.T) {
+	arena := NewArena(7)
+	name := arena.NewNameExpr()
+	decl := arena.NewFuncDecl()
+	call := arena.NewCallExpr()
+	for i, head := range []Head{name.Head, decl.Head, call.Head} {
+		if head.ID != NodeID(i+1) || head.Mod != 7 {
+			t.Errorf("node %d is %d of module %d, want %d of module 7", i, head.ID, head.Mod, i+1)
+		}
+	}
+	if arena.Count() != 3 {
+		t.Errorf("the arena made 3 nodes and counts %d", arena.Count())
+	}
+}
+
+func TestSealedArenaMakesSmallChunks(t *testing.T) {
+	var arena Arena
+	for range 3 * maxSlabNodes {
+		arena.NewNameExpr()
+	}
+	arena.Seal()
+	late := arena.NewNameExpr()
+	if cap(arena.nameExpr.chunk) != firstSlabNodes {
+		t.Errorf("a node made after the parse took a chunk of %d, want %d", cap(arena.nameExpr.chunk), firstSlabNodes)
+	}
+	if late.ID != NodeID(3*maxSlabNodes+1) {
+		t.Errorf("the node made after the parse is %d, which should continue the numbering", late.ID)
+	}
+}

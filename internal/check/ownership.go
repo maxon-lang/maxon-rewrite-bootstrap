@@ -419,12 +419,15 @@ func (o *Ownership) disagreeWhole(ob ownObliged, fact ownFact) {
 // state.
 func (o *Ownership) report(err *diag.CompileError) {
 	for _, e := range *o.errors {
-		if e.Code == err.Code && e.File == err.File && e.Line == err.Line && e.Col == err.Col {
+		if e.Code == err.Code && e.Site == err.Site {
 			return
 		}
 	}
 	*o.errors = append(*o.errors, err)
 }
+
+// lineOf is the line a site is on, for a message that says where a value was moved to.
+func (o *Ownership) lineOf(site ast.Node) int { return o.checker.project.Line(*site.P()) }
 
 func (o *Ownership) fail(site ast.Node, code, format string, args ...any) {
 	o.report(site.P().Error(code, fmt.Sprintf(format, args...)))
@@ -763,7 +766,7 @@ func (o *Ownership) readRoot(l *ast.Local, site ast.Node, s *ownState) *ownState
 	case factMoved:
 		o.fail(site, diag.ErrUseAfterMove,
 			"'%s' was moved into %s at line %d; %s",
-			l.Name, fact.dest, fact.site.P().Line(), o.checker.copyAdvice(l.Type, fmt.Sprintf("move a copy instead: '%s.copy()'", l.Name), "assign it again before reading it"))
+			l.Name, fact.dest, o.lineOf(fact.site), o.checker.copyAdvice(l.Type, fmt.Sprintf("move a copy instead: '%s.copy()'", l.Name), "assign it again before reading it"))
 	case factUninitialised:
 		o.fail(site, diag.ErrUseBeforeInit,
 			"'%s' has no value here; assign it on every path before reading it", l.Name)
@@ -771,7 +774,7 @@ func (o *Ownership) readRoot(l *ast.Local, site ast.Node, s *ownState) *ownState
 		m := fact.parts.moves[0]
 		o.fail(site, diag.ErrUseAfterMove,
 			"'%s' lost '%s', which was moved into %s at line %d, so it cannot be used as a whole; use its other fields, or assign '%s' again first",
-			l.Name, m.text(l), m.dest, m.site.P().Line(), m.text(l))
+			l.Name, m.text(l), m.dest, o.lineOf(m.site), m.text(l))
 		return s
 	}
 	return s.without(l)

@@ -88,7 +88,7 @@ func (c *Checker) captureFrom(b *behaviourBuild, level int, n *ast.NameExpr) *as
 	inner.Conv = ast.ConvConsumes
 	inner.ParamIndex = len(b.accesses) + len(b.node.Captures)
 	b.fn.Locals = append(b.fn.Locals, inner)
-	ref := ast.NewNameExpr()
+	ref := c.module.Nodes.NewNameExpr()
 	ref.Pos = n.Pos
 	ref.Name, ref.Kind, ref.Local = outer.Name, ast.NameLocal, outer
 	ref.SetTy(outer.Type)
@@ -163,7 +163,7 @@ func (c *Checker) selfFieldInBehaviour(name string) (ast.Ty, bool) {
 // enterBehaviour starts checking the body of a behaviour as a function of its own, whose first parameters give access
 // to the values of the cowns it names.
 func (c *Checker) enterBehaviour(w *ast.WhenStmt, values []ast.Ty) {
-	fn := ast.NewFuncDecl()
+	fn := c.module.Nodes.NewFuncDecl()
 	fn.Pos = w.Pos
 	fn.Name = ast.BehaviourName(c.fn.Symbol(), c.whens)
 	fn.Visibility = c.fn.Visibility
@@ -189,7 +189,7 @@ func (c *Checker) leaveBehaviour(w *ast.WhenStmt) {
 	b := c.behaviour
 	fn := b.fn
 	add := func(l *ast.Local) {
-		p := ast.NewParam()
+		p := c.module.Nodes.NewParam()
 		p.Pos = w.Pos
 		p.Name = l.Name
 		p.Convention = l.Conv.String()

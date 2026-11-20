@@ -5,7 +5,8 @@ package ast
 import "minimaxon/internal/diag"
 
 type DeclBase struct {
-	Pos
+	Head
+	Ordinal    uint32
 	Name       string
 	Visibility string
 	Module     *Module
@@ -44,7 +45,7 @@ type FuncDecl struct {
 }
 
 type Param struct {
-	Pos
+	Head
 	Convention string
 	Name       string
 	Type       *TypeRef
@@ -71,7 +72,7 @@ type TypeDecl struct {
 }
 
 type FieldDecl struct {
-	Pos
+	Head
 	Visibility string
 	IsVar      bool
 	Name       string
@@ -88,7 +89,7 @@ type EnumDecl struct {
 }
 
 type EnumCaseDecl struct {
-	Pos
+	Head
 	Name string
 	Raw  *IntLit
 }
@@ -105,7 +106,7 @@ type UnionDecl struct {
 }
 
 type UnionCaseDecl struct {
-	Pos
+	Head
 	Name   string
 	Fields []*Param
 }
@@ -119,7 +120,7 @@ type AliasDecl struct {
 }
 
 type Bound struct {
-	Pos
+	Head
 	Negative bool
 	Value    I128
 	Sized    string
@@ -127,28 +128,23 @@ type Bound struct {
 }
 
 type TypeRef struct {
-	Pos
+	Head
 	Qualifier []string
 	Name      string
 	TypeArgs  []*TypeRef
-
-	Target Decl
-	Param  *TypeParam
 }
 
 type TypeParam struct {
-	Pos
+	Head
 	Name string
 
 	Ty *TypeParamTy
 }
 
 type Constraint struct {
-	Pos
+	Head
 	Param  string
 	Bounds []*TypeRef
-
-	Target *TypeParam
 }
 
 type InterfaceDecl struct {
@@ -158,7 +154,7 @@ type InterfaceDecl struct {
 }
 
 type FuncSig struct {
-	Pos
+	Head
 	Name     string
 	Receiver string
 	Params   []*Param
@@ -169,12 +165,12 @@ type FuncSig struct {
 }
 
 type EndLabel struct {
-	Pos
+	Head
 	Name string
 }
 
 type StmtBase struct {
-	Pos
+	Head
 }
 
 type LetStmt struct {
@@ -273,7 +269,7 @@ type WhenStmt struct {
 }
 
 type MatchCore struct {
-	Pos
+	Head
 	Consumes bool
 	Subject  Expr
 	Label    string
@@ -282,7 +278,7 @@ type MatchCore struct {
 }
 
 type MatchArm struct {
-	Pos
+	Head
 	IsDefault bool
 	Patterns  []*Pattern
 	Action    Stmt
@@ -291,7 +287,7 @@ type MatchArm struct {
 }
 
 type Pattern struct {
-	Pos
+	Head
 	CaseName    string
 	HasBindings bool
 	Bindings    []string
@@ -304,9 +300,9 @@ type Pattern struct {
 }
 
 type ExprBase struct {
-	Pos
-	Type     Ty
+	Head
 	Consumed bool
+	Type     Ty
 }
 
 type MemberExpr struct {
@@ -389,11 +385,10 @@ type NameExpr struct {
 	ExprBase
 	Name string
 
-	Target Decl
-	Kind   NameKind
-	Local  *Local
-	Const  *ConstDecl
-	Field  *FieldInfo
+	Kind  NameKind
+	Local *Local
+	Const *ConstDecl
+	Field *FieldInfo
 }
 
 type SelfExpr struct {
@@ -406,19 +401,18 @@ type StructLitExpr struct {
 	TypeName string
 	Fields   []*StructField
 
-	Target  Decl
 	Record  *RecordTy
 	Ordered []Expr
 }
 
 type StructField struct {
-	Pos
+	Head
 	Name  string
 	Value Expr
 }
 
 type Arg struct {
-	Pos
+	Head
 	Label string
 	Value Expr
 }
@@ -433,244 +427,12 @@ type MatchExpr struct {
 	Match *MatchCore
 }
 
-func NewFuncDecl() *FuncDecl {
-	n := &FuncDecl{}
-	n.ReturnType = VoidTy
-	return n
-}
-
-func NewParam() *Param {
-	return &Param{}
-}
-
-func NewConstDecl() *ConstDecl {
-	return &ConstDecl{}
-}
-
-func NewTypeDecl() *TypeDecl {
-	return &TypeDecl{}
-}
-
-func NewFieldDecl() *FieldDecl {
-	return &FieldDecl{}
-}
-
-func NewEnumDecl() *EnumDecl {
-	return &EnumDecl{}
-}
-
-func NewEnumCaseDecl() *EnumCaseDecl {
-	return &EnumCaseDecl{}
-}
-
-func NewUnionDecl() *UnionDecl {
-	return &UnionDecl{}
-}
-
-func NewUnionCaseDecl() *UnionCaseDecl {
-	return &UnionCaseDecl{}
-}
-
-func NewAliasDecl() *AliasDecl {
-	return &AliasDecl{}
-}
-
-func NewBound() *Bound {
-	return &Bound{}
-}
-
-func NewTypeRef() *TypeRef {
-	return &TypeRef{}
-}
-
-func NewTypeParam() *TypeParam {
-	return &TypeParam{}
-}
-
-func NewConstraint() *Constraint {
-	return &Constraint{}
-}
-
-func NewInterfaceDecl() *InterfaceDecl {
-	return &InterfaceDecl{}
-}
-
-func NewFuncSig() *FuncSig {
-	n := &FuncSig{}
-	n.ReturnType = VoidTy
-	return n
-}
-
-func NewEndLabel() *EndLabel {
-	return &EndLabel{}
-}
-
-func NewLetStmt() *LetStmt {
-	return &LetStmt{}
-}
-
-func NewDiscardStmt() *DiscardStmt {
-	return &DiscardStmt{}
-}
-
-func NewAssignStmt() *AssignStmt {
-	return &AssignStmt{}
-}
-
-func NewExprStmt() *ExprStmt {
-	return &ExprStmt{}
-}
-
-func NewIfStmt() *IfStmt {
-	return &IfStmt{}
-}
-
-func NewWhileStmt() *WhileStmt {
-	return &WhileStmt{}
-}
-
-func NewForStmt() *ForStmt {
-	return &ForStmt{}
-}
-
-func NewReturnStmt() *ReturnStmt {
-	return &ReturnStmt{}
-}
-
-func NewBreakStmt() *BreakStmt {
-	return &BreakStmt{}
-}
-
-func NewContinueStmt() *ContinueStmt {
-	return &ContinueStmt{}
-}
-
-func NewMatchStmt() *MatchStmt {
-	return &MatchStmt{}
-}
-
-func NewWhenStmt() *WhenStmt {
-	return &WhenStmt{}
-}
-
-func NewMatchCore() *MatchCore {
-	return &MatchCore{}
-}
-
-func NewMatchArm() *MatchArm {
-	return &MatchArm{}
-}
-
-func NewPattern() *Pattern {
-	n := &Pattern{}
-	n.CaseIndex = -1
-	return n
-}
-
-func NewMemberExpr() *MemberExpr {
-	n := &MemberExpr{}
-	n.Type = VoidTy
-	n.CaseIndex = -1
-	return n
-}
-
-func NewIndexExpr() *IndexExpr {
-	n := &IndexExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewCallExpr() *CallExpr {
-	n := &CallExpr{}
-	n.Type = VoidTy
-	n.CaseIndex = -1
-	return n
-}
-
-func NewUnaryExpr() *UnaryExpr {
-	n := &UnaryExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewCastExpr() *CastExpr {
-	n := &CastExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewBinaryExpr() *BinaryExpr {
-	n := &BinaryExpr{}
-	n.Type = VoidTy
-	n.OperandType = VoidTy
-	return n
-}
-
-func NewCondExpr() *CondExpr {
-	n := &CondExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewIntLit() *IntLit {
-	n := &IntLit{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewStrLit() *StrLit {
-	n := &StrLit{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewBoolLit() *BoolLit {
-	n := &BoolLit{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewNameExpr() *NameExpr {
-	n := &NameExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewSelfExpr() *SelfExpr {
-	n := &SelfExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewStructLitExpr() *StructLitExpr {
-	n := &StructLitExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewStructField() *StructField {
-	return &StructField{}
-}
-
-func NewArg() *Arg {
-	return &Arg{}
-}
-
-func NewPanicExpr() *PanicExpr {
-	n := &PanicExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-func NewMatchExpr() *MatchExpr {
-	n := &MatchExpr{}
-	n.Type = VoidTy
-	return n
-}
-
-// Arena holds the nodes of one parse: each type's nodes come from chunks of that type, so a module's nodes are
-// contiguous and a parse allocates a chunk at a time and not a node at a time.
+// Arena makes the nodes of one module and counts them: each node gets the module's handle and the next NodeID, and
+// each type's nodes come from chunks of that type, so a module's nodes are contiguous and a parse allocates a chunk at
+// a time and not a node at a time. An arena is used by one worker at a time.
 type Arena struct {
+	module        ModuleID
+	count         NodeID
 	funcDecl      slab[FuncDecl]
 	param         slab[Param]
 	constDecl     slab[ConstDecl]
@@ -722,171 +484,296 @@ type Arena struct {
 	matchExpr     slab[MatchExpr]
 }
 
+func NewArena(module ModuleID) *Arena { return &Arena{module: module} }
+
+// Seal ends the parse: a node made after it, as a phase makes when it rewrites the tree, comes from a small chunk,
+// not from the next of the doubling chunks that a parse would have filled.
+func (a *Arena) Seal() {
+	a.funcDecl.seal()
+	a.param.seal()
+	a.constDecl.seal()
+	a.typeDecl.seal()
+	a.fieldDecl.seal()
+	a.enumDecl.seal()
+	a.enumCaseDecl.seal()
+	a.unionDecl.seal()
+	a.unionCaseDecl.seal()
+	a.aliasDecl.seal()
+	a.bound.seal()
+	a.typeRef.seal()
+	a.typeParam.seal()
+	a.constraint.seal()
+	a.interfaceDecl.seal()
+	a.funcSig.seal()
+	a.endLabel.seal()
+	a.letStmt.seal()
+	a.discardStmt.seal()
+	a.assignStmt.seal()
+	a.exprStmt.seal()
+	a.ifStmt.seal()
+	a.whileStmt.seal()
+	a.forStmt.seal()
+	a.returnStmt.seal()
+	a.breakStmt.seal()
+	a.continueStmt.seal()
+	a.matchStmt.seal()
+	a.whenStmt.seal()
+	a.matchCore.seal()
+	a.matchArm.seal()
+	a.pattern.seal()
+	a.memberExpr.seal()
+	a.indexExpr.seal()
+	a.callExpr.seal()
+	a.unaryExpr.seal()
+	a.castExpr.seal()
+	a.binaryExpr.seal()
+	a.condExpr.seal()
+	a.intLit.seal()
+	a.strLit.seal()
+	a.boolLit.seal()
+	a.nameExpr.seal()
+	a.selfExpr.seal()
+	a.structLitExpr.seal()
+	a.structField.seal()
+	a.arg.seal()
+	a.panicExpr.seal()
+	a.matchExpr.seal()
+}
+
+// Count is how many nodes the arena has made: the NodeIDs of its nodes are 1 to Count.
+func (a *Arena) Count() int { return int(a.count) }
+
 func (a *Arena) NewFuncDecl() *FuncDecl {
 	n := a.funcDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.ReturnType = VoidTy
 	return n
 }
 
 func (a *Arena) NewParam() *Param {
 	n := a.param.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewConstDecl() *ConstDecl {
 	n := a.constDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewTypeDecl() *TypeDecl {
 	n := a.typeDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewFieldDecl() *FieldDecl {
 	n := a.fieldDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewEnumDecl() *EnumDecl {
 	n := a.enumDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewEnumCaseDecl() *EnumCaseDecl {
 	n := a.enumCaseDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewUnionDecl() *UnionDecl {
 	n := a.unionDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewUnionCaseDecl() *UnionCaseDecl {
 	n := a.unionCaseDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewAliasDecl() *AliasDecl {
 	n := a.aliasDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewBound() *Bound {
 	n := a.bound.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewTypeRef() *TypeRef {
 	n := a.typeRef.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewTypeParam() *TypeParam {
 	n := a.typeParam.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewConstraint() *Constraint {
 	n := a.constraint.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewInterfaceDecl() *InterfaceDecl {
 	n := a.interfaceDecl.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewFuncSig() *FuncSig {
 	n := a.funcSig.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.ReturnType = VoidTy
 	return n
 }
 
 func (a *Arena) NewEndLabel() *EndLabel {
 	n := a.endLabel.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewLetStmt() *LetStmt {
 	n := a.letStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewDiscardStmt() *DiscardStmt {
 	n := a.discardStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewAssignStmt() *AssignStmt {
 	n := a.assignStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewExprStmt() *ExprStmt {
 	n := a.exprStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewIfStmt() *IfStmt {
 	n := a.ifStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewWhileStmt() *WhileStmt {
 	n := a.whileStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewForStmt() *ForStmt {
 	n := a.forStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewReturnStmt() *ReturnStmt {
 	n := a.returnStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewBreakStmt() *BreakStmt {
 	n := a.breakStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewContinueStmt() *ContinueStmt {
 	n := a.continueStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewMatchStmt() *MatchStmt {
 	n := a.matchStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewWhenStmt() *WhenStmt {
 	n := a.whenStmt.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewMatchCore() *MatchCore {
 	n := a.matchCore.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewMatchArm() *MatchArm {
 	n := a.matchArm.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewPattern() *Pattern {
 	n := a.pattern.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.CaseIndex = -1
 	return n
 }
 
 func (a *Arena) NewMemberExpr() *MemberExpr {
 	n := a.memberExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	n.CaseIndex = -1
 	return n
@@ -894,12 +781,16 @@ func (a *Arena) NewMemberExpr() *MemberExpr {
 
 func (a *Arena) NewIndexExpr() *IndexExpr {
 	n := a.indexExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewCallExpr() *CallExpr {
 	n := a.callExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	n.CaseIndex = -1
 	return n
@@ -907,18 +798,24 @@ func (a *Arena) NewCallExpr() *CallExpr {
 
 func (a *Arena) NewUnaryExpr() *UnaryExpr {
 	n := a.unaryExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewCastExpr() *CastExpr {
 	n := a.castExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewBinaryExpr() *BinaryExpr {
 	n := a.binaryExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	n.OperandType = VoidTy
 	return n
@@ -926,64 +823,86 @@ func (a *Arena) NewBinaryExpr() *BinaryExpr {
 
 func (a *Arena) NewCondExpr() *CondExpr {
 	n := a.condExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewIntLit() *IntLit {
 	n := a.intLit.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewStrLit() *StrLit {
 	n := a.strLit.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewBoolLit() *BoolLit {
 	n := a.boolLit.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewNameExpr() *NameExpr {
 	n := a.nameExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewSelfExpr() *SelfExpr {
 	n := a.selfExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewStructLitExpr() *StructLitExpr {
 	n := a.structLitExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewStructField() *StructField {
 	n := a.structField.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewArg() *Arg {
 	n := a.arg.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	return n
 }
 
 func (a *Arena) NewPanicExpr() *PanicExpr {
 	n := a.panicExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }
 
 func (a *Arena) NewMatchExpr() *MatchExpr {
 	n := a.matchExpr.next()
+	a.count++
+	n.Mod, n.ID = a.module, a.count
 	n.Type = VoidTy
 	return n
 }

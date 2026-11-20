@@ -520,7 +520,7 @@ func (l *Lowerer) expr(e ast.Expr) V {
 			l.ownTemp(v, e.Ty())
 		}
 	case e.IsConsumed() && !isWholeLocal(e) && !isField(e):
-		panic(diag.Internal("lower: an element or a part of a temporary is moved out at %d:%d; the ownership pass should have refused it", e.P().Line(), e.P().Col()))
+		panic(diag.Internal("lower: an element or a part of a temporary is moved out at offset %d of module %d; the ownership pass should have refused it", e.P().Off, e.P().Mod))
 	}
 	return v
 }

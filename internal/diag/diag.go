@@ -2,20 +2,45 @@ package diag
 
 import "fmt"
 
+// Site is a place that is named by handle: a module's index and an offset in the module's text. It says where without
+// the text, which belongs to the module, so a diagnostic raised at a node costs no line index until it is reported.
+type Site struct {
+	Module int32
+	Offset uint32
+}
+
+// CompileError is a diagnostic. One raised at a node holds its Site and has no File, Line or Col until the compile
+// locates it with Locate; one made where the place is known has them already and no Site.
 type CompileError struct {
 	Code    string
 	Message string
 	File    string
 	Line    int
 	Col     int
+	Site    Site
 }
 
 func (e *CompileError) Error() string {
+	if !e.Located() {
+		return fmt.Sprintf("module %d offset %d: error %s: %s", e.Site.Module, e.Site.Offset, e.Code, e.Message)
+	}
 	return fmt.Sprintf("%s:%d:%d: error %s: %s", e.File, e.Line, e.Col, e.Code, e.Message)
 }
 
+// Located is whether the error has its file, line and column. Every place has a file, so an error without one has not
+// been located.
+func (e *CompileError) Located() bool { return e.File != "" }
+
+// Locate gives the error its file, line and column, from where the site is.
+func (e *CompileError) Locate(file string, line, col int) { e.File, e.Line, e.Col = file, line, col }
+
 func NewError(code, msg, file string, line, col int) *CompileError {
 	return &CompileError{Code: code, Message: msg, File: file, Line: line, Col: col}
+}
+
+// NewSiteError is an error at a site, which is located when it is reported.
+func NewSiteError(code, msg string, site Site) *CompileError {
+	return &CompileError{Code: code, Message: msg, Site: site}
 }
 
 type InternalError struct {

@@ -215,13 +215,12 @@ type Builtins struct {
 }
 
 func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
-	d := NewTypeDecl()
+	d := stdlib.Nodes.NewTypeDecl()
 	d.Name = name
 	d.Visibility = "public"
 	d.Module = stdlib
-	d.Src = stdlibPositions
 	for _, p := range params {
-		tp := NewTypeParam()
+		tp := stdlib.Nodes.NewTypeParam()
 		tp.Name = p
 		d.TypeParams = append(d.TypeParams, tp)
 	}
@@ -233,8 +232,7 @@ func (b *Builtins) newPrimitive(kind BuiltinKind, params ...string) *BuiltinTy {
 	t := &BuiltinTy{name: d.Name, Methods: map[string]*FuncDecl{}, Kind: kind, Decl: d, lib: b}
 	t.initGeneric(d.TypeParams, nil)
 	d.Ty = t
-	b.stdlib.Decls = append(b.stdlib.Decls, d)
-	b.stdlib.Names[d.Name] = d
+	b.stdlib.Declare(d)
 	return t
 }
 
@@ -260,12 +258,11 @@ func NewBuiltins(stdlib *Module, count *IntTy) *Builtins {
 }
 
 func (b *Builtins) declareOption() {
-	d := NewUnionDecl()
+	d := b.stdlib.Nodes.NewUnionDecl()
 	d.Name = "Option"
 	d.Visibility = "public"
 	d.Module = b.stdlib
-	d.Src = stdlibPositions
-	tp := NewTypeParam()
+	tp := b.stdlib.Nodes.NewTypeParam()
 	tp.Name = "T"
 	d.TypeParams = []*TypeParam{tp}
 	u := NewUnionTy(d)
@@ -275,8 +272,7 @@ func (b *Builtins) declareOption() {
 	}
 	d.Ty = u
 	b.Option = u
-	b.stdlib.Decls = append(b.stdlib.Decls, d)
-	b.stdlib.Names[d.Name] = d
+	b.stdlib.Declare(d)
 
 	t := u.Params[0]
 	b.method(u, IntrinsicOptionIsSome, "isSome", ConvLet, BoolTy)
@@ -284,15 +280,13 @@ func (b *Builtins) declareOption() {
 }
 
 func (b *Builtins) declareCapability(name string) *InterfaceTy {
-	d := NewInterfaceDecl()
+	d := b.stdlib.Nodes.NewInterfaceDecl()
 	d.Name = name
 	d.Visibility = "public"
 	d.Module = b.stdlib
-	d.Src = stdlibPositions
 	t := NewInterfaceTy(d)
 	d.Ty = t
-	b.stdlib.Decls = append(b.stdlib.Decls, d)
-	b.stdlib.Names[name] = d
+	b.stdlib.Declare(d)
 	return t
 }
 
@@ -338,11 +332,10 @@ func (b *Builtins) static(owner NominalTy, op Intrinsic, name string, ret Ty, pa
 }
 
 func (b *Builtins) declare(owner NominalTy, op Intrinsic, name string, static bool, self Convention, ret Ty, params []ParamSpec) {
-	f := NewFuncDecl()
+	f := b.stdlib.Nodes.NewFuncDecl()
 	f.Name = name
 	f.Visibility = "public"
 	f.Module = b.stdlib
-	f.Src = stdlibPositions
 	f.IsStatic = static
 	if self != ConvLet {
 		f.Receiver = self.String()
@@ -459,15 +452,14 @@ func (b *Builtins) declareSharing() {
 }
 
 func (b *Builtins) declareGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) {
-	b.stdlib.Names[name] = b.makeGeneric(op, name, t, ret, params...)
+	b.stdlib.Declare(b.makeGeneric(op, name, t, ret, params...))
 }
 
 func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) *FuncDecl {
-	f := NewFuncDecl()
+	f := b.stdlib.Nodes.NewFuncDecl()
 	f.Name = name
 	f.Visibility = "public"
 	f.Module = b.stdlib
-	f.Src = stdlibPositions
 	f.Generics = []*TypeParamTy{t}
 	f.Instances = &InstanceTable{}
 	f.Intrinsic = op

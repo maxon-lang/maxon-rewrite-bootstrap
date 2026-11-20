@@ -187,7 +187,7 @@ func TestParseRecoversAtTheNextFile(t *testing.T) {
 	if len(errs) != 1 || errs[0].Code != diag.ErrUnexpectedEnd || errs[0].File != "a.maxon" {
 		t.Fatalf("errors: %v", errs)
 	}
-	if len(prog.Decls) != 1 || prog.Decls[0].Base().Name != "fine" || fileOf(prog.Decls[0]) != "b.maxon" {
+	if len(prog.Decls) != 1 || prog.Decls[0].Base().Name != "fine" || fileOf(prog, prog.Decls[0]) != "b.maxon" {
 		t.Fatalf("decls: %+v", prog.Decls)
 	}
 }
@@ -285,7 +285,40 @@ func TestMarkdownKeywordEditsRenameOnlyCode(t *testing.T) {
 	}
 }
 
-func fileOf(n ast.Node) string {
-	file, _, _ := n.P().Where()
+func fileOf(prog *ast.Program, n ast.Node) string {
+	file, _, _ := prog.Positions.Where(n.P().Off)
 	return file
+}
+
+func TestParsingNumbersTheNodesOfTheModuleInItsArena(t *testing.T) {
+	const module ast.ModuleID = 5
+	scratch := NewScratch()
+	src := sourceOf(t, "testdata/parse-function.maxon")
+	program, errs := scratch.Parse(src, scratch.Lex(src), module)
+	if len(errs) != 0 || len(program.Decls) != 1 {
+		t.Fatalf("errors %v and %d declarations", errs, len(program.Decls))
+	}
+	fn := program.Decls[0].(*ast.FuncDecl)
+	ret := fn.Body[0].(*ast.ReturnStmt)
+	// The function, its return type, the return statement and its value, and the label that ends it.
+	nodes := []ast.Node{fn, fn.Returns, ret, ret.Value, fn.End}
+	if program.Nodes.Count() != len(nodes) {
+		t.Errorf("the arena counts %d nodes, want %d", program.Nodes.Count(), len(nodes))
+	}
+	seen := map[ast.NodeID]bool{}
+	for _, n := range nodes {
+		head := n.P()
+		if head.Mod != module {
+			t.Errorf("%T is in module %d, want %d", n, head.Mod, module)
+		}
+	}
+	for _, id := range []ast.NodeID{fn.ID, fn.Returns.ID, ret.ID, ret.Value.(*ast.IntLit).ID, fn.End.ID} {
+		if id < 1 || int(id) > program.Nodes.Count() || seen[id] {
+			t.Errorf("node ID %d is outside 1..%d or repeats an earlier one", id, program.Nodes.Count())
+		}
+		seen[id] = true
+	}
+	if program.Positions == nil {
+		t.Error("the program does not say where its text is")
+	}
 }

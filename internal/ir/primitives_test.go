@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"minimaxon/internal/ast"
+	"minimaxon/internal/srctest"
 )
 
 const primitivesFile = "testdata/primitives.maxon"
@@ -18,6 +19,12 @@ func lowerNamed(t *testing.T, results []ast.ModuleResult, name string) *IrFuncti
 	}
 	t.Fatalf("no function %s", name)
 	return nil
+}
+
+// lineAt is the line of a site in the primitives file.
+func lineAt(t *testing.T, site ast.Node) int {
+	t.Helper()
+	return 1 + strings.Count(srctest.Read(t, primitivesFile)[:site.P().Off], "\n")
 }
 
 func irText(f *IrFunction) string {
@@ -55,13 +62,13 @@ func TestInterpreterOnlyEntriesAreRecordedAsRefusals(t *testing.T) {
 	if len(lookup.Refusals) != 1 || lookup.UsesArrays || !strings.Contains(irText(lookup), "runtime rt.map.elem(") {
 		t.Fatalf("lookup: refusals=%v\n%s", lookup.Refusals, irText(lookup))
 	}
-	if r := lookup.Refusals[0]; r.Code != "E9002" || r.Site.P().Line() != 15 {
-		t.Errorf("refusal %+v at line %d", r, r.Site.P().Line())
+	if r := lookup.Refusals[0]; r.Code != "E9002" || lineAt(t, r.Site) != 15 {
+		t.Errorf("refusal %+v at line %d", r, lineAt(t, r.Site))
 	}
 	build := lowerNamed(t, results, "build")
 	lines := make([]int, len(build.Refusals))
 	for i, r := range build.Refusals {
-		lines[i] = r.Site.P().Line()
+		lines[i] = lineAt(t, r.Site)
 	}
 	if len(lines) != 4 || lines[0] >= lines[1] || lines[1] >= lines[2] || lines[2] >= lines[3] {
 		t.Errorf("refusal lines %v", lines)

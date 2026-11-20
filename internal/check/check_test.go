@@ -21,11 +21,12 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 	}
 
 	root := ast.NewModule("", ".", false)
-	root.Decls = prog.Decls
+	root.Adopt(prog)
 	proj := ast.NewProject(root)
 	proj.Modules = []*ast.Module{root}
 	results := make([]ast.ModuleResult, len(proj.Modules))
 	res := &results[root.ID]
+	defer func() { proj.Locate(res.Errors) }()
 	project.BuildTables(proj, results, 1)
 	resolve.NewResolver(proj, root, res).Run()
 	DeclareAliases(proj, results)
@@ -33,7 +34,7 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 		return res.Errors
 	}
 
-	c := NewChecker(proj, root, &res.Errors)
+	c := NewChecker(proj, root, &res.Resolution, &res.Errors)
 	for _, d := range root.Decls {
 		res.Functions = append(res.Functions, c.Declare(d)...)
 	}

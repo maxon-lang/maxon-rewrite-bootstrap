@@ -28,7 +28,7 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 		t.Fatalf("parse errors: %v", parser.Errors)
 	}
 	root := ast.NewModule("", ".", false)
-	root.Decls = prog.Decls
+	root.Adopt(prog)
 	proj := ast.NewProject(root)
 	proj.Modules = []*ast.Module{root}
 	results := make([]ast.ModuleResult, len(proj.Modules))
@@ -36,7 +36,7 @@ func lowered(t *testing.T, path string) []*ir.IrFunction {
 	project.BuildTables(proj, results, 1)
 	resolve.NewResolver(proj, root, res).Run()
 	check.DeclareAliases(proj, results)
-	c := check.NewChecker(proj, root, &res.Errors)
+	c := check.NewChecker(proj, root, &res.Resolution, &res.Errors)
 	for _, d := range root.Decls {
 		res.Functions = append(res.Functions, c.Declare(d)...)
 	}

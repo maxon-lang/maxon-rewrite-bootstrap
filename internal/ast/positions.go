@@ -83,5 +83,10 @@ func (p *Positions) Locate(file, offset int) (name string, line, col int) {
 	return name, i - first + 1, offset - int(p.lineStarts[i]) + 1
 }
 
+// Where is the file, line and column of an offset.
+func (p *Positions) Where(offset uint32) (file string, line, col int) {
+	return p.Locate(p.FileOf(int(offset)), int(offset))
+}
+
 // stdlibPositions is the position of everything the standard library declares. It is never written after it is made.
 var stdlibPositions = SyntheticPositions("<stdlib>")

@@ -1,6 +1,10 @@
 package ast
 
-import "testing"
+import (
+	"testing"
+
+	"minimaxon/internal/diag"
+)
 
 func TestPositionsLocateAnOffsetInItsFile(t *testing.T) {
 	// a.maxon is "one\ntwo\n" and b.maxon is "three\n", so b starts at offset 8, where a's empty last line would too.
@@ -18,8 +22,7 @@ func TestPositionsLocateAnOffsetInItsFile(t *testing.T) {
 		{8, "b.maxon", 1, 1, 1},
 		{13, "b.maxon", 1, 6, 1},
 	} {
-		pos := Pos{Src: positions, Off: c.offset}
-		file, line, col := pos.Where()
+		file, line, col := positions.Where(c.offset)
 		if file != c.file || line != c.line || col != c.col {
 			t.Errorf("offset %d is at %s:%d:%d, want %s:%d:%d", c.offset, file, line, col, c.file, c.line, c.col)
 		}
@@ -38,17 +41,30 @@ func TestPositionsPlaceTheEndOfAFileOnItsLastLine(t *testing.T) {
 	}
 }
 
-func TestSyntheticPositionsAndNoPositionAreAtLineZero(t *testing.T) {
-	stdlib := Pos{Src: stdlibPositions}
-	if file, line, col := stdlib.Where(); file != "<stdlib>" || line != 0 || col != 0 {
+func TestSyntheticPositionsAreAtLineZero(t *testing.T) {
+	if file, line, col := stdlibPositions.Where(0); file != "<stdlib>" || line != 0 || col != 0 {
 		t.Errorf("the standard library is at %s:%d:%d", file, line, col)
 	}
-	var none Pos
-	if file, line, col := none.Where(); file != "" || line != 0 || col != 0 {
-		t.Errorf("no position is at %s:%d:%d", file, line, col)
+}
+
+// A diagnostic raised at a node names its module by handle and gets its file, line and column only when the project
+// locates it, so raising one costs no line index.
+func TestAnErrorAtAPositionIsLocatedByTheProject(t *testing.T) {
+	root := NewModule("", ".", false)
+	text := "one\ntwo\n"
+	root.Positions = NewPositions(text, []FileSpan{{File: "a.maxon", End: len(text)}})
+	proj := NewProject(root)
+	proj.Modules = []*Module{root}
+	err := Pos{Mod: root.ID, Off: 5}.Error("E0000", "message")
+	if err.Located() {
+		t.Fatalf("an error is located before the project has been asked: %v", err)
 	}
-	err := stdlib.Error("E0000", "message")
-	if err.File != "<stdlib>" || err.Line != 0 {
-		t.Errorf("error %v", err)
+	stdlib := Pos{Mod: StdlibID}.Error("E0001", "message")
+	proj.Locate([]*diag.CompileError{err, stdlib})
+	if err.File != "a.maxon" || err.Line != 2 || err.Col != 2 {
+		t.Errorf("error at %s:%d:%d, want a.maxon:2:2", err.File, err.Line, err.Col)
+	}
+	if stdlib.File != "<stdlib>" || stdlib.Line != 0 {
+		t.Errorf("standard library error %v", stdlib)
 	}
 }

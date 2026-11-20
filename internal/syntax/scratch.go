@@ -26,8 +26,9 @@ func (s *Scratch) Lex(src *Source) []Token {
 	return s.tokens
 }
 
-// Parse parses the tokens of src, and gives the module's declarations and the syntax errors found.
-func (s *Scratch) Parse(src *Source, tokens []Token) (*ast.Program, []*diag.CompileError) {
-	p := newParser(src, tokens, s)
+// Parse parses the tokens of src, the text of the module with handle module, and gives the module's declarations and
+// the syntax errors found.
+func (s *Scratch) Parse(src *Source, tokens []Token, module ast.ModuleID) (*ast.Program, []*diag.CompileError) {
+	p := newParser(src, tokens, s, module)
 	return p.ParseProgram(), p.Errors
 }

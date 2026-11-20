@@ -4,44 +4,47 @@ import (
 	"minimaxon/internal/diag"
 )
 
-// Pos is where a node begins: an offset in the text of its module, which Src locates. A node the compiler makes
-// has the position of the node it stands for, and one that stands for nothing has none.
+// Pos is where a node begins: an offset in the text of its module, which the module's Positions locate. A node the
+// compiler makes has the position of the node it stands for. It names the module by handle, so a node holds no pointer
+// to the module's text.
 type Pos struct {
-	Src *Positions
+	Mod ModuleID
 	Off uint32
 }
 
 func (p *Pos) P() *Pos { return p }
 
-// Where is the file, line and column of the position, or the zero values if it has none.
-func (p *Pos) Where() (file string, line, col int) {
-	if p.Src == nil {
-		return "", 0, 0
-	}
-	return p.Src.Locate(p.Src.FileOf(int(p.Off)), int(p.Off))
+// Site is the position as a diagnostic holds it.
+func (p Pos) Site() diag.Site { return diag.Site{Module: int32(p.Mod), Offset: p.Off} }
+
+// Error is a diagnostic at the position. It is located (given a file, line and column) when the compile reports it,
+// which is the first time anything needs a line index of the module's text.
+func (p Pos) Error(code, msg string) *diag.CompileError {
+	return diag.NewSiteError(code, msg, p.Site())
 }
 
-func (p *Pos) Line() int {
-	_, line, _ := p.Where()
-	return line
-}
-
-func (p *Pos) Col() int {
-	_, _, col := p.Where()
-	return col
-}
-
-func (p *Pos) Error(code, msg string) *diag.CompileError {
-	file, line, col := p.Where()
-	return diag.NewError(code, msg, file, line, col)
-}
+// NodeID is the index of a node among the nodes of its module, which its module's Arena counts in the order the nodes
+// are made, from 1: the zero value is no node, so a table that is indexed by it starts empty. A side table that a
+// phase fills in is a slice indexed by NodeID, so what a phase knows about a node is not part of the node. It is
+// 32 bits: a node covers at least one byte of the module's text, which is at most 4 GB.
+type NodeID uint32
 
 type Node interface {
 	P() *Pos
 }
 
+// Head is what every node starts with: where it is and which node it is in its module.
+type Head struct {
+	Pos
+	ID NodeID
+}
+
+// Program is what parsing a module makes: its declarations, the arena that holds every node of them, and where their
+// text is.
 type Program struct {
-	Decls []Decl
+	Decls     []Decl
+	Nodes     *Arena
+	Positions *Positions
 }
 
 type Decl interface {

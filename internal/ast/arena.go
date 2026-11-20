@@ -12,6 +12,8 @@ const (
 // never moves, because a chunk is never grown, so a pointer to one stays valid.
 type slab[T any] struct{ chunk []T }
 
+func (s *slab[T]) seal() { s.chunk = nil }
+
 func (s *slab[T]) next() *T {
 	if len(s.chunk) == cap(s.chunk) {
 		s.chunk = make([]T, 0, min(max(2*cap(s.chunk), firstSlabNodes), maxSlabNodes))

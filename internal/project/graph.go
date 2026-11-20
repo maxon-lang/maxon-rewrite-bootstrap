@@ -108,7 +108,7 @@ func (g *Graph) cycleError(p *ast.Project, order []ast.ModuleID) *diag.CompileEr
 				for i, c := range cycle {
 					names[i] = p.Modules[c].Display()
 				}
-				return g.site(cycle[0], cycle[1]).P().Error("E9001", "modules depend on each other in a cycle: "+strings.Join(names, " -> "))
+				return g.site(cycle[0], cycle[1]).Error("E9001", "modules depend on each other in a cycle: "+strings.Join(names, " -> "))
 			}
 		}
 		path = append(path, next)
@@ -116,7 +116,7 @@ func (g *Graph) cycleError(p *ast.Project, order []ast.ModuleID) *diag.CompileEr
 }
 
 // site is where module from names module to.
-func (g *Graph) site(from, to ast.ModuleID) ast.Node {
+func (g *Graph) site(from, to ast.ModuleID) ast.Pos {
 	deps := g.Deps[from]
 	at := sort.Search(len(deps), func(i int) bool { return deps[i].Module >= to })
 	if at == len(deps) || deps[at].Module != to {

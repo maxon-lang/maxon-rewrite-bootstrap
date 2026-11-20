@@ -26,10 +26,10 @@ func graphOf(edges [][]int) (*ast.Project, *Graph) {
 		if i > 0 {
 			m = ast.NewModule("m"+string(rune('0'+i)), ".", false)
 		}
-		m.ID = ast.ModuleID(i)
+		m.ID, m.Positions = ast.ModuleID(i), lines
 		proj.Modules = append(proj.Modules, m)
 		for _, j := range edges[i] {
-			site := &ast.Pos{Src: lines, Off: uint32(i*100 + j - 1)}
+			site := ast.Pos{Mod: ast.ModuleID(i), Off: uint32(i*100 + j - 1)}
 			results[i].Deps = append(results[i].Deps, ast.ModuleDep{Module: ast.ModuleID(j), Site: site})
 		}
 		slices.SortFunc(results[i].Deps, func(a, b ast.ModuleDep) int { return int(a.Module) - int(b.Module) })
@@ -83,6 +83,7 @@ func requireCycle(t *testing.T, edges [][]int, message string, line int) {
 	if err == nil {
 		t.Fatalf("no cycle reported for %v", edges)
 	}
+	proj.Locate([]*diag.CompileError{err})
 	if err.Code != "E9001" || err.Message != message || err.Line != line {
 		t.Errorf("got %v at line %d, want E9001 %q at line %d", err, err.Line, message, line)
 	}

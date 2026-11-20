@@ -36,7 +36,9 @@ const copyMethod = "copy"
 type Checker struct {
 	project *ast.Project
 	module  *ast.Module
-	errs    *[]*diag.CompileError
+	// resolution is what name resolution bound the module's nodes to; the checker only reads it.
+	resolution *ast.Resolution
+	errs       *[]*diag.CompileError
 
 	Pending []ast.PendingCall
 	Bounds  []ast.PendingBound
@@ -72,9 +74,12 @@ type Checker struct {
 	caps capabilities
 }
 
-func NewChecker(p *ast.Project, m *ast.Module, errs *[]*diag.CompileError) *Checker {
-	return &Checker{project: p, module: m, errs: errs}
+func NewChecker(p *ast.Project, m *ast.Module, resolution *ast.Resolution, errs *[]*diag.CompileError) *Checker {
+	return &Checker{project: p, module: m, resolution: resolution, errs: errs}
 }
+
+// target is the declaration that a node of the module names, or nil if it names none.
+func (c *Checker) target(n ast.NodeID) ast.Decl { return c.resolution.Decl(c.project, n) }
 
 func (c *Checker) countTy() *ast.IntTy {
 	return c.project.Stdlib.Names["Count"].(*ast.AliasDecl).Ty.(*ast.IntTy)
@@ -153,7 +158,7 @@ func (c *Checker) VerifyBounds(bounds []ast.PendingBound) {
 				interfaces = b.Method.BoundsOn(b.Param)
 			}
 			for _, iface := range interfaces {
-				c.requireConforms(b.Site, b.Arg, iface, b.Param)
+				c.requireConforms(&b.Site, b.Arg, iface, b.Param)
 			}
 		})
 	}
@@ -169,9 +174,9 @@ func (c *Checker) resolve(tr *ast.TypeRef, self ast.Ty) ast.Ty {
 }
 
 func (c *Checker) resolveNamed(tr *ast.TypeRef, self ast.Ty) ast.Ty {
-	if tr.Param != nil {
+	if param := c.resolution.TypeParam(tr.ID); param != nil {
 		c.requireNoTypeArgs(tr, tr.Name)
-		return tr.Param.Ty
+		return param.Ty
 	}
 	if len(tr.Qualifier) == 0 {
 		switch tr.Name {
@@ -191,7 +196,7 @@ func (c *Checker) resolveNamed(tr *ast.TypeRef, self ast.Ty) ast.Ty {
 			panic(tr.Error(diag.ErrTypeMismatch, fmt.Sprintf("a bare '%s' needs a ranged typealias", tr.Name)))
 		}
 	}
-	if tb, ok := tr.Target.(ast.TypeDeclNode); ok {
+	if tb, ok := c.target(tr.ID).(ast.TypeDeclNode); ok {
 		if t := tb.TypeBase().Ty; t != nil {
 			return c.withTypeArgs(tr, t, self)
 		}
@@ -269,7 +274,7 @@ func paramNames(params []*ast.TypeParamTy) []string {
 func (c *Checker) queueBounds(site ast.Node, params []*ast.TypeParamTy, args []ast.Ty) {
 	for i, p := range params {
 		if p.Bounded() {
-			c.Bounds = append(c.Bounds, ast.PendingBound{Site: site, Param: p, Arg: args[i], Within: c.bounded})
+			c.Bounds = append(c.Bounds, ast.PendingBound{Site: *site.P(), Param: p, Arg: args[i], Within: c.bounded})
 		}
 	}
 }
@@ -282,7 +287,7 @@ func (c *Checker) queueMethodBounds(site ast.Node, method *ast.FuncDecl, args []
 		return
 	}
 	for i, p := range method.Generics {
-		c.Bounds = append(c.Bounds, ast.PendingBound{Site: site, Param: p, Arg: args[i], Method: method, Within: c.bounded})
+		c.Bounds = append(c.Bounds, ast.PendingBound{Site: *site.P(), Param: p, Arg: args[i], Method: method, Within: c.bounded})
 	}
 }
 
@@ -308,10 +313,11 @@ func (c *Checker) boundsOf(p *ast.TypeParamTy) []*ast.InterfaceTy {
 
 // resolveBound is the interface a bound or a conformance names.
 func (c *Checker) resolveBound(tr *ast.TypeRef) *ast.InterfaceTy {
-	if tr.Target == nil && tr.Param == nil {
+	target := c.target(tr.ID)
+	if target == nil && c.resolution.TypeParam(tr.ID) == nil {
 		panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name)))
 	}
-	d, ok := tr.Target.(*ast.InterfaceDecl)
+	d, ok := target.(*ast.InterfaceDecl)
 	if !ok {
 		panic(tr.Error(diag.ErrGenericDeclaration, fmt.Sprintf("'%s' is not an interface, and only an interface can be a bound or be implemented", tr.Name)))
 	}
@@ -336,7 +342,8 @@ func (c *Checker) declareTypeParams(params []*ast.TypeParam, where []*ast.Constr
 	}
 	for _, cs := range where {
 		for _, b := range cs.Bounds {
-			cs.Target.Ty.Interfaces = append(cs.Target.Ty.Interfaces, c.resolveBound(b))
+			constrained := c.resolution.TypeParam(cs.ID).Ty
+			constrained.Interfaces = append(constrained.Interfaces, c.resolveBound(b))
 		}
 	}
 }
@@ -495,7 +502,7 @@ func (c *Checker) declareGenerics(f *ast.FuncDecl, nt ast.NominalTy) {
 		f.Generics = nt.Base().Params
 		for _, cs := range f.Where {
 			for _, b := range cs.Bounds {
-				f.Bounds = append(f.Bounds, ast.ParamBound{Param: cs.Target.Ty, Iface: c.resolveBound(b)})
+				f.Bounds = append(f.Bounds, ast.ParamBound{Param: c.resolution.TypeParam(cs.ID).Ty, Iface: c.resolveBound(b)})
 			}
 		}
 	case len(f.TypeParams) > 0:
@@ -550,7 +557,7 @@ func (c *Checker) CheckMain() *ast.FuncDecl {
 		}
 		returnsExitCode := false
 		if main.Returns != nil {
-			if a, isAlias := main.Returns.Target.(*ast.AliasDecl); isAlias && a.Name == "ExitCode" {
+			if a, isAlias := c.target(main.Returns.ID).(*ast.AliasDecl); isAlias && a.Name == "ExitCode" {
 				returnsExitCode = true
 			}
 		}
@@ -919,7 +926,7 @@ func (c *Checker) VisitNameExpr(n *ast.NameExpr) ast.Ty {
 			c.refuseBehaviourSelf(n, "the field '"+n.Name+"'", ft)
 		}
 	}
-	switch d := n.Target.(type) {
+	switch d := c.target(n.ID).(type) {
 	case *ast.ConstDecl:
 		n.Kind = ast.NameConst
 		n.Const = d
@@ -1370,7 +1377,7 @@ func (c *Checker) typeNamed(e ast.Expr) ast.NominalTy {
 	if rt := c.selfRecord(); rt != nil && rt.Field(n.Name) != nil {
 		return nil
 	}
-	tb, isType := n.Target.(ast.TypeDeclNode)
+	tb, isType := c.target(n.ID).(ast.TypeDeclNode)
 	if !isType {
 		return nil
 	}
@@ -1396,7 +1403,8 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 	}
 
 	if n, ok := call.Callee.(*ast.NameExpr); ok && c.lookupLocal(n.Name) == nil {
-		if n.Target == nil && (n.Name == "print" || n.Name == "printError") {
+		callee := c.target(n.ID)
+		if callee == nil && (n.Name == "print" || n.Name == "printError") {
 			if n.Name == "print" {
 				call.Kind = ast.CallPrint
 			} else {
@@ -1405,10 +1413,10 @@ func (c *Checker) VisitCallExpr(call *ast.CallExpr) ast.Ty {
 			call.Ordered = c.bindArgs(call, n.Name, []ast.ParamSpec{{Name: "text", Type: ast.StringTy, Conv: ast.ConvLet}}, false)
 			return ast.VoidTy
 		}
-		if f, isFunc := n.Target.(*ast.FuncDecl); isFunc {
+		if f, isFunc := callee.(*ast.FuncDecl); isFunc {
 			return c.callFunction(call, ast.CallFunction, f, nil, nil)
 		}
-		if ast.IsCownConstructor(n.Target) {
+		if ast.IsCownConstructor(callee) {
 			return c.cownCall(call)
 		}
 		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name)))
@@ -1753,7 +1761,7 @@ func (c *Checker) VisitStructLitExpr(s *ast.StructLitExpr) ast.Ty {
 		if c.owner != nil {
 			target = c.owner
 		}
-	} else if tb, ok := s.Target.(ast.TypeDeclNode); ok {
+	} else if tb, ok := c.target(s.ID).(ast.TypeDeclNode); ok {
 		target = tb.TypeBase().Ty
 	}
 	rt, ok := target.(*ast.RecordTy)

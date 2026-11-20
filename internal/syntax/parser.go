@@ -56,10 +56,12 @@ const (
 	beforeFunction
 )
 
-func NewParser(src *Source, toks []Token) *Parser { return newParser(src, toks, &Scratch{}) }
+// NewParser parses the text of the module with handle 0, the project root; a module of a project is parsed by a Scratch,
+// which is told its handle.
+func NewParser(src *Source, toks []Token) *Parser { return newParser(src, toks, &Scratch{}, 0) }
 
-func newParser(src *Source, toks []Token, scratch *Scratch) *Parser {
-	p := &Parser{src: src, toks: toks, arena: &ast.Arena{}, lists: &scratch.lists, decls: &scratch.decls,
+func newParser(src *Source, toks []Token, scratch *Scratch, module ast.ModuleID) *Parser {
+	p := &Parser{src: src, toks: toks, arena: ast.NewArena(module), lists: &scratch.lists, decls: &scratch.decls,
 		prevKind: TFileEnd, blanks: firstInFile}
 	if len(src.Files) > 0 {
 		p.prevEnd = src.Files[0].Begin
@@ -373,10 +375,7 @@ func (p *Parser) expect(k T, what string) Token {
 	return p.next()
 }
 
-func place[N ast.Node](p *Parser, node N, t *Token) {
-	pos := node.P()
-	pos.Src, pos.Off = p.src.Positions, t.Start
-}
+func place[N ast.Node](_ *Parser, node N, t *Token) { node.P().Off = t.Start }
 
 // ParseProgram parses every declaration of a module's files. A syntax error abandons the rest of its file, so
 // each file reports its own first error.
@@ -417,7 +416,8 @@ func (p *Parser) ParseProgram() *ast.Program {
 			}
 		}
 	}
-	return &ast.Program{Decls: p.decls.take(declsMark)}
+	p.arena.Seal()
+	return &ast.Program{Decls: p.decls.take(declsMark), Nodes: p.arena, Positions: p.src.Positions}
 }
 
 // The conversions below turn a token into a field that is not its text, as Maxon.g4 declares.

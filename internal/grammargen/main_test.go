@@ -74,10 +74,13 @@ func generateTiny(t *testing.T, src string) map[string]string {
 func TestNodesTakeTheirFieldsFromLabels(t *testing.T) {
 	nodes := generateTiny(t, tiny)[nodesFile]
 	for _, want := range []string{
-		"type ShapeBase struct {\n\tPos\n\tArea I128\n}",
+		"type ShapeBase struct {\n\tHead\n\tArea I128\n}",
 		"type Square struct {\n\tShapeBase\n\tSide  I128\n\tNamed bool\n\tTags  []string\n}",
 		"type Union struct {\n\tShapeBase\n\tL Shape\n\tR Shape\n}",
 		"n.Area = Zero",
+		"func NewArena(module ModuleID) *Arena",
+		"n.Mod, n.ID = a.module, a.count",
+		"func (a *Arena) Seal() {\n\ta.union.seal()\n\ta.square.seal()",
 		"VisitUnion(n *Union, s S) R",
 		`"square": true`,
 	} {

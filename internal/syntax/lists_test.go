@@ -29,7 +29,7 @@ func TestAListTakesExactlyTheElementsPushedSinceItsMark(t *testing.T) {
 func TestAScratchParsesTheModuleAfterAFailedOne(t *testing.T) {
 	scratch := NewScratch()
 	broken := sourceOfText("function f(a Count, b Count) returns Count\n\treturn g(a, b, )\nend 'f'\n")
-	_, errs := scratch.Parse(broken, scratch.Lex(broken))
+	_, errs := scratch.Parse(broken, scratch.Lex(broken), 0)
 	if len(errs) != 1 {
 		t.Fatalf("the broken module has %d errors: %v", len(errs), errs)
 	}
@@ -37,7 +37,7 @@ func TestAScratchParsesTheModuleAfterAFailedOne(t *testing.T) {
 		t.Errorf("the failed module left %d elements on the stacks", left)
 	}
 	fine := sourceOfText("function f(a Count, b Count) returns Count\n\treturn g(a, b)\nend 'f'\n")
-	program, errs := scratch.Parse(fine, scratch.Lex(fine))
+	program, errs := scratch.Parse(fine, scratch.Lex(fine), 0)
 	if len(errs) != 0 || len(program.Decls) != 1 {
 		t.Fatalf("the fine module has errors %v and %d declarations", errs, len(program.Decls))
 	}

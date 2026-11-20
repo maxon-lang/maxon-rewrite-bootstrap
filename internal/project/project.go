@@ -120,9 +120,10 @@ func BuildTables(p *ast.Project, results []ast.ModuleResult, jobs int) {
 func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
 	// A table that grows by doubling allocates twice its final size, and it holds one entry per declaration.
 	m.Names = make(map[string]ast.Decl, len(m.Decls))
-	for _, d := range m.Decls {
+	for i, d := range m.Decls {
 		b := d.Base()
 		b.Module = m
+		b.Ordinal = uint32(i)
 		for _, method := range ast.Methods(d) {
 			method.Module = m
 		}
@@ -130,7 +131,7 @@ func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
 			diag.Guard(errs, func() { tb.TypeBase().Ty = ast.Shell(tb) })
 		}
 		if kept, ok := m.Names[b.Name]; ok {
-			file, line, _ := kept.P().Where()
+			file, line, _ := m.Positions.Where(kept.P().Off)
 			*errs = append(*errs, b.Error(diag.ErrDuplicateDefinition,
 				"'"+b.Name+"' is already declared in "+m.Display()+" at "+file+":"+strconv.Itoa(line)))
 			continue

@@ -8,6 +8,8 @@ import "minimaxon/internal/diag"
 // collector all use it and this is the lowest package they share.
 type ModuleResult struct {
 	Errors []*diag.CompileError
+	// Resolution is what name resolution bound the module's nodes to.
+	Resolution Resolution
 	// Deps are the modules this one names a declaration of, by handle in ascending order, each with the first place
 	// it is named. The standard library is not a module of the project and is never a dependency.
 	Deps      []ModuleDep
@@ -22,7 +24,7 @@ type ModuleResult struct {
 // an import cycle through the edge is reported.
 type ModuleDep struct {
 	Module ModuleID
-	Site   Node
+	Site   Pos
 }
 
 type PendingCall struct {
@@ -34,7 +36,8 @@ type PendingCall struct {
 // PendingBound is a type argument that its type parameter's bounds have not yet been checked against. The bounds
 // belong to a declaration that another module may still be declaring, so the check waits for the verify stage.
 type PendingBound struct {
-	Site  Node
+	// Site is where the type argument is written, which an error about it is reported at.
+	Site  Pos
 	Param *TypeParamTy
 	Arg   Ty
 	// Method is the method whose own bounds on Param apply, or nil where Param's bounds do.

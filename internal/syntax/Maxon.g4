@@ -16,7 +16,8 @@
 //   helper rule        A rule with `returns [Type name]` assigns its labels to that value and returns it.
 //   @ast::Node {...}   Fields of a node that parsing does not set, written `Name Type` or `Name Type = initial`;
 //                      a field with a label's name gives that label its type instead. @ast::SetBase holds the
-//                      fields every member of the set shares. A token label whose field is not a string is
+//                      fields every member of the set shares. Every node starts with ast.Head, its position and
+//                      its NodeID in its module. A token label whose field is not a string is
 //                      converted by the hand-written parser method <node><Field>(Token).
 //   /** text */        Describes the rule or token after it in syntax errors: "expected a statement", and in
 //                      the lexer's error for input that stops partway through it: "incomplete label".
@@ -54,6 +55,7 @@ decl
     ;
 
 @ast::DeclBase {
+	Ordinal uint32
 	Name string
 	Visibility string
 	Module *Module
@@ -167,11 +169,6 @@ typeRef
     : (qualifier+=Name '.')* name=(Name | 'Self') ('with' typeArgs=typeArgs)?
     ;
 
-@ast::TypeRef {
-	Target Decl
-	Param *TypeParam
-}
-
 /** type arguments */
 typeArgs returns [[]*TypeRef args]
     : args+=typeRef
@@ -198,10 +195,6 @@ whereClause returns [[]*Constraint constraints]
 constraint
     : param=Name 'implements' bounds+=typeRef ('and' bounds+=typeRef)*
     ;
-
-@ast::Constraint {
-	Target *TypeParam
-}
 
 conformsClause returns [[]*TypeRef interfaces]
     : 'implements' interfaces+=typeRef ('and' interfaces+=typeRef)*
@@ -410,8 +403,8 @@ expr
     ;
 
 @ast::ExprBase {
-	Type Ty = VoidTy
 	Consumed bool
+	Type Ty = VoidTy
 }
 
 @ast::MemberExpr {
@@ -464,7 +457,6 @@ nameExpr
     ;
 
 @ast::NameExpr {
-	Target Decl
 	Kind NameKind
 	Local *Local
 	Const *ConstDecl
@@ -484,7 +476,6 @@ structLitExpr
     ;
 
 @ast::StructLitExpr {
-	Target Decl
 	Record *RecordTy
 	Ordered []Expr
 }

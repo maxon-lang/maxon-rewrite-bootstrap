@@ -16,6 +16,9 @@ func header(w *writer, pkg string, imports ...string) {
 	}
 }
 
+// rootEmbed is what every node struct starts with: the position and the NodeID, defined by hand in package ast.
+const rootEmbed = "Head"
+
 func emitNodes(m *model) string {
 	w := &writer{}
 	header(w, "ast", "minimaxon/internal/diag")
@@ -26,7 +29,7 @@ func emitNodes(m *model) string {
 			return
 		}
 		emitted[n] = true
-		embed := "Pos"
+		embed := rootEmbed
 		if n.set != nil {
 			embed = n.set.name + "Base"
 		}
@@ -36,7 +39,7 @@ func emitNodes(m *model) string {
 		switch m.kind[r] {
 		case rkSet:
 			s := m.setOfRule[r]
-			embed := "Pos"
+			embed := rootEmbed
 			if s.parent != nil {
 				embed = s.parent.name + "Base"
 			}
@@ -51,29 +54,26 @@ func emitNodes(m *model) string {
 		}
 	}
 
-	for _, n := range m.nodes {
-		inits := initialValues(n)
-		w.p("func New%s() *%s {\n", n.name, n.name)
-		if len(inits) == 0 {
-			w.p("\treturn &%s{}\n}\n\n", n.name)
-			continue
-		}
-		w.p("\tn := &%s{}\n", n.name)
-		for _, s := range inits {
-			w.p("\t%s\n", s)
-		}
-		w.p("\treturn n\n}\n\n")
-	}
-
-	w.p("// Arena holds the nodes of one parse: each type's nodes come from chunks of that type, so a module's nodes are\n")
-	w.p("// contiguous and a parse allocates a chunk at a time and not a node at a time.\n")
-	w.p("type Arena struct {\n")
+	w.p("// Arena makes the nodes of one module and counts them: each node gets the module's handle and the next NodeID, and\n")
+	w.p("// each type's nodes come from chunks of that type, so a module's nodes are contiguous and a parse allocates a chunk at\n")
+	w.p("// a time and not a node at a time. An arena is used by one worker at a time.\n")
+	w.p("type Arena struct {\n\tmodule ModuleID\n\tcount  NodeID\n")
 	for _, n := range m.nodes {
 		w.p("\t%s slab[%s]\n", lowerFirst(n.name), n.name)
 	}
 	w.p("}\n\n")
+	w.p("func NewArena(module ModuleID) *Arena { return &Arena{module: module} }\n\n")
+	w.p("// Seal ends the parse: a node made after it, as a phase makes when it rewrites the tree, comes from a small chunk,\n")
+	w.p("// not from the next of the doubling chunks that a parse would have filled.\n")
+	w.p("func (a *Arena) Seal() {\n")
 	for _, n := range m.nodes {
-		w.p("func (a *Arena) New%s() *%s {\n\tn := a.%s.next()\n", n.name, n.name, lowerFirst(n.name))
+		w.p("\ta.%s.seal()\n", lowerFirst(n.name))
+	}
+	w.p("}\n\n")
+	w.p("// Count is how many nodes the arena has made: the NodeIDs of its nodes are 1 to Count.\n")
+	w.p("func (a *Arena) Count() int { return int(a.count) }\n\n")
+	for _, n := range m.nodes {
+		w.p("func (a *Arena) New%s() *%s {\n\tn := a.%s.next()\n\ta.count++\n\tn.Mod, n.ID = a.module, a.count\n", n.name, n.name, lowerFirst(n.name))
 		for _, s := range initialValues(n) {
 			w.p("\t%s\n", s)
 		}
