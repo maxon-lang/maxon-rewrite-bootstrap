@@ -127,7 +127,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | Package | Holds | Imports |
 |---|---|---|
 | `diag` | `CompileError`, `Guard`, the error codes | — |
-| `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item | — |
+| `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item; `Run`: runs a `Plan`, tasks that wait for other tasks, on the pool, preferring the group a worker was just on and then the lowest task; a panic is raised by item or task number, not by time | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
 | `ast` | the program model: `Tree`, a module's nodes as 16-byte records with the views that read them and the lists they point into, the structs that stay (the declarations), their kinds and the visitors (generated), `Pos` and `Positions` (where a node is), the handles (`ModuleID`, `NodeID`, `DeclRef`, `LocalID`), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases, with `Resolution` and `Typing`, the tables that phases fill in (see "The AST") | `diag` |
 | `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
@@ -137,7 +137,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag` |
 | `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer | `ast`, `diag`, `ir`, `par` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives in Go and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `diag`, `ir` |
-| `driver` | `Compile`: runs the phases; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
+| `driver` | `Compile`: runs the phases, the modules phase (check and generate of each module) as one scheduled phase; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
 that generates code from the grammar; nothing imports it.
@@ -198,12 +198,15 @@ rebuilds in about 0.4 s, and `go test ./internal/check` runs in about 0.3 s.
 
 ## Pipeline
 
-`driver.Compile` runs the passes below in order. Every pass is parallel, and each completes before the next
-starts, so a work item only reads another's results from an earlier pass and needs no locks. A pass that holds two
-stages (`check`, `generate`, and the table at the end of `parse`) runs them one straight after the other on the worker that
-has the module, so its data stays in cache, rather than sweeping every module through one stage and then the next. Within a module the
-work is serial; the module is the unit of parallelism, except for constants (one per item) and the link (a live section or a code
-unit per item). Results are merged in source order, which keeps the output deterministic.
+`driver.Compile` runs the passes below in order. The front (discover to constants) is a series of passes that are each
+parallel and each complete before the next starts, so a work item only reads another's results from an earlier pass and needs
+no locks. What is left of a module once the front is done (`check` and `generate`) is not a pass but one scheduled phase, the
+modules phase (see "The modules phase"): each module's work starts as soon as what it needs is finished, as in Go's build, not
+when every module has finished the stage before. A pass that holds two stages (the table at the end of `parse`, and the stages
+of the modules phase) runs them one straight after the other on the worker that has the module, so its data stays in cache,
+rather than sweeping every module through one stage and then the next. Within a module the work is serial; the module is the
+unit of parallelism, except for constants (one per item) and the link (a live section or a code unit per item). Results are
+merged in source order, which keeps the output deterministic.
 
 | Pass | Package | Work per module |
 |---|---|---|
@@ -214,13 +217,45 @@ unit per item). Results are merged in source order, which keeps the output deter
 | aliases | `check` | serial and cheap: each typealias of an instance gets its type, after the typealiases it names, in source order (a cycle is `E2012`) |
 | declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass. It also numbers the module's nodes that have a slot, now that resolve has changed the kind of some, and sizes the tables of the `Typing` that only some nodes have |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
-| check | `check` | two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3117`), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3110` to `E3115`, `E3125`, `E2013`) A module's verify stage runs only if its bodies had no errors, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
-| generate | `ir`, `backend` | two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules |
+| check | `check` | the first task of the modules phase: two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3117`), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3110` to `E3115`, `E3125`, `E2013`) A module's verify stage runs only if its bodies had no errors and no module's bodies have had errors yet, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
+| generate | `ir`, `backend` | the last task of the modules phase: two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules |
 | routines | `backend` | serial to start, then parallel: the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), made in waves of units of 256 routines; the order of the routines comes from the modules in source order, so it does not depend on `--jobs` |
 | link | `backend` | each function and routine is a section, each string and reserved value a piece of data, and only those the entry reaches through symbol and data references are kept (the runtime units are one section each). Every function is still compiled; what nothing calls is dropped here, as Go's linker does. Every step runs on all jobs: each unit enters its definitions into one table (a hash table of ids whose slots are claimed with a compare and swap, so it needs no lock; the ids count over the units in order, each definition having one). An instance is defined by every module that needs it, so the symbol of an instance may be defined more than once, and the table keeps the lowest id, which is the definition of the first unit, whichever job entered its own first: a definition that finds a lower id gives way and one that finds a higher id takes the slot. The other copies are never looked up, so the mark never reaches them and they are dropped like any dead section, as a C++ linker does with COMDAT "any". Any other symbol defined twice is an internal error; the mark follows the calls a round at a time, resolving a fixup only where live code uses it, with each round's sections shared out in chunks and the next round gathered in chunk order; each unit places its live parts from its own aligned start, and a running sum over the units in order gives each unit its base; each unit copies and patches its code into the image, which is the file in memory, while the file is created in the background and written in chunks as the code in front becomes final. The units go in module-path order after a runtime unit, then the routines, and the array runtime comes last. The layout depends only on which sections are live, so it is the same for any `--jobs` |
 
 `driver.Prepare` (and `Interpret`, which runs the result once) runs the same passes through the lower stage of `generate` and gives the IR to
-the interpreter instead of codegen, which is how a map, a list, a pool, a frozen value, a cown and a behaviour run.
+the interpreter instead of codegen, which is how a map, a list, a pool, a frozen value, a cown and a behaviour run. `minimaxon check` runs
+the modules phase with the instances alone in place of `generate` (a generic that grows its own type argument without end is `E3122`),
+so it has the same edges and reports the same errors.
+
+### The modules phase
+
+After the front, a module has three tasks, and `par.Run` runs them over the `--jobs` workers (`par.Plan` is the graph of tasks: for
+each task the tasks it needs, and its group):
+
+| Task | Needs | Does |
+|---|---|---|
+| check | nothing beyond the front | bodies, then verify (see the `check` pass); it reads the other modules' declarations and constants, which the front finished, and writes only its own module's `Typing` and result |
+| closure | the module's check, and the closure of each module it depends on (the edges of `project.Graph`) | no work but a join: it is done exactly when the checks of the module and of every module it reaches are, so the plan has one edge per dependency and no module holds the set of the modules it reaches |
+| generate | the module's closure | the instances, and the lowering and codegen, or only the instances for a compile that makes nothing; it reads the bodies and check results of the generics it reaches in other modules and the marks verify leaves on their constants, which are all in modules it reaches, and nothing of a module that depends on it |
+
+A compile that makes an executable has one more task, with no prerequisites and the lowest number, that emits the runtime unit. A
+module that depends on nothing is therefore generated while others are still being checked, and a module's generate does not wait
+for the modules that depend on it. A worker that finishes a task goes on to a task that has just become ready in the same group
+(the same module), where its data is in cache, and otherwise takes the ready task of the lowest number, which is the lowest module
+(`par.Run`). Tasks write only the slots of their own module and the phase's results are merged in module order afterwards, so
+nothing depends on the schedule.
+
+The errors do not depend on it either. A generate runs only if no module has an error yet and the module's own check and the check
+of every module it reaches found nothing and ran verify, so a module that has an error is never lowered; a generate that started
+before another module's error turned up is dropped with the rest of its output when the errors are collected, and a panic in it is
+raised only if the program has no error (a panic in a check or in the runtime unit always is). When the phase is done the errors
+are collected as the `check` pass describes: if any module's bodies had errors those alone, else all, in source order; then
+the instance errors of the first module that has one, then the refusals of every module, sorted. A task that panics (a bug) does
+not release the tasks that need it, the others run on, and the panic of the lowest task number is raised, whichever came first.
+
+`--timings` prints one line for the phase, `modules`, with the busy cores of the whole phase, and under it the time the check
+tasks and the generate tasks took, summed over the workers. A `--trace` has a region for each task kind on each worker, beside the
+mark at the phase's end.
 
 A module is named by a handle, `ast.ModuleID`, its index in `Project.Modules` (the root, then each module's children in
 name order, depth first), and what the phases produce for a module is not part of `ast.Module` but of its
@@ -238,6 +273,12 @@ are one case of this: when any module's first stage reports errors, those are th
 stage reported for other modules is dropped. The serial steps
 are the import-cycle check and the aliases phase between resolve and declare, walks over the module graph and over
 the typealiases of instances.
+
+A module's tasks in the modules phase have explicit inputs and outputs, which is what a per-module cache and a language server need
+of them. The inputs of check are the module (its syntax tree, resolution and declarations) and the declarations and constants of the
+modules it depends on; its outputs are the module's errors, its `Typing` (types and the ownership marks), the calls and bounds
+that verify checked, and the functions that need instances. The inputs of generate are the module's results and the `Typing` and
+results of the modules it reaches; its outputs are the module's refusals, its IR text and its code unit.
 
 ### Reading a module
 

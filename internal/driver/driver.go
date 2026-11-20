@@ -3,7 +3,6 @@ package driver
 import (
 	"fmt"
 	"minimaxon/internal/ast"
-	"minimaxon/internal/backend"
 	"minimaxon/internal/check"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/interp"
@@ -204,7 +203,8 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 	if resolveErrors := failed(); resolveErrors != nil {
 		return resolveErrors
 	}
-	if cycle := project.NewGraph(results).CheckAcyclic(proj); cycle != nil {
+	graph := project.NewGraph(results)
+	if cycle := graph.CheckAcyclic(proj); cycle != nil {
 		return sortedErrors(proj, []*diag.CompileError{cycle})
 	}
 	mark("cycles")
@@ -238,45 +238,19 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 		return constErrors
 	}
 
-	// The check pass types a module's bodies and then verifies it, while its AST and types are in cache. Verify does not
-	// run on a module that has body errors, and when any module has body errors only those are reported: a verify that
-	// another module's worker ran meanwhile is dropped, so the errors depend neither on --jobs nor on which worker got
-	// there first.
-	bodied := make([]int, len(modules))
-	var bodiesFailed atomic.Bool
-	phase(func(m *ast.Module, res *ast.ModuleResult) {
-		checkBodies(proj, m, res)
-		bodied[m.ID] = len(res.Errors)
-		if bodied[m.ID] > 0 {
-			bodiesFailed.Store(true)
-		} else if !bodiesFailed.Load() {
-			verifyModule(proj, m, res)
-		}
-	})
-	mark("check")
-	if checkErrors := collectErrors(proj, errors, results, bodied); checkErrors != nil {
-		return checkErrors
-	}
-
 	typings := make(ast.Typings, len(results))
 	for i := range results {
 		typings[i] = &results[i].Typing
 	}
-	if output != "" || capture != nil {
-		return generate(proj, results, typings, main, output, o, capture, mark)
+	modulesPhase := newModulePhase(proj, results, typings, graph, main, output, o, capture)
+	modulesPhase.run()
+	modulesPhase.reportTimings()
+	mark("modules")
+	if checkErrors := collectErrors(proj, errors, results, modulesPhase.bodied); checkErrors != nil {
+		return checkErrors
 	}
-	return checkInstances(results, typings, jobs, mark)
-}
-
-// checkInstances is what a compile that makes nothing runs in place of generate: each module finds its instances, which
-// is where a generic function that grows its own type argument without end is refused (E3122).
-func checkInstances(results []ast.ModuleResult, typings ast.Typings, jobs int, mark func(string)) []*diag.CompileError {
-	failures := make([][]*diag.CompileError, len(results))
-	par.ForEachIndex(len(results), jobs, func(i int) {
-		diag.Guard(&failures[i], func() { ir.Instances(typings, results[i].Callers) })
-	})
-	mark("instances")
-	return firstFailure(failures)
+	modulesPhase.raiseCrash()
+	return modulesPhase.conclude(output, mark)
 }
 
 // firstFailure is the failure of the first module that has one, or nil. Every module that reaches a generic that grows
@@ -342,134 +316,6 @@ func collectErrors(proj *ast.Project, errors []*diag.CompileError, results []ast
 		return nil
 	}
 	return sortedErrors(proj, all)
-}
-
-// moduleOutput is what the generate pass keeps of a module once its functions are lowered and its code is emitted.
-type moduleOutput struct {
-	// functions are kept only for the interpreter, which runs the IR instead of emitting code.
-	functions  []*ir.IrFunction
-	irText     string
-	refusals   []*diag.CompileError
-	usesArrays bool
-}
-
-// generate finds the instances a module needs, lowers its functions and those instances, and emits its code unit
-// straight away, so the IR is consumed while it is in cache. A module that needs an instance that another module
-// needs too lowers and emits it as well, and the link keeps one copy. With capture it hands the IR to the interpreter
-// instead of emitting code. A program that has refusals gets no executable and the code emitted for it is dropped; a
-// module with a refusal is not emitted at all, because its IR holds what codegen cannot handle.
-func generate(proj *ast.Project, results []ast.ModuleResult, typings ast.Typings, main *ast.FuncDecl, output string, o Options, capture **interp.Program, mark func(string)) []*diag.CompileError {
-	modules := proj.Modules
-	matters := func(string) bool { return true }
-	if capture != nil {
-		matters = func(code string) bool { return code != diag.ErrInterpreterOnly }
-	}
-	outputs := make([]moduleOutput, len(modules))
-	unfinite := make([][]*diag.CompileError, len(modules))
-	units := make([]*backend.CodeUnit, len(modules)+1)
-	var refused atomic.Bool
-	generateModules := func() {
-		par.ForEachIndexWith(len(modules), o.Jobs, func() *generateScratch { return newGenerateScratch(typings) }, func(w *generateScratch, i int) {
-			out := &outputs[i]
-			var instances *ir.InstanceSet
-			diag.Guard(&unfinite[i], func() { instances = ir.Instances(typings, results[i].Callers) })
-			if len(unfinite[i]) > 0 {
-				refused.Store(true)
-				return
-			}
-			// What the interpreter runs is kept, so its IR stays where it is; the IR that is only emitted is dead once its
-			// module is, and the next module lowers over it.
-			if capture == nil {
-				w.lowering.Reset()
-			}
-			fns := w.fns[:0]
-			for _, f := range results[i].Functions {
-				if len(f.Generics) == 0 {
-					fns = append(fns, w.lowering.Lower(f, instances))
-				}
-			}
-			for _, inst := range instances.List {
-				fns = append(fns, w.lowering.Lower(inst, instances))
-			}
-			w.fns = fns
-			out.refusals = refusals(fns, matters)
-			out.usesArrays = usesArrays(fns)
-			if o.EmitIr {
-				var text strings.Builder
-				for _, fn := range fns {
-					ir.PrintIr(fn, &text)
-				}
-				out.irText = text.String()
-			}
-			switch {
-			case capture != nil:
-				out.functions = slices.Clone(fns)
-			case len(out.refusals) > 0:
-				refused.Store(true)
-			case !refused.Load():
-				units[i+1] = backend.EmitModule(fns)
-			}
-		})
-	}
-	emitRuntime := func() {
-		units[0] = backend.EmitRuntime(main, backend.RuntimeOptions{CountAllocations: o.CountAllocations})
-	}
-	switch {
-	case capture != nil:
-		generateModules()
-	case o.Jobs <= 1:
-		emitRuntime()
-		generateModules()
-	default:
-		var failure any
-		var done sync.WaitGroup
-		done.Go(func() {
-			defer func() { failure = recover() }()
-			emitRuntime()
-		})
-		generateModules()
-		done.Wait()
-		if failure != nil {
-			panic(failure)
-		}
-	}
-	mark("generate")
-	if failure := firstFailure(unfinite); failure != nil {
-		return failure
-	}
-	if o.EmitIr {
-		writeIr(output+".ir", outputs)
-	}
-	var blocked []*diag.CompileError
-	for i := range outputs {
-		blocked = append(blocked, outputs[i].refusals...)
-	}
-	if len(blocked) > 0 {
-		return withoutRepeats(sortedErrors(proj, blocked))
-	}
-	if capture != nil {
-		*capture = interp.NewProgram(functionsOnce(outputs), main)
-		return nil
-	}
-	units = append(units, backend.EmitTypeRoutines(units, o.Jobs)...)
-	if slices.ContainsFunc(outputs, func(out moduleOutput) bool { return out.usesArrays }) {
-		units = append(units, backend.EmitArrayRuntime())
-	}
-	mark("routines")
-	backend.Link(output, units, ir.RtEntry, o.Jobs)
-	mark("link")
-	return nil
-}
-
-// generateScratch is what a worker of the generate pass reuses from one module to the next, so lowering a module
-// allocates nothing once the buffers have grown to the largest one.
-type generateScratch struct {
-	lowering *ir.Lowering
-	fns      []*ir.IrFunction
-}
-
-func newGenerateScratch(typings ast.Typings) *generateScratch {
-	return &generateScratch{lowering: ir.NewLowering(typings)}
 }
 
 // functionsOnce is the IR of every function the interpreter runs. An instance that several modules lowered is there once,

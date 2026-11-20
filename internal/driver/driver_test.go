@@ -2,14 +2,19 @@ package driver
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/interp"
+	"minimaxon/internal/par"
+	"minimaxon/internal/project"
+	"sync"
 )
 
 func buildProject(t *testing.T, project string, jobs int) (exe, ir []byte) {
@@ -425,6 +430,176 @@ func TestARunawayGenericIsReportedOnceForAnyJobCount(t *testing.T) {
 				errs := Compile(project, output, Options{Jobs: jobs})
 				if len(errs) != 1 || errs[0].Code != diag.ErrInstantiationTooDeep || filepath.Base(errs[0].File) != "lib.maxon" || errs[0].Line != 13 {
 					t.Fatalf("output=%q jobs=%d: got %v, want the one E3122 at the recursive call in lib.maxon", output, jobs, errs)
+				}
+			}
+		}
+	}
+}
+
+// chainDeps are the edges of a program whose modules each depend on the next, and the first also on the last, like a
+// program whose main calls a module that calls a module that holds a generic.
+func chainDeps(modules int) *project.Graph {
+	results := make([]ast.ModuleResult, modules)
+	for i := range modules - 1 {
+		results[i].Deps = append(results[i].Deps, ast.ModuleDep{Module: ast.ModuleID(i + 1)})
+	}
+	if modules > 2 {
+		results[0].Deps = append(results[0].Deps, ast.ModuleDep{Module: ast.ModuleID(modules - 1)})
+	}
+	return project.NewGraph(results)
+}
+
+// reaches is every module that the module depends on, directly or not.
+func reaches(graph *project.Graph, from ast.ModuleID) map[ast.ModuleID]bool {
+	seen := map[ast.ModuleID]bool{}
+	var visit func(m ast.ModuleID)
+	visit = func(m ast.ModuleID) {
+		for _, d := range graph.Deps[m] {
+			if !seen[d.Module] {
+				seen[d.Module] = true
+				visit(d.Module)
+			}
+		}
+	}
+	visit(from)
+	return seen
+}
+
+// A module's generate reads the bodies and the check results of the generics it reaches, so it waits for the check of
+// every module it reaches, not only of those it names: the first module of the chain lowers the instance that the last holds
+// through the one between them. The check of a module waits for nothing.
+func TestAModulesGenerateWaitsForTheChecksOfEveryModuleItReaches(t *testing.T) {
+	const modules = 8
+	graph := chainDeps(modules)
+	for _, runtime := range []bool{false, true} {
+		layout := taskLayout{modules: modules, runtime: runtime}
+		plan := modulePlan(graph, layout)
+		for _, jobs := range []int{1, 2, 8} {
+			var mu sync.Mutex
+			checked := map[ast.ModuleID]bool{}
+			par.Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int) {
+				m, kind, ofModule := layout.module(task)
+				if !ofModule {
+					return
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				switch kind {
+				case taskCheck:
+					checked[m] = true
+				case taskGenerate:
+					if !checked[m] {
+						t.Errorf("jobs=%d: module %d is generated before it is checked", jobs, m)
+					}
+					for r := range reaches(graph, m) {
+						if !checked[r] {
+							t.Errorf("jobs=%d: module %d is generated before module %d, which it reaches, is checked", jobs, m, r)
+						}
+					}
+				}
+			})
+			if len(checked) != modules {
+				t.Errorf("jobs=%d: %d modules were checked, want %d", jobs, len(checked), modules)
+			}
+		}
+	}
+}
+
+// The tasks of one module are a group, so a worker that has checked a module goes on to generate it, and the check of
+// every module comes before the generate of any that waits for one.
+func TestAWorkerGeneratesTheModuleItHasJustChecked(t *testing.T) {
+	// Modules 0 and 1 depend on nothing, so each is generated as soon as it is checked.
+	graph := project.NewGraph(make([]ast.ModuleResult, 2))
+	layout := taskLayout{modules: 2}
+	var ran []string
+	par.Run(modulePlan(graph, layout), 1, func() struct{} { return struct{}{} }, func(_ struct{}, task int) {
+		m, kind, _ := layout.module(task)
+		if kind != taskClosure {
+			ran = append(ran, fmt.Sprintf("%d:%d", m, kind))
+		}
+	})
+	if got, want := strings.Join(ran, " "), "0:0 0:2 1:0 1:2"; got != want {
+		t.Errorf("the tasks ran in the order %s, want %s", got, want)
+	}
+}
+
+const (
+	chainLowest = `export type Box uses T
+	export var item as T
+
+	export static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+end 'Box'
+
+export function wrap(consumes x T) uses T returns Box with T
+	return Box.make(x)
+end 'wrap'
+`
+	chainMiddle = `export function viaMiddle() returns Count
+	let b = lowest.wrap(5 as Count)
+	return b.item
+end 'viaMiddle'
+`
+	chainUpper = `export function viaUpper() returns Count
+	return middle.viaMiddle() + 1
+end 'viaUpper'
+`
+	chainMain = `function main() returns ExitCode
+	print("{upper.viaUpper()}\n")
+	return 0
+end 'main'
+`
+)
+
+// A generic in the last module of a chain is instantiated by the module in the middle, and the first module reaches it
+// through two others: each is generated after the checks of the modules behind it, for any number of jobs, whichever
+// worker is free first.
+func TestAGenericAtTheEndOfAChainOfModulesIsLoweredAfterItsCheck(t *testing.T) {
+	dir := writeProject(t, map[string]string{
+		"main.maxon": chainMain, "upper/upper.maxon": chainUpper, "middle/middle.maxon": chainMiddle, "lowest/lowest.maxon": chainLowest,
+	})
+	for range 20 {
+		exe, ir := requireSameForAnyJobCount(t, dir)
+		if !bytes.Contains(ir, []byte("function wrap[Count] params")) {
+			t.Fatal("the IR has no instance of wrap")
+		}
+		out := filepath.Join(t.TempDir(), "run.exe")
+		if err := os.WriteFile(out, exe, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := exec.Command(out).Output(); err != nil || string(got) != "6\n" {
+			t.Fatalf("the program printed %q (%v), want 6", got, err)
+		}
+	}
+}
+
+// An error in the module that holds a generic is the program's one error, and the modules that use the generic are not
+// lowered, whichever of them a worker reaches first: a body error leaves the generic untyped, which lowering would fail
+// on, and an ownership error leaves its drops unplaced.
+func TestAnErrorInAModuleHidesWhatIsGeneratedFromItsDependents(t *testing.T) {
+	const broken = `export function broken() returns ExitCode
+	var a = Box.make(1 as Count)
+	let b = a
+	print("{b.item} {a.item}\n")
+	return 0
+end 'broken'
+`
+	cases := []struct{ name, library, code string }{
+		{"ownership", instanceLibrary + "\n" + broken, "E3102"},
+		{"body", strings.Replace(instanceLibrary, "return Box.make(x)\nend 'wrap'", "return 1\nend 'wrap'", 1), "E3005"},
+	}
+	for _, c := range cases {
+		dir := writeProject(t, map[string]string{
+			"main.maxon": instanceMain, "lib/lib.maxon": c.library, "user/user.maxon": instanceUser,
+		})
+		for _, output := range []string{"", filepath.Join(t.TempDir(), "out.exe")} {
+			for _, jobs := range []int{1, 2, 4, 16} {
+				for range 10 {
+					errs := Compile(dir, output, Options{Jobs: jobs})
+					if len(errs) != 1 || errs[0].Code != c.code || filepath.Base(errs[0].File) != "lib.maxon" {
+						t.Fatalf("%s: output=%q jobs=%d: got %v, want the one %s in lib.maxon", c.name, output, jobs, errs, c.code)
+					}
 				}
 			}
 		}
