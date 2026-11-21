@@ -1,14 +1,498 @@
-// The scheduler: the behaviours that `when` schedules, run by worker threads. No behaviour runs natively yet, so the
-// entry stub's calls find nothing to do.
+// The scheduler: the behaviours that `when` schedules, run to completion by worker threads. The main thread is worker 0;
+// the others start all at once when the first behaviour is scheduled, so a program that schedules none starts no
+// thread. Each worker owns a queue of runnable behaviours (a Chase-Lev deque): a behaviour that a thread schedules or
+// makes runnable goes on that thread's queue, whose owner takes the newest first, so the work it just made runs next on
+// the core that has its data, while an idle worker steals the oldest of another's. A worker that finds nothing parks on
+// its event until a push wakes it. The program ends when main has returned and no behaviour is left.
+//
+// What a behaviour is to the scheduler: a record whose run field (behaviourRunOffset) is the address of code that takes
+// the record, runs the behaviour, and is done with the record when it returns, having released and freed what it holds.
+// `when` calls schedEnter once for each behaviour it makes, before the behaviour can run, and schedPush when it becomes
+// runnable, on whichever thread that happens.
 
-// schedDrain is what the entry stub calls after main: it runs behaviours until none is left, and gives back main's exit
-// code.
+// noScheduler is the scheduler field of the main thread's context until a behaviour is scheduled or an exit code set.
+let noScheduler = 0 as Count
+
+// noBehaviour is what a queue gives when it has nothing to give.
+let noBehaviour = 0 as Count
+
+// mainWorker is the main thread's index among the workers.
+let mainWorker = 0 as Count
+
+// stepDown added to a count lowers it by one, since the atomic add takes a word.
+let stepDown = 0xFFFFFFFFFFFFFFFF as Count
+
+// The values of a queue's sleeping flag.
+let awake = 0 as Count
+
+let sleeping = 1 as Count
+
+// queueFirstCapacity is a new queue's ring: 2 KB, which holds the fan-out of a burst of behaviours without growing, and
+// doubles when it does not.
+let queueFirstCapacity = 256 as Count
+
+// An idle worker tries to steal stealRounds times before it parks, pausing for pausesPerRound pause instructions after
+// each of the first spinRounds and yielding its processor after the others: a park and a wake cost a system call each
+// and some microseconds, and work often comes again within that, while yielding keeps a spinning worker from holding a
+// core that another thread needs.
+let stealRounds = 8 as Count
+
+let spinRounds = 4 as Count
+
+let pausesPerRound = 64 as Count
+
+// randomStep is the increment of each worker's Weyl sequence, which picks the queue a steal tries first: 2^64 over the
+// golden ratio, odd, so the sequence goes through every word before it repeats and the workers' sequences start apart.
+let randomStep = 0x9E3779B97F4A7C15 as Count
+
+// randomShift keeps the high half of the sequence's word, which varies more from one step to the next than the low.
+let randomShift = 32 as Count
+
+// The Win32 values the scheduler passes.
+let allProcessorGroups = 0xFFFF
+
+let stackSizeIsReservation = 0x10000
+
+let noThreadAttributes = 0
+
+let noThreadId = 0
+
+let noEventAttributes = 0
+
+let autoReset = 0
+
+let startsUnset = 0
+
+let noEventName = 0
+
+let waitForever = 0xFFFFFFFF
+
+// The number of workers is the number of processors, or MAXON_MAX_PROCS when it holds a decimal count in
+// [fewestWorkers, mostRequestedWorkers], with an optional leading '+', as maxon's runtime reads it; any other value is
+// ignored.
+let maxProcsVariable = "MAXON_MAX_PROCS"
+
+let fewestWorkers = 1 as Count
+
+let mostRequestedWorkers = 0x7FFFFFFF as Count
+
+let noRequest = 0 as Count
+
+let plusSign = 0x2B as Byte
+
+let digitNine = 0x39 as Byte
+
+// The values of the scheduler's flags.
+let unset = 0 as Count
+
+let set = 1 as Count
+
+// schedEnter counts one more behaviour, which `when` calls before the behaviour can run. The first one starts the
+// workers' threads: until then only the main thread runs.
+function schedEnter()
+	let scheduler = schedulerOf(__Raw.threadContext())
+	if __Raw.loadWord(scheduler, offset: schedStartedOffset) == unset 'first'
+		__Raw.storeWord(scheduler, offset: schedStartedOffset, value: set)
+		startThreads(scheduler)
+	end 'first'
+	_ = __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: 1)
+end 'schedEnter'
+
+// osSetExitCode is Process.setExitCode: the process ends with the last code set, in place of main's, when main has
+// returned and no behaviour is left. The code is read only then, after every behaviour has finished, so a plain store
+// is enough.
+function osSetExitCode(code Count)
+	let scheduler = schedulerOf(__Raw.threadContext())
+	__Raw.storeWord(scheduler, offset: schedExitCodeOffset, value: code)
+	__Raw.storeWord(scheduler, offset: schedExitSetOffset, value: set)
+end 'osSetExitCode'
+
+// schedulerOf is the scheduler's record, which the first call on the main thread makes: only the main thread's context
+// starts with none, and no other thread runs before the record is made.
+function schedulerOf(context Count) returns Count
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler != noScheduler 'made'
+		return scheduler
+	end 'made'
+	return makeScheduler(context)
+end 'schedulerOf'
+
+// schedPush puts a runnable behaviour on the running thread's queue and wakes a parked worker if there is one, which
+// may then steal it or what else the queue holds.
+function schedPush(record Count)
+	let context = __Raw.threadContext()
+	queuePush(__Raw.loadWord(context, offset: contextQueueOffset), record: record)
+	wakeOne(__Raw.loadWord(context, offset: contextSchedulerOffset))
+end 'schedPush'
+
+// schedDrain is what the entry stub calls after main: the main thread runs behaviours as worker 0 until none is left, and
+// gives back the exit code, main's or the one set last. When nothing was ever scheduled it returns at once.
 function schedDrain(code Count) returns Count
+	let context = __Raw.threadContext()
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler == noScheduler 'nothing'
+		return code
+	end 'nothing'
+	runWorker(context, watchesEnd: true)
+	if __Raw.loadWord(scheduler, offset: schedExitSetOffset) == set 'set'
+		return __Raw.loadWord(scheduler, offset: schedExitCodeOffset)
+	end 'set'
 	return code
 end 'schedDrain'
 
 // workerMain is what a thread the runtime makes runs, with its context, which rt.threadStart has stored in the
-// thread-local slot.
+// thread-local slot. It never returns: the process ends with ExitProcess, which ends the workers wherever they are.
 function workerMain(context Count)
-	return
+	runWorker(context, watchesEnd: false)
 end 'workerMain'
+
+// runWorker runs behaviours until the program ends: on a worker the runtime made, for good, and on the main thread
+// (watchesEnd) until no behaviour is left.
+function runWorker(context Count, watchesEnd bool)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	while true 'work'
+		if watchesEnd and liveBehaviours(scheduler) == 0 'ended'
+			return
+		end 'ended'
+		let record = findWork(context, scheduler: scheduler)
+		if record != noBehaviour 'found'
+			runBehaviour(scheduler, record: record)
+		end 'found' else 'idle'
+			park(context, scheduler: scheduler, watchesEnd: watchesEnd)
+		end 'idle'
+	end 'work'
+end 'runWorker'
+
+// runBehaviour runs a behaviour to completion and counts it finished. The one that leaves none wakes the main thread,
+// which may be parked waiting for that.
+function runBehaviour(scheduler Count, record Count)
+	_ = __Raw.callCode1(__Raw.loadWord(record, offset: behaviourRunOffset), arg1: record)
+	if __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: stepDown) == 1 'last'
+		_ = wakeWorker(scheduler, context: workerContext(scheduler, worker: mainWorker))
+	end 'last'
+end 'runBehaviour'
+
+function liveBehaviours(scheduler Count) returns Count
+	return __Raw.loadWord(scheduler, offset: schedLiveOffset)
+end 'liveBehaviours'
+
+// findWork is the next behaviour for a worker: its own newest, or else one stolen from another worker within a few
+// rounds, or noBehaviour.
+function findWork(context Count, scheduler Count) returns Count
+	let own = queueTake(__Raw.loadWord(context, offset: contextQueueOffset))
+	if own != noBehaviour 'own'
+		return own
+	end 'own'
+	for round in 0 upto stealRounds 'rounds'
+		let stolen = stealAny(context, scheduler: scheduler)
+		if stolen != noBehaviour 'stolen'
+			return stolen
+		end 'stolen'
+		if round < spinRounds 'spin'
+			for i in 0 upto pausesPerRound 'pauses'
+				__Raw.spinPause()
+			end 'pauses'
+		end 'spin' else 'yield'
+			_ = __Raw.callImport0("SwitchToThread")
+		end 'yield'
+	end 'rounds'
+	return noBehaviour
+end 'findWork'
+
+// stealAny tries the queue of every other worker once, from one picked at random, so that thieves spread over the
+// workers rather than all trying the same one first.
+function stealAny(context Count, scheduler Count) returns Count
+	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
+	var victim = (try nextRandom(context) mod workers otherwise 0) as Count
+	for i in 0 upto workers 'victims'
+		let other = workerContext(scheduler, worker: victim)
+		if other != context 'other'
+			let stolen = queueSteal(__Raw.loadWord(other, offset: contextQueueOffset))
+			if stolen != noBehaviour 'stolen'
+				return stolen
+			end 'stolen'
+		end 'other'
+		victim = __Raw.wrappingAdd(victim, right: 1)
+		if victim == workers 'wrap'
+			victim = 0
+		end 'wrap'
+	end 'victims'
+	return noBehaviour
+end 'stealAny'
+
+// nextRandom steps the worker's Weyl sequence.
+function nextRandom(context Count) returns Count
+	let state = __Raw.wrappingAdd(__Raw.loadWord(context, offset: contextRandomOffset), right: randomStep)
+	__Raw.storeWord(context, offset: contextRandomOffset, value: state)
+	return state shr randomShift
+end 'nextRandom'
+
+// Parking and waking. A worker that found nothing parks so:
+//
+//	park:   sleeping = 1; sleepers += 1 (lock xadd);   then it reads every queue, and the main thread the live count
+//	push:   bottom = b + 1 (xchg);                     then it reads sleepers
+//
+// Each side's store is followed by a locked operation, a full fence on x64, before its read, so the two cannot both miss
+// the other's store (a Dekker pair): either the parking worker sees the new behaviour and does not wait, or the pusher
+// sees sleepers above 0 and wakes a sleeping worker by claiming its flag (1 to 0 by compare-exchange, which also takes
+// it out of sleepers) and setting its event. A worker that the pusher finds no flag to claim of has stopped sleeping on
+// its own or by another waker, and looks at every queue again before it next parks, which is after the push. The last
+// behaviour to finish and the main thread are the same pair over the live count and the main thread's flag. A worker
+// that a waker claims just as it finds work on its own does not wait, and its event stays set; its next wait returns at
+// once, it claims its own flag back, and looks again, which costs a round and loses nothing.
+function park(context Count, scheduler Count, watchesEnd bool)
+	let queue = __Raw.loadWord(context, offset: contextQueueOffset)
+	__Raw.storeWord(queue, offset: queueSleepingOffset, value: sleeping)
+	_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: 1)
+	let ended = watchesEnd and liveBehaviours(scheduler) == 0
+	if not ended and not anyQueued(scheduler) 'wait'
+		_ = __Raw.callImport2("WaitForSingleObject", arg1: __Raw.loadWord(context, offset: contextParkEventOffset), arg2: waitForever)
+	end 'wait'
+	if __Raw.compareExchange(queue, offset: queueSleepingOffset, expected: sleeping, desired: awake) == sleeping 'ownWake'
+		_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: stepDown)
+	end 'ownWake'
+end 'park'
+
+// wakeOne wakes one parked worker, when there is one, after a push.
+function wakeOne(scheduler Count)
+	if __Raw.loadWord(scheduler, offset: schedSleepersOffset) == 0 'noneParked'
+		return
+	end 'noneParked'
+	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
+	for i in 0 upto workers 'workers'
+		if wakeWorker(scheduler, context: workerContext(scheduler, worker: i)) 'woken'
+			return
+		end 'woken'
+	end 'workers'
+end 'wakeOne'
+
+// wakeWorker wakes the worker of a context when it is parked or about to park, and says whether it did: the flag is
+// read before it is claimed, so that a worker that is awake costs no locked operation.
+function wakeWorker(scheduler Count, context Count) returns bool
+	let queue = __Raw.loadWord(context, offset: contextQueueOffset)
+	if __Raw.loadWord(queue, offset: queueSleepingOffset) != sleeping 'awake'
+		return false
+	end 'awake'
+	if __Raw.compareExchange(queue, offset: queueSleepingOffset, expected: sleeping, desired: awake) != sleeping 'claimed'
+		return false
+	end 'claimed'
+	_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: stepDown)
+	_ = __Raw.callImport1("SetEvent", arg1: __Raw.loadWord(context, offset: contextParkEventOffset))
+	return true
+end 'wakeWorker'
+
+// anyQueued is whether some worker's queue holds a behaviour. A queue whose owner is taking from it may look empty for a
+// moment, but then its owner is awake and runs what it takes.
+function anyQueued(scheduler Count) returns bool
+	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
+	for i in 0 upto workers 'workers'
+		let queue = __Raw.loadWord(workerContext(scheduler, worker: i), offset: contextQueueOffset)
+		if __Raw.loadWord(queue, offset: queueBottomOffset) > __Raw.loadWord(queue, offset: queueTopOffset) 'queued'
+			return true
+		end 'queued'
+	end 'workers'
+	return false
+end 'anyQueued'
+
+// The queue: the work-stealing deque of Chase and Lev, "Dynamic Circular Work-Stealing Deque" (SPAA 2005), with the
+// memory orderings of Le, Pop, Cohen and Zappa Nardelli, "Correct and Efficient Work-Stealing for Weak Memory Models"
+// (PPoPP 2013, figure 1). The owner pushes and takes at the bottom; a thief takes at the top by advancing it with a
+// compare-exchange, which is also how the owner takes the last behaviour when a thief may want it. top and bottom only
+// grow, so an index names one behaviour for the life of the queue, and slot index mod capacity holds it. On x64 a
+// plain load is an acquire and a plain store a release, which are all the orderings Le et al. ask for but one, the
+// store-load fence in take, which the exchange that stores bottom gives.
+
+// queuePush is the owner's push. When the ring is full the owner makes one twice as large; a thief that read the old
+// one still finds there what it read the indices for, since the old ring is never written again or freed.
+function queuePush(queue Count, record Count)
+	let b = __Raw.loadWord(queue, offset: queueBottomOffset)
+	let t = __Raw.loadWord(queue, offset: queueTopOffset)
+	var ring = __Raw.loadWord(queue, offset: queueRingOffset)
+	if __Raw.wrappingSub(b, right: t) >= __Raw.loadWord(ring, offset: ringCapacityOffset) 'full'
+		ring = queueGrow(queue, ring: ring, top: t, bottom: b)
+	end 'full'
+	__Raw.storeWord(ringSlot(ring, index: b), offset: 0, value: record)
+	// Le et al. publish bottom with a release; the exchange is one and a full fence besides, which orders it before the
+	// pusher's read of sleepers (see park).
+	_ = __Raw.atomicExchange(queue, offset: queueBottomOffset, value: __Raw.wrappingAdd(b, right: 1))
+end 'queuePush'
+
+// queueTake is the owner's take of its newest behaviour, or noBehaviour.
+function queueTake(queue Count) returns Count
+	let oldBottom = __Raw.loadWord(queue, offset: queueBottomOffset)
+	// Only the owner moves bottom, and top never passes it, so a queue whose top is its bottom is empty however the
+	// thieves race; that is the common case of an idle worker, which then pays no fence.
+	if oldBottom == __Raw.loadWord(queue, offset: queueTopOffset) 'empty'
+		return noBehaviour
+	end 'empty'
+	let b = __Raw.wrappingSub(oldBottom, right: 1)
+	let ring = __Raw.loadWord(queue, offset: queueRingOffset)
+	// The store of bottom must be seen before top is read, or a thief and the owner could both take the last behaviour:
+	// the exchange is the full fence that Le et al. put between them.
+	_ = __Raw.atomicExchange(queue, offset: queueBottomOffset, value: b)
+	let t = __Raw.loadWord(queue, offset: queueTopOffset)
+	if t > b 'stolen'
+		__Raw.storeWord(queue, offset: queueBottomOffset, value: oldBottom)
+		return noBehaviour
+	end 'stolen'
+	let record = __Raw.loadWord(ringSlot(ring, index: b), offset: 0)
+	if t != b 'more'
+		return record
+	end 'more'
+	var taken = record
+	if __Raw.compareExchange(queue, offset: queueTopOffset, expected: t, desired: oldBottom) != t 'lost'
+		taken = noBehaviour
+	end 'lost'
+	__Raw.storeWord(queue, offset: queueBottomOffset, value: oldBottom)
+	return taken
+end 'queueTake'
+
+// queueSteal is a thief's take of a queue's oldest behaviour, or noBehaviour when the queue is empty or another took it
+// first. Le et al. put a full fence between the reads of top and bottom; x64 does not reorder a load with a later load,
+// and the compare-exchange that claims the behaviour is locked, so the plain loads are enough.
+function queueSteal(queue Count) returns Count
+	let t = __Raw.loadWord(queue, offset: queueTopOffset)
+	let b = __Raw.loadWord(queue, offset: queueBottomOffset)
+	if t >= b 'empty'
+		return noBehaviour
+	end 'empty'
+	let ring = __Raw.loadWord(queue, offset: queueRingOffset)
+	let record = __Raw.loadWord(ringSlot(ring, index: t), offset: 0)
+	if __Raw.compareExchange(queue, offset: queueTopOffset, expected: t, desired: __Raw.wrappingAdd(t, right: 1)) != t 'lost'
+		return noBehaviour
+	end 'lost'
+	return record
+end 'queueSteal'
+
+// queueGrow gives the queue a ring twice as large holding the same behaviours, and publishes it after filling it.
+function queueGrow(queue Count, ring Count, top Count, bottom Count) returns Count
+	let capacity = __Raw.loadWord(ring, offset: ringCapacityOffset)
+	let grown = newRing(try capacity + capacity otherwise panic("a worker's queue outgrows memory"))
+	var i = top
+	while i != bottom 'copy'
+		__Raw.storeWord(ringSlot(grown, index: i), offset: 0, value: __Raw.loadWord(ringSlot(ring, index: i), offset: 0))
+		i = __Raw.wrappingAdd(i, right: 1)
+	end 'copy'
+	__Raw.storeWord(queue, offset: queueRingOffset, value: grown)
+	return grown
+end 'queueGrow'
+
+// ringSlot is the address of the slot that holds a queue's index.
+function ringSlot(ring Count, index Count) returns Count
+	let mask = __Raw.wrappingSub(__Raw.loadWord(ring, offset: ringCapacityOffset), right: 1)
+	let offset = try (index and mask) * wordBytes + ringSlotsOffset otherwise panic("a worker's queue outgrows memory")
+	return __Raw.wrappingAdd(ring, right: offset)
+end 'ringSlot'
+
+function newRing(capacity Count) returns Count
+	let ring = keep(try capacity * wordBytes + ringSlotsOffset otherwise panic("a worker's queue outgrows memory"))
+	__Raw.storeWord(ring, offset: ringCapacityOffset, value: capacity)
+	return ring
+end 'newRing'
+
+function newQueue() returns Count
+	let queue = keep(queueBytes)
+	__Raw.storeWord(queue, offset: queueRingOffset, value: newRing(queueFirstCapacity))
+	return queue
+end 'newQueue'
+
+// workerContext is the context of the worker of an index.
+function workerContext(scheduler Count, worker Count) returns Count
+	return __Raw.loadWord(scheduler, offset: try schedContextsOffset + worker * wordBytes otherwise panic("a worker past the scheduler's record"))
+end 'workerContext'
+
+// makeScheduler makes the scheduler's record and gives each worker a context, a queue and an event, the main thread the
+// context the entry stub made.
+function makeScheduler(mainContext Count) returns Count
+	let workers = workerCount()
+	let scheduler = keep(try schedContextsOffset + workers * wordBytes otherwise panic("too many workers for memory"))
+	__Raw.storeWord(scheduler, offset: schedWorkersOffset, value: workers)
+	var seed = 0 as Count
+	for i in 0 upto workers 'contexts'
+		var context = mainContext
+		if i != mainWorker 'made'
+			context = keep(contextBytes)
+		end 'made'
+		seed = __Raw.wrappingAdd(seed, right: randomStep)
+		__Raw.storeWord(context, offset: contextSchedulerOffset, value: scheduler)
+		__Raw.storeWord(context, offset: contextQueueOffset, value: newQueue())
+		__Raw.storeWord(context, offset: contextParkEventOffset, value: newEvent())
+		__Raw.storeWord(context, offset: contextRandomOffset, value: seed)
+		__Raw.storeWord(scheduler, offset: try schedContextsOffset + i * wordBytes otherwise panic("too many workers for memory"), value: context)
+	end 'contexts'
+	return scheduler
+end 'makeScheduler'
+
+// startThreads starts the threads of the workers other than the main thread, which park until something is pushed.
+function startThreads(scheduler Count)
+	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
+	for i in 1 upto workers 'threads'
+		startThread(workerContext(scheduler, worker: i))
+	end 'threads'
+end 'startThreads'
+
+// startThread starts a worker's thread at once, with the main thread's stack reserve, which CreateThread reserves rather
+// than commits when told so. The thread's handle is closed, since nothing waits for a worker to end.
+function startThread(context Count)
+	let thread = __Raw.callImport6("CreateThread", arg1: noThreadAttributes, arg2: stackReserveBytes, arg3: __Raw.threadStartAddress(), arg4: context, arg5: stackSizeIsReservation, arg6: noThreadId)
+	if thread == 0 'failed'
+		panic("cannot start a worker thread")
+	end 'failed'
+	closeHandle(thread)
+end 'startThread'
+
+// newEvent is a worker's park event: auto-reset, so that a wait consumes the wake that ended it, and unset.
+function newEvent() returns Count
+	let event = __Raw.callImport4("CreateEventW", arg1: noEventAttributes, arg2: autoReset, arg3: startsUnset, arg4: noEventName)
+	if event == 0 'failed'
+		panic("cannot make a worker's event")
+	end 'failed'
+	return event
+end 'newEvent'
+
+// workerCount is how many workers run behaviours: the processors of every group, which Windows may fail to count, or the
+// count MAXON_MAX_PROCS asks for.
+function workerCount() returns Count
+	let requested = requestedWorkers()
+	if requested != noRequest 'requested'
+		return requested
+	end 'requested'
+	let processors = dword(__Raw.callImport1("GetActiveProcessorCount", arg1: allProcessorGroups))
+	if processors < fewestWorkers 'uncounted'
+		return fewestWorkers
+	end 'uncounted'
+	return processors
+end 'workerCount'
+
+// requestedWorkers is the count MAXON_MAX_PROCS asks for, or noRequest when it is unset or asks for none it may.
+function requestedWorkers() returns Count
+	var failed = 0 as Count
+	let text = osEnvironmentVariable(maxProcsVariable, errorAddress: __Raw.addressOf(failed))
+	if failed != 0 'unset'
+		return noRequest
+	end 'unset'
+	let n = text.byteLength()
+	var i = 0 as Count
+	if n > 0 and text.byteAt(0) == plusSign 'sign'
+		i = 1
+	end 'sign'
+	if i == n 'noDigits'
+		return noRequest
+	end 'noDigits'
+	var count = 0 as Count
+	while i < n 'digits'
+		let c = text.byteAt(i)
+		if c < digitZero or c > digitNine 'notDigit'
+			return noRequest
+		end 'notDigit'
+		count = try count * decimalBase + ((try c - digitZero otherwise 0) as Count) otherwise return noRequest
+		if count > mostRequestedWorkers 'tooMany'
+			return noRequest
+		end 'tooMany'
+		i = __Raw.wrappingAdd(i, right: 1)
+	end 'digits'
+	if count < fewestWorkers 'tooFew'
+		return noRequest
+	end 'tooFew'
+	return count
+end 'requestedWorkers'

@@ -175,6 +175,11 @@ function lowerProcessId(mutates l Lowerer, mutates p ast.Project, c CallSite, re
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsProcessId, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerProcessId'
 
+function lowerProcessSetExitCode(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsSetExitCode, args: argsOf1(args[0]))
+	return konst(l, value: 0 as Word)
+end 'lowerProcessSetExitCode'
+
 function lowerDirectoryCurrentPath(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
 	let text = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsCurrentPath, kind: IrKind.kindManaged, args: RegList.create(0))
 	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))

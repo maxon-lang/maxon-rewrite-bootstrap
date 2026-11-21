@@ -42,23 +42,7 @@ function runtimeFunctionID(p ast.Project, module diag.ModuleID, ord ast.DeclOrdi
 	if ord == noDeclaration 'none'
 		return ast.noFunc
 	end 'none'
-	let isFunction = match p.modules[ast.modIndex(module)].decls[ord as Count] 'kind'
-		funcDecl(_) gives true
-		typeDecl(_) gives false
-		enumDecl(_) gives false
-		unionDecl(_) gives false
-		interfaceDecl(_) gives false
-		extensionDecl(_) gives false
-		aliasDecl(_) gives false
-		constDecl(_) gives false
-	end 'kind'
-	if not isFunction 'other'
-		return ast.noFunc
-	end 'other'
-	return match p.declFuncs.get(ast.declKey(ast.DeclRef.make(module, ordinal: ord))) 'fid'
-		some(fid) gives fid
-		none gives ast.noFunc
-	end 'fid'
+	return ast.declaredFunction(p, module: module, ord: ord)
 end 'runtimeFunctionID'
 
 function matchesSignature(p ast.Project, fid ast.FuncID, want ir.RtFunction) returns bool

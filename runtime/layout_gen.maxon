@@ -78,8 +78,8 @@ let requestOwnerOffset = 24 as Count
 // requestSlotBytes is the size of a request slot.
 let requestSlotBytes = 32 as Count
 
-// contextIndexOffset is where a thread's context holds its worker's index, 0 for the main thread.
-let contextIndexOffset = 0 as Count
+// contextSchedulerOffset is where a thread's context holds the address of the scheduler's record, 0 on the main thread until the first behaviour is scheduled.
+let contextSchedulerOffset = 0 as Count
 
 // contextQueueOffset is where a thread's context holds the address of its worker's queue of runnable behaviours.
 let contextQueueOffset = 8 as Count
@@ -87,14 +87,59 @@ let contextQueueOffset = 8 as Count
 // contextParkEventOffset is where a thread's context holds the event its worker waits on while it is parked.
 let contextParkEventOffset = 16 as Count
 
-// contextHeapOffset is where a thread's context holds the address of its allocator's state.
-let contextHeapOffset = 24 as Count
+// contextLiveOffset is where a thread's context holds how many boxes the thread allocated less how many it freed, a wrapping word that the leak check sums over the threads.
+let contextLiveOffset = 24 as Count
 
 // contextRandomOffset is where a thread's context holds the state of its random numbers, which pick the queue it steals from first.
 let contextRandomOffset = 32 as Count
 
 // contextBytes is the size of a thread's context.
 let contextBytes = 40 as Count
+
+// schedWorkersOffset is where the scheduler's record holds how many workers there are, the main thread among them.
+let schedWorkersOffset = 0 as Count
+
+// schedLiveOffset is where the scheduler's record holds how many behaviours have been scheduled and not yet finished, stepped atomically: the program ends when that is 0 after main.
+let schedLiveOffset = 8 as Count
+
+// schedSleepersOffset is where the scheduler's record holds how many workers are parked or about to park, stepped atomically, which a push reads to know whether to wake one.
+let schedSleepersOffset = 16 as Count
+
+// schedStartedOffset is where the scheduler's record holds 1 once the workers' threads are started, which the first behaviour does.
+let schedStartedOffset = 24 as Count
+
+// schedExitSetOffset is where the scheduler's record holds 1 once Process.setExitCode has been called.
+let schedExitSetOffset = 32 as Count
+
+// schedExitCodeOffset is where the scheduler's record holds the code that Process.setExitCode set last, which the process ends with in place of main's.
+let schedExitCodeOffset = 40 as Count
+
+// schedContextsOffset is where the scheduler's record holds the address of each worker's context, a word each, by worker index.
+let schedContextsOffset = 48 as Count
+
+// queueTopOffset is where a queue holds the index of its oldest behaviour, which a thief takes by advancing it with a compare-exchange.
+let queueTopOffset = 0 as Count
+
+// queueBottomOffset is where a queue holds the index past its newest behaviour, which only its owner writes.
+let queueBottomOffset = 8 as Count
+
+// queueRingOffset is where a queue holds the address of its ring, which the owner replaces with a larger one when it is full.
+let queueRingOffset = 16 as Count
+
+// queueSleepingOffset is where a queue holds 1 while its owner is parked or about to park, which a waker claims by putting 0 there with a compare-exchange.
+let queueSleepingOffset = 24 as Count
+
+// queueBytes is the size of a queue.
+let queueBytes = 32 as Count
+
+// ringCapacityOffset is where a ring holds how many behaviours it has room for, a power of two.
+let ringCapacityOffset = 0 as Count
+
+// ringSlotsOffset is where a ring's slots begin, a behaviour's record address each; index i of the queue is slot i modulo the capacity.
+let ringSlotsOffset = 8 as Count
+
+// stackReserveBytes is the stack each thread reserves, the main thread's in the executable's header and a worker's when the runtime starts it, so a behaviour has the same stack on every thread. The compiler's passes recurse once per level of an expression, and a left-leaning chain of operators is as deep as it is long: a sum of 4,000 names takes about 22 MB. A reserve is only address space, committed a page at a time as the stack grows, so it costs a program nothing that it does not use.
+let stackReserveBytes = 268435456 as Count
 
 // byteBytes is the size of an element of a byte array.
 let byteBytes = 1 as Count

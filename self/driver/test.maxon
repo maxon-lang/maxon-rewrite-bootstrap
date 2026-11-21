@@ -11,6 +11,10 @@ let benchDir = "bench"
 // The programs of this directory of the corpus are only compiled: one that expects no error must compile clean, and none is run.
 let checkOnlyDir = "check"
 
+// The programs of this directory are tests of the runtime: each is compiled as a file of the runtime's module, so that it
+// may call what no program can, and is run natively only, since the interpreter does not run the runtime's source.
+let runtimeTierDir = "runtime"
+
 let sourceExtension = ".maxon"
 
 let expectErrorPrefix = "// expect-error:"
@@ -68,9 +72,10 @@ type Expectation
 	// frees is the order in which the interpreter must free the values of the program, when the program says it.
 	var frees as ast.StringList
 	var checkOnly as bool
+	var runtimeTier as bool
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false}
 	end 'new'
 end 'Expectation'
 
@@ -391,6 +396,7 @@ function runTests(dir String, verbose bool, updatePositions bool) returns ExitCo
 	var shared = prepareSharedRuntime()
 	var scratch = Scratch.make("test")
 	let checkOnlyPrefix = project.joinPath(project.joinPath(root, name: checkOnlyDir), name: "")
+	let runtimeTierPrefix = project.joinPath(project.joinPath(root, name: runtimeTierDir), name: "")
 	for i in 0 upto files.count() 'tests'
 		let file = files[i].clone()
 		let nameStart = try root.byteLength() + 1 otherwise panic("test: {root} is too long")
@@ -401,6 +407,10 @@ function runTests(dir String, verbose bool, updatePositions bool) returns ExitCo
 		end 'start'
 		var expect = readExpectation(file)
 		expect.checkOnly = hasPrefix(file, prefix: checkOnlyPrefix)
+		if hasPrefix(file, prefix: runtimeTierPrefix) 'runtimeTier'
+			expect.runtimeTier = true
+			expect.nativeOnly = true
+		end 'runtimeTier'
 		let result = runTest(shared, scratch: scratch, file: file, expect: expect, updatePositions: updatePositions)
 		var status = "PASS"
 		if result.outcome == TestOutcome.testFailed 'failed'
@@ -488,7 +498,13 @@ function runTest(mutates shared SharedRuntime, mutates scratch Scratch, file Str
 	end 'fix'
 	let exe = scratch.nextExecutable()
 	var errs = diag.ErrorList.create(0)
-	let compiled = compileForTest(shared, file: file, output: exe, errs: errs)
+	var compiled as CompiledProgram
+	if expect.runtimeTier 'runtimeTier'
+		compiled = compileRuntimeTest(file, output: exe, options: testOptions(), errs: errs)
+		diag.sortErrors(errs)
+	end 'runtimeTier' else 'program'
+		compiled = compileForTest(shared, file: file, output: exe, errs: errs)
+	end 'program'
 	let result = checkTest(expect, file: file, compiled: compiled, errs: errs, exe: exe, updatePositions: updatePositions)
 	if errs.count() == 0 'built'
 		scratch.discard(exe)

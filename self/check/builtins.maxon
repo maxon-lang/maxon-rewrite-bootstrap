@@ -34,11 +34,30 @@ end 'checkArrayCreateArgs'
 // the executable's import table, which the link fixes, so it is never computed.
 function checkRawCallImportArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let name = ordered[0]
-	if p.modules[c.modIdx].tree.kindOf(name) == ast.NodeKind.strLit and p.modules[c.modIdx].tree.strIsPlain(ast.strLitPartsRef(p.modules[c.modIdx].tree, id: name)) 'literal'
+	if isPlainStringLiteral(c, p: p, node: name) 'literal'
 		return
 	end 'literal'
 	failAt(c, p: p, node: name, code: diag.errExpressionError, msg: "a DLL import is named by a string literal, as in '__Raw.callImport1(\"ExitProcess\", arg1: code)'", errs: errs)
 end 'checkRawCallImportArgs'
+
+// checkRawCodeAddressArgs refuses a function named by anything but a string literal, or by a name that the module does
+// not declare a function by: the address is the function's symbol, which the link fixes, so it is never computed.
+function checkRawCodeAddressArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	let name = ordered[0]
+	if not isPlainStringLiteral(c, p: p, node: name) 'computed'
+		failAt(c, p: p, node: name, code: diag.errExpressionError, msg: "the function whose code is wanted is named by a string literal, as in '__Raw.codeAddress(\"workerMain\")'", errs: errs)
+		return
+	end 'computed'
+	let text = ast.strPartsText(p.modules[c.modIdx].tree, partsRef: ast.strLitPartsRef(p.modules[c.modIdx].tree, id: name))
+	if ast.functionNamed(p, module: p.modules[c.modIdx].id, name: text) == ast.noFunc 'missing'
+		failAt(c, p: p, node: name, code: diag.errUnknownFunction, msg: "this module declares no function '{text}': name a function it declares at its top level", errs: errs)
+	end 'missing'
+end 'checkRawCodeAddressArgs'
+
+// isPlainStringLiteral is whether the node is a string literal with no interpolation, whose text is known to the compile.
+function isPlainStringLiteral(c Checker, p ast.Project, node ast.NodeID) returns bool
+	return p.modules[c.modIdx].tree.kindOf(node) == ast.NodeKind.strLit and p.modules[c.modIdx].tree.strIsPlain(ast.strLitPartsRef(p.modules[c.modIdx].tree, id: node))
+end 'isPlainStringLiteral'
 
 // callElement is the element type of the array that the call at node is a call on.
 function callElement(c Checker, call ast.NodeID) returns ast.TypeID

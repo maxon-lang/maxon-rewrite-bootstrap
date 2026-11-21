@@ -128,7 +128,6 @@ export function emitRuntime(mainSymbol String, options RuntimeOptions) returns C
 	u.defineData(ir.rtSymbol(ir.Rt.rtHeap), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtStdout), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtStderr), size: wordBytes)
-	u.defineData(ir.rtSymbol(ir.Rt.rtLive), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsSlot), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsOffset), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtMainContext), size: contextBytes)

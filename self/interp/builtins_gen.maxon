@@ -339,6 +339,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsProcessId(vm, f: f, x: x)
 		return
 	end 'rtOsProcessId'
+	if symbol == ir.Rt.rtOsSetExitCode 'rtOsSetExitCode'
+		try entryOsSetExitCode(vm, f: f, x: x)
+		return
+	end 'rtOsSetExitCode'
 	if symbol == ir.Rt.rtOsPathFrom 'rtOsPathFrom'
 		try entryOsPathFrom(vm, f: f, x: x)
 		return
@@ -382,17 +386,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if symbol == ir.Rt.rtEntry or symbol == ir.Rt.rtAlloc or symbol == ir.Rt.rtFree or symbol == ir.Rt.rtPanicIndex 'internal0'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal0'
-	if symbol == ir.Rt.rtHeap or symbol == ir.Rt.rtStdout or symbol == ir.Rt.rtStderr or symbol == ir.Rt.rtLive 'internal1'
+	if symbol == ir.Rt.rtHeap or symbol == ir.Rt.rtStdout or symbol == ir.Rt.rtStderr or symbol == ir.Rt.rtImageDataStart 'internal1'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal1'
-	if symbol == ir.Rt.rtImageDataStart or symbol == ir.Rt.rtImageDataEnd or symbol == ir.Rt.rtCheckLeaks or symbol == ir.Rt.rtTlsSlot 'internal2'
+	if symbol == ir.Rt.rtImageDataEnd or symbol == ir.Rt.rtCheckLeaks or symbol == ir.Rt.rtTlsSlot or symbol == ir.Rt.rtTlsOffset 'internal2'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal2'
-	if symbol == ir.Rt.rtTlsOffset or symbol == ir.Rt.rtMainContext or symbol == ir.Rt.rtThreadStart or symbol == ir.Rt.rtSchedDrain 'internal3'
+	if symbol == ir.Rt.rtMainContext or symbol == ir.Rt.rtThreadStart or symbol == ir.Rt.rtSchedDrain or symbol == ir.Rt.rtWorkerMain 'internal3'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal3'
-	if symbol == ir.Rt.rtWorkerMain 'internal4'
-		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
-	end 'internal4'
 	panic("interp: a call of no runtime entry")
 end 'runtimeEntry'

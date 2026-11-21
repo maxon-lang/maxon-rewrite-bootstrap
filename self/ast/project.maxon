@@ -433,3 +433,32 @@ export function notVisible(p Project, name String, v Visibility, owner diag.Modu
 	end 'priv'
 	return "'{name}' is exported only to module {parentPath(modulePath(p, modID: owner))} and the modules under it: mark it 'public' to use it from {fromWord}"
 end 'notVisible'
+
+// functionNamed is the function that a module declares by name at its top level, or noFunc when the name is not one.
+export function functionNamed(p Project, module diag.ModuleID, name String) returns FuncID
+	return match p.modules[modIndex(module)].names.get(name) 'declared'
+		some(ord) gives declaredFunction(p, module: module, ord: ord)
+		none gives noFunc
+	end 'declared'
+end 'functionNamed'
+
+// declaredFunction is the function that a module's declaration at ord is, or noFunc when it is not a function.
+export function declaredFunction(p Project, module diag.ModuleID, ord DeclOrdinal) returns FuncID
+	let isFunction = match p.modules[modIndex(module)].decls[ord as Count] 'kind'
+		funcDecl(_) gives true
+		typeDecl(_) gives false
+		enumDecl(_) gives false
+		unionDecl(_) gives false
+		interfaceDecl(_) gives false
+		extensionDecl(_) gives false
+		aliasDecl(_) gives false
+		constDecl(_) gives false
+	end 'kind'
+	if not isFunction 'other'
+		return noFunc
+	end 'other'
+	return match p.declFuncs.get(declKey(DeclRef.make(module, ordinal: ord))) 'fid'
+		some(fid) gives fid
+		none gives noFunc
+	end 'fid'
+end 'declaredFunction'

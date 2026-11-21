@@ -239,6 +239,8 @@ var ops = []op{
 	{Name: "CallCode", Doc: "CallCode calls the code at the address that is the first of Args with the rest of Args, by the internal\n// convention, and gives what it returns.",
 		Result: valueResult, Operands: []operand{argsOp}, Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees},
 		Text: "callcode({Args})"},
+	{Name: "CodeAddress", Doc: "CodeAddress gives the address of the code of the function Callee, which a CallCode calls: the run of a\n// behaviour's record that a test of the runtime builds by hand.",
+		Result: valueResult, Operands: []operand{{Name: "Callee", Kind: kCallee, Field: fC}}, Text: "codeaddr {Callee}"},
 	{Name: "Bin", Doc: "Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a\n// signed '/' is i64.min / -1.",
 		Result:   valueResult,
 		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "BinOp"}, reg("Left", fA), reg("Right", fB), unsignOp, checkedOp},

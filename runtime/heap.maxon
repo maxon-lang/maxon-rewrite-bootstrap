@@ -1,6 +1,9 @@
-// The heap: every box is a block of the process heap, which the entry stub stores in rt.heap before main runs. The
-// number of boxes allocated and not yet freed is kept in rt.live in every executable, so the runtime is the same code
-// whatever the build; only an executable built with --count-allocations reads it at the end (checkLeaks).
+// The heap: every box is a block of the process heap, which the entry stub stores in g.heap before main runs, and which
+// HeapAlloc keeps safe for every thread. Each thread counts the boxes it allocates less those it frees in its own
+// context, so counting takes no locked step and no word that threads contend for; the count is kept in every executable,
+// so the runtime is the same code whatever the build, and only an executable built with --count-allocations sums it at
+// the end (checkLeaks). A box allocated on one thread and freed on another leaves one count high and the other low, which
+// the sum makes right.
 
 // heapZeroMemory is HeapAlloc's HEAP_ZERO_MEMORY: a new box is zeroed, so each place in it starts empty.
 let heapZeroMemory = 8 as Count
@@ -11,8 +14,8 @@ let noHeapFlags = 0 as Count
 // alloc is a new zeroed box of a number of bytes.
 function alloc(bytes Count) returns Count
 	let box = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
-	let live = __Raw.liveAddress()
-	__Raw.storeWord(live, offset: 0, value: __Raw.wrappingAdd(__Raw.loadWord(live, offset: 0), right: 1))
+	let context = __Raw.threadContext()
+	__Raw.storeWord(context, offset: contextLiveOffset, value: __Raw.wrappingAdd(__Raw.loadWord(context, offset: contextLiveOffset), right: 1))
 	return box
 end 'alloc'
 
@@ -21,11 +24,33 @@ function free(box Count)
 	if box == noBox 'empty'
 		return
 	end 'empty'
-	let live = __Raw.liveAddress()
-	__Raw.storeWord(live, offset: 0, value: __Raw.wrappingSub(__Raw.loadWord(live, offset: 0), right: 1))
+	let context = __Raw.threadContext()
+	__Raw.storeWord(context, offset: contextLiveOffset, value: __Raw.wrappingSub(__Raw.loadWord(context, offset: contextLiveOffset), right: 1))
 	_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: box)
 end 'free'
 
 function processHeap() returns Count
 	return __Raw.loadWord(__Raw.heapAddress(), offset: 0)
 end 'processHeap'
+
+// keep is a zeroed block that the runtime keeps until the process ends, such as a worker's context and queue, which no
+// program drops: it is not one of the program's boxes, so the leak check does not count it.
+function keep(bytes Count) returns Count
+	return __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
+end 'keep'
+
+// liveBoxes is how many boxes are allocated and not freed: the sum of every thread's count, read when no behaviour runs,
+// so no thread changes its count meanwhile.
+function liveBoxes() returns Count
+	let context = __Raw.threadContext()
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler == noScheduler 'oneThread'
+		return __Raw.loadWord(context, offset: contextLiveOffset)
+	end 'oneThread'
+	var live = 0 as Count
+	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
+	for i in 0 upto workers 'threads'
+		live = __Raw.wrappingAdd(live, right: __Raw.loadWord(workerContext(scheduler, worker: i), offset: contextLiveOffset))
+	end 'threads'
+	return live
+end 'liveBoxes'

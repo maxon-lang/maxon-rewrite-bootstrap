@@ -200,6 +200,9 @@ export function run(p ast.Project, modules ModuleFunctions, entry ast.FuncID, st
 	out.behaviours = job.m.vm.scheduled
 	if job.m.vm.fatal == fatalNone 'finished'
 		out.exitCode = job.m.vm.mainExit
+		if job.m.vm.setExit 'set'
+			out.exitCode = job.m.vm.setExitValue
+		end 'set'
 		leaks(job.m.vm)
 	end 'finished' else if job.m.vm.fatal == fatalExit 'exited'
 		out.exitCode = job.m.vm.exitCode

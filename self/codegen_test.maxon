@@ -176,11 +176,15 @@ function asmEpilogue(mutates u backend.CodeUnit)
 	u.asm.ret()
 end 'asmEpilogue'
 
+// testLiveSymbol is the word in which the test's runtime counts its live boxes, as the real one counts them in each
+// thread's context.
+let testLiveSymbol = "test.live"
+
 // countLive adds to the number of live boxes, keeping every register but rcx.
 function asmCountLive(mutates u backend.CodeUnit, delta backend.Imm32)
-	u.asm.loadSymbol(backend.rcx, symbol: ir.rtSymbol(ir.Rt.rtLive))
+	u.asm.loadSymbol(backend.rcx, symbol: testLiveSymbol)
 	u.asm.addImm(backend.rcx, imm: delta)
-	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtLive), src: backend.rcx)
+	u.asm.storeSymbol(testLiveSymbol, src: backend.rcx)
 end 'asmCountLive'
 
 // testLeakExitCode is the runtime's exit code for a leak (runtime/output.maxon).
@@ -194,6 +198,7 @@ let testPanicExitCode = 1
 // and workerMain, which have no behaviour to run, and panic, which exits with the panic code and writes nothing.
 function runtimeUnit(count bool) returns backend.CodeUnit
 	var u = backend.CodeUnit.new()
+	u.defineData(testLiveSymbol, size: backend.wordBytes)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtAlloc))
 	asmPrologue(u)
 	u.asm.loadSymbol(backend.rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
@@ -235,7 +240,7 @@ function runtimeUnit(count bool) returns backend.CodeUnit
 	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
 	asmPrologue(u)
 	let clean = u.asm.newLabel()
-	u.asm.loadSymbol(backend.rcx, symbol: ir.rtSymbol(ir.Rt.rtLive))
+	u.asm.loadSymbol(backend.rcx, symbol: testLiveSymbol)
 	u.asm.test(backend.rcx, right: backend.rcx)
 	u.asm.jcc(backend.X64CondCode.equal, label: clean)
 	u.asm.movImm(backend.rcx, imm: testLeakExitCode)
@@ -596,14 +601,14 @@ function routinesMain(decl ast.FuncID, types RoutineTypes) returns ir.IrFunction
 	return b.f
 end 'routinesMain'
 
-// rawMain checks the raw operations of the runtime's source: it writes a word to rt.live through its address, reads it
-// back at each width, writes one byte of it, and writes a line by WriteFile, a DLL import of five words. It returns 42
+// rawMain checks the raw operations of the runtime's source: it writes a word to the first of the main thread's context
+// through its address, reads it back at each width, writes one byte of it, and writes a line by WriteFile, a DLL import of five words. It returns 42
 // when every value is what it should be.
 function rawMain(decl ast.FuncID) returns ir.IrFunction
 	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
 	let written = b.slot(ir.IrKind.kindScalar)
 	let live = b.reg()
-	b.emit(ir.newGlobalAddr(live, symbol: ir.Rt.rtLive))
+	b.emit(ir.newGlobalAddr(live, symbol: ir.Rt.rtMainContext))
 	let pattern = b.constant(0x0102030405060708)
 	b.emit(ir.newStoreRaw(live, src: pattern, width: ir.RawWidth.width64))
 	let low8 = b.reg()

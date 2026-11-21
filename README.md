@@ -115,7 +115,11 @@ map, a list, a pool, a frozen value, a cown or a behaviour has no executable yet
 the runner then runs it under the interpreter alone. A program that schedules behaviours runs under 20 schedules
 (seeds 0 to 19), and every one must give the same stdout and exit code and no violation, so the directives of such a
 program must say an output that does not depend on the schedule: print only from behaviours that the cowns put in
-order, such as one chain, or behaviours on one cown. A test executable runs under a 10 second deadline, and a program
+order, such as one chain, or behaviours on one cown. A program under `tests/runtime/` is a test of the runtime: it is
+compiled as one more file of the runtime's module (`compileRuntimeTest`), so it may call the runtime's functions and the
+`__Raw` intrinsics, and holds `main`; it is run natively only, since the interpreter does not run the runtime's source.
+`tests/runtime/scheduler.maxon` is how the scheduler is tested before `when` compiles: it builds behaviour records by
+hand. A test executable runs under a 10 second deadline, and a program
 that outlives it fails the test with `timed out`. The summary is `N passed, M failed, K not yet supported`, the
 failures are listed, and the exit code is 0 when nothing failed. With `--verbose` a `RUN` line comes before each test, so a crash of the compiler, which ends the run, names the test it was compiling.
 
@@ -912,8 +916,9 @@ nothing.
   mask on every read of its length; a range check costs nothing until a string is dropped, and any compiler that puts constants
   in an image section can do the same.
 - **Free** is `HeapFree` on the process heap, behind `runtime::free`, which also skips 0 since `HeapFree` does not accept it.
-- **Counting allocations.** The runtime counts the heap boxes that are allocated and not freed in every executable
-  (`g.live`: `runtime::alloc` adds 1 and `runtime::free` subtracts 1), so the runtime is the same code whatever the build.
+- **Counting allocations.** The runtime counts the heap boxes that are allocated and not freed in every executable, each
+  thread in its own context (`runtime::alloc` adds 1 and `runtime::free` subtracts 1, with no locked step), so the
+  runtime is the same code whatever the build; `checkLeaks` sums the threads' counts when no behaviour is left.
   `--count-allocations` changes only the entry stub, which then passes `main`'s exit code to the runtime's `checkLeaks`: when
   the count is not 0 the executable writes `leaked allocations: N` to standard error and exits with 99, in place of `main`'s
   own exit code. `minimaxon test` and the program generator always use it, so every native run of the corpus ends with no box
@@ -1017,7 +1022,7 @@ are a `Count`:
 | `__Raw.wrappingAdd(a, right: b)`, `__Raw.wrappingSub(a, right: b)` | address arithmetic: the sum or the difference modulo 2^64, unchecked |
 | `__Raw.addressOf(word)` | the address of a local `Count`, passed `mutates`: an out-parameter of a DLL function |
 | `__Raw.stringAddress(text)`, `__Raw.stringAt(box)` | the box address of a borrowed `String`; a `String` that owns a box the runtime built |
-| `__Raw.heapAddress()`, `stdoutAddress()`, `stderrAddress()`, `liveAddress()` | the address of a global of the entry stub |
+| `__Raw.heapAddress()`, `stdoutAddress()`, `stderrAddress()` | the address of a global of the entry stub |
 | `__Raw.callImport0(name)` to `__Raw.callImport10(name, arg1: a, ..., arg10: j)` | calls the DLL function `name`, a string literal (`E2004` otherwise), with that many words by the Win64 convention, and gives what it returns |
 | `__Raw.atomicAdd(address, offset: o, value: v)`, `__Raw.atomicExchange(address, offset: o, value: v)` | adds `v` to the word at `address + o`, or puts `v` there, as one locked step (a full fence), and gives the word it found |
 | `__Raw.compareExchange(address, offset: o, expected: e, desired: d)` | puts `d` in the word at `address + o` when `e` is there, as one locked step, and gives the word it found: it succeeded when that is `e` |
@@ -1025,6 +1030,7 @@ are a `Count`:
 | `__Raw.threadContext()` | the running thread's context: the word in the runtime's thread-local slot |
 | `__Raw.callCode1(code, arg1: a)` | calls the code at the address `code` with one word by the internal convention, as a behaviour's thunk is called with its record, and gives what it returns |
 | `__Raw.threadStartAddress()` | the address of `rt.threadStart`, the code a thread that `CreateThread` makes starts at |
+| `__Raw.codeAddress(name)` | the address of the code of the function of the module that `name`, a string literal, names (`E2004` otherwise, and `E3004` when there is none): what a `callCode1` calls, as a test of the scheduler builds a behaviour's `run` |
 
 Only the runtime module may call them: a call anywhere else is `E3152` (maxon's `rawIntrinsicOutsideRuntimeTier`, with
 its message), which `callFunction` in `self/check/calls.maxon` raises from the rows' runtime-only flag
@@ -1054,10 +1060,10 @@ mapped function exists with exactly that signature (`E3004` when it is missing, 
 `rtSymbol` says. A new entry is a row of each table and a function in `runtime/`.
 
 **Globals.** The entry stub keeps the process heap and the two standard handles (`g.heap`, `g.stdout`, `g.stderr`),
-which it sets before `main`, and the count of live boxes (`g.live`), which it defines, zero, in every executable; the
-linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a global through its address intrinsic.
+which it sets before `main`; the linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a global through its address intrinsic.
 The runtime is the same code whatever the build: `alloc` and `free` always count, and `--count-allocations` changes only
-the stub, which then passes the exit code to the runtime's `checkLeaks`; that exits with the leak report and 99 when
+the stub, which then passes the exit code to the runtime's `checkLeaks`, which sums the count of live boxes that each
+thread keeps in its context; that exits with the leak report and 99 when
 a box is live, and gives the code back otherwise. Behaviour, exit codes and messages are maxon's runtime's.
 
 **Threads.** Each thread keeps its context, a record of `contextBytes` (`abigen`), in one thread-local slot. Before
@@ -1068,7 +1074,24 @@ calls the runtime's `schedDrain` with `main`'s exit code, which runs the behavio
 back. A thread the runtime makes starts at `rt.threadStart`, which `CreateThread` calls by Win64 with the thread's
 context: it saves the registers Win64 keeps, keeps the fault handler's stack (`SetThreadStackGuarantee`), stores the
 context with `TlsSetValue` and calls the runtime's `workerMain` with it. `abigen` also has the layouts of a frozen
-value's box, a cown and a behaviour's record with its request slots.
+value's box, a cown and a behaviour's record with its request slots, the scheduler's record and a worker's queue.
+
+**The scheduler** (`runtime/sched.maxon`) runs behaviours to completion on worker threads, Verona's model with no green
+thread and no stack switch. The main thread is worker 0; the first behaviour scheduled (`schedEnter`) starts the other
+workers at once, as many as `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` says (1 when it says 0) or as
+`MAXON_MAX_PROCS` asks (a decimal count from 1 to 2^31 - 1 with an optional `+`, as maxon reads it; any other value is
+ignored), each with the main thread's 256 MB stack reserve. A program that schedules nothing starts no thread. Each
+worker owns a Chase-Lev deque of behaviour records whose ring doubles when full (the old rings are kept, as Chase and
+Lev's are, since a thief may still read one); a behaviour pushed (`schedPush`) goes on the pushing thread's deque, whose
+owner takes the newest first, and an idle worker steals the oldest of another's, trying every other deque from a random
+start for a few rounds (`pause`, then `SwitchToThread`) before it parks. Parking is a Dekker pair over the worker's flag
+and a count of sleepers, each side fenced by a locked operation, and waits on the worker's auto-reset event; a push
+that sees a sleeper claims one's flag and sets its event. A worker runs a behaviour by calling its record's `run` with
+the record (`callCode1`), and counts it finished when that returns, so the code at `run` must have released and freed
+what the behaviour holds by then. After `main`, `schedDrain` has the main thread work until the count of live
+behaviours is 0 (the last to finish wakes it), and gives back `main`'s code, or the code that `Process.setExitCode` set
+last; then `ExitProcess` ends the parked workers. A panic or a trap on any thread writes its line and exits with 1 at
+once.
 
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
 `self/backend/pe.maxon`): the compiler's passes recurse once per level of nesting of an expression, except down a chain of
@@ -2225,6 +2248,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `Process.environmentVariable(name)` | `String` | `ProcessIntrospectionError.variableUnset` |
 | `Process.executablePath()` | `FilePath`, the running executable's full path (`GetModuleFileNameW`) | `ProcessIntrospectionError.pathUnavailable` |
 | `Process.id()` | `Count`, the running process's id (`GetCurrentProcessId`); maxon's `Pid` is the same unsigned 64-bit integer | — |
+| `Process.setExitCode(code)` | — (the process ends with the last code set in place of `main`'s; see "Where it differs from Maxon") | — |
 | `FilePath.from(path)` | `FilePath`, with `/` made `\` | `FilePathError.invalidCharacter` for a control character or one of `<>"\|?*` |
 | `path.toString()` | `String` | — |
 | `File.readText(path)` | `String` | `FileReadError` |
@@ -2470,6 +2494,10 @@ is a box here already, so it changes nothing in a program. It is held to Maxon's
 the checker reports where Maxon's parser does, as it needs the type of the value.
 
 ### Where it differs from Maxon
+
+- `Process.setExitCode(code)` sets the code the process ends with when `main` has returned and no behaviour is left,
+  in place of `main`'s; the last code set wins. Maxon has none: its programs wait for their behaviours with `await`,
+  which minimaxon does not have, so a behaviour that finds the program's result needs this to report it.
 
 - Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
   directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch

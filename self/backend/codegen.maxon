@@ -881,6 +881,15 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		self.closureBox(f, dst: x.dst, code: code, drop: "", captures: 0)
 	end 'visitFuncValue'
 
+	function visitCodeAddress(mutates self, f ir.IrFunction, x ir.Instr)
+		let code = match calleeSymbols.get(ir.codeAddressCallee(f, x: x) as Count) 'callee'
+			some(name) gives name.clone()
+			none panic("backend: the code of a function that prepare did not name")
+		end 'callee'
+		u.asm.leaSymbol(rax, symbol: code)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitCodeAddress'
+
 	// closureBox allocates the box of a closure and fills in its header, leaving the box in rax and in dst. drop is the
 	// routine that drops what it owns, or empty for none.
 	function closureBox(mutates self, f ir.IrFunction, dst ir.Reg, code String, drop String, captures Count)

@@ -365,6 +365,9 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrProcessId 'intrProcessId'
 		return lowerProcessId(l, p: p, c: c, recv: recv, args: args)
 	end 'intrProcessId'
+	if op == ast.Intrinsic.intrProcessSetExitCode 'intrProcessSetExitCode'
+		return lowerProcessSetExitCode(l, p: p, c: c, recv: recv, args: args)
+	end 'intrProcessSetExitCode'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return lowerFilePathFrom(l, p: p, c: c, recv: recv, args: args)
 	end 'intrFilePathFrom'
@@ -461,9 +464,6 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrRawStderrAddress 'intrRawStderrAddress'
 		return lowerRawStderrAddress(l, p: p, c: c, recv: recv, args: args)
 	end 'intrRawStderrAddress'
-	if op == ast.Intrinsic.intrRawLiveAddress 'intrRawLiveAddress'
-		return lowerRawLiveAddress(l, p: p, c: c, recv: recv, args: args)
-	end 'intrRawLiveAddress'
 	if op == ast.Intrinsic.intrRawAtomicAdd 'intrRawAtomicAdd'
 		return lowerRawAtomicAdd(l, p: p, c: c, recv: recv, args: args)
 	end 'intrRawAtomicAdd'
@@ -485,6 +485,9 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
 		return lowerRawThreadStartAddress(l, p: p, c: c, recv: recv, args: args)
 	end 'intrRawThreadStartAddress'
+	if op == ast.Intrinsic.intrRawCodeAddress 'intrRawCodeAddress'
+		return lowerRawCodeAddress(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawCodeAddress'
 	if op == ast.Intrinsic.intrRawCallImport 'intrRawCallImport'
 		return lowerRawCallImport(l, p: p, c: c, recv: recv, args: args)
 	end 'intrRawCallImport'
@@ -856,6 +859,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrProcessId 'intrProcessId'
 		return false
 	end 'intrProcessId'
+	if op == ast.Intrinsic.intrProcessSetExitCode 'intrProcessSetExitCode'
+		return false
+	end 'intrProcessSetExitCode'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return false
 	end 'intrFilePathFrom'
@@ -952,9 +958,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawStderrAddress 'intrRawStderrAddress'
 		return false
 	end 'intrRawStderrAddress'
-	if op == ast.Intrinsic.intrRawLiveAddress 'intrRawLiveAddress'
-		return false
-	end 'intrRawLiveAddress'
 	if op == ast.Intrinsic.intrRawAtomicAdd 'intrRawAtomicAdd'
 		return false
 	end 'intrRawAtomicAdd'
@@ -976,6 +979,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
 		return false
 	end 'intrRawThreadStartAddress'
+	if op == ast.Intrinsic.intrRawCodeAddress 'intrRawCodeAddress'
+		return true
+	end 'intrRawCodeAddress'
 	if op == ast.Intrinsic.intrRawCallImport 'intrRawCallImport'
 		return true
 	end 'intrRawCallImport'

@@ -92,6 +92,11 @@ function entryOsProcessId(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveNum(vm, x: x, n: try Process.id() as ir.Word otherwise panic("interp: the process id is past a word"))
 end 'entryOsProcessId'
 
+function entryOsSetExitCode(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	vm.setExit = true
+	vm.setExitValue = int32Of(argNum(vm, f: f, x: x, i: 0))
+end 'entryOsSetExitCode'
+
 function entryOsPathFrom(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let text = vm.h.texts[at].clone()

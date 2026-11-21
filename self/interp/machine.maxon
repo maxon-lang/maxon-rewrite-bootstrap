@@ -96,6 +96,10 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: threadcontext is the runtime source's, which the interpreter never runs")
 	end 'visitThreadContext'
 
+	function visitCodeAddress(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: codeaddr is the runtime source's, which the interpreter never runs")
+	end 'visitCodeAddress'
+
 	function visitCallCode(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: callcode is the runtime source's, which the interpreter never runs")
 	end 'visitCallCode'

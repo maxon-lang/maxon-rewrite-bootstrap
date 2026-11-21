@@ -130,19 +130,55 @@ var layouts = []layoutConst{
 		"the size of a request slot."},
 
 	// A thread's context is what the thread-local slot holds: the main thread's is a global of the entry, a worker's the
-	// runtime's.
-	{"contextIndexOffset", 0, false, toRuntime,
-		"where a thread's context holds its worker's index, 0 for the main thread."},
+	// runtime's. It stays five words while the seed's entry reserves that many for the main thread's.
+	{"contextSchedulerOffset", 0, false, toRuntime,
+		"where a thread's context holds the address of the scheduler's record, 0 on the main thread until the first behaviour is scheduled."},
 	{"contextQueueOffset", 1, false, toRuntime,
 		"where a thread's context holds the address of its worker's queue of runnable behaviours."},
 	{"contextParkEventOffset", 2, false, toRuntime,
 		"where a thread's context holds the event its worker waits on while it is parked."},
-	{"contextHeapOffset", 3, false, toRuntime,
-		"where a thread's context holds the address of its allocator's state."},
+	{"contextLiveOffset", 3, false, toRuntime,
+		"where a thread's context holds how many boxes the thread allocated less how many it freed, a wrapping word that the leak check sums over the threads."},
 	{"contextRandomOffset", 4, false, toRuntime,
 		"where a thread's context holds the state of its random numbers, which pick the queue it steals from first."},
 	{"contextBytes", 5, false, toRuntime | toSelfBack,
 		"the size of a thread's context."},
+
+	// The scheduler's record, made when the first behaviour is scheduled or an exit code set: the counts every worker
+	// reads, the exit code, then the address of each worker's context, the main thread's first.
+	{"schedWorkersOffset", 0, false, toRuntime,
+		"where the scheduler's record holds how many workers there are, the main thread among them."},
+	{"schedLiveOffset", 1, false, toRuntime,
+		"where the scheduler's record holds how many behaviours have been scheduled and not yet finished, stepped atomically: the program ends when that is 0 after main."},
+	{"schedSleepersOffset", 2, false, toRuntime,
+		"where the scheduler's record holds how many workers are parked or about to park, stepped atomically, which a push reads to know whether to wake one."},
+	{"schedStartedOffset", 3, false, toRuntime,
+		"where the scheduler's record holds 1 once the workers' threads are started, which the first behaviour does."},
+	{"schedExitSetOffset", 4, false, toRuntime,
+		"where the scheduler's record holds 1 once Process.setExitCode has been called."},
+	{"schedExitCodeOffset", 5, false, toRuntime,
+		"where the scheduler's record holds the code that Process.setExitCode set last, which the process ends with in place of main's."},
+	{"schedContextsOffset", 6, false, toRuntime,
+		"where the scheduler's record holds the address of each worker's context, a word each, by worker index."},
+
+	// A worker's queue of runnable behaviours: a Chase-Lev deque, whose ring is a box of its own that grows.
+	{"queueTopOffset", 0, false, toRuntime,
+		"where a queue holds the index of its oldest behaviour, which a thief takes by advancing it with a compare-exchange."},
+	{"queueBottomOffset", 1, false, toRuntime,
+		"where a queue holds the index past its newest behaviour, which only its owner writes."},
+	{"queueRingOffset", 2, false, toRuntime,
+		"where a queue holds the address of its ring, which the owner replaces with a larger one when it is full."},
+	{"queueSleepingOffset", 3, false, toRuntime,
+		"where a queue holds 1 while its owner is parked or about to park, which a waker claims by putting 0 there with a compare-exchange."},
+	{"queueBytes", 4, false, toRuntime,
+		"the size of a queue."},
+	{"ringCapacityOffset", 0, false, toRuntime,
+		"where a ring holds how many behaviours it has room for, a power of two."},
+	{"ringSlotsOffset", 1, false, toRuntime,
+		"where a ring's slots begin, a behaviour's record address each; index i of the queue is slot i modulo the capacity."},
+
+	{"stackReserveBytes", 268435456, true, toRuntime | toSelfBack,
+		"the stack each thread reserves, the main thread's in the executable's header and a worker's when the runtime starts it, so a behaviour has the same stack on every thread. The compiler's passes recurse once per level of an expression, and a left-leaning chain of operators is as deep as it is long: a sum of 4,000 names takes about 22 MB. A reserve is only address space, committed a page at a time as the stack grows, so it costs a program nothing that it does not use."},
 
 	{"byteBytes", 1, true, toRuntime | toSelfBack,
 		"the size of an element of a byte array."},

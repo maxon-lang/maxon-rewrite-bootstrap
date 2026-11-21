@@ -268,6 +268,11 @@ export type Builder
 		return newFuncValue(dst, callee: self.callee(fn))
 	end 'funcValueInstr'
 
+	// codeAddressInstr gives the address of a function's code.
+	export function codeAddressInstr(mutates self, dst Reg, fn ast.FuncID) returns Instr
+		return newCodeAddress(dst, callee: self.callee(fn))
+	end 'codeAddressInstr'
+
 	// callValueInstr calls the closure in target with args.
 	export function callValueInstr(mutates self, dst Reg, target Reg, args RegList) returns Instr
 		var all = RegList.create(0)

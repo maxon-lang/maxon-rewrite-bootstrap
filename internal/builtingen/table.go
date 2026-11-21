@@ -297,6 +297,10 @@ func rawFunctions() []function {
 		f.OwnsOperands = true
 		return f
 	}
+	checked := func(f function) function {
+		f.Checked = true
+		return f
+	}
 	at := []string{"address Count", "offset Count"}
 	fs := []function{
 		raw("loadByte", at, "Byte", "RawLoad8"),
@@ -315,7 +319,6 @@ func rawFunctions() []function {
 		raw("heapAddress", nil, "Count", "RawHeapAddress"),
 		raw("stdoutAddress", nil, "Count", "RawStdoutAddress"),
 		raw("stderrAddress", nil, "Count", "RawStderrAddress"),
-		raw("liveAddress", nil, "Count", "RawLiveAddress"),
 		// The atomic operations are full fences and give the word they found at the address.
 		raw("atomicAdd", append(slices.Clone(at), "value Count"), "Count", "RawAtomicAdd"),
 		raw("atomicExchange", append(slices.Clone(at), "value Count"), "Count", "RawAtomicExchange"),
@@ -325,6 +328,9 @@ func rawFunctions() []function {
 		// callCode1 calls the code at an address with one word, as a behaviour's thunk is called with its record.
 		raw("callCode1", []string{"code Count", "arg1 Count"}, "Count", "RawCallCode"),
 		raw("threadStartAddress", nil, "Count", "RawThreadStartAddress"),
+		// codeAddress is the address of the code of the function of the runtime that a string literal names, which takes
+		// one word: the run of a behaviour's record that a test of the scheduler builds by hand.
+		checked(own(raw("codeAddress", []string{"name String"}, "Count", "RawCodeAddress"))),
 	}
 	for n := 0; n <= maxImportArgs; n++ {
 		params := []string{"name String"}
@@ -491,6 +497,8 @@ var tableFunctions = []function{
 	{Owner: "Process", Name: "executablePath", Static: true, Result: "FilePath", Throws: "ProcessIntrospectionError", Intrinsic: "ProcessExecutablePath"},
 	// id is maxon's Process.id, whose Pid is an unsigned 64-bit integer, which Count is.
 	{Owner: "Process", Name: "id", Static: true, Result: "Count", Intrinsic: "ProcessId"},
+	// setExitCode is how a behaviour, which runs after main has returned, decides the code the process ends with.
+	{Owner: "Process", Name: "setExitCode", Static: true, Params: []string{"code ExitCode"}, Intrinsic: "ProcessSetExitCode"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
 	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
@@ -591,7 +599,6 @@ var entries = []entry{
 	{"Heap", "g.heap", "Runtime", roleGlobal, "the process heap"},
 	{"Stdout", "g.stdout", "Runtime", roleGlobal, "the handle of standard output"},
 	{"Stderr", "g.stderr", "Runtime", roleGlobal, "the handle of standard error"},
-	{"Live", "g.live", "Runtime", roleGlobal, "the number of heap boxes allocated and not yet freed, which the runtime always keeps"},
 	{"ImageDataStart", "g.imageDataStart", "Linker", roleGlobal, "the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap"},
 	{"ImageDataEnd", "g.imageDataEnd", "Linker", roleGlobal, "the end of the data section"},
 	{"CheckLeaks", "rt.checkLeaks", "Source", roleInternal, "(exit code) -> exit code: what the entry of an executable built to count its allocations calls after main, which exits with a leak report when a box is still live"},
@@ -665,6 +672,7 @@ var entries = []entry{
 	{"OsExecutablePath", "rt.os.executablePath", "Os", roleCall, "(error) -> String: the full path of the running executable"},
 	{"OsCurrentPath", "rt.os.currentPath", "Os", roleCall, "() -> String: the working directory, panicking when Windows cannot give it"},
 	{"OsProcessId", "rt.os.processId", "Os", roleCall, "() -> Count: the id of the running process"},
+	{"OsSetExitCode", "rt.os.setExitCode", "Os", roleCall, "(code): the code the process ends with when main has returned and no behaviour is left, in place of main's"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
 	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
 	{"OsWriteText", "rt.os.writeText", "Os", roleCall, "(path String, content String, error)"},
@@ -742,6 +750,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsExecutablePath", "osExecutablePath(errorAddress Count) String"},
 	{"OsCurrentPath", "osCurrentPath() String"},
 	{"OsProcessId", "osProcessId() Count"},
+	{"OsSetExitCode", "osSetExitCode(code Count)"},
 	{"OsPathFrom", "osPathFrom(path String, errorAddress Count) String"},
 	{"OsReadText", "osReadText(path String, errorAddress Count) String"},
 	{"OsWriteText", "osWriteText(path String, content String, errorAddress Count)"},

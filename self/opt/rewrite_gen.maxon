@@ -70,6 +70,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs DefList, m
 	if op == ir.Opcode.opCallCode 'opcodeCallCode'
 		return false
 	end 'opcodeCallCode'
+	if op == ir.Opcode.opCodeAddress 'opcodeCodeAddress'
+		return false
+	end 'opcodeCodeAddress'
 	if op == ir.Opcode.opBin 'opcodeBin'
 		return rewriteBin(fn, at: at, defs: defs, out: out)
 	end 'opcodeBin'

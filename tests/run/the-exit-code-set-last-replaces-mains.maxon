@@ -1,0 +1,10 @@
+// Process.setExitCode decides the code the process ends with, whatever main returns, and the last code set wins.
+// expect-exit: 7
+//> set
+
+function main() returns ExitCode
+	Process.setExitCode(3)
+	Process.setExitCode(7)
+	print("set\n")
+	return 0
+end 'main'
