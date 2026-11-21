@@ -85,7 +85,7 @@ function testStringsAndInterpolation()
 	let interpText = "a + 1"
 	let interpSrc = syntax.sourceOf(interpText.clone(), path: "")
 	var errs = diag.ErrorList.create(0)
-	let interpToks = try syntax.lexInterpolation(interpSrc, errs: errs, file: 0, begin: 0, until: interpText.byteLength()) otherwise panic("interp: unexpected lex error")
+	let interpToks = try syntax.lexInterpolation(interpSrc, errs: errs, file: 0, begin: 0, until: interpText.byteLength(), lenient: false) otherwise panic("interp: unexpected lex error")
 	assertKind(interpToks, index: 0, expected: syntax.TokenKind.name, label: "interp")
 	assertKind(interpToks, index: 1, expected: syntax.TokenKind.plus, label: "interp")
 	assertKind(interpToks, index: 2, expected: syntax.TokenKind.integer, label: "interp")

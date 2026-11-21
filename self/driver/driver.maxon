@@ -22,7 +22,6 @@ function goOnlyCommands() returns CommandNames
 	var names = CommandNames.create(0)
 	names.push("interp")
 	names.push("rewrite")
-	names.push("fmt")
 	names.push("qualify")
 	names.push("rename")
 	names.push("cache")
@@ -95,6 +94,9 @@ export function run(args Array with String) returns ExitCode
 	if command == "run" 'run'
 		return runProgram(path, options: options)
 	end 'run'
+	if command == "fmt" 'fmt'
+		return formatCommand(rest)
+	end 'fmt'
 	if isGoOnlyCommand(command) 'later'
 		printError("the command '{command}' is not implemented yet\n")
 		return notImplementedExitCode

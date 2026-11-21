@@ -248,7 +248,7 @@ export function isDirectoryPath(text String) returns bool
 end 'isDirectoryPath'
 
 // readTextFile is the text of the file that text names, or none when it names no file that can be read.
-function readTextFile(text String) returns table.Option with String
+export function readTextFile(text String) returns table.Option with String
 	let path = try FilePath.from(text) otherwise return table.Option.none
 	let content = try File.readText(path) otherwise return table.Option.none
 	return table.Option.some(content)

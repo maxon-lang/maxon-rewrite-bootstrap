@@ -1,0 +1,180 @@
+let checkFlag = "--check"
+
+let markdownExtension = ".md"
+
+// layoutErrorCodes are the errors of the layout rules. A test that expects one is a program laid out wrongly on purpose,
+// so fmt over a directory leaves it alone: it would put the layout right and the test would no longer test the rule.
+function layoutErrorCodes() returns CommandNames
+	var codes = CommandNames.create(0)
+	codes.push(diag.errUnexpectedToken)
+	codes.push(diag.errExpectedToken)
+	return codes
+end 'layoutErrorCodes'
+
+function increment(count Count) returns Count
+	return try count + 1 otherwise panic("a count overflows")
+end 'increment'
+
+function endsWithText(text String, suffix String) returns bool
+	let length = text.byteLength()
+	let tail = suffix.byteLength()
+	return length >= tail and text.sliceBytes(try length - tail otherwise 0 as Count, endPos: length) == suffix
+end 'endsWithText'
+
+// holdsText is whether text holds needle.
+function holdsText(text String, needle String) returns bool
+	let length = text.byteLength()
+	let width = needle.byteLength()
+	if width > length 'short'
+		return false
+	end 'short'
+	let last = try length - width otherwise 0 as Count
+	for at in 0 upto increment(last) 'starts'
+		if text.byteAt(at) == needle.byteAt(0 as Count) and text.sliceBytes(at, endPos: try at + width otherwise length) == needle 'found'
+			return true
+		end 'found'
+	end 'starts'
+	return false
+end 'holdsText'
+
+function expectsLayoutError(text String) returns bool
+	let codes = layoutErrorCodes()
+	for i in 0 upto codes.count() 'each'
+		if holdsText(text, needle: "{expectErrorPrefix} {codes[i]}") 'expected'
+			return true
+		end 'expected'
+	end 'each'
+	return false
+end 'expectsLayoutError'
+
+function isSourcePath(path String) returns bool
+	return endsWithText(path, suffix: sourceExtension) or endsWithText(path, suffix: markdownExtension)
+end 'isSourcePath'
+
+// withoutCurrentDirectory is a path that a listing of the current directory gave, as the Go compiler lists it: without
+// the leading separator-terminated dot that names the directory.
+function withoutCurrentDirectory(path String) returns String
+	if path.byteLength() > 2 and path.byteAt(0 as Count) == dotByte and isSeparator(path.byteAt(1 as Count)) 'current'
+		return path.sliceBytes(2 as Count, endPos: path.byteLength())
+	end 'current'
+	return path.clone()
+end 'withoutCurrentDirectory'
+
+// collectSourceFiles adds to files the .maxon and .md files at path, a file or a directory to search.
+function collectSourceFiles(path String, mutates files ast.StringList)
+	if project.isDirectoryPath(path) 'directory'
+		let dir = try FilePath.from(path) otherwise panic("fmt: {path} is not a path")
+		let listed = try Directory.list(dir) otherwise panic("fmt: cannot list {path}")
+		for i in 0 upto listed.count() 'each'
+			collectSourceFiles(withoutCurrentDirectory(listed[i].toString()), files: files)
+		end 'each'
+	end 'directory' else if isSourcePath(path) 'file'
+		files.push(path.clone())
+	end 'file'
+end 'collectSourceFiles'
+
+// isReadable is whether path names a directory, or a file that can be read.
+function isReadable(path String) returns bool
+	if project.isDirectoryPath(path) 'directory'
+		return true
+	end 'directory'
+	return match consumes project.readTextFile(path) 'read'
+		some(text) gives true
+		none gives false
+	end 'read'
+end 'isReadable'
+
+function containsPath(paths ast.StringList, path String) returns bool
+	for i in 0 upto paths.count() 'each'
+		if paths[i] == path 'same'
+			return true
+		end 'same'
+	end 'each'
+	return false
+end 'containsPath'
+
+// formatCommand is the fmt command: rest holds the command's name, then the paths and the --check flag in any order.
+function formatCommand(rest CommandNames) returns ExitCode
+	var check = false
+	var paths = ast.StringList.create(0)
+	for i in 1 upto rest.count() 'args'
+		if rest[i] == checkFlag 'check'
+			check = true
+		end 'check' else 'path'
+			paths.push(rest[i].clone())
+		end 'path'
+	end 'args'
+	if paths.count() == 0 'none'
+		printError(usage())
+		return usageExitCode
+	end 'none'
+	return formatFiles(paths, check: check)
+end 'formatCommand'
+
+// formatFiles puts every .maxon file under paths, and the Maxon code blocks of every .md file, in the one layout, and with
+// check only lists the files that are not. A file that does not parse is left alone: one found under a directory is
+// reported and skipped, since a corpus holds programs that are refused on purpose, and one named on the command line is an
+// error.
+function formatFiles(paths ast.StringList, check bool) returns ExitCode
+	var files = ast.StringList.create(0)
+	for i in 0 upto paths.count() 'roots'
+		if not isReadable(paths[i]) 'unreadable'
+			printError("cannot read {paths[i]}\n")
+			return diagnosticsExitCode
+		end 'unreadable'
+		collectSourceFiles(paths[i], files: files)
+	end 'roots'
+	project.sortStrings(files)
+	var changed = 0 as Count
+	var refused = 0 as Count
+	var layoutTests = 0 as Count
+	var failed = false
+	for i in 0 upto files.count() 'files'
+		let path = files[i].clone()
+		let explicit = containsPath(paths, path: path)
+		let text = try File.readText(try FilePath.from(path) otherwise panic("fmt: {path} is not a path")) otherwise panic("fmt: cannot read {path}")
+		var formatted = text.clone()
+		if endsWithText(path, suffix: markdownExtension) 'markdown'
+			formatted = syntax.formatMarkdown(path, text: text)
+		end 'markdown' else 'maxon'
+			if not explicit and expectsLayoutError(text) 'layoutTest'
+				layoutTests = increment(layoutTests)
+				continue 'files'
+			end 'layoutTest'
+			var errs = diag.ErrorList.create(0)
+			match syntax.formatSource(path, text: text) 'result'
+				formatted(done) then formatted = done.clone()
+				refused(errors) then errs = errors.clone()
+			end 'result'
+			if errs.count() > 0 'refusal'
+				refused = increment(refused)
+				if explicit 'named'
+					failed = true
+					_ = report(errs)
+				end 'named' else 'found'
+					print("skipped  {errs[0].format()}\n")
+				end 'found'
+				continue 'files'
+			end 'refusal'
+		end 'maxon'
+		if formatted == text 'same'
+			continue 'files'
+		end 'same'
+		changed = increment(changed)
+		if check 'listed'
+			print("not formatted  {path}\n")
+			continue 'files'
+		end 'listed'
+		try File.writeText(try FilePath.from(path) otherwise panic("fmt: {path} is not a path"), content: formatted) otherwise panic("fmt: cannot write {path}")
+		print("formatted  {path}\n")
+	end 'files'
+	var verb = "formatted"
+	if check 'checking'
+		verb = "not formatted"
+	end 'checking'
+	print("{changed} files {verb}, {refused} left alone because they do not parse, {layoutTests} skipped because they test the layout rules\n")
+	if failed or (check and changed > 0) 'failure'
+		return diagnosticsExitCode
+	end 'failure'
+	return 0
+end 'formatFiles'

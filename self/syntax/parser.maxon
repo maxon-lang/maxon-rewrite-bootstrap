@@ -69,6 +69,9 @@ type Parser
 	var prevKind as TokenKind
 	var joinNext as bool
 	var blanks as BlankRule
+	// format is what a formatting parser writes: where it would refuse a layout, it writes the layout the rules require.
+	var format as Formatter
+	var formatting as bool
 
 	static function new(consumes src Source, consumes toks Tokens, module diag.ModuleID) returns Parser
 		let text = src.text.clone()
@@ -76,7 +79,7 @@ type Parser
 		if src.files.count() > 0 'first'
 			prevEnd = src.files[0].start as Count
 		end 'first'
-		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile}
+		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false}
 	end 'new'
 
 	function fileNumber() returns Count
@@ -112,9 +115,65 @@ type Parser
 	// next consumes the current token, after checking the layout before it.
 	function next(mutates self) returns Token throws SyntaxError
 		let t = self.cur()
-		try self.checkLayout(t)
+		try self.layout(t)
 		return self.skip()
 	end 'next'
+
+	// layout checks the gap before t, or in a formatting parser writes the gap the rules require there and then t.
+	function layout(mutates self, t Token) throws SyntaxError
+		if formatting 'formats'
+			try self.formatToken(t)
+			return
+		end 'formats'
+		try self.checkLayout(t)
+	end 'layout'
+
+	// formatToken writes the gap the layout puts before t, and then t. It is called where a checking parser calls
+	// checkLayout, so the gap comes from the same decisions.
+	function formatToken(mutates self, t Token) throws SyntaxError
+		let start = lexemeStart(t)
+		let gap = self.gapBefore(t.kind)
+		if gap == Gap.lineStart 'lines'
+			try self.blankLines(start)
+			let depth = format.depth
+			if t.kind == TokenKind.indent 'indent'
+				format.depth = after(depth)
+			end 'indent' else if t.kind == TokenKind.dedent 'dedent'
+				format.depth = try depth - 1 otherwise panic("the formatter dedents past the margin")
+			end 'dedent' else if t.kind != TokenKind.fileEnd and t.kind != TokenKind.eof 'code'
+				format.indent(depth)
+			end 'code'
+		end 'lines' else if gap == Gap.endOfLine 'endOfLine'
+			format.trailingComment(src.text, begin: prevEnd, until: start)
+		end 'endOfLine' else if gap == Gap.oneSpace 'space'
+			format.out.push(byteSpace)
+		end 'space'
+		format.tokenStart = format.out.count()
+		if t.kind == TokenKind.newline 'newline'
+			format.out.push(byteNewline)
+			return
+		end 'newline'
+		appendRange(format.out, text: src.text, begin: start, until: lexemeEnd(t))
+	end 'formatToken'
+
+	// depthAfterIndentTokens is the indentation of the code line that starts at the current token, which is the first of
+	// the indent or dedent tokens that open it, or the line's first token.
+	function depthAfterIndentTokens() returns Count
+		var depth = format.depth
+		var i = pos
+		while i < toks.count() 'scan'
+			let kind = toks[i].kind
+			if kind == TokenKind.indent 'indent'
+				depth = after(depth)
+			end 'indent' else if kind == TokenKind.dedent 'dedent'
+				depth = try depth - 1 otherwise panic("the formatter dedents past the margin")
+			end 'dedent' else 'code'
+				return depth
+			end 'code'
+			i = after(i)
+		end 'scan'
+		return depth
+	end 'depthAfterIndentTokens'
 
 	// skip consumes the current token without checking its layout, as error recovery does.
 	function skip(mutates self) returns Token
@@ -186,13 +245,18 @@ type Parser
 	end 'checkLayout'
 
 	// blankLines checks the blank lines and comment lines between the last line and the one that starts at lineStart,
-	// against the rule parseProgram set for it.
+	// against the rule parseProgram set for it. A formatting parser writes the lines the rule allows instead of refusing
+	// the others.
 	function blankLines(mutates self, lineStart Count) throws SyntaxError
 		var rule = blanks
 		blanks = BlankRule.noBlanks
 		if rule == BlankRule.noBlanks and prevKind == TokenKind.newline and self.startsFunction() 'function'
 			rule = BlankRule.beforeFunction
 		end 'function'
+		var depth = 0 as Count
+		if formatting 'depth'
+			depth = self.depthAfterIndentTokens()
+		end 'depth'
 		var at = prevEnd
 		var kept = 0 as Count
 		var lastBlank = false
@@ -207,17 +271,34 @@ type Parser
 			let blank = isBlankLine(src.text, from: at, until: stop)
 			let fault = lineFault(rule, kept: kept, blank: blank, lastBlank: lastBlank)
 			if fault.kind != BlankFault.noFault 'refused'
-				throw self.refuse(fault.message.clone(), at: at)
+				if not formatting 'refuse'
+					throw self.refuse(fault.message.clone(), at: at)
+				end 'refuse'
+				if fault.kind == BlankFault.extraBlank 'extra'
+					at = after(stop)
+					continue 'lines'
+				end 'extra'
+				format.blankLine()
+				kept = after(kept)
 			end 'refused'
+			if formatting 'write'
+				format.gapLine(src.text, begin: at, until: stop, blank: blank, tabs: depth)
+			end 'write'
 			kept = after(kept)
 			lastBlank = blank
 			at = after(stop)
 		end 'lines'
 		let fault = endFault(rule, kept: kept, lastBlank: lastBlank, atFileEnd: self.at(TokenKind.fileEnd))
 		if fault.kind == BlankFault.extraBlank 'extra'
-			throw self.refuse(fault.message.clone(), at: before(at))
+			if not formatting 'refuseExtra'
+				throw self.refuse(fault.message.clone(), at: before(at))
+			end 'refuseExtra'
+			format.dropBlankLine()
 		end 'extra' else if fault.kind == BlankFault.missingBlank 'missing'
-			throw self.refuse(fault.message.clone(), at: at)
+			if not formatting 'refuseMissing'
+				throw self.refuse(fault.message.clone(), at: at)
+			end 'refuseMissing'
+			format.blankLine()
 		end 'missing'
 	end 'blankLines'
 
@@ -327,12 +408,16 @@ function strLitParts(mutates p Parser, t Token) returns diag.U32 throws SyntaxEr
 	_ = try r.read(p.src, errs: p.errors)
 	let parts = exchange(r.parts, value: StrParts.create(0))
 	var b = ast.StrPartsBuilder.new()
+	var formatted = ast.StringList.create(0)
 	for i in 0 upto parts.count() 'each'
 		match parts[i] 'part'
 			text(run, begin, raw) then addTextPart(p, parts: b, text: run, begin: begin, raw: raw)
-			expr(begin, until) then b.interpolation(try parseInterpolationAt(p, begin: begin, until: until))
+			expr(begin, until) then b.interpolation(try parseInterpolationAt(p, begin: begin, until: until, formatted: formatted))
 		end 'part'
 	end 'each'
+	if p.formatting 'format'
+		p.format.replaceString(p.src.text, t: t, parts: parts, formatted: formatted)
+	end 'format'
 	return b.finish(p.tree)
 end 'strLitParts'
 
@@ -414,11 +499,13 @@ function addTextPart(mutates p Parser, mutates parts ast.StrPartsBuilder, text S
 end 'addTextPart'
 
 // parseInterpolationAt parses the interpolation from begin to until with the parser's tokens and layout set aside: its
-// first token follows its '{' with no space between them.
-function parseInterpolationAt(mutates p Parser, begin Count, until Count) returns ast.NodeID throws SyntaxError
+// first token follows its '{' with no space between them. A formatting parser formats it in a pass of its own and adds
+// its text to formatted.
+function parseInterpolationAt(mutates p Parser, begin Count, until Count, mutates formatted ast.StringList) returns ast.NodeID throws SyntaxError
 	let file = p.fileNumber()
-	let toks = try lexInterpolation(p.src, errs: p.errors, file: file, begin: begin, until: until)
+	let toks = try lexInterpolation(p.src, errs: p.errors, file: file, begin: begin, until: until, lenient: p.formatting)
 	let savedToks = exchange(p.toks, value: toks)
+	let savedFormat = exchange(p.format, value: Formatter.new())
 	let savedPos = p.pos
 	let savedEnd = p.prevEnd
 	let savedKind = p.prevKind
@@ -442,9 +529,13 @@ function parseInterpolationAt(mutates p Parser, begin Count, until Count) return
 	p.prevKind = savedKind
 	p.joinNext = savedJoin
 	p.blanks = savedBlanks
+	let sub = exchange(p.format, value: savedFormat)
 	if failed 'failed'
 		throw SyntaxError.refused
 	end 'failed'
+	if p.formatting 'format'
+		formatted.push(String.from(sub.out))
+	end 'format'
 	return e
 end 'parseInterpolationAt'
 
@@ -514,7 +605,7 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 	var toks = Tokens.create(0)
 	var failed = false
 	try 'lex'
-		toks = lexSource(src, errs: errs)
+		toks = lexSource(src, errs: errs, lenient: false)
 	end 'lex' otherwise 'refused'
 		failed = true
 	end 'refused'

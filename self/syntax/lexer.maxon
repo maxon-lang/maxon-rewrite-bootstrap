@@ -209,6 +209,10 @@ type Lexer
 	var limit as Count
 	// inline is set for an interpolation, which starts at begin.
 	var inline as bool
+	// lenient accepts what has one correct layout and so one meaning, for the formatter to correct: extra whitespace
+	// between tokens and at the end of a line, whitespace on a blank line, a comment indented or spaced as it likes.
+	// Indentation of code stays strict, since another one would change what the program says.
+	var lenient as bool
 	var begin as Count
 	var depth as Count
 	// indent is the indentation, in tabs, of the last code line.
@@ -216,8 +220,8 @@ type Lexer
 	var tokens as Tokens
 	var errors as diag.ErrorList
 
-	static function make(file Count, pos Count, limit Count, inline bool) returns Lexer
-		return Lexer{file: file, pos: pos, limit: limit, inline: inline, begin: pos, depth: 0 as Count, indent: 0 as Count, tokens: Tokens.create(0), errors: diag.ErrorList.create(0)}
+	static function make(file Count, pos Count, limit Count, inline bool, lenient bool) returns Lexer
+		return Lexer{file: file, pos: pos, limit: limit, inline: inline, lenient: lenient, begin: pos, depth: 0 as Count, indent: 0 as Count, tokens: Tokens.create(0), errors: diag.ErrorList.create(0)}
 	end 'make'
 
 	// fail records the error at the offset, which is what the lexer then throws.
@@ -276,18 +280,26 @@ type Lexer
 			let tabs = try pos - lineBegin otherwise panic("a line starts after its tabs")
 			let c = src.text.byteAt(pos)
 			if c == byteNewline 'blank'
-				if tabs > 0 'tabbed'
+				if tabs > 0 and not lenient 'tabbed'
 					throw self.fail(src, message: "a blank line holds tabs; remove the trailing whitespace", at: lineBegin)
 				end 'tabbed'
 				pos = after(pos)
 				continue 'lines'
 			end 'blank'
+			if (c == byteSpace or c == byteCR) and lenient 'spaceLine'
+				let skipped = try self.skipSpaceLine(src)
+				if skipped 'whole'
+					continue 'lines'
+				end 'whole'
+			end 'spaceLine'
 			let at = pos
 			if c == byteSpace 'space'
 				throw self.fail(src, message: "a line is indented with a space; indent with tabs only", at: at)
 			end 'space'
 			if c == byteSlash and src.text.byteAt(after(at)) == byteSlash 'comment'
-				comments.push(lineBegin)
+				if not lenient 'checked'
+					comments.push(lineBegin)
+				end 'checked'
 				let stop = try self.comment(src, start: at)
 				pos = after(stop)
 				continue 'lines'
@@ -313,6 +325,27 @@ type Lexer
 		end 'trailing'
 	end 'lineStart'
 
+	// skipSpaceLine skips the line at pos if it holds only whitespace, or whitespace and a comment, whatever its
+	// indentation: neither says anything the formatter cannot put right. It reports whether it did.
+	function skipSpaceLine(mutates self, src Source) returns bool throws SyntaxError
+		var at = pos
+		var c = src.text.byteAt(at)
+		while c == byteSpace or c == byteTab or c == byteCR 'blanks'
+			at = after(at)
+			c = src.text.byteAt(at)
+		end 'blanks'
+		if c == byteNewline 'blank'
+			pos = after(at)
+			return true
+		end 'blank'
+		if c == byteSlash and src.text.byteAt(after(at)) == byteSlash 'comment'
+			let stop = try self.comment(src, start: at)
+			pos = after(stop)
+			return true
+		end 'comment'
+		return false
+	end 'skipSpaceLine'
+
 	function checkCommentIndent(mutates self, src Source, lineBegin Count, tabs Count) throws SyntaxError
 		var got = 0 as Count
 		while src.text.byteAt(try lineBegin + got otherwise panic("a comment line overflows")) == byteTab 'tabs'
@@ -330,7 +363,7 @@ type Lexer
 			stop = after(stop)
 		end 'scan'
 		let last = src.text.byteAt(before(stop))
-		if last == byteSpace or last == byteTab or last == byteCR 'trailing'
+		if (last == byteSpace or last == byteTab or last == byteCR) and not lenient 'trailing'
 			throw self.fail(src, message: "a comment ends with whitespace; remove it", at: before(stop))
 		end 'trailing'
 		return stop
@@ -399,15 +432,19 @@ type Lexer
 
 	// skipped is where lexLine goes on after the whitespace or the comment from start to stop, which are not tokens.
 	// They are checked here, off lexLine's path: whitespace is an error unless it is the one space lexLine steps over,
-	// which never reaches here, and so is a comment inside an interpolation or one that touches the code before it.
+	// which never reaches here, and so is a comment inside an interpolation or one that touches the code before it; the
+	// lenient lexer accepts the whitespace and the comment's position.
 	function skipped(mutates self, src Source, kind TokenKind, start Count, stop Count) returns Count throws SyntaxError
 		if kind == TokenKind.whitespace 'space'
-			throw self.badSpace(src, start: start, stop: stop)
+			if not lenient 'strict'
+				throw self.badSpace(src, start: start, stop: stop)
+			end 'strict'
+			return stop
 		end 'space'
 		if inline 'interpolation'
 			throw self.fail(src, message: "a comment inside an interpolation; move it after the line", at: start)
 		end 'interpolation'
-		if src.text.byteAt(before(start)) != byteSpace 'touching'
+		if src.text.byteAt(before(start)) != byteSpace and not lenient 'touching'
 			throw self.fail(src, message: "a comment after code is separated from it by one space", at: start)
 		end 'touching'
 		return try self.comment(src, start: start)
@@ -457,8 +494,8 @@ end 'scanString'
 // lexSource lexes every file of src, recording the error it stops at in errs. Each code line ends with a newline; a line
 // indented one tab more than the code line before it starts with an indent, and one indented less starts with a dedent
 // for each tab. Each file ends with a fileEnd and the module with an eof.
-export function lexSource(src Source, mutates errs diag.ErrorList) returns Tokens throws SyntaxError
-	var lx = Lexer.make(0 as Count, pos: 0 as Count, limit: 0 as Count, inline: false)
+export function lexSource(src Source, mutates errs diag.ErrorList, lenient bool) returns Tokens throws SyntaxError
+	var lx = Lexer.make(0 as Count, pos: 0 as Count, limit: 0 as Count, inline: false, lenient: lenient)
 	var failed = false
 	try 'files'
 		for i in 0 upto src.files.count() 'each'
@@ -473,8 +510,8 @@ end 'lexSource'
 
 // lexInterpolation lexes the expression of an interpolation from begin to until in the file of the index: part of one
 // line, with no layout of its own.
-export function lexInterpolation(src Source, mutates errs diag.ErrorList, file Count, begin Count, until Count) returns Tokens throws SyntaxError
-	var lx = Lexer.make(file, pos: begin, limit: until, inline: true)
+export function lexInterpolation(src Source, mutates errs diag.ErrorList, file Count, begin Count, until Count, lenient bool) returns Tokens throws SyntaxError
+	var lx = Lexer.make(file, pos: begin, limit: until, inline: true, lenient: lenient)
 	var failed = false
 	try 'line'
 		lx.lexLine(src)
@@ -510,7 +547,7 @@ export function lex(text String) returns LexResult
 	var toks = Tokens.create(0)
 	var failed = false
 	try 'lex'
-		toks = lexSource(src, errs: errs)
+		toks = lexSource(src, errs: errs, lenient: false)
 	end 'lex' otherwise 'refused'
 		failed = true
 	end 'refused'

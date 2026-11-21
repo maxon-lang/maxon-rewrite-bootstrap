@@ -1,0 +1,411 @@
+// The first three bytes of a UTF-8 byte order mark, which the formatter drops.
+let bomFirst = 239 as Byte
+
+let bomSecond = 187 as Byte
+
+let bomThird = 191 as Byte
+
+// FormatResult is a source formatted, or the errors that stopped it: the text is then left as it was.
+export union FormatResult
+	formatted(text String)
+	refused(errors diag.ErrorList)
+end 'FormatResult'
+
+// appendRange appends the bytes of text from begin until until.
+function appendRange(mutates out ByteArray, text String, begin Count, until Count)
+	for i in begin upto until 'each'
+		out.push(text.byteAt(i))
+	end 'each'
+end 'appendRange'
+
+// isSourceWhitespace is what a line's ends may hold that the formatter removes.
+function isSourceWhitespace(c Byte) returns bool
+	return c == byteSpace or c == byteTab or c == byteCR
+end 'isSourceWhitespace'
+
+// skipSourceWhitespace is where the text from begin until until starts once its leading whitespace is left out.
+function skipSourceWhitespace(text String, begin Count, until Count) returns Count
+	var at = begin
+	while at < until and isSourceWhitespace(text.byteAt(at)) 'skip'
+		at = after(at)
+	end 'skip'
+	return at
+end 'skipSourceWhitespace'
+
+// trimmedEnd is where the text from begin until until ends once its trailing whitespace is left out.
+function trimmedEnd(text String, begin Count, until Count) returns Count
+	var stop = until
+	while stop > begin and isSourceWhitespace(text.byteAt(before(stop))) 'trim'
+		stop = before(stop)
+	end 'trim'
+	return stop
+end 'trimmedEnd'
+
+// startsWithComment is whether the text from at until until starts a comment.
+function startsWithComment(text String, at Count, until Count) returns bool
+	return after(at) < until and text.byteAt(at) == byteSlash and text.byteAt(after(at)) == byteSlash
+end 'startsWithComment'
+
+// Formatter is the output of a parser that formats: the tokens of the program, each after the gap the layout puts before
+// it.
+type Formatter
+	var out as ByteArray
+	// depth is the indentation of the line being written, in tabs.
+	var depth as Count
+	// tokenStart is where the last token's text begins in out.
+	var tokenStart as Count
+
+	static function new() returns Formatter
+		return Formatter{out: ByteArray.create(0), depth: 0 as Count, tokenStart: 0 as Count}
+	end 'new'
+
+	function indent(mutates self, tabs Count)
+		for _ in 0 upto tabs 'each'
+			out.push(byteTab)
+		end 'each'
+	end 'indent'
+
+	function blankLine(mutates self)
+		out.push(byteNewline)
+	end 'blankLine'
+
+	// dropBlankLine takes back the blank line just written.
+	function dropBlankLine(mutates self)
+		let n = out.count()
+		let alone = n == 1 and out[0] == byteNewline
+		let doubled = n >= 2 and out[before(n)] == byteNewline and out[before(before(n))] == byteNewline
+		if not alone and not doubled 'unexpected'
+			panic("the formatter is asked to drop a blank line where there is none")
+		end 'unexpected'
+		_ = try out.pop() otherwise panic("the formatter's output ran out while it dropped a blank line")
+	end 'dropBlankLine'
+
+	// gapLine writes a line of the gap before a line of code: a blank line, or a comment line indented like the code.
+	function gapLine(mutates self, text String, begin Count, until Count, blank bool, tabs Count)
+		if blank 'blank'
+			self.blankLine()
+			return
+		end 'blank'
+		self.indent(tabs)
+		let first = skipSourceWhitespace(text, begin: begin, until: until)
+		appendRange(out, text: text, begin: first, until: trimmedEnd(text, begin: first, until: until))
+		out.push(byteNewline)
+	end 'gapLine'
+
+	// trailingComment writes the comment after code, if the text from begin until until, which ends where the line does,
+	// holds one: one space after the code, with its own text unchanged.
+	function trailingComment(mutates self, text String, begin Count, until Count)
+		let first = skipSourceWhitespace(text, begin: begin, until: until)
+		if startsWithComment(text, at: first, until: until) 'comment'
+			out.push(byteSpace)
+			appendRange(out, text: text, begin: first, until: trimmedEnd(text, begin: first, until: until))
+		end 'comment'
+	end 'trailingComment'
+
+	// replaceString rewrites the string literal t, the last token written, with each interpolation formatted: formatted
+	// holds the text of each of the string's interpolations, in order, and parts are its parts.
+	function replaceString(mutates self, source String, t Token, parts StrParts, formatted ast.StringList)
+		if formatted.count() == 0 'plain'
+			return
+		end 'plain'
+		var interpolations = Spans.create(0)
+		for i in 0 upto parts.count() 'each'
+			match parts[i] 'part'
+				text(run, begin, raw) then _ = 0
+				expr(begin, until) then interpolations.push(Span.make(begin, until: until))
+			end 'part'
+		end 'each'
+		var literal = ByteArray.create(0)
+		var at = t.start as Count
+		for i in 0 upto interpolations.count() 'splice'
+			appendRange(literal, text: source, begin: at, until: interpolations[i].begin)
+			literal.append(formatted[i].toByteArray())
+			at = interpolations[i].until
+		end 'splice'
+		appendRange(literal, text: source, begin: at, until: t.endOffset())
+		while out.count() > tokenStart 'cut'
+			_ = try out.pop() otherwise panic("the formatter's output ran out while it replaced a string")
+		end 'cut'
+		out.append(literal)
+	end 'replaceString'
+end 'Formatter'
+
+// formatSource returns text, a Maxon source file, in the one layout the parser accepts: one space or none between
+// tokens, one tab per indentation level, and blank lines exactly where the rules put them. It changes only the
+// whitespace between tokens, the blank lines and the position of comments; every token, and every comment's text, stays.
+// Line endings become LF, a byte order mark goes, and the file ends with a newline.
+//
+// Source whose layout is wrong still formats when the right layout is unambiguous. Whatever the lexer or the parser
+// refuses beyond layout, such as indentation with spaces or a syntax error, is returned as errors.
+export function formatSource(file String, text String) returns FormatResult
+	let normal = normalizeLines(text)
+	var errs = diag.ErrorList.create(0)
+	var toks = Tokens.create(0)
+	var failed = false
+	try 'lex'
+		toks = lexSource(sourceOf(normal.clone(), path: file), errs: errs, lenient: true)
+	end 'lex' otherwise 'refused'
+		failed = true
+	end 'refused'
+	if failed 'lexError'
+		return FormatResult.refused(errs)
+	end 'lexError'
+	var p = Parser.new(sourceOf(normal.clone(), path: file), toks: toks.clone(), module: 0 as diag.ModuleID)
+	p.formatting = true
+	_ = parseProgram(p)
+	if p.errors.count() > 0 'syntaxErrors'
+		return FormatResult.refused(exchange(p.errors, value: diag.ErrorList.create(0)))
+	end 'syntaxErrors'
+	let out = String.from(p.format.out)
+	verifyFormat(file, input: normal, toks: toks, out: out)
+	return FormatResult.formatted(out)
+end 'formatSource'
+
+// normalizeLines drops a byte order mark, ends every line with a newline alone and ends the text with one.
+function normalizeLines(text String) returns String
+	let length = text.byteLength()
+	var bytes = ByteArray.create(0)
+	var at = 0 as Count
+	if length >= 3 and text.byteAt(0 as Count) == bomFirst and text.byteAt(1 as Count) == bomSecond and text.byteAt(2 as Count) == bomThird 'bom'
+		at = 3 as Count
+	end 'bom'
+	while at < length 'bytes'
+		let c = text.byteAt(at)
+		if not (c == byteCR and after(at) < length and text.byteAt(after(at)) == byteNewline) 'kept'
+			bytes.push(c)
+		end 'kept'
+		at = after(at)
+	end 'bytes'
+	if bytes.count() > 0 and bytes[before(bytes.count())] != byteNewline 'unended'
+		bytes.push(byteNewline)
+	end 'unended'
+	return String.from(bytes)
+end 'normalizeLines'
+
+// tokenHolds is whether the text of t, a token of the source, holds the byte c.
+function tokenHolds(source String, t Token, c Byte) returns bool
+	for i in t.start as Count upto t.endOffset() 'each'
+		if source.byteAt(i) == c 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'tokenHolds'
+
+// sameTokenText is whether t, a token of source, and u, a token of other, read alike.
+function sameTokenText(source String, t Token, other String, u Token) returns bool
+	if t.length != u.length 'length'
+		return false
+	end 'length'
+	for i in 0 upto t.length as Count 'each'
+		if source.byteAt(try (t.start as Count) + i otherwise panic("a token ends past U32")) != other.byteAt(try (u.start as Count) + i otherwise panic("a token ends past U32")) 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'sameTokenText'
+
+// verifyFormat checks the formatter's work, which a bug must never put in a file: the output has to pass the strict
+// parser, and hold the tokens of the input, apart from the layout inside the interpolations of a string.
+function verifyFormat(file String, input String, toks Tokens, out String)
+	var errs = diag.ErrorList.create(0)
+	var again = Tokens.create(0)
+	var failed = false
+	try 'lex'
+		again = lexSource(sourceOf(out.clone(), path: file), errs: errs, lenient: false)
+	end 'lex' otherwise 'refused'
+		failed = true
+	end 'refused'
+	if not failed 'parse'
+		var p = Parser.new(sourceOf(out.clone(), path: file), toks: again.clone(), module: 0 as diag.ModuleID)
+		_ = parseProgram(p)
+		if p.errors.count() > 0 'refused'
+			errs.push(try p.errors.pop() otherwise panic("a parser failed with no error"))
+		end 'refused'
+	end 'parse'
+	if errs.count() > 0 'unparsed'
+		panic("the formatted {file} does not parse: {errs[0].format()}")
+	end 'unparsed'
+	if again.count() != toks.count() 'count'
+		panic("formatting {file} changed its {toks.count()} tokens into {again.count()}")
+	end 'count'
+	for i in 0 upto toks.count() 'each'
+		let same = toks[i].kind == again[i].kind and (sameTokenText(input, t: toks[i], other: out, u: again[i]) or (toks[i].kind == TokenKind.string and tokenHolds(input, t: toks[i], c: byteLBrace)))
+		if not same 'changed'
+			panic("formatting {file} changed token {i}")
+		end 'changed'
+	end 'each'
+end 'verifyFormat'
+
+let byteBacktick = 96 as Byte
+
+// maxonFenceTag marks a fenced block as Maxon; a block with no tag is taken to be Maxon too, and one with any other tag
+// (powershell, an IR listing) is left alone.
+let maxonFenceTag = "maxon"
+
+let codeFenceLength = 3 as Count
+
+// Span is a range of a text, as offsets into it.
+type Span
+	var begin as Count
+	var until as Count
+
+	static function make(begin Count, until Count) returns Span
+		return Span{begin: begin, until: until}
+	end 'make'
+end 'Span'
+
+typealias Spans = Array with Span
+
+// isAsciiSpace is whether c is white space as a Markdown fence tag leaves it out.
+function isAsciiSpace(c Byte) returns bool
+	return c == byteSpace or (c >= byteTab and c <= byteCR)
+end 'isAsciiSpace'
+
+// trimSpaceFrom is where the text from begin until until starts once its leading white space is left out.
+function trimSpaceFrom(text String, begin Count, until Count) returns Count
+	var at = begin
+	while at < until and isAsciiSpace(text.byteAt(at)) 'skip'
+		at = after(at)
+	end 'skip'
+	return at
+end 'trimSpaceFrom'
+
+// trimSpaceUntil is where the text from begin until until ends once its trailing white space is left out.
+function trimSpaceUntil(text String, begin Count, until Count) returns Count
+	var stop = until
+	while stop > begin and isAsciiSpace(text.byteAt(before(stop))) 'trim'
+		stop = before(stop)
+	end 'trim'
+	return stop
+end 'trimSpaceUntil'
+
+// lineEndAt is where the line that holds offset at ends: the offset of its newline, or the text's length.
+function lineEndAt(text String, at Count) returns Count
+	let length = text.byteLength()
+	var stop = at
+	while stop < length and text.byteAt(stop) != byteNewline 'scan'
+		stop = after(stop)
+	end 'scan'
+	return stop
+end 'lineEndAt'
+
+// indentEnd is where the line from begin until until starts once the spaces and tabs that indent it are left out.
+function indentEnd(text String, begin Count, until Count) returns Count
+	var at = begin
+	while at < until and (text.byteAt(at) == byteSpace or text.byteAt(at) == byteTab) 'indent'
+		at = after(at)
+	end 'indent'
+	return at
+end 'indentEnd'
+
+// opensFence is whether the text from at until until starts with a code fence.
+function opensFence(text String, at Count, until Count) returns bool
+	let stop = try at + codeFenceLength otherwise panic("a code fence ends past the text")
+	return stop <= until and text.byteAt(at) == byteBacktick and text.byteAt(after(at)) == byteBacktick and text.byteAt(after(after(at))) == byteBacktick
+end 'opensFence'
+
+// isMaxonFence is whether the tag after the fence from begin until until marks Maxon: it is empty or maxon.
+function isMaxonFence(text String, begin Count, until Count) returns bool
+	let first = trimSpaceFrom(text, begin: begin, until: until)
+	let last = trimSpaceUntil(text, begin: first, until: until)
+	return first == last or text.sliceBytes(first, endPos: last) == maxonFenceTag
+end 'isMaxonFence'
+
+// scanMarkdown finds the Maxon in a Markdown document: the text of each fenced block that is tagged maxon or not tagged,
+// as offsets into the text.
+function scanMarkdown(text String) returns Spans
+	var blocks = Spans.create(0)
+	let length = text.byteLength()
+	var at = 0 as Count
+	while at < length 'lines'
+		let lineEnd = lineEndAt(text, at: at)
+		let first = indentEnd(text, begin: at, until: lineEnd)
+		if opensFence(text, at: first, until: lineEnd) 'fence'
+			var blockBegin = length
+			if after(lineEnd) < length 'block'
+				blockBegin = after(lineEnd)
+			end 'block'
+			let closing = closingFence(text, begin: blockBegin)
+			if isMaxonFence(text, begin: after(after(after(first))), until: lineEnd) 'maxon'
+				blocks.push(Span.make(blockBegin, until: closing.begin))
+			end 'maxon'
+			at = closing.until
+			continue 'lines'
+		end 'fence'
+		at = after(lineEnd)
+	end 'lines'
+	return blocks
+end 'scanMarkdown'
+
+// closingFence finds the fence that closes a block whose text starts at begin: it gives where the block's text ends (the
+// start of the closing fence's line) and where the text after the fence's line starts. An unclosed block runs to the end
+// of the document.
+function closingFence(text String, begin Count) returns Span
+	let length = text.byteLength()
+	var at = begin
+	while at < length 'lines'
+		let lineEnd = lineEndAt(text, at: at)
+		var next = length
+		if lineEnd < length 'newline'
+			next = after(lineEnd)
+		end 'newline'
+		if opensFence(text, at: indentEnd(text, begin: at, until: next), until: next) 'fence'
+			return Span.make(at, until: next)
+		end 'fence'
+		at = next
+	end 'lines'
+	return Span.make(length, until: length)
+end 'closingFence'
+
+// formatMarkdown returns the Markdown document text with the Maxon in its fenced blocks formatted: a block tagged maxon
+// or not tagged that is a whole program. Prose, other blocks and blocks that do not parse stay as they are.
+export function formatMarkdown(file String, text String) returns String
+	let blocks = scanMarkdown(text)
+	var out = ByteArray.create(0)
+	var at = 0 as Count
+	for i in 0 upto blocks.count() 'blocks'
+		appendRange(out, text: text, begin: at, until: blocks[i].begin)
+		out.append(formattedBlock(file, block: text.sliceBytes(blocks[i].begin, endPos: blocks[i].until)).toByteArray())
+		at = blocks[i].until
+	end 'blocks'
+	appendRange(out, text: text, begin: at, until: text.byteLength())
+	return String.from(out)
+end 'formatMarkdown'
+
+// formattedBlock is the block with its Maxon formatted, or the block itself when it is not a whole program.
+function formattedBlock(file String, block String) returns String
+	if trimSpaceFrom(block, begin: 0 as Count, until: block.byteLength()) == block.byteLength() 'empty'
+		return block.clone()
+	end 'empty'
+	match formatSource(file, text: block) 'result'
+		formatted(text) then return withLineEndsOf(block, formatted: text)
+		refused(errors) then return block.clone()
+	end 'result'
+end 'formattedBlock'
+
+// withLineEndsOf is formatted, which ends its lines with LF, with the line endings of block: its last line ends as the
+// block's does, and its lines with CRLF where the block's do.
+function withLineEndsOf(block String, formatted String) returns String
+	let length = block.byteLength()
+	let endsLine = length > 0 and block.byteAt(before(length)) == byteNewline
+	var crlf = false
+	for i in 1 upto length 'scan'
+		if block.byteAt(i) == byteNewline and block.byteAt(before(i)) == byteCR 'crlf'
+			crlf = true
+		end 'crlf'
+	end 'scan'
+	var stop = formatted.byteLength()
+	if not endsLine and stop > 0 and formatted.byteAt(before(stop)) == byteNewline 'trim'
+		stop = before(stop)
+	end 'trim'
+	var out = ByteArray.create(0)
+	for i in 0 upto stop 'each'
+		let c = formatted.byteAt(i)
+		if c == byteNewline and crlf 'break'
+			out.push(byteCR)
+		end 'break'
+		out.push(c)
+	end 'each'
+	return String.from(out)
+end 'withLineEndsOf'
