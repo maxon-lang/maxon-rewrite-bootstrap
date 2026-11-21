@@ -1,6 +1,9 @@
 package driver
 
 import (
+	"slices"
+	"strings"
+
 	"minimaxon/internal/ast"
 	"minimaxon/internal/check"
 	"minimaxon/internal/diag"
@@ -115,20 +118,28 @@ func constantOrder(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) []*a
 	state := make([]byte, len(m.Decls))
 	refs := constRefs{proj, &res.Resolution}
 	var order []*ast.ConstDecl
+	var path []*ast.ConstDecl
 	var visit func(c *ast.ConstDecl)
 	visit = func(c *ast.ConstDecl) {
 		switch state[c.Ordinal] {
 		case done:
 			return
 		case visiting:
-			panic(c.Error(diag.ErrDependsOnItself, "constant '"+c.Name+"' depends on itself"))
+			loop := path[slices.Index(path, c):]
+			names := make([]string, len(loop))
+			for i, l := range loop {
+				names[i] = l.Name
+			}
+			panic(c.Error(diag.ErrDependsOnItself, diag.CircularConstants(strings.Join(names, ", "))))
 		}
 		state[c.Ordinal] = visiting
+		path = append(path, c)
 		for _, named := range refs.of(c.Value, nil) {
 			if named.Module == m {
 				visit(named)
 			}
 		}
+		path = path[:len(path)-1]
 		state[c.Ordinal] = done
 		order = append(order, c)
 	}

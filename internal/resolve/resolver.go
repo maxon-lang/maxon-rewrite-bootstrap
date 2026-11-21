@@ -229,9 +229,8 @@ func (r *Resolver) signatureType(s surface, position string, tr ast.TypeRef) {
 func (r *Resolver) requireExposable(s surface, position string, tr ast.TypeRef) {
 	if d := r.result.Resolution.Decl(r.project, tr.ID); d != nil && d.Base().Level() < s.tier {
 		b := d.Base()
-		panic(s.at.Error(diag.ErrExposesHiddenType, fmt.Sprintf("%s %s '%s' names %s %s '%s' %s: mark '%s' '%s', or narrow the %s",
-			s.tier.Word(), s.noun, s.name, b.Level().Word(), ast.VisitDeclResult[string](typeNouns{}, d), b.Name, position,
-			b.Name, s.tier.Modifier(), s.noun)))
+		panic(s.at.Error(diag.ErrExposesHiddenType, diag.ExposesLessVisibleType(
+			s.tier.Word(), s.noun, s.name, b.Level().Word(), ast.VisitDeclResult[string](typeNouns{}, d), b.Name, position)))
 	}
 	for _, a := range tr.TypeArgs().All() {
 		r.requireExposable(s, position, a)
@@ -258,7 +257,7 @@ func (typeNouns) VisitConstDecl(c *ast.ConstDecl) string {
 // checkEnd refuses an 'end' whose label is not the block's.
 func checkEnd(label string, end ast.EndLabel) {
 	if !end.IsNil() && end.Name() != label {
-		panic(end.Error(diag.ErrMismatchedEndLabel, fmt.Sprintf("'end' names '%s', but the block is '%s'", end.Name(), label)))
+		panic(end.Error(diag.ErrMismatchedEndLabel, diag.MismatchedEndLabel(label, end.Name())))
 	}
 }
 
@@ -674,7 +673,7 @@ func (r *Resolver) qualified(head string, headSite ast.Pos, rest []string, sites
 	}
 	decl, ok := mod.Names[rest[i]]
 	if !ok {
-		panic(sites[i].Position().Error(diag.ErrUnknownStaticMember, "module "+mod.Display()+" declares no '"+rest[i]+"'"))
+		panic(sites[i].Position().Error(diag.ErrUnknownStaticMember, diag.DirectoryHasNoMember(strings.Join(append([]string{head}, rest[:i]...), "."), rest[i])))
 	}
 	found := lookup{Decl: decl}
 	if !r.visible(decl) {

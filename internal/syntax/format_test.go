@@ -141,7 +141,7 @@ var formatRefusals = []struct {
 	{"indented too deep", "function f()\n\t\tlet a = 1\nend 'f'\n", "more than one tab deeper"},
 	{"a line break inside parentheses", "let a = f(1,\n2)\n", "breaks inside parentheses"},
 	{"a block comment", "/* no */\nlet a = 1\n", "block comment"},
-	{"a syntax error", "let = 1\n", "expected"},
+	{"a syntax error", "let = 1\n", "Expected a name but got"},
 	{"an unterminated string", "let a = \"x\n", "unterminated string"},
 }
 

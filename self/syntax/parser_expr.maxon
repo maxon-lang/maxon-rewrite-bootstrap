@@ -502,7 +502,7 @@ function parsePrimary(mutates p Parser) returns ast.NodeID
 		ast.setNameExprNameRef(p.tree, id: id, ref: nameRef)
 		return id
 	end 'nm'
-	p.fail(diag.errExpressionError, message: "expected an expression, found '{p.curText()}'")
+	p.fail(diag.errExpressionError, message: diag.expectedExpression(p.curText()))
 	return 0 as ast.NodeID
 end 'parsePrimary'
 

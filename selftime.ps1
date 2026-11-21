@@ -29,9 +29,11 @@ try {
 	if ($LASTEXITCODE -ne 0) { throw "build self failed:`n$out" }
 	if ($out -notmatch '(?m)^total\s+([\d.]+) ms') { throw "no total in --timings output:`n$out" }
 	$total = [double]$Matches[1]
-	if ($out -notmatch 'check ([\d.]+) ms, generate ([\d.]+) ms') { throw "no task times in --timings output:`n$out" }
+	# The task-time line lists the stages by name; its other stages vary with the compiler's version.
+	if ($out -notmatch ' check ([\d.]+) ms') { throw "no check time in --timings output:`n$out" }
 	$check = [double]$Matches[1]
-	$generate = [double]$Matches[2]
+	if ($out -notmatch ' generate ([\d.]+) ms') { throw "no generate time in --timings output:`n$out" }
+	$generate = [double]$Matches[1]
 } finally {
 	Pop-Location
 	Remove-Item -Recurse -Force $scratch

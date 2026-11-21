@@ -170,14 +170,14 @@ func TestParseAssignmentAndCallShareTheirStart(t *testing.T) {
 
 func TestSyntaxErrorNamesWhatWasExpected(t *testing.T) {
 	_, errs := parseFiles(t, "testdata/expected-token.maxon")
-	if len(errs) != 1 || errs[0].Code != diag.ErrExpectedToken || errs[0].Line != 2 || !strings.Contains(errs[0].Message, "found ')'") {
+	if len(errs) != 1 || errs[0].Code != diag.ErrExpectedToken || errs[0].Line != 2 || !strings.Contains(errs[0].Message, "but got ')'") {
 		t.Fatalf("errors: %v", errs)
 	}
 }
 
 func TestSyntaxErrorDescribesATokenByItsDescription(t *testing.T) {
 	_, errs := parseFiles(t, "testdata/expected-end-of-line.maxon")
-	if len(errs) != 1 || errs[0].Message != "expected the end of the line, found '2'" {
+	if len(errs) != 1 || errs[0].Message != "Expected the end of the line but got '2'" {
 		t.Fatalf("errors: %v", errs)
 	}
 }

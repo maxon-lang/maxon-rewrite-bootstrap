@@ -1,7 +1,6 @@
 package syntax
 
 import (
-	"fmt"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"strings"
@@ -363,10 +362,9 @@ func (p *Parser) expected(what string) *diag.CompileError {
 	t := p.cur()
 	line, col := p.lineCol(t)
 	if p.atEndOfInput() {
-		return diag.NewError(diag.ErrUnexpectedEnd, "unexpected end of file, expected "+what, p.file(), line, col)
+		return diag.NewError(diag.ErrUnexpectedEnd, diag.UnexpectedEof(), p.file(), line, col)
 	}
-	msg := fmt.Sprintf("expected %s, found '%s'", what, p.describe(t))
-	return diag.NewError(diag.ErrExpectedToken, msg, p.file(), line, col)
+	return diag.NewError(diag.ErrExpectedToken, diag.ExpectedToken(what, p.describe(t)), p.file(), line, col)
 }
 
 func (p *Parser) expect(k T, what string) Token {

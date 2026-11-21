@@ -111,7 +111,7 @@ type Parser
 		if self.curKind() == kind 'ok'
 			return self.advance()
 		end 'ok'
-		self.fail(diag.errExpectedToken, message: "expected {what}, found '{self.curText()}'")
+		self.fail(diag.errExpectedToken, message: diag.expectedToken(what, got: self.curText()))
 		return Token.make(kind, start: self.curStart() as Count, length: 0 as Count)
 	end 'expect'
 
@@ -218,7 +218,7 @@ function parseParam(mutates p Parser) returns ast.Param
 	if p.wordAt(0 as Count) 'word'
 		pname = p.advance().text(p.src)
 	end 'word' else 'notAWord'
-		p.fail(diag.errExpectedToken, message: "expected a parameter name, found '{p.curText()}'")
+		p.fail(diag.errExpectedToken, message: diag.expectedToken("a parameter name", got: p.curText()))
 	end 'notAWord'
 	let tr = parseTypeRef(p)
 	let id = p.tree.alloc(ast.NodeKind.param, start: start)

@@ -408,9 +408,9 @@ func (r *Ranges) VisitThrowStmt(s ast.ThrowStmt) {
 		case r.behaviour:
 			panic(s.Error(diag.ErrErrorTypeMismatch, "a throw passes its error to the caller, and nothing waits for a behaviour: handle the failure in the behaviour"))
 		case r.fn.ErrorType == nil:
-			panic(s.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("a throw passes its error to the caller, but '%s' does not throw: declare '%s' 'throws %s', or handle the failure where it happens", r.fn.Name, r.fn.Name, e.Name())))
+			panic(s.Error(diag.ErrErrorTypeMismatch, diag.ThrowNoThrows(e.Name())))
 		case r.fn.ErrorType != e:
-			panic(s.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("throw of '%s', but '%s' throws '%s': throw a case of '%s', or declare 'throws %s'", e.Name(), r.fn.Name, r.fn.ErrorType.Name(), r.fn.ErrorType.Name(), e.Name())))
+			panic(s.Error(diag.ErrErrorTypeMismatch, diag.ThrowMismatch(e.Name(), r.fn.ErrorType.Name())))
 		}
 		r.st = deadState
 		return
@@ -766,7 +766,7 @@ func (r *Ranges) VisitCallExpr(e ast.CallExpr) span {
 			if call.Kind == ast.CallBound {
 				name = call.Generic.Method.Name
 			}
-			return fmt.Sprintf("'%s' throws %s, so the call can fail; handle the failure with 'try'", name, err.Name())
+			return diag.ThrowingCallRequiresTry(name)
 		})
 	}
 	return r.typed(e.Expr())
@@ -964,7 +964,7 @@ func (r *Ranges) fallible(site ast.Pos, err ast.Ty, message func() string) {
 	if r.probe == nil {
 		switch {
 		case h.propagates && r.fn.ErrorType != err:
-			panic(site.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("'try' passes on '%s', but '%s' throws '%s': convert it with 'otherwise throw', or handle it with 'otherwise'", err.Name(), r.fn.Name, r.fn.ErrorType.Name())))
+			panic(site.Error(diag.ErrErrorTypeMismatch, diag.PropagateMismatch(err.Name(), r.fn.ErrorType.Name())))
 		case h.takes != nil && h.takes != err:
 			panic(site.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("this fails with '%s', but the handler of the try around it names a '%s': give it a 'try ... otherwise' of its own", err.Name(), h.takes.Name())))
 		}

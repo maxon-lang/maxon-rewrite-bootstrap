@@ -537,7 +537,7 @@ func (o *Ownership) VisitAssignStmt(st ast.AssignStmt, s *ownState) *ownState {
 			return o.readRoot(o.fn.SelfLocal, target.Position(), s)
 		case ast.NameConst:
 			s = o.consume(st.Value(), ownDest{kind: destVariable, name: target.Name()}, s)
-			o.fail(st.Position(), diag.ErrAssignToImmutable, "'%s' is a constant and cannot be reassigned", target.Name())
+			o.fail(st.Position(), diag.ErrAssignToImmutable, "%s", diag.LetReassigned(target.Name()))
 			return s
 		}
 	case ast.KindMemberExpr:
@@ -928,9 +928,7 @@ func (o *Ownership) readRoot(l *ast.Local, site ast.Pos, s *ownState) *ownState 
 	}
 	switch fact.kind {
 	case factMoved:
-		o.fail(site, diag.ErrUseAfterMove,
-			"'%s' was moved into %s at line %d; %s",
-			l.Name, fact.dest, o.lineOf(fact.site), o.checker.copyAdvice(l.Type, fmt.Sprintf("move a copy instead: '%s.copy()'", l.Name), "assign it again before reading it"))
+		o.fail(site, diag.ErrUseAfterMove, "%s", diag.UseOfValueMovedInto(l.Name, fact.dest.String()))
 	case factUninitialised:
 		o.fail(site, diag.ErrUseBeforeInit,
 			"'%s' has no value here; assign it on every path before reading it", l.Name)

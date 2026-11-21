@@ -11,3 +11,4 @@ One uncached `minimaxon build self --timings` with the Go compiler, one row per 
 | 2026-11-21 | 6476c3c | 1.2a built-ins generator | 8948 | 15.6 | 15.1 | 12.5 |
 | 2026-11-21 | 90ecf9f | 1.2a modules | 9021 | 16.1 | 16.0 | 9.0 |
 | 2026-11-21 | 35d0ed5 | 1.2a errors (throws) | 9052 | 16.6 | 16.3 | 12.2 |
+| 2026-11-21 | 46d0574 | 1.2a scheduled front | 9052 | 15.9 | 12.0 | 10.6 |

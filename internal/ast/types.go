@@ -381,10 +381,10 @@ func (shell) VisitAliasDecl(t *AliasDecl) Ty {
 		hi = hi.Sub(One)
 	}
 	if lo.Gt(hi) {
-		panic(t.Error(diag.ErrTypeMismatch, fmt.Sprintf("the range of '%s' is empty", t.Name)))
+		panic(t.Error(diag.ErrTypeMismatch, diag.EmptyIntegerRange(lo.String(), hi.String())))
 	}
 	if lo.IsNeg() && hi.Gt(I64Max) {
-		panic(t.Error(diag.ErrTypeMismatch, "an integer range cannot span both negative values and values above i64.max"))
+		panic(t.Error(diag.ErrTypeMismatch, diag.UnrepresentableIntegerRange(lo.String(), hi.String())))
 	}
 	return &IntTy{Alias: t.Name, Min: lo, Max: hi}
 }

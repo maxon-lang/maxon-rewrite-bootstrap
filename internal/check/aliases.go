@@ -1,9 +1,26 @@
 package check
 
 import (
+	"slices"
+	"strings"
+
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 )
+
+// aliasCycle spells the loop that visiting a closes, from the first alias of path that is a: one name for an alias that
+// names itself, else each alias in turn and the first again.
+func aliasCycle(path []*ast.AliasDecl, a *ast.AliasDecl) string {
+	loop := path[slices.Index(path, a):]
+	names := make([]string, len(loop), len(loop)+1)
+	for i, l := range loop {
+		names[i] = l.Name
+	}
+	if len(names) > 1 {
+		names = append(names, names[0])
+	}
+	return strings.Join(names, " -> ")
+}
 
 // DeclareAliases gives each typealias of an instance that the module declares its type, after the typealiases it names.
 // A typealias of another module that it names is done already: the module graph has no cycle, and the module's aliases
@@ -15,6 +32,7 @@ func DeclareAliases(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
 	// state is by the typealias's place among the module's declarations.
 	state := make([]byte, len(m.Decls))
 	var checker *Checker
+	var path []*ast.AliasDecl
 	var visit func(a *ast.AliasDecl)
 	visit = func(a *ast.AliasDecl) {
 		if a.Module != m {
@@ -24,10 +42,14 @@ func DeclareAliases(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
 		case done:
 			return
 		case visiting:
-			panic(a.Error(diag.ErrDependsOnItself, "typealias '"+a.Name+"' names itself, through the typealiases it names: an instance cannot be its own type argument"))
+			panic(a.Error(diag.ErrDependsOnItself, diag.CircularTypealias(aliasCycle(path, a))))
 		}
 		state[a.Ordinal] = visiting
-		defer func() { state[a.Ordinal] = done }()
+		path = append(path, a)
+		defer func() {
+			state[a.Ordinal] = done
+			path = path[:len(path)-1]
+		}()
 		for _, dep := range namedAliases(proj, &res.Resolution, a.Instance, nil) {
 			visit(dep)
 			if dep.Ty == nil {

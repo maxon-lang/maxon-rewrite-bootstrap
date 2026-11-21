@@ -6,6 +6,7 @@ import (
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -250,8 +251,10 @@ func (c *Checker) resolveNamed(tr ast.TypeRef, self ast.Ty) ast.Ty {
 			}
 			c.requireNoTypeArgs(tr, tr.Name())
 			return self
-		case "int", "float":
-			panic(tr.Error(diag.ErrTypeMismatch, fmt.Sprintf("a bare '%s' needs a ranged typealias", tr.Name())))
+		case "int":
+			panic(tr.Error(diag.ErrTypeMismatch, diag.BareIntType()))
+		case "float":
+			panic(tr.Error(diag.ErrTypeMismatch, diag.BareFloatType()))
 		}
 	}
 	if tb, ok := c.target(tr.ID).(ast.TypeDeclNode); ok {
@@ -259,7 +262,7 @@ func (c *Checker) resolveNamed(tr ast.TypeRef, self ast.Ty) ast.Ty {
 			return c.withTypeArgs(tr, t, self)
 		}
 	}
-	panic(unqualified(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())), tr.Qualifier().Len(), tr.Name()))
+	panic(unqualified(tr.Error(diag.ErrUnknownType, diag.UnknownType(tr.Name())), tr.Qualifier().Len(), tr.Name()))
 }
 
 func (c *Checker) requireNoTypeArgs(tr ast.TypeRef, name string) {
@@ -291,8 +294,7 @@ func (c *Checker) resolveArgs(refs ast.TypeRefList, self ast.Ty) []ast.Ty {
 // requireTypeArgCount refuses a list of type arguments of the wrong length.
 func requireTypeArgCount(site ast.Pos, name string, params []*ast.TypeParamTy, given int) {
 	if given != len(params) {
-		panic(site.Position().Error(diag.ErrTypeArgumentCount, fmt.Sprintf("'%s' takes %d type argument(s), given %d: write '%s'",
-			name, len(params), given, ast.InstanceSpelling(name, paramNames(params)))))
+		panic(site.Position().Error(diag.ErrTypeArgumentCount, diag.GenericArityMismatch(name, strconv.Itoa(len(params)), strconv.Itoa(given))))
 	}
 }
 
@@ -373,7 +375,7 @@ func (c *Checker) boundsOf(p *ast.TypeParamTy) []*ast.InterfaceTy {
 func (c *Checker) resolveBound(tr ast.TypeRef) *ast.InterfaceTy {
 	target := c.target(tr.ID)
 	if target == nil && c.resolution.TypeParam(tr.ID) == nil {
-		panic(unqualified(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())), tr.Qualifier().Len(), tr.Name()))
+		panic(unqualified(tr.Error(diag.ErrUnknownType, diag.UnknownType(tr.Name())), tr.Qualifier().Len(), tr.Name()))
 	}
 	d, ok := target.(*ast.InterfaceDecl)
 	if !ok {
@@ -427,7 +429,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 		self := ast.SelfType(rt)
 		for _, f := range t.Fields {
 			if rt.Field(f.Name) != nil {
-				panic(f.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is declared twice", f.Name)))
+				panic(f.Error(diag.ErrDuplicateDefinition, diag.DuplicateField(f.Name, rt.Name())))
 			}
 			var ft ast.Ty = ast.VoidTy
 			if !f.Type.IsNil() {
@@ -448,7 +450,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 		next := ast.Zero
 		for _, cs := range t.Cases {
 			if et.CaseIndex(cs.Name) >= 0 {
-				panic(cs.Error(diag.ErrEnumDuplicateCase, fmt.Sprintf("case '%s' is declared twice", cs.Name)))
+				panic(cs.Error(diag.ErrEnumDuplicateCase, diag.DuplicateEnumCase(cs.Name)))
 			}
 			raw := next
 			if !cs.Raw.IsNil() {
@@ -456,7 +458,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 			}
 			for _, r := range et.Raw {
 				if r == raw {
-					panic(cs.Error(diag.ErrEnumDuplicateRawValue, fmt.Sprintf("raw value %s is used twice", raw.String())))
+					panic(cs.Error(diag.ErrEnumDuplicateRawValue, diag.DuplicateRawValue(raw.String())))
 				}
 			}
 			et.HasExplicitRaw = et.HasExplicitRaw || !cs.Raw.IsNil()
@@ -471,7 +473,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 		self := ast.SelfType(ut)
 		for _, cs := range t.Cases {
 			if ut.CaseIndex(cs.Name) >= 0 {
-				panic(cs.Error(diag.ErrEnumDuplicateCase, fmt.Sprintf("case '%s' is declared twice", cs.Name)))
+				panic(cs.Error(diag.ErrEnumDuplicateCase, diag.DuplicateEnumCase(cs.Name)))
 			}
 			payload := make([]ast.PayloadField, 0, len(cs.Fields))
 			for _, f := range cs.Fields {
@@ -495,7 +497,7 @@ func (c *Checker) declareSignature(it *ast.InterfaceTy, m *ast.FuncSig) {
 		panic(m.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is built in for every type; name the method something else", copyMethod)))
 	}
 	if _, exists := it.Methods[m.Name]; exists {
-		panic(m.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("method '%s' is declared twice in '%s'", m.Name, it.Name())))
+		panic(m.Error(diag.ErrDuplicateDefinition, diag.DuplicateRequirement(m.Name, it.Name())))
 	}
 	m.Pass.SelfConv = ast.ConventionOf(m.Receiver)
 	_, m.Pass.Specs = c.paramSpecs(m.Params, it.Self)
@@ -515,7 +517,7 @@ func (c *Checker) addMethods(methods []*ast.FuncDecl, nt ast.NominalTy, declared
 			}
 			table := nt.MethodTable()
 			if _, exists := table[m.Name]; exists {
-				panic(m.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("method '%s' is declared twice in '%s'", m.Name, nt.Name())))
+				panic(m.Error(diag.ErrDuplicateDefinition, diag.DuplicateMethod(m.Name, nt.Name())))
 			}
 			table[m.Name] = m
 			c.addFunction(m, nt, declared)
@@ -627,12 +629,12 @@ func (c *Checker) returnType(f *ast.FuncDecl) ast.Ty {
 func (c *Checker) CheckMain() *ast.FuncDecl {
 	var result *ast.FuncDecl
 	c.guard(func() {
-		main, ok := c.module.Names["main"].(*ast.FuncDecl)
+		main, ok := c.module.Names[entryFunction].(*ast.FuncDecl)
 		if !ok {
-			panic(diag.NewError(diag.ErrNoMainFunction, "the project root has no 'main' function", c.module.Dir, 1, 1))
+			panic(diag.NewError(diag.ErrNoMainFunction, diag.NoEntryFunction(entryFunction), c.module.Dir, 1, 1))
 		}
 		if len(main.Params) > 0 {
-			panic(main.Error(diag.ErrEntryTakesParameters, "'main' takes no parameters"))
+			panic(main.Error(diag.ErrEntryTakesParameters, diag.EntryTakesParameters(entryFunction)))
 		}
 		returnsExitCode := false
 		if !main.Returns.IsNil() {
@@ -641,10 +643,10 @@ func (c *Checker) CheckMain() *ast.FuncDecl {
 			}
 		}
 		if !returnsExitCode {
-			panic(main.Error(diag.ErrMainWrongReturnType, "'main' must return ExitCode"))
+			panic(main.Error(diag.ErrMainWrongReturnType, diag.EntryWrongReturnType(entryFunction)))
 		}
 		if !main.Throws.IsNil() {
-			panic(main.Throws.Error(diag.ErrMainCannotThrow, "'main' has no caller to pass a failure to: remove 'throws', and catch the failures in 'main' with 'try ... otherwise'"))
+			panic(main.Throws.Error(diag.ErrMainCannotThrow, diag.EntryCannotThrow(entryFunction)))
 		}
 		result = main
 	})
@@ -691,8 +693,7 @@ func (c *Checker) defaultType(fi *ast.FieldInfo, rt ast.Ty) ast.Ty {
 			return c.requireInstance(n.Position(), nt)
 		}
 	}
-	panic(fi.Default.Position().Error(diag.ErrExpressionError,
-		fmt.Sprintf("field '%s' needs a type: write 'var %s as <Type>', or a default that is a cast, a bool, a string, or a case or factory of a type", fi.Name, fi.Name)))
+	panic(fi.Default.Position().Error(diag.ErrExpressionError, diag.UninferrableFieldDefault()))
 }
 
 func (c *Checker) checkFieldDefaults(td *ast.TypeDecl) {
@@ -705,7 +706,7 @@ func (c *Checker) checkFieldDefaults(td *ast.TypeDecl) {
 			c.enterContext(nil, ast.SelfType(rt), true)
 			c.uses = &fi.Uses
 			c.checkExpecting(fi.Default, fi.Type)
-			c.coerce(fi.Default, fi.Type, fmt.Sprintf("the default of field '%s'", fi.Name))
+			c.coerce(fi.Default, fi.Type, expectedGotMismatch)
 		})
 	}
 }
@@ -798,7 +799,7 @@ func (c *Checker) declareParam(prm *ast.Param, t ast.Ty, index int) *ast.Local {
 func (c *Checker) bind(local *ast.Local, site ast.Pos) {
 	name := local.Name
 	if rt := c.selfRecord(); rt != nil && rt.Field(name) != nil {
-		panic(site.Position().Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' shadows the field '%s' of '%s'", name, name, rt.Name())))
+		panic(site.Position().Error(diag.ErrDuplicateDefinition, diag.LocalShadowsSelfField(name, rt.Name())))
 	}
 	top := c.scopes[len(c.scopes)-1]
 	if _, exists := top[name]; exists {
@@ -832,7 +833,7 @@ func (c *Checker) checkFunction(f *ast.FuncDecl) {
 
 	c.checkBlock(f.Body)
 	if c.returnType(f) != ast.VoidTy && !ast.TerminatesBody(f.Body) {
-		panic(f.Error(diag.ErrMissingReturn, fmt.Sprintf("'%s' must return a %s on every path", f.Name, c.returnType(f).Name())))
+		panic(f.Error(diag.ErrMissingReturn, diag.MissingReturn(f.Name)))
 	}
 }
 
@@ -870,22 +871,65 @@ func (c *Checker) assignable(src, dst ast.Ty) bool {
 	return false
 }
 
-func (c *Checker) coerce(e ast.Expr, target ast.Ty, what string) {
+const (
+	// entryFunction is the function a program starts in.
+	entryFunction = "main"
+
+	// enumWord and unionWord are how a message names the kind of a type that has cases.
+	enumWord  = "enum"
+	unionWord = "union"
+)
+
+// mismatch words a value whose type is not the type its place needs, as the place does: castable is whether a cast to
+// expected would make the value fit.
+type mismatch func(expected, got string, castable bool) string
+
+func expectedGotMismatch(expected, got string, castable bool) string {
+	if castable {
+		return diag.ExpectedGotCast(expected, got)
+	}
+	return diag.ExpectedGot(expected, got)
+}
+
+// argMismatch is the mismatch of the argument for the parameter that label names.
+func argMismatch(label string) mismatch {
+	return func(expected, got string, castable bool) string {
+		if castable {
+			return diag.ArgTypeMismatchCast(label, expected, got)
+		}
+		return diag.ArgTypeMismatch(label, expected, got)
+	}
+}
+
+// assignMismatch is the mismatch of a value stored in place, such as "variable 'x'".
+func assignMismatch(place string) mismatch {
+	return func(expected, got string, castable bool) string {
+		if castable {
+			return diag.AssignMismatchCast(got, place, expected)
+		}
+		return diag.AssignMismatch(got, place, expected)
+	}
+}
+
+func returnMismatch(expected, got string, _ bool) string {
+	return diag.ReturnTypeMismatch(got, expected)
+}
+
+func (c *Checker) coerce(e ast.Expr, target ast.Ty, wrong mismatch) {
 	src := c.ty(e)
 	if c.assignable(src, target) {
 		return
 	}
 	if k, ok := src.(*ast.ConstIntTy); ok {
 		if ti, isInt := target.(*ast.IntTy); isInt {
-			panic(e.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: %s does not fit %s (%s to %s)", what, k.Value.String(), ti.Name(), ti.Min.String(), ti.Max.String())))
+			panic(e.Position().Error(diag.ErrTypeMismatch, diag.LiteralOutOfRange(k.Value.String(), ti.Name(), ti.Min.String(), ti.Max.String())))
 		}
 	}
-	if si, ok := src.(*ast.IntTy); ok && si.IsAnonymous() {
-		if ta, isInt := target.(*ast.IntTy); isInt {
-			panic(e.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: a value of %s may not fit %s; cast it with 'as %s'", what, src.Name(), ta.Name(), ta.Name())))
-		}
+	_, targetIsInt := target.(*ast.IntTy)
+	if si, ok := src.(*ast.IntTy); ok && si.IsAnonymous() && targetIsInt {
+		panic(e.Position().Error(diag.ErrTypeMismatch, wrong(target.Name(), src.Name(), true)))
 	}
-	panic(e.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("%s: expected %s, found %s", what, target.Name(), src.Name())))
+	panic(e.Position().Error(diag.ErrTypeMismatch, wrong(target.Name(), src.Name(), false)))
 }
 
 func (c *Checker) isInt(t ast.Ty) bool {
@@ -909,7 +953,7 @@ func (c *Checker) rangeOf(t ast.Ty) (ast.I128, ast.I128) {
 func (c *Checker) requireSigned64(site ast.Pos, t ast.Ty) {
 	if k, ok := t.(*ast.ConstIntTy); ok && k.Value.Gt(ast.I64Max) {
 		panic(site.Position().Error(diag.ErrIntegerLiteralRange,
-			fmt.Sprintf("Integer literal '%s' is above i64.max, so it needs an alias whose range admits it: write '%s as <alias>'", k.Value.String(), k.Value.String())))
+			diag.UnsignedLiteralWithoutAlias(k.Value.String())))
 	}
 }
 
@@ -1078,7 +1122,7 @@ func (c *Checker) VisitNameExpr(n ast.NameExpr) ast.Ty {
 	if n.Name() == "Self" {
 		panic(n.Error(diag.ErrExpressionError, "'Self' is a type, not a value"))
 	}
-	panic(unqualified(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name())), 0, n.Name()))
+	panic(unqualified(n.Error(diag.ErrExpressionError, diag.UndefinedVariable(n.Name())), 0, n.Name()))
 }
 
 func (c *Checker) VisitSelfExpr(s ast.SelfExpr) ast.Ty {
@@ -1086,7 +1130,7 @@ func (c *Checker) VisitSelfExpr(s ast.SelfExpr) ast.Ty {
 		c.refuseBehaviourSelf(s.Position(), "'self'", c.owner)
 	}
 	if c.fn == nil || !c.fn.IsMethod() {
-		panic(s.Error(diag.ErrUnexpectedToken, "'self' is used only inside an instance method"))
+		panic(s.Error(diag.ErrUnexpectedToken, diag.SelfOutsideInstanceMethod()))
 	}
 	return c.owner
 }
@@ -1106,7 +1150,7 @@ func (c *Checker) fold(site ast.Pos, op string, a, b ast.I128) ast.I128 {
 		r = product
 	case "/", "mod":
 		if b.IsZero() {
-			panic(site.Position().Error(diag.ErrDivisionByZero, "division by a constant zero"))
+			panic(site.Position().Error(diag.ErrDivisionByZero, diag.DivisionByProvableZero(op)))
 		}
 		var q, m big.Int
 		q.QuoRem(a.Big(), b.Big(), &m)
@@ -1127,7 +1171,7 @@ func (c *Checker) fold(site ast.Pos, op string, a, b ast.I128) ast.I128 {
 		r = ast.I128{Hi: a.Hi ^ b.Hi, Lo: a.Lo ^ b.Lo}
 	case "shl", "shr":
 		if b.IsNeg() {
-			panic(site.Position().Error(diag.ErrShiftCountNegative, "a shift count cannot be negative"))
+			panic(site.Position().Error(diag.ErrShiftCountNegative, diag.ShiftCountNegative(b.String())))
 		}
 		wide := b.Ge(ast.I64(checkerShiftLimit))
 		switch {
@@ -1168,7 +1212,7 @@ func (c *Checker) VisitBinaryExpr(b ast.BinaryExpr) ast.Ty {
 			return &ast.ConstIntTy{Value: c.fold(b.Position(), b.Op(), lc.Value, rc.Value)}
 		}
 		if (b.Op() == "/" || b.Op() == "mod") && rConst && rc.Value.IsZero() {
-			panic(b.Error(diag.ErrDivisionByZero, "division by a constant zero"))
+			panic(b.Error(diag.ErrDivisionByZero, diag.DivisionByProvableZero(b.Op())))
 		}
 		if b.Op() == "shl" || b.Op() == "shr" {
 			lt := ast.Anonymous64
@@ -1194,7 +1238,7 @@ func (c *Checker) VisitBinaryExpr(b ast.BinaryExpr) ast.Ty {
 
 	if checkerLogical[b.Op()] {
 		if l != ast.BoolTy || r != ast.BoolTy {
-			panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' needs two bools or two integers, found %s and %s", b.Op(), l.Name(), r.Name())))
+			panic(b.Error(diag.ErrTypeMismatch, diag.OperandTypeMismatch(b.Op())))
 		}
 		return ast.BoolTy
 	}
@@ -1208,14 +1252,14 @@ func (c *Checker) VisitBinaryExpr(b ast.BinaryExpr) ast.Ty {
 		_, lUnion := l.(*ast.UnionTy)
 		_, rUnion := r.(*ast.UnionTy)
 		if lUnion || rUnion {
-			panic(b.Error(diag.ErrEnumNotComparable, "a union cannot be compared; inspect it with 'match'"))
+			panic(b.Error(diag.ErrEnumNotComparable, diag.UnionNotComparable(b.Op())))
 		}
 		_, lEnum := l.(*ast.EnumTy)
 		if equality && l == r && (l == ast.BoolTy || l == ast.StringTy || lEnum || c.isHandle(l)) {
 			c.typing.SetOperand(b, ast.OperandOf(l))
 			return ast.BoolTy
 		}
-		panic(b.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' cannot compare %s and %s", b.Op(), l.Name(), r.Name())))
+		panic(b.Error(diag.ErrTypeMismatch, diag.ComparisonTypeMismatch(l.Name(), r.Name())))
 	}
 
 	panic(b.Error(diag.ErrUnsupported, fmt.Sprintf("unknown operator '%s'", b.Op())))
@@ -1247,7 +1291,7 @@ func (c *Checker) VisitUnaryExpr(u ast.UnaryExpr) ast.Ty {
 		return &ast.ConstIntTy{Value: x.Value.Neg()}
 	case *ast.IntTy:
 		if x.Unsigned() {
-			panic(u.Error(diag.ErrUnsignedNegation, fmt.Sprintf("cannot negate a value of the unsigned %s", t.Name())))
+			panic(u.Error(diag.ErrUnsignedNegation, diag.UnsignedNegation(t.Name())))
 		}
 		if expected, ok := want.(*ast.IntTy); ok {
 			return expected
@@ -1258,9 +1302,7 @@ func (c *Checker) VisitUnaryExpr(u ast.UnaryExpr) ast.Ty {
 }
 
 func (c *Checker) VisitCondExpr(cd ast.CondExpr) ast.Ty {
-	if c.checkExpr(cd.Cond()) != ast.BoolTy {
-		panic(cd.Cond().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", c.ty(cd.Cond()).Name())))
-	}
+	c.requireBool(cd.Cond(), "if")
 	then := c.checkExpecting(cd.Then(), c.expect)
 	els := c.checkExpecting(cd.Else(), c.expect)
 	return c.join(cd.Position(), then, els)
@@ -1278,7 +1320,7 @@ func (c *Checker) VisitTryExpr(t ast.TryExpr) ast.Ty {
 	switch {
 	case t.Ignore():
 		if c.statement != t.ID {
-			panic(t.Error(diag.ErrErrorTypeMismatch, "a 'try' used for its value needs a value on a failure, and 'otherwise ignore' gives none: give 'otherwise' the value to use, or make the 'try' a statement of its own"))
+			panic(t.Error(diag.ErrErrorTypeMismatch, diag.TryValueNeedsFallback()))
 		}
 		return ast.VoidTy
 	case !t.Value().IsNil():
@@ -1327,7 +1369,7 @@ func (c *Checker) fails(e ast.Ty) {
 func (c *Checker) VisitThrowStmt(t ast.ThrowStmt) {
 	e := c.checkExpr(t.Value())
 	if _, ok := e.(*ast.EnumTy); !ok {
-		panic(t.Value().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("throw requires an error enum value, found %s: throw a case of the enum that the function throws", e.Name())))
+		panic(t.Value().Position().Error(diag.ErrTypeMismatch, diag.ThrownValueNotAnErrorEnum()))
 	}
 	c.fails(e)
 }
@@ -1362,7 +1404,7 @@ func (c *Checker) orderArgs(call ast.CallExpr, callee string, ps []ast.ParamSpec
 		given--
 	}
 	if given != len(ps) {
-		panic(call.Error(diag.ErrCallArgCountMismatch, fmt.Sprintf("'%s' takes %d argument(s), given %d", callee, len(ps), given)))
+		panic(call.Error(diag.ErrCallArgCountMismatch, diag.ArgArityMismatch(callee, strconv.Itoa(len(ps)), strconv.Itoa(given))))
 	}
 	ordered := make([]ast.Expr, len(ps))
 	i := -1
@@ -1374,19 +1416,19 @@ func (c *Checker) orderArgs(call ast.CallExpr, callee string, ps []ast.ParamSpec
 		var slot int
 		if i == 0 {
 			if arg.Label() != "" {
-				panic(arg.Error(diag.ErrCallFirstArgNamed, "the first argument is positional: drop its label"))
+				panic(arg.Error(diag.ErrCallFirstArgNamed, diag.FirstArgNamed()))
 			}
 			slot = 0
 		} else {
 			if arg.Label() == "" {
-				panic(arg.Error(diag.ErrCallArgMissingLabel, fmt.Sprintf("argument %d of '%s' needs its label", i+1, callee)))
+				panic(arg.Error(diag.ErrCallArgMissingLabel, diag.ArgMissingLabel()))
 			}
 			slot = argSlot(i, arg, ps)
 			if slot <= 0 {
-				panic(arg.Error(diag.ErrCallUnknownArgLabel, fmt.Sprintf("'%s' has no parameter '%s' after its first", callee, arg.Label())))
+				panic(arg.Error(diag.ErrCallUnknownArgLabel, diag.ArgUnknownLabel(callee, arg.Label())))
 			}
 			if !ordered[slot].IsNil() {
-				panic(arg.Error(diag.ErrCallDuplicateArg, fmt.Sprintf("'%s' is given twice", arg.Label())))
+				panic(arg.Error(diag.ErrCallDuplicateArg, diag.ArgDuplicate(arg.Label(), callee)))
 			}
 		}
 		ordered[slot] = arg.Value()
@@ -1426,13 +1468,13 @@ func (c *Checker) coerceArg(value ast.Expr, callee string, ps ast.ParamSpec) {
 			panic(value.Position().Error(diag.ErrFrozenChange, fmt.Sprintf("the %s parameter '%s' of '%s' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", ps.Conv, ps.Name, callee)))
 		}
 	default:
-		c.coerce(value, ps.Type, fmt.Sprintf("argument '%s' of '%s'", ps.Name, callee))
+		c.coerce(value, ps.Type, argMismatch("'"+ps.Name+"'"))
 	}
 }
 
 func (c *Checker) checkSameType(value ast.Expr, ps ast.ParamSpec) {
 	if c.ty(value) != ps.Type {
-		panic(value.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("the %s parameter '%s' is %s; the argument is %s", ps.Conv, ps.Name, ps.Type.Name(), c.ty(value).Name())))
+		panic(value.Position().Error(diag.ErrTypeMismatch, diag.ArgTypeMismatch("'"+ps.Name+"'", ps.Type.Name(), c.ty(value).Name())))
 	}
 }
 
@@ -1685,7 +1727,7 @@ func (c *Checker) call(call ast.CallExpr) ast.Ty {
 		if ast.IsCownConstructor(callee) {
 			return c.cownCall(call)
 		}
-		panic(unqualified(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name())), 0, n.Name()))
+		panic(unqualified(call.Error(diag.ErrUnknownFunction, diag.UndefinedFunction(n.Name())), 0, n.Name()))
 	}
 
 	if m, ok := call.Callee().AsMemberExpr(); ok {
@@ -1698,7 +1740,7 @@ func (c *Checker) call(call ast.CallExpr) ast.Ty {
 			if sm, found := nt.MethodTable()[m.Name()]; found && sm.IsStatic {
 				return c.callFunction(call, ast.CallStatic, sm, nt.Base().Args)
 			}
-			panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("'%s' has no static function or case '%s'", nt.Name(), m.Name())))
+			panic(call.Error(diag.ErrUnknownFunction, diag.UndefinedFunction(nt.Name()+"."+m.Name())))
 		}
 
 		rt := c.checkExpr(m.Obj())
@@ -1721,7 +1763,7 @@ func (c *Checker) call(call ast.CallExpr) ast.Ty {
 				return c.callFunction(call, ast.CallMethod, method, nil)
 			}
 		}
-		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'", rt.Name(), m.Name())))
+		panic(call.Error(diag.ErrUnknownFunction, diag.UndefinedFunction(rt.Name()+"."+m.Name())))
 	}
 
 	panic(call.Error(diag.ErrUnsupported, "only a named function or method can be called"))
@@ -1949,14 +1991,14 @@ func (c *Checker) VisitMemberExpr(m ast.MemberExpr) ast.Ty {
 		case *ast.EnumTy:
 			caseIndex := t.CaseIndex(m.Name())
 			if caseIndex < 0 {
-				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name())))
+				panic(m.Error(diag.ErrEnumUnknownCase, diag.EnumUnknownCase(enumWord, m.Name())))
 			}
 			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberEnumCase, CaseIndex: int32(caseIndex)})
 			return t
 		case *ast.UnionTy:
 			caseIndex := t.CaseIndex(m.Name())
 			if caseIndex < 0 {
-				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name())))
+				panic(m.Error(diag.ErrEnumUnknownCase, diag.EnumUnknownCase(unionWord, m.Name())))
 			}
 			if len(t.CaseList()[caseIndex].Payload) > 0 {
 				panic(m.Error(diag.ErrCallArgCountMismatch, fmt.Sprintf("case '%s' carries a payload: construct it with arguments", m.Name())))
@@ -2008,7 +2050,7 @@ func (c *Checker) VisitMemberExpr(m ast.MemberExpr) ast.Ty {
 			panic(m.Error(diag.ErrUnsupported, "a method value is not supported by minimaxon; call the method"))
 		}
 	}
-	panic(m.Error(diag.ErrUnknownField, fmt.Sprintf("%s has no field '%s'", t.Name(), m.Name())))
+	panic(m.Error(diag.ErrUnknownField, diag.UnknownField(t.Name(), m.Name())))
 }
 
 // VisitIndexExpr types a subscript. An element of a primitive is a projection, never a value of its own: what it is
@@ -2025,7 +2067,7 @@ func (c *Checker) VisitIndexExpr(x ast.IndexExpr) ast.Ty {
 		panic(x.Error(diag.ErrTypeMismatch, fmt.Sprintf("an index is one value, given %d", x.Args().Len())))
 	}
 	c.checkExpecting(x.Args().At(0), bt.Index())
-	c.coerce(x.Args().At(0), bt.Index(), "the index of "+t.Name())
+	c.coerce(x.Args().At(0), bt.Index(), expectedGotMismatch)
 	return bt.Element()
 }
 
@@ -2046,7 +2088,7 @@ func (c *Checker) VisitStructLitExpr(s ast.StructLitExpr) ast.Ty {
 		panic(s.Error(diag.ErrTypeArgumentCount, fmt.Sprintf("a literal of the generic '%s' is written 'Self{...}', which gives it its own type parameters", rt.Name())))
 	}
 	if c.owner != rt || c.fn == nil {
-		panic(s.Error(diag.ErrConstructorRestriction, fmt.Sprintf("a '%s' literal is written only inside the methods of '%s'; call a factory", rt.Name(), rt.Name())))
+		panic(s.Error(diag.ErrConstructorRestriction, diag.ConstructorRestricted(rt.Name())))
 	}
 	fields := rt.FieldList()
 	ordered := make([]ast.Expr, len(fields))
@@ -2054,19 +2096,19 @@ func (c *Checker) VisitStructLitExpr(s ast.StructLitExpr) ast.Ty {
 	for _, sf := range s.Fields().All() {
 		f := rt.Field(sf.Name())
 		if f == nil {
-			panic(sf.Error(diag.ErrUnknownField, fmt.Sprintf("'%s' has no field '%s'", rt.Name(), sf.Name())))
+			panic(sf.Error(diag.ErrUnknownField, diag.UnknownField(rt.Name(), sf.Name())))
 		}
 		if !ordered[f.Index].IsNil() {
 			panic(sf.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("field '%s' is given twice", sf.Name())))
 		}
 		c.checkExpecting(sf.Value(), rt.FieldType(f))
-		c.coerce(sf.Value(), rt.FieldType(f), fmt.Sprintf("field '%s'", sf.Name()))
+		c.coerce(sf.Value(), rt.FieldType(f), assignMismatch(fmt.Sprintf("field '%s' of '%s'", sf.Name(), rt.Name())))
 		ordered[f.Index] = sf.Value()
 	}
 	for _, f := range fields {
 		if ordered[f.Index].IsNil() {
 			if f.Default.IsNil() {
-				panic(s.Error(diag.ErrFieldNotInitialized, fmt.Sprintf("field '%s' of '%s' is not initialized", f.Name, rt.Name())))
+				panic(s.Error(diag.ErrFieldNotInitialized, diag.FieldNotInitialized(f.Name, rt.Name())))
 			}
 			c.recordUses(f.Uses...)
 		}
@@ -2114,7 +2156,7 @@ func (c *Checker) VisitExprStmt(t ast.ExprStmt) {
 }
 
 func (c *Checker) VisitIfStmt(t ast.IfStmt) {
-	c.requireBool(t.Cond())
+	c.requireBool(t.Cond(), "if")
 	c.checkBlock(t.Then())
 	if t.HasElse() {
 		c.checkBlock(t.Else())
@@ -2122,7 +2164,7 @@ func (c *Checker) VisitIfStmt(t ast.IfStmt) {
 }
 
 func (c *Checker) VisitWhileStmt(t ast.WhileStmt) {
-	c.requireBool(t.Cond())
+	c.requireBool(t.Cond(), "while")
 	c.pushBlock(t.Label(), checkerLoop, t.ID)
 	c.checkBlock(t.Body())
 	c.popBlock()
@@ -2151,7 +2193,7 @@ func (c *Checker) VisitTryStmt(t ast.TryStmt) {
 	c.bindings = c.bindings[:len(c.bindings)-1]
 	c.popScope()
 	if !matched {
-		panic(t.Error(diag.ErrTryBlockBindingNotMatched, fmt.Sprintf("the handler names the error '%s' but never matches on it: tell the failures apart with 'match %s', or drop '(%s)'", t.Binding(), t.Binding(), t.Binding())))
+		panic(t.Error(diag.ErrTryBlockBindingNotMatched, diag.TryBlockBindingNotMatched(t.Binding())))
 	}
 }
 
@@ -2189,9 +2231,10 @@ func (c *Checker) VisitContinueStmt(t ast.ContinueStmt) {
 	c.typing.SetContinueTarget(t, c.resolveJump(t.Stmt(), t.Label(), false))
 }
 
-func (c *Checker) requireBool(e ast.Expr) {
+// requireBool refuses a condition of the statement or expression that keyword opens unless it is a bool.
+func (c *Checker) requireBool(e ast.Expr, keyword string) {
 	if c.checkExpr(e) != ast.BoolTy {
-		panic(e.Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("a condition must be a bool, found %s", c.ty(e).Name())))
+		panic(e.Position().Error(diag.ErrTypeMismatch, diag.NonBoolCondition(keyword, c.ty(e).Name())))
 	}
 }
 
@@ -2213,7 +2256,7 @@ func (c *Checker) VisitLetStmt(l ast.LetStmt) {
 		_, isConst := t.(*ast.ConstIntTy)
 		it, isInt := t.(*ast.IntTy)
 		if isConst || (isInt && it.IsAnonymous()) {
-			panic(l.Init().Position().Error(diag.ErrExpressionError, fmt.Sprintf("a var names its alias: write 'var %s = <value> as <Alias>'", l.Name())))
+			panic(l.Init().Position().Error(diag.ErrExpressionError, diag.VarStartsFromBareNumber()))
 		}
 	}
 	c.typing.SetLetLocal(l, c.declareLocal(l.Name(), t, l.IsVar(), l.Position()))
@@ -2221,12 +2264,14 @@ func (c *Checker) VisitLetStmt(l ast.LetStmt) {
 
 func (c *Checker) VisitAssignStmt(a ast.AssignStmt) {
 	var target ast.Ty
+	var wrong mismatch
 	switch a.Target().Kind() {
 	case ast.KindNameExpr:
 		t := a.Target().ToNameExpr()
 
 		target = c.VisitNameExpr(t)
 		c.typing.SetType(t.Expr(), target)
+		wrong = assignMismatch(fmt.Sprintf("variable '%s'", t.Name()))
 	case ast.KindMemberExpr:
 		t := a.Target().ToMemberExpr()
 
@@ -2235,16 +2280,18 @@ func (c *Checker) VisitAssignStmt(a ast.AssignStmt) {
 		if c.typing.Member(t).Kind != ast.MemberField {
 			panic(a.Error(diag.ErrAssignToImmutable, fmt.Sprintf("'%s' cannot be assigned", t.Name())))
 		}
+		wrong = assignMismatch(fmt.Sprintf("field '%s' of '%s'", t.Name(), ast.Content(c.ty(t.Obj())).Name()))
 	case ast.KindIndexExpr:
 		t := a.Target().ToIndexExpr()
 
 		target = c.VisitIndexExpr(t)
 		c.typing.SetType(t.Expr(), target)
+		wrong = expectedGotMismatch
 	default:
 		panic(a.Error(diag.ErrUnexpectedToken, "only a variable, a field or an element can be assigned"))
 	}
 	c.checkExpecting(a.Value(), target)
-	c.coerce(a.Value(), target, "assignment")
+	c.coerce(a.Value(), target, wrong)
 }
 
 func (c *Checker) VisitForStmt(f ast.ForStmt) {
@@ -2282,15 +2329,15 @@ func (c *Checker) VisitReturnStmt(r ast.ReturnStmt) {
 			if c.behaviour != nil {
 				panic(r.Error(diag.ErrTypeMismatch, "a behaviour returns nothing and nothing waits for it: pass a result on by scheduling another behaviour"))
 			}
-			panic(r.Error(diag.ErrTypeMismatch, fmt.Sprintf("'%s' returns nothing", c.fn.Name)))
+			panic(r.Error(diag.ErrTypeMismatch, diag.ReturnValueFromVoid(c.fn.Name)))
 		}
 		return
 	}
 	if r.Value().IsNil() {
-		panic(r.Error(diag.ErrMissingReturn, fmt.Sprintf("'%s' must return a %s", c.fn.Name, ret.Name())))
+		panic(r.Error(diag.ErrMissingReturn, diag.ReturnWithoutValue(c.fn.Name)))
 	}
 	c.checkExpecting(r.Value(), ret)
-	c.coerce(r.Value(), ret, "return value")
+	c.coerce(r.Value(), ret, returnMismatch)
 }
 
 func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.NodeID {
@@ -2357,7 +2404,7 @@ func (c *Checker) checkMatch(m ast.MatchCore, isExpr bool) ast.Ty {
 		})
 	}
 	c.popBlock()
-	c.checkExhaustive(m, st, hasDefault, seen, seenBools)
+	c.checkExhaustive(m, st, hasDefault, isExpr, seen, seenBools)
 	if !isExpr {
 		return ast.VoidTy
 	}
@@ -2381,7 +2428,7 @@ func (c *Checker) checkArm(arm ast.MatchArm, st ast.Ty, owned, isExpr bool, seen
 		}
 		switch arm.Action().Kind() {
 		case ast.KindIfStmt, ast.KindWhileStmt, ast.KindForStmt, ast.KindMatchStmt, ast.KindWhenStmt:
-			panic(arm.Action().Position().Error(diag.ErrMatchBlockStatement, "a block statement cannot be a match arm's action; move it into a function and call that"))
+			panic(arm.Action().Position().Error(diag.ErrMatchBlockStatement, diag.MatchBlockStatement(blockStatementKeyword(arm.Action().Kind()))))
 		}
 		c.checkStmt(arm.Action())
 	case ast.ArmGives:
@@ -2399,7 +2446,24 @@ func (c *Checker) checkArm(arm ast.MatchArm, st ast.Ty, owned, isExpr bool, seen
 	}
 }
 
-func (c *Checker) checkExhaustive(m ast.MatchCore, st ast.Ty, hasDefault bool, seen map[int]bool, seenBools map[bool]bool) {
+// blockStatementKeyword is the word that opens a statement of kind, which holds a block.
+func blockStatementKeyword(kind ast.Kind) string {
+	switch kind {
+	case ast.KindIfStmt:
+		return "if"
+	case ast.KindWhileStmt:
+		return "while"
+	case ast.KindForStmt:
+		return "for"
+	case ast.KindMatchStmt:
+		return "match"
+	case ast.KindWhenStmt:
+		return "when"
+	}
+	panic(diag.Internal("a statement of kind %d does not hold a block", int(kind)))
+}
+
+func (c *Checker) checkExhaustive(m ast.MatchCore, st ast.Ty, hasDefault, isExpr bool, seen map[int]bool, seenBools map[bool]bool) {
 	if hasDefault {
 		return
 	}
@@ -2410,7 +2474,7 @@ func (c *Checker) checkExhaustive(m ast.MatchCore, st ast.Ty, hasDefault bool, s
 				missing = append(missing, name)
 			}
 		}
-		panic(m.Error(diag.ErrMatchNotExhaustive, "the match is not exhaustive: missing "+strings.Join(missing, ", ")))
+		panic(m.Error(diag.ErrMatchNotExhaustive, diag.EnumMatchNotExhaustive(enumWord, et.Name(), strings.Join(missing, ", "))))
 	}
 	if ut, ok := st.(*ast.UnionTy); ok && len(seen) < len(ut.CaseList()) {
 		var missing []string
@@ -2419,13 +2483,14 @@ func (c *Checker) checkExhaustive(m ast.MatchCore, st ast.Ty, hasDefault bool, s
 				missing = append(missing, cs.Name)
 			}
 		}
-		panic(m.Error(diag.ErrMatchNotExhaustive, "the match is not exhaustive: missing "+strings.Join(missing, ", ")))
+		panic(m.Error(diag.ErrMatchNotExhaustive, diag.EnumMatchNotExhaustive(unionWord, ut.Name(), strings.Join(missing, ", "))))
 	}
-	if st == ast.BoolTy && len(seenBools) < 2 {
-		panic(m.Error(diag.ErrMatchNotExhaustive, "the match is not exhaustive: it needs both true and false, or a default"))
-	}
-	if c.isInt(st) || st == ast.StringTy {
-		panic(m.Error(diag.ErrMatchNotExhaustive, fmt.Sprintf("a match on %s needs a 'default' arm", st.Name())))
+	if (st == ast.BoolTy && len(seenBools) < 2) || c.isInt(st) || st == ast.StringTy {
+		subject := "match"
+		if isExpr {
+			subject = "match expression"
+		}
+		panic(m.Error(diag.ErrMatchNotExhaustive, diag.MatchNotExhaustive(subject)))
 	}
 }
 
@@ -2437,20 +2502,20 @@ func (c *Checker) checkPattern(pat ast.Pattern, st ast.Ty, owned bool, altCount 
 		case *ast.EnumTy:
 			info.CaseIndex = t.CaseIndex(pat.CaseName())
 			if info.CaseIndex < 0 {
-				panic(pat.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), pat.CaseName())))
+				panic(pat.Error(diag.ErrEnumUnknownCase, diag.EnumUnknownCase(enumWord, pat.CaseName())))
 			}
 			if pat.HasBindings() {
-				panic(pat.Error(diag.ErrEnumWrongBindingCount, "an enum case carries no payload to bind"))
+				panic(pat.Error(diag.ErrEnumWrongBindingCount, diag.EnumWrongBindingCount(pat.CaseName(), "0", strconv.Itoa(pat.Bindings().Len()))))
 			}
 		case *ast.UnionTy:
 			info.CaseIndex = t.CaseIndex(pat.CaseName())
 			if info.CaseIndex < 0 {
-				panic(pat.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), pat.CaseName())))
+				panic(pat.Error(diag.ErrEnumUnknownCase, diag.EnumUnknownCase(unionWord, pat.CaseName())))
 			}
 			payload := t.Payload(info.CaseIndex)
 			if pat.HasBindings() {
 				if pat.Bindings().Len() != len(payload) {
-					panic(pat.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries %d value(s), %d bound", pat.CaseName(), len(payload), pat.Bindings().Len())))
+					panic(pat.Error(diag.ErrEnumWrongBindingCount, diag.EnumWrongBindingCount(pat.CaseName(), strconv.Itoa(len(payload)), strconv.Itoa(pat.Bindings().Len()))))
 				}
 				if altCount > 1 {
 					panic(pat.Error(diag.ErrEnumWrongBindingCount, "an arm that binds a payload covers exactly one case"))
@@ -2496,7 +2561,7 @@ func (c *Checker) checkPattern(pat ast.Pattern, st ast.Ty, owned bool, altCount 
 			if _, stConst := st.(*ast.ConstIntTy); stConst {
 				expected = ast.Anonymous64
 			}
-			c.coerce(pat.Value(), expected, "pattern")
+			c.coerce(pat.Value(), expected, expectedGotMismatch)
 			return
 		}
 		panic(pat.Error(diag.ErrTypeMismatch, fmt.Sprintf("a pattern of %s cannot match %s", t.Name(), st.Name())))
@@ -2538,7 +2603,7 @@ func (c *Checker) checkCycle(t ast.NominalTy) {
 		panic(site.Position().Error(diag.ErrTypeCycle, fmt.Sprintf("type '%s' has no finite size: via %s it contains itself with a larger type argument each time",
 			t.Name(), path[0])))
 	}
-	panic(site.Position().Error(diag.ErrTypeCycle, fmt.Sprintf("type '%s' contains a reference cycle (via %s)", t.Name(), strings.Join(path, " -> "))))
+	panic(site.Position().Error(diag.ErrTypeCycle, diag.TypeReferenceCycle(t.Name(), strings.Join(path, " -> "))))
 }
 
 type checkerEdge struct {

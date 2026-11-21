@@ -162,7 +162,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `driver` | `Compile`: discovers the project and runs every module's stages, parse to generate, as one scheduled phase (the modules phase), with the build cache's export summaries, keys and entries, then the routines and the link; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
-that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/diaggen` the one that generates the error code constants of `internal/diag` and `self/diag` from `internal/diag/codes.tsv`, and `cmd/convert` is the standalone tool that converts existing Maxon source
+that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/diaggen` the one that generates the error code constants and message functions of `internal/diag` and `self/diag` from `internal/diag/codes.tsv` and `internal/diag/messages.tsv`, and `cmd/convert` is the standalone tool that converts existing Maxon source
 to minimaxon syntax and layout; nothing imports either.
 
 ### Generated code
@@ -184,7 +184,7 @@ a rule whose alternatives are nodes, such as `stmt` or `expr`, is a closed set o
 The parser decides with one token of lookahead, or two where one is not enough. Where two alternatives start with
 the same rule, as an assignment and an expression statement both start with an expression, it parses that rule once
 and the token after it decides. A syntax error names what the grammar allows at that point, such as
-`expected an expression, found ')'`. The loop that runs the DFA, the scanner for a string literal (`-> scan`, since
+`Expected an expression but got ')'`. The loop that runs the DFA, the scanner for a string literal (`-> scan`, since
 interpolations nest), the loop over a module's declarations, and the conversion of a token to a field that is not
 its text (`intLitMagnitude`, `strLitParts`, `boundValue`) are hand-written in `syntax`.
 
@@ -222,6 +222,8 @@ the entry. A dispatch names a method for every row, so a row added to the table 
 missing.
 
 The error codes are a table, `internal/diag/codes.tsv`: each row is a constant, its code, the case of maxon's `ErrorCodeRegistry.maxon` that has that number (or `-` for a code of minimaxon's own, numbered from `E3900`) and what it refuses. Edit the table, then `go generate ./internal/diag` writes `internal/diag/codes_gen.go` and `self/diag/codes_gen.maxon`, and `go test ./internal/diaggen` fails if either differs. `go run minimaxon/internal/diaggen --maxon <maxon repository>` checks every row against maxon's registry.
+
+The text of a diagnostic that carries a maxon code is maxon's, so that a spec's expected stderr matches byte for byte. `internal/diag/messages.tsv` holds it, one row per situation maxon words alone: a function name, the code constant and maxon's message with `{placeholders}`. The same `go generate` writes a function per row to `internal/diag/messages_gen.go` (`diag.UndefinedFunction(name)`) and to `self/diag/messages_gen.maxon`, which return the text while the raise site still chooses where the error is. A situation that only minimaxon refuses, or that maxon words for a rule minimaxon changed, keeps its own text at the place that raises it.
 
 `go test ./internal/grammargen` and `go test ./internal/builtingen` fail if a generated file is not what the grammar or
 the table generates. A package exports only what another

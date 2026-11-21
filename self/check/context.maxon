@@ -260,14 +260,32 @@ export function requireSigned64(c Checker, off diag.U32, t ast.TypeID, mutates p
 	if t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.constInt 'c'
 		if p.types.entries[t as Count].minVal.gt(ast.I128.i64Max()) 'over'
 			let vs = p.types.entries[t as Count].minVal.toString()
-			checkFail(c.modID, off: off, code: diag.errIntegerLiteralRange, msg: "Integer literal '{vs}' is above i64.max, so it needs an alias whose range admits it: write '{vs} as <alias>'", errs: errs)
+			checkFail(c.modID, off: off, code: diag.errIntegerLiteralRange, msg: diag.unsignedLiteralWithoutAlias(vs), errs: errs)
 			return false
 		end 'over'
 	end 'c'
 	return true
 end 'requireSigned64'
 
-export function coerce(c Checker, mutates p ast.Project, off diag.U32, src ast.TypeID, target ast.TypeID, what String, mutates errs diag.ErrorList) returns bool
+// A Mismatch is how the place that needs a value words one that is not of the type the place needs.
+export union Mismatch
+	expectedGot
+	argument(label String)
+	assignment(place String)
+	returned
+
+	// castable is whether a cast to expected would make the value fit.
+	export function words(expected String, got String, castable bool) returns String
+		return match self 'm'
+			expectedGot gives diag.expectedGotCast(expected, got: got) if castable else diag.expectedGot(expected, got: got)
+			argument(label) gives diag.argTypeMismatchCast(label, expected: expected, got: got) if castable else diag.argTypeMismatch(label, expected: expected, got: got)
+			assignment(place) gives diag.assignMismatchCast(got, place: place, expected: expected) if castable else diag.assignMismatch(got, place: place, expected: expected)
+			returned gives diag.returnTypeMismatch(got, expected: expected)
+		end 'm'
+	end 'words'
+end 'Mismatch'
+
+export function coerce(c Checker, mutates p ast.Project, off diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
 	if src == ast.noType or target == ast.noType 'okErr'
 		return true
 	end 'okErr'
@@ -281,16 +299,16 @@ export function coerce(c Checker, mutates p ast.Project, off diag.U32, src ast.T
 		let tName = ast.typeName(p.types, t: target)
 		let tLo = p.types.entries[target as Count].minVal.toString()
 		let tHi = p.types.entries[target as Count].maxVal.toString()
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{what}: {ks} does not fit {tName} ({tLo} to {tHi})", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.literalOutOfRange(ks, alias: tName, low: tLo, high: tHi), errs: errs)
 		return false
 	end 'kFit'
 	if typeIsAnonInt(p.types, t: src) and dk == ast.TypeKind.intRange 'aFit'
 		let sName = ast.typeName(p.types, t: src)
 		let tName = ast.typeName(p.types, t: target)
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{what}: a value of {sName} may not fit {tName}; cast it with 'as {tName}'", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(tName, got: sName, castable: true), errs: errs)
 		return false
 	end 'aFit'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{what}: expected {ast.typeName(p.types, t: target)}, found {ast.typeName(p.types, t: src)}", errs: errs)
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(ast.typeName(p.types, t: target), got: ast.typeName(p.types, t: src), castable: false), errs: errs)
 	return false
 end 'coerce'
 
@@ -707,12 +725,8 @@ export function instantiateGeneric(mutates c Checker, mutates p ast.Project, off
 	let base = ast.originOf(p.types, t: orig)
 	let params = ast.cloneTypeArgs(p.types.entries[base as Count].typeParams)
 	if args.count() != params.count() 'badCount'
-		var pNames = ast.StringList.new()
-		for i in 0 upto params.count() 'pn'
-			pNames.append(ast.typeName(p.types, t: params[i]))
-		end 'pn'
 		let bName = p.types.entries[base as Count].name.copy()
-		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{bName}' takes {params.count()} type argument(s), given {args.count()}: write '{ast.instanceSpelling(bName, args: pNames)}'", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: diag.genericArityMismatch(bName, expected: "{params.count()}", supplied: "{args.count()}"), errs: errs)
 		return ast.noType
 	end 'badCount'
 	let bk = p.types.entries[base as Count].kind
@@ -739,7 +753,7 @@ export function resolveBoundTypeRef(c Checker, p ast.Project, tr ast.NodeID, mut
 		some(ref) then return checkInterfaceRef(c, p: p, tr: tr, off: off, tName: tName, ref: ref, hasArgs: p.modules[c.modIdx].tree.listLen(argsRef) > 0, errs: errs)
 		none then _ = 0
 	end 'hit'
-	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "unknown type '{tName}'", errs: errs)
+	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
 	return ast.noType
 end 'resolveBoundTypeRef'
 
@@ -808,16 +822,20 @@ function resolveNamedTypeRef(mutates c Checker, mutates p ast.Project, tr ast.No
 			end 'badA'
 			return selfTy
 		end 'slf'
-		if tName == "int" or tName == "float" 'barePrim'
-			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a bare '{tName}' needs a ranged typealias", errs: errs)
+		if tName == "int" 'bareInt'
+			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.bareIntType(), errs: errs)
 			return ast.noType
-		end 'barePrim'
+		end 'bareInt'
+		if tName == "float" 'bareFloat'
+			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.bareFloatType(), errs: errs)
+			return ast.noType
+		end 'bareFloat'
 	end 'unqual'
 	match p.resolutions[c.modIdx].decls.get(tr as Count) 'declHit'
 		some(ref) then return applyTypeArgs(c, p: p, tr: tr, off: off, tName: tName, ref: ref, selfTy: selfTy, errs: errs)
 		none then _ = 0
 	end 'declHit'
-	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "unknown type '{tName}'", errs: errs)
+	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
 	return ast.noType
 end 'resolveNamedTypeRef'
 
@@ -830,7 +848,7 @@ function resolveBoundTP(c Checker, p ast.Project, off diag.U32, name String, slo
 		some(id) then return id
 		none then _ = 0
 	end 'tid'
-	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "unknown type '{name}'", errs: errs)
+	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(name), errs: errs)
 	return ast.noType
 end 'resolveBoundTP'
 
@@ -841,7 +859,7 @@ function applyTypeArgs(mutates c Checker, mutates p ast.Project, tr ast.NodeID, 
 		none then target = ast.noType
 	end 'dt'
 	if target == ast.noType 'unk'
-		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "unknown type '{tName}'", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
 		return ast.noType
 	end 'unk'
 	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)

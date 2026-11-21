@@ -64,7 +64,7 @@ function checkEnd(mutates r Resolver, label String, endNode ast.NodeID, mutates 
 	let got = ast.endLabelName(r.tree, id: endNode)
 	if got != label 'bad'
 		let off = r.tree.startOf(endNode)
-		pushErr(errs, modID: r.modID, off: off, code: diag.errMismatchedEndLabel, msg: "'end' names '{got}', but the block is '{label}'")
+		pushErr(errs, modID: r.modID, off: off, code: diag.errMismatchedEndLabel, msg: diag.mismatchedEndLabel(label, got: got))
 	end 'bad'
 end 'checkEnd'
 
@@ -864,7 +864,7 @@ function reportIfHidden(p ast.Project, s Surface, position String, d ast.Decl, m
 		return
 	end 'wide'
 	let tName = d.name()
-	pushErr(errs, modID: modID, off: s.at, code: diag.errExposesHiddenType, msg: "{ast.visibilityWord(s.tier)} {s.noun} '{s.name}' names {ast.visibilityWord(level)} {typeNoun(d)} '{tName}' {position}: mark '{tName}' '{ast.visibilityModifier(s.tier)}', or narrow the {s.noun}")
+	pushErr(errs, modID: modID, off: s.at, code: diag.errExposesHiddenType, msg: diag.exposesLessVisibleType(ast.visibilityWord(s.tier), noun: s.noun, name: s.name, typeTier: ast.visibilityWord(level), typeNoun: typeNoun(d), typeName: tName, position: position))
 end 'reportIfHidden'
 
 // typeNoun names the kind of a type declaration in a message.
