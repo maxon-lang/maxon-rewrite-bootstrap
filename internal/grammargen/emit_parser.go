@@ -335,6 +335,9 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 			sort.Strings(terms)
 			var descs []string
 			for _, t := range terms {
+				if e.anyKeyword && strings.HasPrefix(t, keywordPrefix) {
+					continue
+				}
 				descs = append(descs, g.m.describeTerminal(t))
 			}
 			g.p("if !%s {\npanic(p.expected(%q))\n}\n", g.atAny(terms), joinOr(descs))

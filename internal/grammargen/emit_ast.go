@@ -59,7 +59,9 @@ func emitNodes(m *model) string {
 				}
 			}
 		case rkNode:
-			emitNode(m.nodeOfRule[r])
+			if r.builds == "" {
+				emitNode(m.nodeOfRule[r])
+			}
 		}
 	}
 

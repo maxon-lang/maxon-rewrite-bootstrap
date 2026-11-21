@@ -468,7 +468,7 @@ func (r *Resolver) VisitMatchExpr(e ast.MatchExpr) {
 }
 
 func (r *Resolver) VisitPanicExpr(e ast.PanicExpr) {
-	r.expr(e.Message())
+	r.expr(e.Message().Expr())
 }
 
 func isType(d ast.Decl) bool {

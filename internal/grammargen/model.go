@@ -111,6 +111,7 @@ func buildModel(g *grammar) *model {
 	m.checkReferences()
 	m.classify()
 	m.collectKeywords()
+	m.expandKeywordSets()
 	m.buildSets()
 	m.buildNodes()
 	m.checkAstBlocks()
@@ -170,6 +171,9 @@ func (m *model) checkReferences() {
 					m.fail(e.line, "rule '%s' is not declared", e.text)
 				}
 			case ekToken:
+				if e.text == keywordSet {
+					break
+				}
 				if e.text != "EOF" && m.tokenByName[e.text] == nil {
 					m.fail(e.line, "token '%s' is not declared", e.text)
 				}
@@ -317,6 +321,9 @@ func (m *model) buildNodes() {
 	for _, r := range m.g.rules {
 		switch m.kind[r] {
 		case rkNode:
+			if r.builds != "" {
+				continue
+			}
 			n := m.node(capitalize(r.name), r.line)
 			n.rule = r
 			n.alts = r.alts
@@ -336,6 +343,7 @@ func (m *model) buildNodes() {
 			}
 		}
 	}
+	m.attachBuilders()
 	for _, s := range m.sets {
 		for _, a := range s.rule.alts {
 			if a.label != "" {
@@ -593,4 +601,63 @@ func joinOr(parts []string) string {
 		return parts[0]
 	}
 	return strings.Join(parts[:len(parts)-1], ", ") + " or " + parts[len(parts)-1]
+}
+
+// attachBuilders makes each rule that builds another rule's node parse into it, so the node's fields come from the
+// alternatives of every rule that writes it.
+func (m *model) attachBuilders() {
+	for _, r := range m.g.rules {
+		if r.builds == "" {
+			continue
+		}
+		n := m.nodeByName[r.builds]
+		if n == nil || n.rule == nil {
+			m.fail(r.line, "rule '%s' builds '%s', which no rule defines", r.name, r.builds)
+			continue
+		}
+		n.alts = append(n.alts, r.alts...)
+		m.nodeOfRule[r] = n
+	}
+}
+
+// keywordSet is the placeholder `Keyword`, which stands in a group for every keyword of the grammar, so that a position
+// that takes any word (an argument label) is not a list of keywords that goes stale when the grammar gains one.
+const keywordSet = "Keyword"
+
+// expandKeywordSets replaces the placeholder in each group by one alternative per keyword the group does not name.
+func (m *model) expandKeywordSets() {
+	for _, r := range m.g.rules {
+		m.walkElems(r.alts, func(e *elem) {
+			if e.kind != ekGroup {
+				return
+			}
+			named := map[string]bool{}
+			for _, a := range e.group {
+				if len(a.elems) == 1 && a.elems[0].kind == ekLiteral {
+					named[a.elems[0].text] = true
+				}
+			}
+			var alts []*alt
+			for _, a := range e.group {
+				if len(a.elems) != 1 || a.elems[0].kind != ekToken || a.elems[0].text != keywordSet {
+					alts = append(alts, a)
+					continue
+				}
+				e.anyKeyword = true
+				for _, k := range m.keywords {
+					if !named[k] {
+						alts = append(alts, &alt{elems: []*elem{{kind: ekLiteral, text: k, line: a.line}}, line: a.line})
+					}
+				}
+			}
+			e.group = alts
+		})
+	}
+	for _, r := range m.g.rules {
+		m.walkElems(r.alts, func(e *elem) {
+			if e.kind == ekToken && e.text == keywordSet {
+				m.fail(e.line, "%s stands for every keyword, so it belongs in a group of alternatives such as (Name | %s)", keywordSet, keywordSet)
+			}
+		})
+	}
 }

@@ -1533,9 +1533,9 @@ func (t *Tree) NewPanicExpr(start uint32) PanicExpr {
 	return PanicExpr{Ref{t, id}}
 }
 
-func (n PanicExpr) Message() Expr { return Expr{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
+func (n PanicExpr) Message() StrLit { return StrLit{Ref{n.T, NodeID(n.T.Records[n.ID].A)}} }
 
-func (n PanicExpr) SetMessage(v Expr) { n.T.Records[n.ID].A = uint32(v.ID) }
+func (n PanicExpr) SetMessage(v StrLit) { n.T.Records[n.ID].A = uint32(v.ID) }
 
 // MatchExpr is a view of a MatchExpr node.
 type MatchExpr struct{ Ref }

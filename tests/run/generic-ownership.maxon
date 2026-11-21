@@ -4,7 +4,7 @@ typealias ScoreSlot = Slot with Score
 
 typealias StringSlot = Slot with String
 
-typealias StringStringPair = Pair with (String, String)
+typealias StringStringPair = Pair with String, String
 
 type Pair uses A, B where A implements Droppable
 	var first as A

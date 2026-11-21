@@ -1443,7 +1443,7 @@ func (o *Ownership) VisitMatchExpr(e ast.MatchExpr, s *ownState) *ownState {
 }
 
 func (o *Ownership) VisitPanicExpr(e ast.PanicExpr, s *ownState) *ownState {
-	return o.expr(e.Message(), s)
+	return o.expr(e.Message().Expr(), s)
 }
 
 // valueContext stands for the function around an expression that is not in one: it has no receiver and no locals.

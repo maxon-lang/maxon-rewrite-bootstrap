@@ -121,7 +121,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a map of cells
-typealias StringCellMap = map with (String, Cell)
+typealias StringCellMap = map with String, Cell
 
 function main() returns ExitCode
 	var m = StringCellMap.new()
@@ -153,7 +153,7 @@ end 'main'
 // case: a handle is a plain value
 typealias CellHandleArray = array with (Handle with Cell)
 
-typealias CellHandleCountMap = map with (Handle with Cell, Count)
+typealias CellHandleCountMap = map with Handle with Cell, Count
 
 typealias CellPool = pool with Cell
 
@@ -203,7 +203,7 @@ typealias CellList = list with Cell
 
 typealias CellPool = pool with Cell
 
-typealias CountCellMap = map with (Count, Cell)
+typealias CountCellMap = map with Count, Cell
 
 function main() returns ExitCode
 	var a = CellArray.new()

@@ -183,7 +183,9 @@ type rule struct {
 	desc    string
 	line    int
 	returns *goVar
-	alts    []*alt
+	// builds names the node another rule defines, when this rule is a second way to write that node.
+	builds string
+	alts   []*alt
 }
 
 type goVar struct {
@@ -218,6 +220,8 @@ type elem struct {
 	// joinBefore (written ^x) and joinAfter (x^) put no space between the token and the one before or after it.
 	joinBefore bool
 	joinAfter  bool
+	// anyKeyword is set on a group that held the Keyword placeholder, which stands for every keyword of the grammar.
+	anyKeyword bool
 }
 
 type astBlock struct {
@@ -423,6 +427,10 @@ func (p *grammarParser) lexerRule() *tokenDef {
 
 func (p *grammarParser) parserRule() *rule {
 	r := &rule{line: p.cur().line, name: p.ident(), desc: p.takeDoc()}
+	if p.isIdent("builds") {
+		p.next()
+		r.builds = p.ident()
+	}
 	if p.isIdent("returns") {
 		p.next()
 		body := p.expect(tkBracket)

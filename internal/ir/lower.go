@@ -666,7 +666,7 @@ func (l *Lowerer) VisitCastExpr(e ast.CastExpr) V {
 func (l *Lowerer) VisitMatchExpr(e ast.MatchExpr) V { return l.match(e.Match(), l.ty(e.Expr())) }
 
 func (l *Lowerer) VisitPanicExpr(e ast.PanicExpr) V {
-	msg := l.expr(e.Message())
+	msg := l.expr(e.Message().Expr())
 	l.emit(l.b.CallRuntime(NoReg, RtPanic, []V{msg}, nil))
 	l.seal(Trap())
 	return l.konst(0)

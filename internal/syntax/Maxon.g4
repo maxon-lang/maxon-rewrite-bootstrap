@@ -14,6 +14,9 @@
 //                      A left-recursive set rule is an operator expression: earlier operator alternatives bind
 //                      tighter, and `<assoc=right>` makes one right-associative.
 //   helper rule        A rule with `returns [Type name]` assigns its labels to that value and returns it.
+//   rule builds Node   A second way to write the node of another rule, where a context takes a different form of it:
+//                      the rule parses into that node, and its labels are fields of it.
+//   Keyword            In a group, every keyword of the grammar not named in it: (Name | Keyword) is any word.
 //   @ast::Node {...}   Fields of a node that parsing does not set, written `Name Type` or `Name Type = initial`;
 //                      a field with a label's name gives that label its type instead. @ast::SetBase holds the
 //                      fields every member of the set shares. A token label whose field is not a string is
@@ -122,7 +125,7 @@ funcDecl
 
 /** a parameter */
 param
-    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_') type=typeRef
+    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_' | Keyword) type=typeRef
     ;
 
 constDecl
@@ -168,8 +171,19 @@ unionCaseDecl
 aliasDecl
     : visibility=('export' | 'public')? 'typealias' name=Name '='
       ( 'int' ^'(' low=bound (inclusive='to' | 'upto') high=bound ')'
-      | instance=typeRef
+      | instance=aliasInstance
       )
+    ;
+
+// A typealias takes its type arguments as a bare list, which a type elsewhere cannot because the comma would end the
+// list that holds it.
+aliasInstance builds TypeRef
+    : (qualifier+=Name '.')* name=(Name | 'Self') ('with' typeArgs=aliasTypeArgs)?
+    ;
+
+aliasTypeArgs returns [[]*TypeRef args]
+    : args+=typeRef (',' args+=typeRef)*
+    | '(' args+=typeRef (',' args+=typeRef)* ')'
     ;
 
 /** a range bound */
@@ -214,7 +228,7 @@ constraint
     ;
 
 conformsClause returns [[]*TypeRef interfaces]
-    : 'implements' interfaces+=typeRef ('and' interfaces+=typeRef)*
+    : 'implements' interfaces+=typeRef (',' interfaces+=typeRef)*
     ;
 
 interfaceDecl
@@ -503,11 +517,11 @@ structField
 
 /** an argument */
 arg
-    : (label=Name ':')? value=expr
+    : (label=(Name | Keyword) ':')? value=expr
     ;
 
 panicExpr
-    : 'panic' ^'(' message=expr ')'
+    : 'panic' ^'(' message=strLit ')'
     ;
 
 matchExpr
@@ -522,16 +536,16 @@ Name : [A-Za-z_] [A-Za-z0-9_]* ;
 /** an integer */
 Integer
     : [0-9] [0-9_]*
-    | '0x' '_'* [0-9A-Fa-f] [0-9A-Fa-f_]*
-    | '0b' '_'* [01] [01_]*
-    | '0o' '_'* [0-7] [0-7_]*
+    | '0x' [0-9A-Fa-f] [0-9A-Fa-f_]*
+    | '0b' [01] [01_]*
+    | '0o' [0-7] [0-7_]*
     ;
 
 /** a string */
 String : '"' (~["\\{}\n] | '\\' . | '{' ~[}\n]* '}')* '"' -> scan ;
 
 /** a label */
-Label : '\'' ~['\n]* '\'' ;
+Label : '\'' [A-Za-z_] [A-Za-z0-9_]* '\'' ;
 
 /** the end of the line */
 Newline : '\n' ;

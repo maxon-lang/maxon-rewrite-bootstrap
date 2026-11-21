@@ -1,0 +1,12 @@
+function between(from Count, to Count, end Count) returns Count
+	return from
+end 'between'
+
+function main() returns ExitCode
+	let n = 3 as Count
+	print("{between(1, to: 2, end: n)}\n")
+	panic("keyword labels done {n}")
+end 'main'
+
+// expect-exit: 1
+//> 1

@@ -89,46 +89,18 @@ end 'Ticket'
 `,
 		},
 		{
-			name: "implements comma list becomes and list",
-			in: `interface Shape
-	function area() returns Count
-end 'Shape'
-
-interface Named
-	function name() returns String
-end 'Named'
-
-type Square implements Shape, Named
+			name: "a conformance list and a bare typealias argument list are left as Maxon writes them",
+			in: `type Square implements Shape, Named
 	var side as Count
-
-	function area() returns Count
-		return side * side
-	end 'area'
-
-	function name() returns String
-		return "sq"
-	end 'name'
 end 'Square'
+
+typealias Counts = map with String, Count
 `,
-			want: `interface Shape
-	function area() returns Count
-end 'Shape'
-
-interface Named
-	function name() returns String
-end 'Named'
-
-type Square implements Shape and Named
+			want: `type Square implements Shape, Named
 	var side as Count
-
-	function area() returns Count
-		return side * side
-	end 'area'
-
-	function name() returns String
-		return "sq"
-	end 'name'
 end 'Square'
+
+typealias Counts = map with String, Count
 `,
 		},
 		{
@@ -140,13 +112,6 @@ end 'total'
 			want: `function total(a T, b U) uses T, U returns Count where T implements Shape and Named, U implements Shape
 	return a.area() + b.area()
 end 'total'
-`,
-		},
-		{
-			name: "typealias bare multi-arg with gets parentheses",
-			in: `typealias Counts = map with String, Count
-`,
-			want: `typealias Counts = map with (String, Count)
 `,
 		},
 		{

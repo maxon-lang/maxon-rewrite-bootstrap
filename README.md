@@ -979,9 +979,9 @@ test runner. It has no types; it works from the shape of the values and from the
 - Integer, bool and string literals, interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, `try e` and `try e otherwise ...`, a function that
   `throws ArithmeticError`, calls with Maxon's
-  positional-then-labelled arguments, parameter conventions (`mutates`, `consumes`, `sets`), `x.copy()`,
+  positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.copy()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
-- Built in: `print`, `printError`, `panic`, `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS/CLI functions `cliArgs`, `getEnv`, `readFile`, `writeFile`, `writeBytes`, `renameFile`, `removeFile`, `isDir`, `mkdir`, `listDir`, `runProcess`, the aliases `ExitCode`, `Count`,
+- Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS/CLI functions `cliArgs`, `getEnv`, `readFile`, `writeFile`, `writeBytes`, `renameFile`, `removeFile`, `isDir`, `mkdir`, `listDir`, `runProcess`, the aliases `ExitCode`, `Count`,
   `FullRangeInt`, `Byte`, the `String` methods `byteCount()`, `byteAt(index)` and `slice(from, until: to)`, the enum `ArithmeticError`, the byte buffer `Bytes`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib.
 
@@ -1194,7 +1194,7 @@ end 'wrap'
   uses T`). A `where` clause ends the line, after `implements` or `returns`, and names the bounds a parameter must
   meet: `where T implements Shape and Named, U implements Other`. It constrains the declaration's own parameters, and
   for a method those of its type (`E3133` for any other), each once (`E3006`). A type, an enum or a union says which interfaces it implements with `implements`
-  too: `type Square implements Shape and Named`. An interface lists method signatures, each
+  too: `type Square implements Shape, Named`. An interface lists method signatures, each
   with its receiver convention (`mutates self`, `consumes self`, `destructs self`, or none for a `let` receiver), and may name `Self`. It
   is a bound and nothing else: it is not the type of a value (`E3119`), has no type parameters, no static function and
   no parent interface, and an alias, `String` or `bool` cannot implement one. A method uses its type's parameters and
@@ -1203,7 +1203,7 @@ end 'wrap'
 - **Instances.** A type names an instance with `with`: `Box with Count`, `map with (String, Count)`, `lib.Option
   with Count`. One argument is written bare, several in parentheses, and an argument that is an instance itself is
   parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E3116`). A `typealias` names an
-  instance, `typealias Counts = array with Count`, and is that instance, not a type of its own: `Counts` and `array
+  instance, `typealias Counts = array with Count`, or, with several arguments, `typealias Counts = map with String, Count` (a bare list, which only a typealias takes), and is that instance, not a type of its own: `Counts` and `array
   with Count` are one type. Its right-hand side is an instance (`E3134`), it may name other typealiases in any module,
   and one that names itself is `E2012`.
 - **Calls infer.** An expression writes no type arguments, so brackets are always a subscript. A call takes them from
@@ -1345,7 +1345,7 @@ can say where it comes from and how to get it back. Every copy decision goes thr
 - `match consumes x` moves an owned `x` into the match and each arm owns the payload it binds, where a plain `match`
   borrows the payload from `x`. Lowering moves each payload out of the box with `moveat` and drops the box alone.
 - `exchange(place, value: v)` moves `v` into a place (`mutates`) and gives back what was there, so a place that holds
-  a value that cannot be dropped can still be replaced. The label is `value` because `with` is a keyword.
+  a value that cannot be dropped can still be replaced.
 - **A cown's content.** `cown(x)` drops the content with the last reference, so it needs `Droppable`. A content that has
   destructors says how it ends instead: `cown(t, dropWith: rollback)` names a destructor of `t`'s type that takes
   nothing else and returns nothing, as a method name (it is not a value, so there are no function values), and the
@@ -1582,7 +1582,7 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   Maxon has `unique` (so `is`, `noncopyable` and `destructs` are reserved). `unique` is replaced by this: every owned
   value is already moved and never aliased here, so what is left of it is a value that cannot be copied or forgotten.
   `Copyable` and `Droppable` are structural bounds, not interfaces a declaration implements (see "Capabilities and
-  destructors"). `exchange(place, value: v)` takes the label `value`, since `with` is a keyword.
+  destructors"). `exchange(place, value: v)` takes the label `value`.
 - The reserved words are exactly the keywords the grammar uses, so a word Maxon reserves for a feature minimaxon
   lacks is an ordinary name, and a word that could be read by context, such as `mutates`, `consumes` or `sets`, is
   reserved.

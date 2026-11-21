@@ -1,6 +1,6 @@
 typealias TxnArray = array with Txn
 
-typealias CountStringMap = map with (Count, String)
+typealias CountStringMap = map with Count, String
 
 type Txn
 	var id as Count

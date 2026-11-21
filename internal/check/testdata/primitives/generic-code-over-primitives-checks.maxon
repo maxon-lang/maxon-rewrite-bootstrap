@@ -6,7 +6,7 @@ typealias CountList = list with Count
 
 typealias CountPool = pool with Count
 
-typealias StringCountMap = map with (String, Count)
+typealias StringCountMap = map with String, Count
 
 function moveFirst(mutates source array with T, mutates target array with T) uses T
 	if not source.isEmpty() 'some'

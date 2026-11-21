@@ -50,6 +50,16 @@ type Parser
 		return tokens[idx].kind
 	end 'peekKind'
 
+	// A word is a name or a keyword: a position that takes a name licenses either, as an argument label or a parameter
+	// name does.
+	function wordAt(ahead Count) returns bool
+		let idx = try pos + ahead otherwise tokens.count()
+		if idx >= tokens.count() 'eof'
+			return false
+		end 'eof'
+		return tokens[idx].kind == TokenKind.name or keywordKind(tokens[idx].text(src)) == tokens[idx].kind
+	end 'wordAt'
+
 	function curStart() returns diag.U32
 		if pos >= tokens.count() 'eof'
 			return try src.byteCount() as diag.U32 otherwise 0 as diag.U32
@@ -159,7 +169,7 @@ function parseConformsClause(mutates p Parser) returns ast.U32List
 	while not p.hasError 'more'
 		let tr = parseTypeRef(p)
 		out.append(tr as diag.U32)
-		if not p.accept(TokenKind.kwAnd) 'done'
+		if not p.accept(TokenKind.comma) 'done'
 			break 'more'
 		end 'done'
 	end 'more'
@@ -195,20 +205,21 @@ end 'parseWhereClause'
 function parseParam(mutates p Parser) returns ast.Param
 	let start = p.curStart()
 	var conv = ""
-	if p.accept(TokenKind.kwMutates) 'm'
-		conv = "mutates"
-	end 'm' else if p.accept(TokenKind.kwConsumes) 'c'
-		conv = "consumes"
-	end 'c' else if p.accept(TokenKind.kwSets) 's'
-		conv = "sets"
-	end 's'
+	if p.wordAt(1 as Count) 'convention'
+		if p.accept(TokenKind.kwMutates) 'm'
+			conv = "mutates"
+		end 'm' else if p.accept(TokenKind.kwConsumes) 'c'
+			conv = "consumes"
+		end 'c' else if p.accept(TokenKind.kwSets) 's'
+			conv = "sets"
+		end 's'
+	end 'convention'
 	var pname = ""
-	if p.accept(TokenKind.kwUnderscore) 'u'
-		pname = "_"
-	end 'u' else 'n'
-		let tok = p.expect(TokenKind.name, what: "a parameter name")
-		pname = tok.text(p.src)
-	end 'n'
+	if p.wordAt(0 as Count) 'word'
+		pname = p.advance().text(p.src)
+	end 'word' else 'notAWord'
+		p.fail(diag.errExpectedToken, message: "expected a parameter name, found '{p.curText()}'")
+	end 'notAWord'
 	let tr = parseTypeRef(p)
 	let id = p.tree.alloc(ast.NodeKind.param, start: start)
 	return ast.Param.make(id, convention: conv, name: pname, typeRef: tr)
@@ -760,7 +771,7 @@ function parseAliasDecl(mutates p Parser, consumes vis String, start diag.U32) r
 		let id = p.tree.alloc(ast.NodeKind.aliasDecl, start: start)
 		return ast.AliasDecl.makeRange(id, visibility: vis, name: nameTok.text(p.src), inclusive: inclusive, low: low, high: high)
 	end 'rng'
-	let inst = parseTypeRef(p)
+	let inst = parseTypeRefWith(p, bareArgs: true)
 	let id = p.tree.alloc(ast.NodeKind.aliasDecl, start: start)
 	return ast.AliasDecl.makeInstance(id, visibility: vis, name: nameTok.text(p.src), instanceRef: inst)
 end 'parseAliasDecl'

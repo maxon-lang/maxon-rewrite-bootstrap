@@ -4,7 +4,7 @@ typealias Area = int(0 to 1000000)
 
 typealias Total = int(0 to 2000000)
 
-typealias SquareSquarePair = Pair with (Square, Square)
+typealias SquareSquarePair = Pair with Square, Square
 
 interface Shape
 	function area() returns Area
@@ -16,7 +16,7 @@ interface Named
 	function label() returns String
 end 'Named'
 
-type Square implements Shape and Named
+type Square implements Shape, Named
 	var side as Count
 
 	static function make(side Count) returns Square

@@ -681,7 +681,7 @@ func (r *Ranges) VisitNameExpr(e ast.NameExpr) span {
 }
 
 func (r *Ranges) VisitPanicExpr(e ast.PanicExpr) span {
-	r.eval(e.Message())
+	r.eval(e.Message().Expr())
 	return span{}
 }
 

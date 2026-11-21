@@ -1,0 +1,5 @@
+function main() returns ExitCode
+	return 0x_FF
+end 'main'
+
+// expect-error: E2001 at 2:9

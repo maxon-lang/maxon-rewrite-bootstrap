@@ -6,7 +6,7 @@ typealias Rows = array with Row
 
 typealias Items = array with Item
 
-typealias CountPersonMap = map with (Count, Person)
+typealias CountPersonMap = map with Count, Person
 
 typealias CellPool = pool with Cell
 

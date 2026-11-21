@@ -1271,9 +1271,7 @@ func (c *Checker) VisitTryExpr(t ast.TryExpr) ast.Ty {
 }
 
 func (c *Checker) VisitPanicExpr(p ast.PanicExpr) ast.Ty {
-	if c.checkExpr(p.Message()) != ast.StringTy {
-		panic(p.Message().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("panic takes a String, found %s", c.ty(p.Message()).Name())))
-	}
+	c.checkExpr(p.Message().Expr())
 	return ast.NeverTy
 }
 

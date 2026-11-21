@@ -1,5 +1,5 @@
 // expect-error: E3111 at 14:11
-typealias CountCellMap = map with (Count, Cell)
+typealias CountCellMap = map with Count, Cell
 
 type Cell
 	export var n as Count

@@ -1,5 +1,5 @@
 // expect-error: E9002 at 5:27
-typealias CountCountMap = map with (Count, Count)
+typealias CountCountMap = map with Count, Count
 
 function main() returns ExitCode
 	var m = CountCountMap.new()

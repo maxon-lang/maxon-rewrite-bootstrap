@@ -1,4 +1,4 @@
-typealias CountEntryHandleMap = map with (Count, Handle with Entry)
+typealias CountEntryHandleMap = map with Count, Handle with Entry
 
 typealias EntryList = list with Entry
 

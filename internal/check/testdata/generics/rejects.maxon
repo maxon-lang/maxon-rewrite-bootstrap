@@ -1,6 +1,6 @@
 // case: wrong number of type arguments
 // expect-error: E3116
-typealias ScoreScoreBox = Box with (Score, Score)
+typealias ScoreScoreBox = Box with Score, Score
 
 function main() returns ExitCode
 	let b = ScoreScoreBox.make(1, tag: 1)

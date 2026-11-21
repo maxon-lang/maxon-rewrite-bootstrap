@@ -4,7 +4,7 @@ typealias ScoreBox = Box with Score
 
 typealias ScoreBoxBox = Box with (Box with Score)
 
-typealias ScoreStringPair = Pair with (Score, String)
+typealias ScoreStringPair = Pair with Score, String
 
 typealias StringBox = Box with String
 

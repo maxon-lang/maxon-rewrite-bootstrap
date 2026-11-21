@@ -352,7 +352,7 @@ func TestABuildThatAsksForTheIrNeedsEntriesThatHoldIt(t *testing.T) {
 func TestARefusedModuleIsNeverCached(t *testing.T) {
 	project := writeProject(t, map[string]string{
 		"main.maxon": "function main() returns ExitCode\n\tprint(\"{usemap.run()}\\n\")\n\treturn 0\nend 'main'\n",
-		"usemap/usemap.maxon": `typealias Counts = map with (Count, Count)
+		"usemap/usemap.maxon": `typealias Counts = map with Count, Count
 
 export function run() returns Count
 	var m = Counts.new()

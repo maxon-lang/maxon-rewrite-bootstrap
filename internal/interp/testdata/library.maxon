@@ -6,7 +6,7 @@ interface Growable
 	function grow(mutates self, by Count)
 end 'Growable'
 
-type Meter implements Scorable and Growable
+type Meter implements Scorable, Growable
 	var n as Count
 
 	static function make(n Count) returns Meter

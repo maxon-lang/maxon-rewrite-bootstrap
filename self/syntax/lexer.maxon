@@ -395,51 +395,39 @@ type Lexer
 			let prefix = self.text.byteAt(i)
 			if prefix == byteLowerX 'hex'
 				i = i + 1
-				var digits = 0 as Count
-				while i < self.limit and (isHexDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanHex'
-					if self.text.byteAt(i) != byteUnderscore 'hexDigit'
-						digits = try digits + 1 otherwise panic("digits overflow")
-					end 'hexDigit'
-					i = i + 1
-				end 'scanHex'
-				if digits == 0 'incompleteHex'
+				if i >= self.limit or not isHexDigit(self.text.byteAt(i)) 'incompleteHex'
 					self.fail(start, message: "incomplete integer")
 					return
 				end 'incompleteHex'
+				while i < self.limit and (isHexDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanHex'
+					i = i + 1
+				end 'scanHex'
 				self.pos = i
 				self.emit(TokenKind.integer, start: start, stop: i)
 				return
 			end 'hex'
 			if prefix == byteLowerB 'bin'
 				i = i + 1
-				var digits = 0 as Count
-				while i < self.limit and (isBinDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanBin'
-					if self.text.byteAt(i) != byteUnderscore 'binDigit'
-						digits = try digits + 1 otherwise panic("digits overflow")
-					end 'binDigit'
-					i = i + 1
-				end 'scanBin'
-				if digits == 0 'incompleteBin'
+				if i >= self.limit or not isBinDigit(self.text.byteAt(i)) 'incompleteBin'
 					self.fail(start, message: "incomplete integer")
 					return
 				end 'incompleteBin'
+				while i < self.limit and (isBinDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanBin'
+					i = i + 1
+				end 'scanBin'
 				self.pos = i
 				self.emit(TokenKind.integer, start: start, stop: i)
 				return
 			end 'bin'
 			if prefix == byteLowerO 'oct'
 				i = i + 1
-				var digits = 0 as Count
-				while i < self.limit and (isOctDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanOct'
-					if self.text.byteAt(i) != byteUnderscore 'octDigit'
-						digits = try digits + 1 otherwise panic("digits overflow")
-					end 'octDigit'
-					i = i + 1
-				end 'scanOct'
-				if digits == 0 'incompleteOct'
+				if i >= self.limit or not isOctDigit(self.text.byteAt(i)) 'incompleteOct'
 					self.fail(start, message: "incomplete integer")
 					return
 				end 'incompleteOct'
+				while i < self.limit and (isOctDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanOct'
+					i = i + 1
+				end 'scanOct'
 				self.pos = i
 				self.emit(TokenKind.integer, start: start, stop: i)
 				return
@@ -453,15 +441,17 @@ type Lexer
 	end 'lexNumber'
 
 	function lexLabel(mutates self, start Count)
-		var i = (try start + 1 otherwise panic("label overflow")) as Count
-		while i < self.limit and self.text.byteAt(i) != byteApostrophe and self.text.byteAt(i) != byteNewline 'scanLabel'
-			i = i + 1
-		end 'scanLabel'
-		if i >= self.limit or self.text.byteAt(i) != byteApostrophe 'unterminatedLabel'
+		let innerStart = try start + 1 otherwise panic("label inner start")
+		var i = innerStart as Count
+		if i < self.limit and isIdentStart(self.text.byteAt(i)) 'labelName'
+			while i < self.limit and isIdentPart(self.text.byteAt(i)) 'scanLabel'
+				i = i + 1
+			end 'scanLabel'
+		end 'labelName'
+		if i == innerStart or i >= self.limit or self.text.byteAt(i) != byteApostrophe 'unterminatedLabel'
 			self.fail(start, message: "incomplete label")
 			return
 		end 'unterminatedLabel'
-		let innerStart = try start + 1 otherwise panic("label inner start")
 		self.pos = i + 1
 		self.emit(TokenKind.label, start: innerStart, stop: i)
 	end 'lexLabel'

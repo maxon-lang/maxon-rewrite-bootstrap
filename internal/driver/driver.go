@@ -592,7 +592,7 @@ func (r constRefs) VisitMatchExpr(e ast.MatchExpr, into constList) constList {
 }
 
 func (r constRefs) VisitPanicExpr(e ast.PanicExpr, into constList) constList {
-	return r.of(e.Message(), into)
+	return r.of(e.Message().Expr(), into)
 }
 
 func suspendCollection(proj *ast.Project, jobs int) (int64, func()) {

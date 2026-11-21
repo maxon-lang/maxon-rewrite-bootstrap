@@ -593,7 +593,6 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			continue
 		case "extension":
 			transformWhereInSlice(line.code, declIdx+1, line, warn)
-			transformImplementsCommas(line.code, declIdx+1)
 			warn(line, "extension blocks are not supported in minimaxon")
 			stack = append(stack, openBlock{indent: line.indent, kind: blockOther})
 			continue
@@ -695,12 +694,10 @@ func transformTypeOrUnionHeader(line *sourceLine, kwIdx int, warn func(*sourceLi
 	if kwIdx+3 < len(toks) && toks[kwIdx+2].text == "is" && toks[kwIdx+3].text == "unique" {
 		toks[kwIdx+3].text = "noncopyable"
 	}
-	transformImplementsCommas(toks, kwIdx+2)
 	transformWhereInSlice(toks, kwIdx+2, line, warn)
 }
 
 func transformEnumHeader(line *sourceLine, kwIdx int, warn func(*sourceLine, string)) {
-	transformImplementsCommas(line.code, kwIdx+2)
 	transformWhereInSlice(line.code, kwIdx+2, line, warn)
 }
 
@@ -711,43 +708,6 @@ func transformInterfaceHeader(line *sourceLine, kwIdx int, warn func(*sourceLine
 		}
 		if line.code[i].kind == tokIdent && line.code[i].text == "uses" {
 			warn(line, "generic interfaces (uses on interface) are not supported in minimaxon")
-		}
-	}
-}
-
-// transformImplementsCommas rewrites `implements A, B, C` into `implements A and B and C` (before `where`).
-func transformImplementsCommas(toks []token, from int) {
-	implIdx := -1
-	for i := from; i < len(toks); i++ {
-		if toks[i].kind == tokIdent && toks[i].text == "implements" {
-			implIdx = i
-			break
-		}
-		if toks[i].kind == tokIdent && toks[i].text == "where" {
-			return
-		}
-	}
-	if implIdx < 0 {
-		return
-	}
-	depth := 0
-	for i := implIdx + 1; i < len(toks); i++ {
-		switch toks[i].text {
-		case "(":
-			depth++
-		case ")":
-			if depth > 0 {
-				depth--
-			}
-		case "where":
-			if depth == 0 {
-				return
-			}
-		case ",":
-			if depth == 0 {
-				toks[i].kind = tokIdent
-				toks[i].text = "and"
-			}
 		}
 	}
 }
@@ -957,7 +917,6 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 		}
 	}
 
-	// Wrap bare comma-separated generic args after `with`: `Map with String, Count` -> `Map with (String, Count)`.
 	limit := len(toks)
 	if implIdx >= 0 {
 		limit = implIdx
@@ -978,35 +937,7 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 				warn(line, fmt.Sprintf("type argument capability '%s' is not supported in minimaxon", toks[i].text))
 			}
 		}
-		if toks[withIdx+1].text != "(" && hasTopLevelComma(toks[withIdx+1:limit]) {
-			rebuilt := make([]token, 0, len(toks)+2)
-			rebuilt = append(rebuilt, toks[:withIdx+1]...)
-			rebuilt = append(rebuilt, token{kind: tokPunct, text: "("})
-			rebuilt = append(rebuilt, toks[withIdx+1:limit]...)
-			rebuilt = append(rebuilt, token{kind: tokPunct, text: ")"})
-			rebuilt = append(rebuilt, toks[limit:]...)
-			line.code = rebuilt
-		}
 	}
-}
-
-func hasTopLevelComma(toks []token) bool {
-	depth := 0
-	for _, t := range toks {
-		switch t.text {
-		case "(", "[", "{":
-			depth++
-		case ")", "]", "}":
-			if depth > 0 {
-				depth--
-			}
-		case ",":
-			if depth == 0 {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func checkEnumCase(line *sourceLine, warn func(*sourceLine, string)) {

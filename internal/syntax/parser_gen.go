@@ -8,35 +8,37 @@ var lookahead0 = [numTokens]bool{TKw_function: true, TKw_static: true}
 var lookahead1 = [numTokens]bool{TKw_enum: true, TKw_export: true, TKw_interface: true, TKw_public: true, TKw_type: true, TKw_typealias: true, TKw_union: true}
 var lookahead2 = [numTokens]bool{TKw_export: true, TKw_interface: true, TKw_public: true}
 var lookahead3 = [numTokens]bool{TKw_export: true, TKw_public: true}
-var lookahead4 = [numTokens]bool{TKw__: true, TKw_consumes: true, TKw_destructs: true, TKw_mutates: true, TKw_sets: true, TName: true}
+var lookahead4 = [numTokens]bool{TKw_Self: true, TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_export: true, TKw_false: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_match: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_not: true, TKw_or: true, TKw_otherwise: true, TKw_panic: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_self: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throws: true, TKw_to: true, TKw_true: true, TKw_try: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true, TName: true}
 var lookahead5 = [numTokens]bool{TKw_consumes: true, TKw_destructs: true, TKw_mutates: true}
-var lookahead6 = [numTokens]bool{TKw__: true, TKw_consumes: true, TKw_mutates: true, TKw_sets: true, TName: true}
-var lookahead7 = [numTokens]bool{TKw_consumes: true, TKw_mutates: true, TKw_sets: true}
-var lookahead8 = [numTokens]bool{TKw__: true, TName: true}
-var lookahead9 = [numTokens]bool{TKw_let: true, TKw_var: true}
-var lookahead10 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true}
-var lookahead11 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: true, TKw_public: true, TKw_static: true, TKw_var: true}
-var lookahead12 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true, TName: true}
-var lookahead13 = [numTokens]bool{TKw_Self: true, TName: true}
-var lookahead14 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_break: true, TKw_continue: true, TKw_false: true, TKw_for: true, TKw_if: true, TKw_let: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_try: true, TKw_var: true, TKw_when: true, TKw_while: true, TLParen: true, TMinus: true, TName: true, TString: true}
-var lookahead15 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_consumes: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
-var lookahead16 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
-var lookahead17 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TKw_try: true, TName: true, TString: true}
-var lookahead18 = [numTokens]bool{TAssign: true, TComma: true, TDot: true, TEof: true, TEqEq: true, TGe: true, TGt: true, TKw_and: true, TKw_as: true, TKw_else: true, TKw_if: true, TKw_mod: true, TKw_or: true, TKw_otherwise: true, TKw_shl: true, TKw_shr: true, TKw_to: true, TKw_upto: true, TKw_xor: true, TLBracket: true, TLParen: true, TLabel: true, TLe: true, TLt: true, TMinus: true, TNewline: true, TNotEq: true, TPlus: true, TRBrace: true, TRBracket: true, TRParen: true, TSlash: true, TStar: true}
-var lookahead19 = [numTokens]bool{TInteger: true, TKw_default: true, TKw_false: true, TKw_true: true, TMinus: true, TName: true, TString: true}
-var lookahead20 = [numTokens]bool{TKw_to: true, TKw_upto: true}
-var lookahead21 = [numTokens]bool{TKw_false: true, TKw_true: true}
-var lookahead22 = [numTokens]bool{TKw_not: true, TMinus: true}
-var lookahead23 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_break: true, TKw_continue: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead6 = [numTokens]bool{TKw_consumes: true, TKw_mutates: true, TKw_sets: true}
+var lookahead7 = [numTokens]bool{TKw_let: true, TKw_var: true}
+var lookahead8 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true}
+var lookahead9 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: true, TKw_public: true, TKw_static: true, TKw_var: true}
+var lookahead10 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true, TName: true}
+var lookahead11 = [numTokens]bool{TKw_Self: true, TName: true}
+var lookahead12 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_break: true, TKw_continue: true, TKw_false: true, TKw_for: true, TKw_if: true, TKw_let: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_try: true, TKw_var: true, TKw_when: true, TKw_while: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead13 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_consumes: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead14 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead15 = [numTokens]bool{TKw__: true, TName: true}
+var lookahead16 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TKw_try: true, TName: true, TString: true}
+var lookahead17 = [numTokens]bool{TAssign: true, TComma: true, TDot: true, TEof: true, TEqEq: true, TGe: true, TGt: true, TKw_and: true, TKw_as: true, TKw_else: true, TKw_if: true, TKw_mod: true, TKw_or: true, TKw_otherwise: true, TKw_shl: true, TKw_shr: true, TKw_to: true, TKw_upto: true, TKw_xor: true, TLBracket: true, TLParen: true, TLabel: true, TLe: true, TLt: true, TMinus: true, TNewline: true, TNotEq: true, TPlus: true, TRBrace: true, TRBracket: true, TRParen: true, TSlash: true, TStar: true}
+var lookahead18 = [numTokens]bool{TInteger: true, TKw_default: true, TKw_false: true, TKw_true: true, TMinus: true, TName: true, TString: true}
+var lookahead19 = [numTokens]bool{TKw_to: true, TKw_upto: true}
+var lookahead20 = [numTokens]bool{TKw_false: true, TKw_true: true}
+var lookahead21 = [numTokens]bool{TKw_not: true, TMinus: true}
+var lookahead22 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_break: true, TKw_continue: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead23 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_export: true, TKw_false: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_match: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_not: true, TKw_or: true, TKw_otherwise: true, TKw_panic: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_self: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throws: true, TKw_to: true, TKw_true: true, TKw_try: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true, TLParen: true, TMinus: true, TName: true, TString: true}
 var lookahead24 = [numTokens]bool{TKw_mod: true, TSlash: true, TStar: true}
 var lookahead25 = [numTokens]bool{TMinus: true, TPlus: true}
 var lookahead26 = [numTokens]bool{TKw_shl: true, TKw_shr: true}
 var lookahead27 = [numTokens]bool{TEqEq: true, TGe: true, TGt: true, TLe: true, TLt: true, TNotEq: true}
+var lookahead28 = [numTokens]bool{TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_export: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_or: true, TKw_otherwise: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throws: true, TKw_to: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true}
 
 // listStacks has a stack for each type of element that a list of structs in the grammar holds, and one for the
 // numbers of the records and texts that each list of the tree holds.
 type listStacks struct {
 	ids_TypeRef_Qualifier    listStack[uint32]
+	ids_aliasTypeArgs        listStack[uint32]
 	ids_typeArgs             listStack[uint32]
 	ids_Constraint_Bounds    listStack[uint32]
 	ids_conformsClause       listStack[uint32]
@@ -62,6 +64,7 @@ type listStacks struct {
 
 func (s *listStacks) reset() {
 	s.ids_TypeRef_Qualifier.reset()
+	s.ids_aliasTypeArgs.reset()
 	s.ids_typeArgs.reset()
 	s.ids_Constraint_Bounds.reset()
 	s.ids_conformsClause.reset()
@@ -132,7 +135,7 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 	p.joinNext = true
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
-		if p.at(TKw_destructs) || (p.at(TKw_consumes) && p.peekIs(TKw_self)) || (p.at(TKw_mutates) && p.peekIs(TKw_self)) {
+		if (p.at(TKw_consumes) && p.peekIs(TKw_self)) || (p.at(TKw_destructs) && p.peekIs(TKw_self)) || (p.at(TKw_mutates) && p.peekIs(TKw_self)) {
 			if !p.in(&lookahead5) {
 				panic(p.expected("'consumes', 'destructs' or 'mutates'"))
 			}
@@ -142,14 +145,14 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 				p.expect(TComma, "','")
 				p.lists.ptr_Param.push(p.parseParam())
 			}
-		} else if p.in(&lookahead6) {
+		} else if p.in(&lookahead4) {
 			p.lists.ptr_Param.push(p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
 				p.lists.ptr_Param.push(p.parseParam())
 			}
 		} else {
-			panic(p.expected("'_', 'consumes', 'destructs', 'mutates', 'sets' or a name"))
+			panic(p.expected("'Self', '_', 'and', 'as', 'break', 'consumes', 'continue', 'default', 'destructs', 'else', 'end', 'enum', 'export', 'false', 'for', 'function', 'gives', 'if', 'implements', 'in', 'int', 'interface', 'is', 'let', 'match', 'mod', 'mutates', 'noncopyable', 'not', 'or', 'otherwise', 'panic', 'public', 'return', 'returns', 'self', 'sets', 'shl', 'shr', 'static', 'then', 'throws', 'to', 'true', 'try', 'type', 'typealias', 'union', 'upto', 'uses', 'var', 'when', 'where', 'while', 'with', 'xor' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")
@@ -180,14 +183,14 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 func (p *Parser) parseParam() *ast.Param {
 	t := p.cur()
 	n := p.tree.NewParam(t.Start)
-	if p.in(&lookahead7) {
-		if !p.in(&lookahead7) {
+	if (p.at(TKw_consumes) && p.peekIn(&lookahead4)) || (p.at(TKw_mutates) && p.peekIn(&lookahead4)) || (p.at(TKw_sets) && p.peekIn(&lookahead4)) {
+		if !p.in(&lookahead6) {
 			panic(p.expected("'consumes', 'mutates' or 'sets'"))
 		}
 		n.Convention = p.text(p.next())
 	}
-	if !p.in(&lookahead8) {
-		panic(p.expected("'_' or a name"))
+	if !p.in(&lookahead4) {
+		panic(p.expected("a name"))
 	}
 	n.Name = p.text(p.next())
 	n.Type = p.parseTypeRef()
@@ -242,18 +245,18 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 	p.expect(TNewline, "the end of the line")
 	if p.at(TIndent) {
 		p.expect(TIndent, "an indented line")
-		if p.in(&lookahead9) || (p.at(TKw_export) && p.peekIn(&lookahead9)) || (p.at(TKw_public) && p.peekIn(&lookahead9)) {
+		if p.in(&lookahead7) || (p.at(TKw_export) && p.peekIn(&lookahead7)) || (p.at(TKw_public) && p.peekIn(&lookahead7)) {
 			p.lists.ptr_FieldDecl.push(p.parseFieldDecl())
-		} else if p.in(&lookahead10) {
+		} else if p.in(&lookahead8) {
 			p.lists.ptr_FuncDecl.push(p.parseFuncDecl())
 		} else {
 			panic(p.expected("'export', 'function', 'let', 'public', 'static' or 'var'"))
 		}
 		p.expect(TNewline, "the end of the line")
-		for p.in(&lookahead11) {
-			if p.in(&lookahead9) || (p.at(TKw_export) && p.peekIn(&lookahead9)) || (p.at(TKw_public) && p.peekIn(&lookahead9)) {
+		for p.in(&lookahead9) {
+			if p.in(&lookahead7) || (p.at(TKw_export) && p.peekIn(&lookahead7)) || (p.at(TKw_public) && p.peekIn(&lookahead7)) {
 				p.lists.ptr_FieldDecl.push(p.parseFieldDecl())
-			} else if p.in(&lookahead10) {
+			} else if p.in(&lookahead8) {
 				p.lists.ptr_FuncDecl.push(p.parseFuncDecl())
 			} else {
 				panic(p.expected("'export', 'function', 'let', 'public', 'static' or 'var'"))
@@ -333,7 +336,7 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 			panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 		}
 		p.expect(TNewline, "the end of the line")
-		for p.in(&lookahead12) {
+		for p.in(&lookahead10) {
 			switch p.cur().Kind() {
 			case TName:
 				p.lists.ptr_EnumCaseDecl.push(p.parseEnumCaseDecl())
@@ -407,7 +410,7 @@ func (p *Parser) parseUnionDecl() *ast.UnionDecl {
 			panic(p.expected("'export', 'function', 'public', 'static' or a name"))
 		}
 		p.expect(TNewline, "the end of the line")
-		for p.in(&lookahead12) {
+		for p.in(&lookahead10) {
 			switch p.cur().Kind() {
 			case TName:
 				p.lists.ptr_UnionCaseDecl.push(p.parseUnionCaseDecl())
@@ -438,7 +441,7 @@ func (p *Parser) parseUnionCaseDecl() *ast.UnionCaseDecl {
 	if p.at(TLParen) {
 		p.joinNext = true
 		p.expect(TLParen, "'('")
-		if p.in(&lookahead6) {
+		if p.in(&lookahead4) {
 			p.lists.ptr_Param.push(p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
@@ -482,12 +485,57 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 		n.High = p.parseBound()
 		p.expect(TRParen, "')'")
 	case TKw_Self, TName:
-		n.Instance = p.parseTypeRef()
+		n.Instance = p.parseAliasInstance()
 	default:
 		panic(p.expected("'Self', 'int' or a name"))
 	}
 	n.Len = uint32(p.prevEnd) - n.Off
 	return n
+}
+
+func (p *Parser) parseAliasInstance() ast.TypeRef {
+	t := p.cur()
+	n := p.tree.NewTypeRef(t.Start)
+	mark_n_Qualifier := p.lists.ids_TypeRef_Qualifier.mark()
+	for p.at(TName) && p.peekIs(TDot) {
+		p.lists.ids_TypeRef_Qualifier.push(p.textRef(p.expect(TName, "a name")))
+		p.expect(TDot, "'.'")
+	}
+	if !p.in(&lookahead11) {
+		panic(p.expected("'Self' or a name"))
+	}
+	n.SetNameRef(p.textRef(p.next()))
+	if p.at(TKw_with) {
+		p.expect(TKw_with, "'with'")
+		n.SetTypeArgs(p.parseAliasTypeArgs())
+	}
+	n.SetQualifier(takeTexts(p, &p.lists.ids_TypeRef_Qualifier, mark_n_Qualifier))
+	return n
+}
+
+func (p *Parser) parseAliasTypeArgs() ast.TypeRefList {
+	var args ast.TypeRefList
+	mark_args := p.lists.ids_aliasTypeArgs.mark()
+	switch p.cur().Kind() {
+	case TKw_Self, TName:
+		p.lists.ids_aliasTypeArgs.push(uint32(p.parseTypeRef().ID))
+		for p.at(TComma) {
+			p.expect(TComma, "','")
+			p.lists.ids_aliasTypeArgs.push(uint32(p.parseTypeRef().ID))
+		}
+	case TLParen:
+		p.expect(TLParen, "'('")
+		p.lists.ids_aliasTypeArgs.push(uint32(p.parseTypeRef().ID))
+		for p.at(TComma) {
+			p.expect(TComma, "','")
+			p.lists.ids_aliasTypeArgs.push(uint32(p.parseTypeRef().ID))
+		}
+		p.expect(TRParen, "')'")
+	default:
+		panic(p.expected("'Self', '(' or a name"))
+	}
+	args = takeList[ast.TypeRef](p, &p.lists.ids_aliasTypeArgs, mark_args)
+	return args
 }
 
 func (p *Parser) parseBound() *ast.Bound {
@@ -520,7 +568,7 @@ func (p *Parser) parseTypeRef() ast.TypeRef {
 		p.lists.ids_TypeRef_Qualifier.push(p.textRef(p.expect(TName, "a name")))
 		p.expect(TDot, "'.'")
 	}
-	if !p.in(&lookahead13) {
+	if !p.in(&lookahead11) {
 		panic(p.expected("'Self' or a name"))
 	}
 	n.SetNameRef(p.textRef(p.next()))
@@ -608,8 +656,8 @@ func (p *Parser) parseConformsClause() ast.TypeRefList {
 	mark_interfaces := p.lists.ids_conformsClause.mark()
 	p.expect(TKw_implements, "'implements'")
 	p.lists.ids_conformsClause.push(uint32(p.parseTypeRef().ID))
-	for p.at(TKw_and) {
-		p.expect(TKw_and, "'and'")
+	for p.at(TComma) {
+		p.expect(TComma, "','")
 		p.lists.ids_conformsClause.push(uint32(p.parseTypeRef().ID))
 	}
 	interfaces = takeList[ast.TypeRef](p, &p.lists.ids_conformsClause, mark_interfaces)
@@ -657,7 +705,7 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 	p.joinNext = true
 	p.expect(TLParen, "'('")
 	if p.in(&lookahead4) {
-		if p.at(TKw_destructs) || (p.at(TKw_consumes) && p.peekIs(TKw_self)) || (p.at(TKw_mutates) && p.peekIs(TKw_self)) {
+		if (p.at(TKw_consumes) && p.peekIs(TKw_self)) || (p.at(TKw_destructs) && p.peekIs(TKw_self)) || (p.at(TKw_mutates) && p.peekIs(TKw_self)) {
 			if !p.in(&lookahead5) {
 				panic(p.expected("'consumes', 'destructs' or 'mutates'"))
 			}
@@ -667,14 +715,14 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 				p.expect(TComma, "','")
 				p.lists.ptr_Param.push(p.parseParam())
 			}
-		} else if p.in(&lookahead6) {
+		} else if p.in(&lookahead4) {
 			p.lists.ptr_Param.push(p.parseParam())
 			for p.at(TComma) {
 				p.expect(TComma, "','")
 				p.lists.ptr_Param.push(p.parseParam())
 			}
 		} else {
-			panic(p.expected("'_', 'consumes', 'destructs', 'mutates', 'sets' or a name"))
+			panic(p.expected("'Self', '_', 'and', 'as', 'break', 'consumes', 'continue', 'default', 'destructs', 'else', 'end', 'enum', 'export', 'false', 'for', 'function', 'gives', 'if', 'implements', 'in', 'int', 'interface', 'is', 'let', 'match', 'mod', 'mutates', 'noncopyable', 'not', 'or', 'otherwise', 'panic', 'public', 'return', 'returns', 'self', 'sets', 'shl', 'shr', 'static', 'then', 'throws', 'to', 'true', 'try', 'type', 'typealias', 'union', 'upto', 'uses', 'var', 'when', 'where', 'while', 'with', 'xor' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")
@@ -705,7 +753,7 @@ func (p *Parser) parseBlock() ast.StmtList {
 	p.expect(TIndent, "an indented line")
 	p.lists.ids_block.push(uint32(p.parseStmt().ID))
 	p.expect(TNewline, "the end of the line")
-	for p.in(&lookahead14) {
+	for p.in(&lookahead12) {
 		p.lists.ids_block.push(uint32(p.parseStmt().ID))
 		p.expect(TNewline, "the end of the line")
 	}
@@ -716,7 +764,7 @@ func (p *Parser) parseBlock() ast.StmtList {
 
 func (p *Parser) parseStmt() ast.Stmt {
 	t := p.cur()
-	if p.in(&lookahead9) {
+	if p.in(&lookahead7) {
 		return p.parseLetStmt().Stmt()
 	} else if p.at(TKw__) {
 		return p.parseDiscardStmt().Stmt()
@@ -726,7 +774,7 @@ func (p *Parser) parseStmt() ast.Stmt {
 		return p.parseWhileStmt().Stmt()
 	} else if p.at(TKw_for) {
 		return p.parseForStmt().Stmt()
-	} else if p.at(TKw_match) && p.peekIn(&lookahead15) {
+	} else if p.at(TKw_match) && p.peekIn(&lookahead13) {
 		return p.parseMatchStmt().Stmt()
 	} else if p.at(TKw_when) {
 		return p.parseWhenStmt().Stmt()
@@ -738,7 +786,7 @@ func (p *Parser) parseStmt() ast.Stmt {
 		return p.parseBreakStmt().Stmt()
 	} else if p.at(TKw_continue) {
 		return p.parseContinueStmt().Stmt()
-	} else if p.in(&lookahead16) {
+	} else if p.in(&lookahead14) {
 		first := p.parseExpr()
 		switch p.cur().Kind() {
 		case TAssign:
@@ -868,7 +916,7 @@ func (p *Parser) parseForStmt() ast.ForStmt {
 	t := p.cur()
 	n := p.tree.NewForStmt(t.Start)
 	p.expect(TKw_for, "'for'")
-	if !p.in(&lookahead8) {
+	if !p.in(&lookahead15) {
 		panic(p.expected("'_' or a name"))
 	}
 	n.SetVarRef(p.textRef(p.next()))
@@ -925,7 +973,7 @@ func (p *Parser) parseReturnStmt() ast.ReturnStmt {
 	t := p.cur()
 	n := p.tree.NewReturnStmt(t.Start)
 	p.expect(TKw_return, "'return'")
-	if p.in(&lookahead17) || (p.at(TLParen) && p.peekIn(&lookahead16)) || (p.at(TMinus) && p.peekIn(&lookahead16)) {
+	if p.in(&lookahead16) || (p.at(TLParen) && p.peekIn(&lookahead14)) || (p.at(TMinus) && p.peekIn(&lookahead14)) {
 		n.SetValue(p.parseExpr())
 	}
 	return n
@@ -935,7 +983,7 @@ func (p *Parser) parseBreakStmt() ast.BreakStmt {
 	t := p.cur()
 	n := p.tree.NewBreakStmt(t.Start)
 	p.expect(TKw_break, "'break'")
-	if p.at(TLabel) && p.peekIn(&lookahead18) {
+	if p.at(TLabel) && p.peekIn(&lookahead17) {
 		n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
 	}
 	return n
@@ -945,7 +993,7 @@ func (p *Parser) parseContinueStmt() ast.ContinueStmt {
 	t := p.cur()
 	n := p.tree.NewContinueStmt(t.Start)
 	p.expect(TKw_continue, "'continue'")
-	if p.at(TLabel) && p.peekIn(&lookahead18) {
+	if p.at(TLabel) && p.peekIn(&lookahead17) {
 		n.SetLabelRef(p.textRef(p.expect(TLabel, "a label")))
 	}
 	return n
@@ -1002,14 +1050,14 @@ func (p *Parser) parseMatchCore() ast.MatchCore {
 		p.expect(TIndent, "an indented line")
 		p.lists.ids_MatchCore_Arms.push(uint32(p.parseMatchArm().ID))
 		p.expect(TNewline, "the end of the line")
-		for p.in(&lookahead19) {
+		for p.in(&lookahead18) {
 			p.lists.ids_MatchCore_Arms.push(uint32(p.parseMatchArm().ID))
 			p.expect(TNewline, "the end of the line")
 		}
 		p.expect(TDedent, "the end of the indented lines")
 	}
 	p.expect(TKw_end, "'end'")
-	if p.at(TLabel) && p.peekIn(&lookahead18) {
+	if p.at(TLabel) && p.peekIn(&lookahead17) {
 		n.SetEnd(p.parseEndLabel())
 	}
 	n.SetArms(takeList[ast.MatchArm](p, &p.lists.ids_MatchCore_Arms, mark_n_Arms))
@@ -1062,14 +1110,14 @@ func (p *Parser) parsePattern() ast.Pattern {
 			p.joinNext = true
 			p.expect(TLParen, "'('")
 			n.SetHasBindings()
-			if p.in(&lookahead8) {
-				if !p.in(&lookahead8) {
+			if p.in(&lookahead15) {
+				if !p.in(&lookahead15) {
 					panic(p.expected("'_' or a name"))
 				}
 				p.lists.ids_Pattern_Bindings.push(p.textRef(p.next()))
 				for p.at(TComma) {
 					p.expect(TComma, "','")
-					if !p.in(&lookahead8) {
+					if !p.in(&lookahead15) {
 						panic(p.expected("'_' or a name"))
 					}
 					p.lists.ids_Pattern_Bindings.push(p.textRef(p.next()))
@@ -1079,7 +1127,7 @@ func (p *Parser) parsePattern() ast.Pattern {
 		}
 	case TInteger, TKw_false, TKw_true, TMinus, TString:
 		n.SetValue(p.parsePatternValue())
-		if p.in(&lookahead20) {
+		if p.in(&lookahead19) {
 			switch p.cur().Kind() {
 			case TKw_to:
 				p.expect(TKw_to, "'to'")
@@ -1124,13 +1172,13 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		left = p.parseIntLit().Expr()
 	} else if p.at(TString) {
 		left = p.parseStrLit().Expr()
-	} else if p.in(&lookahead21) {
+	} else if p.in(&lookahead20) {
 		left = p.parseBoolLit().Expr()
 	} else if (p.at(TKw_Self) && p.peekIs(TLBrace)) || (p.at(TName) && p.peekIs(TLBrace)) {
 		left = p.parseStructLitExpr().Expr()
 	} else if p.at(TKw_self) {
 		left = p.parseSelfExpr().Expr()
-	} else if p.in(&lookahead13) {
+	} else if p.in(&lookahead11) {
 		left = p.parseNameExpr().Expr()
 	} else if p.at(TKw_panic) {
 		left = p.parsePanicExpr().Expr()
@@ -1140,9 +1188,9 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		p.expect(TLParen, "'('")
 		left = p.parseExpr()
 		p.expect(TRParen, "')'")
-	} else if p.in(&lookahead22) {
+	} else if p.in(&lookahead21) {
 		n := p.tree.NewUnaryExpr(t.Start)
-		if !p.in(&lookahead22) {
+		if !p.in(&lookahead21) {
 			panic(p.expected("'not' or '-'"))
 		}
 		{
@@ -1156,7 +1204,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		n := p.tree.NewTryExpr(t.Start)
 		p.expect(TKw_try, "'try'")
 		n.SetE(p.parseExpr())
-		if p.at(TKw_otherwise) && p.peekIn(&lookahead23) {
+		if p.at(TKw_otherwise) && p.peekIn(&lookahead22) {
 			p.expect(TKw_otherwise, "'otherwise'")
 			switch p.cur().Kind() {
 			case TInteger, TKw_Self, TKw_false, TKw_match, TKw_not, TKw_panic, TKw_self, TKw_true, TKw_try, TLParen, TMinus, TName, TString:
@@ -1211,7 +1259,7 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 			n.SetCallee(left)
 			p.joinNext = true
 			p.expect(TLParen, "'('")
-			if p.in(&lookahead16) {
+			if p.in(&lookahead23) {
 				p.lists.ids_CallExpr_Args.push(uint32(p.parseArg().ID))
 				for p.at(TComma) {
 					p.expect(TComma, "','")
@@ -1359,7 +1407,7 @@ func (p *Parser) parseBoolLit() ast.BoolLit {
 func (p *Parser) parseNameExpr() ast.NameExpr {
 	t := p.cur()
 	n := p.tree.NewNameExpr(t.Start)
-	if !p.in(&lookahead13) {
+	if !p.in(&lookahead11) {
 		panic(p.expected("'Self' or a name"))
 	}
 	n.SetNameRef(p.textRef(p.next()))
@@ -1377,7 +1425,7 @@ func (p *Parser) parseStructLitExpr() ast.StructLitExpr {
 	t := p.cur()
 	n := p.tree.NewStructLitExpr(t.Start)
 	mark_n_Fields := p.lists.ids_StructLitExpr_Fields.mark()
-	if !p.in(&lookahead13) {
+	if !p.in(&lookahead11) {
 		panic(p.expected("'Self' or a name"))
 	}
 	n.SetTypeNameRef(p.textRef(p.next()))
@@ -1406,8 +1454,11 @@ func (p *Parser) parseStructField() ast.StructField {
 func (p *Parser) parseArg() ast.Arg {
 	t := p.cur()
 	n := p.tree.NewArg(t.Start)
-	if p.at(TName) && p.peekIs(TColon) {
-		n.SetLabelRef(p.textRef(p.expect(TName, "a name")))
+	if p.in(&lookahead28) || (p.at(TKw_Self) && p.peekIs(TColon)) || (p.at(TKw_false) && p.peekIs(TColon)) || (p.at(TKw_match) && p.peekIs(TColon)) || (p.at(TKw_not) && p.peekIs(TColon)) || (p.at(TKw_panic) && p.peekIs(TColon)) || (p.at(TKw_self) && p.peekIs(TColon)) || (p.at(TKw_true) && p.peekIs(TColon)) || (p.at(TKw_try) && p.peekIs(TColon)) || (p.at(TName) && p.peekIs(TColon)) {
+		if !p.in(&lookahead4) {
+			panic(p.expected("a name"))
+		}
+		n.SetLabelRef(p.textRef(p.next()))
 		p.expect(TColon, "':'")
 	}
 	n.SetValue(p.parseExpr())
@@ -1420,7 +1471,7 @@ func (p *Parser) parsePanicExpr() ast.PanicExpr {
 	p.expect(TKw_panic, "'panic'")
 	p.joinNext = true
 	p.expect(TLParen, "'('")
-	n.SetMessage(p.parseExpr())
+	n.SetMessage(p.parseStrLit())
 	p.expect(TRParen, "')'")
 	return n
 }

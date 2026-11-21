@@ -1,8 +1,8 @@
-typealias ColorCountMap = map with (Color, Count)
+typealias ColorCountMap = map with Color, Count
 
-typealias StringCellMap = map with (String, Cell)
+typealias StringCellMap = map with String, Cell
 
-typealias StringHandleCountMap = map with (Handle with String, Count)
+typealias StringHandleCountMap = map with Handle with String, Count
 
 typealias StringPool = pool with String
 

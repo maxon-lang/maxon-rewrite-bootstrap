@@ -54,7 +54,7 @@ end 'main'
 
 // case: move a value out of a map
 // expect-error: E3111
-typealias CountCellMap = map with (Count, Cell)
+typealias CountCellMap = map with Count, Cell
 
 function main() returns ExitCode
 	var m = CountCellMap.new()
@@ -194,7 +194,7 @@ end 'main'
 
 // case: index a map with the wrong key
 // expect-error: E3005
-typealias StringCountMap = map with (String, Count)
+typealias StringCountMap = map with String, Count
 
 function main() returns ExitCode
 	var m = StringCountMap.new()
@@ -247,7 +247,7 @@ end 'main'
 
 // case: a record as a map key
 // expect-error: E3124
-typealias CellCountMap = map with (Cell, Count)
+typealias CellCountMap = map with Cell, Count
 
 function main() returns ExitCode
 	var m = CellCountMap.new()

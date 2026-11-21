@@ -15,6 +15,12 @@ function parseBound(mutates p Parser) returns ast.Bound
 end 'parseBound'
 
 function parseTypeRef(mutates p Parser) returns ast.NodeID
+	return parseTypeRefWith(p, bareArgs: false)
+end 'parseTypeRef'
+
+// A typealias's right-hand side takes its type arguments as a bare list; anywhere else the comma would end the list
+// that holds the type.
+function parseTypeRefWith(mutates p Parser, bareArgs bool) returns ast.NodeID
 	let start = p.curStart()
 	var quals = ast.U32List.new()
 	while p.curKind() == TokenKind.name and p.peekKind(1 as Count) == TokenKind.dot 'q'
@@ -37,7 +43,12 @@ function parseTypeRef(mutates p Parser) returns ast.NodeID
 			end 'a'
 			_ = p.expect(TokenKind.rParen, what: "')'")
 		end 'paren' else 'single'
-			args.append(parseTypeRef(p) as diag.U32)
+			while not p.hasError 'list'
+				args.append(parseTypeRef(p) as diag.U32)
+				if not bareArgs or not p.accept(TokenKind.comma) 'sdone'
+					break 'list'
+				end 'sdone'
+			end 'list'
 		end 'single'
 	end 'withArgs'
 	let id = ast.newTypeRef(p.tree, start: start)
@@ -47,7 +58,7 @@ function parseTypeRef(mutates p Parser) returns ast.NodeID
 	ast.setTypeRefNameRef(p.tree, id: id, ref: nameRef)
 	ast.setTypeRefTypeArgsRef(p.tree, id: id, ref: aRef)
 	return id
-end 'parseTypeRef'
+end 'parseTypeRefWith'
 
 function decodeIntText(text String) returns ast.I128
 	var base = 10 as Count
@@ -412,7 +423,7 @@ function parsePanicExpr(mutates p Parser) returns ast.NodeID
 	let start = p.curStart()
 	_ = p.expect(TokenKind.kwPanic, what: "'panic'")
 	_ = p.expect(TokenKind.lParen, what: "'('")
-	let msg = parseExpr(p)
+	let msg = parseStrLit(p)
 	_ = p.expect(TokenKind.rParen, what: "')'")
 	let id = ast.newPanicExpr(p.tree, start: start)
 	ast.setPanicExprMessage(p.tree, id: id, value: msg)
@@ -525,7 +536,7 @@ function parsePostfix(mutates p Parser) returns ast.NodeID
 				while not p.hasError 'a'
 					let aStart = p.curStart()
 					var lblRef = 0 as diag.U32
-					if p.curKind() == TokenKind.name and p.peekKind(1 as Count) == TokenKind.colon 'lbl'
+					if p.wordAt(0 as Count) and p.peekKind(1 as Count) == TokenKind.colon 'lbl'
 						lblRef = p.curTextRef()
 						_ = p.advance()
 						_ = p.advance()
