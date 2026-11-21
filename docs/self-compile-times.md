@@ -48,3 +48,4 @@ of C2 building it again.
 | 2026-11-21 | 8cbb12d | fix command; specs at 2,251 | 50660 | 7972 | 7113 | 7132 |
 | 2026-11-21 | c840d38 | formatter selftests | 50743 | 7810 | 7145 | 7422 |
 | 2026-11-21 | 0272a11 | operator chains walked with a loop | 50933 | 7772 | 7497 | 7533 |
+| 2026-11-21 | e056ae6 | inline collection fast paths | 51031 | 8067 | 7717 | 3436 |
