@@ -29,14 +29,17 @@ func (l *Lowerer) entryVoid(site ast.Pos, symbol Rt, args ...V) {
 }
 
 func (l *Lowerer) emitEntry(site ast.Pos, dst V, symbol Rt, args []V, routine *ast.FuncDecl) {
-	if IsOsEntry(symbol) {
+	switch symbol.Unit() {
+	case RtUnitOs:
 		l.f.UsesOs = true
-	} else if IsBytesEntry(symbol) {
+	case RtUnitBytes:
 		l.f.UsesBytes = true
-	} else if IsNativeEntry(symbol) {
+	case RtUnitArrays:
 		l.f.UsesArrays = true
-	} else {
+	case RtUnitInterpreter:
 		l.refuse(site, diag.ErrInterpreterOnly, interpreterOnlyMessage)
+	case RtUnitRuntime, RtUnitLinker:
+		panic(diag.Internal("lower: %s is no entry of a primitive", symbol))
 	}
 	l.emit(l.b.CallRuntime(dst, symbol, args, routine))
 }
@@ -185,10 +188,10 @@ func (l *Lowerer) assignElement(t ast.IndexExpr, value ast.Expr) {
 
 // intrinsic lowers a call of a built-in method into the runtime entries of its primitive.
 func (l *Lowerer) intrinsic(c call) V {
-	if c.Target.Intrinsic == ast.IntrinsicExchange {
-		return l.exchange(c)
-	}
 	var recv V
+	if ownsOperands(c.Target.Intrinsic) {
+		return l.intrinsicCall(c, recv, nil)
+	}
 	if !c.Receiver.IsNil() {
 		recv = l.read(c.Receiver)
 	}
@@ -201,176 +204,287 @@ func (l *Lowerer) intrinsic(c call) V {
 	return result
 }
 
-// intrinsicCall lowers a built-in method whose receiver and arguments are lowered.
-func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
-	switch c.Target.Intrinsic {
-	case ast.IntrinsicArrayNew:
-		return l.entry(c.CallExpr.Position(), RtArrayNew, KindManaged)
-	case ast.IntrinsicArrayFilled:
-		return l.arrayFilled(c, args[0], args[1])
-	case ast.IntrinsicArrayCount:
-		return l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
-	case ast.IntrinsicArrayIsEmpty:
-		return l.isZero(l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv))
-	case ast.IntrinsicArrayAppend:
-		l.entryVoid(c.CallExpr.Position(), RtArrayInsert, recv, l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv), args[0])
-		return l.konst(0)
-	case ast.IntrinsicArrayInsert:
-		l.entryVoid(c.CallExpr.Position(), RtArrayInsert, recv, args[1], args[0])
-		return l.konst(0)
-	case ast.IntrinsicArrayRemove:
-		return l.entry(c.CallExpr.Position(), RtArrayRemove, l.kind(l.ty(c.CallExpr.Expr())), recv, args[0])
-	case ast.IntrinsicArrayDropEmpty:
-		return l.dropEmpty(c, RtArrayLen, recv)
-	case ast.IntrinsicArrayPop:
-		n := l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
-		return l.optional(l.nonZero(n), func() V {
-			last := l.reg(KindScalar)
-			l.emit(Bin(last, BinSub, n, l.konst(1), true, NoBlock))
-			return l.entry(c.CallExpr.Position(), RtArrayRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, last)
-		})
+func (l *Lowerer) lowerArrayNew(c call, _ V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtArrayNew, KindManaged)
+}
 
-	case ast.IntrinsicMapNew:
-		return l.entry(c.CallExpr.Position(), RtMapNew, KindManaged)
-	case ast.IntrinsicMapCount:
-		return l.entry(c.CallExpr.Position(), RtMapLen, KindScalar, recv)
-	case ast.IntrinsicMapIsEmpty:
-		return l.isZero(l.entry(c.CallExpr.Position(), RtMapLen, KindScalar, recv))
-	case ast.IntrinsicMapHas:
-		return l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, recv, args[0])
-	case ast.IntrinsicMapInsert:
-		l.entryVoid(c.CallExpr.Position(), RtMapInsert, recv, args[0], args[1])
-		return l.konst(0)
-	case ast.IntrinsicMapReplace:
-		return l.mapReplace(c, recv, args[0], args[1])
-	case ast.IntrinsicMapDropEmpty:
-		return l.dropEmpty(c, RtMapLen, recv)
-	case ast.IntrinsicMapRemove:
-		return l.optional(l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, recv, args[0]), func() V {
-			return l.entry(c.CallExpr.Position(), RtMapRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
-		})
+func (l *Lowerer) lowerArrayFilled(c call, _ V, args []V) V {
+	return l.arrayFilled(c, args[0], args[1])
+}
 
-	case ast.IntrinsicListNew:
-		return l.entry(c.CallExpr.Position(), RtListNew, KindManaged)
-	case ast.IntrinsicListCount:
-		return l.entry(c.CallExpr.Position(), RtListLen, KindScalar, recv)
-	case ast.IntrinsicListIsEmpty:
-		return l.isZero(l.entry(c.CallExpr.Position(), RtListLen, KindScalar, recv))
-	case ast.IntrinsicListContains:
-		return l.entry(c.CallExpr.Position(), RtListContains, KindScalar, recv, args[0])
-	case ast.IntrinsicListPushFront:
-		return l.entry(c.CallExpr.Position(), RtListPushFront, KindScalar, recv, args[0])
-	case ast.IntrinsicListPushBack:
-		return l.entry(c.CallExpr.Position(), RtListPushBack, KindScalar, recv, args[0])
-	case ast.IntrinsicListPopFront:
-		return l.popped(c, RtListLen, RtListPopFront, recv)
-	case ast.IntrinsicListPopBack:
-		return l.popped(c, RtListLen, RtListPopBack, recv)
-	case ast.IntrinsicListFirst:
-		return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListFirst, KindScalar, recv))
-	case ast.IntrinsicListLast:
-		return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListLast, KindScalar, recv))
-	case ast.IntrinsicListNext:
-		return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListNext, KindScalar, recv, args[0]))
-	case ast.IntrinsicListPrev:
-		return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListPrev, KindScalar, recv, args[0]))
-	case ast.IntrinsicListRemove:
-		return l.optional(l.entry(c.CallExpr.Position(), RtListContains, KindScalar, recv, args[0]), func() V {
-			return l.entry(c.CallExpr.Position(), RtListRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
-		})
-	case ast.IntrinsicListDropEmpty:
-		return l.dropEmpty(c, RtListLen, recv)
-	case ast.IntrinsicListMoveToFront:
-		l.entryVoid(c.CallExpr.Position(), RtListMoveToFront, recv, args[0])
-		return l.konst(0)
+func (l *Lowerer) lowerArrayCount(c call, recv V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
+}
 
-	case ast.IntrinsicPoolNew:
-		return l.entry(c.CallExpr.Position(), RtPoolNew, KindManaged)
-	case ast.IntrinsicPoolCount:
-		return l.entry(c.CallExpr.Position(), RtPoolLen, KindScalar, recv)
-	case ast.IntrinsicPoolIsEmpty:
-		return l.isZero(l.entry(c.CallExpr.Position(), RtPoolLen, KindScalar, recv))
-	case ast.IntrinsicPoolContains:
-		return l.entry(c.CallExpr.Position(), RtPoolContains, KindScalar, recv, args[0])
-	case ast.IntrinsicPoolInsert:
-		return l.entry(c.CallExpr.Position(), RtPoolInsert, KindScalar, recv, args[0])
-	case ast.IntrinsicPoolDropEmpty:
-		return l.dropEmpty(c, RtPoolLen, recv)
-	case ast.IntrinsicPoolRemove:
-		return l.optional(l.entry(c.CallExpr.Position(), RtPoolContains, KindScalar, recv, args[0]), func() V {
-			return l.entry(c.CallExpr.Position(), RtPoolRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
-		})
+func (l *Lowerer) lowerArrayIsEmpty(c call, recv V, _ []V) V {
+	return l.isZero(l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv))
+}
 
-	case ast.IntrinsicOptionIsSome:
-		return l.compare(CmpEq, l.tag(recv), l.konst(ast.OptionSome), false)
-	case ast.IntrinsicOptionUnwrap:
-		return l.unwrap(c, recv)
+func (l *Lowerer) lowerArrayAppend(c call, recv V, args []V) V {
+	l.entryVoid(c.CallExpr.Position(), RtArrayInsert, recv, l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv), args[0])
+	return l.konst(0)
+}
 
-	case ast.IntrinsicStringByteCount:
-		return l.runtime(RtStrLen, KindScalar, recv)
-	case ast.IntrinsicStringByteAt:
-		return l.runtime(RtStrByteAt, KindScalar, recv, args[0])
-	case ast.IntrinsicStringSlice:
-		return l.runtime(RtStrSlice, KindManaged, recv, args[0], args[1])
+func (l *Lowerer) lowerArrayInsert(c call, recv V, args []V) V {
+	l.entryVoid(c.CallExpr.Position(), RtArrayInsert, recv, args[1], args[0])
+	return l.konst(0)
+}
 
-	case ast.IntrinsicBytesNew:
-		return l.entry(c.CallExpr.Position(), RtBytesNew, KindManaged)
-	case ast.IntrinsicBytesCount:
-		return l.entry(c.CallExpr.Position(), RtBytesLen, KindScalar, recv)
-	case ast.IntrinsicBytesIsEmpty:
-		return l.isZero(l.entry(c.CallExpr.Position(), RtBytesLen, KindScalar, recv))
-	case ast.IntrinsicBytesByteAt:
-		return l.entry(c.CallExpr.Position(), RtBytesGet, KindScalar, recv, args[0])
-	case ast.IntrinsicBytesSetByte:
-		l.entryVoid(c.CallExpr.Position(), RtBytesSet, recv, args[0], args[1])
-		return l.konst(0)
-	case ast.IntrinsicBytesPush:
-		l.entryVoid(c.CallExpr.Position(), RtBytesPush, recv, args[0])
-		return l.konst(0)
-	case ast.IntrinsicBytesAppend:
-		l.entryVoid(c.CallExpr.Position(), RtBytesAppend, recv, args[0])
-		return l.konst(0)
-	case ast.IntrinsicBytesAppendString:
-		l.entryVoid(c.CallExpr.Position(), RtBytesAppendStr, recv, args[0])
-		return l.konst(0)
-	case ast.IntrinsicBytesToString:
-		return l.entry(c.CallExpr.Position(), RtBytesToString, KindManaged, recv)
+func (l *Lowerer) lowerArrayRemove(c call, recv V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtArrayRemove, l.kind(l.ty(c.CallExpr.Expr())), recv, args[0])
+}
 
-	case ast.IntrinsicOsCliArgs:
-		return l.entry(c.CallExpr.Position(), RtOsCliArgs, KindManaged)
-	case ast.IntrinsicOsGetEnv:
-		raw := l.entry(c.CallExpr.Position(), RtOsGetEnv, KindManaged, args[0])
-		return l.optional(l.nonZero(raw), func() V { return raw })
-	case ast.IntrinsicOsReadFile:
-		raw := l.entry(c.CallExpr.Position(), RtOsReadFile, KindManaged, args[0])
-		return l.optional(l.nonZero(raw), func() V { return raw })
-	case ast.IntrinsicOsWriteFile:
-		return l.entry(c.CallExpr.Position(), RtOsWriteFile, KindScalar, args[0], args[1])
-	case ast.IntrinsicOsWriteBytes:
-		return l.entry(c.CallExpr.Position(), RtOsWriteBytes, KindScalar, args[0], args[1])
-	case ast.IntrinsicOsRenameFile:
-		return l.entry(c.CallExpr.Position(), RtOsRenameFile, KindScalar, args[0], args[1])
-	case ast.IntrinsicOsRemoveFile:
-		return l.entry(c.CallExpr.Position(), RtOsRemoveFile, KindScalar, args[0])
-	case ast.IntrinsicOsIsDir:
-		return l.entry(c.CallExpr.Position(), RtOsIsDir, KindScalar, args[0])
-	case ast.IntrinsicOsMkdir:
-		return l.entry(c.CallExpr.Position(), RtOsMkdir, KindScalar, args[0])
-	case ast.IntrinsicOsListDir:
-		raw := l.entry(c.CallExpr.Position(), RtOsListDir, KindManaged, args[0])
-		return l.optional(l.nonZero(raw), func() V { return raw })
-	case ast.IntrinsicOsRunProcess:
-		raw := l.entry(c.CallExpr.Position(), RtOsRunProcess, KindScalar, args[0])
-		return l.optional(l.nonZero(raw), func() V {
-			out := l.reg(KindScalar)
-			l.emit(Bin(out, BinShr, raw, l.konst(1), true, NoBlock))
-			return out
-		})
+func (l *Lowerer) lowerArrayDropEmpty(c call, recv V, _ []V) V {
+	return l.dropEmpty(c, RtArrayLen, recv)
+}
 
-	case ast.IntrinsicFreeze, ast.IntrinsicShare, ast.IntrinsicThaw, ast.IntrinsicCown:
-		return l.intrinsicSharing(c, args)
-	}
-	panic(diag.Internal("lower: unhandled intrinsic %d", int(c.Target.Intrinsic)))
+func (l *Lowerer) lowerArrayPop(c call, recv V, _ []V) V {
+	n := l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
+	return l.optional(l.nonZero(n), func() V {
+		last := l.reg(KindScalar)
+		l.emit(Bin(last, BinSub, n, l.konst(1), true, NoBlock))
+		return l.entry(c.CallExpr.Position(), RtArrayRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, last)
+	})
+}
+
+func (l *Lowerer) lowerMapNew(c call, _ V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtMapNew, KindManaged)
+}
+
+func (l *Lowerer) lowerMapCount(c call, recv V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtMapLen, KindScalar, recv)
+}
+
+func (l *Lowerer) lowerMapIsEmpty(c call, recv V, _ []V) V {
+	return l.isZero(l.entry(c.CallExpr.Position(), RtMapLen, KindScalar, recv))
+}
+
+func (l *Lowerer) lowerMapHas(c call, recv V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, recv, args[0])
+}
+
+func (l *Lowerer) lowerMapInsert(c call, recv V, args []V) V {
+	l.entryVoid(c.CallExpr.Position(), RtMapInsert, recv, args[0], args[1])
+	return l.konst(0)
+}
+
+func (l *Lowerer) lowerMapReplace(c call, recv V, args []V) V {
+	return l.mapReplace(c, recv, args[0], args[1])
+}
+
+func (l *Lowerer) lowerMapDropEmpty(c call, recv V, _ []V) V {
+	return l.dropEmpty(c, RtMapLen, recv)
+}
+
+func (l *Lowerer) lowerMapRemove(c call, recv V, args []V) V {
+	return l.optional(l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, recv, args[0]), func() V {
+		return l.entry(c.CallExpr.Position(), RtMapRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
+	})
+}
+
+func (l *Lowerer) lowerListNew(c call, _ V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtListNew, KindManaged)
+}
+
+func (l *Lowerer) lowerListCount(c call, recv V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtListLen, KindScalar, recv)
+}
+
+func (l *Lowerer) lowerListIsEmpty(c call, recv V, _ []V) V {
+	return l.isZero(l.entry(c.CallExpr.Position(), RtListLen, KindScalar, recv))
+}
+
+func (l *Lowerer) lowerListContains(c call, recv V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtListContains, KindScalar, recv, args[0])
+}
+
+func (l *Lowerer) lowerListPushFront(c call, recv V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtListPushFront, KindScalar, recv, args[0])
+}
+
+func (l *Lowerer) lowerListPushBack(c call, recv V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtListPushBack, KindScalar, recv, args[0])
+}
+
+func (l *Lowerer) lowerListPopFront(c call, recv V, _ []V) V {
+	return l.popped(c, RtListLen, RtListPopFront, recv)
+}
+
+func (l *Lowerer) lowerListPopBack(c call, recv V, _ []V) V {
+	return l.popped(c, RtListLen, RtListPopBack, recv)
+}
+
+func (l *Lowerer) lowerListFirst(c call, recv V, _ []V) V {
+	return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListFirst, KindScalar, recv))
+}
+
+func (l *Lowerer) lowerListLast(c call, recv V, _ []V) V {
+	return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListLast, KindScalar, recv))
+}
+
+func (l *Lowerer) lowerListNext(c call, recv V, args []V) V {
+	return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListNext, KindScalar, recv, args[0]))
+}
+
+func (l *Lowerer) lowerListPrev(c call, recv V, args []V) V {
+	return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListPrev, KindScalar, recv, args[0]))
+}
+
+func (l *Lowerer) lowerListRemove(c call, recv V, args []V) V {
+	return l.optional(l.entry(c.CallExpr.Position(), RtListContains, KindScalar, recv, args[0]), func() V {
+		return l.entry(c.CallExpr.Position(), RtListRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
+	})
+}
+
+func (l *Lowerer) lowerListDropEmpty(c call, recv V, _ []V) V {
+	return l.dropEmpty(c, RtListLen, recv)
+}
+
+func (l *Lowerer) lowerListMoveToFront(c call, recv V, args []V) V {
+	l.entryVoid(c.CallExpr.Position(), RtListMoveToFront, recv, args[0])
+	return l.konst(0)
+}
+
+func (l *Lowerer) lowerPoolNew(c call, _ V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtPoolNew, KindManaged)
+}
+
+func (l *Lowerer) lowerPoolCount(c call, recv V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtPoolLen, KindScalar, recv)
+}
+
+func (l *Lowerer) lowerPoolIsEmpty(c call, recv V, _ []V) V {
+	return l.isZero(l.entry(c.CallExpr.Position(), RtPoolLen, KindScalar, recv))
+}
+
+func (l *Lowerer) lowerPoolContains(c call, recv V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtPoolContains, KindScalar, recv, args[0])
+}
+
+func (l *Lowerer) lowerPoolInsert(c call, recv V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtPoolInsert, KindScalar, recv, args[0])
+}
+
+func (l *Lowerer) lowerPoolDropEmpty(c call, recv V, _ []V) V {
+	return l.dropEmpty(c, RtPoolLen, recv)
+}
+
+func (l *Lowerer) lowerPoolRemove(c call, recv V, args []V) V {
+	return l.optional(l.entry(c.CallExpr.Position(), RtPoolContains, KindScalar, recv, args[0]), func() V {
+		return l.entry(c.CallExpr.Position(), RtPoolRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
+	})
+}
+
+func (l *Lowerer) lowerOptionIsSome(c call, recv V, _ []V) V {
+	return l.compare(CmpEq, l.tag(recv), l.konst(ast.OptionSome), false)
+}
+
+func (l *Lowerer) lowerOptionUnwrap(c call, recv V, _ []V) V {
+	return l.unwrap(c, recv)
+}
+
+func (l *Lowerer) lowerStringByteCount(c call, recv V, _ []V) V {
+	return l.runtime(RtStrLen, KindScalar, recv)
+}
+
+func (l *Lowerer) lowerStringByteAt(c call, recv V, args []V) V {
+	return l.runtime(RtStrByteAt, KindScalar, recv, args[0])
+}
+
+func (l *Lowerer) lowerStringSlice(c call, recv V, args []V) V {
+	return l.runtime(RtStrSlice, KindManaged, recv, args[0], args[1])
+}
+
+func (l *Lowerer) lowerBytesNew(c call, _ V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtBytesNew, KindManaged)
+}
+
+func (l *Lowerer) lowerBytesCount(c call, recv V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtBytesLen, KindScalar, recv)
+}
+
+func (l *Lowerer) lowerBytesIsEmpty(c call, recv V, _ []V) V {
+	return l.isZero(l.entry(c.CallExpr.Position(), RtBytesLen, KindScalar, recv))
+}
+
+func (l *Lowerer) lowerBytesByteAt(c call, recv V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtBytesGet, KindScalar, recv, args[0])
+}
+
+func (l *Lowerer) lowerBytesSetByte(c call, recv V, args []V) V {
+	l.entryVoid(c.CallExpr.Position(), RtBytesSet, recv, args[0], args[1])
+	return l.konst(0)
+}
+
+func (l *Lowerer) lowerBytesPush(c call, recv V, args []V) V {
+	l.entryVoid(c.CallExpr.Position(), RtBytesPush, recv, args[0])
+	return l.konst(0)
+}
+
+func (l *Lowerer) lowerBytesAppend(c call, recv V, args []V) V {
+	l.entryVoid(c.CallExpr.Position(), RtBytesAppend, recv, args[0])
+	return l.konst(0)
+}
+
+func (l *Lowerer) lowerBytesAppendString(c call, recv V, args []V) V {
+	l.entryVoid(c.CallExpr.Position(), RtBytesAppendStr, recv, args[0])
+	return l.konst(0)
+}
+
+func (l *Lowerer) lowerBytesToString(c call, recv V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtBytesToString, KindManaged, recv)
+}
+
+func (l *Lowerer) lowerOsCliArgs(c call, _ V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtOsCliArgs, KindManaged)
+}
+
+func (l *Lowerer) lowerOsGetEnv(c call, _ V, args []V) V {
+	raw := l.entry(c.CallExpr.Position(), RtOsGetEnv, KindManaged, args[0])
+	return l.optional(l.nonZero(raw), func() V { return raw })
+}
+
+func (l *Lowerer) lowerOsReadFile(c call, _ V, args []V) V {
+	raw := l.entry(c.CallExpr.Position(), RtOsReadFile, KindManaged, args[0])
+	return l.optional(l.nonZero(raw), func() V { return raw })
+}
+
+func (l *Lowerer) lowerOsWriteFile(c call, _ V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtOsWriteFile, KindScalar, args[0], args[1])
+}
+
+func (l *Lowerer) lowerOsWriteBytes(c call, _ V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtOsWriteBytes, KindScalar, args[0], args[1])
+}
+
+func (l *Lowerer) lowerOsRenameFile(c call, _ V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtOsRenameFile, KindScalar, args[0], args[1])
+}
+
+func (l *Lowerer) lowerOsRemoveFile(c call, _ V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtOsRemoveFile, KindScalar, args[0])
+}
+
+func (l *Lowerer) lowerOsIsDir(c call, _ V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtOsIsDir, KindScalar, args[0])
+}
+
+func (l *Lowerer) lowerOsMkdir(c call, _ V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtOsMkdir, KindScalar, args[0])
+}
+
+func (l *Lowerer) lowerOsListDir(c call, _ V, args []V) V {
+	raw := l.entry(c.CallExpr.Position(), RtOsListDir, KindManaged, args[0])
+	return l.optional(l.nonZero(raw), func() V { return raw })
+}
+
+func (l *Lowerer) lowerOsRunProcess(c call, _ V, args []V) V {
+	raw := l.entry(c.CallExpr.Position(), RtOsRunProcess, KindScalar, args[0])
+	return l.optional(l.nonZero(raw), func() V {
+		out := l.reg(KindScalar)
+		l.emit(Bin(out, BinShr, raw, l.konst(1), true, NoBlock))
+		return out
+	})
 }
 
 // unwrap takes the value out of an Option that the call consumes. A payload that is owned leaves the box, which is
@@ -413,7 +527,7 @@ func (l *Lowerer) moveOutAt(addr V, t ast.Ty) V {
 // exchange moves the new value into a place and gives the value that was there to the caller, so the place is never
 // dropped and a type without Droppable can be replaced. The value is computed before the place is addressed, so that
 // computing it cannot leave the address stale.
-func (l *Lowerer) exchange(c call) V {
+func (l *Lowerer) lowerExchange(c call, _ V, _ []V) V {
 	value := l.converted(c.Ordered[1], c.Pass.Specs[1].Type)
 	addr := l.address(c.Ordered[0])
 	old := l.moveOutAt(addr, l.ty(c.CallExpr.Expr()))

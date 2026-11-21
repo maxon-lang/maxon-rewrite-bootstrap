@@ -42,22 +42,32 @@ const (
 // EmitOsRuntime is the unit with the minimal Windows OS and CLI entries. It is linked only into a program that calls one.
 func EmitOsRuntime() *CodeUnit {
 	u := NewCodeUnit()
-	a := u.Asm
-	g := &runtimeUnit{
-		u:         u,
-		rtAlloc:   ExternLabel(ir.RtAlloc.String()),
-		rtFree:    ExternLabel(ir.RtFree.String()),
-		rtPanic:   ExternLabel(ir.RtPanic.String()),
-		asm:       a,
-		dataBytes: u.Data,
+	g := &osUnit{
+		runtimeUnit:   newRuntimeUnit(u),
+		rtArrayNew:    ExternLabel(ir.RtArrayNew.String()),
+		rtArrayLen:    ExternLabel(ir.RtArrayLen.String()),
+		rtArrayInsert: ExternLabel(ir.RtArrayInsert.String()),
+		toCStr:        NewLabel(),
+		fromCStr:      NewLabel(),
+		writeAll:      NewLabel(),
 	}
-	rtArrayNew := ExternLabel(ir.RtArrayNew.String())
-	rtArrayLen := ExternLabel(ir.RtArrayLen.String())
-	rtArrayInsert := ExternLabel(ir.RtArrayInsert.String())
+	g.emitHelpers()
+	g.defineEntries()
+	return u
+}
 
+// osUnit writes the OS unit.
+type osUnit struct {
+	*runtimeUnit
+	rtArrayNew, rtArrayLen, rtArrayInsert *Label
+	toCStr, fromCStr, writeAll            *Label
+}
+
+// emitHelpers writes the code that the entries of the unit share.
+func (g *osUnit) emitHelpers() {
+	a := g.asm
 	// Helper: toCStr(Rax = String) -> Rax = heap null-terminated C string. Clobbers Rax, Rcx, Rsi, Rdi, R8.
-	toCStr := NewLabel()
-	a.Bind(toCStr)
+	a.Bind(g.toCStr)
 	a.Push(Rax) // save String
 	a.Load(Rcx, Rax, stringLengthOffset)
 	a.Lea(Rax, Rcx, 1)
@@ -73,8 +83,7 @@ func EmitOsRuntime() *CodeUnit {
 	a.Ret()
 
 	// Helper: fromCStr(Rsi = bytes, Rbx = len) -> Rax = heap String. Clobbers Rax, Rcx, Rsi, Rdi.
-	fromCStr := NewLabel()
-	a.Bind(fromCStr)
+	a.Bind(g.fromCStr)
 	a.Push(Rsi)
 	a.Lea(Rax, Rbx, wordBytes)
 	a.Push(Rax)
@@ -89,8 +98,7 @@ func EmitOsRuntime() *CodeUnit {
 	a.Ret()
 
 	// Helper: writeAll(Rbx = path String, R12 = data ptr, R13 = data len) -> Rax = 1 on success, 0 on error.
-	writeAll := NewLabel()
-	a.Bind(writeAll)
+	a.Bind(g.writeAll)
 	writeFail := NewLabel()
 	writeLoop := NewLabel()
 	writeClose := NewLabel()
@@ -100,7 +108,7 @@ func EmitOsRuntime() *CodeUnit {
 	a.AndImm(Rsp, stackAlignMask)
 	a.SubImm(Rsp, winOsCallHomeBytes)
 	a.Mov(Rax, Rbx)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R14, Rax) // R14 = cPath
 	a.Mov(Rcx, R14)
 	a.MovImm(Rdx, winGenericWrite)
@@ -147,28 +155,31 @@ func EmitOsRuntime() *CodeUnit {
 	a.Bind(writeFail)
 	a.Xor(Rax, Rax)
 	g.epilogue()
+}
 
-	// Helper: startWinFrame reserves locals + aligns stack + reserves winOsCallHomeBytes.
-	startWinFrame := func(locals int) {
-		a.Push(Rbp)
-		a.Mov(Rbp, Rsp)
-		if locals > 0 {
-			a.SubImm(Rsp, locals)
-		}
-		a.AndImm(Rsp, stackAlignMask)
-		a.SubImm(Rsp, winOsCallHomeBytes)
+// startWinFrame reserves locals, aligns the stack and reserves winOsCallHomeBytes.
+func (g *osUnit) startWinFrame(locals int) {
+	a := g.asm
+	a.Push(Rbp)
+	a.Mov(Rbp, Rsp)
+	if locals > 0 {
+		a.SubImm(Rsp, locals)
 	}
+	a.AndImm(Rsp, stackAlignMask)
+	a.SubImm(Rsp, winOsCallHomeBytes)
+}
 
-	// rt.os.cliArgs() -> array with String
-	u.DefineCode(ir.RtOsCliArgs.String())
-	startWinFrame(16) // [Rbp-8] = array, [Rbp-16] = cursor
+// rt.os.cliArgs() -> array with String
+func (g *osUnit) emitOsCliArgs() {
+	a := g.asm
+	g.startWinFrame(16) // [Rbp-8] = array, [Rbp-16] = cursor
 	cliSkipWs := NewLabel()
 	cliDone := NewLabel()
 	cliQuoted := NewLabel()
 	cliUnquoted := NewLabel()
 	cliQuotedEnd := NewLabel()
 	cliPush := NewLabel()
-	g.callRuntime(rtArrayNew, 0)
+	g.callRuntime(g.rtArrayNew, 0)
 	a.Store(Rbp, -8, Rax)
 	a.CallImport(impGetCommandLineA)
 	a.Store(Rbp, -16, Rax)
@@ -231,26 +242,28 @@ func EmitOsRuntime() *CodeUnit {
 	a.Bind(cliPush)
 	a.Store(Rbp, -16, R13)
 	a.Mov(Rsi, R14)
-	a.Call(fromCStr)
+	a.Call(g.fromCStr)
 	a.Mov(R15, Rax) // R15 = arg string
 	a.Load(R12, Rbp, -8)
 	a.Push(R12)
-	g.callRuntime(rtArrayLen, 1)
+	g.callRuntime(g.rtArrayLen, 1)
 	a.Push(R12)
 	a.Push(Rax)
 	a.Push(R15)
-	g.callRuntime(rtArrayInsert, 3)
+	g.callRuntime(g.rtArrayInsert, 3)
 	a.Jmp(cliSkipWs)
 	a.Bind(cliDone)
 	a.Load(Rax, Rbp, -8)
 	g.epilogue()
+}
 
-	// rt.os.getEnv(name String) -> String or 0
-	u.DefineCode(ir.RtOsGetEnv.String())
-	startWinFrame(0)
+// rt.os.getEnv(name String) -> String or 0
+func (g *osUnit) emitOsGetEnv() {
+	a := g.asm
+	g.startWinFrame(0)
 	envMiss := NewLabel()
 	a.Load(Rax, Rbp, 16)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R12, Rax) // R12 = cName
 	a.Mov(Rcx, R12)
 	a.Xor(Rdx, Rdx)
@@ -277,17 +290,19 @@ func EmitOsRuntime() *CodeUnit {
 	g.callRuntime(g.rtFree, 1)
 	a.Xor(Rax, Rax)
 	g.epilogue()
+}
 
-	// rt.os.readFile(path String) -> String or 0
-	u.DefineCode(ir.RtOsReadFile.String())
-	startWinFrame(16) // [Rbp-8] = fileSize, [Rbp-16] = bytesRead
+// rt.os.readFile(path String) -> String or 0
+func (g *osUnit) emitOsReadFile() {
+	a := g.asm
+	g.startWinFrame(16) // [Rbp-8] = fileSize, [Rbp-16] = bytesRead
 	readFail := NewLabel()
 	readCloseFail := NewLabel()
 	readFreeFail := NewLabel()
 	readLoop := NewLabel()
 	readDone := NewLabel()
 	a.Load(Rax, Rbp, 16)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R12, Rax) // R12 = cPath
 	a.Mov(Rcx, R12)
 	a.MovImm(Rdx, winGenericRead)
@@ -351,35 +366,41 @@ func EmitOsRuntime() *CodeUnit {
 	a.Bind(readFail)
 	a.Xor(Rax, Rax)
 	g.epilogue()
+}
 
-	// rt.os.writeFile(path String, text String) -> bool
-	u.DefineCode(ir.RtOsWriteFile.String())
-	startWinFrame(0)
+// rt.os.writeFile(path String, text String) -> bool
+func (g *osUnit) emitOsWriteFile() {
+	a := g.asm
+	g.startWinFrame(0)
 	a.Load(Rbx, Rbp, 24)
 	a.Load(Rax, Rbp, 16)
 	a.Load(R13, Rax, stringLengthOffset)
 	a.Lea(R12, Rax, wordBytes)
-	a.Call(writeAll)
+	a.Call(g.writeAll)
 	g.epilogue()
+}
 
-	// rt.os.writeBytes(path String, data Bytes) -> bool
-	u.DefineCode(ir.RtOsWriteBytes.String())
-	startWinFrame(0)
+// rt.os.writeBytes(path String, data Bytes) -> bool
+func (g *osUnit) emitOsWriteBytes() {
+	a := g.asm
+	g.startWinFrame(0)
 	a.Load(Rbx, Rbp, 24)
 	a.Load(Rax, Rbp, 16)
 	a.Load(R13, Rax, bytesLengthOffset)
 	a.Load(R12, Rax, bytesDataOffset)
-	a.Call(writeAll)
+	a.Call(g.writeAll)
 	g.epilogue()
+}
 
-	// rt.os.renameFile(from String, dest String) -> bool
-	u.DefineCode(ir.RtOsRenameFile.String())
-	startWinFrame(0)
+// rt.os.renameFile(from String, dest String) -> bool
+func (g *osUnit) emitOsRenameFile() {
+	a := g.asm
+	g.startWinFrame(0)
 	a.Load(Rax, Rbp, 24)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R12, Rax)
 	a.Load(Rax, Rbp, 16)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R13, Rax)
 	a.Mov(Rcx, R12)
 	a.Mov(Rdx, R13)
@@ -394,12 +415,14 @@ func EmitOsRuntime() *CodeUnit {
 	g.callRuntime(g.rtFree, 1)
 	a.Mov(Rax, R14)
 	g.epilogue()
+}
 
-	// rt.os.removeFile(path String) -> bool
-	u.DefineCode(ir.RtOsRemoveFile.String())
-	startWinFrame(0)
+// rt.os.removeFile(path String) -> bool
+func (g *osUnit) emitOsRemoveFile() {
+	a := g.asm
+	g.startWinFrame(0)
 	a.Load(Rax, Rbp, 16)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R12, Rax)
 	a.Mov(Rcx, R12)
 	a.CallImport(impDeleteFileA)
@@ -410,14 +433,16 @@ func EmitOsRuntime() *CodeUnit {
 	g.callRuntime(g.rtFree, 1)
 	a.Mov(Rax, R13)
 	g.epilogue()
+}
 
-	// rt.os.isDir(path String) -> bool
-	u.DefineCode(ir.RtOsIsDir.String())
-	startWinFrame(0)
+// rt.os.isDir(path String) -> bool
+func (g *osUnit) emitOsIsDir() {
+	a := g.asm
+	g.startWinFrame(0)
 	isDirFalse := NewLabel()
 	isDirDone := NewLabel()
 	a.Load(Rax, Rbp, 16)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R12, Rax)
 	a.Mov(Rcx, R12)
 	a.CallImport(impGetFileAttributesA)
@@ -436,12 +461,14 @@ func EmitOsRuntime() *CodeUnit {
 	g.callRuntime(g.rtFree, 1)
 	a.Mov(Rax, R13)
 	g.epilogue()
+}
 
-	// rt.os.mkdir(path String) -> bool
-	u.DefineCode(ir.RtOsMkdir.String())
-	startWinFrame(0)
+// rt.os.mkdir(path String) -> bool
+func (g *osUnit) emitOsMkdir() {
+	a := g.asm
+	g.startWinFrame(0)
 	a.Load(Rax, Rbp, 16)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R12, Rax)
 	a.Mov(Rcx, R12)
 	a.Xor(Rdx, Rdx)
@@ -453,15 +480,17 @@ func EmitOsRuntime() *CodeUnit {
 	g.callRuntime(g.rtFree, 1)
 	a.Mov(Rax, R13)
 	g.epilogue()
+}
 
-	// rt.os.listDir(path String) -> array with String or 0
-	u.DefineCode(ir.RtOsListDir.String())
+// rt.os.listDir(path String) -> array with String or 0
+func (g *osUnit) emitOsListDir() {
+	a := g.asm
 	const (
 		listOffArray  = -8
 		listOffHandle = -16
 		listOffFind   = -16 - winFindDataBytes
 	)
-	startWinFrame(16 + winFindDataBytes)
+	g.startWinFrame(16 + winFindDataBytes)
 	listFail := NewLabel()
 	listLoop := NewLabel()
 	listNext := NewLabel()
@@ -492,7 +521,7 @@ func EmitOsRuntime() *CodeUnit {
 	a.Load(R13, Rbp, listOffHandle)
 	a.CmpImm(R13, winInvalidHandle)
 	a.Jcc(CcE, listFail)
-	g.callRuntime(rtArrayNew, 0)
+	g.callRuntime(g.rtArrayNew, 0)
 	a.Store(Rbp, listOffArray, Rax)
 	a.Bind(listLoop)
 	// Measure cFileName length at [Rbp + listOffFind + winFindDataNameOffset]
@@ -523,15 +552,15 @@ func EmitOsRuntime() *CodeUnit {
 	a.Jcc(CcE, listNext)
 	a.Bind(listKeep)
 	a.Mov(Rsi, R14)
-	a.Call(fromCStr)
+	a.Call(g.fromCStr)
 	a.Mov(R15, Rax)
 	a.Load(R12, Rbp, listOffArray)
 	a.Push(R12)
-	g.callRuntime(rtArrayLen, 1)
+	g.callRuntime(g.rtArrayLen, 1)
 	a.Push(R12)
 	a.Push(Rax)
 	a.Push(R15)
-	g.callRuntime(rtArrayInsert, 3)
+	g.callRuntime(g.rtArrayInsert, 3)
 	a.Bind(listNext)
 	a.Load(Rcx, Rbp, listOffHandle)
 	a.Lea(Rdx, Rbp, listOffFind)
@@ -546,16 +575,18 @@ func EmitOsRuntime() *CodeUnit {
 	a.Bind(listFail)
 	a.Xor(Rax, Rax)
 	g.epilogue()
+}
 
-	// rt.os.runProcess(commandLine String) -> (exitCode << 1) | 1, or 0 on failure
-	u.DefineCode(ir.RtOsRunProcess.String())
+// rt.os.runProcess(commandLine String) -> (exitCode << 1) | 1, or 0 on failure
+func (g *osUnit) emitOsRunProcess() {
+	a := g.asm
 	const (
 		procFrameBytes = 144 // 104 STARTUPINFOA + 24 PROCESS_INFORMATION + 8 exitCode + 8 pad
 		offStartupInfo = -104
 		offProcessInfo = -128
 		offExitCode    = -136
 	)
-	startWinFrame(procFrameBytes)
+	g.startWinFrame(procFrameBytes)
 	procFail := NewLabel()
 	// Zero STARTUPINFOA and PROCESS_INFORMATION (128 bytes = 16 qwords)
 	a.Lea(Rdi, Rbp, offProcessInfo)
@@ -565,7 +596,7 @@ func EmitOsRuntime() *CodeUnit {
 	a.MovImm(Rax, winStartupInfoBytes)
 	a.Store(Rbp, offStartupInfo, Rax) // cb = 104 (upper 32 bits 0)
 	a.Load(Rax, Rbp, 16)
-	a.Call(toCStr)
+	a.Call(g.toCStr)
 	a.Mov(R12, Rax) // R12 = cCmdLine (writable buffer, as CreateProcessA requires)
 	a.Xor(Rcx, Rcx) // lpApplicationName = 0
 	a.Mov(Rdx, R12) // lpCommandLine
@@ -606,6 +637,4 @@ func EmitOsRuntime() *CodeUnit {
 	a.Bind(procFail)
 	a.Xor(Rax, Rax)
 	g.epilogue()
-
-	return u
 }

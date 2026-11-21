@@ -36,8 +36,10 @@ type RuntimeOptions struct {
 }
 
 type runtimeUnit struct {
-	u         *CodeUnit
-	count     bool
+	u     *CodeUnit
+	count bool
+	// main is the function the entry point of the executable calls, in the runtime unit only.
+	main      *ast.FuncDecl
 	rtAlloc   *Label
 	rtFree    *Label
 	rtWrite   *Label
@@ -48,9 +50,23 @@ type runtimeUnit struct {
 
 func EmitRuntime(main *ast.FuncDecl, o RuntimeOptions) *CodeUnit {
 	u := NewCodeUnit()
-	g := &runtimeUnit{
+	g := newRuntimeUnit(u)
+	g.count = o.CountAllocations
+	g.main = main
+	u.DefineData(ir.RtHeap.String(), wordBytes)
+	u.DefineData(ir.RtStdout.String(), wordBytes)
+	u.DefineData(ir.RtStderr.String(), wordBytes)
+	if o.CountAllocations {
+		u.DefineData(ir.RtLive.String(), wordBytes)
+	}
+	g.defineEntries()
+	return u
+}
+
+// newRuntimeUnit writes a unit whose code calls the allocator, the writer and the panic routine of the runtime unit.
+func newRuntimeUnit(u *CodeUnit) *runtimeUnit {
+	return &runtimeUnit{
 		u:         u,
-		count:     o.CountAllocations,
 		rtAlloc:   ExternLabel(ir.RtAlloc.String()),
 		rtFree:    ExternLabel(ir.RtFree.String()),
 		rtWrite:   ExternLabel(ir.RtWrite.String()),
@@ -58,15 +74,6 @@ func EmitRuntime(main *ast.FuncDecl, o RuntimeOptions) *CodeUnit {
 		asm:       u.Asm,
 		dataBytes: u.Data,
 	}
-	u.DefineData(ir.RtHeap.String(), wordBytes)
-	u.DefineData(ir.RtStdout.String(), wordBytes)
-	u.DefineData(ir.RtStderr.String(), wordBytes)
-	if o.CountAllocations {
-		u.DefineData(ir.RtLive.String(), wordBytes)
-	}
-	g.emitEntry(main)
-	g.emitRuntime()
-	return u
 }
 
 func (g *runtimeUnit) callRuntime(l *Label, args int) {
@@ -76,9 +83,10 @@ func (g *runtimeUnit) callRuntime(l *Label, args int) {
 	}
 }
 
-func (g *runtimeUnit) emitEntry(main *ast.FuncDecl) {
+// emitEntry writes the executable's entry point: it sets up the heap and the standard handles, calls main and exits
+// with what main returns.
+func (g *runtimeUnit) emitEntry() {
 	a := g.asm
-	g.u.DefineCode(ir.RtEntry.String())
 	a.SubImm(Rsp, windowsShadowSize)
 	a.CallImport(impGetProcessHeap)
 	a.StoreSymbol(ir.RtHeap.String(), Rax)
@@ -88,7 +96,7 @@ func (g *runtimeUnit) emitEntry(main *ast.FuncDecl) {
 	a.MovImm(Rcx, stdErrorHandle)
 	a.CallImport(impGetStdHandle)
 	a.StoreSymbol(ir.RtStderr.String(), Rax)
-	a.Call(ExternLabel(functionSymbol(main)))
+	a.Call(ExternLabel(functionSymbol(g.main)))
 	if g.count {
 		g.exitIfLeaking()
 	}
@@ -154,12 +162,8 @@ type panicPiece struct {
 	isText bool
 }
 
-func (g *runtimeUnit) emitRuntime() {
+func (g *runtimeUnit) emitAlloc() {
 	a := g.asm
-	u := g.u
-	data := g.dataBytes
-
-	u.DefineCode(ir.RtAlloc.String())
 	g.prologue(0, true)
 	a.LoadSymbol(Rcx, ir.RtHeap.String())
 	a.MovImm(Rdx, heapZeroMemory)
@@ -169,10 +173,12 @@ func (g *runtimeUnit) emitRuntime() {
 		g.countLive(1)
 	}
 	g.epilogue()
+}
 
-	// free(box): gives a box back to the heap. A box that is 0 is a place that held no value, which HeapFree does not
-	// accept, so it is skipped.
-	u.DefineCode(ir.RtFree.String())
+// free(box): gives a box back to the heap. A box that is 0 is a place that held no value, which HeapFree does not
+// accept, so it is skipped.
+func (g *runtimeUnit) emitFree() {
+	a := g.asm
 	g.prologue(0, true)
 	freed := NewLabel()
 	a.Load(R8, Rbp, 16)
@@ -186,8 +192,10 @@ func (g *runtimeUnit) emitRuntime() {
 	a.CallImport(impHeapFree)
 	a.Bind(freed)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtWrite.String())
+func (g *runtimeUnit) emitWrite() {
+	a := g.asm
 	g.prologue(0, true)
 	a.Load(Rcx, Rbp, 24)
 	a.Load(Rdx, Rbp, 16)
@@ -198,8 +206,11 @@ func (g *runtimeUnit) emitRuntime() {
 	a.Store(Rsp, writeOverlappedSlot, Rax)
 	a.CallImport(impWriteFile)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtPanic.String())
+func (g *runtimeUnit) emitPanic() {
+	a := g.asm
+	data := g.dataBytes
 	g.prologue(0, false)
 	pieces := []panicPiece{{data.String("panic: "), true}, {0, false}}
 	pieces = append(pieces, panicPiece{data.String("\n"), true})
@@ -218,8 +229,10 @@ func (g *runtimeUnit) emitRuntime() {
 	a.SubImm(Rsp, panicShadowBytes)
 	a.MovImm(Rcx, panicExitCode)
 	a.CallImport(impExitProcess)
+}
 
-	u.DefineCode(ir.RtConcat.String())
+func (g *runtimeUnit) emitConcat() {
+	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rsi, Rbp, 24)
 	a.Load(Rdi, Rbp, 16)
@@ -240,8 +253,10 @@ func (g *runtimeUnit) emitRuntime() {
 	}
 	a.Mov(Rax, R12)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtItoa.String())
+func (g *runtimeUnit) emitItoa() {
+	a := g.asm
 	g.prologue(64, false)
 	digits := NewLabel()
 	loop := NewLabel()
@@ -283,8 +298,10 @@ func (g *runtimeUnit) emitRuntime() {
 	a.RepMovsb()
 	a.Mov(Rax, R12)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtStreq.String())
+func (g *runtimeUnit) emitStreq() {
+	a := g.asm
 	g.prologue(0, false)
 	yes := NewLabel()
 	no := NewLabel()
@@ -308,14 +325,19 @@ func (g *runtimeUnit) emitRuntime() {
 	a.MovImm(Rax, 0)
 	a.Bind(done)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtStrLen.String())
+func (g *runtimeUnit) emitStrLen() {
+	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 16)
 	a.Load(Rax, Rax, 0)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtStrByteAt.String())
+func (g *runtimeUnit) emitStrByteAt() {
+	a := g.asm
+	data := g.dataBytes
 	g.prologue(0, false)
 	byteBad := NewLabel()
 	a.Load(Rsi, Rbp, 24)
@@ -330,8 +352,11 @@ func (g *runtimeUnit) emitRuntime() {
 	a.LeaData(Rax, data.String("string byte position out of bounds"))
 	a.Push(Rax)
 	g.callRuntime(g.rtPanic, 1)
+}
 
-	u.DefineCode(ir.RtStrSlice.String())
+func (g *runtimeUnit) emitStrSlice() {
+	a := g.asm
+	data := g.dataBytes
 	g.prologue(0, false)
 	sliceBad := NewLabel()
 	a.Load(Rsi, Rbp, 32)

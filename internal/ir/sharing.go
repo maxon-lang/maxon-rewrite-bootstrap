@@ -50,25 +50,27 @@ func (l *Lowerer) behaviour(s ast.WhenInfo) int {
 	return l.b.Behaviour(body)
 }
 
-// intrinsicSharing lowers a call of freeze, share, thaw or cown.
-func (l *Lowerer) intrinsicSharing(c call, args []V) V {
-	switch c.Target.Intrinsic {
-	case ast.IntrinsicFreeze:
-		return l.entry(c.CallExpr.Position(), RtFrozenFreeze, KindManaged, args[0])
-	case ast.IntrinsicShare:
-		return l.entry(c.CallExpr.Position(), RtShare, KindManaged, args[0])
-	case ast.IntrinsicThaw:
-		held := l.binding.Apply(l.ty(c.CallExpr.Expr()))
-		inner := l.entry(c.CallExpr.Position(), RtFrozenGet, kindOf(held), args[0])
-		return l.copyValue(c.CallExpr.Position(), inner, held)
-	case ast.IntrinsicCown:
-		d := l.reg(KindManaged)
-		var routine *ast.FuncDecl
-		if c.Drop != nil {
-			routine = l.callee(ast.CallUse{Info: c.Drop, Site: c.Position()})
-		}
-		l.emitEntry(c.CallExpr.Position(), d, RtCownNew, args, routine)
-		return d
+func (l *Lowerer) lowerFreeze(c call, _ V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtFrozenFreeze, KindManaged, args[0])
+}
+
+func (l *Lowerer) lowerShare(c call, _ V, args []V) V {
+	return l.entry(c.CallExpr.Position(), RtShare, KindManaged, args[0])
+}
+
+func (l *Lowerer) lowerThaw(c call, _ V, args []V) V {
+	held := l.binding.Apply(l.ty(c.CallExpr.Expr()))
+	inner := l.entry(c.CallExpr.Position(), RtFrozenGet, kindOf(held), args[0])
+	return l.copyValue(c.CallExpr.Position(), inner, held)
+}
+
+// lowerCown makes a cown; one made with dropWith: ends its content with that destructor.
+func (l *Lowerer) lowerCown(c call, _ V, args []V) V {
+	d := l.reg(KindManaged)
+	var routine *ast.FuncDecl
+	if c.Drop != nil {
+		routine = l.callee(ast.CallUse{Info: c.Drop, Site: c.Position()})
 	}
-	panic(diag.Internal("lower: %d is not an intrinsic that shares", int(c.Target.Intrinsic)))
+	l.emitEntry(c.CallExpr.Position(), d, RtCownNew, args, routine)
+	return d
 }

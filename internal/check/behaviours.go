@@ -280,30 +280,38 @@ func requireFreezable(site ast.Pos, arg ast.Ty) {
 	}
 }
 
-// checkIntrinsicArgs refuses an argument of freeze, share or thaw that the generic signature alone cannot: share takes
-// either kind of shared value, and the others take a value of the right kind.
-func (c *Checker) checkIntrinsicArgs(call ast.CallExpr, target *ast.FuncDecl, ordered []ast.Expr) {
+// checkFreezeArgs refuses a value to freeze that is no managed value and so cannot be frozen.
+func (c *Checker) checkFreezeArgs(_ ast.CallExpr, ordered []ast.Expr) {
+	arg, t := c.soleArg(ordered)
+	if _, isConst := t.(*ast.ConstIntTy); isConst || (t != ast.NeverTy && t != ast.VoidTy && !t.IsManaged()) {
+		requireFreezable(arg.Position(), t)
+	}
+}
+
+// checkShareArgs refuses a value to share that is neither kind of shared value, which the generic signature allows.
+func (c *Checker) checkShareArgs(_ ast.CallExpr, ordered []ast.Expr) {
+	arg, t := c.soleArg(ordered)
+	if bt, ok := t.(*ast.BuiltinTy); !ok || !bt.Shared() {
+		panic(arg.Position().Error(diag.ErrShareTarget,
+			fmt.Sprintf("share takes a frozen value or a cown reference, found %s; a value that is not shared has one owner, so %s", t.Name(), c.copyAdvice(t, "move it, or copy it with '.copy()'", "move it"))))
+	}
+}
+
+// checkThawArgs refuses a value to thaw that is not frozen.
+func (c *Checker) checkThawArgs(_ ast.CallExpr, ordered []ast.Expr) {
+	arg, t := c.soleArg(ordered)
+	if !ast.IsFrozen(t) {
+		panic(arg.Position().Error(diag.ErrShareTarget,
+			fmt.Sprintf("thaw takes a frozen value, found %s; a value that is not frozen is already owned: %s", t.Name(), c.copyAdvice(t, "use '.copy()' for another one", "move it"))))
+	}
+}
+
+// soleArg is the one argument of a sharing function, which binding the arguments to its signature has made sure of.
+func (c *Checker) soleArg(ordered []ast.Expr) (ast.Expr, ast.Ty) {
 	if len(ordered) != 1 {
-		return
+		panic(diag.Internal("check: a sharing function given %d arguments", len(ordered)))
 	}
-	arg := ordered[0]
-	t := c.ty(arg)
-	switch target.Intrinsic {
-	case ast.IntrinsicFreeze:
-		if _, isConst := t.(*ast.ConstIntTy); isConst || (t != ast.NeverTy && t != ast.VoidTy && !t.IsManaged()) {
-			requireFreezable(arg.Position(), t)
-		}
-	case ast.IntrinsicShare:
-		if bt, ok := t.(*ast.BuiltinTy); !ok || !bt.Shared() {
-			panic(arg.Position().Error(diag.ErrShareTarget,
-				fmt.Sprintf("share takes a frozen value or a cown reference, found %s; a value that is not shared has one owner, so %s", t.Name(), c.copyAdvice(t, "move it, or copy it with '.copy()'", "move it"))))
-		}
-	case ast.IntrinsicThaw:
-		if !ast.IsFrozen(t) {
-			panic(arg.Position().Error(diag.ErrShareTarget,
-				fmt.Sprintf("thaw takes a frozen value, found %s; a value that is not frozen is already owned: %s", t.Name(), c.copyAdvice(t, "use '.copy()' for another one", "move it"))))
-		}
-	}
+	return ordered[0], c.ty(ordered[0])
 }
 
 // cownCall types cown(x) and cown(x, dropWith: d). The content of the first is dropped with the last reference, so it

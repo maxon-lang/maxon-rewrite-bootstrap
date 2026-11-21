@@ -18,44 +18,60 @@ const (
 // the executable of any other program does not hold it.
 func EmitArrayRuntime() *CodeUnit {
 	u := NewCodeUnit()
-	a := u.Asm
-	g := &runtimeUnit{u: u, rtAlloc: ExternLabel(ir.RtAlloc.String()), rtFree: ExternLabel(ir.RtFree.String()), rtPanic: ExternLabel(ir.RtPanic.String()), asm: a, dataBytes: u.Data}
-	outOfRange := ExternLabel(ir.RtPanicIndex.String())
+	g := &arraysUnit{runtimeUnit: newRuntimeUnit(u), outOfRange: ExternLabel(ir.RtPanicIndex.String())}
+	g.defineEntries()
+	return u
+}
 
-	u.DefineCode(ir.RtPanicIndex.String())
+// arraysUnit writes the array unit.
+type arraysUnit struct {
+	*runtimeUnit
+	outOfRange *Label
+}
+
+func (g *arraysUnit) emitPanicIndex() {
+	a := g.asm
 	a.LeaData(Rax, g.dataBytes.String(indexOutOfRange))
 	a.Push(Rax)
 	a.Call(g.rtPanic)
+}
 
-	u.DefineCode(ir.RtArrayNew.String())
+func (g *arraysUnit) emitArrayNew() {
+	a := g.asm
 	g.prologue(0, false)
 	a.MovImm(Rax, arrayHeaderBytes)
 	a.Push(Rax)
 	g.callRuntime(g.rtAlloc, 1)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtArrayLen.String())
+func (g *arraysUnit) emitArrayLen() {
+	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 16)
 	a.Load(Rax, Rax, arrayLengthOffset)
 	g.epilogue()
+}
 
-	// elem(array, index): the address of the element, after checking the index against the length.
-	u.DefineCode(ir.RtArrayElem.String())
+// elem(array, index): the address of the element, after checking the index against the length.
+func (g *arraysUnit) emitArrayElem() {
+	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 24)
 	a.Load(Rcx, Rbp, 16)
 	a.Load(Rdx, Rax, arrayLengthOffset)
 	a.Cmp(Rcx, Rdx)
-	a.Jcc(CcAE, outOfRange)
+	a.Jcc(CcAE, g.outOfRange)
 	a.Load(Rax, Rax, arrayDataOffset)
 	a.MovImm(Rdx, wordBytes)
 	a.Imul(Rcx, Rdx)
 	a.Add(Rax, Rcx)
 	g.epilogue()
+}
 
-	// insert(array, index, element): moves the element in at index, which may be the length, shifting what follows.
-	u.DefineCode(ir.RtArrayInsert.String())
+// insert(array, index, element): moves the element in at index, which may be the length, shifting what follows.
+func (g *arraysUnit) emitArrayInsert() {
+	a := g.asm
 	g.prologue(0, false)
 	room := NewLabel()
 	sized := NewLabel()
@@ -66,7 +82,7 @@ func EmitArrayRuntime() *CodeUnit {
 	a.Load(R13, Rbp, 16)
 	a.Load(R14, Rbx, arrayLengthOffset)
 	a.Cmp(R12, R14)
-	a.Jcc(CcA, outOfRange)
+	a.Jcc(CcA, g.outOfRange)
 	a.Load(Rax, Rbx, arrayCapacityOffset)
 	a.Cmp(R14, Rax)
 	a.Jcc(CcB, room)
@@ -112,9 +128,11 @@ func EmitArrayRuntime() *CodeUnit {
 	a.AddImm(R14, 1)
 	a.Store(Rbx, arrayLengthOffset, R14)
 	g.epilogue()
+}
 
-	// remove(array, index) -> element: moves it out, shifting what follows down.
-	u.DefineCode(ir.RtArrayRemove.String())
+// remove(array, index) -> element: moves it out, shifting what follows down.
+func (g *arraysUnit) emitArrayRemove() {
+	a := g.asm
 	g.prologue(0, false)
 	closeUp := NewLabel()
 	closed := NewLabel()
@@ -122,7 +140,7 @@ func EmitArrayRuntime() *CodeUnit {
 	a.Load(R12, Rbp, 16)
 	a.Load(R14, Rbx, arrayLengthOffset)
 	a.Cmp(R12, R14)
-	a.Jcc(CcAE, outOfRange)
+	a.Jcc(CcAE, g.outOfRange)
 	a.Load(Rdx, Rbx, arrayDataOffset)
 	a.MovImm(Rax, wordBytes)
 	a.Mov(R8, R12)
@@ -145,5 +163,4 @@ func EmitArrayRuntime() *CodeUnit {
 	a.Store(Rbx, arrayLengthOffset, R14)
 	a.Mov(Rax, R13)
 	g.epilogue()
-	return u
 }

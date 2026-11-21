@@ -1,7 +1,5 @@
 package backend
 
-import "minimaxon/internal/ir"
-
 // A Bytes buffer is a box of three words: its length in bytes, its capacity in bytes, and the address of its byte
 // buffer. It starts empty with no buffer, and grows by doubling from bytesFirstCapacity; the old buffer is freed.
 const (
@@ -15,21 +13,24 @@ const (
 // EmitBytesRuntime is the unit with the Bytes runtime entries. It is linked only into a program that calls one.
 func EmitBytesRuntime() *CodeUnit {
 	u := NewCodeUnit()
-	a := u.Asm
-	g := &runtimeUnit{
-		u:         u,
-		rtAlloc:   ExternLabel(ir.RtAlloc.String()),
-		rtFree:    ExternLabel(ir.RtFree.String()),
-		rtPanic:   ExternLabel(ir.RtPanic.String()),
-		asm:       a,
-		dataBytes: u.Data,
-	}
-	outOfRange := NewLabel()
-	ensureCap := NewLabel()
+	g := &bytesUnit{runtimeUnit: newRuntimeUnit(u), outOfRange: NewLabel(), ensureCap: NewLabel()}
+	g.emitHelpers()
+	g.defineEntries()
+	return u
+}
 
+// bytesUnit writes the Bytes unit.
+type bytesUnit struct {
+	*runtimeUnit
+	outOfRange, ensureCap *Label
+}
+
+// emitHelpers writes the code that the entries of the unit share.
+func (g *bytesUnit) emitHelpers() {
+	a := g.asm
 	// Helper: ensureCap(Rbx = header, R14 = current len, R15 = needed cap). Preserves Rbx, R12, R13, R14, R15.
 	// Uses Rax, Rcx, Rdx, Rsi, Rdi, R8.
-	a.Bind(ensureCap)
+	a.Bind(g.ensureCap)
 	room := NewLabel()
 	growLoop := NewLabel()
 	sized := NewLabel()
@@ -61,63 +62,75 @@ func EmitBytesRuntime() *CodeUnit {
 	a.Bind(room)
 	a.Ret()
 
-	a.Bind(outOfRange)
+	a.Bind(g.outOfRange)
 	a.LeaData(Rax, g.dataBytes.String(indexOutOfRange))
 	a.Push(Rax)
 	a.Call(g.rtPanic)
+}
 
-	u.DefineCode(ir.RtBytesNew.String())
+func (g *bytesUnit) emitBytesNew() {
+	a := g.asm
 	g.prologue(0, false)
 	a.MovImm(Rax, bytesHeaderBytes)
 	a.Push(Rax)
 	g.callRuntime(g.rtAlloc, 1)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtBytesLen.String())
+func (g *bytesUnit) emitBytesLen() {
+	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 16)
 	a.Load(Rax, Rax, bytesLengthOffset)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtBytesGet.String())
+func (g *bytesUnit) emitBytesGet() {
+	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 24)
 	a.Load(Rcx, Rbp, 16)
 	a.Load(Rdx, Rax, bytesLengthOffset)
 	a.Cmp(Rcx, Rdx)
-	a.Jcc(CcAE, outOfRange)
+	a.Jcc(CcAE, g.outOfRange)
 	a.Load(Rax, Rax, bytesDataOffset)
 	a.Add(Rax, Rcx)
 	a.LoadByte(Rax, Rax, 0)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtBytesSet.String())
+func (g *bytesUnit) emitBytesSet() {
+	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 32)
 	a.Load(Rcx, Rbp, 24)
 	a.Load(R8, Rbp, 16)
 	a.Load(Rdx, Rax, bytesLengthOffset)
 	a.Cmp(Rcx, Rdx)
-	a.Jcc(CcAE, outOfRange)
+	a.Jcc(CcAE, g.outOfRange)
 	a.Load(Rax, Rax, bytesDataOffset)
 	a.Add(Rax, Rcx)
 	a.StoreByte(Rax, 0, R8)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtBytesPush.String())
+func (g *bytesUnit) emitBytesPush() {
+	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rbx, Rbp, 24)
 	a.Load(R12, Rbp, 16)
 	a.Load(R14, Rbx, bytesLengthOffset)
 	a.Lea(R15, R14, 1)
-	a.Call(ensureCap)
+	a.Call(g.ensureCap)
 	a.Load(Rax, Rbx, bytesDataOffset)
 	a.Add(Rax, R14)
 	a.StoreByte(Rax, 0, R12)
 	a.Store(Rbx, bytesLengthOffset, R15)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtBytesAppend.String())
+func (g *bytesUnit) emitBytesAppend() {
+	a := g.asm
 	g.prologue(0, false)
 	appendDone := NewLabel()
 	a.Load(Rbx, Rbp, 24)
@@ -128,7 +141,7 @@ func EmitBytesRuntime() *CodeUnit {
 	a.Load(R14, Rbx, bytesLengthOffset)
 	a.Mov(R15, R14)
 	a.Add(R15, R13)
-	a.Call(ensureCap)
+	a.Call(g.ensureCap)
 	a.Load(Rdi, Rbx, bytesDataOffset)
 	a.Add(Rdi, R14)
 	a.Load(Rsi, R12, bytesDataOffset)
@@ -137,8 +150,10 @@ func EmitBytesRuntime() *CodeUnit {
 	a.Store(Rbx, bytesLengthOffset, R15)
 	a.Bind(appendDone)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtBytesAppendStr.String())
+func (g *bytesUnit) emitBytesAppendStr() {
+	a := g.asm
 	g.prologue(0, false)
 	appendStrDone := NewLabel()
 	a.Load(Rbx, Rbp, 24)
@@ -149,7 +164,7 @@ func EmitBytesRuntime() *CodeUnit {
 	a.Load(R14, Rbx, bytesLengthOffset)
 	a.Mov(R15, R14)
 	a.Add(R15, R13)
-	a.Call(ensureCap)
+	a.Call(g.ensureCap)
 	a.Load(Rdi, Rbx, bytesDataOffset)
 	a.Add(Rdi, R14)
 	a.Lea(Rsi, R12, wordBytes)
@@ -158,8 +173,10 @@ func EmitBytesRuntime() *CodeUnit {
 	a.Store(Rbx, bytesLengthOffset, R15)
 	a.Bind(appendStrDone)
 	g.epilogue()
+}
 
-	u.DefineCode(ir.RtBytesToString.String())
+func (g *bytesUnit) emitBytesToString() {
+	a := g.asm
 	g.prologue(0, false)
 	toStrEmpty := NewLabel()
 	a.Load(Rbx, Rbp, 16)
@@ -178,6 +195,4 @@ func EmitBytesRuntime() *CodeUnit {
 	a.Bind(toStrEmpty)
 	a.Mov(Rax, R12)
 	g.epilogue()
-
-	return u
 }

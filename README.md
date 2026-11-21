@@ -146,7 +146,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `driver` | `Compile`: runs the phases, the modules phase (check and generate of each module) as one scheduled phase, with the build cache's export summaries, keys and entries; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
-that generates code from the grammar, `internal/diaggen` is the command that generates the error code constants of `internal/diag` and `self/diag` from `internal/diag/codes.tsv`, and `cmd/convert` is the standalone tool that converts existing Maxon source
+that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/diaggen` the one that generates the error code constants of `internal/diag` and `self/diag` from `internal/diag/codes.tsv`, and `cmd/convert` is the standalone tool that converts existing Maxon source
 to minimaxon syntax and layout; nothing imports either.
 
 ### Generated code
@@ -193,13 +193,22 @@ few members, such as whether an expression can be assigned to. Regenerate after 
 
 ```powershell
 go generate ./internal/syntax
+go generate ./internal/ast
 ```
 
-`go test ./internal/grammargen` fails if a generated file is not what the grammar generates.
+The built-ins have one table, `internal/builtingen/table.go`: the built-in types, the functions and methods on them
+with their signatures and the intrinsic each lowers to, and the runtime entries with the unit that defines each. From
+it `go generate ./internal/ast` writes the declarations (`internal/ast/builtins_gen.go`, and
+`self/ast/builtins_gen.maxon` for `self/`), the `Intrinsic` and `Rt` enums, and the dispatch from each intrinsic and
+entry to its hand-written body: `check<Intrinsic>Args` in the checker for an intrinsic the table marks checked,
+`lower<Intrinsic>` in the lowering, `entry<Entry>` in the interpreter, and `emit<Entry>` on the backend unit that defines
+the entry. A dispatch names a method for every row, so a row added to the table fails the build wherever its body is
+missing.
 
 The error codes are a table, `internal/diag/codes.tsv`: each row is a constant, its code, the case of maxon's `ErrorCodeRegistry.maxon` that has that number (or `-` for a code of minimaxon's own, numbered from `E3900`) and what it refuses. Edit the table, then `go generate ./internal/diag` writes `internal/diag/codes_gen.go` and `self/diag/codes_gen.maxon`, and `go test ./internal/diaggen` fails if either differs. `go run minimaxon/internal/diaggen --maxon <maxon repository>` checks every row against maxon's registry.
 
-A package exports only what another
+`go test ./internal/grammargen` and `go test ./internal/builtingen` fail if a generated file is not what the grammar or
+the table generates. A package exports only what another
 package uses. What resolution and the check of the bodies decide is not in the nodes but in tables beside them (see
 "The AST"); the declarations, which are structs, still carry the semantic types that declare fills in, which is why `ast` holds both.
 Moving those into tables too, as `go/ast` and `go/types` do, would let the two separate.
@@ -760,7 +769,7 @@ never freed, any other string is a box on the heap. An enum value is its case in
 ### The primitives in the IR
 
 An `array`, a `map`, a `list` and a `pool` (see "Primitives") are heap boxes that only runtime entries touch, so the
-IR holds no layout of them: an operation is a `runtime` call of a named entry (`internal/ir/symbols.go`), and the
+IR holds no layout of them: an operation is a `runtime` call of a named entry (`internal/builtingen/table.go`), and the
 interpreter and the backend each implement the entries. The element is always visible in the call:
 
 - An entry that takes an element **moves it in** (`rt.array.insert`, `rt.map.insert`, `rt.list.pushBack`,
@@ -794,7 +803,7 @@ to free it.
 ### Frozen values, cowns and behaviours in the IR
 
 A frozen value and a cown are boxes with a count of owners, so they are the one kind of value that more than one place
-owns (`internal/ir/symbols.go`):
+owns (`internal/builtingen/table.go`):
 
 | Entry | Does |
 |---|---|
@@ -1364,7 +1373,7 @@ can say where it comes from and how to get it back. Every copy decision goes thr
 
 Layer 2 of [docs/regions.md](docs/regions.md), as far as step 3 goes: their signatures and ownership rules. An
 `array with T`, a `map with (K, V)`, a `list with T` (doubly linked, one node per element) and a `pool with T` own their elements.
-Their operations are generic methods that no source declares (`internal/ast/builtins.go`), typed, borrowed and moved
+Their operations are generic methods that no source declares (`internal/builtingen/table.go`), typed, borrowed and moved
 like any other method from the signature below, so none of the ownership rules has a special case for them. They are
 declared in the stdlib module, so a name resolves to them last, after the module's own, the root's and an exported
 one anywhere.

@@ -1,22 +1,14 @@
 package ast
 
+//go:generate go run minimaxon/internal/builtingen
+
 import "minimaxon/internal/diag"
 
-// BuiltinKind says which runtime primitive a BuiltinTy is.
-type BuiltinKind int
-
-const (
-	BuiltinArray BuiltinKind = iota
-	BuiltinMap
-	BuiltinList
-	BuiltinPool
-	BuiltinHandle
-	BuiltinFrozen
-	BuiltinCown
-	BuiltinBytes
-)
-
-var builtinNames = [...]string{"array", "map", "list", "pool", "Handle", "frozen", "cown", "Bytes"}
+// builtinKindInfo is what the table says about a kind of runtime primitive.
+type builtinKindInfo struct {
+	name                           string
+	managed, subscriptable, shared bool
+}
 
 // BuiltinTy is a runtime primitive: array with T, map with (K, V), list with T, pool with T, the Handle with T that
 // names an element of a pool or a list, or one of the two types that cross between threads: frozen with T, an
@@ -32,7 +24,7 @@ type BuiltinTy struct {
 	lib    *Builtins
 }
 
-func (t *BuiltinTy) IsManaged() bool { return t.Kind != BuiltinHandle }
+func (t *BuiltinTy) IsManaged() bool { return builtinKinds[t.Kind].managed }
 
 // args are the type arguments the type is read at: an instance's own, or for the declaration its parameters.
 func (t *BuiltinTy) args() []Ty {
@@ -47,11 +39,11 @@ func (t *BuiltinTy) args() []Ty {
 }
 
 // Subscriptable is whether t[i] names an element: an array, a map, a list or a pool.
-func (t *BuiltinTy) Subscriptable() bool { return t.Kind <= BuiltinPool }
+func (t *BuiltinTy) Subscriptable() bool { return builtinKinds[t.Kind].subscriptable }
 
 // Shared is whether the type is counted and has many owners: a frozen value or a cown reference. Copying one is another
 // owner of the same value, never a new value.
-func (t *BuiltinTy) Shared() bool { return t.Kind == BuiltinFrozen || t.Kind == BuiltinCown }
+func (t *BuiltinTy) Shared() bool { return builtinKinds[t.Kind].shared }
 
 // Held is the type of the value a frozen value or a cown holds.
 func (t *BuiltinTy) Held() Ty {
@@ -137,138 +129,18 @@ func IsKey(t Ty) bool {
 	return false
 }
 
-// Intrinsic names a method that no source declares: the checker types a call of it like any other method, and
-// lowering turns it into IR instead of a call.
-type Intrinsic int
-
-const (
-	NotIntrinsic Intrinsic = iota
-	IntrinsicArrayNew
-	IntrinsicArrayFilled
-	IntrinsicArrayCount
-	IntrinsicArrayIsEmpty
-	IntrinsicArrayAppend
-	IntrinsicArrayInsert
-	IntrinsicArrayRemove
-	IntrinsicArrayPop
-	IntrinsicArrayDropEmpty
-	IntrinsicMapNew
-	IntrinsicMapCount
-	IntrinsicMapIsEmpty
-	IntrinsicMapHas
-	IntrinsicMapInsert
-	IntrinsicMapRemove
-	IntrinsicMapReplace
-	IntrinsicMapDropEmpty
-	IntrinsicListNew
-	IntrinsicListCount
-	IntrinsicListIsEmpty
-	IntrinsicListContains
-	IntrinsicListPushFront
-	IntrinsicListPushBack
-	IntrinsicListPopFront
-	IntrinsicListPopBack
-	IntrinsicListFirst
-	IntrinsicListLast
-	IntrinsicListNext
-	IntrinsicListPrev
-	IntrinsicListRemove
-	IntrinsicListMoveToFront
-	IntrinsicListDropEmpty
-	IntrinsicPoolNew
-	IntrinsicPoolCount
-	IntrinsicPoolIsEmpty
-	IntrinsicPoolContains
-	IntrinsicPoolInsert
-	IntrinsicPoolRemove
-	IntrinsicPoolDropEmpty
-	IntrinsicOptionIsSome
-	IntrinsicOptionUnwrap
-	IntrinsicFreeze
-	IntrinsicShare
-	IntrinsicThaw
-	IntrinsicCown
-	IntrinsicExchange
-	IntrinsicStringByteCount
-	IntrinsicStringByteAt
-	IntrinsicStringSlice
-	IntrinsicBytesNew
-	IntrinsicBytesCount
-	IntrinsicBytesIsEmpty
-	IntrinsicBytesByteAt
-	IntrinsicBytesSetByte
-	IntrinsicBytesPush
-	IntrinsicBytesAppend
-	IntrinsicBytesAppendString
-	IntrinsicBytesToString
-	IntrinsicOsCliArgs
-	IntrinsicOsGetEnv
-	IntrinsicOsReadFile
-	IntrinsicOsWriteFile
-	IntrinsicOsWriteBytes
-	IntrinsicOsRenameFile
-	IntrinsicOsRemoveFile
-	IntrinsicOsIsDir
-	IntrinsicOsMkdir
-	IntrinsicOsListDir
-	IntrinsicOsRunProcess
-)
-
-// Option cases, in the order the union declares them.
-const (
-	OptionSome = 0
-	OptionNone = 1
-)
-
-// Builtins are the generic types and the union that every project has before it declares anything: the runtime
-// primitives and Option, the result of an operation that can miss. They belong to the stdlib module, so a name
-// resolves to them last.
+// Builtins are the types and functions that every project has before it declares anything, as the table in
+// internal/builtingen declares them: the runtime primitives, Option, the result of an operation that can miss, the
+// error of arithmetic, and the capabilities. They belong to the stdlib module, so a name resolves to them last.
 type Builtins struct {
-	Array, Map, List, Pool, Handle, Frozen, Cown, Bytes *BuiltinTy
-	Option                                              *UnionTy
-	// Copyable and Droppable are the capabilities every type has unless it opts out or holds a part that lacks them.
-	// They are interfaces only so a bound can name them: no declaration implements them, and the checker answers
-	// whether a type has one from the type's own parts.
-	Copyable, Droppable *InterfaceTy
-	// CownNew is the function that cown(x) calls: the constructor of the cown type. CownNewDropWith is the one that
-	// cown(x, dropWith: d) calls: its content needs no Droppable bound, because the destructor d ends it.
-	CownNew, CownNewDropWith *FuncDecl
+	builtinDecls
 	// Count is the type of a length and of a position in an array.
 	Count *IntTy
 	// Byte is the type of one UTF-8 byte of a String (0 to 255).
 	Byte *IntTy
 	// StringMethods are the built-in methods on String.
 	StringMethods map[string]*FuncDecl
-	// ArithmeticError is the error of an integer operation that fails, which 'try' catches.
-	ArithmeticError *EnumTy
-	stdlib          *Module
-}
-
-// The cases of ArithmeticError, by index.
-const (
-	// ErrorOverflow is a result that does not fit its type.
-	ErrorOverflow = iota
-	// ErrorDivisionByZero is a '/' or a 'mod' by 0.
-	ErrorDivisionByZero
-	// ErrorNegativeShift is a shift by a negative count.
-	ErrorNegativeShift
-)
-
-var arithmeticErrorCases = []string{"overflow", "divisionByZero", "negativeShift"}
-
-func (b *Builtins) declareArithmeticError() {
-	d := b.stdlib.Tree.NewEnumDecl(0)
-	d.Name = "ArithmeticError"
-	d.Visibility = "public"
-	d.Module = b.stdlib
-	t := NewEnumTy(d)
-	t.Cases = arithmeticErrorCases
-	for i := range arithmeticErrorCases {
-		t.Raw = append(t.Raw, I64(int64(i)))
-	}
-	d.Ty = t
-	b.ArithmeticError = t
-	b.stdlib.Declare(d)
+	stdlib        *Module
 }
 
 func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
@@ -285,7 +157,7 @@ func newBuiltinDecl(stdlib *Module, name string, params ...string) *TypeDecl {
 }
 
 func (b *Builtins) newPrimitive(kind BuiltinKind, params ...string) *BuiltinTy {
-	d := newBuiltinDecl(b.stdlib, builtinNames[kind], params...)
+	d := newBuiltinDecl(b.stdlib, builtinKinds[kind].name, params...)
 	t := &BuiltinTy{name: d.Name, link: nominalLinkName(&d.DeclBase), Methods: map[string]*FuncDecl{}, Kind: kind, Decl: d, lib: b}
 	t.initGeneric(d.TypeParams, nil)
 	d.Ty = t
@@ -293,54 +165,48 @@ func (b *Builtins) newPrimitive(kind BuiltinKind, params ...string) *BuiltinTy {
 	return t
 }
 
-// NewBuiltins declares the primitives and Option in the stdlib module.
+// NewBuiltins declares the table in the stdlib module.
 func NewBuiltins(stdlib *Module, count, byteTy *IntTy) *Builtins {
 	b := &Builtins{stdlib: stdlib, Count: count, Byte: byteTy, StringMethods: map[string]*FuncDecl{}}
-	b.Array = b.newPrimitive(BuiltinArray, "T")
-	b.Map = b.newPrimitive(BuiltinMap, "K", "V")
-	b.List = b.newPrimitive(BuiltinList, "T")
-	b.Pool = b.newPrimitive(BuiltinPool, "T")
-	b.Handle = b.newPrimitive(BuiltinHandle, "T")
-	b.Frozen = b.newPrimitive(BuiltinFrozen, "T")
-	b.Cown = b.newPrimitive(BuiltinCown, "T")
-	b.Bytes = b.newPrimitive(BuiltinBytes)
-	b.declareOption()
-	b.declareArithmeticError()
-	b.Copyable = b.declareCapability("Copyable")
-	b.Droppable = b.declareCapability("Droppable")
-	b.declareArray()
-	b.declareMap()
-	b.declareList()
-	b.declarePool()
-	b.declareBytes()
-	b.declareString()
-	b.declareSharing()
-	b.declareOs()
+	b.declareTable()
 	return b
 }
 
-func (b *Builtins) declareOption() {
+// newUnion declares a generic union whose cases the caller gives.
+func (b *Builtins) newUnion(name string, params ...string) *UnionTy {
 	d := b.stdlib.Tree.NewUnionDecl(0)
-	d.Name = "Option"
+	d.Name = name
 	d.Visibility = "public"
 	d.Module = b.stdlib
-	tp := b.stdlib.Tree.NewTypeParam(0)
-	tp.Name = "T"
-	d.TypeParams = []*TypeParam{tp}
-	u := NewUnionTy(d)
-	u.Cases = []*UnionCase{
-		{Name: "some", Payload: []PayloadField{{Name: "value", Type: u.Params[0]}}},
-		{Name: "none"},
+	for _, p := range params {
+		tp := b.stdlib.Tree.NewTypeParam(0)
+		tp.Name = p
+		d.TypeParams = append(d.TypeParams, tp)
 	}
+	u := NewUnionTy(d)
 	d.Ty = u
-	b.Option = u
 	b.stdlib.Declare(d)
-
-	t := u.Params[0]
-	b.method(u, IntrinsicOptionIsSome, "isSome", ConvLet, BoolTy)
-	b.method(u, IntrinsicOptionUnwrap, "unwrap", ConvConsumes, t)
+	return u
 }
 
+// newEnum declares an enum whose raw values are the indexes of its cases.
+func (b *Builtins) newEnum(name string, cases ...string) *EnumTy {
+	d := b.stdlib.Tree.NewEnumDecl(0)
+	d.Name = name
+	d.Visibility = "public"
+	d.Module = b.stdlib
+	t := NewEnumTy(d)
+	t.Cases = cases
+	for i := range cases {
+		t.Raw = append(t.Raw, I64(int64(i)))
+	}
+	d.Ty = t
+	b.stdlib.Declare(d)
+	return t
+}
+
+// declareCapability declares an interface that a bound can name and no declaration implements: the checker answers
+// whether a type has it from the type's own parts.
 func (b *Builtins) declareCapability(name string) *InterfaceTy {
 	d := b.stdlib.Tree.NewInterfaceDecl(0)
 	d.Name = name
@@ -380,221 +246,52 @@ func (b *Builtins) CownOf(t Ty) *BuiltinTy { return instantiateBuiltin(b.Cown, [
 // OptionOf is Option with t.
 func (b *Builtins) OptionOf(t Ty) *UnionTy { return instantiateUnion(b.Option, []Ty{t}) }
 
+func (b *Builtins) exitCode() Ty { return b.stdlib.Names["ExitCode"].(*AliasDecl).Ty }
+
 func param(name string, t Ty, conv Convention) ParamSpec {
 	return ParamSpec{Name: name, Type: t, Conv: conv}
 }
 
-// method declares an instance method of a generic primitive, with the type's parameters as its own.
-func (b *Builtins) method(owner NominalTy, op Intrinsic, name string, self Convention, ret Ty, params ...ParamSpec) {
-	b.declare(owner, op, name, false, self, ret, params)
-}
-
-func (b *Builtins) static(owner NominalTy, op Intrinsic, name string, ret Ty, params ...ParamSpec) {
-	b.declare(owner, op, name, true, ConvLet, ret, params)
-}
-
-func (b *Builtins) declare(owner NominalTy, op Intrinsic, name string, static bool, self Convention, ret Ty, params []ParamSpec) {
+// newFunction is the declaration of a built-in function that takes params and returns ret.
+func (b *Builtins) newFunction(op Intrinsic, name string, ret Ty, params []ParamSpec) *FuncDecl {
 	f := b.stdlib.Tree.NewFuncDecl(0)
 	f.Name = name
 	f.Visibility = "public"
 	f.Module = b.stdlib
+	f.Intrinsic = op
+	f.Pass = Passing{Specs: params}
+	f.ParamTypes = make([]Ty, len(params))
+	for i, p := range params {
+		f.ParamTypes[i] = p.Type
+	}
+	f.ReturnType = ret
+	return f
+}
+
+// method declares a method of a type of the table, with the type's parameters as its own.
+func (b *Builtins) method(owner NominalTy, op Intrinsic, name string, static bool, self Convention, ret Ty, params ...ParamSpec) *FuncDecl {
+	f := b.newFunction(op, name, ret, params)
 	f.IsStatic = static
 	if self != ConvLet {
 		f.Receiver = self.String()
 	}
 	f.Owner = SelfType(owner)
 	f.Generics = owner.Base().Params
-	f.Pass = Passing{SelfConv: self, Specs: params}
-	f.ParamTypes = make([]Ty, len(params))
-	for i, p := range params {
-		f.ParamTypes[i] = p.Type
-	}
-	f.ReturnType = ret
-	f.Intrinsic = op
+	f.Pass.SelfConv = self
 	owner.MethodTable()[name] = f
+	return f
 }
 
-// bound adds a bound on the owner's parameter to a method that is already declared.
-func (b *Builtins) bound(owner NominalTy, method string, p *TypeParamTy, iface *InterfaceTy) {
-	f := owner.MethodTable()[method]
-	f.Bounds = append(f.Bounds, ParamBound{Param: p, Iface: iface})
+// function is a free function, or a method of String, which is a primitive and has no method table of its own.
+func (b *Builtins) function(op Intrinsic, name string, ret Ty, params ...ParamSpec) *FuncDecl {
+	return b.newFunction(op, name, ret, params)
 }
 
-func (b *Builtins) declareArray() {
-	a := b.Array
-	t := a.Params[0]
-	self := SelfType(a)
-	b.static(a, IntrinsicArrayNew, "new", self)
-	b.static(a, IntrinsicArrayFilled, "filled", self, param("count", b.Count, ConvLet), param("value", t, ConvConsumes))
-	b.bound(a, "filled", t, b.Copyable)
-	b.method(a, IntrinsicArrayCount, "count", ConvLet, b.Count)
-	b.method(a, IntrinsicArrayIsEmpty, "isEmpty", ConvLet, BoolTy)
-	b.method(a, IntrinsicArrayAppend, "append", ConvMutates, VoidTy, param("item", t, ConvConsumes))
-	b.method(a, IntrinsicArrayInsert, "insert", ConvMutates, VoidTy, param("item", t, ConvConsumes), param("at", b.Count, ConvLet))
-	b.method(a, IntrinsicArrayRemove, "remove", ConvMutates, t, param("at", b.Count, ConvLet))
-	b.method(a, IntrinsicArrayPop, "pop", ConvMutates, b.OptionOf(t))
-	b.method(a, IntrinsicArrayDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
-}
-
-func (b *Builtins) declareMap() {
-	m := b.Map
-	k, v := m.Params[0], m.Params[1]
-	b.static(m, IntrinsicMapNew, "new", SelfType(m))
-	b.method(m, IntrinsicMapCount, "count", ConvLet, b.Count)
-	b.method(m, IntrinsicMapIsEmpty, "isEmpty", ConvLet, BoolTy)
-	b.method(m, IntrinsicMapHas, "has", ConvLet, BoolTy, param("key", k, ConvLet))
-	b.method(m, IntrinsicMapInsert, "insert", ConvMutates, VoidTy, param("key", k, ConvConsumes), param("value", v, ConvConsumes))
-	b.bound(m, "insert", v, b.Droppable)
-	b.method(m, IntrinsicMapReplace, "replace", ConvMutates, b.OptionOf(v), param("key", k, ConvConsumes), param("value", v, ConvConsumes))
-	b.method(m, IntrinsicMapRemove, "remove", ConvMutates, b.OptionOf(v), param("key", k, ConvLet))
-	b.method(m, IntrinsicMapDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
-}
-
-func (b *Builtins) declareList() {
-	l := b.List
-	t := l.Params[0]
-	h := b.HandleOf(t)
-	b.static(l, IntrinsicListNew, "new", SelfType(l))
-	b.method(l, IntrinsicListCount, "count", ConvLet, b.Count)
-	b.method(l, IntrinsicListIsEmpty, "isEmpty", ConvLet, BoolTy)
-	b.method(l, IntrinsicListContains, "contains", ConvLet, BoolTy, param("handle", h, ConvLet))
-	b.method(l, IntrinsicListPushFront, "pushFront", ConvMutates, h, param("item", t, ConvConsumes))
-	b.method(l, IntrinsicListPushBack, "pushBack", ConvMutates, h, param("item", t, ConvConsumes))
-	b.method(l, IntrinsicListPopFront, "popFront", ConvMutates, b.OptionOf(t))
-	b.method(l, IntrinsicListPopBack, "popBack", ConvMutates, b.OptionOf(t))
-	b.method(l, IntrinsicListFirst, "first", ConvLet, b.OptionOf(h))
-	b.method(l, IntrinsicListLast, "last", ConvLet, b.OptionOf(h))
-	b.method(l, IntrinsicListNext, "next", ConvLet, b.OptionOf(h), param("handle", h, ConvLet))
-	b.method(l, IntrinsicListPrev, "prev", ConvLet, b.OptionOf(h), param("handle", h, ConvLet))
-	b.method(l, IntrinsicListRemove, "remove", ConvMutates, b.OptionOf(t), param("handle", h, ConvLet))
-	b.method(l, IntrinsicListMoveToFront, "moveToFront", ConvMutates, VoidTy, param("handle", h, ConvLet))
-	b.method(l, IntrinsicListDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
-}
-
-func (b *Builtins) declareString() {
-	add := func(op Intrinsic, name string, ret Ty, params ...ParamSpec) {
-		f := b.stdlib.Tree.NewFuncDecl(0)
-		f.Name = name
-		f.Visibility = "public"
-		f.Module = b.stdlib
-		f.Pass = Passing{SelfConv: ConvLet, Specs: params}
-		f.ParamTypes = make([]Ty, len(params))
-		for i, p := range params {
-			f.ParamTypes[i] = p.Type
-		}
-		f.ReturnType = ret
-		f.Intrinsic = op
-		b.StringMethods[name] = f
-	}
-	add(IntrinsicStringByteCount, "byteCount", b.Count)
-	add(IntrinsicStringByteAt, "byteAt", b.Byte, param("index", b.Count, ConvLet))
-	add(IntrinsicStringSlice, "slice", StringTy, param("from", b.Count, ConvLet), param("until", b.Count, ConvLet))
-}
-
-func (b *Builtins) declarePool() {
-	p := b.Pool
-	t := p.Params[0]
-	h := b.HandleOf(t)
-	b.static(p, IntrinsicPoolNew, "new", SelfType(p))
-	b.method(p, IntrinsicPoolCount, "count", ConvLet, b.Count)
-	b.method(p, IntrinsicPoolIsEmpty, "isEmpty", ConvLet, BoolTy)
-	b.method(p, IntrinsicPoolContains, "contains", ConvLet, BoolTy, param("handle", h, ConvLet))
-	b.method(p, IntrinsicPoolInsert, "insert", ConvMutates, h, param("item", t, ConvConsumes))
-	b.method(p, IntrinsicPoolRemove, "remove", ConvMutates, b.OptionOf(t), param("handle", h, ConvLet))
-	b.method(p, IntrinsicPoolDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
-}
-
-func (b *Builtins) declareBytes() {
-	bs := b.Bytes
-	b.static(bs, IntrinsicBytesNew, "new", bs)
-	b.method(bs, IntrinsicBytesCount, "count", ConvLet, b.Count)
-	b.method(bs, IntrinsicBytesIsEmpty, "isEmpty", ConvLet, BoolTy)
-	b.method(bs, IntrinsicBytesByteAt, "byteAt", ConvLet, b.Byte, param("index", b.Count, ConvLet))
-	b.method(bs, IntrinsicBytesSetByte, "setByte", ConvMutates, VoidTy, param("index", b.Count, ConvLet), param("value", b.Byte, ConvLet))
-	b.method(bs, IntrinsicBytesPush, "push", ConvMutates, VoidTy, param("value", b.Byte, ConvLet))
-	b.method(bs, IntrinsicBytesAppend, "append", ConvMutates, VoidTy, param("other", bs, ConvLet))
-	b.method(bs, IntrinsicBytesAppendString, "appendString", ConvMutates, VoidTy, param("text", StringTy, ConvLet))
-	b.method(bs, IntrinsicBytesToString, "toString", ConvLet, StringTy)
-}
-
-// declareSharing declares the functions that make and use the values which cross between threads:
-//
-//	freeze(x)  takes a value and gives an immutable frozen with T, which the last owner drops, so T must be Droppable
-//	share(x)   gives another owner of the same frozen value or cown
-//	thaw(x)    gives an owned copy of what a frozen value holds, so what it holds must be Copyable
-//	cown(x)    takes a value and gives a reference to a cown that owns it, and drops it with the last reference
-//	cown(x, dropWith: d)  does the same for a value that is not Droppable, and ends it with its destructor d instead
-//
-// exchange is declared here as well: it is no sharing function, but it is a generic function with a type parameter of
-// its own, which only these are.
-//
-// share is declared over any type, because it takes a frozen value or a cown reference alike; the checker refuses
-// the others. cown is the constructor of the type of the same name, so it is not a name of its own: calling the type
-// calls CownNew.
-func (b *Builtins) declareSharing() {
-	freezeT := newBoundedTypeParamTy("T", b.Droppable)
-	shareT := newTypeParamTy("T")
-	thawT := newBoundedTypeParamTy("T", b.Copyable)
-	cownT := newBoundedTypeParamTy("T", b.Droppable)
-	cownDropWithT := newTypeParamTy("T")
-	exchangeT := newTypeParamTy("T")
-	b.declareGeneric(IntrinsicFreeze, "freeze", freezeT, b.FrozenOf(freezeT), param("x", freezeT, ConvConsumes))
-	b.declareGeneric(IntrinsicShare, "share", shareT, shareT, param("x", shareT, ConvLet))
-	b.declareGeneric(IntrinsicThaw, "thaw", thawT, thawT, param("x", b.FrozenOf(thawT), ConvLet))
-	b.CownNew = b.makeGeneric(IntrinsicCown, "cown", cownT, b.CownOf(cownT), param("x", cownT, ConvConsumes))
-	b.CownNewDropWith = b.makeGeneric(IntrinsicCown, "cown", cownDropWithT, b.CownOf(cownDropWithT), param("x", cownDropWithT, ConvConsumes))
-	b.declareGeneric(IntrinsicExchange, "exchange", exchangeT, exchangeT, param("place", exchangeT, ConvMutates), param("value", exchangeT, ConvConsumes))
-}
-
-func (b *Builtins) declareGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) {
-	b.stdlib.Declare(b.makeGeneric(op, name, t, ret, params...))
-}
-
-func (b *Builtins) declareFunc(op Intrinsic, name string, ret Ty, params ...ParamSpec) {
-	f := b.stdlib.Tree.NewFuncDecl(0)
-	f.Name = name
-	f.Visibility = "public"
-	f.Module = b.stdlib
-	f.Intrinsic = op
-	f.Pass = Passing{Specs: params}
-	f.ParamTypes = make([]Ty, len(params))
-	for i, p := range params {
-		f.ParamTypes[i] = p.Type
-	}
-	f.ReturnType = ret
-	b.stdlib.Declare(f)
-}
-
-func (b *Builtins) declareOs() {
-	strings := Instantiate(b.Array, []Ty{StringTy})
-	exitCode := b.stdlib.Names["ExitCode"].(*AliasDecl).Ty
-	b.declareFunc(IntrinsicOsCliArgs, "cliArgs", strings)
-	b.declareFunc(IntrinsicOsGetEnv, "getEnv", b.OptionOf(StringTy), param("name", StringTy, ConvLet))
-	b.declareFunc(IntrinsicOsReadFile, "readFile", b.OptionOf(StringTy), param("path", StringTy, ConvLet))
-	b.declareFunc(IntrinsicOsWriteFile, "writeFile", BoolTy, param("path", StringTy, ConvLet), param("text", StringTy, ConvLet))
-	b.declareFunc(IntrinsicOsWriteBytes, "writeBytes", BoolTy, param("path", StringTy, ConvLet), param("data", b.Bytes, ConvLet))
-	b.declareFunc(IntrinsicOsRenameFile, "renameFile", BoolTy, param("from", StringTy, ConvLet), param("dest", StringTy, ConvLet))
-	b.declareFunc(IntrinsicOsRemoveFile, "removeFile", BoolTy, param("path", StringTy, ConvLet))
-	b.declareFunc(IntrinsicOsIsDir, "isDir", BoolTy, param("path", StringTy, ConvLet))
-	b.declareFunc(IntrinsicOsMkdir, "mkdir", BoolTy, param("path", StringTy, ConvLet))
-	b.declareFunc(IntrinsicOsListDir, "listDir", b.OptionOf(strings), param("path", StringTy, ConvLet))
-	b.declareFunc(IntrinsicOsRunProcess, "runProcess", b.OptionOf(exitCode), param("commandLine", StringTy, ConvLet))
-}
-
-func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) *FuncDecl {
-	f := b.stdlib.Tree.NewFuncDecl(0)
-	f.Name = name
-	f.Visibility = "public"
-	f.Module = b.stdlib
+// genericFunction is a free function with a type parameter of its own.
+func (b *Builtins) genericFunction(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) *FuncDecl {
+	f := b.newFunction(op, name, ret, params)
 	f.Generics = []*TypeParamTy{t}
 	f.Instances = &InstanceTable{}
-	f.Intrinsic = op
-	f.Pass = Passing{Specs: params}
-	f.ParamTypes = make([]Ty, len(params))
-	for i, p := range params {
-		f.ParamTypes[i] = p.Type
-	}
-	f.ReturnType = ret
 	return f
 }
 
