@@ -6,8 +6,6 @@ let byteCR = 13 as Byte
 
 let byteSpace = 32 as Byte
 
-let byteBang = 33 as Byte
-
 let byteQuote = 34 as Byte
 
 let byteApostrophe = 39 as Byte
@@ -16,39 +14,17 @@ let byteLParen = 40 as Byte
 
 let byteRParen = 41 as Byte
 
-let byteStar = 42 as Byte
-
-let bytePlus = 43 as Byte
-
-let byteComma = 44 as Byte
-
-let byteMinus = 45 as Byte
-
-let byteDot = 46 as Byte
-
 let byteSlash = 47 as Byte
 
 let byteZero = 48 as Byte
-
-let byteOne = 49 as Byte
-
-let byteSeven = 55 as Byte
 
 let byteNine = 57 as Byte
 
 let byteColon = 58 as Byte
 
-let byteLt = 60 as Byte
-
-let byteEq = 61 as Byte
-
-let byteGt = 62 as Byte
-
 let byteUpperA = 65 as Byte
 
 let byteUpperF = 70 as Byte
-
-let byteUpperZ = 90 as Byte
 
 let byteLBracket = 91 as Byte
 
@@ -76,649 +52,675 @@ let byteLowerU = 117 as Byte
 
 let byteLowerX = 120 as Byte
 
-let byteLowerZ = 122 as Byte
-
 let byteLBrace = 123 as Byte
 
 let byteRBrace = 125 as Byte
 
-export typealias Offsets = Array with Count
+// maxTokenLength is the longest token: the Go compiler keeps a token's length in 24 bits, and a program both compilers
+// read lexes the same in each.
+let maxTokenLength = 16777215 as Count
 
-function isDigit(b Byte) returns bool
-	return b >= byteZero and b <= byteNine
-end 'isDigit'
+// The bytes that start a UTF-8 sequence of two, three and four bytes are at least these, and a byte after the first
+// holds utf8ContinuationBits under utf8ContinuationTag.
+let utf8Lead2 = 192 as Count
 
-function isHexDigit(b Byte) returns bool
-	return isDigit(b) or (b >= byteLowerA and b <= byteLowerF) or (b >= byteUpperA and b <= byteUpperF)
-end 'isHexDigit'
+let utf8Lead3 = 224 as Count
 
-function isBinDigit(b Byte) returns bool
-	return b == byteZero or b == byteOne
-end 'isBinDigit'
+let utf8Lead4 = 240 as Count
 
-function isOctDigit(b Byte) returns bool
-	return b >= byteZero and b <= byteSeven
-end 'isOctDigit'
+let utf8ContinuationTag = 128 as Count
 
-function isIdentStart(b Byte) returns bool
-	return (b >= byteLowerA and b <= byteLowerZ) or (b >= byteUpperA and b <= byteUpperZ) or b == byteUnderscore
-end 'isIdentStart'
+let utf8ContinuationBits = 63 as Count
 
-function isIdentPart(b Byte) returns bool
-	return isIdentStart(b) or isDigit(b)
-end 'isIdentPart'
+// utf8Max1 and utf8Max2 are the first code points that take two and three bytes.
+let utf8Max1 = 128 as Count
 
-function isHorizontalSpace(b Byte) returns bool
-	return b == byteSpace or b == byteTab or b == byteCR
-end 'isHorizontalSpace'
+let utf8Max2 = 2048 as Count
 
-type Lexer
-	let text as String
-	let begin as Count
-	let limit as Count
-	let inline as bool
-	var pos as Count
-	var depth as Count
-	var indent as Count
-	var tokens as Tokens
-	var error as table.Option with LexError
+// A surrogate is no code point of its own, so an escape that writes one writes the replacement character.
+let surrogateFirst = 55296 as Count
 
-	static function make(consumes text String, begin Count, limit Count, inline bool) returns Lexer
-		return Lexer{text: text, begin: begin, limit: limit, inline: inline, pos: begin, depth: 0, indent: 0, tokens: Tokens.create(0), error: table.Option.none}
+let surrogateLast = 57343 as Count
+
+let replacementCharacter = 65533 as Count
+
+let hexDigitValue = 10 as Count
+
+let hexRadix = 16 as Count
+
+let newlineText = "\\n"
+
+let fileEndText = "<end of file>"
+
+let eofText = "<eof>"
+
+let stringText = "\"...\""
+
+// Token is a token's kind and where it is in the module text. Its text, value and position are read from the text
+// when they are needed. A label's token covers the text between its quotes.
+export type Token
+	export var kind as TokenKind
+	export var start as diag.U32
+	export var length as diag.U32
+
+	export static function make(kind TokenKind, start diag.U32, length diag.U32) returns Token
+		return Token{kind: kind, start: start, length: length}
 	end 'make'
 
-	function hasError() returns bool
-		return self.error.isSome()
-	end 'hasError'
+	export function endOffset() returns Count
+		return try (start as Count) + (length as Count) otherwise panic("a token ends past U32")
+	end 'endOffset'
 
-	function fail(mutates self, offset Count, consumes message String)
-		self.failWith(offset, code: diag.errUnexpectedToken, message: message)
+	export function text(src String) returns String
+		return src.sliceBytes(start as Count, endPos: self.endOffset())
+	end 'text'
+end 'Token'
+
+export typealias Tokens = Array with Token
+
+// StrPart is a part of a string literal: a run of its text, which is the module's text from begin when raw and text an
+// escape changed otherwise, or an interpolation, the offsets of its expression in the module text.
+export union StrPart
+	text(text String, begin Count, raw bool)
+	expr(begin Count, until Count)
+end 'StrPart'
+
+export typealias StrParts = Array with StrPart
+
+typealias Offsets = Array with Count
+
+export union LexResult
+	ok(tokens Tokens)
+	err(error diag.CompileError)
+end 'LexResult'
+
+// after is the offset after at: a module's text is at most 4 GB, so it never overflows.
+function after(at Count) returns Count
+	return try at + 1 otherwise panic("a source offset overflows")
+end 'after'
+
+// before is the offset before at, where the text has a byte there.
+function before(at Count) returns Count
+	return try at - 1 otherwise panic("a source offset is before the text")
+end 'before'
+
+function isAsciiDigit(c Byte) returns bool
+	return c >= byteZero and c <= byteNine
+end 'isAsciiDigit'
+
+function isAsciiHexDigit(c Byte) returns bool
+	return isAsciiDigit(c) or (c >= byteLowerA and c <= byteLowerF) or (c >= byteUpperA and c <= byteUpperF)
+end 'isAsciiHexDigit'
+
+function hexDigit(ch Byte) returns Count
+	if isAsciiDigit(ch) 'digit'
+		return try (ch as Count) - (byteZero as Count) otherwise panic("a digit is below '0'")
+	end 'digit'
+	if ch >= byteLowerA 'lower'
+		return try (ch as Count) - (byteLowerA as Count) + hexDigitValue otherwise panic("a hex digit is below 'a'")
+	end 'lower'
+	return try (ch as Count) - (byteUpperA as Count) + hexDigitValue otherwise panic("a hex digit is below 'A'")
+end 'hexDigit'
+
+// runeAt is the character at the offset, as a syntax error shows it.
+function runeAt(text String, at Count, limit Count) returns String
+	if at >= limit 'none'
+		return ""
+	end 'none'
+	let lead = text.byteAt(at) as Count
+	var n = 1 as Count
+	if lead >= utf8Lead4 'four'
+		n = 4 as Count
+	end 'four' else if lead >= utf8Lead3 'three'
+		n = 3 as Count
+	end 'three' else if lead >= utf8Lead2 'two'
+		n = 2 as Count
+	end 'two'
+	var stop = try at + n otherwise limit
+	if stop > limit 'clamp'
+		stop = limit
+	end 'clamp'
+	return text.sliceBytes(at, endPos: stop)
+end 'runeAt'
+
+// appendRune appends the UTF-8 bytes of a code point an escape writes, which is at most four hex digits.
+function appendRune(mutates buf ByteArray, ch Count)
+	var r = ch
+	if r >= surrogateFirst and r <= surrogateLast 'surrogate'
+		r = replacementCharacter
+	end 'surrogate'
+	if r < utf8Max1 'one'
+		buf.push(try r as Byte otherwise panic("a one-byte rune exceeds a byte"))
+		return
+	end 'one'
+	if r < utf8Max2 'two'
+		buf.push(try (utf8Lead2 or (r shr 6)) as Byte otherwise panic("a two-byte rune exceeds a byte"))
+		buf.push(try (utf8ContinuationTag or (r and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
+		return
+	end 'two'
+	buf.push(try (utf8Lead3 or (r shr 12)) as Byte otherwise panic("a three-byte rune exceeds a byte"))
+	buf.push(try (utf8ContinuationTag or ((r shr 6) and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
+	buf.push(try (utf8ContinuationTag or (r and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
+end 'appendRune'
+
+type Lexer
+	var file as Count
+	var pos as Count
+	var limit as Count
+	// inline is set for an interpolation, which starts at begin.
+	var inline as bool
+	var begin as Count
+	var depth as Count
+	// indent is the indentation, in tabs, of the last code line.
+	var indent as Count
+	var tokens as Tokens
+	var errors as diag.ErrorList
+
+	static function make(file Count, pos Count, limit Count, inline bool) returns Lexer
+		return Lexer{file: file, pos: pos, limit: limit, inline: inline, begin: pos, depth: 0 as Count, indent: 0 as Count, tokens: Tokens.create(0), errors: diag.ErrorList.create(0)}
+	end 'make'
+
+	// fail records the error at the offset, which is what the lexer then throws.
+	function fail(mutates self, src Source, consumes message String, at Count) returns SyntaxError
+		errors.push(src.errorAt(diag.errUnexpectedToken, message: message, file: file, offset: at))
+		return SyntaxError.refused
 	end 'fail'
 
-	function failWith(mutates self, offset Count, consumes code String, consumes message String)
-		if not self.error.isSome() 'firstError'
-			self.error = table.Option.some(LexError.make(offset, code: code, message: message))
-		end 'firstError'
-	end 'failWith'
+	function finish(mutates self, src Source, at Count) throws SyntaxError
+		try self.emit(src, kind: TokenKind.eof, start: at, stop: at)
+	end 'finish'
 
-	function emit(mutates self, kind TokenKind, start Count, stop Count)
-		let length = try stop - start otherwise panic("lexer emit negative length")
-		self.tokens.push(Token.make(kind, start: start, length: length))
-	end 'emit'
-
-	function lexFileBody(mutates self)
-		let endOffset = self.limit
-		if self.begin < endOffset 'nonEmpty'
-			let last = try endOffset - 1 otherwise panic("limit underflow")
-			if self.text.byteAt(last) != byteNewline 'noFinalNewline'
-				self.fail(endOffset, message: "the file does not end with a newline")
-				return
-			end 'noFinalNewline'
-		end 'nonEmpty'
-		while self.pos < endOffset and not self.hasError() 'lines'
-			self.lineStart()
-			if self.pos < endOffset and not self.hasError() 'codeLine'
-				self.lexLine()
-			end 'codeLine'
+	function lexFile(mutates self, src Source, index Count, from Count, until Count) throws SyntaxError
+		file = index
+		pos = from
+		limit = until
+		depth = 0 as Count
+		indent = 0 as Count
+		if from < until and src.text.byteAt(before(until)) != byteNewline 'unended'
+			throw self.fail(src, message: "the file does not end with a newline", at: until)
+		end 'unended'
+		while pos < limit 'lines'
+			try self.lineStart(src)
+			if pos < limit 'code'
+				try self.lexLine(src)
+			end 'code'
 		end 'lines'
-		if self.hasError() 'stop'
-			return
-		end 'stop'
-		while self.indent > 0 'dedentEof'
-			self.indent = self.indent - 1
-			self.emit(TokenKind.dedent, start: endOffset, stop: endOffset)
-		end 'dedentEof'
-		self.emit(TokenKind.fileEnd, start: endOffset, stop: endOffset)
-	end 'lexFileBody'
-
-	function lexFile(mutates self)
-		self.lexFileBody()
-		if not self.hasError() 'eof'
-			let lim = self.limit
-			self.emit(TokenKind.eof, start: lim, stop: lim)
-		end 'eof'
+		let stop = limit
+		while indent > 0 'dedents'
+			try self.emit(src, kind: TokenKind.dedent, start: stop, stop: stop)
+			indent = before(indent)
+		end 'dedents'
+		try self.emit(src, kind: TokenKind.fileEnd, start: stop, stop: stop)
 	end 'lexFile'
 
-	function lexInline(mutates self)
-		let endOffset = self.limit
-		self.lexLine()
-		if self.hasError() 'stop'
-			return
-		end 'stop'
-		self.emit(TokenKind.fileEnd, start: endOffset, stop: endOffset)
-		self.emit(TokenKind.eof, start: endOffset, stop: endOffset)
-	end 'lexInline'
+	function emit(mutates self, src Source, kind TokenKind, start Count, stop Count) throws SyntaxError
+		let length = try stop - start otherwise panic("a token ends before it starts")
+		if length > maxTokenLength 'long'
+			throw self.fail(src, message: "a token is longer than 16 MB; split it", at: start)
+		end 'long'
+		let at = try start as diag.U32 otherwise panic("a token starts past U32")
+		let n = try length as diag.U32 otherwise panic("a token is longer than U32")
+		tokens.push(Token.make(kind, start: at, length: n))
+	end 'emit'
 
-	function lineStart(mutates self)
+	// lineStart reads the blank lines and comment lines before the next code line, and that line's indentation. A line
+	// is indented with tabs only, at most one more than the code line before it; a comment line is indented like the
+	// code line after it, or not at all at the end of the file.
+	function lineStart(mutates self, src Source) throws SyntaxError
 		var comments = Offsets.create(0)
-		while self.pos < self.limit and not self.hasError() 'skipLeading'
-			let lineBegin = self.pos
-			while self.pos < self.limit and self.text.byteAt(self.pos) == byteTab 'tabs'
-				self.pos = self.pos + 1
+		while pos < limit 'lines'
+			let lineBegin = pos
+			while src.text.byteAt(pos) == byteTab 'tabs'
+				pos = after(pos)
 			end 'tabs'
-			let tabs = try self.pos - lineBegin otherwise panic("tabs underflow")
-			if self.pos >= self.limit 'atEnd'
-				break
-			end 'atEnd'
-			let c = self.text.byteAt(self.pos)
+			let tabs = try pos - lineBegin otherwise panic("a line starts after its tabs")
+			let c = src.text.byteAt(pos)
 			if c == byteNewline 'blank'
-				if tabs > 0 'blankTabs'
-					self.fail(lineBegin, message: "a blank line holds tabs; remove the trailing whitespace")
-					return
-				end 'blankTabs'
-				self.pos = self.pos + 1
-				continue
+				if tabs > 0 'tabbed'
+					throw self.fail(src, message: "a blank line holds tabs; remove the trailing whitespace", at: lineBegin)
+				end 'tabbed'
+				pos = after(pos)
+				continue 'lines'
 			end 'blank'
-			let at = self.pos
-			if c == byteSpace 'spaceIndent'
-				self.fail(at, message: "a line is indented with a space; indent with tabs only")
-				return
-			end 'spaceIndent'
-			if c == byteCR 'crLine'
-				self.fail(at, message: "a carriage return; end lines with a newline alone")
-				return
-			end 'crLine'
-			let nextPos = at + 1
-			if c == byteSlash and nextPos < self.limit and self.text.byteAt(nextPos) == byteSlash 'commentLine'
+			let at = pos
+			if c == byteSpace 'space'
+				throw self.fail(src, message: "a line is indented with a space; indent with tabs only", at: at)
+			end 'space'
+			if c == byteSlash and src.text.byteAt(after(at)) == byteSlash 'comment'
 				comments.push(lineBegin)
-				let endLine = self.checkComment(at)
-				if self.hasError() 'badComment'
-					return
-				end 'badComment'
-				self.pos = try endLine + 1 otherwise panic("comment end overflow")
-				continue
-			end 'commentLine'
-			self.checkCommentsIndent(comments, expected: tabs)
-			if self.hasError() 'badCommentIndent'
-				return
-			end 'badCommentIndent'
-			let nextIndent = try self.indent + 1 otherwise panic("indent overflow")
-			if tabs > nextIndent 'tooDeep'
-				self.fail(lineBegin, message: "a line is indented more than one tab deeper than the line above")
-				return
-			end 'tooDeep' else if tabs == nextIndent 'indented'
-				self.emit(TokenKind.indent, start: at, stop: at)
+				let stop = try self.comment(src, start: at)
+				pos = after(stop)
+				continue 'lines'
+			end 'comment'
+			for i in 0 upto comments.count() 'aligned'
+				try self.checkCommentIndent(src, lineBegin: comments[i], tabs: tabs)
+			end 'aligned'
+			let deeper = try indent + 1 otherwise panic("the indentation overflows")
+			if tabs > deeper 'tooDeep'
+				throw self.fail(src, message: "a line is indented more than one tab deeper than the line above", at: lineBegin)
+			end 'tooDeep' else if tabs == deeper 'indented'
+				try self.emit(src, kind: TokenKind.indent, start: at, stop: at)
 			end 'indented' else 'dedented'
-				var remaining = (try self.indent - tabs otherwise panic("dedent underflow")) as Count
-				while remaining > 0 'emitDedents'
-					self.emit(TokenKind.dedent, start: at, stop: at)
-					remaining = remaining - 1
-				end 'emitDedents'
+				for _ in tabs upto indent 'dedents'
+					try self.emit(src, kind: TokenKind.dedent, start: at, stop: at)
+				end 'dedents'
 			end 'dedented'
-			self.indent = tabs
+			indent = tabs
 			return
-		end 'skipLeading'
-		self.checkCommentsIndent(comments, expected: 0)
+		end 'lines'
+		for i in 0 upto comments.count() 'trailing'
+			try self.checkCommentIndent(src, lineBegin: comments[i], tabs: 0 as Count)
+		end 'trailing'
 	end 'lineStart'
 
-	function checkCommentsIndent(mutates self, comments Offsets, expected Count)
-		for i in 0 upto comments.count() 'eachComment'
-			let at = comments[i]
-			var got = 0 as Count
-			var scan = at
-			while scan < self.limit and self.text.byteAt(scan) == byteTab 'countTabs'
-				got = try got + 1 otherwise panic("comment tabs overflow")
-				scan = scan + 1
-			end 'countTabs'
-			if got != expected 'mismatch'
-				self.fail(at, message: "a comment line is indented {got} tabs, but the code line after it {expected}; indent them alike")
-				return
-			end 'mismatch'
-		end 'eachComment'
-	end 'checkCommentsIndent'
+	function checkCommentIndent(mutates self, src Source, lineBegin Count, tabs Count) throws SyntaxError
+		var got = 0 as Count
+		while src.text.byteAt(try lineBegin + got otherwise panic("a comment line overflows")) == byteTab 'tabs'
+			got = after(got)
+		end 'tabs'
+		if got != tabs 'misaligned'
+			throw self.fail(src, message: "a comment line is indented {got} tabs, but the code line after it {tabs}; indent them alike", at: lineBegin)
+		end 'misaligned'
+	end 'checkCommentIndent'
 
-	function checkComment(mutates self, start Count) returns Count
-		var i = start
-		while i < self.limit and self.text.byteAt(i) != byteNewline 'scanComment'
-			i = i + 1
-		end 'scanComment'
-		if i > start 'checkTrailing'
-			let prev = i - 1
-			let last = self.text.byteAt(prev)
-			if isHorizontalSpace(last) 'trailingSpace'
-				self.fail(prev, message: "a comment ends with whitespace; remove it")
-			end 'trailingSpace'
-		end 'checkTrailing'
-		return i
-	end 'checkComment'
+	// comment checks the comment at start, which runs to the end of its line, and returns where the line ends.
+	function comment(mutates self, src Source, start Count) returns Count throws SyntaxError
+		var stop = start
+		while stop < limit and src.text.byteAt(stop) != byteNewline 'scan'
+			stop = after(stop)
+		end 'scan'
+		let last = src.text.byteAt(before(stop))
+		if last == byteSpace or last == byteTab or last == byteCR 'trailing'
+			throw self.fail(src, message: "a comment ends with whitespace; remove it", at: before(stop))
+		end 'trailing'
+		return stop
+	end 'comment'
 
-	function lexLine(mutates self)
-		while self.pos < self.limit and not self.hasError() 'tokens'
-			var start = self.pos
-			if self.text.byteAt(start) == byteSpace 'maybeOneSpace'
-				let after = start + 1
-				if after < self.limit and not (self.inline and start == self.begin) 'canStep'
-					let nextByte = self.text.byteAt(after)
-					if not isHorizontalSpace(nextByte) and nextByte != byteNewline 'stepSpace'
-						start = after
-					end 'stepSpace'
-				end 'canStep'
-			end 'maybeOneSpace'
-			let c = self.text.byteAt(start)
-			if isHorizontalSpace(c) 'badWs'
-				self.lexWhitespace(start)
+	// lexLine runs the generated DFA (tokens_gen.maxon) from each position to the longest token there, up to the end
+	// of the line. It never backs off: a match that stops in a state accepting no token is an error naming the
+	// unfinished token.
+	function lexLine(mutates self, src Source) throws SyntaxError
+		while pos < limit 'tokens'
+			var start = pos
+			// Most tokens follow one space; step over it here rather than in a round of the DFA. Any other
+			// whitespace goes through the DFA, whose whitespace case checks it.
+			if src.text.byteAt(start) == byteSpace and after(start) < limit and not (inline and start == begin) 'oneSpace'
+				let c = src.text.byteAt(after(start))
+				if c != byteSpace and c != byteTab and c != byteCR and c != byteNewline 'step'
+					start = after(start)
+				end 'step'
+			end 'oneSpace'
+			var state = dfaStart
+			var i = start
+			while i < limit 'run'
+				let next = dfaNext(state, class: dfaClass(src.text.byteAt(i)))
+				if next == 0 'dead'
+					break 'run'
+				end 'dead'
+				state = next
+				i = after(i)
+			end 'run'
+			let kind = dfaAccept(state)
+			if kind == TokenKind.noToken 'unfinished'
+				throw self.unfinished(src, state: state, start: start)
+			end 'unfinished'
+			if kind == TokenKind.whitespace or kind == TokenKind.lineComment 'skipped'
+				let resume = try self.skipped(src, kind: kind, start: start, stop: i)
+				pos = resume
+				continue 'tokens'
+			end 'skipped'
+			if kind == TokenKind.blockComment 'block'
+				throw self.fail(src, message: "a block comment is not allowed; write // comments on their own lines or after code", at: start)
+			end 'block'
+			if inTokenSet(tokenScanned, kind: kind) 'scanned'
+				i = try scanRest(src, errs: errors, file: file, kind: kind, start: start)
+			end 'scanned'
+			pos = i
+			if kind == TokenKind.newline 'newline'
+				if depth > 0 'inParens'
+					throw self.fail(src, message: "a line breaks inside parentheses; keep what they hold on one line", at: start)
+				end 'inParens'
+				try self.emit(src, kind: kind, start: start, stop: i)
 				return
-			end 'badWs'
-			if c == byteNewline 'nl'
-				if self.depth > 0 'breakInParens'
-					self.fail(start, message: "a line breaks inside parentheses; keep what they hold on one line")
-					return
-				end 'breakInParens'
-				let nextNl = start + 1
-				self.pos = nextNl
-				self.emit(TokenKind.newline, start: start, stop: nextNl)
-				return
-			end 'nl'
-			if c == byteSlash 'slashOrComment'
-				let afterSlash = start + 1
-				if afterSlash < self.limit 'hasNext'
-					let second = self.text.byteAt(afterSlash)
-					if second == byteSlash 'trailingComment'
-						if self.inline 'inlineComment'
-							self.fail(start, message: "a comment inside an interpolation; move it after the line")
-							return
-						end 'inlineComment'
-						if start == self.begin or self.text.byteAt(try start - 1 otherwise panic("comment start")) != byteSpace 'noSpaceBeforeComment'
-							self.fail(start, message: "a comment after code is separated from it by one space")
-							return
-						end 'noSpaceBeforeComment'
-						let endLine = self.checkComment(start)
-						if self.hasError() 'badComment'
-							return
-						end 'badComment'
-						self.pos = endLine
-						continue
-					end 'trailingComment'
-					if second == byteStar 'blockComment'
-						self.fail(start, message: "a block comment is not allowed; write // comments on their own lines or after code")
-						return
-					end 'blockComment'
-				end 'hasNext'
-				self.pos = afterSlash
-				self.emit(TokenKind.slash, start: start, stop: afterSlash)
-				continue
-			end 'slashOrComment'
-			if isIdentStart(c) 'ident'
-				self.lexIdent(start)
-				continue
-			end 'ident'
-			if isDigit(c) 'number'
-				self.lexNumber(start)
-				continue
-			end 'number'
-			if c == byteQuote 'str'
-				self.lexString(start)
-				continue
-			end 'str'
-			if c == byteApostrophe 'lbl'
-				self.lexLabel(start)
-				continue
-			end 'lbl'
-			self.lexPunct(start, first: c)
+			end 'newline' else if kind == TokenKind.lParen or kind == TokenKind.lBrace 'open'
+				depth = after(depth)
+			end 'open' else if kind == TokenKind.rParen or kind == TokenKind.rBrace 'close'
+				if depth > 0 'nested'
+					depth = before(depth)
+				end 'nested'
+			end 'close' else if kind == TokenKind.label 'label'
+				// A label's token is the text between its quotes.
+				start = after(start)
+				i = before(i)
+			end 'label'
+			try self.emit(src, kind: kind, start: start, stop: i)
 		end 'tokens'
 	end 'lexLine'
 
-	function lexWhitespace(mutates self, start Count)
-		var i = start
-		while i < self.limit and isHorizontalSpace(self.text.byteAt(i)) 'scanWs'
-			let c = self.text.byteAt(i)
-			if c == byteTab 'innerTab'
-				self.fail(i, message: "a tab inside a line; tabs only indent, and tokens are separated by one space")
-				return
-			end 'innerTab'
-			if c == byteCR 'innerCR'
-				self.fail(i, message: "a carriage return; end lines with a newline alone")
-				return
-			end 'innerCR'
-			i = i + 1
-		end 'scanWs'
-		if i == self.limit or self.text.byteAt(i) == byteNewline 'trailing'
-			self.fail(start, message: "trailing whitespace; remove it")
-			return
+	// skipped is where lexLine goes on after the whitespace or the comment from start to stop, which are not tokens.
+	// They are checked here, off lexLine's path: whitespace is an error unless it is the one space lexLine steps over,
+	// which never reaches here, and so is a comment inside an interpolation or one that touches the code before it.
+	function skipped(mutates self, src Source, kind TokenKind, start Count, stop Count) returns Count throws SyntaxError
+		if kind == TokenKind.whitespace 'space'
+			throw self.badSpace(src, start: start, stop: stop)
+		end 'space'
+		if inline 'interpolation'
+			throw self.fail(src, message: "a comment inside an interpolation; move it after the line", at: start)
+		end 'interpolation'
+		if src.text.byteAt(before(start)) != byteSpace 'touching'
+			throw self.fail(src, message: "a comment after code is separated from it by one space", at: start)
+		end 'touching'
+		return try self.comment(src, start: start)
+	end 'skipped'
+
+	// badSpace is the error for whitespace inside a line that is not the one space lexLine steps over between two
+	// tokens.
+	function badSpace(mutates self, src Source, start Count, stop Count) returns SyntaxError
+		for at in start upto stop 'each'
+			let c = src.text.byteAt(at)
+			if c == byteTab 'tab'
+				return self.fail(src, message: "a tab inside a line; tabs only indent, and tokens are separated by one space", at: at)
+			end 'tab'
+			if c == byteCR 'cr'
+				return self.fail(src, message: "a carriage return; end lines with a newline alone", at: at)
+			end 'cr'
+		end 'each'
+		if stop == limit or src.text.byteAt(stop) == byteNewline 'trailing'
+			return self.fail(src, message: "trailing whitespace; remove it", at: start)
 		end 'trailing'
-		if self.inline and start == self.begin 'inlineStart'
-			self.fail(start, message: "a space at the start of an interpolation; remove it")
-			return
-		end 'inlineStart'
-		self.fail(start, message: "tokens are separated by one space, not several")
-	end 'lexWhitespace'
+		if inline and start == begin 'interpolation'
+			return self.fail(src, message: "a space at the start of an interpolation; remove it", at: start)
+		end 'interpolation'
+		if stop > after(start) 'several'
+			return self.fail(src, message: "tokens are separated by one space, not several", at: start)
+		end 'several'
+		panic("the space is one space between two tokens, which lexLine steps over")
+	end 'badSpace'
 
-	function lexIdent(mutates self, start Count)
-		var i = (try start + 1 otherwise panic("ident overflow")) as Count
-		while i < self.limit and isIdentPart(self.text.byteAt(i)) 'scanIdent'
-			i = i + 1
-		end 'scanIdent'
-		self.pos = i
-		let word = self.text.sliceBytes(start, endPos: i)
-		self.emit(keywordKind(word), start: start, stop: i)
-	end 'lexIdent'
-
-	function lexNumber(mutates self, start Count)
-		var i = (try start + 1 otherwise panic("number overflow")) as Count
-		if self.text.byteAt(start) == byteZero and i < self.limit 'maybeRadix'
-			let prefix = self.text.byteAt(i)
-			if prefix == byteLowerX 'hex'
-				i = i + 1
-				if i >= self.limit or not isHexDigit(self.text.byteAt(i)) 'incompleteHex'
-					self.fail(start, message: "incomplete integer")
-					return
-				end 'incompleteHex'
-				while i < self.limit and (isHexDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanHex'
-					i = i + 1
-				end 'scanHex'
-				self.pos = i
-				self.emit(TokenKind.integer, start: start, stop: i)
-				return
-			end 'hex'
-			if prefix == byteLowerB 'bin'
-				i = i + 1
-				if i >= self.limit or not isBinDigit(self.text.byteAt(i)) 'incompleteBin'
-					self.fail(start, message: "incomplete integer")
-					return
-				end 'incompleteBin'
-				while i < self.limit and (isBinDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanBin'
-					i = i + 1
-				end 'scanBin'
-				self.pos = i
-				self.emit(TokenKind.integer, start: start, stop: i)
-				return
-			end 'bin'
-			if prefix == byteLowerO 'oct'
-				i = i + 1
-				if i >= self.limit or not isOctDigit(self.text.byteAt(i)) 'incompleteOct'
-					self.fail(start, message: "incomplete integer")
-					return
-				end 'incompleteOct'
-				while i < self.limit and (isOctDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanOct'
-					i = i + 1
-				end 'scanOct'
-				self.pos = i
-				self.emit(TokenKind.integer, start: start, stop: i)
-				return
-			end 'oct'
-		end 'maybeRadix'
-		while i < self.limit and (isDigit(self.text.byteAt(i)) or self.text.byteAt(i) == byteUnderscore) 'scanDec'
-			i = i + 1
-		end 'scanDec'
-		self.pos = i
-		self.emit(TokenKind.integer, start: start, stop: i)
-	end 'lexNumber'
-
-	function lexLabel(mutates self, start Count)
-		let innerStart = try start + 1 otherwise panic("label inner start")
-		var i = innerStart as Count
-		if i < self.limit and isIdentStart(self.text.byteAt(i)) 'labelName'
-			while i < self.limit and isIdentPart(self.text.byteAt(i)) 'scanLabel'
-				i = i + 1
-			end 'scanLabel'
-		end 'labelName'
-		if i == innerStart or i >= self.limit or self.text.byteAt(i) != byteApostrophe 'unterminatedLabel'
-			self.fail(start, message: "incomplete label")
-			return
-		end 'unterminatedLabel'
-		self.pos = i + 1
-		self.emit(TokenKind.label, start: innerStart, stop: i)
-	end 'lexLabel'
-
-	function lexString(mutates self, start Count)
-		var i = (try start + 1 otherwise panic("string overflow")) as Count
-		while i < self.limit and self.text.byteAt(i) != byteNewline 'scanString'
-			let c = self.text.byteAt(i)
-			if c == byteQuote 'closeString'
-				let stop = i + 1
-				self.pos = stop
-				self.emit(TokenKind.string, start: start, stop: stop)
-				return
-			end 'closeString'
-			if c == byteRBrace 'bareBrace'
-				self.fail(i, message: "a '\}' in a string is written '\\\}'")
-				return
-			end 'bareBrace'
-			if c == byteBackslash 'escape'
-				i = self.scanEscape(start, slashAt: i)
-				if self.hasError() 'badEscape'
-					return
-				end 'badEscape'
-				continue
-			end 'escape'
-			if c == byteLBrace 'interp'
-				i = self.scanInterpolation(i)
-				if self.hasError() 'badInterp'
-					return
-				end 'badInterp'
-				continue
-			end 'interp'
-			i = i + 1
-		end 'scanString'
-		self.fail(start, message: "unterminated string literal")
-	end 'lexString'
-
-	function scanEscape(mutates self, open Count, slashAt Count) returns Count
-		let escPos = try slashAt + 1 otherwise panic("escape overflow")
-		if escPos >= self.limit 'eofEscape'
-			self.fail(open, message: "unterminated string literal")
-			return self.limit
-		end 'eofEscape'
-		let e = self.text.byteAt(escPos)
-		let after = escPos + 1
-		if e == byteLowerN or e == byteLowerT or e == byteLowerR or e == byteZero or e == byteBackslash or e == byteQuote or e == byteApostrophe or e == byteLBrace or e == byteRBrace 'simpleEsc'
-			return after
-		end 'simpleEsc'
-		if e == byteLowerX 'hexEsc'
-			return self.scanHexDigits(open, from: after, needed: 2)
-		end 'hexEsc'
-		if e == byteLowerU 'unicodeEsc'
-			return self.scanHexDigits(open, from: after, needed: 4)
-		end 'unicodeEsc'
-		self.fail(open, message: "unknown escape sequence")
-		return after
-	end 'scanEscape'
-
-	function scanHexDigits(mutates self, open Count, from Count, needed Count) returns Count
-		var i = from
-		for _ in 0 upto needed 'digits'
-			if i >= self.limit or not isHexDigit(self.text.byteAt(i)) 'badHex'
-				self.fail(open, message: "malformed hex escape")
-				return i
-			end 'badHex'
-			i = i + 1
-		end 'digits'
-		return i
-	end 'scanHexDigits'
-
-	function scanInterpolation(mutates self, openBrace Count) returns Count
-		var i = (try openBrace + 1 otherwise panic("interp overflow")) as Count
-		let exprStart = i
-		var nest = 0 as Count
-		var parens = 0 as Count
-		while i < self.limit and self.text.byteAt(i) != byteNewline 'scanInterp'
-			let c = self.text.byteAt(i)
-			if c == byteRBrace and nest == 0 'endInterp'
-				return i + 1
-			end 'endInterp'
-			if c == byteLBrace 'openNest'
-				nest = try nest + 1 otherwise panic("nest overflow")
-			end 'openNest' else if c == byteRBrace 'closeNest'
-				nest = try nest - 1 otherwise panic("nest underflow")
-			end 'closeNest' else if c == byteLParen or c == byteLBracket 'openParen'
-				parens = try parens + 1 otherwise panic("parens overflow")
-			end 'openParen' else if c == byteRParen or c == byteRBracket 'closeParen'
-				if parens > 0 'decParen'
-					parens = parens - 1
-				end 'decParen'
-			end 'closeParen' else if c == byteColon and parens == 0 and nest == 0 'formatSpec'
-				self.failWith(i, code: diag.errUnsupported, message: "format specifiers are not supported by minimaxon")
-				return i
-			end 'formatSpec' else if c == byteQuote 'nestedStr'
-				i = i + 1
-				while i < self.limit and self.text.byteAt(i) != byteQuote and self.text.byteAt(i) != byteNewline 'scanNestedStr'
-					if self.text.byteAt(i) == byteBackslash 'skipEsc'
-						i = i + 1
-					end 'skipEsc'
-					if i < self.limit 'stepStr'
-						i = i + 1
-					end 'stepStr'
-				end 'scanNestedStr'
-			end 'nestedStr'
-			if i < self.limit 'step'
-				i = i + 1
-			end 'step'
-		end 'scanInterp'
-		self.fail(exprStart, message: "unterminated interpolation in string literal")
-		return i
-	end 'scanInterpolation'
-
-	function lexPunct(mutates self, start Count, first Byte)
-		let after = try start + 1 otherwise panic("punct overflow")
-		if first == byteLParen 'lp'
-			self.depth = try self.depth + 1 otherwise panic("depth overflow")
-			self.pos = after
-			self.emit(TokenKind.lParen, start: start, stop: after)
-			return
-		end 'lp'
-		if first == byteRParen 'rp'
-			if self.depth > 0 'decDepth'
-				self.depth = self.depth - 1
-			end 'decDepth'
-			self.pos = after
-			self.emit(TokenKind.rParen, start: start, stop: after)
-			return
-		end 'rp'
-		if first == byteLBrace 'lb'
-			self.depth = try self.depth + 1 otherwise panic("depth overflow")
-			self.pos = after
-			self.emit(TokenKind.lBrace, start: start, stop: after)
-			return
-		end 'lb'
-		if first == byteRBrace 'rb'
-			if self.depth > 0 'decDepth'
-				self.depth = self.depth - 1
-			end 'decDepth'
-			self.pos = after
-			self.emit(TokenKind.rBrace, start: start, stop: after)
-			return
-		end 'rb'
-		if first == byteComma 'comma'
-			self.pos = after
-			self.emit(TokenKind.comma, start: start, stop: after)
-			return
-		end 'comma'
-		if first == byteColon 'colon'
-			self.pos = after
-			self.emit(TokenKind.colon, start: start, stop: after)
-			return
-		end 'colon'
-		if first == byteDot 'dot'
-			self.pos = after
-			self.emit(TokenKind.dot, start: start, stop: after)
-			return
-		end 'dot'
-		if first == byteLBracket 'lbr'
-			self.pos = after
-			self.emit(TokenKind.lBracket, start: start, stop: after)
-			return
-		end 'lbr'
-		if first == byteRBracket 'rbr'
-			self.pos = after
-			self.emit(TokenKind.rBracket, start: start, stop: after)
-			return
-		end 'rbr'
-		if first == bytePlus 'plus'
-			self.pos = after
-			self.emit(TokenKind.plus, start: start, stop: after)
-			return
-		end 'plus'
-		if first == byteMinus 'minus'
-			self.pos = after
-			self.emit(TokenKind.minus, start: start, stop: after)
-			return
-		end 'minus'
-		if first == byteStar 'star'
-			self.pos = after
-			self.emit(TokenKind.star, start: start, stop: after)
-			return
-		end 'star'
-		if first == byteEq 'eq'
-			if after < self.limit and self.text.byteAt(after) == byteEq 'eqeq'
-				let stop = after + 1
-				self.pos = stop
-				self.emit(TokenKind.eqEq, start: start, stop: stop)
-				return
-			end 'eqeq'
-			self.pos = after
-			self.emit(TokenKind.assign, start: start, stop: after)
-			return
-		end 'eq'
-		if first == byteBang 'bang'
-			if after < self.limit and self.text.byteAt(after) == byteEq 'neq'
-				let stop = after + 1
-				self.pos = stop
-				self.emit(TokenKind.notEq, start: start, stop: stop)
-				return
-			end 'neq'
-			self.fail(start, message: "unexpected character '!'")
-			return
-		end 'bang'
-		if first == byteLt 'lt'
-			if after < self.limit and self.text.byteAt(after) == byteEq 'le'
-				let stop = after + 1
-				self.pos = stop
-				self.emit(TokenKind.le, start: start, stop: stop)
-				return
-			end 'le'
-			self.pos = after
-			self.emit(TokenKind.lt, start: start, stop: after)
-			return
-		end 'lt'
-		if first == byteGt 'gt'
-			if after < self.limit and self.text.byteAt(after) == byteEq 'ge'
-				let stop = after + 1
-				self.pos = stop
-				self.emit(TokenKind.ge, start: start, stop: stop)
-				return
-			end 'ge'
-			self.pos = after
-			self.emit(TokenKind.gt, start: start, stop: after)
-			return
-		end 'gt'
-		self.fail(start, message: "unexpected character")
-	end 'lexPunct'
+	// unfinished is the error for input that stops in a state accepting no token.
+	function unfinished(mutates self, src Source, state Count, start Count) returns SyntaxError
+		let msg = dfaIncomplete(state)
+		if msg != "" 'named'
+			return self.fail(src, message: msg, at: start)
+		end 'named'
+		let ch = runeAt(src.text, at: start, limit: limit)
+		return self.fail(src, message: "unexpected character '{ch}'", at: start)
+	end 'unfinished'
 end 'Lexer'
 
-export function lex(text String) returns LexResult
-	var lx = Lexer.make(text.clone(), begin: 0, limit: text.byteLength(), inline: false)
-	lx.lexFile()
-	if lx.error.isSome() 'failed'
-		return LexResult.err(lx.error.unwrap())
-	end 'failed'
-	return LexResult.ok(lx.tokens)
-end 'lex'
+// scanString reads the string literal at start in the file of the index, which the DFA only starts, returning its end.
+function scanString(src Source, mutates errs diag.ErrorList, file Count, start Count) returns Count throws SyntaxError
+	var r = stringReaderAt(src, file: file, open: start, collect: false)
+	return try r.read(src, errs: errs)
+end 'scanString'
 
-export function lexInterpolation(text String, begin Count, until Count) returns LexResult
-	var lx = Lexer.make(text.clone(), begin: begin, limit: until, inline: true)
-	lx.lexInline()
-	if lx.error.isSome() 'failed'
-		return LexResult.err(lx.error.unwrap())
-	end 'failed'
-	return LexResult.ok(lx.tokens)
+// lexSource lexes every file of src, recording the error it stops at in errs. Each code line ends with a newline; a line
+// indented one tab more than the code line before it starts with an indent, and one indented less starts with a dedent
+// for each tab. Each file ends with a fileEnd and the module with an eof.
+export function lexSource(src Source, mutates errs diag.ErrorList) returns Tokens throws SyntaxError
+	var lx = Lexer.make(0 as Count, pos: 0 as Count, limit: 0 as Count, inline: false)
+	var failed = false
+	try 'files'
+		for i in 0 upto src.files.count() 'each'
+			lx.lexFile(src, index: i, from: src.files[i].start as Count, until: src.files[i].endOff as Count)
+		end 'each'
+		lx.finish(src, at: src.text.byteLength())
+	end 'files' otherwise 'refused'
+		failed = true
+	end 'refused'
+	return try lexed(lx, failed: failed, errs: errs)
+end 'lexSource'
+
+// lexInterpolation lexes the expression of an interpolation from begin to until in the file of the index: part of one
+// line, with no layout of its own.
+export function lexInterpolation(src Source, mutates errs diag.ErrorList, file Count, begin Count, until Count) returns Tokens throws SyntaxError
+	var lx = Lexer.make(file, pos: begin, limit: until, inline: true)
+	var failed = false
+	try 'line'
+		lx.lexLine(src)
+		lx.emit(src, kind: TokenKind.fileEnd, start: until, stop: until)
+		lx.finish(src, at: until)
+	end 'line' otherwise 'refused'
+		failed = true
+	end 'refused'
+	return try lexed(lx, failed: failed, errs: errs)
 end 'lexInterpolation'
 
-export function lexSpans(text String, starts Offsets, ends Offsets) returns LexResult
-	var all = Tokens.create(0)
-	var totalEnd = 0 as Count
-	for fi in 0 upto starts.count() 'eachFile'
-		let b = starts[fi]
-		let e = ends[fi]
-		totalEnd = e
-		var lx = Lexer.make(text.clone(), begin: b, limit: e, inline: false)
-		lx.lexFileBody()
-		if lx.error.isSome() 'failed'
-			return LexResult.err(lx.error.unwrap())
-		end 'failed'
-		for ti in 0 upto lx.tokens.count() 'appendToks'
-			all.push(lx.tokens[ti].clone())
-		end 'appendToks'
-	end 'eachFile'
-	all.push(Token.make(TokenKind.eof, start: totalEnd, length: 0 as Count))
-	return LexResult.ok(all)
-end 'lexSpans'
+// lexed is the tokens of a lexer that is done, or the error it failed with, moved to errs.
+function lexed(mutates lx Lexer, failed bool, mutates errs diag.ErrorList) returns Tokens throws SyntaxError
+	if failed 'refused'
+		errs.push(try lx.errors.pop() otherwise panic("the lexer failed with no error"))
+		throw SyntaxError.refused
+	end 'refused'
+	return exchange(lx.tokens, value: Tokens.create(0))
+end 'lexed'
+
+// sourceOf is the source of a module with one file.
+export function sourceOf(consumes text String, path String) returns Source
+	var files = ast.FileSpanList.create(0)
+	let size = try text.byteLength() as diag.U32 otherwise panic("the module's text is larger than 4 GB; split the module")
+	files.push(ast.FileSpan.make(path.clone(), start: 0 as diag.U32, endOff: size))
+	return Source.make(text, files: files)
+end 'sourceOf'
+
+// lex lexes a module of one file.
+export function lex(text String) returns LexResult
+	let src = sourceOf(text.clone(), path: "")
+	var errs = diag.ErrorList.create(0)
+	var toks = Tokens.create(0)
+	var failed = false
+	try 'lex'
+		toks = lexSource(src, errs: errs)
+	end 'lex' otherwise 'refused'
+		failed = true
+	end 'refused'
+	if failed 'error'
+		return LexResult.err(try errs.pop() otherwise panic("the lexer failed with no error"))
+	end 'error'
+	return LexResult.ok(toks)
+end 'lex'
+
+// readInteger reads the integer literal from at to stop, which the lexer's DFA matched.
+export function readInteger(src Source, mutates errs diag.ErrorList, file Count, at Count, stop Count) returns ast.I128 throws SyntaxError
+	var pos = at
+	var radix = 10 as Count
+	if src.text.byteAt(pos) == byteZero and after(pos) < stop 'prefixed'
+		let prefix = src.text.byteAt(after(pos))
+		if prefix == byteLowerX 'hex'
+			radix = hexRadix
+		end 'hex' else if prefix == byteLowerB 'binary'
+			radix = 2 as Count
+		end 'binary' else if prefix == byteLowerO 'octal'
+			radix = 8 as Count
+		end 'octal'
+		if radix != 10 'skip'
+			pos = after(after(pos))
+		end 'skip'
+	end 'prefixed'
+	var value = 0 as Count
+	var digits = 0 as Count
+	while pos < stop and (isAsciiHexDigit(src.text.byteAt(pos)) or src.text.byteAt(pos) == byteUnderscore) 'digits'
+		let ch = src.text.byteAt(pos)
+		if ch == byteUnderscore 'separator'
+			pos = after(pos)
+			continue 'digits'
+		end 'separator'
+		let d = hexDigit(ch)
+		if d >= radix 'past'
+			break 'digits'
+		end 'past'
+		try 'grow'
+			value = value * radix + d
+		end 'grow' otherwise 'tooLarge'
+			errs.push(src.errorAt(diag.errExpressionError, message: "integer literal is larger than u64.max", file: file, offset: at))
+			throw SyntaxError.refused
+		end 'tooLarge'
+		digits = after(digits)
+		pos = after(pos)
+	end 'digits'
+	if digits == 0 'none'
+		panic("the integer literal has no digits, but the lexer matched it")
+	end 'none'
+	return ast.I128.fromCount(value)
+end 'readInteger'
+
+// stringReaderAt is the reader of the string literal at open in the file of the index; one that collects keeps the
+// literal's parts.
+function stringReaderAt(src Source, file Count, open Count, collect bool) returns StringReader
+	return StringReader.make(file, open: open, limit: src.files[file].endOff as Count, collect: collect)
+end 'stringReaderAt'
+
+// StringReader reads one string literal; the lexer uses it to find the literal's end and report its errors, and the
+// parser to take its parts.
+type StringReader
+	var file as Count
+	var open as Count
+	var pos as Count
+	var limit as Count
+	var collect as bool
+	var parts as StrParts
+	// The current text part is the text from run to pos until an escape forces it into buf.
+	var run as Count
+	var buf as ByteArray
+	var escaped as bool
+
+	static function make(file Count, open Count, limit Count, collect bool) returns StringReader
+		return StringReader{file: file, open: open, pos: after(open), limit: limit, collect: collect, parts: StrParts.create(0), run: 0 as Count, buf: ByteArray.create(0), escaped: false}
+	end 'make'
+
+	function fail(src Source, mutates errs diag.ErrorList, consumes message String, at Count) returns SyntaxError
+		errs.push(src.errorAt(diag.errUnexpectedToken, message: message, file: file, offset: at))
+		return SyntaxError.refused
+	end 'fail'
+
+	// read reads the literal, returning its end.
+	function read(mutates self, src Source, mutates errs diag.ErrorList) returns Count throws SyntaxError
+		run = pos
+		var added = false
+		while pos < limit and src.text.byteAt(pos) != byteNewline 'chars'
+			let c = src.text.byteAt(pos)
+			if c == byteQuote 'close'
+				if pos > run or escaped or not added 'last'
+					self.flushText(src)
+				end 'last'
+				pos = after(pos)
+				return pos
+			end 'close' else if c == byteBackslash 'escape'
+				try self.escape(src, errs: errs)
+			end 'escape' else if c == byteRBrace 'brace'
+				throw self.fail(src, errs: errs, message: "a '\}' in a string is written '\\\}'", at: pos)
+			end 'brace' else if c == byteLBrace 'interpolation'
+				if pos > run or escaped 'text'
+					self.flushText(src)
+				end 'text'
+				try self.interpolation(src, errs: errs)
+				added = true
+			end 'interpolation' else 'plain'
+				if escaped 'kept'
+					buf.push(c)
+				end 'kept'
+				pos = after(pos)
+			end 'plain'
+		end 'chars'
+		throw self.fail(src, errs: errs, message: "unterminated string literal", at: open)
+	end 'read'
+
+	function flushText(mutates self, src Source)
+		if collect 'collect'
+			if escaped 'decoded'
+				parts.push(StrPart.text(String.from(buf), begin: run, raw: false))
+			end 'decoded' else 'raw'
+				parts.push(StrPart.text(src.text.sliceBytes(run, endPos: pos), begin: run, raw: true))
+			end 'raw'
+		end 'collect'
+		escaped = false
+		buf = ByteArray.create(0)
+	end 'flushText'
+
+	function escape(mutates self, src Source, mutates errs diag.ErrorList) throws SyntaxError
+		if not escaped and collect 'start'
+			buf = src.text.sliceBytes(run, endPos: pos).toByteArray()
+		end 'start'
+		escaped = true
+		pos = after(pos)
+		let at = pos
+		var e = 0 as Byte
+		if pos < limit 'has'
+			e = src.text.byteAt(pos)
+		end 'has'
+		pos = after(pos)
+		var ch = 0 as Count
+		if e == byteLowerN 'newline'
+			ch = byteNewline as Count
+		end 'newline' else if e == byteLowerT 'tab'
+			ch = byteTab as Count
+		end 'tab' else if e == byteLowerR 'cr'
+			ch = byteCR as Count
+		end 'cr' else if e == byteZero 'nul'
+			ch = 0 as Count
+		end 'nul' else if e == byteBackslash or e == byteQuote or e == byteApostrophe or e == byteLBrace or e == byteRBrace 'itself'
+			ch = e as Count
+		end 'itself' else if e == byteLowerX 'byte'
+			ch = try self.readHex(src, errs: errs, digits: 2 as Count)
+		end 'byte' else if e == byteLowerU 'unicode'
+			ch = try self.readHex(src, errs: errs, digits: 4 as Count)
+		end 'unicode' else 'unknown'
+			let shown = runeAt(src.text, at: at, limit: limit)
+			throw self.fail(src, errs: errs, message: "unknown escape sequence '\\{shown}'", at: open)
+		end 'unknown'
+		if collect 'collect'
+			appendRune(buf, ch: ch)
+		end 'collect'
+	end 'escape'
+
+	function readHex(mutates self, src Source, mutates errs diag.ErrorList, digits Count) returns Count throws SyntaxError
+		var v = 0 as Count
+		for _ in 0 upto digits 'digits'
+			if pos >= limit or not isAsciiHexDigit(src.text.byteAt(pos)) 'malformed'
+				throw self.fail(src, errs: errs, message: "malformed hex escape", at: open)
+			end 'malformed'
+			v = try v * hexRadix + hexDigit(src.text.byteAt(pos)) otherwise panic("a hex escape overflows")
+			pos = after(pos)
+		end 'digits'
+		return v
+	end 'readHex'
+
+	function interpolation(mutates self, src Source, mutates errs diag.ErrorList) throws SyntaxError
+		pos = after(pos)
+		let start = pos
+		var nest = 0 as Count
+		var parens = 0 as FullRangeInt
+		while pos < limit and src.text.byteAt(pos) != byteNewline and not (src.text.byteAt(pos) == byteRBrace and nest == 0) 'scan'
+			let ch = src.text.byteAt(pos)
+			if ch == byteLBrace 'open'
+				nest = after(nest)
+			end 'open' else if ch == byteRBrace 'close'
+				nest = before(nest)
+			end 'close' else if ch == byteLParen or ch == byteLBracket 'group'
+				parens = try parens + 1 otherwise panic("the parentheses nest too deep")
+			end 'group' else if ch == byteRParen or ch == byteRBracket 'ungroup'
+				parens = try parens - 1 otherwise panic("the parentheses nest too deep")
+			end 'ungroup' else if ch == byteColon and parens == 0 and nest == 0 'format'
+				errs.push(src.errorAt(diag.errUnsupported, message: "format specifiers are not supported by minimaxon", file: file, offset: pos))
+				throw SyntaxError.refused
+			end 'format' else if ch == byteQuote 'string'
+				pos = after(pos)
+				while pos < limit and src.text.byteAt(pos) != byteQuote and src.text.byteAt(pos) != byteNewline 'inner'
+					if src.text.byteAt(pos) == byteBackslash 'escaped'
+						pos = after(pos)
+					end 'escaped'
+					pos = after(pos)
+				end 'inner'
+			end 'string'
+			pos = after(pos)
+		end 'scan'
+		if pos >= limit or src.text.byteAt(pos) != byteRBrace 'unterminated'
+			throw self.fail(src, errs: errs, message: "unterminated interpolation in string literal", at: start)
+		end 'unterminated'
+		if collect 'collect'
+			parts.push(StrPart.expr(start, until: pos))
+		end 'collect'
+		pos = after(pos)
+		run = pos
+	end 'interpolation'
+end 'StringReader'

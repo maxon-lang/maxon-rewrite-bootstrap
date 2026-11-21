@@ -328,9 +328,15 @@ function parseSingleModule(mutates p ast.Project, modIdx Count, singleSrc table.
 	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts)
 	match consumes res 'pr'
 		ok(parsedMod) then copyParsedIntoModule(p, modIdx: modIdx, parsedMod: parsedMod)
-		err(pe) then diag.pushLocatedError(errs, code: pe.code.clone(), message: pe.message.clone(), file: pe.file.clone(), line: pe.line, col: pe.col)
+		err(found) then appendErrors(errs, found: found)
 	end 'pr'
 end 'parseSingleModule'
+
+function appendErrors(mutates errs diag.ErrorList, found diag.ErrorList)
+	for i in 0 upto found.count() 'each'
+		errs.push(found[i].clone())
+	end 'each'
+end 'appendErrors'
 
 function appendCopyStr(mutates fTexts ast.StringList, s String)
 	fTexts.push(s.clone())

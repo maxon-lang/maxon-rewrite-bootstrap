@@ -179,6 +179,220 @@ export function numberSlots(tree Tree, mutates slots U32List) returns Slots
 	return count
 end 'numberSlots'
 
+export type FuncDecl
+	export var id as NodeID
+	export var name as String
+	export var visibility as String
+	export var isStatic as bool
+	export var receiver as String
+	export var params as ParamList
+	export var typeParams as TypeParamList
+	export var returnsRef as NodeID
+	export var throwsRef as NodeID
+	export var whereList as ConstraintList
+	export var body as diag.U32
+	export var endRef as NodeID
+
+	export static function make(id NodeID) returns FuncDecl
+		return FuncDecl{id: id, name: "", visibility: "", isStatic: false, receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, whereList: ConstraintList.create(0), body: 0 as diag.U32, endRef: 0 as NodeID}
+	end 'make'
+end 'FuncDecl'
+
+export typealias FuncDeclList = Array with FuncDecl
+
+export function newFuncDecl(mutates t Tree, start diag.U32) returns FuncDecl
+	return FuncDecl.make(t.alloc(NodeKind.funcDecl, start: start))
+end 'newFuncDecl'
+
+export type Param
+	export var id as NodeID
+	export var convention as String
+	export var name as String
+	export var typeRef as NodeID
+
+	export static function make(id NodeID) returns Param
+		return Param{id: id, convention: "", name: "", typeRef: 0 as NodeID}
+	end 'make'
+end 'Param'
+
+export typealias ParamList = Array with Param
+
+export function newParam(mutates t Tree, start diag.U32) returns Param
+	return Param.make(t.alloc(NodeKind.param, start: start))
+end 'newParam'
+
+export type ConstDecl
+	export var id as NodeID
+	export var name as String
+	export var visibility as String
+	export var value as NodeID
+
+	export static function make(id NodeID) returns ConstDecl
+		return ConstDecl{id: id, name: "", visibility: "", value: 0 as NodeID}
+	end 'make'
+end 'ConstDecl'
+
+export typealias ConstDeclList = Array with ConstDecl
+
+export function newConstDecl(mutates t Tree, start diag.U32) returns ConstDecl
+	return ConstDecl.make(t.alloc(NodeKind.constDecl, start: start))
+end 'newConstDecl'
+
+export type TypeDecl
+	export var id as NodeID
+	export var name as String
+	export var visibility as String
+	export var isNoncopyable as bool
+	export var typeParams as TypeParamList
+	export var conforms as diag.U32
+	export var whereList as ConstraintList
+	export var fields as FieldDeclList
+	export var methods as FuncDeclList
+	export var endRef as NodeID
+
+	export static function make(id NodeID) returns TypeDecl
+		return TypeDecl{id: id, name: "", visibility: "", isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: 0 as diag.U32, whereList: ConstraintList.create(0), fields: FieldDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+	end 'make'
+end 'TypeDecl'
+
+export typealias TypeDeclList = Array with TypeDecl
+
+export function newTypeDecl(mutates t Tree, start diag.U32) returns TypeDecl
+	return TypeDecl.make(t.alloc(NodeKind.typeDecl, start: start))
+end 'newTypeDecl'
+
+export type FieldDecl
+	export var id as NodeID
+	export var visibility as String
+	export var isVar as bool
+	export var name as String
+	export var typeRef as NodeID
+	export var defaultRef as NodeID
+
+	export static function make(id NodeID) returns FieldDecl
+		return FieldDecl{id: id, visibility: "", isVar: false, name: "", typeRef: 0 as NodeID, defaultRef: 0 as NodeID}
+	end 'make'
+end 'FieldDecl'
+
+export typealias FieldDeclList = Array with FieldDecl
+
+export function newFieldDecl(mutates t Tree, start diag.U32) returns FieldDecl
+	return FieldDecl.make(t.alloc(NodeKind.fieldDecl, start: start))
+end 'newFieldDecl'
+
+export type EnumDecl
+	export var id as NodeID
+	export var name as String
+	export var visibility as String
+	export var conforms as diag.U32
+	export var cases as EnumCaseDeclList
+	export var methods as FuncDeclList
+	export var endRef as NodeID
+
+	export static function make(id NodeID) returns EnumDecl
+		return EnumDecl{id: id, name: "", visibility: "", conforms: 0 as diag.U32, cases: EnumCaseDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+	end 'make'
+end 'EnumDecl'
+
+export typealias EnumDeclList = Array with EnumDecl
+
+export function newEnumDecl(mutates t Tree, start diag.U32) returns EnumDecl
+	return EnumDecl.make(t.alloc(NodeKind.enumDecl, start: start))
+end 'newEnumDecl'
+
+export type EnumCaseDecl
+	export var id as NodeID
+	export var name as String
+	export var raw as NodeID
+
+	export static function make(id NodeID) returns EnumCaseDecl
+		return EnumCaseDecl{id: id, name: "", raw: 0 as NodeID}
+	end 'make'
+end 'EnumCaseDecl'
+
+export typealias EnumCaseDeclList = Array with EnumCaseDecl
+
+export function newEnumCaseDecl(mutates t Tree, start diag.U32) returns EnumCaseDecl
+	return EnumCaseDecl.make(t.alloc(NodeKind.enumCaseDecl, start: start))
+end 'newEnumCaseDecl'
+
+export type UnionDecl
+	export var id as NodeID
+	export var name as String
+	export var visibility as String
+	export var isNoncopyable as bool
+	export var typeParams as TypeParamList
+	export var conforms as diag.U32
+	export var whereList as ConstraintList
+	export var cases as UnionCaseDeclList
+	export var methods as FuncDeclList
+	export var endRef as NodeID
+
+	export static function make(id NodeID) returns UnionDecl
+		return UnionDecl{id: id, name: "", visibility: "", isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: 0 as diag.U32, whereList: ConstraintList.create(0), cases: UnionCaseDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+	end 'make'
+end 'UnionDecl'
+
+export typealias UnionDeclList = Array with UnionDecl
+
+export function newUnionDecl(mutates t Tree, start diag.U32) returns UnionDecl
+	return UnionDecl.make(t.alloc(NodeKind.unionDecl, start: start))
+end 'newUnionDecl'
+
+export type UnionCaseDecl
+	export var id as NodeID
+	export var name as String
+	export var fields as ParamList
+
+	export static function make(id NodeID) returns UnionCaseDecl
+		return UnionCaseDecl{id: id, name: "", fields: ParamList.create(0)}
+	end 'make'
+end 'UnionCaseDecl'
+
+export typealias UnionCaseDeclList = Array with UnionCaseDecl
+
+export function newUnionCaseDecl(mutates t Tree, start diag.U32) returns UnionCaseDecl
+	return UnionCaseDecl.make(t.alloc(NodeKind.unionCaseDecl, start: start))
+end 'newUnionCaseDecl'
+
+export type AliasDecl
+	export var id as NodeID
+	export var name as String
+	export var visibility as String
+	export var low as Bound
+	export var inclusive as bool
+	export var high as Bound
+	export var instance as NodeID
+
+	export static function make(id NodeID) returns AliasDecl
+		return AliasDecl{id: id, name: "", visibility: "", low: Bound.make(0 as NodeID), inclusive: false, high: Bound.make(0 as NodeID), instance: 0 as NodeID}
+	end 'make'
+end 'AliasDecl'
+
+export typealias AliasDeclList = Array with AliasDecl
+
+export function newAliasDecl(mutates t Tree, start diag.U32) returns AliasDecl
+	return AliasDecl.make(t.alloc(NodeKind.aliasDecl, start: start))
+end 'newAliasDecl'
+
+export type Bound
+	export var id as NodeID
+	export var negative as bool
+	export var value as I128
+	export var sized as String
+	export var limit as String
+
+	export static function make(id NodeID) returns Bound
+		return Bound{id: id, negative: false, value: I128.fromCount(0 as Count), sized: "", limit: ""}
+	end 'make'
+end 'Bound'
+
+export typealias BoundList = Array with Bound
+
+export function newBound(mutates t Tree, start diag.U32) returns Bound
+	return Bound.make(t.alloc(NodeKind.bound, start: start))
+end 'newBound'
+
 export function newTypeRef(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.typeRef, start: start)
 	let blk = t.reserve(2 as Count)
@@ -213,6 +427,74 @@ end 'typeRefTypeArgsRef'
 export function setTypeRefTypeArgsRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
 end 'setTypeRefTypeArgsRef'
+
+export type TypeParam
+	export var id as NodeID
+	export var name as String
+
+	export static function make(id NodeID) returns TypeParam
+		return TypeParam{id: id, name: ""}
+	end 'make'
+end 'TypeParam'
+
+export typealias TypeParamList = Array with TypeParam
+
+export function newTypeParam(mutates t Tree, start diag.U32) returns TypeParam
+	return TypeParam.make(t.alloc(NodeKind.typeParam, start: start))
+end 'newTypeParam'
+
+export type Constraint
+	export var id as NodeID
+	export var param as String
+	export var bounds as diag.U32
+
+	export static function make(id NodeID) returns Constraint
+		return Constraint{id: id, param: "", bounds: 0 as diag.U32}
+	end 'make'
+end 'Constraint'
+
+export typealias ConstraintList = Array with Constraint
+
+export function newConstraint(mutates t Tree, start diag.U32) returns Constraint
+	return Constraint.make(t.alloc(NodeKind.constraint, start: start))
+end 'newConstraint'
+
+export type InterfaceDecl
+	export var id as NodeID
+	export var name as String
+	export var visibility as String
+	export var methods as FuncSigList
+	export var endRef as NodeID
+
+	export static function make(id NodeID) returns InterfaceDecl
+		return InterfaceDecl{id: id, name: "", visibility: "", methods: FuncSigList.create(0), endRef: 0 as NodeID}
+	end 'make'
+end 'InterfaceDecl'
+
+export typealias InterfaceDeclList = Array with InterfaceDecl
+
+export function newInterfaceDecl(mutates t Tree, start diag.U32) returns InterfaceDecl
+	return InterfaceDecl.make(t.alloc(NodeKind.interfaceDecl, start: start))
+end 'newInterfaceDecl'
+
+export type FuncSig
+	export var id as NodeID
+	export var name as String
+	export var receiver as String
+	export var params as ParamList
+	export var returnsRef as NodeID
+	export var throwsRef as NodeID
+
+	export static function make(id NodeID) returns FuncSig
+		return FuncSig{id: id, name: "", receiver: "", params: ParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID}
+	end 'make'
+end 'FuncSig'
+
+export typealias FuncSigList = Array with FuncSig
+
+export function newFuncSig(mutates t Tree, start diag.U32) returns FuncSig
+	return FuncSig.make(t.alloc(NodeKind.funcSig, start: start))
+end 'newFuncSig'
 
 export function newEndLabel(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.endLabel, start: start)

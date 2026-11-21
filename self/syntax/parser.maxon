@@ -1,881 +1,550 @@
-export type ParseError
-	export let offset as Count
-	export let code as String
-	export let message as String
-	export let file as String
-	export let line as Count
-	export let col as Count
-
-	export static function make(offset Count, consumes code String, consumes message String) returns ParseError
-		return ParseError{offset: offset, code: code, message: message, file: "", line: 0 as Count, col: 0 as Count}
-	end 'make'
-
-	export static function makeLocated(offset Count, consumes code String, consumes message String, consumes file String, line Count, col Count) returns ParseError
-		return ParseError{offset: offset, code: code, message: message, file: file, line: line, col: col}
-	end 'makeLocated'
-end 'ParseError'
-
 export union ParseResult
 	ok(module ast.Module)
-	err(error ParseError)
+	err(errors diag.ErrorList)
 end 'ParseResult'
 
-type Parser
-	var src as String
-	var tokens as Tokens
-	var pos as Count
-	var tree as ast.Tree
-	var hasError as bool
-	var errOffset as Count
-	var errCode as String
-	var errMessage as String
-	var errAtFileEnd as bool
+// BlankRule says which blank lines may come before a line: parseProgram sets the rule between declarations, and a
+// function inside a declaration has its own.
+enum BlankRule
+	// noBlanks allows none: the line is inside a declaration.
+	noBlanks
+	// firstInFile allows blank lines between comment paragraphs, but not before the first line of the file.
+	firstInFile
+	// afterDecl requires one blank line right after the declaration before, and allows one between comment
+	// paragraphs.
+	afterDecl
+	// beforeFunction is afterDecl for a method or an interface's function that is not the first line of its body: a
+	// blank line sets each function apart, as between top-level declarations.
+	beforeFunction
+end 'BlankRule'
 
-	static function new(module diag.ModuleID, consumes src String, consumes tokens Tokens) returns Parser
-		let srcCopy = src.clone()
-		return Parser{src: src, tokens: tokens, pos: 0 as Count, tree: ast.Tree.new(module, text: srcCopy), hasError: false, errOffset: 0 as Count, errCode: "", errMessage: "", errAtFileEnd: false}
+// Gap is what the layout puts before a token.
+enum Gap
+	// lineStart is the start of a line: only the blank lines and comment lines before it are left to decide.
+	lineStart
+	// endOfLine is before a newline: nothing, or a comment after the code.
+	endOfLine
+	// joined joins the token to the one before it.
+	joined
+	// oneSpace is one space.
+	oneSpace
+end 'Gap'
+
+// BlankFault is how the blank lines before a line break the rule: a blank line that is not allowed, or one that is
+// missing.
+enum BlankFault
+	noFault
+	extraBlank
+	missingBlank
+end 'BlankFault'
+
+type Fault
+	var kind as BlankFault
+	var message as String
+
+	static function make(kind BlankFault, consumes message String) returns Fault
+		return Fault{kind: kind, message: message}
+	end 'make'
+end 'Fault'
+
+let blankInBody = "a blank line is only allowed between declarations, and before a function of a type, an enum or a union"
+
+let blankBeforeFunction = "expected a blank line before this function, which is not the first line of its type, enum or union"
+
+let blankAfterDeclaration = "expected a blank line after the declaration above"
+
+// Parser holds what the generated parse functions (parser_gen.maxon) share: the module's source, its token stream, the
+// position in it, and the file the parser is in.
+type Parser
+	var src as Source
+	var toks as Tokens
+	var tree as ast.Tree
+	var lists as ListStacks
+	var pos as Count
+	var fileIndex as Count
+	var errors as diag.ErrorList
+	// The layout: where the last token consumed ends and what it was, whether the next token joins it with no space
+	// between them, and which blank lines may come before the next line.
+	var prevEnd as Count
+	var prevKind as TokenKind
+	var joinNext as bool
+	var blanks as BlankRule
+
+	static function new(consumes src Source, consumes toks Tokens, module diag.ModuleID) returns Parser
+		let text = src.text.clone()
+		var prevEnd = 0 as Count
+		if src.files.count() > 0 'first'
+			prevEnd = src.files[0].start as Count
+		end 'first'
+		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile}
 	end 'new'
 
-	function curKind() returns TokenKind
-		if pos >= tokens.count() 'eof'
-			return TokenKind.eof
-		end 'eof'
-		return tokens[pos].kind
-	end 'curKind'
+	function fileNumber() returns Count
+		let last = try src.files.count() - 1 otherwise 0 as Count
+		if fileIndex < last 'within'
+			return fileIndex
+		end 'within'
+		return last
+	end 'fileNumber'
 
-	function peekKind(ahead Count) returns TokenKind
-		let idx = try pos + ahead otherwise tokens.count()
-		if idx >= tokens.count() 'eof'
-			return TokenKind.eof
-		end 'eof'
-		return tokens[idx].kind
-	end 'peekKind'
+	// text is a token's text: a substring of the module's source.
+	function text(t Token) returns String
+		return src.text.sliceBytes(t.start as Count, endPos: t.endOffset())
+	end 'text'
 
-	// A word is a name or a keyword: a position that takes a name licenses either, as an argument label or a parameter
-	// name does.
-	function wordAt(ahead Count) returns bool
-		let idx = try pos + ahead otherwise tokens.count()
-		if idx >= tokens.count() 'eof'
-			return false
-		end 'eof'
-		return tokens[idx].kind == TokenKind.name or keywordKind(tokens[idx].text(src)) == tokens[idx].kind
-	end 'wordAt'
+	function cur() returns Token
+		return toks[pos].clone()
+	end 'cur'
 
 	function curStart() returns diag.U32
-		if pos >= tokens.count() 'eof'
-			return try src.byteLength() as diag.U32 otherwise 0 as diag.U32
-		end 'eof'
-		return try tokens[pos].start as diag.U32 otherwise 0 as diag.U32
+		return toks[pos].start
 	end 'curStart'
 
-	function curText() returns String
-		if pos >= tokens.count() 'eof'
-			return ""
-		end 'eof'
-		return tokens[pos].text(src)
-	end 'curText'
+	function peekTok() returns Token
+		let last = try toks.count() - 1 otherwise 0 as Count
+		var at = try pos + 1 otherwise last
+		if at > last 'clamp'
+			at = last
+		end 'clamp'
+		return toks[at].clone()
+	end 'peekTok'
 
-	function curTextRef() returns diag.U32
-		if pos >= tokens.count() 'eof'
-			return 0 as diag.U32
-		end 'eof'
-		return try (tokens[pos].start + 1) as diag.U32 otherwise 0 as diag.U32
-	end 'curTextRef'
+	// next consumes the current token, after checking the layout before it.
+	function next(mutates self) returns Token throws SyntaxError
+		let t = self.cur()
+		try self.checkLayout(t)
+		return self.skip()
+	end 'next'
 
-	function fail(mutates self, consumes code String, consumes message String)
-		self.failAt(self.curStart() as Count, code: code, message: message)
-	end 'fail'
+	// skip consumes the current token without checking its layout, as error recovery does.
+	function skip(mutates self) returns Token
+		let t = self.cur()
+		if after(pos) < toks.count() 'more'
+			pos = after(pos)
+		end 'more'
+		prevEnd = lexemeEnd(t)
+		prevKind = t.kind
+		joinNext = inTokenSet(tokenNoSpaceAfter, kind: t.kind)
+		return t
+	end 'skip'
 
-	// failExpected is the error for a token the grammar does not allow here; at the end of a file the construct that is
-	// still open is what is wrong, and the position is the end of that file.
-	function failExpected(mutates self, consumes code String, consumes message String)
-		if self.curKind() == TokenKind.fileEnd or self.curKind() == TokenKind.eof 'atEnd'
-			self.errAtFileEnd = true
-			self.failAt(self.curStart() as Count, code: diag.errUnexpectedEnd, message: diag.unexpectedEof())
-			return
-		end 'atEnd'
-		self.fail(code, message: message)
-	end 'failExpected'
+	function at(k TokenKind) returns bool
+		return toks[pos].kind == k
+	end 'at'
 
-	function failAt(mutates self, offset Count, consumes code String, consumes message String)
-		if not hasError 'first'
-			hasError = true
-			errOffset = offset
-			errCode = code
-			errMessage = message
-		end 'first'
-	end 'failAt'
+	function inSet(set String) returns bool
+		return inTokenSet(set, kind: toks[pos].kind)
+	end 'inSet'
 
-	function advance(mutates self) returns Token
-		if pos >= tokens.count() 'eof'
-			return Token.make(TokenKind.eof, start: src.byteLength(), length: 0 as Count)
-		end 'eof'
-		let tok = tokens[pos].clone()
-		pos = try pos + 1 otherwise pos
-		return tok
-	end 'advance'
+	function peekIs(k TokenKind) returns bool
+		return self.peekTok().kind == k
+	end 'peekIs'
 
-	function accept(mutates self, kind TokenKind) returns bool
-		if self.curKind() == kind 'yes'
-			_ = self.advance()
-			return true
-		end 'yes'
+	function peekIn(set String) returns bool
+		return inTokenSet(set, kind: self.peekTok().kind)
+	end 'peekIn'
+
+	function atEndOfInput() returns bool
+		return self.at(TokenKind.fileEnd) or self.at(TokenKind.eof)
+	end 'atEndOfInput'
+
+	// gapBefore is the one place that says what separates a token of kind from the one before it: within a line, none
+	// where it, or the token before it, joins its neighbour, and one space otherwise. The checker refuses another gap.
+	function gapBefore(kind TokenKind) returns Gap
+		if startsLine(prevKind) 'line'
+			return Gap.lineStart
+		end 'line'
+		if kind == TokenKind.newline 'newline'
+			return Gap.endOfLine
+		end 'newline'
+		if joinNext or inTokenSet(tokenNoSpaceBefore, kind: kind) 'joined'
+			return Gap.joined
+		end 'joined'
+		return Gap.oneSpace
+	end 'gapBefore'
+
+	// checkLayout checks the space before t. Within a line the lexer has made every gap one space or none; here the
+	// grammar decides which. At the start of a line the lexer has checked the indentation, and only the blank lines
+	// before it are left to check.
+	function checkLayout(mutates self, t Token) throws SyntaxError
+		let start = lexemeStart(t)
+		let gap = self.gapBefore(t.kind)
+		let last = prevEnd
+		if gap == Gap.lineStart 'line'
+			try self.blankLines(start)
+		end 'line' else if gap == Gap.joined 'joined'
+			if start > last 'spaced'
+				let msg = "expected no space before '{self.describe(t)}'"
+				throw self.refuse(msg, at: last)
+			end 'spaced'
+		end 'joined' else if gap == Gap.oneSpace 'space'
+			if start == last 'touching'
+				let msg = "expected a space before '{self.describe(t)}'"
+				throw self.refuse(msg, at: t.start as Count)
+			end 'touching'
+		end 'space'
+	end 'checkLayout'
+
+	// blankLines checks the blank lines and comment lines between the last line and the one that starts at lineStart,
+	// against the rule parseProgram set for it.
+	function blankLines(mutates self, lineStart Count) throws SyntaxError
+		var rule = blanks
+		blanks = BlankRule.noBlanks
+		if rule == BlankRule.noBlanks and prevKind == TokenKind.newline and self.startsFunction() 'function'
+			rule = BlankRule.beforeFunction
+		end 'function'
+		var at = prevEnd
+		var kept = 0 as Count
+		var lastBlank = false
+		while at < lineStart 'lines'
+			var stop = at
+			while stop < lineStart and src.text.byteAt(stop) != byteNewline 'scan'
+				stop = after(stop)
+			end 'scan'
+			if stop == lineStart 'unended'
+				break 'lines'
+			end 'unended'
+			let blank = isBlankLine(src.text, from: at, until: stop)
+			let fault = lineFault(rule, kept: kept, blank: blank, lastBlank: lastBlank)
+			if fault.kind != BlankFault.noFault 'refused'
+				throw self.refuse(fault.message.clone(), at: at)
+			end 'refused'
+			kept = after(kept)
+			lastBlank = blank
+			at = after(stop)
+		end 'lines'
+		let fault = endFault(rule, kept: kept, lastBlank: lastBlank, atFileEnd: self.at(TokenKind.fileEnd))
+		if fault.kind == BlankFault.extraBlank 'extra'
+			throw self.refuse(fault.message.clone(), at: before(at))
+		end 'extra' else if fault.kind == BlankFault.missingBlank 'missing'
+			throw self.refuse(fault.message.clone(), at: at)
+		end 'missing'
+	end 'blankLines'
+
+	// refuse is the syntax error for a gap that breaks the layout.
+	function refuse(mutates self, consumes message String, at Count) returns SyntaxError
+		let file = self.fileNumber()
+		errors.push(src.errorAt(diag.errExpectedToken, message: message, file: file, offset: at))
+		return SyntaxError.refused
+	end 'refuse'
+
+	// startsFunction is whether the line starting at the current token defines a function inside a declaration: a
+	// method or a static function. No statement starts with these words, so inside a function body it is never true.
+	// An interface's functions are signatures, one line each with no body, and are listed without blank lines between
+	// them.
+	function startsFunction() returns bool
+		let k = toks[pos].kind
+		if k == TokenKind.kw_export or k == TokenKind.kw_public 'visibility'
+			let following = self.peekTok().kind
+			if following != TokenKind.kw_function and following != TokenKind.kw_static 'notFunction'
+				return false
+			end 'notFunction'
+		end 'visibility' else if k != TokenKind.kw_function and k != TokenKind.kw_static 'other'
+			return false
+		end 'other'
+		return self.lineOpensBody()
+	end 'startsFunction'
+
+	// lineOpensBody is whether the line starting at the current token is followed by an indented body.
+	function lineOpensBody() returns bool
+		var i = pos
+		while after(i) < toks.count() 'scan'
+			if toks[i].kind == TokenKind.newline 'newline'
+				return toks[after(i)].kind == TokenKind.indent
+			end 'newline'
+			i = after(i)
+		end 'scan'
 		return false
-	end 'accept'
+	end 'lineOpensBody'
 
-	function expect(mutates self, kind TokenKind, what String) returns Token
-		if self.curKind() == kind 'ok'
-			return self.advance()
-		end 'ok'
-		self.failExpected(diag.errExpectedToken, message: diag.expectedToken(what, got: self.curText()))
-		return Token.make(kind, start: self.curStart() as Count, length: 0 as Count)
+	// describe is how a syntax error shows a token: its text, or a name for a token whose text is not shown.
+	function describe(t Token) returns String
+		if t.kind == TokenKind.newline 'newline'
+			return newlineText
+		end 'newline'
+		if t.kind == TokenKind.fileEnd 'fileEnd'
+			return fileEndText
+		end 'fileEnd'
+		if t.kind == TokenKind.eof 'eof'
+			return eofText
+		end 'eof'
+		if t.kind == TokenKind.string 'string'
+			return stringText
+		end 'string'
+		if t.length == 0 'empty'
+			return tokenDescription(t.kind)
+		end 'empty'
+		return self.text(t)
+	end 'describe'
+
+	// expected is the syntax error at the current token, naming what the grammar allows there.
+	function expected(mutates self, what String) returns SyntaxError
+		let t = self.cur()
+		let file = self.fileNumber()
+		if self.atEndOfInput() 'end'
+			errors.push(src.errorAt(diag.errUnexpectedEnd, message: diag.unexpectedEof(), file: file, offset: t.start as Count))
+			return SyntaxError.refused
+		end 'end'
+		let msg = diag.expectedToken(what, got: self.describe(t))
+		errors.push(src.errorAt(diag.errExpectedToken, message: msg, file: file, offset: t.start as Count))
+		return SyntaxError.refused
+	end 'expected'
+
+	function expect(mutates self, k TokenKind, what String) returns Token throws SyntaxError
+		if not self.at(k) 'missing'
+			throw self.expected(what)
+		end 'missing'
+		return try self.next()
 	end 'expect'
 
-	function skipNewlines(mutates self)
-		while self.curKind() == TokenKind.newline or self.curKind() == TokenKind.fileEnd 'skip'
-			_ = self.advance()
-		end 'skip'
-	end 'skipNewlines'
-
-	function parseEndLabel(mutates self) returns ast.NodeID
-		if self.curKind() != TokenKind.label 'none'
-			return 0 as ast.NodeID
-		end 'none'
-		let start = self.curStart()
-		let ref = self.curTextRef()
-		_ = self.advance()
-		let id = ast.newEndLabel(self.tree, start: start)
-		ast.setEndLabelNameRef(self.tree, id: id, ref: ref)
-		return id
-	end 'parseEndLabel'
-
-	function parseVisibility(mutates self) returns String
-		if self.accept(TokenKind.kwExport) 'exp'
-			return "export"
-		end 'exp'
-		if self.accept(TokenKind.kwPublic) 'pub'
-			return "public"
-		end 'pub'
-		return ""
-	end 'parseVisibility'
-
-	function parseUsesClause(mutates self) returns ast.TypeParamList
-		var out = ast.TypeParamList.create(0)
-		if not self.accept(TokenKind.kwUses) 'none'
-			return out
-		end 'none'
-		while not hasError 'more'
-			let start = self.curStart()
-			let tok = self.expect(TokenKind.name, what: "a type parameter")
-			let id = self.tree.alloc(ast.NodeKind.typeParam, start: start)
-			out.push(ast.TypeParam.make(id, name: tok.text(src)))
-			if not self.accept(TokenKind.comma) 'done'
-				break 'more'
-			end 'done'
-		end 'more'
-		return out
-	end 'parseUsesClause'
+	// textRef is what a record holds for the name or label that a token is.
+	function textRef(t Token) returns diag.U32
+		return ast.textRef(t.start)
+	end 'textRef'
 end 'Parser'
 
-function parseConformsClause(mutates p Parser) returns ast.U32List
-	var out = ast.U32List.create(0)
-	if not p.accept(TokenKind.kwImplements) 'none'
-		return out
-	end 'none'
-	while not p.hasError 'more'
-		let tr = parseTypeRef(p)
-		out.push(tr as diag.U32)
-		if not p.accept(TokenKind.comma) 'done'
-			break 'more'
-		end 'done'
-	end 'more'
-	return out
-end 'parseConformsClause'
+// The conversions below turn a token into a field that is not its text, as Maxon.g4 declares.
 
-function parseWhereClause(mutates p Parser) returns ast.ConstraintList
-	var out = ast.ConstraintList.create(0)
-	if not p.accept(TokenKind.kwWhere) 'none'
-		return out
-	end 'none'
-	while not p.hasError 'more'
-		let start = p.curStart()
-		let nameTok = p.expect(TokenKind.name, what: "a type parameter")
-		_ = p.expect(TokenKind.kwImplements, what: "'implements'")
-		var bounds = ast.U32List.create(0)
-		while not p.hasError 'b'
-			let b = parseTypeRef(p)
-			bounds.push(b as diag.U32)
-			if not p.accept(TokenKind.kwAnd) 'bdone'
-				break 'b'
-			end 'bdone'
-		end 'b'
-		let id = p.tree.alloc(ast.NodeKind.constraint, start: start)
-		out.push(ast.Constraint.make(id, paramName: nameTok.text(p.src), bounds: bounds))
-		if not p.accept(TokenKind.comma) 'done'
-			break 'more'
-		end 'done'
-	end 'more'
-	return out
-end 'parseWhereClause'
+function intLitMagnitude(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
+	return try integer(p, t: t)
+end 'intLitMagnitude'
 
-function parseParam(mutates p Parser) returns ast.Param
-	let start = p.curStart()
-	var conv = ""
-	if p.wordAt(1 as Count) 'convention'
-		if p.accept(TokenKind.kwMutates) 'm'
-			conv = "mutates"
-		end 'm' else if p.accept(TokenKind.kwConsumes) 'c'
-			conv = "consumes"
-		end 'c' else if p.accept(TokenKind.kwSets) 's'
-			conv = "sets"
-		end 's'
-	end 'convention'
-	var pname = ""
-	if p.wordAt(0 as Count) 'word'
-		pname = p.advance().text(p.src)
-	end 'word' else 'notAWord'
-		p.fail(diag.errExpectedToken, message: diag.expectedToken("a parameter name", got: p.curText()))
-	end 'notAWord'
-	let tr = parseTypeRef(p)
-	let id = p.tree.alloc(ast.NodeKind.param, start: start)
-	return ast.Param.make(id, convention: conv, name: pname, typeRef: tr)
-end 'parseParam'
+function boundValue(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
+	return try integer(p, t: t)
+end 'boundValue'
 
-function parseFuncDecl(mutates p Parser, consumes vis String, isStatic bool, start diag.U32) returns ast.FuncDecl
-	_ = p.expect(TokenKind.kwFunction, what: "'function'")
-	let nameTok = p.expect(TokenKind.name, what: "a function name")
-	_ = p.expect(TokenKind.lParen, what: "'('")
-	var receiver = ""
-	var params = ast.ParamList.create(0)
-	if p.curKind() != TokenKind.rParen 'hasParams'
-		if (p.curKind() == TokenKind.kwMutates or p.curKind() == TokenKind.kwConsumes or p.curKind() == TokenKind.kwDestructs) and p.peekKind(1 as Count) == TokenKind.kwSelf 'recv'
-			receiver = p.advance().text(p.src)
-			_ = p.advance()
-			if p.accept(TokenKind.comma) 'moreAfterRecv'
-				while not p.hasError 'pm'
-					params.push(parseParam(p))
-					if not p.accept(TokenKind.comma) 'pdone'
-						break 'pm'
-					end 'pdone'
-				end 'pm'
-			end 'moreAfterRecv'
-		end 'recv' else 'regular'
-			while not p.hasError 'pm'
-				params.push(parseParam(p))
-				if not p.accept(TokenKind.comma) 'pdone'
-					break 'pm'
-				end 'pdone'
-			end 'pm'
-		end 'regular'
-	end 'hasParams'
-	_ = p.expect(TokenKind.rParen, what: "')'")
-	let typeParams = p.parseUsesClause()
-	var retRef = 0 as ast.NodeID
-	if p.accept(TokenKind.kwReturns) 'ret'
-		retRef = parseTypeRef(p)
-	end 'ret'
-	var throwsRef = 0 as ast.NodeID
-	if p.accept(TokenKind.kwThrows) 'thr'
-		throwsRef = parseTypeRef(p)
-	end 'thr'
-	let constraints = parseWhereClause(p)
-	let bodyRef = parseBlock(p)
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLabel = p.parseEndLabel()
-	let id = p.tree.alloc(ast.NodeKind.funcDecl, start: start)
-	return ast.FuncDecl.make(id, visibility: vis, isStatic: isStatic, name: nameTok.text(p.src), receiver: receiver, params: params, typeParams: typeParams, returnsRef: retRef, throwsRef: throwsRef, constraints: constraints, bodyRef: bodyRef, endLabel: endLabel)
-end 'parseFuncDecl'
+function integer(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
+	let file = p.fileNumber()
+	return try readInteger(p.src, errs: p.errors, file: file, at: t.start as Count, stop: t.endOffset())
+end 'integer'
 
-function parseFuncSig(mutates p Parser) returns ast.FuncSig
-	let start = p.curStart()
-	_ = p.expect(TokenKind.kwFunction, what: "'function'")
-	let nameTok = p.expect(TokenKind.name, what: "a function name")
-	_ = p.expect(TokenKind.lParen, what: "'('")
-	var receiver = ""
-	var params = ast.ParamList.create(0)
-	if p.curKind() != TokenKind.rParen 'hasParams'
-		if (p.curKind() == TokenKind.kwMutates or p.curKind() == TokenKind.kwConsumes or p.curKind() == TokenKind.kwDestructs) and p.peekKind(1 as Count) == TokenKind.kwSelf 'recv'
-			receiver = p.advance().text(p.src)
-			_ = p.advance()
-			if p.accept(TokenKind.comma) 'more'
-				while not p.hasError 'pm'
-					params.push(parseParam(p))
-					if not p.accept(TokenKind.comma) 'pdone'
-						break 'pm'
-					end 'pdone'
-				end 'pm'
-			end 'more'
-		end 'recv' else 'regular'
-			while not p.hasError 'pm'
-				params.push(parseParam(p))
-				if not p.accept(TokenKind.comma) 'pdone'
-					break 'pm'
-				end 'pdone'
-			end 'pm'
-		end 'regular'
-	end 'hasParams'
-	_ = p.expect(TokenKind.rParen, what: "')'")
-	var retRef = 0 as ast.NodeID
-	if p.accept(TokenKind.kwReturns) 'ret'
-		retRef = parseTypeRef(p)
-	end 'ret'
-	var throwsRef = 0 as ast.NodeID
-	if p.accept(TokenKind.kwThrows) 'thr'
-		throwsRef = parseTypeRef(p)
-	end 'thr'
-	let id = p.tree.alloc(ast.NodeKind.funcSig, start: start)
-	return ast.FuncSig.make(id, name: nameTok.text(p.src), receiver: receiver, params: params, returnsRef: retRef, throwsRef: throwsRef)
-end 'parseFuncSig'
-
-function parseBlock(mutates p Parser) returns diag.U32
-	_ = p.expect(TokenKind.newline, what: "a newline")
-	_ = p.expect(TokenKind.indent, what: "an indented block")
-	var stmts = ast.U32List.create(0)
-	while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof and p.curKind() != TokenKind.fileEnd 'each'
-		let st = parseStmt(p)
-		stmts.push(st as diag.U32)
-		_ = p.expect(TokenKind.newline, what: "a newline")
+// strLitParts reads the string literal that t is and gives the parts it holds in the tree: a run of the module's text
+// is its offset and length, text that an escape changed is a string of its own, and an interpolation is the
+// expression that its text parses to.
+function strLitParts(mutates p Parser, t Token) returns diag.U32 throws SyntaxError
+	let file = p.fileNumber()
+	var r = stringReaderAt(p.src, file: file, open: t.start as Count, collect: true)
+	_ = try r.read(p.src, errs: p.errors)
+	let parts = exchange(r.parts, value: StrParts.create(0))
+	var b = ast.StrPartsBuilder.new()
+	for i in 0 upto parts.count() 'each'
+		match parts[i] 'part'
+			text(run, begin, raw) then addTextPart(p, parts: b, text: run, begin: begin, raw: raw)
+			expr(begin, until) then b.interpolation(try parseInterpolationAt(p, begin: begin, until: until))
+		end 'part'
 	end 'each'
-	_ = p.expect(TokenKind.dedent, what: "the end of the block")
-	return p.tree.pushList(stmts)
-end 'parseBlock'
+	return b.finish(p.tree)
+end 'strLitParts'
 
-function parseStmt(mutates p Parser) returns ast.NodeID
-	let k = p.curKind()
-	if k == TokenKind.kwLet or k == TokenKind.kwVar 'letSt'
-		return parseLetStmt(p)
-	end 'letSt'
-	if k == TokenKind.kwUnderscore 'disc'
-		let start = p.curStart()
-		_ = p.advance()
-		_ = p.expect(TokenKind.assign, what: "'='")
-		let val = parseExpr(p)
-		let id = ast.newDiscardStmt(p.tree, start: start)
-		ast.setDiscardStmtValue(p.tree, id: id, value: val)
-		return id
-	end 'disc'
-	if k == TokenKind.kwIf 'ifSt'
-		return parseIfStmt(p)
-	end 'ifSt'
-	if k == TokenKind.kwWhile 'whSt'
-		return parseWhileStmt(p)
-	end 'whSt'
-	if k == TokenKind.kwFor 'forSt'
-		return parseForStmt(p)
-	end 'forSt'
-	if k == TokenKind.kwMatch 'mSt'
-		let start = p.curStart()
-		let core = parseMatchCore(p)
-		let id = ast.newMatchStmt(p.tree, start: start)
-		ast.setMatchStmtMatch(p.tree, id: id, value: core)
-		return id
-	end 'mSt'
-	if k == TokenKind.kwWhen 'wSt'
-		return parseWhenStmt(p)
-	end 'wSt'
-	if k == TokenKind.kwTry and p.peekKind(1 as Count) == TokenKind.label 'trySt'
-		return parseTryStmt(p)
-	end 'trySt'
-	if k == TokenKind.kwReturn 'retSt'
-		let start = p.curStart()
-		_ = p.advance()
-		let id = ast.newReturnStmt(p.tree, start: start)
-		if p.curKind() != TokenKind.newline and p.curKind() != TokenKind.eof and p.curKind() != TokenKind.fileEnd 'hasVal'
-			let val = parseExpr(p)
-			ast.setReturnStmtValue(p.tree, id: id, value: val)
-		end 'hasVal'
-		return id
-	end 'retSt'
-	if k == TokenKind.kwBreak 'brkSt'
-		let start = p.curStart()
-		_ = p.advance()
-		let id = ast.newBreakStmt(p.tree, start: start)
-		if p.curKind() == TokenKind.label 'lbl'
-			let ref = p.curTextRef()
-			_ = p.advance()
-			ast.setBreakStmtLabelRef(p.tree, id: id, ref: ref)
-		end 'lbl'
-		return id
-	end 'brkSt'
-	if k == TokenKind.kwContinue 'contSt'
-		let start = p.curStart()
-		_ = p.advance()
-		let id = ast.newContinueStmt(p.tree, start: start)
-		if p.curKind() == TokenKind.label 'lbl'
-			let ref = p.curTextRef()
-			_ = p.advance()
-			ast.setContinueStmtLabelRef(p.tree, id: id, ref: ref)
-		end 'lbl'
-		return id
-	end 'contSt'
-	let start = p.curStart()
-	let lhs = parseExpr(p)
-	if p.accept(TokenKind.assign) 'assign'
-		let rhs = parseExpr(p)
-		let id = ast.newAssignStmt(p.tree, start: start)
-		ast.setAssignStmtTarget(p.tree, id: id, value: lhs)
-		ast.setAssignStmtValue(p.tree, id: id, value: rhs)
-		return id
-	end 'assign'
-	let id = ast.newExprStmt(p.tree, start: start)
-	ast.setExprStmtE(p.tree, id: id, value: lhs)
-	return id
-end 'parseStmt'
+// lexemeStart and lexemeEnd are where a token's source text begins and ends: a label's token leaves out its quotes.
+function lexemeStart(t Token) returns Count
+	if t.kind == TokenKind.label 'label'
+		return before(t.start as Count)
+	end 'label'
+	return t.start as Count
+end 'lexemeStart'
 
-function parseLetStmt(mutates p Parser) returns ast.NodeID
-	let start = p.curStart()
-	let isVar = p.curKind() == TokenKind.kwVar
-	_ = p.advance()
-	let nameRef = p.curTextRef()
-	_ = p.expect(TokenKind.name, what: "a variable name")
-	let id = ast.newLetStmt(p.tree, start: start)
-	if isVar 'v'
-		ast.setLetStmtIsVar(p.tree, id: id)
-	end 'v'
-	ast.setLetStmtNameRef(p.tree, id: id, ref: nameRef)
-	if isVar and p.accept(TokenKind.kwAs) 'typed'
-		let tr = parseTypeRef(p)
-		ast.setLetStmtType(p.tree, id: id, value: tr)
-		return id
-	end 'typed'
-	_ = p.expect(TokenKind.assign, what: "'='")
-	let initExpr = parseExpr(p)
-	ast.setLetStmtInit(p.tree, id: id, value: initExpr)
-	return id
-end 'parseLetStmt'
+function lexemeEnd(t Token) returns Count
+	if t.kind == TokenKind.label 'label'
+		return after(t.endOffset())
+	end 'label'
+	return t.endOffset()
+end 'lexemeEnd'
 
-function parseIfStmt(mutates p Parser) returns ast.NodeID
-	let start = p.curStart()
-	_ = p.expect(TokenKind.kwIf, what: "'if'")
-	let cond = parseExpr(p)
-	let lblRef = p.curTextRef()
-	_ = p.expect(TokenKind.label, what: "a block label")
-	let thenRef = parseBlock(p)
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = ast.newIfStmt(p.tree, start: start)
-	ast.setIfStmtCond(p.tree, id: id, value: cond)
-	ast.setIfStmtLabelRef(p.tree, id: id, ref: lblRef)
-	ast.setIfStmtThenRef(p.tree, id: id, ref: thenRef)
-	ast.setIfStmtEnd(p.tree, id: id, value: endLbl)
-	if p.accept(TokenKind.kwElse) 'hasElse'
-		ast.setIfStmtHasElse(p.tree, id: id)
-		if p.curKind() == TokenKind.kwIf 'elseIf'
-			var elseStmts = ast.U32List.create(0)
-			elseStmts.push(parseIfStmt(p) as diag.U32)
-			let elseRef = p.tree.pushList(elseStmts)
-			ast.setIfStmtElseRef(p.tree, id: id, ref: elseRef)
-		end 'elseIf' else 'elseBlk'
-			let eLblRef = p.curTextRef()
-			_ = p.expect(TokenKind.label, what: "a block label")
-			let elseRef = parseBlock(p)
-			_ = p.expect(TokenKind.kwEnd, what: "'end'")
-			let elseEnd = p.parseEndLabel()
-			ast.setIfStmtElseLabelRef(p.tree, id: id, ref: eLblRef)
-			ast.setIfStmtElseRef(p.tree, id: id, ref: elseRef)
-			ast.setIfStmtElseEnd(p.tree, id: id, value: elseEnd)
-		end 'elseBlk'
-	end 'hasElse'
-	return id
-end 'parseIfStmt'
+// startsLine reports whether a token of kind is the last thing before a new line's first token.
+function startsLine(kind TokenKind) returns bool
+	return kind == TokenKind.newline or kind == TokenKind.indent or kind == TokenKind.dedent or kind == TokenKind.fileEnd
+end 'startsLine'
 
-function parseWhileStmt(mutates p Parser) returns ast.NodeID
-	let start = p.curStart()
-	_ = p.expect(TokenKind.kwWhile, what: "'while'")
-	let cond = parseExpr(p)
-	let lblRef = p.curTextRef()
-	_ = p.expect(TokenKind.label, what: "a block label")
-	let bodyRef = parseBlock(p)
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = ast.newWhileStmt(p.tree, start: start)
-	ast.setWhileStmtCond(p.tree, id: id, value: cond)
-	ast.setWhileStmtLabelRef(p.tree, id: id, ref: lblRef)
-	ast.setWhileStmtBodyRef(p.tree, id: id, ref: bodyRef)
-	ast.setWhileStmtEnd(p.tree, id: id, value: endLbl)
-	return id
-end 'parseWhileStmt'
+// lineFault is the fault of the line that would come after kept lines under rule, blank or not, the one before it
+// being lastBlank.
+function lineFault(rule BlankRule, kept Count, blank bool, lastBlank bool) returns Fault
+	if blank and rule == BlankRule.noBlanks 'inBody'
+		return Fault.make(BlankFault.extraBlank, message: blankInBody)
+	end 'inBody'
+	if blank and kept == 0 and rule == BlankRule.firstInFile 'fileStart'
+		return Fault.make(BlankFault.extraBlank, message: "the file starts with a blank line")
+	end 'fileStart'
+	if blank and lastBlank 'twice'
+		return Fault.make(BlankFault.extraBlank, message: "two blank lines in a row; keep one")
+	end 'twice'
+	if not blank and kept == 0 and rule == BlankRule.afterDecl 'afterDecl'
+		return Fault.make(BlankFault.missingBlank, message: blankAfterDeclaration)
+	end 'afterDecl'
+	if not blank and kept == 0 and rule == BlankRule.beforeFunction 'beforeFunction'
+		return Fault.make(BlankFault.missingBlank, message: blankBeforeFunction)
+	end 'beforeFunction'
+	return Fault.make(BlankFault.noFault, message: "")
+end 'lineFault'
 
-function parseForStmt(mutates p Parser) returns ast.NodeID
-	let start = p.curStart()
-	_ = p.expect(TokenKind.kwFor, what: "'for'")
-	let varRef = p.curTextRef()
-	if not p.accept(TokenKind.kwUnderscore) 'named'
-		_ = p.expect(TokenKind.name, what: "a loop variable")
-	end 'named'
-	_ = p.expect(TokenKind.kwIn, what: "'in'")
-	let fromExpr = parseExpr(p)
-	var inclusive = false
-	if p.accept(TokenKind.kwTo) 'to'
-		inclusive = true
-	end 'to' else 'upto'
-		_ = p.expect(TokenKind.kwUpto, what: "'to' or 'upto'")
-	end 'upto'
-	let toExpr = parseExpr(p)
-	let lblRef = p.curTextRef()
-	_ = p.expect(TokenKind.label, what: "a block label")
-	let bodyRef = parseBlock(p)
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = ast.newForStmt(p.tree, start: start)
-	ast.setForStmtVarRef(p.tree, id: id, ref: varRef)
-	ast.setForStmtFrom(p.tree, id: id, value: fromExpr)
-	if inclusive 'inc'
-		ast.setForStmtInclusive(p.tree, id: id)
-	end 'inc'
-	ast.setForStmtTo(p.tree, id: id, value: toExpr)
-	ast.setForStmtLabelRef(p.tree, id: id, ref: lblRef)
-	ast.setForStmtBodyRef(p.tree, id: id, ref: bodyRef)
-	ast.setForStmtEnd(p.tree, id: id, value: endLbl)
-	return id
-end 'parseForStmt'
+// endFault is the fault of the gap's end, when kept lines have come before the line that starts it, the last one
+// blank or not, and that line is the end of the file or not.
+function endFault(rule BlankRule, kept Count, lastBlank bool, atFileEnd bool) returns Fault
+	if rule == BlankRule.afterDecl and kept == 0 and not atFileEnd 'afterDecl'
+		return Fault.make(BlankFault.missingBlank, message: blankAfterDeclaration)
+	end 'afterDecl'
+	if rule == BlankRule.beforeFunction and kept == 0 'beforeFunction'
+		return Fault.make(BlankFault.missingBlank, message: blankBeforeFunction)
+	end 'beforeFunction'
+	if lastBlank and atFileEnd 'fileEnd'
+		return Fault.make(BlankFault.extraBlank, message: "the file ends with a blank line")
+	end 'fileEnd'
+	return Fault.make(BlankFault.noFault, message: "")
+end 'endFault'
 
-function parseTryStmt(mutates p Parser) returns ast.NodeID
-	let start = p.curStart()
-	_ = p.expect(TokenKind.kwTry, what: "'try'")
-	let lblRef = p.curTextRef()
-	_ = p.expect(TokenKind.label, what: "a block label")
-	let bodyRef = parseBlock(p)
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = ast.newTryStmt(p.tree, start: start)
-	ast.setTryStmtLabelRef(p.tree, id: id, ref: lblRef)
-	ast.setTryStmtBodyRef(p.tree, id: id, ref: bodyRef)
-	ast.setTryStmtEnd(p.tree, id: id, value: endLbl)
-	if p.accept(TokenKind.kwOtherwise) 'hasOth'
-		ast.setTryStmtHasOtherwise(p.tree, id: id)
-		if p.accept(TokenKind.lParen) 'bind'
-			let bRef = p.curTextRef()
-			_ = p.expect(TokenKind.name, what: "an error binding name")
-			_ = p.expect(TokenKind.rParen, what: "')'")
-			ast.setTryStmtBindingRef(p.tree, id: id, ref: bRef)
-		end 'bind'
-		let hLblRef = p.curTextRef()
-		_ = p.expect(TokenKind.label, what: "a handler label")
-		let hRef = parseBlock(p)
-		_ = p.expect(TokenKind.kwEnd, what: "'end'")
-		let hEnd = p.parseEndLabel()
-		ast.setTryStmtHandlerLabelRef(p.tree, id: id, ref: hLblRef)
-		ast.setTryStmtHandlerRef(p.tree, id: id, ref: hRef)
-		ast.setTryStmtHandlerEnd(p.tree, id: id, value: hEnd)
-	end 'hasOth'
-	return id
-end 'parseTryStmt'
+// isBlankLine is whether a line holds nothing but whitespace.
+function isBlankLine(text String, from Count, until Count) returns bool
+	for i in from upto until 'each'
+		let c = text.byteAt(i)
+		if c != byteSpace and c != byteTab and c != byteNewline 'code'
+			return false
+		end 'code'
+	end 'each'
+	return true
+end 'isBlankLine'
 
-function parseWhenStmt(mutates p Parser) returns ast.NodeID
-	let start = p.curStart()
-	_ = p.expect(TokenKind.kwWhen, what: "'when'")
-	var cowns = ast.U32List.create(0)
-	while not p.hasError 'c'
-		let cStart = p.curStart()
-		let cRef = p.curTextRef()
-		_ = p.expect(TokenKind.name, what: "a cown name")
-		let cNode = ast.newNameExpr(p.tree, start: cStart)
-		ast.setNameExprNameRef(p.tree, id: cNode, ref: cRef)
-		cowns.push(cNode as diag.U32)
-		if not p.accept(TokenKind.comma) 'cdone'
-			break 'c'
-		end 'cdone'
-	end 'c'
-	_ = p.expect(TokenKind.kwAs, what: "'as'")
-	var names = ast.U32List.create(0)
-	while not p.hasError 'n'
-		let nRef = p.curTextRef()
-		_ = p.expect(TokenKind.name, what: "a binding name")
-		names.push(nRef)
-		if not p.accept(TokenKind.comma) 'ndone'
-			break 'n'
-		end 'ndone'
-	end 'n'
-	let lblRef = p.curTextRef()
-	_ = p.expect(TokenKind.label, what: "a block label")
-	let bodyRef = parseBlock(p)
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = ast.newWhenStmt(p.tree, start: start)
-	let cownsRef = p.tree.pushList(cowns)
-	let namesRef = p.tree.pushList(names)
-	ast.setWhenStmtCownsRef(p.tree, id: id, ref: cownsRef)
-	ast.setWhenStmtNamesRef(p.tree, id: id, ref: namesRef)
-	ast.setWhenStmtLabelRef(p.tree, id: id, ref: lblRef)
-	ast.setWhenStmtBodyRef(p.tree, id: id, ref: bodyRef)
-	ast.setWhenStmtEnd(p.tree, id: id, value: endLbl)
-	return id
-end 'parseWhenStmt'
+function addTextPart(mutates p Parser, mutates parts ast.StrPartsBuilder, text String, begin Count, raw bool)
+	if raw 'raw'
+		let offset = try begin as diag.U32 otherwise panic("a string part starts past U32")
+		let length = try text.byteLength() as diag.U32 otherwise panic("a string part is longer than U32")
+		parts.run(offset, length: length)
+		return
+	end 'raw'
+	parts.decoded(p.tree, text: text.clone())
+end 'addTextPart'
 
-function parseDecl(mutates p Parser) returns ast.Decl
-	let start = p.curStart()
-	let vis = p.parseVisibility()
-	let k = p.curKind()
-	if k == TokenKind.kwStatic or k == TokenKind.kwFunction 'fn'
-		let isStatic = p.accept(TokenKind.kwStatic)
-		return ast.Decl.funcDecl(parseFuncDecl(p, vis: vis, isStatic: isStatic, start: start))
-	end 'fn'
-	if k == TokenKind.kwLet 'cn'
-		_ = p.advance()
-		let nameTok = p.expect(TokenKind.name, what: "a constant name")
-		_ = p.expect(TokenKind.assign, what: "'='")
-		let val = parseExpr(p)
-		let id = p.tree.alloc(ast.NodeKind.constDecl, start: start)
-		return ast.Decl.constDecl(ast.ConstDecl.make(id, visibility: vis, name: nameTok.text(p.src), valueExpr: val))
-	end 'cn'
-	if k == TokenKind.kwType 'ty'
-		return ast.Decl.typeDecl(parseTypeDecl(p, vis: vis, start: start))
-	end 'ty'
-	if k == TokenKind.kwEnum 'en'
-		return ast.Decl.enumDecl(parseEnumDecl(p, vis: vis, start: start))
-	end 'en'
-	if k == TokenKind.kwUnion 'un'
-		return ast.Decl.unionDecl(parseUnionDecl(p, vis: vis, start: start))
-	end 'un'
-	if k == TokenKind.kwTypealias 'al'
-		return ast.Decl.aliasDecl(parseAliasDecl(p, vis: vis, start: start))
-	end 'al'
-	if k == TokenKind.kwInterface 'ifd'
-		return ast.Decl.interfaceDecl(parseInterfaceDecl(p, vis: vis, start: start))
-	end 'ifd'
-	p.fail(diag.errUnexpectedToken, message: "expected a declaration, found '{p.curText()}'")
-	return ast.Decl.constDecl(ast.ConstDecl.make(0 as ast.NodeID, visibility: "", name: "", valueExpr: 0 as ast.NodeID))
-end 'parseDecl'
-
-function parseTypeDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.TypeDecl
-	_ = p.expect(TokenKind.kwType, what: "'type'")
-	let nameTok = p.expect(TokenKind.name, what: "a type name")
-	var isNoncopyable = false
-	if p.accept(TokenKind.kwIs) 'nc'
-		_ = p.expect(TokenKind.kwNoncopyable, what: "'noncopyable'")
-		isNoncopyable = true
-	end 'nc'
-	let typeParams = p.parseUsesClause()
-	let conforms = parseConformsClause(p)
-	let constraints = parseWhereClause(p)
-	_ = p.expect(TokenKind.newline, what: "a newline")
-	var fields = ast.FieldDeclList.create(0)
-	var methods = ast.FuncDeclList.create(0)
-	if p.accept(TokenKind.indent) 'body'
-		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
-			let mStart = p.curStart()
-			let mVis = p.parseVisibility()
-			if p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
-				let isStatic = p.accept(TokenKind.kwStatic)
-				methods.push(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
-			end 'meth' else 'fld'
-				let isVar = p.curKind() == TokenKind.kwVar
-				if not isVar 'chkLet'
-					_ = p.expect(TokenKind.kwLet, what: "'let' or 'var'")
-				end 'chkLet' else 'advVar'
-					_ = p.advance()
-				end 'advVar'
-				let fTok = p.expect(TokenKind.name, what: "a field name")
-				var fType = 0 as ast.NodeID
-				var fDef = 0 as ast.NodeID
-				if p.accept(TokenKind.kwAs) 'asType'
-					fType = parseTypeRef(p)
-				end 'asType' else 'defVal'
-					_ = p.expect(TokenKind.assign, what: "'as' or '='")
-					fDef = parseExpr(p)
-				end 'defVal'
-				let fId = p.tree.alloc(ast.NodeKind.fieldDecl, start: mStart)
-				fields.push(ast.FieldDecl.make(fId, visibility: mVis, isVar: isVar, name: fTok.text(p.src), typeRef: fType, defaultExpr: fDef))
-			end 'fld'
-			_ = p.expect(TokenKind.newline, what: "a newline")
-		end 'item'
-		_ = p.expect(TokenKind.dedent, what: "the end of the type")
-	end 'body'
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = p.tree.alloc(ast.NodeKind.typeDecl, start: start)
-	return ast.TypeDecl.make(id, visibility: vis, name: nameTok.text(p.src), isNoncopyable: isNoncopyable, typeParams: typeParams, conforms: conforms, constraints: constraints, fields: fields, methods: methods, endLabel: endLbl)
-end 'parseTypeDecl'
-
-function parseEnumDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.EnumDecl
-	_ = p.expect(TokenKind.kwEnum, what: "'enum'")
-	let nameTok = p.expect(TokenKind.name, what: "an enum name")
-	let conforms = parseConformsClause(p)
-	_ = p.expect(TokenKind.newline, what: "a newline")
-	var cases = ast.EnumCaseList.create(0)
-	var methods = ast.FuncDeclList.create(0)
-	if p.accept(TokenKind.indent) 'body'
-		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
-			let mStart = p.curStart()
-			if p.curKind() == TokenKind.kwExport or p.curKind() == TokenKind.kwPublic or p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
-				let mVis = p.parseVisibility()
-				let isStatic = p.accept(TokenKind.kwStatic)
-				methods.push(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
-			end 'meth' else 'cs'
-				let cTok = p.expect(TokenKind.name, what: "a case name")
-				var raw = 0 as ast.NodeID
-				if p.accept(TokenKind.assign) 'hasRaw'
-					raw = parseIntLit(p)
-				end 'hasRaw'
-				let cId = p.tree.alloc(ast.NodeKind.enumCaseDecl, start: mStart)
-				cases.push(ast.EnumCaseDecl.make(cId, name: cTok.text(p.src), rawExpr: raw))
-			end 'cs'
-			_ = p.expect(TokenKind.newline, what: "a newline")
-		end 'item'
-		_ = p.expect(TokenKind.dedent, what: "the end of the enum")
-	end 'body'
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = p.tree.alloc(ast.NodeKind.enumDecl, start: start)
-	return ast.EnumDecl.make(id, visibility: vis, name: nameTok.text(p.src), conforms: conforms, cases: cases, methods: methods, endLabel: endLbl)
-end 'parseEnumDecl'
-
-function parseUnionDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.UnionDecl
-	_ = p.expect(TokenKind.kwUnion, what: "'union'")
-	let nameTok = p.expect(TokenKind.name, what: "a union name")
-	var isNoncopyable = false
-	if p.accept(TokenKind.kwIs) 'nc'
-		_ = p.expect(TokenKind.kwNoncopyable, what: "'noncopyable'")
-		isNoncopyable = true
-	end 'nc'
-	let typeParams = p.parseUsesClause()
-	let conforms = parseConformsClause(p)
-	let constraints = parseWhereClause(p)
-	_ = p.expect(TokenKind.newline, what: "a newline")
-	var cases = ast.UnionCaseList.create(0)
-	var methods = ast.FuncDeclList.create(0)
-	if p.accept(TokenKind.indent) 'body'
-		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
-			let mStart = p.curStart()
-			if p.curKind() == TokenKind.kwExport or p.curKind() == TokenKind.kwPublic or p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
-				let mVis = p.parseVisibility()
-				let isStatic = p.accept(TokenKind.kwStatic)
-				methods.push(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
-			end 'meth' else 'cs'
-				let cTok = p.expect(TokenKind.name, what: "a case name")
-				var fields = ast.ParamList.create(0)
-				if p.accept(TokenKind.lParen) 'pay'
-					if p.curKind() != TokenKind.rParen 'nonEmpty'
-						while not p.hasError 'pm'
-							fields.push(parseParam(p))
-							if not p.accept(TokenKind.comma) 'pdone'
-								break 'pm'
-							end 'pdone'
-						end 'pm'
-					end 'nonEmpty'
-					_ = p.expect(TokenKind.rParen, what: "')'")
-				end 'pay'
-				let cId = p.tree.alloc(ast.NodeKind.unionCaseDecl, start: mStart)
-				cases.push(ast.UnionCaseDecl.make(cId, name: cTok.text(p.src), fields: fields))
-			end 'cs'
-			_ = p.expect(TokenKind.newline, what: "a newline")
-		end 'item'
-		_ = p.expect(TokenKind.dedent, what: "the end of the union")
-	end 'body'
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = p.tree.alloc(ast.NodeKind.unionDecl, start: start)
-	return ast.UnionDecl.make(id, visibility: vis, name: nameTok.text(p.src), isNoncopyable: isNoncopyable, typeParams: typeParams, conforms: conforms, constraints: constraints, cases: cases, methods: methods, endLabel: endLbl)
-end 'parseUnionDecl'
-
-function parseAliasDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.AliasDecl
-	_ = p.expect(TokenKind.kwTypealias, what: "'typealias'")
-	let nameTok = p.expect(TokenKind.name, what: "a typealias name")
-	_ = p.expect(TokenKind.assign, what: "'='")
-	if p.accept(TokenKind.kwInt) 'rng'
-		_ = p.expect(TokenKind.lParen, what: "'('")
-		let low = parseBound(p)
-		var inclusive = false
-		if p.accept(TokenKind.kwTo) 'to'
-			inclusive = true
-		end 'to' else 'upto'
-			_ = p.expect(TokenKind.kwUpto, what: "'to' or 'upto'")
-		end 'upto'
-		let high = parseBound(p)
-		_ = p.expect(TokenKind.rParen, what: "')'")
-		let id = p.tree.alloc(ast.NodeKind.aliasDecl, start: start)
-		return ast.AliasDecl.makeRange(id, visibility: vis, name: nameTok.text(p.src), inclusive: inclusive, low: low, high: high)
-	end 'rng'
-	let inst = parseTypeRefWith(p, bareArgs: true)
-	let id = p.tree.alloc(ast.NodeKind.aliasDecl, start: start)
-	return ast.AliasDecl.makeInstance(id, visibility: vis, name: nameTok.text(p.src), instanceRef: inst)
-end 'parseAliasDecl'
-
-function parseInterfaceDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.InterfaceDecl
-	_ = p.expect(TokenKind.kwInterface, what: "'interface'")
-	let nameTok = p.expect(TokenKind.name, what: "an interface name")
-	_ = p.expect(TokenKind.newline, what: "a newline")
-	var sigs = ast.FuncSigList.create(0)
-	if p.accept(TokenKind.indent) 'body'
-		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
-			sigs.push(parseFuncSig(p))
-			_ = p.expect(TokenKind.newline, what: "a newline")
-		end 'item'
-		_ = p.expect(TokenKind.dedent, what: "the end of the interface")
-	end 'body'
-	_ = p.expect(TokenKind.kwEnd, what: "'end'")
-	let endLbl = p.parseEndLabel()
-	let id = p.tree.alloc(ast.NodeKind.interfaceDecl, start: start)
-	return ast.InterfaceDecl.make(id, visibility: vis, name: nameTok.text(p.src), methods: sigs, endLabel: endLbl)
-end 'parseInterfaceDecl'
-
-function parseTokensIntoModule(module diag.ModuleID, consumes path String, consumes text String, consumes files ast.FileSpanList, consumes toks Tokens) returns ParseResult
-	var p = Parser.new(module, src: text, tokens: toks)
-	var decls = ast.DeclList.create(0)
-	p.skipNewlines()
-	while not p.hasError and p.curKind() != TokenKind.eof 'top'
-		let d = parseDecl(p)
-		if not p.hasError 'keep'
-			decls.push(d)
-		end 'keep'
-		p.skipNewlines()
-	end 'top'
-	if p.hasError 'failed'
-		let off32 = try p.errOffset as diag.U32 otherwise 0 as diag.U32
-		var loc = ast.locateTextOffset(p.tree.text, files: files, offset: off32)
-		if p.errAtFileEnd 'fileEnd'
-			loc = ast.locateFileEnd(p.tree.text, files: files, offset: off32)
-		end 'fileEnd'
-		return ParseResult.err(ParseError.makeLocated(p.errOffset, code: p.errCode.clone(), message: p.errMessage.clone(), file: loc.file, line: loc.line, col: loc.col))
+// parseInterpolationAt parses the interpolation from begin to until with the parser's tokens and layout set aside: its
+// first token follows its '{' with no space between them.
+function parseInterpolationAt(mutates p Parser, begin Count, until Count) returns ast.NodeID throws SyntaxError
+	let file = p.fileNumber()
+	let toks = try lexInterpolation(p.src, errs: p.errors, file: file, begin: begin, until: until)
+	let savedToks = exchange(p.toks, value: toks)
+	let savedPos = p.pos
+	let savedEnd = p.prevEnd
+	let savedKind = p.prevKind
+	let savedJoin = p.joinNext
+	let savedBlanks = p.blanks
+	p.pos = 0 as Count
+	p.prevEnd = begin
+	p.prevKind = TokenKind.lBrace
+	p.joinNext = true
+	p.blanks = BlankRule.noBlanks
+	var e = 0 as ast.NodeID
+	var failed = false
+	try 'interpolation'
+		e = parseInterpolation(p)
+	end 'interpolation' otherwise 'refused'
+		failed = true
+	end 'refused'
+	p.toks = savedToks
+	p.pos = savedPos
+	p.prevEnd = savedEnd
+	p.prevKind = savedKind
+	p.joinNext = savedJoin
+	p.blanks = savedBlanks
+	if failed 'failed'
+		throw SyntaxError.refused
 	end 'failed'
+	return e
+end 'parseInterpolationAt'
+
+function parseInterpolation(mutates p Parser) returns ast.NodeID throws SyntaxError
+	let e = try parseExpr(p)
+	if not p.atEndOfInput() 'trailing'
+		throw p.expected("the end of the interpolation")
+	end 'trailing'
+	return e
+end 'parseInterpolation'
+
+// parseProgram parses every declaration of a module's files. A syntax error abandons the rest of its file, so each
+// file reports its own first error.
+function parseProgram(mutates p Parser) returns ast.DeclList
+	var decls = ast.DeclList.create(0)
+	var count = 0 as Count
+	var failed = false
+	while not p.at(TokenKind.eof) 'decls'
+		if p.at(TokenKind.fileEnd) 'fileEnd'
+			if not failed 'check'
+				p.blanks = blanksBefore(count)
+				let t = p.cur()
+				try 'layout'
+					p.checkLayout(t)
+				end 'layout' otherwise 'refused'
+					failed = true
+				end 'refused'
+			end 'check'
+			_ = p.skip()
+			p.fileIndex = after(p.fileIndex)
+			count = 0 as Count
+			failed = false
+			continue 'decls'
+		end 'fileEnd'
+		var abandoned = false
+		try 'decl'
+			p.blanks = blanksBefore(count)
+			let d = parseDecl(p)
+			decls.push(d)
+			_ = p.expect(TokenKind.newline, what: "the end of the line")
+		end 'decl' otherwise 'refused'
+			abandoned = true
+		end 'refused'
+		count = after(count)
+		if abandoned 'skip'
+			failed = true
+			p.lists.reset()
+			while not p.atEndOfInput() 'rest'
+				_ = p.skip()
+			end 'rest'
+		end 'skip'
+	end 'decls'
+	return decls
+end 'parseProgram'
+
+// blanksBefore is the rule for the blank lines before a file's next declaration, after count of them.
+function blanksBefore(count Count) returns BlankRule
+	if count > 0 'after'
+		return BlankRule.afterDecl
+	end 'after'
+	return BlankRule.firstInFile
+end 'blanksBefore'
+
+// parseSourceInto parses the module of the handle from its source.
+function parseSourceInto(module diag.ModuleID, consumes path String, consumes src Source) returns ParseResult
+	var errs = diag.ErrorList.create(0)
+	var toks = Tokens.create(0)
+	var failed = false
+	try 'lex'
+		toks = lexSource(src, errs: errs)
+	end 'lex' otherwise 'refused'
+		failed = true
+	end 'refused'
+	if failed 'lexError'
+		return ParseResult.err(errs)
+	end 'lexError'
+	let files = src.files.clone()
+	var p = Parser.new(src, toks: toks, module: module)
+	let decls = parseProgram(p)
+	if p.errors.count() > 0 'syntaxErrors'
+		return ParseResult.err(exchange(p.errors, value: diag.ErrorList.create(0)))
+	end 'syntaxErrors'
 	var m = ast.Module.new(module, path: path, text: "", files: files)
-	m.tree = p.tree
-	for _ in 0 upto decls.count() 'addDecls'
-		m.appendRawDecl(try decls.remove(0 as Count) otherwise panic("index out of range"))
-	end 'addDecls'
+	m.tree = exchange(p.tree, value: ast.Tree.new(module, text: ""))
+	m.decls = decls
 	return ParseResult.ok(m)
-end 'parseTokensIntoModule'
+end 'parseSourceInto'
 
 export function parseSource(module diag.ModuleID, path String, consumes src String) returns ParseResult
-	let lexRes = lex(src)
-	var files = ast.FileSpanList.create(0)
-	files.push(ast.FileSpan.make(path.clone(), start: 0 as diag.U32, endOff: try src.byteLength() as diag.U32 otherwise 0 as diag.U32))
-	var toks as Tokens
-	match consumes lexRes 'lr'
-		ok(t) then toks = t
-		err(e) then return makeLexErr(src, files: files, offset: e.offset, code: e.code.clone(), message: e.message.clone())
-	end 'lr'
-	return parseTokensIntoModule(module, path: path.clone(), text: src, files: files, toks: toks)
+	return parseSourceInto(module, path: path.clone(), src: sourceOf(src, path: path))
 end 'parseSource'
-
-function makeLexErr(src String, files ast.FileSpanList, offset Count, consumes code String, consumes message String) returns ParseResult
-	let off32 = try offset as diag.U32 otherwise 0 as diag.U32
-	let loc = ast.locateTextOffset(src, files: files, offset: off32)
-	return ParseResult.err(ParseError.makeLocated(offset, code: code, message: message, file: loc.file, line: loc.line, col: loc.col))
-end 'makeLexErr'
 
 export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList) returns ParseResult
 	var buf = ByteArray.create(0)
 	var files = ast.FileSpanList.create(0)
-	var starts = Offsets.create(0)
-	var ends = Offsets.create(0)
 	for i in 0 upto filePaths.count() 'concat'
-		let startOff = buf.count()
+		let startOff = try buf.count() as diag.U32 otherwise panic("the module's text is larger than 4 GB; split the module")
 		buf.append(fileTexts[i].toByteArray())
-		let endOff = buf.count()
-		starts.push(startOff)
-		ends.push(endOff)
-		let s32 = try startOff as diag.U32 otherwise panic("module text > 4GB")
-		let e32 = try endOff as diag.U32 otherwise panic("module text > 4GB")
-		files.push(ast.FileSpan.make(filePaths[i].clone(), start: s32, endOff: e32))
+		let endOff = try buf.count() as diag.U32 otherwise panic("the module's text is larger than 4 GB; split the module")
+		files.push(ast.FileSpan.make(filePaths[i].clone(), start: startOff, endOff: endOff))
 	end 'concat'
-	let fullText = String.from(buf)
-	let lexRes = lexSpans(fullText, starts: starts, ends: ends)
-	var toks as Tokens
-	match consumes lexRes 'lr'
-		ok(t) then toks = t
-		err(e) then return makeLexErr(fullText, files: files, offset: e.offset, code: e.code.clone(), message: e.message.clone())
-	end 'lr'
-	return parseTokensIntoModule(module, path: path, text: fullText, files: files, toks: toks)
+	return parseSourceInto(module, path: path, src: Source.make(String.from(buf), files: files))
 end 'parseModuleFiles'

@@ -18,7 +18,7 @@ end 'assertText'
 function expectOk(src String, label String) returns syntax.Tokens
 	return match consumes syntax.lex(src) 'res'
 		ok(tokens) gives tokens
-		err(e) panic("{label}: unexpected lex error at {e.offset}: {e.message}")
+		err(e) panic("{label}: unexpected lex error {e.format()}")
 	end 'res'
 end 'expectOk'
 
@@ -38,26 +38,26 @@ end 'checkErrorMessage'
 function testProgram()
 	let src = "// greeting\nfunction main() returns ExitCode\n\tlet x = 42 // answer\n\treturn x\nend 'main'\n"
 	let toks = expectOk(src, label: "program")
-	assertKind(toks, index: 0, expected: syntax.TokenKind.kwFunction, label: "program")
+	assertKind(toks, index: 0, expected: syntax.TokenKind.kw_function, label: "program")
 	assertKind(toks, index: 1, expected: syntax.TokenKind.name, label: "program")
 	assertText(toks, src: src, index: 1, expected: "main", label: "program")
 	assertKind(toks, index: 2, expected: syntax.TokenKind.lParen, label: "program")
 	assertKind(toks, index: 3, expected: syntax.TokenKind.rParen, label: "program")
-	assertKind(toks, index: 4, expected: syntax.TokenKind.kwReturns, label: "program")
+	assertKind(toks, index: 4, expected: syntax.TokenKind.kw_returns, label: "program")
 	assertKind(toks, index: 5, expected: syntax.TokenKind.name, label: "program")
 	assertKind(toks, index: 6, expected: syntax.TokenKind.newline, label: "program")
 	assertKind(toks, index: 7, expected: syntax.TokenKind.indent, label: "program")
-	assertKind(toks, index: 8, expected: syntax.TokenKind.kwLet, label: "program")
+	assertKind(toks, index: 8, expected: syntax.TokenKind.kw_let, label: "program")
 	assertKind(toks, index: 9, expected: syntax.TokenKind.name, label: "program")
 	assertKind(toks, index: 10, expected: syntax.TokenKind.assign, label: "program")
 	assertKind(toks, index: 11, expected: syntax.TokenKind.integer, label: "program")
 	assertText(toks, src: src, index: 11, expected: "42", label: "program")
 	assertKind(toks, index: 12, expected: syntax.TokenKind.newline, label: "program")
-	assertKind(toks, index: 13, expected: syntax.TokenKind.kwReturn, label: "program")
+	assertKind(toks, index: 13, expected: syntax.TokenKind.kw_return, label: "program")
 	assertKind(toks, index: 14, expected: syntax.TokenKind.name, label: "program")
 	assertKind(toks, index: 15, expected: syntax.TokenKind.newline, label: "program")
 	assertKind(toks, index: 16, expected: syntax.TokenKind.dedent, label: "program")
-	assertKind(toks, index: 17, expected: syntax.TokenKind.kwEnd, label: "program")
+	assertKind(toks, index: 17, expected: syntax.TokenKind.kw_end, label: "program")
 	assertKind(toks, index: 18, expected: syntax.TokenKind.label, label: "program")
 	assertText(toks, src: src, index: 18, expected: "main", label: "program")
 	assertKind(toks, index: 19, expected: syntax.TokenKind.newline, label: "program")
@@ -82,11 +82,10 @@ function testStringsAndInterpolation()
 	let src = "let s = \"hi \{a + 1\}\\n\\x41\\u0042\"\n"
 	let toks = expectOk(src, label: "strings")
 	assertKind(toks, index: 3, expected: syntax.TokenKind.string, label: "strings")
-	let interpSrc = "a + 1"
-	let interpToks = match consumes syntax.lexInterpolation(interpSrc, begin: 0, until: interpSrc.byteLength()) 'res'
-		ok(t) gives t
-		err(e) panic("interp: unexpected error {e.message}")
-	end 'res'
+	let interpText = "a + 1"
+	let interpSrc = syntax.sourceOf(interpText.clone(), path: "")
+	var errs = diag.ErrorList.create(0)
+	let interpToks = try syntax.lexInterpolation(interpSrc, errs: errs, file: 0, begin: 0, until: interpText.byteLength()) otherwise panic("interp: unexpected lex error")
 	assertKind(interpToks, index: 0, expected: syntax.TokenKind.name, label: "interp")
 	assertKind(interpToks, index: 1, expected: syntax.TokenKind.plus, label: "interp")
 	assertKind(interpToks, index: 2, expected: syntax.TokenKind.integer, label: "interp")
@@ -164,7 +163,7 @@ function parseDirTests(dir String) returns Count
 			let text = try File.readText(entries[i]) otherwise panic("cannot read the file")
 			match syntax.parseSource(0 as diag.ModuleID, path: full.clone(), src: text) 'pr'
 				ok(m) then count = try count + m.decls.count() otherwise count
-				err(e) then panic("parse failed on {full}: {e.offset}: {e.message}")
+				err(e) then panic("parse failed on {full}: {e[0].format()}")
 			end 'pr'
 		end 'src'
 	end 'each'
@@ -179,7 +178,7 @@ function testParser()
 	let interpSrc = "function f(x Count) returns String\n\treturn \"a=\{x + 1\}b\\n\"\nend 'f'\n"
 	match syntax.parseSource(0 as diag.ModuleID, path: "interp.maxon", src: interpSrc) 'ir'
 		ok(m) then checkInterpAst(m)
-		err(e) then panic("interp parse failed: {e.message}")
+		err(e) then panic("interp parse failed: {e[0].format()}")
 	end 'ir'
 end 'testParser'
 
@@ -225,7 +224,7 @@ function testPositionsAndDiag()
 	var m as ast.Module
 	match consumes pr 'r'
 		ok(modVal) then m = modVal
-		err(e) then panic("unexpected parseModuleFiles error: {e.message}")
+		err(e) then panic("unexpected parseModuleFiles error: {e[0].format()}")
 	end 'r'
 	if m.decls.count() != 2 'd2'
 		panic("expected 2 decls, got {m.decls.count()}")

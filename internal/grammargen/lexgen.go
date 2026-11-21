@@ -512,28 +512,14 @@ func emitDfa(w *writer, m *model) {
 	}
 	w.p("\t%d: \"\",\n}\n\n", len(a.incomplete)-1)
 
-	var scanned []*tokenDef
-	for _, t := range m.g.tokens {
-		if t.scan {
-			scanned = append(scanned, t)
-		}
-	}
 	w.p("// tokenDescription is each described token's description, for a syntax error to name a token with no text.\n")
 	w.p("var tokenDescription = [numTokens]string{\n")
-	for _, t := range m.g.tokens {
-		if t.desc != "" && !t.skip {
-			w.p("\tT%s: %q,\n", t.name, t.desc)
-		}
+	for _, t := range describedTokens(m) {
+		w.p("\tT%s: %q,\n", t.name, t.desc)
 	}
 	w.p("}\n\n")
 	w.p("// tokenNoSpaceBefore and tokenNoSpaceAfter mark the tokens joined to the token before or after them.\n")
-	for _, side := range []struct {
-		table string
-		on    func(*tokenDef) bool
-	}{
-		{"tokenNoSpaceBefore", func(t *tokenDef) bool { return t.noSpaceBefore }},
-		{"tokenNoSpaceAfter", func(t *tokenDef) bool { return t.noSpaceAfter }},
-	} {
+	for _, side := range joinTables {
 		w.p("var %s = [numTokens]bool{", side.table)
 		for _, t := range m.g.tokens {
 			if side.on(t) {
@@ -542,6 +528,7 @@ func emitDfa(w *writer, m *model) {
 		}
 		w.p("}\n\n")
 	}
+	scanned := scannedTokens(m)
 	w.p("// tokenScanned marks the tokens the DFA only starts; scanRest reads the rest of each.\n")
 	w.p("var tokenScanned = [numTokens]bool{")
 	for _, t := range scanned {
@@ -553,4 +540,55 @@ func emitDfa(w *writer, m *model) {
 		w.p("\tcase T%s:\n\t\treturn lx.scan%s(start)\n", t.name, t.name)
 	}
 	w.p("\t}\n\tpanic(diag.Internal(\"token %%d is not scanned\", kind))\n}\n")
+}
+
+// tokenKinds are the names of the token kinds in the order of their numbers: the tokens the parser sees, the end of
+// the input and the keywords, then the tokens the lexer skips. noToken comes after them.
+func tokenKinds(m *model) (parsed, skipped []string) {
+	for _, t := range m.g.tokens {
+		if t.skip {
+			skipped = append(skipped, "T"+t.name)
+		} else {
+			parsed = append(parsed, "T"+t.name)
+		}
+	}
+	parsed = append(parsed, eofConst)
+	for _, k := range m.keywords {
+		parsed = append(parsed, keywordConst(k))
+	}
+	return parsed, skipped
+}
+
+// noTokenConst is what a DFA state that accepts no token accepts.
+const noTokenConst = "noToken"
+
+// describedTokens are the tokens the parser sees that have a description, which a syntax error names them by.
+func describedTokens(m *model) []*tokenDef {
+	var out []*tokenDef
+	for _, t := range m.g.tokens {
+		if t.desc != "" && !t.skip {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// scannedTokens are the tokens the DFA only starts and the lexer reads the rest of.
+func scannedTokens(m *model) []*tokenDef {
+	var out []*tokenDef
+	for _, t := range m.g.tokens {
+		if t.scan {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// joinTables are the tables of the tokens joined to the token before them and to the one after them.
+var joinTables = []struct {
+	table string
+	on    func(*tokenDef) bool
+}{
+	{"tokenNoSpaceBefore", func(t *tokenDef) bool { return t.noSpaceBefore }},
+	{"tokenNoSpaceAfter", func(t *tokenDef) bool { return t.noSpaceAfter }},
 }

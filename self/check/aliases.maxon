@@ -55,7 +55,7 @@ end 'aliasCycle'
 // isInstanceAlias is whether the declaration is a typealias of an instance.
 function isInstanceAlias(p ast.Project, ref ast.DeclRef) returns bool
 	return match ast.moduleDecl(p, ref: ref) 'd'
-		aliasDecl(a) gives not a.isRange
+		aliasDecl(a) gives ast.aliasNamesInstance(a)
 		funcDecl(_) gives false
 		constDecl(_) gives false
 		typeDecl(_) gives false
@@ -86,13 +86,13 @@ end 'namedAliases'
 
 // declareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
 function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
-	let off = p.modules[c.modIdx].tree.startOf(a.instanceRef)
-	if p.modules[c.modIdx].tree.listLen(ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: a.instanceRef)) == 0 'plain'
-		let target = ast.typeRefName(p.modules[c.modIdx].tree, id: a.instanceRef)
+	let off = p.modules[c.modIdx].tree.startOf(a.instance)
+	if p.modules[c.modIdx].tree.listLen(ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: a.instance)) == 0 'plain'
+		let target = ast.typeRefName(p.modules[c.modIdx].tree, id: a.instance)
 		checkFail(c.modID, off: off, code: diag.errAliasTarget, msg: "a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '{target}' itself where '{a.name}' is used", errs: errs)
 		return
 	end 'plain'
-	let t = resolveTypeRef(c, p: p, tr: a.instanceRef, selfTy: ast.noType, errs: errs)
+	let t = resolveTypeRef(c, p: p, tr: a.instance, selfTy: ast.noType, errs: errs)
 	if t != ast.noType 'named'
 		p.declTypes.insert(ast.declKey(ref), value: t)
 	end 'named'
@@ -130,7 +130,7 @@ function declareVisitedAlias(mutates w AliasWalk, mutates c Checker, mutates p a
 		interfaceDecl(_) then panic("the aliases stage visited an interface")
 	end 'k'
 	var named = DeclRefList.create(0)
-	namedAliases(p, modIdx: c.modIdx, tr: a.instanceRef, out: named)
+	namedAliases(p, modIdx: c.modIdx, tr: a.instance, out: named)
 	for i in 0 upto named.count() 'deps'
 		let dep = named[i].clone()
 		if dep.module == c.modID 'own'

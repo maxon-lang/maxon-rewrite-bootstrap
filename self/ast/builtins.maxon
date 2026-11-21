@@ -67,15 +67,20 @@ function registerStdAlias(mutates tt TypeTable, mutates std Module, mutates type
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	tt.entries[tid as Count].hasDecl = true
 	tt.entries[tid as Count].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
-	let z = Bound.makeInt(0 as NodeID, negative: false, value: I128.zero())
-	let ad = AliasDecl.makeRange(0 as NodeID, visibility: "export", name: name.clone(), inclusive: true, low: z.clone(), high: z)
+	var ad = AliasDecl.make(0 as NodeID)
+	ad.visibility = "export"
+	ad.name = name.clone()
+	ad.inclusive = true
 	_ = std.declare(Decl.aliasDecl(ad))
 	typeMap.insert(name, value: tid)
 	return tid
 end 'registerStdAlias'
 
 function registerStdInstanceAlias(mutates std Module, mutates typeMap TypeIDMap, consumes name String, ty TypeID)
-	_ = std.declare(Decl.aliasDecl(AliasDecl.makeInstance(0 as NodeID, visibility: "export", name: name.clone(), instanceRef: 0 as NodeID)))
+	var ad = AliasDecl.make(0 as NodeID)
+	ad.visibility = "export"
+	ad.name = name.clone()
+	_ = std.declare(Decl.aliasDecl(ad))
 	typeMap.insert(name, value: ty)
 end 'registerStdInstanceAlias'
 
@@ -95,10 +100,15 @@ function registerPrimType(mutates tt TypeTable, mutates std Module, mutates type
 	var tps = TypeParamList.create(0)
 	for i in 0 upto paramNames.count() 'eachP'
 		let pn = paramNames[i].clone()
-		tps.push(TypeParam.make(0 as NodeID, name: pn.clone()))
+		var tp = TypeParam.make(0 as NodeID)
+		tp.name = pn.clone()
+		tps.push(tp)
 		_ = addStdTypeParam(tt, std: std, owner: tid, name: pn)
 	end 'eachP'
-	let td = TypeDecl.make(0 as NodeID, visibility: "export", name: name.clone(), isNoncopyable: false, typeParams: tps, conforms: U32List.create(0), constraints: ConstraintList.create(0), fields: FieldDeclList.create(0), methods: FuncDeclList.create(0), endLabel: 0 as NodeID)
+	var td = TypeDecl.make(0 as NodeID)
+	td.visibility = "export"
+	td.name = name.clone()
+	td.typeParams = tps
 	_ = std.declare(Decl.typeDecl(td))
 	typeMap.insert(name, value: tid)
 	return tid
@@ -141,7 +151,9 @@ function registerStdFunc(mutates ft FuncTable, mutates std Module, mutates funcM
 		let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 		fn.hasDecl = true
 		fn.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
-		let fd = FuncDecl.make(0 as NodeID, visibility: "export", isStatic: false, name: name.clone(), receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, constraints: ConstraintList.create(0), bodyRef: 0 as diag.U32, endLabel: 0 as NodeID)
+		var fd = FuncDecl.make(0 as NodeID)
+		fd.visibility = "export"
+		fd.name = name.clone()
 		_ = std.declare(Decl.funcDecl(fd))
 	end 'addStd'
 	let fid = allocFunc(ft, f: fn)
@@ -163,7 +175,9 @@ function registerRecordType(mutates tt TypeTable, mutates std Module, mutates ty
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	let tid = allocType(tt, e: e)
-	let td = TypeDecl.make(0 as NodeID, visibility: "export", name: name.clone(), isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: U32List.create(0), constraints: ConstraintList.create(0), fields: FieldDeclList.create(0), methods: FuncDeclList.create(0), endLabel: 0 as NodeID)
+	var td = TypeDecl.make(0 as NodeID)
+	td.visibility = "export"
+	td.name = name.clone()
 	_ = std.declare(Decl.typeDecl(td))
 	typeMap.insert(name, value: tid)
 	return tid
@@ -183,7 +197,9 @@ function registerUnionType(mutates tt TypeTable, mutates std Module, mutates typ
 	for i in 0 upto paramNames.count() 'eachP'
 		_ = addStdTypeParam(tt, std: std, owner: tid, name: paramNames[i].clone())
 	end 'eachP'
-	let ud = UnionDecl.make(0 as NodeID, visibility: "export", name: name.clone(), isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: U32List.create(0), constraints: ConstraintList.create(0), cases: UnionCaseList.create(0), methods: FuncDeclList.create(0), endLabel: 0 as NodeID)
+	var ud = UnionDecl.make(0 as NodeID)
+	ud.visibility = "export"
+	ud.name = name.clone()
 	_ = std.declare(Decl.unionDecl(ud))
 	typeMap.insert(name, value: tid)
 	return tid
@@ -202,7 +218,9 @@ function registerEnumType(mutates tt TypeTable, mutates std Module, mutates type
 		e.cases.push(CaseInfo.make(cases[i].clone(), payload: CaseFieldList.create(0), hasRaw: false, rawValue: I128.zero()))
 	end 'eachCase'
 	let tid = allocType(tt, e: e)
-	let ed = EnumDecl.make(0 as NodeID, visibility: "export", name: name.clone(), conforms: U32List.create(0), cases: EnumCaseList.create(0), methods: FuncDeclList.create(0), endLabel: 0 as NodeID)
+	var ed = EnumDecl.make(0 as NodeID)
+	ed.visibility = "export"
+	ed.name = name.clone()
 	_ = std.declare(Decl.enumDecl(ed))
 	typeMap.insert(name, value: tid)
 	return tid
@@ -214,8 +232,10 @@ function registerInterfaceType(mutates tt TypeTable, mutates std Module, mutates
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	let tid = allocType(tt, e: e)
-	let id = InterfaceDecl.make(0 as NodeID, visibility: "export", name: name.clone(), methods: FuncSigList.create(0), endLabel: 0 as NodeID)
-	_ = std.declare(Decl.interfaceDecl(id))
+	var ifd = InterfaceDecl.make(0 as NodeID)
+	ifd.visibility = "export"
+	ifd.name = name.clone()
+	_ = std.declare(Decl.interfaceDecl(ifd))
 	typeMap.insert(name, value: tid)
 	return tid
 end 'registerInterfaceType'

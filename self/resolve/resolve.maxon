@@ -262,20 +262,21 @@ end 'cloneTypeParamMap'
 function enterTypeParams(mutates r Resolver, p ast.Project, owner String, s Surface, params ast.TypeParamList, constraints ast.ConstraintList, mutates errs diag.ErrorList) returns TypeParamMap
 	let outer = cloneTypeParamMap(r.typeParams)
 	for i in 0 upto params.count() 'add'
-		let tp = ast.TypeParam.make(params[i].id, name: params[i].name.clone())
+		var tp = ast.TypeParam.make(params[i].id)
+		tp.name = params[i].name.clone()
 		let tpName = tp.name.clone()
 		let slot = r.res.addTypeParam(tp)
 		r.typeParams.insert(tpName, value: slot)
 	end 'add'
 	for i in 0 upto constraints.count() 'cons'
 		let c = constraints[i].clone()
-		match r.typeParams.get(c.paramName) 'hit'
+		match r.typeParams.get(c.param) 'hit'
 			some(slot) then bindConstraintSlot(r, p: p, owner: owner, constraints: constraints, curIdx: i, c: c, slot: slot, errs: errs)
 			none then reportUnknownTP(r, c: c, owner: owner, errs: errs)
 		end 'hit'
-		let bCount = c.bounds.count()
+		let bCount = r.tree.listLen(c.bounds)
 		for bi in 0 upto bCount 'bnd'
-			let bNode = c.bounds[bi] as ast.NodeID
+			let bNode = r.tree.listAt(c.bounds, index: bi) as ast.NodeID
 			signatureType(r, p: p, s: s, position: "in its where clause", tr: bNode, errs: errs)
 		end 'bnd'
 	end 'cons'
@@ -285,14 +286,14 @@ end 'enterTypeParams'
 function bindConstraintSlot(mutates r Resolver, p ast.Project, owner String, constraints ast.ConstraintList, curIdx Count, c ast.Constraint, slot Count, mutates errs diag.ErrorList)
 	var firstDup = false
 	for j in 0 upto curIdx 'prev'
-		if constraints[j].paramName == c.paramName 'dup'
+		if constraints[j].param == c.param 'dup'
 			firstDup = true
 			break 'prev'
 		end 'dup'
 	end 'prev'
 	if firstDup 'errDup'
 		let off = r.tree.startOf(c.id)
-		pushErr(errs, modID: r.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{c.paramName}' is constrained twice: join its bounds with 'and', as 'where {c.paramName} implements A and B'")
+		pushErr(errs, modID: r.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{c.param}' is constrained twice: join its bounds with 'and', as 'where {c.param} implements A and B'")
 		return
 	end 'errDup'
 	r.res.bindTypeParam(c.id, slot: slot)
@@ -300,7 +301,7 @@ end 'bindConstraintSlot'
 
 function reportUnknownTP(mutates r Resolver, c ast.Constraint, owner String, mutates errs diag.ErrorList)
 	let off = r.tree.startOf(c.id)
-	pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownTypeParam, msg: "'{c.paramName}' is not a type parameter of '{owner}': declare it with 'uses {c.paramName}', or constrain one that '{owner}' declares")
+	pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownTypeParam, msg: "'{c.param}' is not a type parameter of '{owner}': declare it with 'uses {c.param}', or constrain one that '{owner}' declares")
 end 'reportUnknownTP'
 
 function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutates errs diag.ErrorList)
@@ -533,7 +534,9 @@ function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		resolveWhenStmt(r, p: p, id: id, errs: errs)
 	end 'sWhen' else if k == ast.NodeKind.tryStmt 'sTry'
 		resolveTryStmt(r, p: p, id: id, errs: errs)
-	end 'sTry' else if k == ast.NodeKind.returnStmt 'sRet'
+	end 'sTry' else if k == ast.NodeKind.throwStmt 'sThrow'
+		resolveExpr(r, p: p, id: ast.throwStmtValue(r.tree, id: id), errs: errs)
+	end 'sThrow' else if k == ast.NodeKind.returnStmt 'sRet'
 		let rv = ast.returnStmtValue(r.tree, id: id)
 		if rv != 0 'rv'
 			resolveExpr(r, p: p, id: rv, errs: errs)
@@ -753,6 +756,10 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 				resolveExpr(r, p: p, id: rv, errs: errs)
 			end 'rv'
 		end 'rt'
+		let thr = ast.tryExprThr(r.tree, id: id)
+		if thr != 0 'th'
+			resolveExpr(r, p: p, id: ast.throwStmtValue(r.tree, id: thr), errs: errs)
+		end 'th'
 	end 'tryE' else if k == ast.NodeKind.callExpr 'call'
 		resolveCallExpr(r, p: p, id: id, errs: errs)
 	end 'call' else if k == ast.NodeKind.structLitExpr 'slit'
@@ -889,15 +896,15 @@ function signature(mutates r Resolver, p ast.Project, s Surface, params ast.Para
 	signatureType(r, p: p, s: s, position: "in its throws clause", tr: throwsRef, errs: errs)
 end 'signature'
 
-function resolveConforms(mutates r Resolver, p ast.Project, s Surface, conforms ast.U32List, mutates errs diag.ErrorList)
-	for i in 0 upto conforms.count() 'each'
-		signatureType(r, p: p, s: s, position: "in its implements clause", tr: conforms[i] as ast.NodeID, errs: errs)
+function resolveConforms(mutates r Resolver, p ast.Project, s Surface, conforms diag.U32, mutates errs diag.ErrorList)
+	for i in 0 upto r.tree.listLen(conforms) 'each'
+		signatureType(r, p: p, s: s, position: "in its implements clause", tr: r.tree.listAt(conforms, index: i) as ast.NodeID, errs: errs)
 	end 'each'
 end 'resolveConforms'
 
 function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, mutates errs diag.ErrorList)
-	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.constraints, errs: errs)
-	checkEnd(r, label: f.name, endNode: f.endLabel, errs: errs)
+	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.whereList, errs: errs)
+	checkEnd(r, label: f.name, endNode: f.endRef, errs: errs)
 	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
 	r.scopes = ScopeStack.create(0)
 	pushScope(r)
@@ -905,7 +912,7 @@ function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Su
 	for i in 0 upto f.params.count() 'pNames'
 		bindLocalName(r, name: f.params[i].name)
 	end 'pNames'
-	resolveBlock(r, p: p, listRef: f.bodyRef, errs: errs)
+	resolveBlock(r, p: p, listRef: f.body, errs: errs)
 	popScope(r)
 	r.typeParams = outer
 end 'resolveFuncDecl'
@@ -931,13 +938,13 @@ function resolveConstDecl(mutates r Resolver, p ast.Project, cd ast.ConstDecl, m
 	r.scopes = ScopeStack.create(0)
 	pushScope(r)
 	r.fields = BoolStrMap.new()
-	resolveExpr(r, p: p, id: cd.valueExpr, errs: errs)
+	resolveExpr(r, p: p, id: cd.value, errs: errs)
 	popScope(r)
 end 'resolveConstDecl'
 
 function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
-	checkEnd(r, label: td.name, endNode: td.endLabel, errs: errs)
-	let outer = enterTypeParams(r, p: p, owner: td.name, s: s, params: td.typeParams, constraints: td.constraints, errs: errs)
+	checkEnd(r, label: td.name, endNode: td.endRef, errs: errs)
+	let outer = enterTypeParams(r, p: p, owner: td.name, s: s, params: td.typeParams, constraints: td.whereList, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: td.conforms, errs: errs)
 	var fNames = BoolStrMap.new()
 	for i in 0 upto td.fields.count() 'flds'
@@ -948,7 +955,7 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 			let fs = Surface.make(fTier, noun: "field", name: "{td.name}.{td.fields[i].name}", at: r.tree.startOf(tRef))
 			signatureType(r, p: p, s: fs, position: "in its type", tr: tRef, errs: errs)
 		end 'ht'
-		let dExpr = td.fields[i].defaultExpr
+		let dExpr = td.fields[i].defaultRef
 		if dExpr != 0 'hd'
 			r.scopes = ScopeStack.create(0)
 			pushScope(r)
@@ -970,7 +977,7 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 end 'resolveTypeDecl'
 
 function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s Surface, mutates errs diag.ErrorList)
-	checkEnd(r, label: ed.name, endNode: ed.endLabel, errs: errs)
+	checkEnd(r, label: ed.name, endNode: ed.endRef, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: ed.conforms, errs: errs)
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ed.methods.count() 'meths'
@@ -980,8 +987,8 @@ function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s S
 end 'resolveEnumDecl'
 
 function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s Surface, mutates errs diag.ErrorList)
-	checkEnd(r, label: ud.name, endNode: ud.endLabel, errs: errs)
-	let outer = enterTypeParams(r, p: p, owner: ud.name, s: s, params: ud.typeParams, constraints: ud.constraints, errs: errs)
+	checkEnd(r, label: ud.name, endNode: ud.endRef, errs: errs)
+	let outer = enterTypeParams(r, p: p, owner: ud.name, s: s, params: ud.typeParams, constraints: ud.whereList, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: ud.conforms, errs: errs)
 	for i in 0 upto ud.cases.count() 'cs'
 		for j in 0 upto ud.cases[i].fields.count() 'ps'
@@ -999,15 +1006,15 @@ function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s
 end 'resolveUnionDecl'
 
 function resolveAliasDecl(mutates r Resolver, p ast.Project, ad ast.AliasDecl, s Surface, mutates errs diag.ErrorList)
-	if ad.instanceRef != 0 'inst'
-		signatureType(r, p: p, s: s, position: "in its target", tr: ad.instanceRef, errs: errs)
+	if ad.instance != 0 'inst'
+		signatureType(r, p: p, s: s, position: "in its target", tr: ad.instance, errs: errs)
 	end 'inst'
 end 'resolveAliasDecl'
 
 // resolveInterfaceDecl resolves the requirements, which take the interface's visibility: a conformer's caller reaches
 // them through the interface.
 function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
-	checkEnd(r, label: ifd.name, endNode: ifd.endLabel, errs: errs)
+	checkEnd(r, label: ifd.name, endNode: ifd.endRef, errs: errs)
 	let tier = ast.visibilityOf(ifd.visibility)
 	for i in 0 upto ifd.methods.count() 'sigs'
 		let s = Surface.make(tier, noun: "function", name: "{ifd.name}.{ifd.methods[i].name}", at: r.tree.startOf(ifd.methods[i].id))

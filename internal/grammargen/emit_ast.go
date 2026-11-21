@@ -168,30 +168,20 @@ func emitTokens(m *model) string {
 	w := &writer{}
 	header(w, "syntax", "minimaxon/internal/diag")
 	w.p("type T int\n\nconst (\n")
-	first := true
-	for _, t := range m.g.tokens {
-		if t.skip {
-			continue
-		}
-		if first {
-			w.p("\tT%s T = iota\n", t.name)
-			first = false
+	parsed, skipped := tokenKinds(m)
+	for i, k := range parsed {
+		if i == 0 {
+			w.p("\t%s T = iota\n", k)
 		} else {
-			w.p("\tT%s\n", t.name)
+			w.p("\t%s\n", k)
 		}
-	}
-	w.p("\t%s\n", eofConst)
-	for _, k := range m.keywords {
-		w.p("\t%s\n", keywordConst(k))
 	}
 	w.p("\tnumTokens\n")
 	w.p("\t// The skipped tokens: the lexer checks and drops them, so the parser never sees one.\n")
-	for _, t := range m.g.tokens {
-		if t.skip {
-			w.p("\tT%s\n", t.name)
-		}
+	for _, k := range skipped {
+		w.p("\t%s\n", k)
 	}
-	w.p("\t// noToken is what a DFA state that accepts no token accepts.\n\tnoToken\n)\n\n")
+	w.p("\t// noToken is what a DFA state that accepts no token accepts.\n\t%s\n)\n\n", noTokenConst)
 	emitDfa(w, m)
 	return w.b.String()
 }

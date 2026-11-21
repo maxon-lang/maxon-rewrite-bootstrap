@@ -2,12 +2,144 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
 const maxonNodesFile = "../../self/ast/nodes_gen.maxon"
 
+// astQualifier is how package syntax names a type of package ast.
+const astQualifier = "ast."
+
 func maxonKindCase(n *node) string { return lowerFirst(n.name) }
+
+// maxonType is the Maxon type of a field or a helper's value of the Go type typ, with the types of package ast
+// written after pkg: a record or a set of records is its number, a list of records the reference of its list in the
+// tree, and a struct and a list of structs are owned values.
+func (m *model) maxonType(typ, pkg string) (string, bool) {
+	switch typ {
+	case "string":
+		return "String", true
+	case "bool":
+		return "bool", true
+	case "I128":
+		return pkg + "I128", true
+	case "[]string":
+		return pkg + "StringList", true
+	}
+	if _, isList, ok := m.refersToRecord(typ); ok {
+		if isList {
+			return "diag.U32", true
+		}
+		return pkg + "NodeID", true
+	}
+	elem, isList := strings.CutPrefix(typ, "[]")
+	if n := m.nodeByName[strings.TrimPrefix(elem, "*")]; n != nil && !n.record && strings.HasPrefix(elem, "*") {
+		if isList {
+			return pkg + n.name + "List", true
+		}
+		return pkg + n.name, true
+	}
+	return "", false
+}
+
+// maxonZero is the value a field or a helper's value of the Go type typ starts as: nothing parsed yet.
+func (m *model) maxonZero(typ, pkg string) string {
+	t, ok := m.maxonType(typ, pkg)
+	if !ok {
+		m.fail(0, "the type %s has no Maxon type", typ)
+	}
+	switch {
+	case t == "String":
+		return `""`
+	case t == "bool":
+		return "false"
+	case t == pkg+"I128":
+		return pkg + "I128.fromCount(0 as Count)"
+	case t == "diag.U32", t == pkg+"NodeID":
+		return "0 as " + t
+	case strings.HasSuffix(t, "List"):
+		return t + ".create(0)"
+	}
+	return t + ".make(0 as " + pkg + "NodeID)"
+}
+
+// maxonField is the name of a struct's field in Maxon: the label's, or for a label that is a keyword, which no field
+// can be named, the label with what the field holds.
+func (m *model) maxonField(f *field) string {
+	name := lowerFirst(f.name)
+	if name == structIDField {
+		m.fail(f.line, "field %s has the name of the struct's node", f.name)
+	}
+	if !slices.Contains(m.keywords, name) {
+		return name
+	}
+	_, isList, records := m.refersToRecord(f.typ)
+	switch {
+	case f.typ == "bool":
+		return "is" + f.name
+	case records && !isList:
+		return name + "Ref"
+	case records || strings.HasPrefix(f.typ, "[]"):
+		return name + "List"
+	}
+	m.fail(f.line, "field %s is a keyword, and its type %s gives it no other name", f.name, f.typ)
+	return ""
+}
+
+// structIDField is the field of a struct that holds its node in the tree, which says where it starts.
+const structIDField = "id"
+
+func (m *model) setByName(name string) *set {
+	for _, s := range m.sets {
+		if s.name == name {
+			return s
+		}
+	}
+	return nil
+}
+
+// parsedFields are the fields of a node that its rules assign, in the order of allFields; Maxon has none of those that
+// later phases fill in, since its phases keep what they find in tables of their own.
+func (m *model) parsedFields(n *node) []*field {
+	assigned := map[*field]bool{}
+	m.walkElems(n.alts, func(e *elem) {
+		if e.label != "" {
+			assigned[m.fieldOf(n, e.label, e.line)] = true
+		}
+	})
+	var fields []*field
+	for _, f := range m.allFields(n) {
+		if assigned[f] {
+			fields = append(fields, f)
+		}
+	}
+	return fields
+}
+
+// emitMaxonStruct writes the struct of a declaration node: its node in the tree and the fields its rules assign, a
+// constructor of the struct with nothing parsed, its list, and the function that makes one for a node starting at start.
+func emitMaxonStruct(w *writer, m *model, n *node) {
+	fields := m.parsedFields(n)
+	w.p("\nexport type %s\n\texport var %s as NodeID\n", n.name, structIDField)
+	inits := []string{structIDField + ": " + structIDField}
+	for _, f := range fields {
+		t, ok := m.maxonType(f.typ, "")
+		if !ok {
+			m.fail(f.line, "field %s of %s has the type %s, which has no Maxon type", f.name, n.name, f.typ)
+		}
+		w.p("\texport var %s as %s\n", m.maxonField(f), t)
+		inits = append(inits, m.maxonField(f)+": "+m.maxonZero(f.typ, ""))
+	}
+	w.p("\n\texport static function make(%s NodeID) returns %s\n", structIDField, n.name)
+	w.p("\t\treturn %s{%s}\n", n.name, strings.Join(inits, ", "))
+	w.p("\tend 'make'\nend '%s'\n", n.name)
+	w.p("\nexport typealias %sList = Array with %s\n", n.name, n.name)
+	ctor := "new" + n.name
+	w.p("\nexport function %s(mutates t Tree, start diag.U32) returns %s\n", ctor, n.name)
+	w.p("\treturn %s.make(t.alloc(NodeKind.%s, start: start))\n", n.name, maxonKindCase(n))
+	w.p("end '%s'\n", ctor)
+}
 
 func maxonWordRead(p *plan, word int) string {
 	if word == 0 {
@@ -105,6 +237,7 @@ func emitMaxonNodes(m *model) string {
 
 	for _, n := range m.nodes {
 		if !n.record {
+			emitMaxonStruct(w, m, n)
 			continue
 		}
 		p := m.planOf(n)

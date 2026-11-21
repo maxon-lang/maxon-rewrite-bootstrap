@@ -68,6 +68,10 @@ func generate(file string, src []byte) (outs []output, err error) {
 		}
 		outs = append(outs, output{o.path, code})
 	}
-	outs = append(outs, output{maxonNodesFile, []byte(emitMaxonNodes(m))})
+	outs = append(outs,
+		output{maxonNodesFile, []byte(emitMaxonNodes(m))},
+		output{maxonTokensFile, []byte(emitMaxonTokens(m))},
+		output{maxonParserFile, []byte(emitMaxonParser(m, a))},
+	)
 	return outs, nil
 }

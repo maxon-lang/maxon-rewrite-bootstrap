@@ -34,6 +34,52 @@ function isIdentByte(b Byte) returns bool
 	return b == 95
 end 'isIdentByte'
 
+// textRef is what a record holds for the name or label that starts at offset: 0 is none.
+export function textRef(offset diag.U32) returns diag.U32
+	return try offset + 1 otherwise panic("a text offset exceeds U32")
+end 'textRef'
+
+// The parts of a string literal are pairs of words in the tree's list array: an interpolated expression is
+// partExprTag and its node, text that an escape changed is partDecodedTag and its index in the tree's strings, and a
+// run of the module's text is its length plus partRunTag and its offset.
+let partExprTag = 0 as diag.U32
+
+let partDecodedTag = 1 as diag.U32
+
+let partRunTag = 2 as diag.U32
+
+// StrPartsBuilder makes the parts of a string literal in a tree.
+export type StrPartsBuilder
+	var words as U32List
+
+	export static function new() returns StrPartsBuilder
+		return StrPartsBuilder{words: U32List.create(0)}
+	end 'new'
+
+	// run adds a run of the module's text, from offset to offset+length.
+	export function run(mutates self, offset diag.U32, length diag.U32)
+		words.push(try length + partRunTag otherwise panic("a string part exceeds U32"))
+		words.push(offset)
+	end 'run'
+
+	// decoded adds text that is not the module's text, as a string with an escape in it.
+	export function decoded(mutates self, mutates t Tree, consumes text String)
+		words.push(partDecodedTag)
+		words.push(t.addString(text))
+	end 'decoded'
+
+	// interpolation adds an interpolated expression.
+	export function interpolation(mutates self, e NodeID)
+		words.push(partExprTag)
+		words.push(e as diag.U32)
+	end 'interpolation'
+
+	// finish adds the parts to the tree and gives the reference that names them.
+	export function finish(consumes self, mutates t Tree) returns diag.U32
+		return t.pushList(words)
+	end 'finish'
+end 'StrPartsBuilder'
+
 // Tree holds a module's flat AST records, list words, escaped strings, and source text.
 export type Tree
 	export var module as diag.ModuleID
@@ -172,7 +218,7 @@ export type Tree
 
 	export function strPartIsExpr(partsRef diag.U32, index Count) returns bool
 		let tag = self.listAt(partsRef, index: try index * 2 otherwise panic("strPart index"))
-		return tag == 0
+		return tag == partExprTag
 	end 'strPartIsExpr'
 
 	export function strPartExpr(partsRef diag.U32, index Count) returns NodeID
@@ -184,10 +230,10 @@ export type Tree
 		let base = try index * 2 otherwise panic("strPart index")
 		let tag = self.listAt(partsRef, index: base)
 		let arg = self.listAt(partsRef, index: try base + 1 otherwise panic("strPart index"))
-		if tag == 1 'decoded'
+		if tag == partDecodedTag 'decoded'
 			return strings[arg as Count].clone()
 		end 'decoded'
-		let n = try (tag - 2) as Count otherwise panic("strPart raw tag")
+		let n = try (tag - partRunTag) as Count otherwise panic("strPart raw tag")
 		let off = arg as Count
 		return text.sliceBytes(off, endPos: try off + n otherwise panic("strPart slice overflow"))
 	end 'strPartText'

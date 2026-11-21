@@ -1,0 +1,50 @@
+// ListStack holds the elements of the lists being parsed, those of every list still open stacked one above the next.
+// A list is moved out into an array of its own once it ends, so parsing it grows nothing but its stack.
+export type ListStack uses T where T implements Droppable
+	var items as Array with T
+
+	export static function new() returns Self
+		return Self{items: Array.create(0)}
+	end 'new'
+
+	export function push(mutates self, consumes element T)
+		items.push(element)
+	end 'push'
+
+	// mark is where the list about to be parsed starts.
+	export function mark() returns Count
+		return items.count()
+	end 'mark'
+
+	export function pushedSince(mark Count) returns bool
+		return items.count() > mark
+	end 'pushedSince'
+
+	// take moves the elements pushed since mark into an array of their own, in the order they were pushed, and pops them.
+	export function take(mutates self, mark Count) returns Array with T
+		var reversed as Array with T
+		reversed = Array.create(0)
+		while items.count() > mark 'pop'
+			reversed.push(try items.pop() otherwise panic("a list's mark is above its stack"))
+		end 'pop'
+		var list as Array with T
+		list = Array.create(0)
+		while reversed.count() > 0 'unreverse'
+			list.push(try reversed.pop() otherwise panic("a reversed list ran out"))
+		end 'unreverse'
+		return list
+	end 'take'
+
+	// reset empties the stack, after a syntax error has abandoned the lists that were open.
+	export function reset(mutates self)
+		while items.count() > 0 'drop'
+			_ = try items.pop() otherwise panic("a stack ran out while it was emptied")
+		end 'drop'
+	end 'reset'
+end 'ListStack'
+
+// takeIDs moves the numbers pushed since mark into the tree's list array, as the list they make, and gives its
+// reference.
+function takeIDs(mutates t ast.Tree, mutates stack ListStack with diag.U32, mark Count) returns diag.U32
+	return t.pushList(stack.take(mark))
+end 'takeIDs'

@@ -1,0 +1,23 @@
+// Source is a module's text and where each of its files is in it. Tokens hold offsets into the text; a line and
+// column is found from an offset only when a diagnostic needs one.
+export type Source
+	export var text as String
+	export var files as ast.FileSpanList
+
+	export static function make(consumes text String, consumes files ast.FileSpanList) returns Source
+		return Source{text: text, files: files}
+	end 'make'
+
+	// errorAt is the error at offset in the file of the index.
+	export function errorAt(consumes code String, consumes message String, file Count, offset Count) returns diag.CompileError
+		let at = try offset as diag.U32 otherwise panic("a source offset exceeds U32")
+		let loc = ast.locateInFile(text, files: files, file: file, offset: at)
+		return diag.CompileError.at(code, message: message, file: loc.file.clone(), line: loc.line, col: loc.col)
+	end 'errorAt'
+end 'Source'
+
+// SyntaxError is how the lexer and the parser fail: the error is recorded where they keep their errors first, and the
+// failure abandons what they were reading, up to the declaration or the file.
+export enum SyntaxError implements Error
+	refused
+end 'SyntaxError'

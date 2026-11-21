@@ -136,7 +136,7 @@ end 'constRefsOfMatch'
 
 function constValueOf(p ast.Project, modIdx Count, ord ast.DeclOrdinal) returns ast.NodeID
 	match p.modules[modIdx].decls[ord as Count].clone() 'k'
-		constDecl(cd) then return cd.valueExpr
+		constDecl(cd) then return cd.value
 		funcDecl(_) then panic("the declaration at ordinal {ord} is no constant")
 		typeDecl(_) then panic("the declaration at ordinal {ord} is no constant")
 		enumDecl(_) then panic("the declaration at ordinal {ord} is no constant")
@@ -217,7 +217,7 @@ function checkConstantType(mutates c Checker, mutates p ast.Project, cd ast.Cons
 		checkFail(c.modID, off: off, code: diag.errNonConstantInitializer, msg: "constant '{cd.name}' must be a value known before the program runs", errs: errs)
 		return false
 	end 'noValue'
-	if t == p.builtins.stringTy and not interpolatesNothing(c, p: p, e: cd.valueExpr) 'interpolates'
+	if t == p.builtins.stringTy and not interpolatesNothing(c, p: p, e: cd.value) 'interpolates'
 		checkFail(c.modID, off: off, code: diag.errNonConstantInitializer, msg: "a constant string cannot interpolate", errs: errs)
 		return false
 	end 'interpolates'
@@ -261,7 +261,7 @@ function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdina
 		interfaceDecl(_) then panic("the declaration at ordinal {ord} is no constant")
 	end 'k'
 	enterContext(c, p: p, f: ast.noFunc, owner: ast.noType, calls: false)
-	let t = checkExpr(c, p: p, e: cd.valueExpr, errs: errs)
+	let t = checkExpr(c, p: p, e: cd.value, errs: errs)
 	if t == ast.noType 'failed'
 		return
 	end 'failed'

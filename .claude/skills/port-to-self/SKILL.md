@@ -32,7 +32,7 @@ Bottom-up, one step at a time; a package uses only the ones above it.
 |---:|---|---|---|
 | 1 | `diag/` + `table/` | `internal/diag`, hash maps on `array` | exists |
 | 2 | `ast/` | `internal/ast` | exists |
-| 3 | `syntax/` | `internal/syntax` | hand lexer and parser; generated DFA and parser planned (1.3) |
+| 3 | `syntax/` | `internal/syntax` | generated DFA and parser (`tokens_gen.maxon`, `parser_gen.maxon`); `fmt` planned |
 | 4 | `project/` | `internal/project` | exists |
 | 5 | `resolve/` | `internal/resolve` | exists |
 | 6 | `check/` | `internal/check` | started (`context.maxon`) |
@@ -97,7 +97,7 @@ follows the error style of the code around it (result unions in the front end); 
 - **`self/driver` is a sequential executor over the task graph** (`internal/par/tasks.go`'s `Plan`), keeping the
   per-module scheduling, so Phase 3 swaps the executor, not the driver.
 - **Generated parts come from the generators, never by hand:** `self/ast/nodes_gen.maxon` from `Maxon.g4`
-  (`go generate ./internal/syntax`); planned: `self/syntax/tokens_gen.maxon` and `parser_gen.maxon` (1.3), built-ins
+  (`go generate ./internal/syntax`), with `self/syntax/tokens_gen.maxon` and `parser_gen.maxon`; planned: built-ins
   and diagnostics tables (1.2a), IR records and printer, x64 encoder, ABI layouts (1.4). A generator that is missing is
   written first, as plain Go, with a test that regenerates and diffs.
 - No speed work before Phase 3; act only on an algorithmic blow-up. Data stays flat and handle-indexed.

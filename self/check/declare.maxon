@@ -74,8 +74,8 @@ function declareBounds(mutates c Checker, mutates p ast.Project, constraints ast
 	for i in 0 upto constraints.count() 'each'
 		let cs = constraints[i].clone()
 		let constrained = boundedParamOf(c, p: p, cs: cs)
-		for bi in 0 upto cs.bounds.count() 'bounds'
-			let iface = resolveBoundTypeRef(c, p: p, tr: cs.bounds[bi] as ast.NodeID, errs: errs)
+		for bi in 0 upto p.modules[c.modIdx].tree.listLen(cs.bounds) 'bounds'
+			let iface = resolveBoundTypeRef(c, p: p, tr: p.modules[c.modIdx].tree.listAt(cs.bounds, index: bi) as ast.NodeID, errs: errs)
 			if failedSince(errs, mark: mark) 'failed'
 				return
 			end 'failed'
@@ -124,10 +124,10 @@ end 'optOutAdvice'
 
 // declareConforms records the interfaces that a declaration implements. Copyable and Droppable are no interface to
 // implement, since every type has them unless it opts out or holds a part that lacks them.
-function declareConforms(mutates c Checker, mutates p ast.Project, interfaces ast.U32List, nt ast.TypeID, mutates errs diag.ErrorList)
+function declareConforms(mutates c Checker, mutates p ast.Project, interfaces diag.U32, nt ast.TypeID, mutates errs diag.ErrorList)
 	let mark = errs.count()
-	for i in 0 upto interfaces.count() 'each'
-		let tr = interfaces[i] as ast.NodeID
+	for i in 0 upto p.modules[c.modIdx].tree.listLen(interfaces) 'each'
+		let tr = p.modules[c.modIdx].tree.listAt(interfaces, index: i) as ast.NodeID
 		let iface = resolveBoundTypeRef(c, p: p, tr: tr, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return
@@ -348,8 +348,8 @@ function declareDeclTypeParams(mutates c Checker, mutates p ast.Project, ord ast
 	let ref = ast.DeclRef.make(c.modID, ordinal: ord)
 	let mark = errs.count()
 	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
-		typeDecl(td) then declareNominalTypeParams(c, p: p, owner: declTypeOf(p, ref: ref), params: td.typeParams, constraints: td.constraints, errs: errs)
-		unionDecl(ud) then declareNominalTypeParams(c, p: p, owner: declTypeOf(p, ref: ref), params: ud.typeParams, constraints: ud.constraints, errs: errs)
+		typeDecl(td) then declareNominalTypeParams(c, p: p, owner: declTypeOf(p, ref: ref), params: td.typeParams, constraints: td.whereList, errs: errs)
+		unionDecl(ud) then declareNominalTypeParams(c, p: p, owner: declTypeOf(p, ref: ref), params: ud.typeParams, constraints: ud.whereList, errs: errs)
 		funcDecl(_) then _ = 0
 		constDecl(_) then _ = 0
 		enumDecl(_) then _ = 0

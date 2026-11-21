@@ -25,7 +25,7 @@ function newFuncEntry(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, 
 	fn.isStatic = f.isStatic
 	fn.isDestructor = f.receiver == ast.Convention.convDestructs.keyword()
 	fn.hasReceiver = ownerTy != ast.noType and not f.isStatic
-	fn.bodyRef = f.bodyRef
+	fn.bodyRef = f.body
 	if ownerTy == ast.noType 'free'
 		fn.hasDecl = true
 		fn.decl = ref.clone()
@@ -50,11 +50,11 @@ function declareGenerics(mutates c Checker, mutates p ast.Project, f ast.FuncDec
 		let generics = ast.cloneTypeArgs(p.types.entries[nt as Count].typeParams)
 		var bounds = ast.ParamBoundList.create(0)
 		let mark = errs.count()
-		for i in 0 upto f.constraints.count() 'cons'
-			let cs = f.constraints[i].clone()
+		for i in 0 upto f.whereList.count() 'cons'
+			let cs = f.whereList[i].clone()
 			let constrained = boundedParamOf(c, p: p, cs: cs)
-			for bi in 0 upto cs.bounds.count() 'bounds'
-				let iface = resolveBoundTypeRef(c, p: p, tr: cs.bounds[bi] as ast.NodeID, errs: errs)
+			for bi in 0 upto p.modules[c.modIdx].tree.listLen(cs.bounds) 'bounds'
+				let iface = resolveBoundTypeRef(c, p: p, tr: p.modules[c.modIdx].tree.listAt(cs.bounds, index: bi) as ast.NodeID, errs: errs)
 				if failedSince(errs, mark: mark) 'failed'
 					return
 				end 'failed'
@@ -67,7 +67,7 @@ function declareGenerics(mutates c Checker, mutates p ast.Project, f ast.FuncDec
 	end 'ofType'
 	if f.typeParams.count() > 0 'own'
 		var generics = ast.TypeIDList.create(0)
-		declareFunctionTypeParams(c, p: p, params: f.typeParams, constraints: f.constraints, generics: generics, errs: errs)
+		declareFunctionTypeParams(c, p: p, params: f.typeParams, constraints: f.whereList, generics: generics, errs: errs)
 		p.funcs.entries[fid as Count].generics = generics
 	end 'own'
 end 'declareGenerics'

@@ -33,22 +33,15 @@ export function locateTextOffset(text String, files FileSpanList, offset diag.U3
 	if files.count() == 0 'synth'
 		return ErrorLocation.make("<stdlib>", line: 0 as Count, col: 0 as Count)
 	end 'synth'
-	return locateInFile(text, files: files, fi: findFileIndex(files, offset: offset), offset: offset)
+	return locateInFile(text, files: files, file: findFileIndex(files, offset: offset), offset: offset)
 end 'locateTextOffset'
 
-// locateFileEnd places the end of a file, which as an offset is also where the next file begins, in the file that ends.
-export function locateFileEnd(text String, files FileSpanList, offset diag.U32) returns ErrorLocation
-	if files.count() == 0 'synth'
-		return ErrorLocation.make("<stdlib>", line: 0 as Count, col: 0 as Count)
-	end 'synth'
-	let inside = try (offset - 1) as diag.U32 otherwise offset
-	return locateInFile(text, files: files, fi: findFileIndex(files, offset: inside), offset: offset)
-end 'locateFileEnd'
-
-function locateInFile(text String, files FileSpanList, fi Count, offset diag.U32) returns ErrorLocation
+// locateInFile is the line and column of an offset in the file of the index, which is where a lexer or a parser that
+// knows its file is: at the end of a file, the offset is also where the next one starts.
+export function locateInFile(text String, files FileSpanList, file Count, offset diag.U32) returns ErrorLocation
 	var target = offset as Count
-	let beginPos = files[fi].start as Count
-	var endPos = files[fi].endOff as Count
+	let beginPos = files[file].start as Count
+	var endPos = files[file].endOff as Count
 	let textLen = text.byteLength()
 	if endPos > textLen 'clampText'
 		endPos = textLen
@@ -68,7 +61,7 @@ function locateInFile(text String, files FileSpanList, fi Count, offset diag.U32
 		end 'nl'
 	end 'scan'
 	let col = try (target - lineStart) + 1 otherwise 1 as Count
-	return ErrorLocation.make(files[fi].path.clone(), line: line, col: col)
+	return ErrorLocation.make(files[file].path.clone(), line: line, col: col)
 end 'locateInFile'
 
 export function locateModuleOffset(m Module, offset diag.U32) returns ErrorLocation

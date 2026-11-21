@@ -189,13 +189,17 @@ a rule whose alternatives are nodes, such as `stmt` or `expr`, is a closed set o
 | `internal/syntax/parser_gen.go` | a recursive-descent parser with one function per rule, and the stack for each list the parser builds; operator precedence comes from the order of `expr`'s alternatives |
 | `internal/syntax/tokens_gen.go` | the token kinds and the lexer's DFA: every token rule and keyword compiled into one table over byte classes |
 | `internal/ast/nodes_gen.go` | the kind of every node, the view of each record with an accessor and a setter for each field, the struct of each declaration, a view of each set, the constructors, the numbering of the slots (`Slots`, `NumberSlots`), the reserved words, and three visitors per set |
+| `self/syntax/parser_gen.maxon` | the same parser in Maxon: `emit_parser.go` makes every decision once and writes it through a `lang`, Go's or Maxon's, so the two cannot drift. A parse function takes the parser and fails with `SyntaxError` after recording the error, as the Go one panics; every choice is an `if` chain, and every value is held by a local before it is stored, since Maxon refuses overlapping access |
+| `self/syntax/tokens_gen.maxon` | the same token kinds and DFA in Maxon, its tables as strings of base-32 digits (a string literal is in the executable's data, so reading one allocates nothing), and the sets of token kinds as strings of a character per kind |
+| `self/ast/nodes_gen.maxon` | the kind of every node, the accessors and setters of each record over the module's tree, the struct of each declaration with the fields its rules assign (a field named by a keyword takes what it holds as a suffix: `typeRef`, `whereList`, `isNoncopyable`) and its constructor, the numbering of the slots, and the reserved words |
 
 The parser decides with one token of lookahead, or two where one is not enough. Where two alternatives start with
 the same rule, as an assignment and an expression statement both start with an expression, it parses that rule once
 and the token after it decides. A syntax error names what the grammar allows at that point, such as
 `Expected an expression but got ')'`. The loop that runs the DFA, the scanner for a string literal (`-> scan`, since
 interpolations nest), the loop over a module's declarations, and the conversion of a token to a field that is not
-its text (`intLitMagnitude`, `strLitParts`, `boundValue`) are hand-written in `syntax`.
+its text (`intLitMagnitude`, `strLitParts`, `boundValue`) are hand-written in `syntax`, and the same in `self/syntax`
+(`lexer.maxon`, `parser.maxon`, `lists.maxon`, `source.maxon`).
 
 The lexer takes the longest token at each position: a keyword wins over a name of the same length, and an earlier
 token rule over a later one. It never backs off to a shorter match, so input that stops partway through a token,

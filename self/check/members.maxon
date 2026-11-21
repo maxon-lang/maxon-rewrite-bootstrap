@@ -21,7 +21,7 @@ function declareRecordMembers(mutates c Checker, mutates p ast.Project, td ast.T
 			end 'badType'
 		end 'typed'
 		let level = ast.visibilityOf(f.visibility)
-		var info = ast.FieldInfo.make(f.name.clone(), ty: ft, isVar: f.isVar, exported: level != ast.Visibility.unexported, hasDefault: f.defaultExpr != 0, defaultExpr: f.defaultExpr, index: p.types.entries[tid as Count].fields.count())
+		var info = ast.FieldInfo.make(f.name.clone(), ty: ft, isVar: f.isVar, exported: level != ast.Visibility.unexported, hasDefault: f.defaultRef != 0, defaultExpr: f.defaultRef, index: p.types.entries[tid as Count].fields.count())
 		info.level = level
 		p.types.entries[tid as Count].fields.push(info)
 	end 'each'
@@ -44,9 +44,9 @@ function declareEnumMembers(mutates c Checker, mutates p ast.Project, ed ast.Enu
 			return
 		end 'dup'
 		var raw = next.clone()
-		let explicit = cs.rawExpr != 0
+		let explicit = cs.raw != 0
 		if explicit 'written'
-			raw = ast.intLitValue(p.modules[c.modIdx].tree, id: cs.rawExpr)
+			raw = ast.intLitValue(p.modules[c.modIdx].tree, id: cs.raw)
 		end 'written'
 		for j in 0 upto p.types.entries[tid as Count].cases.count() 'rawDup'
 			if p.types.entries[tid as Count].cases[j].rawValue.eq(raw) 'same'
