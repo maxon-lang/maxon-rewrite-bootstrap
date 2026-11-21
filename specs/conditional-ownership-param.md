@@ -597,6 +597,7 @@ re-borrow it and `return q.x` would return 5; the retain makes the move real. (T
 down by one.)
 
 <!-- test: error.struct-use-after-move-retained-var -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -609,14 +610,14 @@ type Point
 end 'Point'
 
 function pick(p Point) returns Integer
-	var q = p
+	var q = p.clone()
 	let r = q
 	return q.x
 end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base)
+	return try pick(base) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

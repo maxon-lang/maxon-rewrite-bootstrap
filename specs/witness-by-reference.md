@@ -546,7 +546,7 @@ end 'Doubler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 

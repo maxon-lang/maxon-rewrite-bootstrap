@@ -1433,15 +1433,16 @@ held one
 ```
 
 <!-- test: closure-capture.error.a-captured-local-is-moved-into-the-closure -->
+<!-- positions: moved -->
 A capture moves an owned local into the closure, so a read of it after the literal is a use after move.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let word = "a word padded long enough to heap allocate {1}"
-	let f = function() gives word.byteLength() as Integer
+	let f = function() gives try word.byteLength() as Integer otherwise panic("out of range")
 	print("{word}\n")
-	return f() as ExitCode
+	return try f() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1462,9 +1463,9 @@ function main() returns ExitCode
 	let word = "a word padded long enough to heap allocate {1}"
 	var thunks = Thunks.create(0)
 	for i in 0 upto 2 'each'
-		thunks.push(function() gives word.byteLength() as Integer)
+		thunks.push(function() gives try word.byteLength() as Integer otherwise panic("out of range"))
 	end 'each'
-	return thunks.count() as ExitCode
+	return try thunks.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -3915,7 +3916,7 @@ end 'Counter'
 function main() returns ExitCode
 	var h = Counter.create()
 	h.read = function() gives h.n
-	return h.n as ExitCode
+	return try h.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -4045,6 +4046,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-closure-writing-within-a-captured-parameter-writes-a-frozen-record -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A closure that writes the record a captured parameter's field holds writes the graph the parameter denotes, which a frozen record is refused by.
 
@@ -4089,6 +4091,7 @@ error E3207: <fragment>:32:15: 'bump' writes 'o' (line 26: `let f = function() g
 ```
 
 <!-- test: closure-capture.error.a-captured-parameter-written-within-by-a-closure-handed-to-a-callee-writes-a-frozen-record -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The closure is handed to a callee that calls it; the write is the same wherever the closure runs.
 

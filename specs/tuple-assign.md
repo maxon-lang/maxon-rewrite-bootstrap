@@ -200,6 +200,7 @@ end 'main'
 ```
 
 <!-- test: tuple-assign-error-assign-to-let-decl -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -211,7 +212,7 @@ function main() returns ExitCode
 	var x = 0 as Integer
 	(x, let y) = makePair(10, b: 32)
 	(x, y) = makePair(1, b: 2)
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

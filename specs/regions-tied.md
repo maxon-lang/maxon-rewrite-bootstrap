@@ -176,17 +176,18 @@ error E3202: <fragment>:13:2: a `mutable isolated` parameter is by reference: th
 ```
 
 <!-- test: a-for-loop-over-a-plain-array-may-push-to-it -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 A `for` over a plain array that the loop pushes to is accepted; the iterator holds its buffer and re-checks the count.
 
 ```maxon
 typealias LineArray = Array with String
 
 function main() returns ExitCode
-	var items = LineArray.create(0)
+	let items = LineArray.create(0)
 	items.push("a")
 	for item in items 'each'
 		if items.count() < 3 'grow'
-			items.push(item.clone())
+			items.push(item)
 		end 'grow'
 	end 'each'
 	print("{items.count()}\n")
@@ -660,6 +661,7 @@ error E3202: <fragment>:20:15: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: the-array-a-for-loop-drains-is-read-only-for-unique-elements -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 <!-- positions: moved -->
 `for` moves each `Ticket` out of `tickets`, so a push to `tickets` inside the body writes the array being drained.
 

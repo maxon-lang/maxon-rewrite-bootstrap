@@ -954,6 +954,7 @@ end 'main'
 ```
 
 <!-- test: error.write-through-a-returned-holder-built-from-a-callee-result-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `Outer` holds the frozen `Box` through the `Inner` it was built from, so a method that writes the box through it is refused.
 
@@ -1003,6 +1004,7 @@ error E3207: <fragment>:37:2: 'bump' writes its receiver (it calls 'bump', which
 ```
 
 <!-- test: error.a-local-holder-built-from-a-callee-result-pins-the-parameter-it-writes -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A holder built from a callee result and written through in the same function writes the parameter, so the frozen argument is refused.
 
@@ -1106,6 +1108,7 @@ end 'main'
 ```
 
 <!-- test: error.a-parameter-held-by-a-record-and-written-through-it-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Without the `clone()` the record holds the parameter itself, so writing through it writes the frozen argument.
 

@@ -383,7 +383,7 @@ typealias Ratio = float(0.0 to 1.0)
 
 typealias Weight = float(0.0 to 1.0)
 
-let half = 0.5 as Ratio
+let half = try 0.5 as Ratio otherwise panic("out of range")
 
 function show(w Weight)
 	print("{w}\n")

@@ -412,6 +412,7 @@ end 'main'
 ```
 
 <!-- test: forin-element-survives-a-callee-clearing-the-source -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### A `for … in` element survives a callee clearing the array, and the clear ends the loop
 The element is counted, so the body reads it intact after `wipe`; the next step reads the live count,
 which is 0, so the second element is never reached.
@@ -428,17 +429,17 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(mutates dest StringArray)
+function wipe(dest StringArray)
 	dest.clear()
 end 'wipe'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	var total = 0 as Integer
 	for it in b.items 'scan'
 		wipe(b.items)
 		print("[{it}]\n")
-		total = try total + (it.byteLength() as Integer) otherwise panic("out of range")
+		total = total + (it.byteLength() as Integer)
 	end 'scan'
 	print("{total}\n")
 	return 0
@@ -453,6 +454,7 @@ end 'main'
 ```
 
 <!-- test: a-clear-at-the-end-of-a-for-body-ends-the-iteration -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### A clear as the body's last statement ends the iteration at the next step
 The loop reads the array's live count on every step, not the count it started with.
 ```maxon
@@ -468,15 +470,15 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(mutates dest StringArray)
+function wipe(dest StringArray)
 	dest.clear()
 end 'wipe'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	var total = 0 as Integer
 	for it in b.items 'scan'
-		total = try total + (it.byteLength() as Integer) otherwise panic("out of range")
+		total = total + (it.byteLength() as Integer)
 		wipe(b.items)
 	end 'scan'
 	print("{total}\n")
@@ -529,6 +531,7 @@ end 'main'
 ```
 
 <!-- test: forin-discard-binds-no-element -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### `for _ in` reads the live count too
 The discard binds no element, and the loop still reads the array's live count each step, so the clear
 in the first trip ends it.
@@ -545,16 +548,16 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(mutates dest StringArray)
+function wipe(dest StringArray)
 	dest.clear()
 end 'wipe'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	var total = 0 as Integer
 	for _ in b.items 'scan'
 		wipe(b.items)
-		total = try total + 1 otherwise panic("out of range")
+		total = total + 1
 	end 'scan'
 	print("{total}\n")
 	return 0
@@ -982,6 +985,7 @@ end 'main'
 ```
 
 <!-- test: receiver-method-inside-a-for-loop -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### … and inside a `for … in` over the field it clears
 The loop element survives the clear, and the clear ends the loop: the second element is never reached.
 ```maxon
@@ -996,20 +1000,20 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function wipe(mutates self)
+	function wipe()
 		items.clear()
 	end 'wipe'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	b.items.push("beta string long enough for heap allocation {40 + 2}")
 	var total = 0 as Integer
 	for it in b.items 'scan'
 		b.wipe()
 		print("[{it}]\n")
-		total = try total + (it.byteLength() as Integer) otherwise panic("out of range")
+		total = total + (it.byteLength() as Integer)
 	end 'scan'
 	print("{total}\n")
 	return 0

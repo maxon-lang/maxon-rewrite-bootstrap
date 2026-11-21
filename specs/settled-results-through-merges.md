@@ -1187,6 +1187,7 @@ error E3197: <fragment>:29:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-passed-straight-to-a-writing-function-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)

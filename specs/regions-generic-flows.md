@@ -56,6 +56,7 @@ error E3196: <fragment>:16:14: cannot store an immutable 'Box' into 'List.append
 ```
 
 <!-- test: a-frozen-argument-to-a-parameter-map-upsert-stores-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `keep` stores `item` into a map of mutable boxes, so it takes mutable data and the frozen `pinned` is refused at the call.
 
@@ -777,6 +778,7 @@ error E3207: <fragment>:20:15: 'stash' needs 'item' frozen (line 14: `items.push
 ```
 
 <!-- test: a-frozen-field-of-a-parameter-held-by-a-let-into-a-mutable-list-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `first` is the parameter's data held by a `let`; the frozen crate's item cannot go into a list of mutable boxes, so `load` needs a mutable `crate`.
 

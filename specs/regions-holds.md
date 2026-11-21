@@ -329,7 +329,7 @@ type Pair
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'Pair'
 
@@ -420,7 +420,7 @@ type Pair
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'Pair'
 

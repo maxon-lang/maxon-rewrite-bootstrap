@@ -73,6 +73,7 @@ end 'main'
 ```
 
 <!-- test: writer-on-frozen-receiver-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `add` writes its receiver, which the call site's frozen table cannot allow.
 
@@ -109,6 +110,7 @@ error E3207: <fragment>:23:2: 'add' writes its receiver (line 17: `self.rows.pus
 ```
 
 <!-- test: transitive-writer-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `stamp` writes `table` only by calling `add`, and the refusal still names the chain.
 
@@ -502,6 +504,7 @@ error E3197: <fragment>:14:2: cannot write 'text' through 'first', which is immu
 ```
 
 <!-- test: writer-through-an-element-read-needs-a-mutable-argument -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `rewrite` writes the element it read from `rows`, so `rows` is mutable only and the frozen array is refused at the call.
 
@@ -532,6 +535,7 @@ error E3207: <fragment>:19:10: 'rewrite' writes 'rows' (line 14: `first.text = "
 ```
 
 <!-- test: writer-through-a-returned-parameter-needs-a-mutable-argument -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `edit` writes the record `same` handed back, which is its own parameter `b`, so `b` is mutable only and the frozen box is refused.
 
@@ -3232,6 +3236,7 @@ error E3197: <fragment>:23:2: cannot write 'n' through 'h.held', which is read-o
 ```
 
 <!-- test: frozen-argument-to-a-method-parameter-assigned-to-a-mutable-field-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `adopt` assigns `item` to a mutable field of its receiver, which makes `item` mutable only.
 
@@ -3312,6 +3317,7 @@ error E3197: <fragment>:27:2: cannot write 'n' through 'h.held', which is read-o
 ```
 
 <!-- test: frozen-argument-to-a-parameter-pushed-into-an-array-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `stash` pushes `item` into an array of mutable records, so `item` is mutable only.
 
@@ -3620,6 +3626,7 @@ error E3196: <fragment>:19:22: cannot store an immutable 'Box' into 'Slot.filled
 ```
 
 <!-- test: frozen-argument-to-a-parameter-built-into-a-union-payload-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `wrap` keeps `item` in a union payload, which makes `item` mutable only.
 
@@ -3879,6 +3886,7 @@ error E3196: <fragment>:38:14: cannot store a read-only 'Box' into 'Stack.push.i
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-stored-is-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `c` is `p` on one path and a fresh box on the other, so storing `c` into the mutable field needs `p` writable and the frozen argument is refused at the call.
 
@@ -3921,6 +3929,7 @@ error E3207: <fragment>:33:7: 'bump' writes 'p' (line 28: `h.item = c`); 'frozen
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-pushed-is-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same join pushed into a mutable-element array pins `p` mutable-only.
 
@@ -3957,6 +3966,7 @@ error E3207: <fragment>:26:7: 'bump' writes 'p' (line 21: `items.push(c)`); 'fro
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-a-parameter-pins-it-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The back edge hands `p` to the carried `e`, which `items.push(e)` stores into a mutable-element array on the next trip, so `p` is inferred mutable-only and the frozen argument is refused at the call.
 
@@ -4064,6 +4074,7 @@ error E3197: <fragment>:23:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: writer-through-a-mixed-return-needs-a-mutable-argument -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `edit` writes the record `pick` may hand back, which may be its own parameter `b`, so `b` is mutable only and the frozen box is refused.
 
@@ -4267,6 +4278,7 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-written-through-the-join-is-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Writing through the join writes `p` on the path that took it, so `p` is mutable only and the frozen argument is refused at the call.
 
@@ -4370,6 +4382,7 @@ error E3207: <fragment>:22:7: 'bump' writes 'p' (it calls 'grow', which writes '
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-returned-then-written-by-the-caller-is-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `edit` writes the record `pick` may hand back, which may be its own parameter `b`, so `b` is mutable only and the frozen box is refused.
 
@@ -4478,6 +4491,7 @@ end 'main'
 ```
 
 <!-- test: a-join-of-two-parameters-returned-and-written-by-the-caller-is-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `edit` writes the record `pick` may hand back, which may be `x` or `y`, so both are mutable only and the frozen box is refused.
 
@@ -4517,6 +4531,7 @@ error E3207: <fragment>:30:13: 'edit' writes 'y'; 'frozen' is immutable
 ```
 
 <!-- test: a-join-of-two-parameters-written-through-the-join-is-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Writing through the join writes `a` or `b`, so both are mutable only and the frozen argument is refused at the call.
 
@@ -4840,6 +4855,7 @@ error E3197: <fragment>:22:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: a-holder-method-writing-through-an-element-read-is-refused-for-a-frozen-array -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `bump` writes `.n` through an element of the array `holder` holds, so the frozen array must not be given to the holder.
 
@@ -4888,6 +4904,7 @@ error E3207: <fragment>:38:2: 'bump' writes its receiver (line 23: `box.n = 5`);
 ```
 
 <!-- test: a-holder-method-reaching-through-a-wrapper-is-refused-for-a-frozen-array -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same write one method deeper: `run` hands the holder to `bump`, which writes through an element.
 

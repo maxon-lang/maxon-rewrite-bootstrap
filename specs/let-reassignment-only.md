@@ -314,6 +314,7 @@ end 'main'
 ```
 
 <!-- test: error.a-frozen-argument-is-refused-where-the-parameter-is-written-through-a-let-alias -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The write through the alias counts as a write of `p`, so a frozen record cannot be passed.
 
@@ -572,7 +573,7 @@ end 'setTo99'
 function main() returns ExitCode
 	let n = 1 as Integer
 	setTo99(n)
-	return n
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

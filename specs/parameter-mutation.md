@@ -427,12 +427,12 @@ typealias Integer = int(i64.min to i64.max)
 
 function grow(mutates s String) returns Integer
 	s.append("XY")
-	return s.byteLength()
+	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'grow'
 
 function main() returns ExitCode
 	let t = "ab"
-	return grow(t) as ExitCode
+	return try grow(t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -739,11 +739,11 @@ let GREETING = "hi"
 
 function grow(mutates s String) returns Integer
 	s.append("XY")
-	return s.byteLength()
+	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'grow'
 
 function main() returns ExitCode
-	return grow(GREETING) as ExitCode
+	return try grow(GREETING) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

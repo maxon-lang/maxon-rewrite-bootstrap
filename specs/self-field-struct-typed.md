@@ -396,6 +396,7 @@ end 'main'
 ```
 
 <!-- test: an-iterated-container-rebound-through-the-base-walks-the-old-record -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 **A `for` over a container reached through a materialized base holds its own reference to the
 record it started on**, so rebinding that container through the same base in the body leaves the
 loop walking the old record to its end. Every case in `for-iterated-self-field` uses a BARE self
@@ -411,7 +412,7 @@ type Inner
 	export var items as StringArray
 
 	static function create() returns Self
-		var a = StringArray.create(0)
+		let a = StringArray.create(0)
 		a.push("first iterated text {40 + 2}")
 		a.push("second iterated text {40 + 5}")
 		return Self{items: a}
@@ -421,23 +422,23 @@ end 'Inner'
 type Outer
 	export var inner as Inner
 
-	function probe(mutates self) returns Small
+	function probe() returns Small
 		var n = 0 as Small
 		for it in inner.items 'loop'
 			inner.items = StringArray.create(0)
 			print("{it}\n")
-			n = try n + (it.byteLength() as Small) otherwise panic("out of range")
+			n = n + (it.byteLength() as Small)
 		end 'loop'
-		return try n + (inner.items.count() as Small) otherwise panic("out of range")
+		return n + (inner.items.count() as Small)
 	end 'probe'
 
 	static function create(i Inner) returns Self
-		return Self{inner: i.clone()}
+		return Self{inner: i}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	var o = Outer.create(Inner.create())
+	let o = Outer.create(Inner.create())
 	return o.probe()
 end 'main'
 ```

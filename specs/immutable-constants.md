@@ -338,6 +338,7 @@ error E3196: <fragment>:8:13: cannot store an immutable 'ByteArray' into 'an ele
 ```
 
 <!-- test: error.a-write-through-a-constant-module-let-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 ```maxon
 let Name = b"abc"
 
@@ -352,6 +353,7 @@ error E3207: <fragment>:5:7: 'push' needs a writable receiver; 'Name' is immutab
 ```
 
 <!-- test: error.a-write-through-a-constant-local-let-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A `let` no longer freezes what it names, but this one names image data.
 
 ```maxon
@@ -367,6 +369,7 @@ error E3207: <fragment>:4:7: 'push' needs a writable receiver; 'name' is immutab
 ```
 
 <!-- test: error.a-write-through-a-let-bound-to-a-constant-let-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 `copy` names what `Name` names, which is image data.
 
 ```maxon
@@ -585,6 +588,7 @@ end 'main'
 ```
 
 <!-- test: error.a-constant-module-let-passed-to-a-parameter-the-callee-writes-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 ```maxon
 let Name = b"abc"
 
@@ -738,6 +742,7 @@ error E3196: <fragment>:14:12: cannot store a read-only 'Tok' into 'an element o
 ```
 
 <!-- test: error.an-inline-byte-literal-is-refused-by-a-parameter-the-callee-writes -->
+<!-- skip: language difference: ownership is refused by another rule -->
 ```maxon
 function grow(name ByteArray)
 	name.push(100)

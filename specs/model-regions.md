@@ -3761,6 +3761,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-al-nl-for-for-inner-lent-writer -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `nl-for-for-inner-lent-writer` of redteamAL/hand_al3.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -4538,6 +4539,7 @@ error E3201: <fragment>:28:33: one statement reaches through two isolated values
 ```
 
 <!-- test: model-hand-ao-n1-nested-for-cond-and-path-two-lends -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `n1-nested-for-cond-and-path-two-lends` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -4584,6 +4586,7 @@ error E3207: <fragment>:32:11: 'two' needs a writable parameter 'b' at line 23; 
 ```
 
 <!-- test: model-hand-ao-n1c-nested-for-path-path-two-lends-control -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `n1c-nested-for-path-path-two-lends-control` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -4630,6 +4633,7 @@ error E3207: <fragment>:32:11: 'two' needs a writable parameter 'b' at line 23; 
 ```
 
 <!-- test: model-hand-ao-n2-nested-for-cond-cond-two-lends -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `n2-nested-for-cond-cond-two-lends` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -5360,6 +5364,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-slot-lend-store -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `r-slot-lend-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 

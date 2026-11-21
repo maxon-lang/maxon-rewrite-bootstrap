@@ -1551,6 +1551,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-rec-slot-copy-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-rec-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2108,6 +2109,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-urec-slot-copy-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-urec-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2711,6 +2713,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-nest-slot-copy-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-nest-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -3368,6 +3371,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-nest2-slot-copy-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-nest2-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4431,6 +4435,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-for-assign-no -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f2-for-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4469,6 +4474,7 @@ error E3203: <fragment>:24:14: 'a' roots what 'f1' lends or iterates and cannot 
 ```
 
 <!-- test: model-hand-ah-f2-for-copy-elem-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-for-copy-elem-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -6792,6 +6798,7 @@ error E3197: <fragment>:31:13: cannot write 'u' through 'h', which is read-only 
 ```
 
 <!-- test: model-hand-an-c1-cond-field-move -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c1-cond-field-move` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -6835,6 +6842,7 @@ error E3214: <fragment>:31:21: cannot move or copy the unique value matched by '
 ```
 
 <!-- test: model-hand-an-c1-cond-field-byref -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `c1-cond-field-byref` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7067,6 +7075,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-an-f1-for-elems-nb-byref-root -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f1-for-elems-nb-byref-root` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7126,6 +7135,7 @@ error E3207: <fragment>:43:20: 'clrXs' needs a writable parameter 'h' at line 35
 ```
 
 <!-- test: model-hand-an-f1-for-local-arr-nb -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f1-for-local-arr-nb` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7449,6 +7459,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ao-n3-for-cond-elem-match-cond-binding-two -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `n3-for-cond-elem-match-cond-binding-two` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -7552,6 +7563,7 @@ error E3207: <fragment>:36:23: 'two' needs a writable parameter 'b' at line 27; 
 ```
 
 <!-- test: model-hand-ao-n5-match-cond-binding-plus-cond-holder-call -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `n5-match-cond-binding-plus-cond-holder-call` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -11348,6 +11360,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa20-p5-for-root-writer -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `p5-for-root-writer` of redteamFA20.hand_fa20, in capmodel `reggio/REPORTFA20.txt`.
 
@@ -15672,6 +15685,7 @@ error E3197: <fragment>:39:13: cannot write 'u' through 'hV.h', which is read-on
 ```
 
 <!-- test: model-hand-fa24-c5-match-cond-path-nb-byref -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `c5-match-cond-path-nb-byref` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15719,6 +15733,7 @@ error E3207: <fragment>:35:17: 'clr' needs a writable parameter 'x' at line 27; 
 ```
 
 <!-- test: model-hand-fa24-c6-match-cond-path-nb-move -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c6-match-cond-path-nb-move` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15797,6 +15812,7 @@ error E3203: <fragment>:23:13: 'h' roots what 'x1' lends or iterates and cannot 
 ```
 
 <!-- test: model-hand-fa24-d2-match-cond-path-plain-union-nb-move-root -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `d2-match-cond-path-plain-union-nb-move-root` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 

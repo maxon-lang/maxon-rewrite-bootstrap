@@ -28,11 +28,12 @@ reassigned either, marked or not: the function returns the new value.
 ## Tests
 
 <!-- test: error.reassigning-a-parameter-is-refused -->
+<!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 100)
 
 function bump(n Count) returns Count
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return n
 end 'bump'
 
@@ -103,6 +104,7 @@ error E2013: <fragment>:3:2: 's' is a parameter and cannot be reassigned; mark i
 ```
 
 <!-- test: error.a-method-reassigning-its-parameter-is-refused -->
+<!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -114,8 +116,8 @@ type Counter
 	end 'create'
 
 	function add(amount Count) returns Count
-		amount = amount + 1
-		return self.total + amount
+		amount = try amount + 1 otherwise panic("out of range")
+		return try self.total + amount otherwise panic("out of range")
 	end 'add'
 end 'Counter'
 
@@ -324,7 +326,7 @@ error E2013: <fragment>:9:2: cannot pass a literal to a function that writes par
 typealias Count = int(0 to 100)
 
 function bump(mutates n Count)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode

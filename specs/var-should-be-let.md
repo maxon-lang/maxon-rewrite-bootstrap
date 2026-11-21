@@ -896,6 +896,7 @@ lit7?
 ```
 
 <!-- test: error.let-record-assigned-to-a-var-moves-it -->
+<!-- positions: moved -->
 Assignment into a `var` from a `let` moves the record, as a `var` binding does, so the later read of `a` is refused.
 
 ```maxon
@@ -915,7 +916,7 @@ function main() returns ExitCode
 	var b = Point.create(0)
 	b = a
 	b.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1053,6 +1054,7 @@ end 'main'
 ```
 
 <!-- test: error.let-record-bound-to-a-var-moves-it -->
+<!-- positions: moved -->
 Binding a `var` from a `let` moves the record, so a later read of the `let` is refused.
 
 ```maxon
@@ -1071,7 +1073,7 @@ function main() returns ExitCode
 	let p = Point.create(1)
 	var q = p
 	q.x = 99
-	return p.x
+	return try p.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1428,6 +1430,7 @@ end 'main'
 ```
 
 <!-- test: a-let-a-closure-captured-is-read-when-the-closure-is-called -->
+<!-- positions: moved -->
 A closure that captures `s` takes ownership of it, so pushing `s` afterwards uses a moved value.
 ```maxon
 
@@ -1450,7 +1453,7 @@ function main() returns ExitCode
 	arr.push(s)
 	var e = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 9
-	return f() as ExitCode
+	return try f() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

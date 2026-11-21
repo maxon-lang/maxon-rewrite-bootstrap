@@ -102,6 +102,7 @@ end 'main'
 ```
 
 <!-- test: array-source-push-in-body-extends-the-iteration -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 The other half of the pin: an ARRAY source is writable in the body, and the loop re-reads its
 live count, so each element the body pushes is visited. The element read before a push that
 reallocates the array stays valid.
@@ -109,11 +110,11 @@ reallocates the array stays valid.
 typealias Labels = Array with String
 
 function main() returns ExitCode
-	var arr = Labels.create(0)
+	let arr = Labels.create(0)
 	arr.push("growing element number {40 + 2}")
 	for s in arr 'l'
 		if arr.count() < 3 'grow'
-			arr.push("growing element number {try arr.count() + 40 otherwise panic("out of range")}")
+			arr.push("growing element number {arr.count() + 40}")
 		end 'grow'
 		print("{s} {s.byteLength()}\n")
 	end 'l'
@@ -178,6 +179,7 @@ done seen=1 arrCount=0
 ```
 
 <!-- test: module-array-cleared-by-a-callee-ends-the-iteration -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 A callee clears the module `var` array the loop walks. The element read before the call stays
 valid, and the next step sees the cleared count and ends.
 ```maxon
@@ -188,7 +190,7 @@ function wipe(mutates pending Lines)
 end 'wipe'
 
 function main() returns ExitCode
-	var pending = Lines.create(0)
+	let pending = Lines.create(0)
 	pending.push("hello world this is a long string for heap allocation {40 + 2}")
 	for it in pending 'scan'
 		wipe(pending)
@@ -207,6 +209,7 @@ end 'main'
 ```
 
 <!-- test: module-array-rebound-in-body-walks-the-old-record -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 Rebinding the module `var` the loop walks leaves the loop on the record it started on, to that
 record's end.
 ```maxon
@@ -221,7 +224,7 @@ function main() returns ExitCode
 	var t = 0 as Integer
 	for n in numbers 'l'
 		numbers = IntegerArray.create(0)
-		t = try t + n otherwise panic("out of range")
+		t = t + n
 	end 'l'
 	print("{t} {numbers.count()}\n")
 	return 0

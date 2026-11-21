@@ -257,7 +257,7 @@ type Holder
 end 'Holder'
 
 function bump(mutates n Coord, h Holder) returns Coord
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return h.n
 end 'bump'
 
@@ -286,7 +286,7 @@ type Holder
 end 'Holder'
 
 function bump(h Holder, mutates n Coord) returns Coord
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return h.n
 end 'bump'
 
@@ -316,12 +316,12 @@ type Holder
 end 'Holder'
 
 function settle(mutates n Coord, h Holder) returns Coord
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return h.n
 end 'settle'
 
 function peek(n Coord, h Holder) returns Coord
-	return n + h.n
+	return try n + h.n otherwise panic("out of range")
 end 'peek'
 
 function main() returns ExitCode
@@ -380,7 +380,7 @@ type Holder
 	end 'create'
 
 	function settle(mutates m Coord) returns Coord
-		m = m + 1
+		m = try m + 1 otherwise panic("out of range")
 		return self.n
 	end 'settle'
 end 'Holder'

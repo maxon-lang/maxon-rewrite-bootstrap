@@ -2682,7 +2682,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -5985,7 +5985,7 @@ type Holder
 	end 'create'
 
 	function settle(mutates m Coord) returns Coord
-		m = m + 1
+		m = try m + 1 otherwise panic("out of range")
 		return self.n
 	end 'settle'
 end 'Holder'
@@ -6604,7 +6604,7 @@ A call through a function value knows no body, so a `mutable` position counts as
 typealias Tally = int(0 to u64.max)
 
 function look(mutates a String, b String) returns Tally
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'look'
 
 function main() returns ExitCode
@@ -7367,7 +7367,7 @@ The inner call overwrites its cell and the outer only reads its own: the outer c
 typealias Tally = int(0 to u64.max)
 
 function f(mutates a String, k Tally) returns Tally
-	return (a.byteLength() as Tally) + k
+	return try (a.byteLength() as Tally) + k otherwise panic("out of range")
 end 'f'
 
 function g(mutates x String) returns Tally
@@ -7447,7 +7447,7 @@ A tuple assignment to two `mutable` parameters reassigns each, so a sibling read
 typealias Tally = int(0 to u64.max)
 
 function swapped(mutates a String, mutates b String, c String) returns Tally
-	(a, b) = (b, a)
+	(a, b) = (b.clone(), a.clone())
 	return c.byteLength() as Tally
 end 'swapped'
 

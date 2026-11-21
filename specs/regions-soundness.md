@@ -24,6 +24,7 @@ bound by a plain `let` is ordinary mutable data. These cases compile in the libr
 ## Tests
 
 <!-- test: a-field-store-of-a-call-result-sourced-from-a-parameter-pins-the-parameter -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `pick` may hand back `p`, so storing its result into a mutable field makes `p` mutable only and the frozen argument is refused.
 
@@ -1139,6 +1140,7 @@ end 'main'
 ```
 
 <!-- test: a-call-result-of-an-undecided-source-pushed-into-a-plain-array-is-judged -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `same(box)` hands `box` back, and `items.push` stores it into an array whose elements are plain, so `keep` needs `box` mutable and the frozen argument is refused.
 

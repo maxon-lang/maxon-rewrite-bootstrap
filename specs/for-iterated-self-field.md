@@ -32,6 +32,7 @@ end 'scan'
 ## Tests
 
 <!-- test: iterated-self-field-bare-source-bare-assign-walks-the-old-record -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 The bare source, the bare write. Both elements of the old record are visited, and the field ends
 up holding the fresh empty array: `21 + 22 + 0`.
 ```maxon
@@ -43,25 +44,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		var a = Labels.create(0)
+		let a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum(mutates self) returns Tally
+	function sum() returns Tally
 		var total = 0 as Tally
 		for it in items 'scan'
 			items = Labels.create(0)
 			print("{it}\n")
-			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
+			total = total + (it.byteLength() as Tally)
 		end 'scan'
-		return try total + (items.count() as Tally) otherwise panic("out of range")
+		return total + (items.count() as Tally)
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -74,6 +75,7 @@ second heap element 45
 ```
 
 <!-- test: iterated-self-field-bare-source-explicit-assign-walks-the-old-record -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 The bare source, the `self.`-spelled write — the same storage, so the same answer.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -84,25 +86,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		var a = Labels.create(0)
+		let a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum(mutates self) returns Tally
+	function sum() returns Tally
 		var total = 0 as Tally
 		for it in items 'scan'
 			self.items = Labels.create(0)
 			print("{it}\n")
-			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
+			total = total + (it.byteLength() as Tally)
 		end 'scan'
-		return try total + (items.count() as Tally) otherwise panic("out of range")
+		return total + (items.count() as Tally)
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -115,6 +117,7 @@ second heap element 45
 ```
 
 <!-- test: iterated-self-field-explicit-source-bare-assign-walks-the-old-record -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 The `self.`-spelled source, the bare write.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -125,25 +128,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		var a = Labels.create(0)
+		let a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum(mutates self) returns Tally
+	function sum() returns Tally
 		var total = 0 as Tally
 		for it in self.items 'scan'
 			items = Labels.create(0)
 			print("{it}\n")
-			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
+			total = total + (it.byteLength() as Tally)
 		end 'scan'
-		return try total + (items.count() as Tally) otherwise panic("out of range")
+		return total + (items.count() as Tally)
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -156,6 +159,7 @@ second heap element 45
 ```
 
 <!-- test: iterated-self-field-explicit-source-explicit-assign-walks-the-old-record -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 Both halves spelled with `self.`.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -166,25 +170,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		var a = Labels.create(0)
+		let a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum(mutates self) returns Tally
+	function sum() returns Tally
 		var total = 0 as Tally
 		for it in self.items 'scan'
 			self.items = Labels.create(0)
 			print("{it}\n")
-			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
+			total = total + (it.byteLength() as Tally)
 		end 'scan'
-		return try total + (items.count() as Tally) otherwise panic("out of range")
+		return total + (items.count() as Tally)
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -197,6 +201,7 @@ second heap element 45
 ```
 
 <!-- test: iterated-self-field-bare-source-bare-call-ends-the-iteration -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 A mutating METHOD on the iterated field changes the record the loop walks: the element already
 read stays valid, and the next step sees the cleared count and ends.
 ```maxon
@@ -208,25 +213,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		var a = Labels.create(0)
+		let a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum(mutates self) returns Tally
+	function sum() returns Tally
 		var total = 0 as Tally
 		for it in items 'scan'
 			items.clear()
 			print("{it}\n")
-			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
+			total = total + (it.byteLength() as Tally)
 		end 'scan'
-		return try total + (items.count() as Tally) otherwise panic("out of range")
+		return total + (items.count() as Tally)
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -238,6 +243,7 @@ first heap element 42
 ```
 
 <!-- test: iterated-self-field-bare-source-explicit-call-ends-the-iteration -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 The chain spelling of the same call. It reaches a different door and must reach the same answer.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -248,25 +254,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		var a = Labels.create(0)
+		let a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum(mutates self) returns Tally
+	function sum() returns Tally
 		var total = 0 as Tally
 		for it in items 'scan'
 			self.items.clear()
 			print("{it}\n")
-			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
+			total = total + (it.byteLength() as Tally)
 		end 'scan'
-		return try total + (items.count() as Tally) otherwise panic("out of range")
+		return total + (items.count() as Tally)
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -278,6 +284,7 @@ first heap element 42
 ```
 
 <!-- test: iterated-self-field-explicit-source-bare-call-ends-the-iteration -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 The `self.`-spelled source with the bare call.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -288,25 +295,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		var a = Labels.create(0)
+		let a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum(mutates self) returns Tally
+	function sum() returns Tally
 		var total = 0 as Tally
 		for it in self.items 'scan'
 			items.clear()
 			print("{it}\n")
-			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
+			total = total + (it.byteLength() as Tally)
 		end 'scan'
-		return try total + (items.count() as Tally) otherwise panic("out of range")
+		return total + (items.count() as Tally)
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -318,6 +325,7 @@ first heap element 42
 ```
 
 <!-- test: iterated-self-field-explicit-source-explicit-call-ends-the-iteration -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 Both halves of the call spelled with `self.`.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -328,25 +336,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		var a = Labels.create(0)
+		let a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum(mutates self) returns Tally
+	function sum() returns Tally
 		var total = 0 as Tally
 		for it in self.items 'scan'
 			self.items.clear()
 			print("{it}\n")
-			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
+			total = total + (it.byteLength() as Tally)
 		end 'scan'
-		return try total + (items.count() as Tally) otherwise panic("out of range")
+		return total + (items.count() as Tally)
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```

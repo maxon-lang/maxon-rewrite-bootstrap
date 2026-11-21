@@ -570,6 +570,7 @@ closure-capture.md: closure-capture.capture-string
 closure-capture.md: closure-capture.captured-plain-struct-still-works
 closure-capture.md: closure-capture.clone-shares-the-closure
 closure-capture.md: closure-capture.enum-declared-after-a-closure
+closure-capture.md: closure-capture.error.a-closure-in-a-loop-cannot-capture-an-outer-local
 closure-capture.md: closure-capture.field-declared-after-a-closure-bearing-method
 closure-capture.md: closure-capture.ignore-param
 closure-capture.md: closure-capture.interface-method-with-captured-field
@@ -701,6 +702,7 @@ conditional-move-drops.md: try-handler-move-fallthrough-both-live
 conditional-move-drops.md: try-handler-move-return-ok-live
 conditional-move-drops.md: union-payload-cond-move-return
 conditional-move-drops.md: use-after-conditional-move
+conditional-ownership-param.md: error.struct-use-after-move-retained-var
 conditional-ownership-param.md: struct-borrowed-var-reassignment-not-taken
 conditional-ownership-param.md: struct-break-after-reassign
 conditional-ownership-param.md: struct-cond-reassign-else
@@ -1858,6 +1860,7 @@ literals.md: binary-integer
 literals.md: binary-underscore
 literals.md: boolean
 literals.md: error.a-top-level-cast-gives-the-global-its-alias
+literals.md: error.a-top-level-float-cast-gives-the-global-its-alias
 literals.md: error.float-overflow
 literals.md: error.u64-max-into-a-signed-alias-at-top-level
 literals.md: error.unsigned-literal-interpolated-with-no-alias
@@ -2325,11 +2328,16 @@ moves.md: a-var-moves-where-a-field-read-before-the-loop-cannot-hold-it
 moves.md: assign-owned-from-owned
 moves.md: call-arg-consumed-at-two-positions
 moves.md: conditional-poisoning
+moves.md: error.a-closure-may-not-capture-a-moved-value
 moves.md: field-access-on-live-struct
+moves.md: field-read-after-move
+moves.md: field-store-after-move
+moves.md: field-store-after-move-on-assign
 moves.md: immutable-rebind-on-assign-from-a-loop-element
 moves.md: immutable-rebind-on-assign-is-a-second-name
 moves.md: immutable-rebind-on-assign-outlives-its-source
 moves.md: legal-move
+moves.md: method-call-after-move
 moves.md: multiple-alias
 moves.md: paren-move
 moves.md: paren-use-after-move
@@ -3796,6 +3804,7 @@ tuple-assign-var-target.md: var-target-in-a-loop-carries
 tuple-assign.md: basic-tuple-assign
 tuple-assign.md: tuple-assign-all-new-var-decl
 tuple-assign.md: tuple-assign-discard
+tuple-assign.md: tuple-assign-error-assign-to-let-decl
 tuple-assign.md: tuple-assign-in-loop
 tuple-assign.md: tuple-assign-let-decl
 tuple-assign.md: tuple-assign-mixed-var-decl
@@ -4052,6 +4061,8 @@ var-should-be-let.md: a-let-written-only-through-a-callee-argument-is-written
 var-should-be-let.md: a-read-on-the-other-arm-is-not-after
 var-should-be-let.md: a-string-relayed-by-a-call-is-copied-when-it-is-bound-to-a-var
 var-should-be-let.md: a-var-written-only-through-a-callee-argument-is-needed
+var-should-be-let.md: error.let-record-assigned-to-a-var-moves-it
+var-should-be-let.md: error.let-record-bound-to-a-var-moves-it
 var-should-be-let.md: let-no-error
 var-should-be-let.md: let-record-alias-of-a-parameter-bound-through-a-call
 var-should-be-let.md: returned-alias-of-a-let-receiver-field

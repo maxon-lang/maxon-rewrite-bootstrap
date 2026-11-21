@@ -1518,6 +1518,7 @@ error E3102: <fragment>:35:11: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-moves-then-arm-reads -->
+<!-- positions: moved -->
 ### A move made in the CONDITION is seen by the TRUE arm
 The condition hands `t` to a closure, which owns what it captures, and the true arm reads `t` after it.
 ```maxon
@@ -1531,7 +1532,7 @@ end 'run'
 
 function main() returns ExitCode
 	var t = "key{1} padded out long enough to be a real heap allocation"
-	let r = t if run(function() gives t.byteLength()) > 0 else "fallback"
+	let r = t if run(function() gives try t.byteLength() as Num otherwise panic("out of range")) > 0 else "fallback"
 	t = "again"
 	print(r)
 	print(t)
@@ -1543,6 +1544,7 @@ error E3102: <fragment>:12:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-moves-then-arm-reads-hoisted -->
+<!-- positions: moved -->
 ### The hoisted control: the move is made before the conditional
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1555,7 +1557,7 @@ end 'run'
 
 function main() returns ExitCode
 	var t = "key{1} padded out long enough to be a real heap allocation"
-	let n = run(function() gives t.byteLength())
+	let n = run(function() gives try t.byteLength() as Num otherwise panic("out of range"))
 	let r = t if n > 0 else "fallback"
 	t = "again"
 	print(r)
@@ -1736,14 +1738,14 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	let f = (function() gives peekUT(u)) if lg(peekUT(idUT(u))) != 0 else (function() gives lg(0))
-	return f()
+	return try f() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1772,14 +1774,14 @@ function peekTk(x Tk) returns Num
 	return x.n
 end 'peekTk'
 
-function idTk(x Tk) returns Tk
+function idTk(consumes x Tk) returns Tk
 	return x
 end 'idTk'
 
 function main() returns ExitCode
 	let u = Tk.create(1)
 	let r = u.n if lg(peekTk(idTk(u))) != 0 else 0
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1812,14 +1814,14 @@ function peekTk(x Tk) returns Num
 	return x.n
 end 'peekTk'
 
-function idTk(x Tk) returns Tk
+function idTk(consumes x Tk) returns Tk
 	return x
 end 'idTk'
 
 function main() returns ExitCode
 	let u = Tk.create(1)
 	let r = u.peek() if lg(peekTk(idTk(u))) != 0 else 0
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

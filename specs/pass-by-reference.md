@@ -1314,7 +1314,7 @@ function main() returns ExitCode
 	var big = 0 as Count
 	for item in xs 'walk'
 		if isBig(item) 'big'
-			big = big + 1
+			big = try big + 1 otherwise panic("out of range")
 		end 'big'
 	end 'walk'
 	print("{big}\n")

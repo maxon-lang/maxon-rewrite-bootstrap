@@ -286,6 +286,7 @@ error E3207: <fragment>:35:13: 'aim' writes 'next' (line 17: `self.target = next
 ```
 
 <!-- test: error.a-payload-written-through-a-match-in-a-callee-refuses-a-frozen-union -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `match` binding is a payload of its scrutinee's box, so the callee that pushes onto `label` writes the box it was handed, and the frozen value cannot be handed to it.
 

@@ -463,7 +463,7 @@ function main() returns ExitCode
 	var q = Point.create(1)
 	q = p
 	p.x = 99
-	return q.x
+	return try q.x as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -663,7 +663,7 @@ end 'Point'
 function main() returns ExitCode
 	var p = Point.create(7)
 	let q = p
-	return p.x
+	return try p.x as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -695,7 +695,7 @@ function main() returns ExitCode
 	var p = Point.create(7)
 	let q = p
 	p.x = 99
-	return q.x
+	return try q.x as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -727,7 +727,7 @@ end 'Point'
 function main() returns ExitCode
 	var p = Point.create(5)
 	let q = p
-	return p.getX()
+	return try p.getX() as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -742,6 +742,7 @@ error E3102: <fragment>:17:9: use of moved value 'p': its ownership moved to ano
 owns — and would read it after that owner released it. The capture is a use of `t`, refused at the capture.
 
 <!-- test: error.a-closure-may-not-capture-a-moved-value -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -758,7 +759,7 @@ function main() returns ExitCode
 	var u = t
 	let peek = function() gives t.value
 	u.value = 9
-	return peek()
+	return try peek() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1134,17 +1135,18 @@ end 'main'
 ```
 
 <!-- test: moves.a-record-moved-out-of-the-loops-source-is-cleared-inside-the-loop -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 `taken` takes the record the loop walks and clears it. `x` holds its own reference to the element it read, so
 it is still readable after the clear.
 ```maxon
 typealias Words = Array with String
 
 function main() returns ExitCode
-	var items = Words.create(0)
+	let items = Words.create(0)
 	items.push("first padded out long enough to heap allocate {1}")
 	items.push("second padded out long enough to heap allocate {2}")
 	for x in items 'each'
-		var taken = items
+		let taken = items
 		taken.clear()
 		print("{x} {taken.count()}\n")
 		break
