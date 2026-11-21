@@ -188,6 +188,8 @@ export type Checker
 	export var outers as Array with OuterLevel
 	export var bFrames as Array with BehaviourFrame
 	export var inBehaviour as bool
+	// bareNumbers is whether a bare 'int' or 'float' is the full range of its kind, which only the right side of a typealias says.
+	export var bareNumbers as bool
 	// inClosure is whether the innermost body being checked is a closure's; it and inBehaviour are never both true.
 	export var inClosure as bool
 	export var activeBehIdx as Count
@@ -216,7 +218,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
 	end 'make'
 end 'Checker'
 
@@ -1077,6 +1079,20 @@ function resolveTupleTypeRef(mutates c Checker, mutates p ast.Project, tr ast.No
 	return ast.tupleType(p.types, elems: elems)
 end 'resolveTupleTypeRef'
 
+// bareNumberName is "int" or "float" when a type reference is that word alone, and "" for any other.
+function bareNumberName(p ast.Project, modIdx Count, tr ast.NodeID) returns String
+	let qualified = p.modules[modIdx].tree.listLen(ast.typeRefQualifierRef(p.modules[modIdx].tree, id: tr)) > 0
+	let applied = p.modules[modIdx].tree.listLen(ast.typeRefTypeArgsRef(p.modules[modIdx].tree, id: tr)) > 0
+	if ast.typeRefIsTuple(p.modules[modIdx].tree, id: tr) or qualified or applied 'other'
+		return ""
+	end 'other'
+	let name = ast.typeRefName(p.modules[modIdx].tree, id: tr)
+	if name == "int" or name == "float" 'bare'
+		return name
+	end 'bare'
+	return ""
+end 'bareNumberName'
+
 function resolveNamedTypeRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = p.modules[c.modIdx].tree.startOf(tr)
 	let tName = ast.typeRefName(p.modules[c.modIdx].tree, id: tr)
@@ -1110,6 +1126,12 @@ function resolveNamedTypeRef(mutates c Checker, mutates p ast.Project, tr ast.No
 			end 'badA'
 			return selfTy
 		end 'slf'
+		if tName == "int" and c.bareNumbers 'fullInt'
+			return p.builtins.fullRangeIntTy
+		end 'fullInt'
+		if tName == "float" and c.bareNumbers 'fullFloat'
+			return p.builtins.fullRangeFloatTy
+		end 'fullFloat'
 		if tName == "int" 'bareInt'
 			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.bareIntType(), errs: errs)
 			return ast.noType

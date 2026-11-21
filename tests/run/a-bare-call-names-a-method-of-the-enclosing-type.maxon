@@ -1,0 +1,33 @@
+typealias Amount = int(0 to 1000)
+
+type Counter
+	export var n as Amount
+
+	static function create() returns Self
+		return build(7)
+	end 'create'
+
+	static function build(n Amount) returns Self
+		return Self{n: n}
+	end 'build'
+
+	function pair() returns Amount
+		return bump()
+	end 'pair'
+
+	function bump() returns Amount
+		return n
+	end 'bump'
+end 'Counter'
+
+function bump() returns Amount
+	return 0
+end 'bump'
+
+function main() returns ExitCode
+	let c = Counter.create()
+	print("{c.pair()} {bump()}\n")
+	return 0
+end 'main'
+
+//> 7 0

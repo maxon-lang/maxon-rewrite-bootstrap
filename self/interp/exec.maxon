@@ -323,8 +323,14 @@ function execBin(mutates vm Vm, x ir.Instr)
 end 'execBin'
 
 function execCmp(mutates vm Vm, x ir.Instr)
-	let a = vm.num(x.a)
-	let b = vm.num(x.b)
+	var a = vm.num(x.a)
+	var b = vm.num(x.b)
+	let objectA = vm.ref(x.a)
+	let objectB = vm.ref(x.b)
+	if objectA != 0 or objectB != 0 'objects'
+		a = try objectA as ir.Word otherwise panic("interp: a handle past a word")
+		b = try objectB as ir.Word otherwise panic("interp: a handle past a word")
+	end 'objects'
 	let equal = a == b
 	var less = a < b
 	if (x.flags and ir.flagUnsigned) != 0 'unsigned'

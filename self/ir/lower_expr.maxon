@@ -1054,6 +1054,14 @@ function lowerOperator(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, l
 		goTo(l, target: frame.join)
 		return load(l, slot: frame.result)
 	end 'logical'
+	if op == "is" 'identity'
+		var test = CmpOp.cmpEq
+		if ast.binaryExprNegated(p.modules[l.mi].tree, id: e) 'negated'
+			test = CmpOp.cmpNe
+		end 'negated'
+		let other = lowerExpr(l, p: p, e: right)
+		return compare(l, op: test, a: left, b: other, unsigned: true)
+	end 'identity'
 	let arith = arithInfoAt(p, module: l.module, node: e)
 	if arith.operand == p.builtins.stringTy 'string'
 		let b = lowerExpr(l, p: p, e: right)

@@ -1,0 +1,22 @@
+typealias Amount = int(0 to 1000)
+
+type Point
+	export var x as Amount
+
+	static function create(x Amount) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function same(a Point, b Point) returns bool
+	return a is b
+end 'same'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let b = Point.create(1)
+	print("{a is a} {same(a, b: a)} {a is b} {a is not b} {a is not a}\n")
+	return 0
+end 'main'
+
+//> true true false true false

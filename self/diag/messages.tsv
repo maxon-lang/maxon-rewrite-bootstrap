@@ -55,6 +55,8 @@ throwsNamesAnInterface	ErrThrowsNotAnErrorEnum	'throws {declared}' names an INTE
 throwsNamesNoError	ErrThrowsNotAnErrorEnum	'throws {declared}' names no declared enum or union. A caught error is decoded off the DECLARED clause, so the clause has to name the type whose cases it decodes into
 thrownValueNotAnErrorEnum	ErrTypeMismatch	throw requires an error enum value
 bareIntType	ErrTypeMismatch	Cannot use bare 'int' as a type. Define a typealias with range constraints, e.g., typealias MyInt = int(0 to 100)
+bareIntCast	ErrTypeMismatch	Cannot cast to bare 'int'. Define a typealias with range constraints, e.g., 'value as MyInt' where 'typealias MyInt = int(0 to 100)'
+bareFloatCast	ErrTypeMismatch	Cannot cast to bare 'float'. Define a typealias with range constraints, e.g., 'value as MyFloat' where 'typealias MyFloat = float(0.0 to 1.0)'
 bareFloatType	ErrTypeMismatch	Cannot use bare 'float' as a type. Define a typealias with range constraints, e.g., typealias MyFloat = float(0.0 to 1.0)
 duplicateField	ErrDuplicateDefinition	Duplicate field '{member}' in type '{typeName}'
 duplicateMethod	ErrDuplicateDefinition	Duplicate method '{member}' in type '{typeName}'
@@ -68,6 +70,10 @@ duplicateEnumCase	ErrEnumDuplicateCase	duplicate enum case: '{caseName}'
 formatFieldOverflow	ErrIntegerLiteralRange	A width or precision in format specifier '{spec}' is larger than {bound}
 duplicateRawValue	ErrEnumDuplicateRawValue	duplicate raw value: '{rawValue}'
 rawValueTypeMismatch	ErrEnumRawValueTypeMismatch	raw value type mismatch: 'expected {expected}, got {got}'
+refIdentityOnPrimitive	ErrRefIdentityOnPrimitive	'{op}' requires reference types (structs), not primitive values
+refIdentityTypeMismatch	ErrTypeMismatch	'{op}' requires both operands to be the same type, got '{left}' and '{right}'
+matchQualifiedCaseName	ErrMatchQualifiedCaseName	use '{bare}' instead of '{qualified}' in match
+instanceMethodWithoutReceiver	ErrInstanceMethodWithoutReceiver	'{method}' is an instance method of '{owner}' and needs a receiver: call it on a value, such as 'value.{method}(...)', or make it `static`
 enumUnknownCase	ErrEnumUnknownCase	unknown {kindWord} case: '{caseName}'
 enumWrongBindingCount	ErrEnumWrongBindingCount	wrong binding count: '{caseName}' expects {expected} associated value(s), got {got}
 argArityMismatch	ErrCallArgCountMismatch	'{callee}' expects {expected} argument(s) but {got} were provided

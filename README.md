@@ -970,7 +970,7 @@ and nothing else.
 - Tuples (see "Tuples"): the type `(A, B)`, the value `(a, b)`, `t.0`, `typealias Span = (A, B)`, a tuple as a parameter, a result or a
   field, `let (a, b) = t`, `(a, let b) = t` and `for (a, b) in xs`.
 - Integer, float, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
-  comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
+  comparisons, `a is b` and `a is not b` (see "Identity"), `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
@@ -1718,6 +1718,12 @@ each, with a link name each (see "Link names"), and with one conformance they sh
 a generic type needs for a bound of the type is the one seen from the module of the call, and a call through a bound
 that reaches such a method where that module sees none is `E3017` when the module's instances are found.
 
+Inside a type's methods, and in an extension's, a bare call `helper(...)` names the method `helper` of the enclosing type, as
+a bare field name names a field: an instance method is called on `self`, a static one on the type, and either outranks a
+function of the same name. A static method has no `self`, so a bare call of an instance method in it, and a call of one
+by its type's name (`Counter.bump()`), is `E3193`. A local variable of that name comes first, and a closure or a behaviour inside the
+method does not see the method.
+
 An extension of a built-in generic type names its parameters as the built-in table does (`T` for `Array`, not maxon's
 `Element`). An extension of a typealias is `E2015`, one of an unknown name is `E3011`.
 
@@ -2014,6 +2020,17 @@ end 'transfer'
   order, and a behaviour that names several cowns acquires them together: there is no lock to hold while waiting, so no
   deadlock.
 
+### Identity
+
+`a is b` is true when two names stand for one object, and `a is not b` when they do not (maxon's reference identity; the
+operator ranks with the comparisons, below them and above `and`). It takes two operands of one type that has an object: a
+`type` or a tuple, a `String`, an `Array`, a `Map` or a `List`. A number, a `bool`, an enum case, a union, a function, a
+type parameter and anything else is `E3068` at the `is` (`'is' requires reference types (structs), not primitive values`), and
+two operands of different types are `E3005`. What it compares is the two objects' addresses. A record has one owner, so
+two names stand for one record only where one is a borrow of the other, or both borrow one owner: `a is a` and a
+parameter handed `a` twice are true, two records built alike and a `.clone()` are not, and `let b = a` is a move
+(`E3102` where `a` is used again), so nothing like maxon's alias made by `let b = a` exists to compare.
+
 ### Layout
 
 The layout is part of the syntax: a program has one way to be written, and anything else is a syntax error at the
@@ -2104,6 +2121,17 @@ are not supported.
   one method name are `E3942`, and two conformances of one type to one interface seen at one place are `E3941`. A method
   that an extension declares under the name of a method in the body of a type of another module is `E3006` at the
   extension's method, reported when the modules are verified.
+- Match arms name the case of an enum or a union by its bare name; a qualified `Color.red` is `E3075`, once for the match as
+  maxon does (maxon's `Type.case` arms of a handler over the combined error of several errors are not supported, see
+  "Errors of the program"). A bare `int` or `float` is the full range of its kind only on the right of a `typealias`
+  (`typealias Pair = (int, int)`, `typealias Op = function(int) returns int`); anywhere else it is `E3005`, and as the
+  target of a cast it has the cast's own wording. `int.fromString` and the other static functions of `int` are library, which
+  minimaxon has not: a call is `E2004`.
+- `a is b` (see "Identity") does not refuse a record that packs into one word (maxon's inline record, `E3068`): every
+  record here is a heap box with an address. A literal is not interned, so two equal literals are two objects, and the
+  tests that read an alias made by `let b = a`, a string's identity after `.clone()` or the identity of a constant do not
+  hold here (`.clone()` of a `String` is the same object).
+- A keyword is not a case name: maxon's `end` as the case of an enum, a union or an arm is a syntax error here.
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.

@@ -56,6 +56,8 @@ ErrUncheckedFailure	E3057	throwingFunctionRequiresTry	A call that can fail is ma
 ErrErrorTypeMismatch	E3059	errorTypeMismatch	An error goes where nothing takes an error of its type: a 'try' or 'throw' with no caller to pass it to, or one that throws another.
 ErrDuplicateTypeAlias	E3061	semanticDuplicateTypeAlias	A typealias is declared twice in one type's body.
 ErrEnumNotComparable	E3066	semanticEnumNotComparable	A union is compared with '==' or '!='.
+ErrRefIdentityOnPrimitive	E3068	refIdentityOnPrimitive	An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a union, a function or a type parameter.
+ErrMatchQualifiedCaseName	E3075	matchQualifiedCaseName	A match arm names a case of an enum or union with its type's name, which the subject already gives.
 ErrConstructorRestriction	E3076	semanticConstructorRestriction	A struct literal is written outside the methods of its type.
 ErrEmptyBlock	E3082	semanticEmptyBlock	A block other than a function body holds no statement.
 ErrTryBlockBindingNotMatched	E3084	tryBlockBindingNotMatched	The handler of a try block names the error but never matches on it.
@@ -78,6 +80,7 @@ ErrCannotInfer	E3179	genericTypeParameterNotInferable	A type parameter of a gene
 ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program cannot be spelled as a module name.
 ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
 ErrExclusivity	E3186	argumentOverlapsWrittenParameter	An argument handed to a written parameter overlaps another operand of the call.
+ErrInstanceMethodWithoutReceiver	E3193	semanticInstanceMethodCalledWithoutReceiver	An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.
 ErrFrozenChange	E3197	semanticWriteThroughReadOnly	A write or a consuming call goes through the contents of a frozen value.
 ErrCapabilityConversion	E3210	semanticCapabilityConversionRefused	A function value writes what it captured, which its function type does not allow.
 ErrUnsignedNegation	E3218	semanticUnsignedNegation	An unsigned value is negated.

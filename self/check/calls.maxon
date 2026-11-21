@@ -100,6 +100,10 @@ function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mut
 		return ast.noType
 	end 'forbidden'
 	if named 'named'
+		let sibling = siblingMethod(c, p: p, callee: callee, errs: errs)
+		if sibling != ast.noFunc 'sibling'
+			return callSibling(c, p: p, call: call, callee: callee, method: sibling, errs: errs)
+		end 'sibling'
 		return callNamed(c, p: p, call: call, callee: callee, errs: errs)
 	end 'named'
 	if k == ast.NodeKind.memberExpr and not namesFunctionField(c, p: p, callee: callee) 'member'
@@ -107,6 +111,41 @@ function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mut
 	end 'member'
 	return callValue(c, p: p, call: call, callee: callee, errs: errs)
 end 'typeCall'
+
+// siblingMethod is the method of the enclosing type that a bare name stands for, as a bare field name stands for a field,
+// or none: the type's method outranks a function of the same name.
+function siblingMethod(c Checker, p ast.Project, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.FuncID
+	if c.owner == ast.noType or c.fn == ast.noFunc or c.inBehaviour or c.inClosure 'outside'
+		return ast.noFunc
+	end 'outside'
+	return methodOf(c, p: p, t: c.owner, name: ast.nameExprName(p.modules[c.modIdx].tree, id: callee), node: callee, errs: errs)
+end 'siblingMethod'
+
+// callSibling types a bare call of a method of the enclosing type: `helper()` is `self.helper()`, and a static method is
+// called as `Self.helper()`. A static method has no `self`, so a bare call of an instance method in it has no receiver.
+function callSibling(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee ast.NodeID, method ast.FuncID, mutates errs diag.ErrorList) returns ast.TypeID
+	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: callee)
+	let owner = c.owner
+	if p.funcs.entries[method as Count].isStatic 'static'
+		return callOnType(c, p: p, call: call, nt: owner, name: name, errs: errs)
+	end 'static'
+	if not p.funcs.entries[c.fn as Count].hasReceiver 'noReceiver'
+		return refuseInstanceMethodWithoutReceiver(c, p: p, node: callee, owner: owner, name: name, errs: errs)
+	end 'noReceiver'
+	let start = p.modules[c.modIdx].tree.startOf(callee)
+	let member = ast.newMemberExpr(p.modules[c.modIdx].tree, start: start)
+	let receiver = ast.newSelfExpr(p.modules[c.modIdx].tree, start: start)
+	ast.setMemberExprObj(p.modules[c.modIdx].tree, id: member, value: receiver)
+	ast.setMemberExprNameRef(p.modules[c.modIdx].tree, id: member, ref: ast.nameExprNameRef(p.modules[c.modIdx].tree, id: callee))
+	ast.setCallExprCallee(p.modules[c.modIdx].tree, id: call, value: member)
+	return callMember(c, p: p, call: call, callee: member, errs: errs)
+end 'callSibling'
+
+// refuseInstanceMethodWithoutReceiver is E3193: an instance method named where there is no value to call it on.
+function refuseInstanceMethodWithoutReceiver(c Checker, p ast.Project, node ast.NodeID, owner ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	failAt(c, p: p, node: node, code: diag.errInstanceMethodWithoutReceiver, msg: diag.instanceMethodWithoutReceiver(name, owner: nameOfType(p, t: owner)), errs: errs)
+	return ast.noType
+end 'refuseInstanceMethodWithoutReceiver'
 
 // writtenCallee is a callee as a message names it: a function by its name, a method by the name of its type and its own.
 function writtenCallee(mutates c Checker, mutates p ast.Project, callee ast.NodeID, mutates errs diag.ErrorList) returns String
@@ -385,6 +424,9 @@ function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, n
 	if sm != ast.noFunc and p.funcs.entries[sm as Count].isStatic 'static'
 		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: p.types.entries[nt as Count].typeArgs.count() > 0, given: p.types.entries[nt as Count].typeArgs.clone(), errs: errs)
 	end 'static'
+	if sm != ast.noFunc 'instance'
+		return refuseInstanceMethodWithoutReceiver(c, p: p, node: ast.callExprCallee(p.modules[c.modIdx].tree, id: call), owner: nt, name: name, errs: errs)
+	end 'instance'
 	return unknownFunction(c, p: p, call: call, name: "{nameOfType(p, t: nt)}.{name}", qualifiers: 1 as Count, errs: errs)
 end 'callOnType'
 

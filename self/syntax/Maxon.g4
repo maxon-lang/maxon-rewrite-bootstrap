@@ -165,7 +165,7 @@ fieldDecl
 // An extension adds methods, and conformances, to a type another declaration names: a type, an enum, a union, a built-in
 // generic type, String, bool or the integers (`extension int`).
 extensionDecl
-    : visibility=('export' | 'public')? 'extension' (target=typeRef | isInt='int') conforms=conformsClause? Newline
+    : visibility=('export' | 'public')? 'extension' (isInt='int' | target=typeRef) conforms=conformsClause? Newline
       (Indent (methods+=funcDecl Newline)+ Dedent)?
       'end' end=endLabel?
     ;
@@ -240,7 +240,7 @@ bound
 
 /** a type */
 typeRef
-    : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self') ('with' typeArgs=typeArgs)?
+    : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self' | 'int') ('with' typeArgs=typeArgs)?
     | isTuple='(' elems+=typeRef (',' elems+=typeRef)+ ')'
     ;
 
@@ -524,7 +524,7 @@ throwsArm builds ThrowStmt
 
 /** a pattern */
 pattern
-    : caseName=(Name | 'from') (hasBindings=^'(' (bindings+=(Name | 'from' | '_') (',' bindings+=(Name | 'from' | '_'))*)? ')')?
+    : caseName=(Name | 'from') ('.' member=Name)? (hasBindings=^'(' (bindings+=(Name | 'from' | '_') (',' bindings+=(Name | 'from' | '_'))*)? ')')?
     | value=patternValue ((inclusive='to' | 'upto') high=patternValue)?
     ;
 
@@ -567,6 +567,7 @@ expr
     | l=expr op=('+' | '-') r=expr                                   # BinaryExpr
     | l=expr op=('shl' | 'shr') r=expr                               # BinaryExpr
     | l=expr op=('==' | '!=' | '<' | '<=' | '>' | '>=') r=expr       # BinaryExpr
+    | l=expr op='is' negated='not'? r=expr                           # BinaryExpr
     | l=expr op='and' {notFallthrough}? r=expr                       # BinaryExpr
     | l=expr op='xor' r=expr                                         # BinaryExpr
     | l=expr op='or' r=expr                                          # BinaryExpr
@@ -635,9 +636,10 @@ boolLit
     | 'false'
     ;
 
-// 'export' is a name only as the start of a qualified name, where it is the root module.
+// 'export' is a name only as the start of a qualified name, where it is the root module, and 'int' only as the head of
+// one, where it names the type of an integer's static functions.
 nameExpr
-    : name=(Name | 'from' | 'Self' | 'export')
+    : name=(Name | 'from' | 'Self' | 'export' | 'int')
     ;
 
 @ast::NameExpr {

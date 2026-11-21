@@ -88,6 +88,7 @@ func normalizeText(src string) string {
 			lines[i] = convertLeadingSpaces(trimmedRight, spaceUnit)
 		}
 	}
+	alignOrChains(lines)
 	indentByDepth(lines)
 	res := strings.Join(lines, "\n")
 	if res != "" && !strings.HasSuffix(res, "\n") {
@@ -114,6 +115,37 @@ func indentByDepth(lines []string) {
 		}
 		lines[i] = strings.Repeat("\t", len(open)-1) + line[tabs:]
 	}
+}
+
+// alignOrChains puts the alternatives of a match arm's `or` chain at the indentation of the first one: maxon reads any
+// indentation after the `or` that ends a line, minimaxon's layout is the alternatives one under another.
+func alignOrChains(lines []string) {
+	chainIndent := ""
+	chained := false
+	for i, line := range lines {
+		trimmed := strings.TrimLeft(line, "	")
+		if trimmed == "" || strings.HasPrefix(trimmed, "//") {
+			continue
+		}
+		indent := line[:len(line)-len(trimmed)]
+		if chained {
+			lines[i] = chainIndent + trimmed
+			indent = chainIndent
+		}
+		chained = endsWithOr(trimmed)
+		chainIndent = indent
+	}
+}
+
+// endsWithOr reports whether the last token of the line, ignoring a comment, is the word `or`.
+func endsWithOr(line string) bool {
+	last := token{kind: tokOther}
+	for _, t := range lex(line) {
+		if t.kind != tokSpace && t.kind != tokLineComment && t.kind != tokNewline {
+			last = t
+		}
+	}
+	return last.kind == tokIdent && last.text == "or"
 }
 
 func detectSpaceIndent(lines []string) int {
@@ -543,7 +575,12 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		blockEnum
 		blockUnion
 		blockInterface
+		blockExtension
 	)
+	type openMatch struct {
+		indent  string
+		subject string
+	}
 	type openBlock struct {
 		indent string
 		kind   blockKind
@@ -551,6 +588,8 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		generic bool
 	}
 	var stack []openBlock
+	var matches []openMatch
+	handlerNames := map[string]bool{}
 	interfaces := declaredInterfaces(lines)
 	arities := interfaceArities(lines)
 
@@ -571,10 +610,26 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		}
 
 		// Pop blocks closed by `end` at matching indentation.
-		if line.code[0].text == "end" {
+		if line.code[0].text == "end" && !namesACase(line.code, currentBlock() == blockEnum) {
 			for len(stack) > 0 && len(stack[len(stack)-1].indent) >= len(line.indent) {
 				stack = stack[:len(stack)-1]
 			}
+			for len(matches) > 0 && len(matches[len(matches)-1].indent) >= len(line.indent) {
+				matches = matches[:len(matches)-1]
+			}
+		}
+		noteHandlerNames(line.code, handlerNames)
+		if subject := matchSubject(line.code); subject != "" {
+			matches = append(matches, openMatch{indent: line.indent, subject: subject})
+		}
+		if len(matches) > 0 && handlerNames[matches[len(matches)-1].subject] && isQualifiedArm(line.code) {
+			warn(line, "a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon")
+		}
+		if opensBlockInBrackets(line.code) {
+			warn(line, "a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own")
+		}
+		if namesACase(line.code, currentBlock() == blockEnum) {
+			warn(line, keywordNameMessage(line.code[0].text))
 		}
 
 		first := line.code[0]
@@ -628,6 +683,8 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			switch currentBlock() {
 			case blockInterface, blockEnum, blockUnion:
 				warn(line, "typealias declarations in an interface, enum or union are not supported in minimaxon")
+			case blockExtension:
+				warn(line, "typealias declarations in an extension are not supported in minimaxon")
 			case blockType:
 				if inGenericType() && isRangeTypealias(line.code, declIdx) {
 					warn(line, "ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own")
@@ -639,7 +696,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		case "extension":
 			transformWhereInSlice(line.code, declIdx+1, line, warn)
 			warnUnsupportedExtension(line, declIdx, interfaces, warn)
-			stack = append(stack, openBlock{indent: line.indent, kind: blockOther})
+			stack = append(stack, openBlock{indent: line.indent, kind: blockExtension})
 			continue
 		case "test":
 			if len(line.code) >= 2 && line.code[1].kind == tokLabel {
@@ -668,6 +725,79 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		// Statement and expression transformations.
 		transformStmtAndExpr(line, warn)
 	}
+}
+
+// armEnders are the words that follow an arm's patterns.
+var armEnders = []string{"then", "gives", "or", "panic", "throws"}
+
+// namesACase reports whether a line starting with `end` names a case of that word instead of closing a block: an enum's
+// case alone on its line, a union case or a match arm's pattern, which no block's end has after it but a label.
+func namesACase(toks []token, inEnum bool) bool {
+	if toks[0].text != "end" || toks[0].kind != tokIdent {
+		return false
+	}
+	if len(toks) == 1 {
+		return inEnum
+	}
+	next := toks[1]
+	return next.text == "(" || (next.kind == tokIdent && slices.Contains(armEnders, next.text))
+}
+
+// noteHandlerNames records the names that `otherwise (e)` and `else (e)` bind to an error.
+func noteHandlerNames(toks []token, names map[string]bool) {
+	for i := 0; i+3 < len(toks); i++ {
+		if (toks[i].text == "otherwise" || toks[i].text == "else") && toks[i+1].text == "(" && toks[i+2].kind == tokIdent && toks[i+3].text == ")" {
+			names[toks[i+2].text] = true
+		}
+	}
+}
+
+// matchSubject is the name a line `match name 'label'` matches on, or "" when the line opens no match on a name.
+func matchSubject(toks []token) string {
+	for i := 0; i+2 < len(toks); i++ {
+		if toks[i].text == "match" && toks[i].kind == tokIdent {
+			if toks[i+1].kind == tokIdent && toks[i+2].kind == tokLabel {
+				return toks[i+1].text
+			}
+			return ""
+		}
+	}
+	return ""
+}
+
+// isQualifiedArm reports whether a line starts a match arm whose first pattern is `Type.case`, with the bindings of a
+// union's payload or without.
+func isQualifiedArm(toks []token) bool {
+	if len(toks) < 4 || toks[0].kind != tokIdent || toks[1].text != "." || toks[2].kind != tokIdent {
+		return false
+	}
+	next := 3
+	if toks[next].text == "(" {
+		closing := findMatchingParen(toks, next)
+		if closing < 0 {
+			return false
+		}
+		next = closing + 1
+	}
+	return next < len(toks) && toks[next].kind == tokIdent && slices.Contains(armEnders, toks[next].text)
+}
+
+// opensBlockInBrackets reports whether a line ends in a label with a bracket still open, which only a block that
+// joinBracketLines kept on several lines does.
+func opensBlockInBrackets(toks []token) bool {
+	depth := 0
+	for _, t := range toks {
+		if t.kind != tokPunct {
+			continue
+		}
+		switch t.text {
+		case "(", "[", "{":
+			depth++
+		case ")", "]", "}":
+			depth--
+		}
+	}
+	return depth > 0 && toks[len(toks)-1].kind == tokLabel
 }
 
 // unsupportedExtensionTargets are the names an extension cannot extend in minimaxon although it may name them: library
@@ -1201,6 +1331,10 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if (i == 0 || toks[i-1].text != ".") && i+1 < len(toks) && (toks[i+1].kind == tokIdent || toks[i+1].text == "(") {
 					warn(line, "spawn services are not supported in minimaxon; use cown/when concurrency")
 				}
+			case "int":
+				if i+2 < len(toks) && toks[i+1].text == "." && toks[i+2].text == "fromString" {
+					warn(line, "'int.fromString' is not supported in minimaxon")
+				}
 			case "sizeof", "countof":
 				if i+1 < len(toks) && toks[i+1].text == "(" {
 					warn(line, fmt.Sprintf("%s(...) is not supported in minimaxon", t.text))
@@ -1219,10 +1353,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			case "reply":
 				if i+3 < len(toks) && toks[i+1].text == "." && toks[i+2].text == "later" && toks[i+3].text == "(" {
 					warn(line, "reply.later() is not supported in minimaxon")
-				}
-			case "is":
-				if i == 0 || toks[i-1].text != "." {
-					warn(line, "'is' / 'is not' comparison is not supported in minimaxon")
 				}
 			case "isolated", "immutable":
 				if i > 0 && toks[i-1].text == "as" {

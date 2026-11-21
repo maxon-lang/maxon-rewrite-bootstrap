@@ -1,0 +1,19 @@
+typealias Amount = int(0 to 1000)
+
+type Counter
+	export var n as Amount
+
+	function bump() returns Amount
+		return n + 1
+	end 'bump'
+
+	static function make() returns Amount
+		return bump()
+	end 'make'
+end 'Counter'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3193 at 11:10

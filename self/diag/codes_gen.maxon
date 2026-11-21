@@ -150,6 +150,12 @@ export let errDuplicateTypeAlias = "E3061"
 // A union is compared with '==' or '!='.
 export let errEnumNotComparable = "E3066"
 
+// An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a union, a function or a type parameter.
+export let errRefIdentityOnPrimitive = "E3068"
+
+// A match arm names a case of an enum or union with its type's name, which the subject already gives.
+export let errMatchQualifiedCaseName = "E3075"
+
 // A struct literal is written outside the methods of its type.
 export let errConstructorRestriction = "E3076"
 
@@ -215,6 +221,9 @@ export let errGenericGrowsWithoutBound = "E3184"
 
 // An argument handed to a written parameter overlaps another operand of the call.
 export let errExclusivity = "E3186"
+
+// An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.
+export let errInstanceMethodWithoutReceiver = "E3193"
 
 // A write or a consuming call goes through the contents of a frozen value.
 export let errFrozenChange = "E3197"

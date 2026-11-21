@@ -245,6 +245,16 @@ export function bareIntType() returns String
 	return "Cannot use bare 'int' as a type. Define a typealias with range constraints, e.g., typealias MyInt = int(0 to 100)"
 end 'bareIntType'
 
+// The text of errTypeMismatch for: Cannot cast to bare 'int'. Define a typealias with range constraints, e.g., 'value as MyInt' where 'typealias MyInt = int(0 to 100)'
+export function bareIntCast() returns String
+	return "Cannot cast to bare 'int'. Define a typealias with range constraints, e.g., 'value as MyInt' where 'typealias MyInt = int(0 to 100)'"
+end 'bareIntCast'
+
+// The text of errTypeMismatch for: Cannot cast to bare 'float'. Define a typealias with range constraints, e.g., 'value as MyFloat' where 'typealias MyFloat = float(0.0 to 1.0)'
+export function bareFloatCast() returns String
+	return "Cannot cast to bare 'float'. Define a typealias with range constraints, e.g., 'value as MyFloat' where 'typealias MyFloat = float(0.0 to 1.0)'"
+end 'bareFloatCast'
+
 // The text of errTypeMismatch for: Cannot use bare 'float' as a type. Define a typealias with range constraints, e.g., typealias MyFloat = float(0.0 to 1.0)
 export function bareFloatType() returns String
 	return "Cannot use bare 'float' as a type. Define a typealias with range constraints, e.g., typealias MyFloat = float(0.0 to 1.0)"
@@ -309,6 +319,26 @@ end 'duplicateRawValue'
 export function rawValueTypeMismatch(expected String, got String) returns String
 	return "raw value type mismatch: 'expected {expected}, got {got}'"
 end 'rawValueTypeMismatch'
+
+// The text of errRefIdentityOnPrimitive for: '{op}' requires reference types (structs), not primitive values
+export function refIdentityOnPrimitive(op String) returns String
+	return "'{op}' requires reference types (structs), not primitive values"
+end 'refIdentityOnPrimitive'
+
+// The text of errTypeMismatch for: '{op}' requires both operands to be the same type, got '{left}' and '{right}'
+export function refIdentityTypeMismatch(op String, left String, right String) returns String
+	return "'{op}' requires both operands to be the same type, got '{left}' and '{right}'"
+end 'refIdentityTypeMismatch'
+
+// The text of errMatchQualifiedCaseName for: use '{bare}' instead of '{qualified}' in match
+export function matchQualifiedCaseName(bare String, qualified String) returns String
+	return "use '{bare}' instead of '{qualified}' in match"
+end 'matchQualifiedCaseName'
+
+// The text of errInstanceMethodWithoutReceiver for: '{method}' is an instance method of '{owner}' and needs a receiver: call it on a value, such as 'value.{method}(...)', or make it `static`
+export function instanceMethodWithoutReceiver(method String, owner String) returns String
+	return "'{method}' is an instance method of '{owner}' and needs a receiver: call it on a value, such as 'value.{method}(...)', or make it `static`"
+end 'instanceMethodWithoutReceiver'
 
 // The text of errEnumUnknownCase for: unknown {kindWord} case: '{caseName}'
 export function enumUnknownCase(kindWord String, caseName String) returns String

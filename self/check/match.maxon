@@ -5,13 +5,15 @@ type MatchState
 	export var sawTrue as bool
 	export var sawFalse as bool
 	export var hasDefault as bool
+	// refusedQualified is whether an arm named its case with its type's name, which maxon refuses at the first.
+	export var refusedQualified as bool
 	// result is the type the arms give, or none while no arm gave one.
 	export var result as ast.TypeID
 	// at is where the match starts, which is where a disagreement between its arms is reported.
 	export var at as diag.U32
 
 	static function make(at diag.U32) returns MatchState
-		return MatchState{seen: BoolIntMap.new(), sawTrue: false, sawFalse: false, hasDefault: false, result: ast.noType, at: at}
+		return MatchState{seen: BoolIntMap.new(), sawTrue: false, sawFalse: false, hasDefault: false, refusedQualified: false, result: ast.noType, at: at}
 	end 'make'
 end 'MatchState'
 
@@ -394,7 +396,16 @@ end 'checkPattern'
 
 function checkCasePattern(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, st ast.TypeID, owned bool, altCount Count, mutates state MatchState, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, node: pattern)
-	let caseName = ast.patternCaseName(p.modules[c.modIdx].tree, id: pattern)
+	let qualifier = ast.patternCaseName(p.modules[c.modIdx].tree, id: pattern)
+	let member = ast.patternMember(p.modules[c.modIdx].tree, id: pattern)
+	var caseName = qualifier.clone()
+	if member != "" 'qualified'
+		caseName = member.clone()
+		if not state.refusedQualified 'first'
+			state.refusedQualified = true
+			checkFail(c.modID, off: off, code: diag.errMatchQualifiedCaseName, msg: diag.matchQualifiedCaseName(member, qualified: "{qualifier}.{member}"), errs: errs)
+		end 'first'
+	end 'qualified'
 	if not hasCases(p, t: st) 'notCases'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a case pattern needs an enum or union subject, found {nameOfType(p, t: st)}", errs: errs)
 		return

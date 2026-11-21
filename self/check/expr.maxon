@@ -365,6 +365,9 @@ function checkOperator(mutates c Checker, mutates p ast.Project, e ast.NodeID, l
 		return ast.noType
 	end 'badRight'
 	let off = offsetOf(c, p: p, node: e)
+	if op == "is" 'identity'
+		return checkIdentity(c, p: p, e: e, l: l, r: r, errs: errs)
+	end 'identity'
 	if ast.isFloatType(p.types, t: l) or ast.isFloatType(p.types, t: r) 'floats'
 		if isComparisonOp(op) 'comparison'
 			return checkFloatComparison(c, p: p, e: e, op: op, l: l, r: r, errs: errs)
@@ -388,6 +391,55 @@ function checkOperator(mutates c Checker, mutates p ast.Project, e ast.NodeID, l
 	checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "unknown operator '{op}'", errs: errs)
 	return ast.noType
 end 'checkOperator'
+
+// hasIdentity is whether a value of the type is an object that two names can stand for: a record, a string or a collection.
+// A number, a bool, an enum case, a union, a function and a type parameter are values with no object to name.
+function hasIdentity(p ast.Project, t ast.TypeID) returns bool
+	return match p.types.entries[t as Count].kind 'kind'
+		record gives true
+		primString gives true
+		builtinArray gives true
+		builtinMap gives true
+		builtinList gives true
+		invalid gives false
+		primBool gives false
+		primVoid gives false
+		primNever gives false
+		intRange gives false
+		constInt gives false
+		floatRange gives false
+		constFloat gives false
+		enumTy gives false
+		unionTy gives false
+		builtinPool gives false
+		builtinHandle gives false
+		builtinFrozen gives false
+		builtinCown gives false
+		typeParam gives false
+		interfaceTy gives false
+		funcTy gives false
+	end 'kind'
+end 'hasIdentity'
+
+// checkIdentity types 'a is b' and 'a is not b': whether two names stand for one object. A record has one owner, so the
+// answer is true only where one operand borrows the other, or both borrow one owner.
+function checkIdentity(mutates c Checker, mutates p ast.Project, e ast.NodeID, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, node: e)
+	var op = "is"
+	if ast.binaryExprNegated(p.modules[c.modIdx].tree, id: e) 'negated'
+		op = "is not"
+	end 'negated'
+	if not hasIdentity(p, t: l) or not hasIdentity(p, t: r) 'primitive'
+		checkFail(c.modID, off: off, code: diag.errRefIdentityOnPrimitive, msg: diag.refIdentityOnPrimitive(op), errs: errs)
+		return ast.noType
+	end 'primitive'
+	if l != r 'different'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.refIdentityTypeMismatch(op, left: gotName(p, t: l), right: gotName(p, t: r)), errs: errs)
+		return ast.noType
+	end 'different'
+	setOperand(c, node: e, operand: l)
+	return p.builtins.boolTy
+end 'checkIdentity'
 
 // isWordOp is whether an operator works on the bits of its operands, which must then be two bools or two integers.
 function isWordOp(op String) returns bool
@@ -621,6 +673,15 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	let operand = ast.castExprE(p.modules[c.modIdx].tree, id: e)
 	let owner = c.owner
 	let mark = errs.count()
+	let bare = bareNumberName(p, modIdx: c.modIdx, tr: targetRef)
+	if bare != "" 'bare'
+		var message = diag.bareIntCast()
+		if bare == "float" 'float'
+			message = diag.bareFloatCast()
+		end 'float'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: targetRef), code: diag.errTypeMismatch, msg: message, errs: errs)
+		return ast.noType
+	end 'bare'
 	let target = resolveTypeRef(c, p: p, tr: targetRef, selfTy: owner, errs: errs)
 	if target == ast.noType 'badTarget'
 		anchorUnknownTypes(c, mark: mark, at: p.modules[c.modIdx].tree.castKeywordStart(targetRef), errs: errs)

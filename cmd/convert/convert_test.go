@@ -431,6 +431,11 @@ end 'make'
 			in:   "\xef\xbb\xbflet a = 1  \r\n\r\n\r\nlet b = 2\t\r\n",
 			want: "let a = 1\n\nlet b = 2\n",
 		},
+		{
+			name: "the alternatives of an or chain stand one under another",
+			in:   "function f(x Count) returns Count\n\tmatch x 'm'\n\t\t1 or\n\t\t\t2 or\n\t\t\t3 then return 1\n\t\tdefault then return 0\n\tend 'm'\nend 'f'\n",
+			want: "function f(x Count) returns Count\n\tmatch x 'm'\n\t\t1 or\n\t\t2 or\n\t\t3 then return 1\n\t\tdefault then return 0\n\tend 'm'\nend 'f'\n",
+		},
 	}
 
 	for _, tc := range cases {
@@ -534,6 +539,31 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "hash if",
 			in:       "#if os(Windows)\nlet x = 1\n#endif\n",
 			wantTodo: "conditional compilation",
+		},
+		{
+			name:     "typealias in an extension",
+			in:       "extension Array\n\ttypealias Level = int(0 to 64)\nend 'Array'\n",
+			wantTodo: "typealias declarations in an extension",
+		},
+		{
+			name:     "qualified case names in a handler's match",
+			in:       "function f()\n\ttry g() otherwise (e) 'h'\n\t\tmatch e 'k'\n\t\t\tErrA.bad then return\n\t\tend 'k'\n\tend 'h'\nend 'f'\n",
+			wantTodo: "combined error of several errors",
+		},
+		{
+			name:     "a block inside brackets",
+			in:       "function f(u Count) returns Count\n\tlet n = (match u 'm'\n\t\t0 gives 1\n\t\tdefault gives 2\n\tend 'm') if u != 0 else 0\n\treturn n\nend 'f'\n",
+			wantTodo: "a block inside brackets",
+		},
+		{
+			name:     "a case named end",
+			in:       "enum Kw\n\talpha\n\tend\nend 'Kw'\n",
+			wantTodo: "'end' is a keyword in minimaxon",
+		},
+		{
+			name:     "int.fromString",
+			in:       "function f() returns Count\n\treturn try int.fromString(\"5\") otherwise 0\nend 'f'\n",
+			wantTodo: "'int.fromString' is not supported",
 		},
 		{
 			name:     "reserved word collision",

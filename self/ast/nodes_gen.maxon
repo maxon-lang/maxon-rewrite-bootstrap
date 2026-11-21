@@ -311,14 +311,14 @@ end 'newFieldDecl'
 export type ExtensionDecl
 	export var id as NodeID
 	export var visibility as String
-	export var target as NodeID
 	export var isInt as bool
+	export var target as NodeID
 	export var conforms as diag.U32
 	export var methods as FuncDeclList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns ExtensionDecl
-		return ExtensionDecl{id: id, visibility: "", target: 0 as NodeID, isInt: false, conforms: 0 as diag.U32, methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+		return ExtensionDecl{id: id, visibility: "", isInt: false, target: 0 as NodeID, conforms: 0 as diag.U32, methods: FuncDeclList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'ExtensionDecl'
 
@@ -1513,7 +1513,7 @@ end 'setMatchArmValue'
 
 export function newPattern(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.pattern, start: start)
-	let blk = t.reserve(3 as Count)
+	let blk = t.reserve(4 as Count)
 	t.records[id as Count].b = blk
 	return id
 end 'newPattern'
@@ -1530,6 +1530,18 @@ export function setPatternCaseNameRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.records[id as Count].a = ref
 end 'setPatternCaseNameRef'
 
+export function patternMember(t Tree, id NodeID) returns String
+	return t.nameAt(t.blockWordAt(id, offset: 0 as Count))
+end 'patternMember'
+
+export function patternMemberRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 0 as Count)
+end 'patternMemberRef'
+
+export function setPatternMemberRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 0 as Count, value: ref)
+end 'setPatternMemberRef'
+
 export function patternHasBindings(t Tree, id NodeID) returns bool
 	return (t.records[id as Count].flags and (1 as Byte)) != 0
 end 'patternHasBindings'
@@ -1539,19 +1551,19 @@ export function setPatternHasBindings(mutates t Tree, id NodeID)
 end 'setPatternHasBindings'
 
 export function patternBindingsRef(t Tree, id NodeID) returns diag.U32
-	return t.blockWordAt(id, offset: 0 as Count)
+	return t.blockWordAt(id, offset: 1 as Count)
 end 'patternBindingsRef'
 
 export function setPatternBindingsRef(mutates t Tree, id NodeID, ref diag.U32)
-	t.setBlockWordAt(id, offset: 0 as Count, value: ref)
+	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
 end 'setPatternBindingsRef'
 
 export function patternValue(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+	return t.blockWordAt(id, offset: 2 as Count) as NodeID
 end 'patternValue'
 
 export function setPatternValue(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 2 as Count, value: value as diag.U32)
 end 'setPatternValue'
 
 export function patternInclusive(t Tree, id NodeID) returns bool
@@ -1563,11 +1575,11 @@ export function setPatternInclusive(mutates t Tree, id NodeID)
 end 'setPatternInclusive'
 
 export function patternHigh(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 2 as Count) as NodeID
+	return t.blockWordAt(id, offset: 3 as Count) as NodeID
 end 'patternHigh'
 
 export function setPatternHigh(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 2 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 3 as Count, value: value as diag.U32)
 end 'setPatternHigh'
 
 export function newMemberExpr(mutates t Tree, start diag.U32) returns NodeID
@@ -1739,9 +1751,10 @@ export function binaryExprOp(t Tree, id NodeID) returns String
 		11 gives "<="
 		12 gives ">"
 		13 gives ">="
-		14 gives "and"
-		15 gives "xor"
-		16 gives "or"
+		14 gives "is"
+		15 gives "and"
+		16 gives "xor"
+		17 gives "or"
 		default gives ""
 	end 'lit'
 end 'binaryExprOp'
@@ -1761,9 +1774,10 @@ export function setBinaryExprOp(mutates t Tree, id NodeID, text String)
 		"<=" gives 11 as U16
 		">" gives 12 as U16
 		">=" gives 13 as U16
-		"and" gives 14 as U16
-		"xor" gives 15 as U16
-		"or" gives 16 as U16
+		"is" gives 14 as U16
+		"and" gives 15 as U16
+		"xor" gives 16 as U16
+		"or" gives 17 as U16
 		default panic("invalid enum text")
 	end 'lit'
 	t.records[id as Count].aux = (t.records[id as Count].aux and (65280 as U16)) or code
@@ -1776,6 +1790,14 @@ end 'binaryExprR'
 export function setBinaryExprR(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].b = value as diag.U32
 end 'setBinaryExprR'
+
+export function binaryExprNegated(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'binaryExprNegated'
+
+export function setBinaryExprNegated(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setBinaryExprNegated'
 
 export function newCondExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.condExpr, start: start)

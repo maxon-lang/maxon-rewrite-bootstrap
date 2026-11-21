@@ -159,6 +159,13 @@ end 'declareFuncAlias'
 
 // declareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
 function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+	c.bareNumbers = true
+	declareAliasType(c, p: p, a: a, ref: ref, errs: errs)
+	c.bareNumbers = false
+end 'declareAlias'
+
+// declareAliasType is declareAlias with a bare 'int' or 'float' meaning the full range of its kind.
+function declareAliasType(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
 	if a.fn != 0 'function'
 		declareFuncAlias(c, p: p, a: a, ref: ref, errs: errs)
 		return
@@ -174,7 +181,7 @@ function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl,
 	if t != ast.noType 'named'
 		p.declTypes.insert(ast.declKey(ref), value: t)
 	end 'named'
-end 'declareAlias'
+end 'declareAliasType'
 
 // visitAlias declares the typealias at ord after the typealiases it names, and refuses one that names itself through
 // others. Its own failure leaves it without a type, which the typealiases that name it find.
