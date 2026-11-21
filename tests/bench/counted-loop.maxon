@@ -1,0 +1,19 @@
+// A counted integer loop: the cost of a loop index, an add, a mix and a modulo, with nothing else around them.
+typealias Word = int(0 to u64.max)
+
+let modulus = 1000000007 as Word
+
+let iterations = 100000000 as Word
+
+function main() returns ExitCode
+	var i = 0 as Word
+	var sum = 0 as Word
+	while i < iterations 'each'
+		sum = try (sum + (i xor (i shr 3))) mod modulus otherwise panic("sum overflowed")
+		i = i + 1
+	end 'each'
+	print("{sum}\n")
+	return 0
+end 'main'
+
+//> 498245273

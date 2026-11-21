@@ -1,0 +1,34 @@
+// Nested loops over an array: reads and writes at computed indexes, then a pass over the whole array.
+typealias Word = int(0 to u64.max)
+
+typealias Words = Array with Word
+
+let size = 2000 as Count
+
+let rounds = 1000 as Count
+
+let modulus = 1000003 as Word
+
+function main() returns ExitCode
+	var cells = Words.filled(size, value: 1)
+	for round in 0 upto rounds 'rounds'
+		for i in 1 upto size 'cells'
+			let previous = cells[try i - 1 otherwise panic("index underflowed")]
+			cells[i] = try (previous * 31 + cells[i] + round) mod modulus otherwise panic("cell overflowed")
+		end 'cells'
+		for i in 0 upto size 'pairs'
+			for j in 0 upto 8 'spread'
+				let at = try (i + j * 251) mod size otherwise panic("index overflowed")
+				cells[at] = try (cells[at] + cells[i]) mod modulus otherwise panic("cell overflowed")
+			end 'spread'
+		end 'pairs'
+	end 'rounds'
+	var checksum = 0 as Word
+	for i in 0 upto size 'sum'
+		checksum = try (checksum * 7 + cells[i]) mod modulus otherwise panic("checksum overflowed")
+	end 'sum'
+	print("{checksum}\n")
+	return 0
+end 'main'
+
+//> 529894

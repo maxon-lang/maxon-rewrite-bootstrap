@@ -1,0 +1,18 @@
+// A recursive function: calls and returns with a checked add at each level.
+typealias Word = int(0 to u64.max)
+
+let argument = 38 as Word
+
+function fib(n Word) returns Word
+	if n < 2 'base'
+		return n
+	end 'base'
+	return try fib(n - 1) + fib(n - 2) otherwise panic("fib overflowed")
+end 'fib'
+
+function main() returns ExitCode
+	print("{fib(argument)}\n")
+	return 0
+end 'main'
+
+//> 39088169

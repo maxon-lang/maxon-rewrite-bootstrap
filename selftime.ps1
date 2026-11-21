@@ -1,7 +1,7 @@
 # Times a build of self/ three ways and appends one row to docs/self-compile-times.md, so the compile time of self/
 # is on record at each stage of the plan: by the seed (seed\minimaxon.exe), by C1 (self/ built by the seed) and by C2
 # (self/ built by C1, so compiled by itself and running its own runtime). One run each: the numbers are a record, not
-# a benchmark.
+# a benchmark. The row also holds the size in bytes of the code (.text) of C2, the compiler the current code generator made.
 #
 #   .\selftime.ps1 -Note 'Stage 2.1: maps'
 #   .\selftime.ps1 -Note 'backfill' -Tree <another checkout> -Commit <its commit>
@@ -11,6 +11,7 @@ param(
 	[string]$Commit = ''
 )
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot\textsize.ps1"
 $log = Join-Path $PSScriptRoot 'docs\self-compile-times.md'
 # The self-built compilers find runtime/ by walking up from their own executable, so they are built inside the tree.
 $selfBuilt = Join-Path $Tree "bin\selftime-$PID"
@@ -40,11 +41,15 @@ try {
 	if ($null -eq $bySeed) { throw 'the seed does not build self/' }
 	$byC1 = Measure-SelfBuild $c1 $c2
 	$byC2 = $null
-	if ($null -ne $byC1) { $byC2 = Measure-SelfBuild $c2 (Join-Path $selfBuilt 'c3.exe') }
+	$textBytes = $null
+	if ($null -ne $byC1) {
+		$byC2 = Measure-SelfBuild $c2 (Join-Path $selfBuilt 'c3.exe')
+		$textBytes = Get-TextSize $c2
+	}
 } finally {
 	Pop-Location
 	if (Test-Path $selfBuilt) { Remove-Item -Recurse -Force $selfBuilt }
 }
-$row = '| {0} | {1} | {2} | {3} | {4} | {5} | {6} |' -f (Get-Date -Format 'yyyy-MM-dd'), $Commit, $Note, $lines, (Format-Milliseconds $bySeed), (Format-Milliseconds $byC1), (Format-Milliseconds $byC2)
+$row = '| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} |' -f (Get-Date -Format 'yyyy-MM-dd'), $Commit, $Note, $lines, (Format-Milliseconds $bySeed), (Format-Milliseconds $byC1), (Format-Milliseconds $byC2), (Format-Milliseconds $textBytes)
 Add-Content $log $row
 Write-Output $row

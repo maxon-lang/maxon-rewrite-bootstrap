@@ -4,6 +4,10 @@ let testsDirName = "tests"
 
 let modulesDir = "modules"
 
+// The programs of this directory are benchmarks: bench.ps1 builds and times them, and the runner leaves them out, since
+// they run for long enough to measure and the interpreter would run them far slower.
+let benchDir = "bench"
+
 // The programs of this directory of the corpus are only compiled: one that expects no error must compile clean, and none is run.
 let checkOnlyDir = "check"
 
@@ -288,15 +292,16 @@ function readExpectation(program String) returns Expectation
 	return expect
 end 'readExpectation'
 
-// collectPrograms adds the source files and the cases of fix under dir, except those under modulesRoot, which holds projects.
-function collectPrograms(dir String, modulesRoot String, mutates files ast.StringList)
+// collectPrograms adds the source files and the cases of fix under dir, except those under modulesRoot, which holds projects,
+// and under benchRoot, which holds benchmarks.
+function collectPrograms(dir String, modulesRoot String, benchRoot String, mutates files ast.StringList)
 	let dirPath = try FilePath.from(dir) otherwise panic("test: {dir} is not a path")
 	let listed = try Directory.list(dirPath) otherwise panic("test: cannot read {dir}")
 	for i in 0 upto listed.count() 'entries'
 		let full = project.joinPath(dir, name: project.lastComponent(listed[i].toString()))
 		if project.isDirectoryPath(full) 'directory'
-			if full != modulesRoot 'program'
-				collectPrograms(full, modulesRoot: modulesRoot, files: files)
+			if full != modulesRoot and full != benchRoot 'program'
+				collectPrograms(full, modulesRoot: modulesRoot, benchRoot: benchRoot, files: files)
 			end 'program'
 		end 'directory' else if project.endsWithMaxon(full) or endsWithText(full, suffix: fixCaseExtension) 'source'
 			files.push(full)
@@ -378,7 +383,7 @@ function runTests(dir String, verbose bool, updatePositions bool) returns ExitCo
 	end 'missing'
 	let modulesRoot = project.joinPath(root, name: modulesDir)
 	var files = ast.StringList.create(0)
-	collectPrograms(root, modulesRoot: modulesRoot, files: files)
+	collectPrograms(root, modulesRoot: modulesRoot, benchRoot: project.joinPath(root, name: benchDir), files: files)
 	collectProjects(modulesRoot, files: files)
 	project.sortStrings(files)
 	var failures = ast.StringList.create(0)

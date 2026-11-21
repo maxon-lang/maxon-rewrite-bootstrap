@@ -1,0 +1,57 @@
+// Records in an array and a union of shapes matched in a loop: field reads and writes, a payload taken out by a match.
+typealias Word = int(0 to u64.max)
+
+let count = 1000 as Count
+
+let rounds = 8000 as Count
+
+let modulus = 1000003 as Word
+
+type Point
+	var x as Word
+	var y as Word
+
+	static function make(x Word, y Word) returns Point
+		return Point{x: x, y: y}
+	end 'make'
+end 'Point'
+
+union Shape
+	dot(at Point)
+	box(corner Point, width Word)
+	line(first Point, last Point)
+end 'Shape'
+
+typealias Shapes = Array with Shape
+
+function weight(s Shape) returns Word
+	return match s 'weight'
+		dot(at) gives try at.x + at.y otherwise panic("weight overflowed")
+		box(corner, width) gives try (corner.x + corner.y) * width otherwise panic("weight overflowed")
+		line(first, last) gives try first.x * last.y + first.y * last.x otherwise panic("weight overflowed")
+	end 'weight'
+end 'weight'
+
+function main() returns ExitCode
+	var shapes = Shapes.create(0)
+	for i in 0 upto count 'build'
+		let p = Point.make(i as Word, y: try ((i as Word) * 7) mod modulus otherwise panic("point overflowed"))
+		if i mod 3 == 0 'dot'
+			shapes.push(Shape.dot(p))
+		end 'dot' else if i mod 3 == 1 'box'
+			shapes.push(Shape.box(p, width: (i as Word) mod 17))
+		end 'box' else 'line'
+			shapes.push(Shape.line(p, last: Point.make(try (i as Word) + 1 otherwise panic("point overflowed"), y: (i as Word) mod 11)))
+		end 'line'
+	end 'build'
+	var checksum = 0 as Word
+	for round in 0 upto rounds 'rounds'
+		for i in 0 upto count 'shapes'
+			checksum = try (checksum + weight(shapes[i]) + (round as Word)) mod modulus otherwise panic("checksum overflowed")
+		end 'shapes'
+	end 'rounds'
+	print("{checksum}\n")
+	return 0
+end 'main'
+
+//> 753546

@@ -40,21 +40,23 @@ wall time of each building `self/`. The Go compiler was removed on 2026-11-21, a
 ## From 2026-11-21: built from the seed
 
 Seed is the wall time of `seed\minimaxon.exe` building `self/` into C1, C1 that of C1 building it into C2, and C2 that
-of C2 building it again.
+of C2 building it again. `.text` bytes is the size of C2's code, read from its PE section header (`textsize.ps1`); rows
+before Phase 3 have none.
 
-| Date | Commit | Stage | `self/` lines | Seed ms | C1 ms | C2 ms |
-|---|---|---|---:|---:|---:|---:|
-| 2026-11-21 | 750979c | cutover: seed, Go compiler removed | 49378 | 7723 | 7850 | 7355 |
-| 2026-11-21 | 8cbb12d | fix command; specs at 2,251 | 50660 | 7972 | 7113 | 7132 |
-| 2026-11-21 | c840d38 | formatter selftests | 50743 | 7810 | 7145 | 7422 |
-| 2026-11-21 | 0272a11 | operator chains walked with a loop | 50933 | 7772 | 7497 | 7533 |
-| 2026-11-21 | e056ae6 | inline collection fast paths | 51031 | 8067 | 7717 | 3436 |
-| 2026-11-21 | c38fecb | return converts a proved integer | 51113 | 8140 | 7747 | 3664 |
-| 2026-11-21 | ce3da3f | fix specs skips differing codes | 51232 | 8307 | 7652 | 3493 |
-| 2026-11-21 | 8041219 | Phase 2: literals, try handler, for over a collection | 52220 | 7730 | 8527 | 4098 |
-| 2026-11-21 | 58013ee | Phase 2: typealiases in types, built-ins, conditional try | 54696 | 8704 | 8466 | 4214 |
-| 2026-11-21 | bd64be8 | Phase 2: message texts, Type from value | 55242 | 9102 | 8231 | 4247 |
-| 2026-11-21 | fa4b30a | seed renewed; closures; one-compiler gate | 56765 | 4217 | 4086 | 4014 |
-| 2026-11-21 | 98aae37 | Phase 2: closures, floats, tuples, extensions, interfaces, raw values | 64354 | 5114 | 5546 | 5500 |
-| 2026-11-21 | a65524a | Phase 2: third batch (extensions, sibling calls, project model, fixed arrays, directives) | 66926 | 5506 | — | — |
-| 2026-11-21 | 6f9999f | Phase 2: fourth batch (interface values, extensions, casts, frame box), seed 6f9999f | 69471 | 5723 | 5843 | 5785 |
+| Date | Commit | Stage | `self/` lines | Seed ms | C1 ms | C2 ms | `.text` bytes |
+|---|---|---|---:|---:|---:|---:|---:|
+| 2026-11-21 | 750979c | cutover: seed, Go compiler removed | 49378 | 7723 | 7850 | 7355 | — |
+| 2026-11-21 | 8cbb12d | fix command; specs at 2,251 | 50660 | 7972 | 7113 | 7132 | — |
+| 2026-11-21 | c840d38 | formatter selftests | 50743 | 7810 | 7145 | 7422 | — |
+| 2026-11-21 | 0272a11 | operator chains walked with a loop | 50933 | 7772 | 7497 | 7533 | — |
+| 2026-11-21 | e056ae6 | inline collection fast paths | 51031 | 8067 | 7717 | 3436 | — |
+| 2026-11-21 | c38fecb | return converts a proved integer | 51113 | 8140 | 7747 | 3664 | — |
+| 2026-11-21 | ce3da3f | fix specs skips differing codes | 51232 | 8307 | 7652 | 3493 | — |
+| 2026-11-21 | 8041219 | Phase 2: literals, try handler, for over a collection | 52220 | 7730 | 8527 | 4098 | — |
+| 2026-11-21 | 58013ee | Phase 2: typealiases in types, built-ins, conditional try | 54696 | 8704 | 8466 | 4214 | — |
+| 2026-11-21 | bd64be8 | Phase 2: message texts, Type from value | 55242 | 9102 | 8231 | 4247 | — |
+| 2026-11-21 | fa4b30a | seed renewed; closures; one-compiler gate | 56765 | 4217 | 4086 | 4014 | — |
+| 2026-11-21 | 98aae37 | Phase 2: closures, floats, tuples, extensions, interfaces, raw values | 64354 | 5114 | 5546 | 5500 | — |
+| 2026-11-21 | a65524a | Phase 2: third batch (extensions, sibling calls, project model, fixed arrays, directives) | 66926 | 5506 | — | — | — |
+| 2026-11-21 | 6f9999f | Phase 2: fourth batch (interface values, extensions, casts, frame box), seed 6f9999f | 69471 | 5723 | 5843 | 5785 | — |
+| 2026-11-21 | 3f5b380 | Phase 3 T1: measurement tools | 69860 | 6804 | 6431 | 6017 | 6443248 |
