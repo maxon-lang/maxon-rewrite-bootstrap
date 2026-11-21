@@ -1,0 +1,27 @@
+//> a b 7
+//> x b missing=fallback refused=true
+//> first=x count=2
+
+typealias Words = Array with String
+
+typealias Counts = Array with Count
+
+function setOrRefuse(mutates items Words, index Count, consumes value String) returns bool
+	try items.set(index, value: value) otherwise return true
+	return false
+end 'setOrRefuse'
+
+function main() returns ExitCode
+	var w = Words.create(0)
+	w.push("a")
+	w.push("b")
+	var n = Counts.create(1)
+	try n.set(0, value: 7) otherwise return 1
+	let first = try w.get(0) otherwise "none"
+	print("{first} {try w.get(1) otherwise "none"} {try n.get(0) otherwise 0}\n")
+	_ = setOrRefuse(w, index: 0, value: "x")
+	let refused = setOrRefuse(w, index: 2, value: "lost")
+	print("{w[0]} {w[1]} missing={try w.get(2) otherwise "fallback"} refused={refused}\n")
+	print("first={w[0]} count={w.count()}\n")
+	return 0
+end 'main'

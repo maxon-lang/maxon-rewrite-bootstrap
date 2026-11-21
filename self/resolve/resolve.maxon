@@ -173,14 +173,14 @@ function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff
 		i = try i + 1 otherwise i
 	end 'walk'
 	if i == rest.count() 'isMod'
-		var joined = Bytes.new()
+		var joined = ByteArray.create(0)
 		for k in 0 upto rest.count() 'j'
 			if k > 0 'dot'
 				joined.push(46 as Byte)
 			end 'dot'
-			joined.appendString(rest[k])
+			joined.append(rest[k].toByteArray())
 		end 'j'
-		pushErr(errs, modID: r.modID, off: headOff, code: diag.errExpressionError, msg: "'{head}.{joined.toString()}' is a module, not a value")
+		pushErr(errs, modID: r.modID, off: headOff, code: diag.errExpressionError, msg: "'{head}.{String.from(joined)}' is a module, not a value")
 		return 0 as Count
 	end 'isMod'
 	let targetName = rest[i].clone()
@@ -375,15 +375,15 @@ end 'isRefType'
 
 function checkAndBindTypeDecl(mutates r Resolver, p ast.Project, tr ast.NodeID, consumes decl ast.DeclRef, used Count, pathLen Count, qualRef diag.U32, tName String, off diag.U32, mutates errs diag.ErrorList)
 	if used != pathLen or not isRefType(p, ref: decl) 'notTy'
-		var qBuf = Bytes.new()
+		var qBuf = ByteArray.create(0)
 		let qLen = r.tree.listLen(qualRef)
 		for i in 0 upto qLen 'each'
 			if i > 0 'd'
 				qBuf.push(46 as Byte)
 			end 'd'
-			qBuf.appendString(r.tree.nameAt(r.tree.listAt(qualRef, index: i)))
+			qBuf.append(r.tree.nameAt(r.tree.listAt(qualRef, index: i)).toByteArray())
 		end 'each'
-		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "'{qBuf.toString()}.{tName}' is not a type")
+		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "'{String.from(qBuf)}.{tName}' is not a type")
 		return
 	end 'notTy'
 	r.res.bindDecl(tr, d: decl)

@@ -6,6 +6,7 @@ import (
 	"minimaxon/internal/ir"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -195,10 +196,25 @@ func (vm *vm) entryBytesSet(c *runtimeCall) {
 	b.buf[i] = byte(c.arg(2).n)
 }
 
-func (vm *vm) entryBytesPush(c *runtimeCall) {
-	b := vm.collection(c.arg(0), kindBytes, "a push")
+func (vm *vm) entryBytesInsert(c *runtimeCall) {
+	b := vm.collection(c.arg(0), kindBytes, "an insert")
+	i := c.arg(1).n
+	if uint64(i) > uint64(len(b.buf)) {
+		vm.trap(indexOutOfRangeMessage)
+	}
 	vm.restructure(b)
-	b.buf = append(b.buf, byte(c.arg(1).n))
+	b.buf = slices.Insert(b.buf, int(i), byte(c.arg(2).n))
+}
+
+func (vm *vm) entryBytesRemove(c *runtimeCall) {
+	b := vm.collection(c.arg(0), kindBytes, "a remove")
+	i := c.arg(1).n
+	if uint64(i) >= uint64(len(b.buf)) {
+		vm.trap(indexOutOfRangeMessage)
+	}
+	vm.restructure(b)
+	c.num(int64(b.buf[i]))
+	b.buf = slices.Delete(b.buf, int(i), int(i)+1)
 }
 
 func (vm *vm) entryBytesAppend(c *runtimeCall) {

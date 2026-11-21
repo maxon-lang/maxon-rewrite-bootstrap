@@ -465,7 +465,6 @@ export function typeIsNominal(tt ast.TypeTable, t ast.TypeID) returns bool
 		builtinHandle gives true
 		builtinFrozen gives true
 		builtinCown gives true
-		builtinBytes gives true
 		invalid gives false
 		primBool gives false
 		primString gives false
@@ -634,26 +633,26 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 end 'lacksCap'
 
 export function lackWhyText(tt ast.TypeTable, info LackInfo, capName String) returns String
-	var buf = Bytes.new()
+	var buf = ByteArray.create(0)
 	let n = info.steps.count()
 	for i in 0 upto n 'each'
 		if i > 0 'sep'
-			buf.appendString("; ")
+			buf.append("; ".toByteArray())
 		end 'sep'
 		let oName = ast.typeName(tt, t: info.steps[i].owner)
 		let r = info.steps[i].reason
 		if r == LackReason.lackNone 'part'
 			let pName = ast.typeName(tt, t: info.steps[i].partTy)
-			buf.appendString("'{oName}' holds '{pName}' {info.steps[i].place}")
+			buf.append("'{oName}' holds '{pName}' {info.steps[i].place}".toByteArray())
 		end 'part' else if r == LackReason.lackDeclared 'dec'
-			buf.appendString("'{oName}' is declared 'is noncopyable'")
+			buf.append("'{oName}' is declared 'is noncopyable'".toByteArray())
 		end 'dec' else if r == LackReason.lackDestructor 'dtor'
-			buf.appendString("'{oName}' has a destructor")
+			buf.append("'{oName}' has a destructor".toByteArray())
 		end 'dtor' else 'unb'
-			buf.appendString("the type parameter '{oName}' is not known to be {capName}")
+			buf.append("the type parameter '{oName}' is not known to be {capName}".toByteArray())
 		end 'unb'
 	end 'each'
-	return buf.toString()
+	return String.from(buf)
 end 'lackWhyText'
 
 export function lackFixText(tt ast.TypeTable, info LackInfo, capName String) returns String

@@ -815,6 +815,12 @@ interpreter and the backend each implement the entries. The element is always vi
   call that changes the primitive. A subscript is that call and a `loadat` or a `storeat`, and a `mutates` argument
   `a[i]` is the address itself. A value that changes the primitive is computed before the address is taken, which
   is what the ownership pass's exclusivity rules guarantee at the source.
+- An array whose element is an integer that fits in a byte (`ByteArray`, `Array with Byte`) packs one byte to an
+  element, so it calls the `rt.bytes.*` entries instead of `rt.array.*`: `rt.bytes.get` and `rt.bytes.set` in place of
+  the address of an element, and its own `insert`, `remove`, `append` (a copy of the bytes), `appendStr` and
+  `toString`. `ast.BuiltinTy.PacksBytes` decides it and `arrayBox` (`internal/ir/arrays.go`) is the one place lowering
+  asks, so every array operation goes through it. A byte has no word address: a `mutates` argument `a[i]` is a slot
+  that holds the byte, which is stored back into the element after the call returns, on its failure path too.
 - An entry that is given an index, a key or a handle that names nothing traps. The queries that cannot miss
   (`rt.<primitive>.len`, `rt.map.has`, `rt.pool.contains`, `rt.list.contains`) are what lowering tests before it
   calls an entry that would trap, to build an `Option`.
@@ -831,7 +837,9 @@ interpreter and the backend each implement the entries. The element is always vi
 of its elements, which are 8-byte words; `rt.array.insert` grows it by doubling and shifts what follows, and frees the
 buffer it leaves (the elements moved to the new one, so only the buffer goes), and `rt.array.remove` hands the element
 it removes to the caller, who owns it. The entries are written in x64 in `internal/backend/arrays.go`, a unit of their
-own that the driver links only into a program that calls one. A map, a list and a pool are lowered all the same, which
+own that the driver links only into a program that calls one. A byte array has the same three words, with a buffer of
+one byte to an element, in `internal/backend/bytes.go`, its own unit too; its copy and drop routines copy and free the
+buffer whole. A map, a list and a pool are lowered all the same, which
 is what the interpreter runs, but the driver refuses a function that needs one before it generates code: `E9900`, at the
 first use in each function. A function that only drops, copies or holds a value that contains one (a `consumes`
 parameter of type `Map with (K, V)`, or a record with a pool in it) is refused too, at the function, since there is no routine
@@ -1032,7 +1040,7 @@ test runner. It has no types; it works from the shape of the values and from the
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
 - Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS/CLI functions `cliArgs`, `getEnv`, `readFile`, `writeFile`, `writeBytes`, `renameFile`, `removeFile`, `isDir`, `mkdir`, `listDir`, `runProcess`, the aliases `ExitCode`, `Count`,
-  `FullRangeInt`, `Byte`, the `String` methods `byteLength()`, `byteAt(index)` and `sliceBytes(start, endPos: end)`, the enums `ArithmeticError`, `ArrayError` and `MapError`, the interface `Error`, the byte buffer `Bytes`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle`, `Option` (see "Primitives"),
+  `FullRangeInt`, `Byte`, `ByteArray` (`Array with Byte`), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, the enums `ArithmeticError`, `ArrayError` and `MapError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle`, `Option` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib.
 
 ### Integers
@@ -1486,13 +1494,17 @@ one anywhere.
 
 | Type | Operations |
 |---|---|
-| `Array with T` | `create(n)`, `n` zero elements, where `T` has a zero value or `n` is the literal `0` (`E3106`); `filled(n, value: x)` where `T` is `Copyable`; `count()`, `isEmpty()`; `push(value)`; `append(other)`, a copy of each element of `other`, where `T` is `Copyable`; `insert(at, value: v)`, which clamps `at` to the count; `remove(at)` and `pop()` return `T` and throw `ArrayError`; `dropEmpty()` |
+| `Array with T` | `create(n)`, `n` zero elements, where `T` has a zero value or `n` is the literal `0` (`E3106`); `filled(n, value: x)` where `T` is `Copyable`; `count()`, `isEmpty()`; `get(i)`, a copy of the element, where `T` is `Copyable`, and `set(i, value: v)`, where `T` is `Droppable`, both throwing `ArrayError.indexOutOfBounds` past the end; `push(value)`; `append(other)`, a copy of each element of `other`, where `T` is `Copyable`; `insert(at, value: v)`, which clamps `at` to the count; `remove(at)` and `pop()` return `T` and throw `ArrayError`; `dropEmpty()` |
 | `Map with (K, V)` | `create()`; `count()`, `isEmpty()`, `contains(k)`; `insert(k, value: v)`, which throws `MapError.keyAlreadyExists` for a key that is there, and `upsert(k, value: v)`, which replaces its value, both where `V` is `Droppable`; `replace(k, value: v)` returns the old `Option with V`; `remove(k)` drops the value and returns whether the key was there, where `V` is `Droppable`; `dropEmpty()` |
 | `List with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`, `next(h)`, `prev(h)`; `first()` and `last()` return `Handle with T` and throw `ArrayError`; `prepend(value)` and `append(value)` return `Handle with T`; `removeFirst()` and `removeLast()` return `T` and throw `ArrayError`; `remove(h)` returns `Option with T`; `moveToFront(h)`; `dropEmpty()` |
 | `Pool with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `Handle with T`; `remove(h)` returns `Option with T`; `dropEmpty()` |
 | `Handle with T` | no operations; `==` and `!=` |
 | `Option with T` | cases `some(value)` and `none`; `isSome()`; `unwrap()`, which consumes the option (`consumes self`) and panics on `none` |
 | `ArrayError`, `MapError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists` |
+| `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
+
+An array of an integer type whose range fits in a `Byte` holds one byte to an element, natively and under the
+interpreter, and any other array a word; the program cannot tell, except by how much memory it takes.
 
 `create` and `filled` are static functions, called through a typealias of the instance (`Counts.create(0)`) or where
 the type is known (`Shelf{items: Array.create(0)}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`. `next` and
@@ -1698,12 +1710,17 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   The grammar has none of the rest, so each is a syntax error.
 - `Array`, `Map` and `List` have the names, the signatures and the errors of maxon's stdlib, but they are built-in
   types rather than stdlib code, and keep these differences: a subscript is a place (`a[i].f = x`, `mutates a[i]`) that
-  traps on a miss, where maxon's `get` returns a copy and throws; `Pool`, `Handle` and the list's handle API (`prepend`
+  traps on a miss, where only `get` and `set` throw, as maxon's do; `Pool`, `Handle` and the list's handle API (`prepend`
   and `append` return a `Handle`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
   maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; there is no iteration
-  protocol and no `get`, `set`, `slice`, `clear`, `reserve` or `sort` yet; `create(n)` refuses an enum element, whose
-  zero here is its first case rather than its case of raw value 0; and `String` has only `byteLength`, `byteAt` and
-  `sliceBytes`, whose names leave `slice` and `count` for maxon's graphemes.
+  protocol and no `slice`, `clear`, `reserve` or `sort` yet; `create(n)` refuses an enum element, whose
+  zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has only
+  `byteLength`, `byteAt`, `sliceBytes`, `toByteArray` and the static `String.from(bytes)`, whose names leave `slice` and
+  `count` for maxon's graphemes.
+- `ByteArray` is a built-in typealias rather than maxon's in `stdlib/File.maxon`, and the minimaxon `Bytes` buffer is
+  gone for it. Only an array of an integer type that fits in a byte packs its elements; maxon sizes an enum's and a
+  narrower integer's elements by their range too. `String.from(bytes)` copies the bytes where maxon's shares the
+  array's buffer, and a `String` here is its bytes, so neither direction scans them.
 - Generics are checked once against their bounds, never per instantiation; maxon checks a generic function per inferred
   type. Interfaces are bounds only: no generic interface, no static requirement, no default method, no existential
   value; a type implements one by saying so, and `int` aliases, `String` and `bool` implement none.

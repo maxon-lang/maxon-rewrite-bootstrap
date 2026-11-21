@@ -46,7 +46,7 @@ func (g *arraysUnit) defineEntries() {
 	g.emitArrayRemove()
 }
 
-// defineEntries writes the code of every entry of the Bytes unit, linked into a program that calls a Bytes entry.
+// defineEntries writes the code of every entry of the byte array unit, linked into a program that calls a byte array entry.
 func (g *bytesUnit) defineEntries() {
 	g.u.DefineCode(ir.RtBytesNew.String())
 	g.emitBytesNew()
@@ -56,8 +56,10 @@ func (g *bytesUnit) defineEntries() {
 	g.emitBytesGet()
 	g.u.DefineCode(ir.RtBytesSet.String())
 	g.emitBytesSet()
-	g.u.DefineCode(ir.RtBytesPush.String())
-	g.emitBytesPush()
+	g.u.DefineCode(ir.RtBytesInsert.String())
+	g.emitBytesInsert()
+	g.u.DefineCode(ir.RtBytesRemove.String())
+	g.emitBytesRemove()
 	g.u.DefineCode(ir.RtBytesAppend.String())
 	g.emitBytesAppend()
 	g.u.DefineCode(ir.RtBytesAppendStr.String())

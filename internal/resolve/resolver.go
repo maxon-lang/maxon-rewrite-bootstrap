@@ -449,6 +449,8 @@ func (r *Resolver) VisitSelfExpr(e ast.SelfExpr) {}
 func (r *Resolver) VisitNameExpr(e ast.NameExpr) {
 	switch {
 	case e.Name() == "Self":
+	case primitiveTypes[e.Name()] && !r.isBound(e.Name()):
+		// A primitive type names no declaration: 'String.from(bytes)' calls a static function of String.
 	case e.Name() == ast.RootQualifier:
 		panic(e.Error(diag.ErrExpressionError, "'export' is the root module, not a value: name one of its declarations, as in 'export.limit'"))
 	case !r.isBound(e.Name()):

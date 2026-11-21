@@ -119,23 +119,23 @@ export function checkAcyclic(g Graph, p ast.Project) returns Option with diag.Co
 		end 'broken'
 		for at in 0 upto path.count() 'checkLoop'
 			if path[at] == nextMod 'cycleFound'
-				var msgBuf = Bytes.new()
-				msgBuf.appendString("modules depend on each other in a cycle: ")
+				var msgBuf = ByteArray.create(0)
+				msgBuf.append("modules depend on each other in a cycle: ".toByteArray())
 				for k in at upto path.count() 'fmtCycle'
 					if k > at 'arr'
-						msgBuf.appendString(" -> ")
+						msgBuf.append(" -> ".toByteArray())
 					end 'arr'
-					msgBuf.appendString(p.modules[ast.modIndex(path[k])].display())
+					msgBuf.append(p.modules[ast.modIndex(path[k])].display().toByteArray())
 				end 'fmtCycle'
-				msgBuf.appendString(" -> ")
-				msgBuf.appendString(p.modules[ast.modIndex(nextMod)].display())
+				msgBuf.append(" -> ".toByteArray())
+				msgBuf.append(p.modules[ast.modIndex(nextMod)].display().toByteArray())
 				let firstMod = path[at]
 				var secondMod = nextMod
 				if at + 1 < path.count() 'hasSecond'
 					secondMod = path[try at + 1 otherwise at]
 				end 'hasSecond'
 				let off = edgeOffset(g, fromMod: firstMod, target: secondMod)
-				return Option.some(diag.CompileError.atSite(diag.errDependsOnItself, message: msgBuf.toString(), site: diag.Site.make(firstMod, offset: off)))
+				return Option.some(diag.CompileError.atSite(diag.errDependsOnItself, message: String.from(msgBuf), site: diag.Site.make(firstMod, offset: off)))
 			end 'cycleFound'
 		end 'checkLoop'
 		path.push(nextMod)

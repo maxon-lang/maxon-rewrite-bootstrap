@@ -176,6 +176,10 @@ func emitMaxon(t table) string {
 	for _, c := range slices.Concat(capabilities, markers) {
 		types.line("b.%s = registerInterfaceType(tt, std: std, typeMap: typeMap, name: %q)", maxonField(c, false), c)
 	}
+	for _, a := range typeAliases {
+		ty := types.ty(fn{}, "", parseType(a.Type))
+		types.line("registerStdInstanceAlias(std, typeMap: typeMap, name: %q, ty: %s)", a.Name, ty)
+	}
 	sb.WriteString("\nfunction declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap)\n")
 	sb.WriteString(types.sb.String())
 	sb.WriteString("end 'declareBuiltinTypes'\n")
@@ -248,7 +252,8 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	}
 	if f.Owner == stringOwner {
 		m.line("ft.entries[%s as Count].ownerTy = b.stringTy", id)
-		m.line("ft.entries[%s as Count].hasReceiver = true", id)
+		m.line("ft.entries[%s as Count].isStatic = %v", id, f.Static)
+		m.line("ft.entries[%s as Count].hasReceiver = %v", id, !f.Static)
 		m.line("b.stringMethods.insert(%q, value: %s)", f.Name, id)
 	}
 	if f.Field != "" {

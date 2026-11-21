@@ -116,14 +116,14 @@ export function moduleDecl(p Project, ref DeclRef) returns Decl
 end 'moduleDecl'
 
 function joinWithComma(items StringList) returns String
-	var b = Bytes.new()
+	var b = ByteArray.create(0)
 	for i in 0 upto items.count() 'each'
 		if i > 0 'sep'
-			b.appendString(",")
+			b.append(",".toByteArray())
 		end 'sep'
-		b.appendString(items[i])
+		b.append(items[i].toByteArray())
 	end 'each'
-	return b.toString()
+	return String.from(b)
 end 'joinWithComma'
 
 export function typeArgsLinkPart(tt TypeTable, args TypeIDList) returns String

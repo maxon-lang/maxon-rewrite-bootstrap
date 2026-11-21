@@ -1,7 +1,7 @@
 package backend
 
-// A Bytes buffer is a box of three words: its length in bytes, its capacity in bytes, and the address of its byte
-// buffer. It starts empty with no buffer, and grows by doubling from bytesFirstCapacity; the old buffer is freed.
+// A byte array, an array that packs bytes (ast.BuiltinTy.PacksBytes), is a box of three words: its length, its capacity
+// and the address of its buffer, which holds one byte to an element. It starts empty with no buffer, and grows by doubling from bytesFirstCapacity; the old buffer is freed.
 const (
 	bytesHeaderBytes    = 3 * wordBytes
 	bytesLengthOffset   = 0
@@ -10,7 +10,7 @@ const (
 	bytesFirstCapacity  = 16
 )
 
-// EmitBytesRuntime is the unit with the Bytes runtime entries. It is linked only into a program that calls one.
+// EmitBytesRuntime is the unit with the byte array's runtime entries. It is linked only into a program that calls one.
 func EmitBytesRuntime() *CodeUnit {
 	u := NewCodeUnit()
 	g := &bytesUnit{runtimeUnit: newRuntimeUnit(u), outOfRange: NewLabel(), ensureCap: NewLabel()}
@@ -19,7 +19,7 @@ func EmitBytesRuntime() *CodeUnit {
 	return u
 }
 
-// bytesUnit writes the Bytes unit.
+// bytesUnit writes the byte array unit.
 type bytesUnit struct {
 	*runtimeUnit
 	outOfRange, ensureCap *Label
@@ -114,18 +114,68 @@ func (g *bytesUnit) emitBytesSet() {
 	g.epilogue()
 }
 
-func (g *bytesUnit) emitBytesPush() {
+// insert(bytes, index, byte): the byte goes in at index, which may be the length, after what follows moves up by one.
+func (g *bytesUnit) emitBytesInsert() {
 	a := g.asm
 	g.prologue(0, false)
+	shift := NewLabel()
+	shifted := NewLabel()
+	a.Load(Rbx, Rbp, 32)
+	a.Load(R12, Rbp, 24)
+	a.Load(R13, Rbp, 16)
+	a.Load(R14, Rbx, bytesLengthOffset)
+	a.Cmp(R12, R14)
+	a.Jcc(CcA, g.outOfRange)
+	a.Lea(R15, R14, 1)
+	a.Call(g.ensureCap)
+	a.Load(Rdx, Rbx, bytesDataOffset)
+	a.Mov(Rcx, R14)
+	a.Bind(shift)
+	a.Cmp(Rcx, R12)
+	a.Jcc(CcBE, shifted)
+	a.Mov(R8, Rdx)
+	a.Add(R8, Rcx)
+	a.LoadByte(Rax, R8, -1)
+	a.StoreByte(R8, 0, Rax)
+	a.SubImm(Rcx, 1)
+	a.Jmp(shift)
+	a.Bind(shifted)
+	a.Mov(R8, Rdx)
+	a.Add(R8, R12)
+	a.StoreByte(R8, 0, R13)
+	a.Store(Rbx, bytesLengthOffset, R15)
+	g.epilogue()
+}
+
+// remove(bytes, index) -> byte: the byte at index, after what follows moves down by one.
+func (g *bytesUnit) emitBytesRemove() {
+	a := g.asm
+	g.prologue(0, false)
+	closeUp := NewLabel()
+	closed := NewLabel()
 	a.Load(Rbx, Rbp, 24)
 	a.Load(R12, Rbp, 16)
 	a.Load(R14, Rbx, bytesLengthOffset)
-	a.Lea(R15, R14, 1)
-	a.Call(g.ensureCap)
-	a.Load(Rax, Rbx, bytesDataOffset)
-	a.Add(Rax, R14)
-	a.StoreByte(Rax, 0, R12)
-	a.Store(Rbx, bytesLengthOffset, R15)
+	a.Cmp(R12, R14)
+	a.Jcc(CcAE, g.outOfRange)
+	a.Load(Rdx, Rbx, bytesDataOffset)
+	a.Mov(R8, Rdx)
+	a.Add(R8, R12)
+	a.LoadByte(R13, R8, 0)
+	a.Mov(Rcx, Rdx)
+	a.Add(Rcx, R14)
+	a.Bind(closeUp)
+	a.Lea(R9, R8, 1)
+	a.Cmp(R9, Rcx)
+	a.Jcc(CcAE, closed)
+	a.LoadByte(Rax, R9, 0)
+	a.StoreByte(R8, 0, Rax)
+	a.Mov(R8, R9)
+	a.Jmp(closeUp)
+	a.Bind(closed)
+	a.SubImm(R14, 1)
+	a.Store(Rbx, bytesLengthOffset, R14)
+	a.Mov(Rax, R13)
 	g.epilogue()
 }
 

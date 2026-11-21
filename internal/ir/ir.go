@@ -359,7 +359,7 @@ type IrFunction struct {
 	Refusals []Refusal
 	// UsesArrays is whether the function calls an array entry, which the backend then links the array runtime for.
 	UsesArrays bool
-	// UsesBytes is whether the function calls a Bytes entry, which the backend then links the bytes runtime for.
+	// UsesBytes is whether the function calls a byte array entry, which the backend then links the byte array runtime for.
 	UsesBytes bool
 	// UsesOs is whether the function calls an OS entry, which the backend then links the OS runtime for.
 	UsesOs bool

@@ -380,7 +380,7 @@ func (g *osUnit) emitOsWriteFile() {
 	g.epilogue()
 }
 
-// rt.os.writeBytes(path String, data Bytes) -> bool
+// rt.os.writeBytes(path String, data ByteArray) -> bool
 func (g *osUnit) emitOsWriteBytes() {
 	a := g.asm
 	g.startWinFrame(0)

@@ -837,13 +837,13 @@ function makeLexErr(src String, files ast.FileSpanList, offset Count, consumes m
 end 'makeLexErr'
 
 export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList) returns ParseResult
-	var buf = Bytes.new()
+	var buf = ByteArray.create(0)
 	var files = ast.FileSpanList.create(0)
 	var starts = Offsets.create(0)
 	var ends = Offsets.create(0)
 	for i in 0 upto filePaths.count() 'concat'
 		let startOff = buf.count()
-		buf.appendString(fileTexts[i])
+		buf.append(fileTexts[i].toByteArray())
 		let endOff = buf.count()
 		starts.push(startOff)
 		ends.push(endOff)
@@ -851,7 +851,7 @@ export function parseModuleFiles(module diag.ModuleID, consumes path String, con
 		let e32 = try endOff as diag.U32 otherwise panic("module text > 4GB")
 		files.push(ast.FileSpan.make(filePaths[i].clone(), start: s32, endOff: e32))
 	end 'concat'
-	let fullText = buf.toString()
+	let fullText = String.from(buf)
 	let lexRes = lexSpans(fullText, starts: starts, ends: ends)
 	var toks as Tokens
 	match consumes lexRes 'lr'

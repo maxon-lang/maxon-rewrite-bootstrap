@@ -26,7 +26,7 @@ const (
 	kindBytes
 )
 
-var kindNames = [...]string{"record", "string", "array", "map", "list", "pool", "frozen value", "cown", "bytes"}
+var kindNames = [...]string{"record", "string", "array", "map", "list", "pool", "frozen value", "cown", "byte array"}
 
 // site is a place in a function, for a report: where a value was made or freed.
 type site struct {

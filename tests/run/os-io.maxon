@@ -25,7 +25,7 @@ function main() returns ExitCode
 	_ = writeFile(f1, text: "hello world")
 	let r1 = readFile(f1).unwrap()
 	print("read1={r1}\n")
-	var bs = Bytes.new()
+	var bs = ByteArray.create(0)
 	bs.push(65 as Byte)
 	bs.push(66 as Byte)
 	bs.push(67 as Byte)

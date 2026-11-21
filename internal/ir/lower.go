@@ -65,6 +65,9 @@ type Lowerer struct {
 	// pending are the values computed for something that takes them, which has not run yet: a failure before it runs
 	// drops them, since nothing else would.
 	pending []pendingDrop
+	// writeBacks are the elements of byte arrays that the calls being lowered take by address, each through a slot that
+	// holds it until the call returns (see place).
+	writeBacks []writeBack
 }
 
 var lowerBinOps = map[string]BinOp{
@@ -138,7 +141,7 @@ func (l *Lowerer) begin(fn *ast.FuncDecl, binding ast.Binding, instances *Instan
 	l.b.Start(fn, name, paramCount)
 	l.fn, l.f, l.instances, l.binding = fn, &l.b.F, instances, binding
 	l.jumps, l.scopes, l.ownerSlots, l.args = l.jumps[:0], l.scopes[:0], l.ownerSlots[:0], l.args[:0]
-	l.handlers, l.pending = l.handlers[:0], l.pending[:0]
+	l.handlers, l.pending, l.writeBacks = l.handlers[:0], l.pending[:0], l.writeBacks[:0]
 	l.selfOwner = -1
 	l.declareSlots()
 	l.cur = l.b.NewBlock()
@@ -746,6 +749,8 @@ func (l *Lowerer) loadField(d, obj V, e ast.Expr, index int) {
 	l.emit(LoadField(d, obj, WordBytes*index))
 }
 
+// address is where a call that takes e by address finds it. An element of a byte array is given as a slot, so the
+// caller stores what the callee left there back with writeBack once the callee returns.
 func (l *Lowerer) address(e ast.Expr) V {
 	switch e.Kind() {
 	case ast.KindNameExpr:
@@ -779,7 +784,7 @@ func (l *Lowerer) address(e ast.Expr) V {
 	case ast.KindIndexExpr:
 		e := e.ToIndexExpr()
 
-		return l.elemAddr(e)
+		return l.elemPlace(e)
 	}
 	panic(diag.Internal("lower: no address for this expression"))
 }
@@ -803,7 +808,7 @@ func (l *Lowerer) VisitCallExpr(node ast.CallExpr) V {
 			return l.intrinsic(c)
 		}
 		target := l.callee(ast.CallUse{Info: c.CallInfo, Receiver: c.Receiver, Site: c.Position()})
-		base := len(l.args)
+		base, places := len(l.args), len(l.writeBacks)
 		if !c.Receiver.IsNil() {
 			l.push(l.read(c.Receiver))
 		}
@@ -821,10 +826,14 @@ func (l *Lowerer) VisitCallExpr(node ast.CallExpr) V {
 		if target.ErrorType == nil {
 			l.emit(l.b.Call(dst, target, l.args[base:]))
 			l.args = l.args[:base]
+			l.writeBack(places)
 		} else {
 			err := l.reg(KindScalar)
 			l.emit(l.b.ThrowingCall(dst, target, l.args[base:], err))
 			l.args = l.args[:base]
+			// What the callee wrote to an element before it failed stays written, as it would through the element's
+			// own address.
+			l.writeBack(places)
 			// The callee has the arguments now, and drops them itself when it fails.
 			l.pending = l.pending[:mark]
 			ok := l.b.NewBlock()

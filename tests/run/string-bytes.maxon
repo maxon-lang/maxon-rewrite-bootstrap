@@ -3,6 +3,7 @@
 //> ell
 //>
 //> hello
+//> 5 104 111 hello
 function main() returns ExitCode
 	let s = "hello"
 	print("{s.byteLength()}\n")
@@ -13,5 +14,7 @@ function main() returns ExitCode
 	print("{empty}\n")
 	let full = s.sliceBytes(0, endPos: s.byteLength())
 	print("{full}\n")
+	let bytes = s.toByteArray()
+	print("{bytes.count()} {bytes[0]} {bytes[4]} {String.from(bytes)}\n")
 	return 0
 end 'main'

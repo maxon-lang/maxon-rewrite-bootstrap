@@ -13,7 +13,6 @@ const (
 	BuiltinHandle
 	BuiltinFrozen
 	BuiltinCown
-	BuiltinBytes
 )
 
 var builtinKinds = [...]builtinKindInfo{
@@ -24,7 +23,6 @@ var builtinKinds = [...]builtinKindInfo{
 	BuiltinHandle: {name: "Handle", managed: false, subscriptable: false, shared: false},
 	BuiltinFrozen: {name: "frozen", managed: true, subscriptable: false, shared: true},
 	BuiltinCown:   {name: "cown", managed: true, subscriptable: false, shared: true},
-	BuiltinBytes:  {name: "Bytes", managed: true, subscriptable: false, shared: false},
 }
 
 // Intrinsic names a function that no source declares: the checker types a call of it like any other, and
@@ -39,6 +37,8 @@ const (
 	IntrinsicArrayFilled
 	IntrinsicArrayCount
 	IntrinsicArrayIsEmpty
+	IntrinsicArrayGet
+	IntrinsicArraySet
 	IntrinsicArrayPush
 	IntrinsicArrayAppend
 	IntrinsicArrayInsert
@@ -76,18 +76,11 @@ const (
 	IntrinsicPoolInsert
 	IntrinsicPoolRemove
 	IntrinsicPoolDropEmpty
-	IntrinsicBytesNew
-	IntrinsicBytesCount
-	IntrinsicBytesIsEmpty
-	IntrinsicBytesByteAt
-	IntrinsicBytesSetByte
-	IntrinsicBytesPush
-	IntrinsicBytesAppend
-	IntrinsicBytesAppendString
-	IntrinsicBytesToString
 	IntrinsicStringByteLength
 	IntrinsicStringByteAt
 	IntrinsicStringSliceBytes
+	IntrinsicStringToByteArray
+	IntrinsicStringFrom
 	IntrinsicFreeze
 	IntrinsicShare
 	IntrinsicThaw
@@ -140,7 +133,6 @@ type builtinDecls struct {
 	Handle          *BuiltinTy
 	Frozen          *BuiltinTy
 	Cown            *BuiltinTy
-	Bytes           *BuiltinTy
 	Option          *UnionTy
 	ArithmeticError *EnumTy
 	ArrayError      *EnumTy
@@ -161,7 +153,6 @@ func (b *Builtins) declareTable() {
 	b.Handle = b.newPrimitive(BuiltinHandle, "T")
 	b.Frozen = b.newPrimitive(BuiltinFrozen, "T")
 	b.Cown = b.newPrimitive(BuiltinCown, "T")
-	b.Bytes = b.newPrimitive(BuiltinBytes)
 	b.Option = b.newUnion("Option", "T")
 	b.Option.Cases = []*UnionCase{
 		{Name: "some", Payload: []PayloadField{{Name: "value", Type: b.Option.Params[0]}}},
@@ -173,6 +164,7 @@ func (b *Builtins) declareTable() {
 	b.Copyable = b.declareInterface("Copyable")
 	b.Droppable = b.declareInterface("Droppable")
 	b.Error = b.declareInterface("Error")
+	b.declareAlias("ByteArray", Instantiate(b.Array, []Ty{b.Byte}))
 	b.method(b.Option, IntrinsicOptionIsSome, "isSome", false, ConvLet, BoolTy)
 	b.method(b.Option, IntrinsicOptionUnwrap, "unwrap", false, ConvConsumes, b.Option.Params[0])
 	b.method(b.Array, IntrinsicArrayCreate, "create", true, ConvLet, SelfType(b.Array), param("count", b.Count, ConvLet))
@@ -182,6 +174,16 @@ func (b *Builtins) declareTable() {
 	}
 	b.method(b.Array, IntrinsicArrayCount, "count", false, ConvLet, b.Count)
 	b.method(b.Array, IntrinsicArrayIsEmpty, "isEmpty", false, ConvLet, BoolTy)
+	{
+		f := b.method(b.Array, IntrinsicArrayGet, "get", false, ConvLet, b.Array.Params[0], param("index", b.Count, ConvLet))
+		f.Bounds = append(f.Bounds, ParamBound{Param: b.Array.Params[0], Iface: b.Copyable})
+		f.ErrorType = b.ArrayError
+	}
+	{
+		f := b.method(b.Array, IntrinsicArraySet, "set", false, ConvMutates, VoidTy, param("index", b.Count, ConvLet), param("value", b.Array.Params[0], ConvConsumes))
+		f.Bounds = append(f.Bounds, ParamBound{Param: b.Array.Params[0], Iface: b.Droppable})
+		f.ErrorType = b.ArrayError
+	}
 	b.method(b.Array, IntrinsicArrayPush, "push", false, ConvMutates, VoidTy, param("value", b.Array.Params[0], ConvConsumes))
 	{
 		f := b.method(b.Array, IntrinsicArrayAppend, "append", false, ConvMutates, VoidTy, param("other", SelfType(b.Array), ConvLet))
@@ -250,18 +252,15 @@ func (b *Builtins) declareTable() {
 	b.method(b.Pool, IntrinsicPoolInsert, "insert", false, ConvMutates, Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), param("value", b.Pool.Params[0], ConvConsumes))
 	b.method(b.Pool, IntrinsicPoolRemove, "remove", false, ConvMutates, Instantiate(b.Option, []Ty{b.Pool.Params[0]}), param("handle", Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), ConvLet))
 	b.method(b.Pool, IntrinsicPoolDropEmpty, "dropEmpty", false, ConvConsumes, VoidTy)
-	b.method(b.Bytes, IntrinsicBytesNew, "new", true, ConvLet, b.Bytes)
-	b.method(b.Bytes, IntrinsicBytesCount, "count", false, ConvLet, b.Count)
-	b.method(b.Bytes, IntrinsicBytesIsEmpty, "isEmpty", false, ConvLet, BoolTy)
-	b.method(b.Bytes, IntrinsicBytesByteAt, "byteAt", false, ConvLet, b.Byte, param("index", b.Count, ConvLet))
-	b.method(b.Bytes, IntrinsicBytesSetByte, "setByte", false, ConvMutates, VoidTy, param("index", b.Count, ConvLet), param("value", b.Byte, ConvLet))
-	b.method(b.Bytes, IntrinsicBytesPush, "push", false, ConvMutates, VoidTy, param("value", b.Byte, ConvLet))
-	b.method(b.Bytes, IntrinsicBytesAppend, "append", false, ConvMutates, VoidTy, param("other", b.Bytes, ConvLet))
-	b.method(b.Bytes, IntrinsicBytesAppendString, "appendString", false, ConvMutates, VoidTy, param("text", StringTy, ConvLet))
-	b.method(b.Bytes, IntrinsicBytesToString, "toString", false, ConvLet, StringTy)
 	b.StringMethods["byteLength"] = b.function(IntrinsicStringByteLength, "byteLength", b.Count)
 	b.StringMethods["byteAt"] = b.function(IntrinsicStringByteAt, "byteAt", b.Byte, param("index", b.Count, ConvLet))
 	b.StringMethods["sliceBytes"] = b.function(IntrinsicStringSliceBytes, "sliceBytes", StringTy, param("start", b.Count, ConvLet), param("endPos", b.Count, ConvLet))
+	b.StringMethods["toByteArray"] = b.function(IntrinsicStringToByteArray, "toByteArray", Instantiate(b.Array, []Ty{b.Byte}))
+	{
+		f := b.function(IntrinsicStringFrom, "from", StringTy, param("bytes", Instantiate(b.Array, []Ty{b.Byte}), ConvLet))
+		f.IsStatic = true
+		b.StringMethods["from"] = f
+	}
 	{
 		t := newBoundedTypeParamTy("T", b.Droppable)
 		b.stdlib.Declare(b.genericFunction(IntrinsicFreeze, "freeze", t, Instantiate(b.Frozen, []Ty{t}), param("x", t, ConvConsumes)))
@@ -290,7 +289,7 @@ func (b *Builtins) declareTable() {
 	b.stdlib.Declare(b.function(IntrinsicOsGetEnv, "getEnv", Instantiate(b.Option, []Ty{StringTy}), param("name", StringTy, ConvLet)))
 	b.stdlib.Declare(b.function(IntrinsicOsReadFile, "readFile", Instantiate(b.Option, []Ty{StringTy}), param("path", StringTy, ConvLet)))
 	b.stdlib.Declare(b.function(IntrinsicOsWriteFile, "writeFile", BoolTy, param("path", StringTy, ConvLet), param("text", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsWriteBytes, "writeBytes", BoolTy, param("path", StringTy, ConvLet), param("data", b.Bytes, ConvLet)))
+	b.stdlib.Declare(b.function(IntrinsicOsWriteBytes, "writeBytes", BoolTy, param("path", StringTy, ConvLet), param("data", Instantiate(b.Array, []Ty{b.Byte}), ConvLet)))
 	b.stdlib.Declare(b.function(IntrinsicOsRenameFile, "renameFile", BoolTy, param("from", StringTy, ConvLet), param("dest", StringTy, ConvLet)))
 	b.stdlib.Declare(b.function(IntrinsicOsRemoveFile, "removeFile", BoolTy, param("path", StringTy, ConvLet)))
 	b.stdlib.Declare(b.function(IntrinsicOsIsDir, "isDir", BoolTy, param("path", StringTy, ConvLet)))

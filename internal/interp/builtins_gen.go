@@ -110,8 +110,10 @@ func (vm *vm) runEntry(c *runtimeCall) {
 		vm.entryBytesGet(c)
 	case ir.RtBytesSet:
 		vm.entryBytesSet(c)
-	case ir.RtBytesPush:
-		vm.entryBytesPush(c)
+	case ir.RtBytesInsert:
+		vm.entryBytesInsert(c)
+	case ir.RtBytesRemove:
+		vm.entryBytesRemove(c)
 	case ir.RtBytesAppend:
 		vm.entryBytesAppend(c)
 	case ir.RtBytesAppendStr:

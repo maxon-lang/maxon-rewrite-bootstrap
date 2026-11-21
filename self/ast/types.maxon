@@ -36,7 +36,6 @@ export enum TypeKind
 	builtinHandle
 	builtinFrozen
 	builtinCown
-	builtinBytes
 	typeParam
 	interfaceTy
 
@@ -49,7 +48,6 @@ export enum TypeKind
 			builtinHandle gives true
 			builtinFrozen gives true
 			builtinCown gives true
-			builtinBytes gives true
 			invalid gives false
 			primBool gives false
 			primString gives false
@@ -364,15 +362,15 @@ export function internConstInt(mutates tt TypeTable, consumes val I128) returns 
 end 'internConstInt'
 
 export function instanceKey(origin TypeID, args TypeIDList) returns String
-	var b = Bytes.new()
-	b.appendString("{origin}:")
+	var b = ByteArray.create(0)
+	b.append("{origin}:".toByteArray())
 	for i in 0 upto args.count() 'each'
 		if i > 0 'sep'
 			b.push(44 as Byte)
 		end 'sep'
-		b.appendString("{args[i]}")
+		b.append("{args[i]}".toByteArray())
 	end 'each'
-	return b.toString()
+	return String.from(b)
 end 'instanceKey'
 
 export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeIDList) returns TypeID
@@ -512,7 +510,6 @@ export function isManagedType(tt TypeTable, t TypeID) returns bool
 		builtinPool gives true
 		builtinFrozen gives true
 		builtinCown gives true
-		builtinBytes gives true
 		invalid gives false
 		primBool gives false
 		primVoid gives false
@@ -557,16 +554,16 @@ export function instanceSpelling(base String, args Array with String) returns St
 			return "{base} with {s}"
 		end 'plain'
 	end 'one'
-	var b = Bytes.new()
-	b.appendString("{base} with (")
+	var b = ByteArray.create(0)
+	b.append("{base} with (".toByteArray())
 	for i in 0 upto args.count() 'each'
 		if i > 0 'sep'
-			b.appendString(", ")
+			b.append(", ".toByteArray())
 		end 'sep'
-		b.appendString(args[i])
+		b.append(args[i].toByteArray())
 	end 'each'
 	b.push(41 as Byte)
-	return b.toString()
+	return String.from(b)
 end 'instanceSpelling'
 
 export function typeName(tt TypeTable, t TypeID) returns String

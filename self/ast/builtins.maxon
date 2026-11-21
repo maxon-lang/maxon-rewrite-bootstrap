@@ -22,7 +22,6 @@ export type Builtins
 	export var handleOrigin as TypeID
 	export var frozenOrigin as TypeID
 	export var cownOrigin as TypeID
-	export var bytesTy as TypeID
 	export var optionOrigin as TypeID
 	export var arithmeticErrorTy as TypeID
 	export var arrayErrorTy as TypeID
@@ -40,7 +39,7 @@ export type Builtins
 		let sm = FuncIDMap.new()
 		let stm = TypeIDMap.new()
 		let sfm = FuncIDMap.new()
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, bytesTy: noType, optionOrigin: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, optionOrigin: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
 	end 'empty'
 
 	export function isCapability(iface TypeID) returns bool
@@ -59,6 +58,11 @@ function registerStdAlias(mutates tt TypeTable, mutates std Module, mutates type
 	typeMap.insert(name, value: tid)
 	return tid
 end 'registerStdAlias'
+
+function registerStdInstanceAlias(mutates std Module, mutates typeMap TypeIDMap, consumes name String, ty TypeID)
+	_ = std.declare(Decl.aliasDecl(AliasDecl.makeInstance(0 as NodeID, visibility: "export", name: name.clone(), instanceRef: 0 as NodeID)))
+	typeMap.insert(name, value: ty)
+end 'registerStdInstanceAlias'
 
 function addStdTypeParam(mutates tt TypeTable, mutates std Module, owner TypeID, consumes name String) returns TypeID
 	var tp = TypeEntry.make(TypeKind.typeParam, name: name.clone())

@@ -217,6 +217,9 @@ func load() table {
 		seen[f.Intrinsic] = len(t.intrinsics)
 		t.intrinsics = append(t.intrinsics, intrinsic{f.Intrinsic, f.Checked, f.OwnsOperands})
 	}
+	for _, a := range typeAliases {
+		fn{Name: a.Name}.checkType(parseType(a.Type))
+	}
 	for _, e := range entries {
 		if unitOf(e.Unit) == nil {
 			fail("entry %s is in unit %s, which the table does not have", e.Name, e.Unit)

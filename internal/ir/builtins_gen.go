@@ -13,7 +13,7 @@ type Rt uint8
 
 const (
 	RtEntry           Rt = iota + 1 // the executable's entry point, which calls main
-	RtAlloc                         // (bytes) -> a zeroed box
+	RtAlloc                         // (ByteArray) -> a zeroed box
 	RtFree                          // (box): 0 is skipped
 	RtWrite                         // (handle, text String)
 	RtPanic                         // (message String): exits
@@ -68,19 +68,20 @@ const (
 	RtFrozenGet                     // (frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is
 	RtShare                         // (frozen or cown) -> the same box: another owner, with the count raised by 1
 	RtCownNew                       // (value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop
-	RtBytesNew                      // () -> Bytes
-	RtBytesLen                      // (Bytes) -> count
-	RtBytesGet                      // (Bytes, index) -> byte
-	RtBytesSet                      // (Bytes, index, byte)
-	RtBytesPush                     // (Bytes, byte)
-	RtBytesAppend                   // (Bytes, other Bytes)
-	RtBytesAppendStr                // (Bytes, text String)
-	RtBytesToString                 // (Bytes) -> String
+	RtBytesNew                      // () -> ByteArray
+	RtBytesLen                      // (ByteArray) -> count
+	RtBytesGet                      // (ByteArray, index) -> byte
+	RtBytesSet                      // (ByteArray, index, byte)
+	RtBytesInsert                   // (ByteArray, index, byte): at index, which may be the length
+	RtBytesRemove                   // (ByteArray, index) -> byte
+	RtBytesAppend                   // (ByteArray, other ByteArray)
+	RtBytesAppendStr                // (ByteArray, text String)
+	RtBytesToString                 // (ByteArray) -> String
 	RtOsCliArgs                     // () -> Array with String
 	RtOsGetEnv                      // (name String) -> String or 0
 	RtOsReadFile                    // (path String) -> String or 0
 	RtOsWriteFile                   // (path String, text String) -> bool
-	RtOsWriteBytes                  // (path String, data Bytes) -> bool
+	RtOsWriteBytes                  // (path String, data ByteArray) -> bool
 	RtOsRenameFile                  // (from String, dest String) -> bool
 	RtOsRemoveFile                  // (path String) -> bool
 	RtOsIsDir                       // (path String) -> bool
@@ -150,7 +151,8 @@ var rtNames = [...]string{
 	RtBytesLen:        "rt.bytes.len",
 	RtBytesGet:        "rt.bytes.get",
 	RtBytesSet:        "rt.bytes.set",
-	RtBytesPush:       "rt.bytes.push",
+	RtBytesInsert:     "rt.bytes.insert",
+	RtBytesRemove:     "rt.bytes.remove",
 	RtBytesAppend:     "rt.bytes.append",
 	RtBytesAppendStr:  "rt.bytes.appendStr",
 	RtBytesToString:   "rt.bytes.toString",
@@ -173,7 +175,7 @@ type RtUnit uint8
 const (
 	RtUnitRuntime     RtUnit = iota + 1 // the runtime unit every executable links
 	RtUnitArrays                        // the array unit, linked into a program that calls an array entry
-	RtUnitBytes                         // the Bytes unit, linked into a program that calls a Bytes entry
+	RtUnitBytes                         // the byte array unit, linked into a program that calls a byte array entry
 	RtUnitOs                            // the OS unit, linked into a program that calls an OS entry
 	RtUnitLinker                        // the linker, which defines the symbol itself
 	RtUnitInterpreter                   // no unit: only the interpreter runs the entry, and the compiler refuses a call of it
@@ -240,7 +242,8 @@ var rtUnits = [...]RtUnit{
 	RtBytesLen:        RtUnitBytes,
 	RtBytesGet:        RtUnitBytes,
 	RtBytesSet:        RtUnitBytes,
-	RtBytesPush:       RtUnitBytes,
+	RtBytesInsert:     RtUnitBytes,
+	RtBytesRemove:     RtUnitBytes,
 	RtBytesAppend:     RtUnitBytes,
 	RtBytesAppendStr:  RtUnitBytes,
 	RtBytesToString:   RtUnitBytes,
@@ -272,6 +275,10 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerArrayCount(c, recv, args)
 	case ast.IntrinsicArrayIsEmpty:
 		return l.lowerArrayIsEmpty(c, recv, args)
+	case ast.IntrinsicArrayGet:
+		return l.lowerArrayGet(c, recv, args)
+	case ast.IntrinsicArraySet:
+		return l.lowerArraySet(c, recv, args)
 	case ast.IntrinsicArrayPush:
 		return l.lowerArrayPush(c, recv, args)
 	case ast.IntrinsicArrayAppend:
@@ -346,30 +353,16 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerPoolRemove(c, recv, args)
 	case ast.IntrinsicPoolDropEmpty:
 		return l.lowerPoolDropEmpty(c, recv, args)
-	case ast.IntrinsicBytesNew:
-		return l.lowerBytesNew(c, recv, args)
-	case ast.IntrinsicBytesCount:
-		return l.lowerBytesCount(c, recv, args)
-	case ast.IntrinsicBytesIsEmpty:
-		return l.lowerBytesIsEmpty(c, recv, args)
-	case ast.IntrinsicBytesByteAt:
-		return l.lowerBytesByteAt(c, recv, args)
-	case ast.IntrinsicBytesSetByte:
-		return l.lowerBytesSetByte(c, recv, args)
-	case ast.IntrinsicBytesPush:
-		return l.lowerBytesPush(c, recv, args)
-	case ast.IntrinsicBytesAppend:
-		return l.lowerBytesAppend(c, recv, args)
-	case ast.IntrinsicBytesAppendString:
-		return l.lowerBytesAppendString(c, recv, args)
-	case ast.IntrinsicBytesToString:
-		return l.lowerBytesToString(c, recv, args)
 	case ast.IntrinsicStringByteLength:
 		return l.lowerStringByteLength(c, recv, args)
 	case ast.IntrinsicStringByteAt:
 		return l.lowerStringByteAt(c, recv, args)
 	case ast.IntrinsicStringSliceBytes:
 		return l.lowerStringSliceBytes(c, recv, args)
+	case ast.IntrinsicStringToByteArray:
+		return l.lowerStringToByteArray(c, recv, args)
+	case ast.IntrinsicStringFrom:
+		return l.lowerStringFrom(c, recv, args)
 	case ast.IntrinsicFreeze:
 		return l.lowerFreeze(c, recv, args)
 	case ast.IntrinsicShare:
@@ -417,6 +410,8 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicArrayFilled,
 		ast.IntrinsicArrayCount,
 		ast.IntrinsicArrayIsEmpty,
+		ast.IntrinsicArrayGet,
+		ast.IntrinsicArraySet,
 		ast.IntrinsicArrayPush,
 		ast.IntrinsicArrayAppend,
 		ast.IntrinsicArrayInsert,
@@ -454,18 +449,11 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicPoolInsert,
 		ast.IntrinsicPoolRemove,
 		ast.IntrinsicPoolDropEmpty,
-		ast.IntrinsicBytesNew,
-		ast.IntrinsicBytesCount,
-		ast.IntrinsicBytesIsEmpty,
-		ast.IntrinsicBytesByteAt,
-		ast.IntrinsicBytesSetByte,
-		ast.IntrinsicBytesPush,
-		ast.IntrinsicBytesAppend,
-		ast.IntrinsicBytesAppendString,
-		ast.IntrinsicBytesToString,
 		ast.IntrinsicStringByteLength,
 		ast.IntrinsicStringByteAt,
 		ast.IntrinsicStringSliceBytes,
+		ast.IntrinsicStringToByteArray,
+		ast.IntrinsicStringFrom,
 		ast.IntrinsicFreeze,
 		ast.IntrinsicShare,
 		ast.IntrinsicThaw,

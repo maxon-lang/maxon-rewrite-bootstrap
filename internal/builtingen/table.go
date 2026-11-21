@@ -42,7 +42,17 @@ var builtinTypes = []builtinType{
 	{Key: "Handle", Name: "Handle", Params: []string{"T"}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
 	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true},
-	{Key: "Bytes", Name: "Bytes", Managed: true},
+}
+
+// typeAlias is a built-in typealias of an instance: the name and the type it is, one type and not two.
+type typeAlias struct {
+	Name string
+	Type string
+}
+
+var typeAliases = []typeAlias{
+	// ByteArray is maxon's name for an array of bytes, whose box holds one byte to an element (ast.BuiltinTy.PacksBytes).
+	{Name: "ByteArray", Type: "Array with Byte"},
 }
 
 // unionCase is a case of a built-in union; Payload are its fields as "name Type".
@@ -137,6 +147,8 @@ var functions = []function{
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count Count", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty"},
+	{Owner: "Array", Name: "get", Params: []string{"index Count"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
+	{Owner: "Array", Name: "set", Self: "mutates", Params: []string{"index Count", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet"},
 	{Owner: "Array", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush"},
 	{Owner: "Array", Name: "append", Self: "mutates", Params: []string{"other Self"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayAppend"},
 	{Owner: "Array", Name: "insert", Self: "mutates", Params: []string{"at Count", "consumes value T"}, Intrinsic: "ArrayInsert"},
@@ -178,20 +190,12 @@ var functions = []function{
 	{Owner: "Pool", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "Option with T", Intrinsic: "PoolRemove"},
 	{Owner: "Pool", Name: "dropEmpty", Self: "consumes", Intrinsic: "PoolDropEmpty"},
 
-	{Owner: "Bytes", Name: "new", Static: true, Result: "Bytes", Intrinsic: "BytesNew"},
-	{Owner: "Bytes", Name: "count", Result: "Count", Intrinsic: "BytesCount"},
-	{Owner: "Bytes", Name: "isEmpty", Result: "Bool", Intrinsic: "BytesIsEmpty"},
-	{Owner: "Bytes", Name: "byteAt", Params: []string{"index Count"}, Result: "Byte", Intrinsic: "BytesByteAt"},
-	{Owner: "Bytes", Name: "setByte", Self: "mutates", Params: []string{"index Count", "value Byte"}, Intrinsic: "BytesSetByte"},
-	{Owner: "Bytes", Name: "push", Self: "mutates", Params: []string{"value Byte"}, Intrinsic: "BytesPush"},
-	{Owner: "Bytes", Name: "append", Self: "mutates", Params: []string{"other Bytes"}, Intrinsic: "BytesAppend"},
-	{Owner: "Bytes", Name: "appendString", Self: "mutates", Params: []string{"text String"}, Intrinsic: "BytesAppendString"},
-	{Owner: "Bytes", Name: "toString", Result: "String", Intrinsic: "BytesToString"},
-
 	{Owner: "String", Name: "byteLength", Result: "Count", Intrinsic: "StringByteLength"},
 	{Owner: "String", Name: "byteAt", Params: []string{"index Count"}, Result: "Byte", Intrinsic: "StringByteAt"},
 	// sliceBytes is maxon's name for the byte range, which keeps slice for a range of graphemes.
 	{Owner: "String", Name: "sliceBytes", Params: []string{"start Count", "endPos Count"}, Result: "String", Intrinsic: "StringSliceBytes"},
+	{Owner: "String", Name: "toByteArray", Result: "Array with Byte", Intrinsic: "StringToByteArray"},
+	{Owner: "String", Name: "from", Static: true, Params: []string{"bytes Array with Byte"}, Result: "String", Intrinsic: "StringFrom"},
 
 	// freeze takes a value and gives an immutable frozen value, which the last owner drops; share gives another owner
 	// of the same frozen value or cown, and is declared over any type because it takes either; thaw gives an owned
@@ -209,7 +213,7 @@ var functions = []function{
 	{Name: "getEnv", Params: []string{"name String"}, Result: "Option with String", Intrinsic: "OsGetEnv"},
 	{Name: "readFile", Params: []string{"path String"}, Result: "Option with String", Intrinsic: "OsReadFile"},
 	{Name: "writeFile", Params: []string{"path String", "text String"}, Result: "Bool", Intrinsic: "OsWriteFile"},
-	{Name: "writeBytes", Params: []string{"path String", "data Bytes"}, Result: "Bool", Intrinsic: "OsWriteBytes"},
+	{Name: "writeBytes", Params: []string{"path String", "data Array with Byte"}, Result: "Bool", Intrinsic: "OsWriteBytes"},
 	{Name: "renameFile", Params: []string{"from String", "dest String"}, Result: "Bool", Intrinsic: "OsRenameFile"},
 	{Name: "removeFile", Params: []string{"path String"}, Result: "Bool", Intrinsic: "OsRemoveFile"},
 	{Name: "isDir", Params: []string{"path String"}, Result: "Bool", Intrinsic: "OsIsDir"},
@@ -230,7 +234,7 @@ type unit struct {
 var units = []unit{
 	{Key: "Runtime", Emitter: "runtimeUnit", Doc: "the runtime unit every executable links"},
 	{Key: "Arrays", Emitter: "arraysUnit", Doc: "the array unit, linked into a program that calls an array entry"},
-	{Key: "Bytes", Emitter: "bytesUnit", Doc: "the Bytes unit, linked into a program that calls a Bytes entry"},
+	{Key: "Bytes", Emitter: "bytesUnit", Doc: "the byte array unit, linked into a program that calls a byte array entry"},
 	{Key: "Os", Emitter: "osUnit", Doc: "the OS unit, linked into a program that calls an OS entry"},
 	{Key: "Linker", Doc: "the linker, which defines the symbol itself"},
 	{Key: "Interpreter", Doc: "no unit: only the interpreter runs the entry, and the compiler refuses a call of it"},
@@ -262,7 +266,7 @@ type entry struct {
 // raises it, dropping an owner lowers it, and the box is freed when it reaches 0.
 var entries = []entry{
 	{"Entry", "rt.entry", "Runtime", roleInternal, "the executable's entry point, which calls main"},
-	{"Alloc", "rt.alloc", "Runtime", roleInternal, "(bytes) -> a zeroed box"},
+	{"Alloc", "rt.alloc", "Runtime", roleInternal, "(ByteArray) -> a zeroed box"},
 	{"Free", "rt.free", "Runtime", roleInternal, "(box): 0 is skipped"},
 	{"Write", "rt.write", "Runtime", roleCall, "(handle, text String)"},
 	{"Panic", "rt.panic", "Runtime", roleCall, "(message String): exits"},
@@ -323,20 +327,21 @@ var entries = []entry{
 	{"Share", "rt.share", "Interpreter", roleCall, "(frozen or cown) -> the same box: another owner, with the count raised by 1"},
 	{"CownNew", "rt.cown.new", "Interpreter", roleCall, "(value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop"},
 
-	{"BytesNew", "rt.bytes.new", "Bytes", roleCall, "() -> Bytes"},
-	{"BytesLen", "rt.bytes.len", "Bytes", roleCall, "(Bytes) -> count"},
-	{"BytesGet", "rt.bytes.get", "Bytes", roleCall, "(Bytes, index) -> byte"},
-	{"BytesSet", "rt.bytes.set", "Bytes", roleCall, "(Bytes, index, byte)"},
-	{"BytesPush", "rt.bytes.push", "Bytes", roleCall, "(Bytes, byte)"},
-	{"BytesAppend", "rt.bytes.append", "Bytes", roleCall, "(Bytes, other Bytes)"},
-	{"BytesAppendStr", "rt.bytes.appendStr", "Bytes", roleCall, "(Bytes, text String)"},
-	{"BytesToString", "rt.bytes.toString", "Bytes", roleCall, "(Bytes) -> String"},
+	{"BytesNew", "rt.bytes.new", "Bytes", roleCall, "() -> ByteArray"},
+	{"BytesLen", "rt.bytes.len", "Bytes", roleCall, "(ByteArray) -> count"},
+	{"BytesGet", "rt.bytes.get", "Bytes", roleCall, "(ByteArray, index) -> byte"},
+	{"BytesSet", "rt.bytes.set", "Bytes", roleCall, "(ByteArray, index, byte)"},
+	{"BytesInsert", "rt.bytes.insert", "Bytes", roleCall, "(ByteArray, index, byte): at index, which may be the length"},
+	{"BytesRemove", "rt.bytes.remove", "Bytes", roleCall, "(ByteArray, index) -> byte"},
+	{"BytesAppend", "rt.bytes.append", "Bytes", roleCall, "(ByteArray, other ByteArray)"},
+	{"BytesAppendStr", "rt.bytes.appendStr", "Bytes", roleCall, "(ByteArray, text String)"},
+	{"BytesToString", "rt.bytes.toString", "Bytes", roleCall, "(ByteArray) -> String"},
 
 	{"OsCliArgs", "rt.os.cliArgs", "Os", roleCall, "() -> Array with String"},
 	{"OsGetEnv", "rt.os.getEnv", "Os", roleCall, "(name String) -> String or 0"},
 	{"OsReadFile", "rt.os.readFile", "Os", roleCall, "(path String) -> String or 0"},
 	{"OsWriteFile", "rt.os.writeFile", "Os", roleCall, "(path String, text String) -> bool"},
-	{"OsWriteBytes", "rt.os.writeBytes", "Os", roleCall, "(path String, data Bytes) -> bool"},
+	{"OsWriteBytes", "rt.os.writeBytes", "Os", roleCall, "(path String, data ByteArray) -> bool"},
 	{"OsRenameFile", "rt.os.renameFile", "Os", roleCall, "(from String, dest String) -> bool"},
 	{"OsRemoveFile", "rt.os.removeFile", "Os", roleCall, "(path String) -> bool"},
 	{"OsIsDir", "rt.os.isDir", "Os", roleCall, "(path String) -> bool"},

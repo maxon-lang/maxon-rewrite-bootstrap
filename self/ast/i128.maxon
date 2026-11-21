@@ -160,21 +160,21 @@ export type I128
 			mag = self.neg()
 			negPrefix = "-"
 		end 'neg'
-		var digits = Bytes.new()
+		var digits = ByteArray.create(0)
 		while not mag.isZero() 'divLoop'
 			let rem = divMod10(mag)
 			if rem < 10 'digit'
 				digits.push((48 + rem) as Byte)
 			end 'digit'
 		end 'divLoop'
-		var out = Bytes.new()
-		out.appendString(negPrefix)
+		var out = ByteArray.create(0)
+		out.append(negPrefix.toByteArray())
 		let n = digits.count()
 		for i in 0 upto n 'rev'
 			let idx = try (n - 1) - i otherwise 0 as Count
-			out.push(digits.byteAt(idx))
+			out.push(digits[idx])
 		end 'rev'
-		return out.toString()
+		return String.from(out)
 	end 'toString'
 end 'I128'
 

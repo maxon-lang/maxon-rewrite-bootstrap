@@ -139,6 +139,9 @@ func emitAst(t table) string {
 	for _, c := range slices.Concat(capabilities, markers) {
 		fmt.Fprintf(&sb, "\tb.%s = b.declareInterface(%q)\n", c, c)
 	}
+	for _, a := range typeAliases {
+		fmt.Fprintf(&sb, "\tb.declareAlias(%q, %s)\n", a.Name, fn{}.goType(parseType(a.Type)))
+	}
 	for _, f := range t.fns {
 		emitGoFunction(&sb, f)
 	}
@@ -155,6 +158,9 @@ func emitGoFunction(sb *strings.Builder, f fn) {
 	case f.Owner == stringOwner:
 		made = fmt.Sprintf("b.function(%s, %q, %s%s)", op, f.Name, ret, f.goParams())
 		place = fmt.Sprintf("b.StringMethods[%q] = %%s", f.Name)
+		if f.Static {
+			extra = append(extra, "f.IsStatic = true")
+		}
 	case f.Owner != "":
 		made = fmt.Sprintf("b.method(%s, %s, %q, %v, %s, %s%s)", goOwner(f.Owner), op, f.Name, f.Static, goConv(f.Self), ret, f.goParams())
 		place = "%s"

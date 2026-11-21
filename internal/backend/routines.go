@@ -247,10 +247,11 @@ func (e *routineEmitter) drop(t ast.Ty) {
 	case *ast.BuiltinTy:
 		switch t.Kind {
 		case ast.BuiltinArray:
+			if t.PacksBytes() {
+				e.dropBytes()
+				return
+			}
 			e.dropArray(t)
-			return
-		case ast.BuiltinBytes:
-			e.dropBytes()
 			return
 		}
 	}
@@ -273,10 +274,11 @@ func (e *routineEmitter) copy(t ast.Ty) {
 	case *ast.BuiltinTy:
 		switch t.Kind {
 		case ast.BuiltinArray:
+			if t.PacksBytes() {
+				e.copyBytes()
+				return
+			}
 			e.copyArray(t)
-			return
-		case ast.BuiltinBytes:
-			e.copyBytes()
 			return
 		}
 	}

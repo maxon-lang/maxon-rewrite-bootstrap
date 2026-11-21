@@ -6,50 +6,123 @@
 //> emptyCopy=0
 //> grown=40 b0=0 b39=39
 //> nested=AB
+//> zeros=3 0 0 0 filled=ccc
+//> get=101 set=true ok=Hxllo missing=false 7
+//> inserted=[Hxllo] clamped=[Hxllo]!
+//> removed=91 popped=33 left=Hxllo
+//> failed remove=true pop=true
+//> place=Hzllo exchanged=72 now=Wzllo
+//> generic=5 duplicated=Wzzllo
+//> digits=3 9
+//> roundTrip=true
 
 type Packet
-	var payload as Bytes
+	var payload as ByteArray
 
 	static function make() returns Packet
-		return Packet{payload: Bytes.new()}
+		return Packet{payload: ByteArray.create(0)}
 	end 'make'
 end 'Packet'
 
 typealias Packets = Array with Packet
 
+typealias Digit = int(0 to 9)
+
+typealias Digits = Array with Digit
+
+function setOrFail(mutates b ByteArray, index Count, value Byte) returns bool
+	try b.set(index, value: value) otherwise return false
+	return true
+end 'setOrFail'
+
+function removeFails(mutates b Array with Byte, index Count) returns bool
+	_ = try b.remove(index) otherwise return true
+	return false
+end 'removeFails'
+
+function popFails(mutates b ByteArray) returns bool
+	_ = try b.pop() otherwise return true
+	return false
+end 'popFails'
+
+function raise(mutates x Byte)
+	x = 122
+end 'raise'
+
+function length(items Array with T) uses T returns Count
+	return items.count()
+end 'length'
+
+function duplicate(mutates items Array with T, at Count) uses T where T implements Copyable
+	items.insert(at, value: items[at].clone())
+end 'duplicate'
+
 function main() returns ExitCode
-	var b = Bytes.new()
-	print("empty={b.isEmpty()} count={b.count()} emptyStr=<{b.toString()}>\n")
+	var b = ByteArray.create(0)
+	print("empty={b.isEmpty()} count={b.count()} emptyStr=<{String.from(b)}>\n")
 	b.push(72 as Byte)
 	b.push(101 as Byte)
 	b.push(108 as Byte)
 	b.push(108 as Byte)
 	b.push(111 as Byte)
-	print("count={b.count()} text={b.toString()}\n")
-	b.setByte(0, value: 74 as Byte)
-	print("patched={b.toString()}\n")
-	var suffix = Bytes.new()
-	suffix.appendString(", world!")
+	print("count={b.count()} text={String.from(b)}\n")
+	b[0] = 74 as Byte
+	print("patched={String.from(b)}\n")
+	var suffix = ByteArray.create(0)
+	suffix.append(", world!".toByteArray())
 	b.append(suffix)
-	print("combined={b.toString()}\n")
+	print("combined={String.from(b)}\n")
 	let snap = b.clone()
 	b.push(120 as Byte)
-	print("copy={snap.toString()} orig={b.toString()}\n")
-	let empty = Bytes.new()
+	print("copy={String.from(snap)} orig={String.from(b)}\n")
+	let empty = ByteArray.create(0)
 	let emptySnap = empty.clone()
 	print("emptyCopy={emptySnap.count()}\n")
-	var big = Bytes.new()
+	var big = ByteArray.create(0)
 	for i in 0 upto 40 'fill'
 		big.push(i as Byte)
 	end 'fill'
-	print("grown={big.count()} b0={big.byteAt(0)} b39={big.byteAt(39)}\n")
+	print("grown={big.count()} b0={big[0]} b39={big[39]}\n")
 	var p = Packet.make()
-	p.payload.appendString("A")
+	p.payload.append("A".toByteArray())
 	let p2 = p.clone()
-	p.payload.appendString("B")
+	p.payload.append("B".toByteArray())
 	var list = Packets.create(0)
 	list.push(p)
 	list.push(p2)
-	print("nested={list[0].payload.toString()}\n")
+	print("nested={String.from(list[0].payload)}\n")
+	let zeros = ByteArray.create(3)
+	let filled = ByteArray.filled(3, value: 99 as Byte)
+	print("zeros={zeros.count()} {zeros[0]} {zeros[1]} {zeros[2]} filled={String.from(filled)}\n")
+	var h = "Hello".toByteArray()
+	let got = try h.get(1) otherwise 0 as Byte
+	let setDone = setOrFail(h, index: 1, value: 120 as Byte)
+	let missing = setOrFail(h, index: 5, value: 0 as Byte)
+	let fallback = try h.get(5) otherwise 7 as Byte
+	print("get={got} set={setDone} ok={String.from(h)} missing={missing} {fallback}\n")
+	h.insert(0, value: 91 as Byte)
+	h.push(93 as Byte)
+	print("inserted={String.from(h)}")
+	h.insert(99, value: 33 as Byte)
+	print(" clamped={String.from(h)}\n")
+	let removed = try h.remove(0) otherwise 0 as Byte
+	let popped = try h.pop() otherwise 0 as Byte
+	_ = try h.pop() otherwise 0 as Byte
+	print("removed={removed} popped={popped} left={String.from(h)}\n")
+	var none = ByteArray.create(0)
+	print("failed remove={removeFails(none, index: 0)} pop={popFails(none)}\n")
+	raise(h[1])
+	let old = exchange(h[0], value: 87 as Byte)
+	var before = h.clone()
+	before[0] = 72 as Byte
+	print("place={String.from(before)} exchanged={old} now={String.from(h)}\n")
+	duplicate(h, at: 1)
+	print("generic={length(before)} duplicated={String.from(h)}\n")
+	var d = Digits.create(0)
+	d.push(3 as Digit)
+	d.push(9 as Digit)
+	print("digits={d[0]} {d[1]}\n")
+	let text = "byte arrays round-trip: é"
+	print("roundTrip={String.from(text.toByteArray()) == text}\n")
 	return 0
 end 'main'

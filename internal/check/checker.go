@@ -1691,6 +1691,12 @@ func (c *Checker) typeNamed(e ast.Expr) ast.NominalTy {
 	return nt
 }
 
+// namesString is whether e is the name String, a primitive type with no declaration, where no local shadows it.
+func (c *Checker) namesString(e ast.Expr) bool {
+	n, ok := e.AsNameExpr()
+	return ok && n.Name() == ast.StringTy.Name() && c.lookupLocal(n.Name()) == nil
+}
+
 // requireInstance refuses a generic declaration where a type is needed and no call can infer its arguments.
 func (c *Checker) requireInstance(site ast.Pos, nt ast.NominalTy) ast.NominalTy {
 	if nt.Base().IsGeneric() {
@@ -1736,6 +1742,12 @@ func (c *Checker) call(call ast.CallExpr) ast.Ty {
 	}
 
 	if m, ok := call.Callee().AsMemberExpr(); ok {
+		if c.namesString(m.Obj()) {
+			if sf, found := c.project.Builtins.StringMethods[m.Name()]; found && sf.IsStatic {
+				return c.callFunction(call, ast.CallStatic, sf, nil)
+			}
+			panic(call.Error(diag.ErrUnknownFunction, diag.UndefinedFunction(ast.StringTy.Name()+"."+m.Name())))
+		}
 		if nt := c.typeNamed(m.Obj()); nt != nil {
 			if ut, isUnion := nt.(*ast.UnionTy); isUnion {
 				if ci := ut.CaseIndex(m.Name()); ci >= 0 {
@@ -1764,7 +1776,7 @@ func (c *Checker) call(call ast.CallExpr) ast.Ty {
 			}
 		}
 		if content == ast.StringTy {
-			if method, found := c.project.Builtins.StringMethods[m.Name()]; found {
+			if method, found := c.project.Builtins.StringMethods[m.Name()]; found && !method.IsStatic {
 				return c.callFunction(call, ast.CallMethod, method, nil)
 			}
 		}

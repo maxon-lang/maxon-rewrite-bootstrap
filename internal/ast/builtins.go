@@ -114,6 +114,17 @@ func (t *BuiltinTy) Element() Ty {
 	panic(diag.Internal("%s has no elements", t.Name()))
 }
 
+// PacksBytes is whether t is an array whose box holds each element in one byte: an array of an integer type whose range
+// fits in a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an
+// array asks this, so the two boxes are never mistaken for each other.
+func (t *BuiltinTy) PacksBytes() bool {
+	if t.Kind != BuiltinArray {
+		return false
+	}
+	elem, isInt := t.args()[0].(*IntTy)
+	return isInt && t.lib.Byte.Covers(elem)
+}
+
 // IsKey is whether a value of type t may be the key of a map: one that is compared and copied as a word or as text.
 func IsKey(t Ty) bool {
 	switch k := t.(type) {
@@ -170,6 +181,16 @@ func NewBuiltins(stdlib *Module, count, byteTy *IntTy) *Builtins {
 	b := &Builtins{stdlib: stdlib, Count: count, Byte: byteTy, StringMethods: map[string]*FuncDecl{}}
 	b.declareTable()
 	return b
+}
+
+// declareAlias declares a typealias of an instance, which names the instance itself.
+func (b *Builtins) declareAlias(name string, t Ty) {
+	alias := b.stdlib.Tree.NewAliasDecl(0)
+	alias.Name = name
+	alias.Visibility = "public"
+	alias.Module = b.stdlib
+	alias.Ty = t
+	b.stdlib.Declare(alias)
 }
 
 // newUnion declares a generic union whose cases the caller gives.

@@ -151,11 +151,15 @@ func (l *Lowerer) call(c ast.CallExpr) call {
 	return call{c, info, c.ReceiverFor(info.Kind)}
 }
 
-// elemAddr is the address of a[i]: the element of a primitive that a subscript names, lent for as long as the
-// primitive is not changed.
-func (l *Lowerer) elemAddr(e ast.IndexExpr) V {
+// elemPlace is the address of a[i] that a call taking it by address is given: the element of a primitive that a
+// subscript names, lent for as long as the primitive is not changed, or for a byte array a slot that holds the element
+// (arrayBox.place).
+func (l *Lowerer) elemPlace(e ast.IndexExpr) V {
 	coll := l.read(e.Obj())
 	index := l.indexOf(e)
+	if l.isArray(l.ty(e.Obj())) {
+		return l.arrayOf(e.Position(), l.ty(e.Obj())).place(coll, index)
+	}
 	return l.elemEntry(e.Position(), l.ty(e.Obj()), coll, index)
 }
 
@@ -164,12 +168,15 @@ func (l *Lowerer) indexOf(e ast.IndexExpr) V {
 	return l.converted(e.Args().At(0), bt.Index())
 }
 
+func (l *Lowerer) isArray(collection ast.Ty) bool {
+	return ast.Content(l.binding.Apply(collection)).(*ast.BuiltinTy).Kind == ast.BuiltinArray
+}
+
+// elemEntry is the address of an element of a map, a list or a pool; an array's goes through arrayOf.
 func (l *Lowerer) elemEntry(site ast.Pos, collection ast.Ty, coll, index V) V {
 	bt := ast.Content(l.binding.Apply(collection)).(*ast.BuiltinTy)
 	var symbol Rt
 	switch bt.Kind {
-	case ast.BuiltinArray:
-		symbol = RtArrayElem
 	case ast.BuiltinMap:
 		symbol = RtMapElem
 	case ast.BuiltinList:
@@ -183,7 +190,12 @@ func (l *Lowerer) elemEntry(site ast.Pos, collection ast.Ty, coll, index V) V {
 }
 
 func (l *Lowerer) VisitIndexExpr(e ast.IndexExpr) V {
-	addr := l.elemAddr(e)
+	coll := l.read(e.Obj())
+	index := l.indexOf(e)
+	if l.isArray(l.ty(e.Obj())) {
+		return l.arrayOf(e.Position(), l.ty(e.Obj())).load(coll, index)
+	}
+	addr := l.elemEntry(e.Position(), l.ty(e.Obj()), coll, index)
 	d := l.reg(l.kind(l.ty(e.Expr())))
 	l.emit(LoadAt(d, addr))
 	return d
@@ -195,6 +207,10 @@ func (l *Lowerer) assignElement(t ast.IndexExpr, value ast.Expr) {
 	coll := l.expr(t.Obj())
 	index := l.indexOf(t)
 	v := l.expr(value)
+	if l.isArray(l.ty(t.Obj())) {
+		l.arrayOf(t.Position(), l.ty(t.Obj())).store(coll, index, v)
+		return
+	}
 	addr := l.elemEntry(t.Position(), l.ty(t.Obj()), coll, index)
 	l.dropAt(addr, l.ty(t.Expr()))
 	l.emit(StoreAt(addr, v))
@@ -220,11 +236,20 @@ func (l *Lowerer) intrinsic(c call) V {
 
 // lowerArrayCreate is an array of count zero elements. An element with no zero value is refused unless count is 0, so
 // only an array of one with a zero value has slots to fill.
+// array is the runtime of the array a call makes or is made on.
+func (l *Lowerer) array(c call) arrayBox {
+	if c.Receiver.IsNil() {
+		return l.arrayOf(c.CallExpr.Position(), l.ty(c.CallExpr.Expr()))
+	}
+	return l.arrayOf(c.CallExpr.Position(), l.ty(c.Receiver))
+}
+
 func (l *Lowerer) lowerArrayCreate(c call, _ V, args []V) V {
-	out := l.entry(c.CallExpr.Position(), RtArrayNew, KindManaged)
-	if ast.HasZero(l.binding.Apply(l.ty(c.CallExpr.Expr())).(*ast.BuiltinTy).Element()) {
+	a := l.array(c)
+	out := a.newBox()
+	if ast.HasZero(a.elem()) {
 		l.countedLoop(args[0], func(i V) {
-			l.entryVoid(c.CallExpr.Position(), RtArrayInsert, out, i, l.konst(0))
+			a.insert(out, i, l.konst(0))
 		})
 	}
 	return out
@@ -235,37 +260,44 @@ func (l *Lowerer) lowerArrayFilled(c call, _ V, args []V) V {
 }
 
 func (l *Lowerer) lowerArrayCount(c call, recv V, _ []V) V {
-	return l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
+	return l.array(c).length(recv)
 }
 
 func (l *Lowerer) lowerArrayIsEmpty(c call, recv V, _ []V) V {
-	return l.isZero(l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv))
+	return l.isZero(l.array(c).length(recv))
 }
 
-func (l *Lowerer) lowerArrayPush(c call, recv V, args []V) V {
-	l.entryVoid(c.CallExpr.Position(), RtArrayInsert, recv, l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv), args[0])
+// lowerArrayGet is a copy of the element at index, which fails with indexOutOfBounds past the end, as maxon's get does.
+func (l *Lowerer) lowerArrayGet(c call, recv V, args []V) V {
+	a := l.array(c)
+	a.inBounds(recv, args[0], nil)
+	return l.copyValue(c.CallExpr.Position(), a.load(recv, args[0]), a.elem())
+}
+
+// lowerArraySet replaces the element at index, and fails with indexOutOfBounds past the end, dropping the value it was
+// given, as maxon's set does.
+func (l *Lowerer) lowerArraySet(c call, recv V, args []V) V {
+	a := l.array(c)
+	a.inBounds(recv, args[0], func() { l.dropValue(args[1], a.elem()) })
+	a.store(recv, args[0], args[1])
 	return l.konst(0)
 }
 
-// lowerArrayAppend pushes a copy of each element of other, which the call only reads. The length of other is read once,
-// before the first push.
+func (l *Lowerer) lowerArrayPush(c call, recv V, args []V) V {
+	l.array(c).push(recv, args[0])
+	return l.konst(0)
+}
+
+// lowerArrayAppend pushes a copy of each element of other, which the call only reads.
 func (l *Lowerer) lowerArrayAppend(c call, recv V, args []V) V {
-	site := c.CallExpr.Position()
-	elem := ast.Content(l.binding.Apply(l.ty(c.Receiver))).(*ast.BuiltinTy).Element()
-	l.countedLoop(l.entry(site, RtArrayLen, KindScalar, args[0]), func(i V) {
-		addr := l.entry(site, RtArrayElem, KindScalar, args[0], i)
-		v := l.reg(l.kind(elem))
-		l.emit(LoadAt(v, addr))
-		copied := l.copyValue(site, v, elem)
-		l.entryVoid(site, RtArrayInsert, recv, l.entry(site, RtArrayLen, KindScalar, recv), copied)
-	})
+	l.array(c).appendCopy(recv, args[0])
 	return l.konst(0)
 }
 
 // lowerArrayInsert inserts at an index above the count at the end, as maxon's insert clamps it.
 func (l *Lowerer) lowerArrayInsert(c call, recv V, args []V) V {
-	site := c.CallExpr.Position()
-	n := l.entry(site, RtArrayLen, KindScalar, recv)
+	a := l.array(c)
+	n := a.length(recv)
 	at := l.f.NewSlot(KindScalar)
 	l.emit(StoreSlot(at, args[0], false))
 	clamp := l.b.NewBlock()
@@ -274,26 +306,27 @@ func (l *Lowerer) lowerArrayInsert(c call, recv V, args []V) V {
 	l.cur = clamp
 	l.emit(StoreSlot(at, n, false))
 	l.goTo(insert)
-	l.entryVoid(site, RtArrayInsert, recv, l.load(at), args[1])
+	a.insert(recv, l.load(at), args[1])
 	return l.konst(0)
 }
 
 func (l *Lowerer) lowerArrayRemove(c call, recv V, args []V) V {
-	n := l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
-	l.failUnless(l.compare(CmpLt, args[0], n, true), ast.ErrorIndexOutOfBounds, nil)
-	return l.entry(c.CallExpr.Position(), RtArrayRemove, l.kind(l.ty(c.CallExpr.Expr())), recv, args[0])
+	a := l.array(c)
+	a.inBounds(recv, args[0], nil)
+	return a.remove(recv, args[0])
 }
 
 func (l *Lowerer) lowerArrayDropEmpty(c call, recv V, _ []V) V {
-	return l.dropEmpty(c, RtArrayLen, recv)
+	return l.dropEmpty(c, l.array(c).length(recv), recv)
 }
 
 func (l *Lowerer) lowerArrayPop(c call, recv V, _ []V) V {
-	n := l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
+	a := l.array(c)
+	n := a.length(recv)
 	l.failUnless(l.nonZero(n), ast.ErrorIndexOutOfBounds, nil)
 	last := l.reg(KindScalar)
 	l.emit(Bin(last, BinSub, n, l.konst(1), true, NoBlock))
-	return l.entry(c.CallExpr.Position(), RtArrayRemove, l.kind(l.ty(c.CallExpr.Expr())), recv, last)
+	return a.remove(recv, last)
 }
 
 func (l *Lowerer) lowerMapCreate(c call, _ V, _ []V) V {
@@ -335,7 +368,7 @@ func (l *Lowerer) lowerMapReplace(c call, recv V, args []V) V {
 }
 
 func (l *Lowerer) lowerMapDropEmpty(c call, recv V, _ []V) V {
-	return l.dropEmpty(c, RtMapLen, recv)
+	return l.dropEmpty(c, l.entry(c.CallExpr.Position(), RtMapLen, KindScalar, recv), recv)
 }
 
 // lowerMapRemove drops the value of a key the map has, and gives whether it had one.
@@ -406,7 +439,7 @@ func (l *Lowerer) lowerListRemove(c call, recv V, args []V) V {
 }
 
 func (l *Lowerer) lowerListDropEmpty(c call, recv V, _ []V) V {
-	return l.dropEmpty(c, RtListLen, recv)
+	return l.dropEmpty(c, l.entry(c.CallExpr.Position(), RtListLen, KindScalar, recv), recv)
 }
 
 func (l *Lowerer) lowerListMoveToFront(c call, recv V, args []V) V {
@@ -435,7 +468,7 @@ func (l *Lowerer) lowerPoolInsert(c call, recv V, args []V) V {
 }
 
 func (l *Lowerer) lowerPoolDropEmpty(c call, recv V, _ []V) V {
-	return l.dropEmpty(c, RtPoolLen, recv)
+	return l.dropEmpty(c, l.entry(c.CallExpr.Position(), RtPoolLen, KindScalar, recv), recv)
 }
 
 func (l *Lowerer) lowerPoolRemove(c call, recv V, args []V) V {
@@ -464,44 +497,17 @@ func (l *Lowerer) lowerStringSliceBytes(c call, recv V, args []V) V {
 	return l.runtime(RtStrSlice, KindManaged, recv, args[0], args[1])
 }
 
-func (l *Lowerer) lowerBytesNew(c call, _ V, _ []V) V {
-	return l.entry(c.CallExpr.Position(), RtBytesNew, KindManaged)
+// lowerStringToByteArray is a new byte array of the string's UTF-8 bytes.
+func (l *Lowerer) lowerStringToByteArray(c call, recv V, _ []V) V {
+	a := l.arrayOf(c.CallExpr.Position(), l.ty(c.CallExpr.Expr()))
+	out := a.newBox()
+	a.appendText(out, recv)
+	return out
 }
 
-func (l *Lowerer) lowerBytesCount(c call, recv V, _ []V) V {
-	return l.entry(c.CallExpr.Position(), RtBytesLen, KindScalar, recv)
-}
-
-func (l *Lowerer) lowerBytesIsEmpty(c call, recv V, _ []V) V {
-	return l.isZero(l.entry(c.CallExpr.Position(), RtBytesLen, KindScalar, recv))
-}
-
-func (l *Lowerer) lowerBytesByteAt(c call, recv V, args []V) V {
-	return l.entry(c.CallExpr.Position(), RtBytesGet, KindScalar, recv, args[0])
-}
-
-func (l *Lowerer) lowerBytesSetByte(c call, recv V, args []V) V {
-	l.entryVoid(c.CallExpr.Position(), RtBytesSet, recv, args[0], args[1])
-	return l.konst(0)
-}
-
-func (l *Lowerer) lowerBytesPush(c call, recv V, args []V) V {
-	l.entryVoid(c.CallExpr.Position(), RtBytesPush, recv, args[0])
-	return l.konst(0)
-}
-
-func (l *Lowerer) lowerBytesAppend(c call, recv V, args []V) V {
-	l.entryVoid(c.CallExpr.Position(), RtBytesAppend, recv, args[0])
-	return l.konst(0)
-}
-
-func (l *Lowerer) lowerBytesAppendString(c call, recv V, args []V) V {
-	l.entryVoid(c.CallExpr.Position(), RtBytesAppendStr, recv, args[0])
-	return l.konst(0)
-}
-
-func (l *Lowerer) lowerBytesToString(c call, recv V, _ []V) V {
-	return l.entry(c.CallExpr.Position(), RtBytesToString, KindManaged, recv)
+// lowerStringFrom is a string of a copy of the bytes, which the call only reads.
+func (l *Lowerer) lowerStringFrom(c call, _ V, args []V) V {
+	return l.arrayOf(c.CallExpr.Position(), c.Pass.Specs[0].Type).text(args[0])
 }
 
 func (l *Lowerer) lowerOsCliArgs(c call, _ V, _ []V) V {
@@ -573,10 +579,10 @@ func (l *Lowerer) unwrap(c call, option V) V {
 	return d
 }
 
-// dropEmpty ends a collection that the call consumes, and traps if an element is left: dropping it would drop the
-// element, which a type with a destructor must never be left to do.
-func (l *Lowerer) dropEmpty(c call, length Rt, collection V) V {
-	l.requireOrTrap(l.isZero(l.entry(c.CallExpr.Position(), length, KindScalar, collection)), dropEmptyMessage)
+// dropEmpty ends a collection of the given length that the call consumes, and traps if an element is left: dropping it
+// would drop the element, which a type with a destructor must never be left to do.
+func (l *Lowerer) dropEmpty(c call, length, collection V) V {
+	l.requireOrTrap(l.isZero(length), dropEmptyMessage)
 	l.dropValue(collection, l.ty(c.Receiver))
 	return l.konst(0)
 }
@@ -598,9 +604,11 @@ func (l *Lowerer) moveOutAt(addr V, t ast.Ty) V {
 // computing it cannot leave the address stale.
 func (l *Lowerer) lowerExchange(c call, _ V, _ []V) V {
 	value := l.converted(c.Ordered[1], c.Pass.Specs[1].Type)
+	places := len(l.writeBacks)
 	addr := l.address(c.Ordered[0])
 	old := l.moveOutAt(addr, l.ty(c.CallExpr.Expr()))
 	l.emit(StoreAt(addr, value))
+	l.writeBack(places)
 	return old
 }
 
@@ -642,12 +650,12 @@ func (l *Lowerer) handleOrNone(handle V) V {
 // arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that
 // every element has an owner of its own.
 func (l *Lowerer) arrayFilled(c call, count, value V) V {
-	out := l.entry(c.CallExpr.Position(), RtArrayNew, KindManaged)
-	elem := l.binding.Apply(l.ty(c.CallExpr.Expr())).(*ast.BuiltinTy).Element()
+	a := l.array(c)
+	out := a.newBox()
 	l.countedLoop(count, func(i V) {
-		l.entryVoid(c.CallExpr.Position(), RtArrayInsert, out, i, l.copyValue(c.CallExpr.Position(), value, elem))
+		a.insert(out, i, l.copyValue(c.CallExpr.Position(), value, a.elem()))
 	})
-	l.dropValue(value, elem)
+	l.dropValue(value, a.elem())
 	return out
 }
 
@@ -672,7 +680,7 @@ func holdsInterpreterOnly(t ast.Ty, visiting []ast.Ty) bool {
 		return false
 	case *ast.BuiltinTy:
 		switch t.Kind {
-		case ast.BuiltinHandle, ast.BuiltinBytes:
+		case ast.BuiltinHandle:
 			return false
 		case ast.BuiltinArray:
 			return holdsInterpreterOnly(t.Element(), visiting)

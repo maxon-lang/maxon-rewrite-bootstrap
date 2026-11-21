@@ -21,7 +21,8 @@ import (
 //	Owner.old=new(template)  the call's name and arguments, written again from the template, in which {param} is the
 //	                         text of the argument for that parameter of the old signature
 //	Owner.old=...{call}...   the whole call, receiver and all, written again from the template, in parentheses where it is
-//	                         an operand: Array.pop=try {call} otherwise panic("empty")
+//	                         an operand: Array.pop=try {call} otherwise panic("empty"); {self} in it is the text of the
+//	                         receiver, and {param} the argument's: Bytes.byteAt={self}[{index}]
 //	Owner.old.m=...{call}... as the one before, for a call followed by '.m()', which the template replaces too
 //	Owner.old=?              lists the calls instead of rewriting them
 //
@@ -38,6 +39,8 @@ const (
 	listRule = "?"
 	// callPlaceholder, in a template, is the text of the whole call.
 	callPlaceholder = "{call}"
+	// selfPlaceholder, in a template, is the text of the receiver the method is called on.
+	selfPlaceholder = "{self}"
 )
 
 // renameRule is one rule: what it renames, and what it writes instead.
@@ -58,7 +61,7 @@ func parseRenameRule(s string) (renameRule, bool) {
 		return renameRule{}, false
 	}
 	r := renameRule{newName: to}
-	if name, _, hasTemplate := strings.Cut(to, "("); hasTemplate {
+	if name, _, hasArgs := strings.Cut(to, "("); hasArgs || strings.Contains(to, "{") {
 		r.newName, r.template = name, to
 	}
 	owner, old, isMethod := strings.Cut(from, ".")
@@ -451,8 +454,6 @@ func builtinMethod(proj *ast.Project, owner, name string) *ast.FuncDecl {
 		nt = b.List
 	case "Pool":
 		nt = b.Pool
-	case "Bytes":
-		nt = b.Bytes
 	case "Option":
 		nt = b.Option
 	default:
@@ -516,12 +517,20 @@ func (r *renamer) call(proj *ast.Project, res *ast.ModuleResult, text *moduleTex
 		return nil
 	case rule.template == "":
 		return []renameSite{{file: file, edit: renameEdit{begin: at, end: end, text: rule.newName}}}
-	case strings.Contains(rule.template, callPlaceholder):
+	}
+	argText, ok := r.argTexts(src, call, info, end, close)
+	if !ok {
+		return r.miss(file, src, at, "."+m.Name())
+	}
+	if strings.Contains(rule.template, callPlaceholder) || strings.Contains(rule.template, selfPlaceholder) {
 		spanEnd := close
 		if rule.suffix != "" {
 			spanEnd += len("." + rule.suffix + "()")
 		}
-		parts, ok := templateParts(rule.template, map[string][2]int{callPlaceholder[1 : len(callPlaceholder)-1]: {start, close}})
+		argText[placeholderName(callPlaceholder)] = [2]int{start, close}
+		// The receiver is what the chain writes before the '.' of the method.
+		argText[placeholderName(selfPlaceholder)] = [2]int{start, at - 1}
+		parts, ok := templateParts(rule.template, argText)
 		if !ok {
 			return r.miss(file, src, at, "."+m.Name())
 		}
@@ -530,10 +539,22 @@ func (r *renamer) call(proj *ast.Project, res *ast.ModuleResult, text *moduleTex
 		}
 		return []renameSite{{file: file, edit: renameEdit{begin: start, end: spanEnd, parts: parts}}}
 	}
-	args := splitArgs(src, end+1, close-1)
+	parts, ok := templateParts(rule.template, argText)
+	if !ok {
+		return r.miss(file, src, at, "."+m.Name())
+	}
+	return []renameSite{{file: file, edit: renameEdit{begin: at, end: close, parts: parts}}}
+}
+
+func placeholderName(p string) string { return p[1 : len(p)-1] }
+
+// argTexts are the spans of the arguments of a call whose parentheses are at open and before close, by the name of the
+// parameter of the old signature each is given to.
+func (r *renamer) argTexts(src string, call ast.CallExpr, info *ast.CallInfo, open, close int) (map[string][2]int, bool) {
+	args := splitArgs(src, open+1, close-1)
 	written := call.Args()
 	if len(args) != written.Len() {
-		return r.miss(file, src, at, "."+m.Name())
+		return nil, false
 	}
 	argText := map[string][2]int{}
 	for i, spec := range info.Target.Pass.Specs {
@@ -550,11 +571,7 @@ func (r *renamer) call(proj *ast.Project, res *ast.ModuleResult, text *moduleTex
 			}
 		}
 	}
-	parts, ok := templateParts(rule.template, argText)
-	if !ok {
-		return r.miss(file, src, at, "."+m.Name())
-	}
-	return []renameSite{{file: file, edit: renameEdit{begin: at, end: close, parts: parts}}}
+	return argText, true
 }
 
 // needsParens is whether an expression written in place of src[begin:end] needs parentheses to stay one operand: it does
