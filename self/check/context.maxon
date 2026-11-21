@@ -63,9 +63,11 @@ export type OuterLevel
 	export var whens as Count
 	export var hasBehaviour as bool
 	export var behIdx as Count
+	export var fnLocals as ast.LocalIDList
+	export var tries as TryFrameList
 
-	export static function make(fn ast.FuncID, consumes scopes ScopeList, consumes blocks BlockFrameList, nextSlot Count, whens Count, hasBehaviour bool, behIdx Count) returns OuterLevel
-		return OuterLevel{fn: fn, scopes: scopes, blocks: blocks, nextSlot: nextSlot, whens: whens, hasBehaviour: hasBehaviour, behIdx: behIdx}
+	export static function make(fn ast.FuncID, consumes scopes ScopeList, consumes blocks BlockFrameList, nextSlot Count, whens Count, hasBehaviour bool, behIdx Count, consumes fnLocals ast.LocalIDList, consumes tries TryFrameList) returns OuterLevel
+		return OuterLevel{fn: fn, scopes: scopes, blocks: blocks, nextSlot: nextSlot, whens: whens, hasBehaviour: hasBehaviour, behIdx: behIdx, fnLocals: fnLocals, tries: tries}
 	end 'make'
 end 'OuterLevel'
 
@@ -90,6 +92,8 @@ export type TryFrame
 		return TryFrame{errors: ast.TypeIDList.create(0)}
 	end 'make'
 end 'TryFrame'
+
+export typealias TryFrameList = Array with TryFrame
 
 // A TryBinding is the error that a try block's handler names, which the handler must match on to tell the failures apart.
 export type TryBinding
@@ -181,7 +185,7 @@ export type Checker
 	export var capVisiting as VisitMap
 	// tries are the tries around the code being checked that catch its failures, innermost last; bindings are the errors
 	// that the handlers being checked name, innermost last.
-	export var tries as Array with TryFrame
+	export var tries as TryFrameList
 	export var bindings as Array with TryBinding
 	// statement is the try that stands alone as the statement being checked, which alone may ignore a failure.
 	export var statement as ast.NodeID
@@ -769,7 +773,7 @@ export function instantiateGeneric(mutates c Checker, mutates p ast.Project, off
 			return ast.noType
 		end 'badK'
 	end 'mp' else if bk == ast.TypeKind.builtinFrozen 'fr'
-		if args[0] != ast.noType and not ast.isManagedType(p.types, t: args[0]) and p.types.entries[args[0] as Count].kind != ast.TypeKind.typeParam 'badF'
+		if args[0] != ast.noType and not ast.isManagedType(p.types, t: args[0]) 'badF'
 			checkFail(c.modID, off: off, code: diag.errFreezeScalar, msg: "'{ast.typeName(p.types, t: args[0])}' is a plain value, which is immutable already and copied freely, so there is nothing to freeze: freeze a record, a union, a String or a collection", errs: errs)
 			return ast.noType
 		end 'badF'

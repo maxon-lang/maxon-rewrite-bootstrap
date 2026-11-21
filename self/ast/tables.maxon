@@ -168,6 +168,15 @@ end 'Capture'
 
 export typealias CaptureList = Array with Capture
 
+// behaviourSuffix joins the name of a function to the number of a behaviour body in it.
+export let behaviourSuffix = "$when"
+
+// behaviourName is the name of the function that a behaviour's body becomes, numbered in the order the bodies are met in
+// the enclosing function.
+export function behaviourName(enclosing String, index Count) returns String
+	return "{enclosing}{behaviourSuffix}{index}"
+end 'behaviourName'
+
 export type WhenInfo
 	export var fn as FuncID
 	export var cowns as TypeIDList

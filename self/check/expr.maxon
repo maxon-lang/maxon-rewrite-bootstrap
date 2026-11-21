@@ -144,7 +144,11 @@ end 'constantOf'
 function checkNameExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: e)
 	let off = offsetOf(c, p: p, node: e)
-	let local = lookupLocal(c, name: name)
+	let mark = errs.count()
+	let local = useLocal(c, p: p, use: e, name: name, errs: errs)
+	if failedSince(errs, mark: mark) 'refused'
+		return ast.noType
+	end 'refused'
 	if local != ast.noLocal 'local'
 		c.typing.names.insert(e as Count, value: ast.NameInfo.localName(local))
 		return c.typing.locals[local as Count].ty
@@ -156,6 +160,12 @@ function checkNameExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 			none then _ = 0
 		end 'field'
 	end 'inMethod'
+	if c.inBehaviour 'behaviour'
+		match consumes selfFieldInBehaviour(c, p: p, name: name) 'selfField'
+			some(fieldTy) then return refuseBehaviourSelf(c, p: p, off: off, what: "the field '{name}'", t: fieldTy, errs: errs)
+			none then _ = 0
+		end 'selfField'
+	end 'behaviour'
 	match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
 		some(ref) then return checkDeclaredName(c, p: p, e: e, ref: ref, name: name, errs: errs)
 		none then _ = 0
@@ -211,6 +221,10 @@ function typeOfConstant(mutates c Checker, e ast.NodeID, consumes ref ast.DeclRe
 end 'typeOfConstant'
 
 function checkSelfExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if c.inBehaviour 'behaviour'
+		let owner = c.owner
+		return refuseBehaviourSelf(c, p: p, off: offsetOf(c, p: p, node: e), what: "'self'", t: owner, errs: errs)
+	end 'behaviour'
 	if c.fn == ast.noFunc or not p.funcs.entries[c.fn as Count].hasReceiver 'outside'
 		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
 		return ast.noType

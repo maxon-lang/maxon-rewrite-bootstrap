@@ -524,6 +524,7 @@ export function isManagedType(tt TypeTable, t TypeID) returns bool
 		builtinPool gives true
 		builtinFrozen gives true
 		builtinCown gives true
+		typeParam gives true
 		invalid gives false
 		primBool gives false
 		primVoid gives false
@@ -532,7 +533,6 @@ export function isManagedType(tt TypeTable, t TypeID) returns bool
 		constInt gives false
 		enumTy gives false
 		builtinHandle gives false
-		typeParam gives false
 		interfaceTy gives false
 	end 'k'
 end 'isManagedType'

@@ -29,16 +29,36 @@ function popBlock(mutates c Checker)
 	try c.blocks.pop() otherwise ignore
 end 'popBlock'
 
-// lookupLocal is the local that a name stands for in the scopes of the code being checked, innermost first, or none.
-function lookupLocal(c Checker, name String) returns ast.LocalID
-	var i = c.scopes.count()
+function lookupScopes(scopes ScopeList, name String) returns ast.LocalID
+	var i = scopes.count()
 	while i > 0 'scopes'
 		i = try i - 1 otherwise 0 as Count
-		match c.scopes[i].get(name) 'found'
+		match scopes[i].get(name) 'found'
 			some(id) then return id
 			none then _ = 0
 		end 'found'
 	end 'scopes'
+	return ast.noLocal
+end 'lookupScopes'
+
+// lookupLocal is the local that a name stands for where it is written, or none. For a name inside a behaviour that is a
+// variable of an enclosing function it is that variable, and nothing is captured: this only asks.
+function lookupLocal(c Checker, name String) returns ast.LocalID
+	let own = lookupScopes(c.scopes, name: name)
+	if own != ast.noLocal 'own'
+		return own
+	end 'own'
+	var i = c.outers.count()
+	while i > 0 'outers'
+		i = try i - 1 otherwise 0 as Count
+		let found = lookupScopes(c.outers[i].scopes, name: name)
+		if found != ast.noLocal 'found'
+			return found
+		end 'found'
+		if not c.outers[i].hasBehaviour 'top'
+			break 'outers'
+		end 'top'
+	end 'outers'
 	return ast.noLocal
 end 'lookupLocal'
 
