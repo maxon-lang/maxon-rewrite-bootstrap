@@ -72,6 +72,9 @@ const (
 	opPrefixTwo   = 0x0F
 	opImulSecond  = 0xAF
 	opMovzxSecond = 0xB6
+	// opMovzxWordSecond is movzx of a 16-bit source, and opOperandSize the prefix of a 16-bit operand.
+	opMovzxWordSecond = 0xB7
+	opOperandSize     = 0x66
 )
 
 type Label struct {
@@ -502,4 +505,32 @@ func (a *Asm) SubRspPlaceholder() int {
 	at := a.Pos()
 	a.d32(0)
 	return at
+}
+
+// The sized loads and stores are the encodings self's codegen gives the runtime's raw memory operations; the Go backend
+// emits none of them, and has them so that the encoder table of self is checked against them.
+
+func (a *Asm) LoadWord16(dst, b R, disp int) {
+	a.rex(true, int(dst), int(b))
+	a.Raw(opPrefixTwo, opMovzxWordSecond)
+	a.mem(int(dst), b, disp)
+}
+
+func (a *Asm) Load32(dst, b R, disp int) {
+	a.rex(false, int(dst), int(b))
+	a.Code = append(a.Code, 0x8B)
+	a.mem(int(dst), b, disp)
+}
+
+func (a *Asm) Store16(b R, disp int, src R) {
+	a.Code = append(a.Code, opOperandSize)
+	a.rex(false, int(src), int(b))
+	a.Code = append(a.Code, 0x89)
+	a.mem(int(src), b, disp)
+}
+
+func (a *Asm) Store32(b R, disp int, src R) {
+	a.rex(false, int(src), int(b))
+	a.Code = append(a.Code, 0x89)
+	a.mem(int(src), b, disp)
 }

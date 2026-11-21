@@ -596,3 +596,15 @@ func holdsInterpreterOnly(t ast.Ty, visiting []ast.Ty) bool {
 	}
 	panic(diag.Internal("lower: %s has no layout the backend knows", t.Name()))
 }
+
+// lowerRuntimeOnly refuses an intrinsic that only the runtime's source calls (ast.Intrinsic.RuntimeOnly). The checker
+// admits one only in the runtime module, which the Go compiler links its own runtime in place of and never lowers.
+func (l *Lowerer) lowerRuntimeOnly(c call) V {
+	panic(RuntimeSourceOnly("lower", c.Target.Symbol()))
+}
+
+// RuntimeSourceOnly is the internal error of the Go compiler meeting an operation of the runtime's source, which only self
+// compiles (README, "The runtime"): where is the pass, what the operation.
+func RuntimeSourceOnly(where, what string) *diag.InternalError {
+	return diag.Internal("%s: %s is an operation of the runtime's source, which the Go compiler does not compile", where, what)
+}

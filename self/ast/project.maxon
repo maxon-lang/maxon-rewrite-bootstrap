@@ -123,6 +123,10 @@ export let rootQualifier = "export"
 
 export let stdlibQualifier = "stdlib"
 
+// runtimeQualifier names the runtime module wherever it is compiled, so that its functions have the symbols the compiler
+// calls them by (ir.rtSymbol).
+export let runtimeQualifier = "runtime"
+
 export function moduleDecl(p Project, ref DeclRef) returns Decl
 	if ref.module == diag.stdlibID 'std'
 		return p.stdlib.decls[ref.ordinal as Count].clone()
@@ -178,7 +182,9 @@ export function funcLinkName(p Project, fid FuncID) returns String
 			base = "stdlib::{fnName}"
 		end 'std' else if p.funcs.entries[fid as Count].isExtern 'ext'
 			return fnName
-		end 'ext' else 'user'
+		end 'ext' else if p.modules[modID as Count].isRuntime 'runtime'
+			base = "{runtimeQualifier}::{fnName}"
+		end 'runtime' else 'user'
 			let mp = p.modules[modID as Count].path.clone()
 			if mp == "" 'rt'
 				base = fnName

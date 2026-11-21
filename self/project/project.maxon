@@ -109,8 +109,29 @@ function isQualifier(name String) returns bool
 end 'isQualifier'
 
 function isReservedTopLevel(name String) returns bool
-	return name == ast.rootQualifier or name == ast.stdlibQualifier or name == "runtime" or name == "scriptlib"
+	return name == ast.rootQualifier or name == ast.stdlibQualifier or name == ast.runtimeQualifier or name == "scriptlib"
 end 'isReservedTopLevel'
+
+// isRuntimeDirectory is whether a project's directory is the runtime's source, which is then checked as the runtime: it
+// may call the __Raw intrinsics, and it is a library with no main. Maxon has no path of the running executable to find the
+// runtime directory beside, as the Go compiler does, so the directory is known by its name.
+function isRuntimeDirectory(path String) returns bool
+	let clean = trimTrailingSlash(path)
+	let n = clean.byteLength()
+	let nameLen = ast.runtimeQualifier.byteLength()
+	if n < nameLen 'short'
+		return false
+	end 'short'
+	let start = try n - nameLen otherwise 0
+	if clean.sliceBytes(start, endPos: n) != ast.runtimeQualifier 'name'
+		return false
+	end 'name'
+	if start == 0 'bare'
+		return true
+	end 'bare'
+	let before = clean.byteAt(try start - 1 otherwise 0)
+	return before == 47 or before == 92
+end 'isRuntimeDirectory'
 
 typealias FilePathList = Array with FilePath
 
@@ -365,6 +386,7 @@ export function loadProject(rootPath String, mutates errs diag.ErrorList) return
 		if nodes.count() > 0 'collect'
 			let rootMid = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
 			p.rootModule = rootMid
+			p.modules[ast.modIndex(rootMid)].isRuntime = isRuntimeDirectory(rootPath)
 		end 'collect'
 		for i in 0 upto p.modules.count() 'parseEach'
 			parseSingleModule(p, modIdx: i, singleSrc: table.Option.none, errs: errs)

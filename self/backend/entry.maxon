@@ -55,19 +55,12 @@ let stdErrorHandle = -12
 
 let windowsShadowSize = 40
 
-// leakExitCode is what an executable built to count its allocations exits with when main returned and a box is still
-// live. It differs from every code a program or a trap gives.
-let leakExitCode = 99
-
-let leakMessage = "leaked allocations: "
-
-let leakMessageEnd = "\n"
-
-let leakArguments = 2
+// checkLeaksArguments is what the runtime's checkLeaks takes: main's exit code.
+let checkLeaksArguments = 1
 
 // RuntimeOptions say how the entry stub is built.
 export type RuntimeOptions
-	// countAllocations keeps the number of live heap boxes, and has the entry fail when main returns with any left.
+	// countAllocations has the entry fail when main returns with a heap box still live.
 	export var countAllocations as bool
 
 	export static function make(countAllocations bool) returns RuntimeOptions
@@ -75,16 +68,15 @@ export type RuntimeOptions
 	end 'make'
 end 'RuntimeOptions'
 
-// emitRuntime is the unit with the entry point and the globals it sets: the process heap and the standard handles, and the
-// count of live boxes when the options ask for it. mainSymbol is the symbol of the function the entry calls.
+// emitRuntime is the unit with the entry point and the globals the runtime's source reads: the process heap and the
+// standard handles, which the entry sets, and the count of live boxes, which the runtime keeps in every executable so
+// that it is the same code whatever the options. mainSymbol is the symbol of the function the entry calls.
 export function emitRuntime(mainSymbol String, options RuntimeOptions) returns CodeUnit
 	var u = CodeUnit.new()
 	u.defineData(ir.rtSymbol(ir.Rt.rtHeap), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtStdout), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtStderr), size: wordBytes)
-	if options.countAllocations 'live'
-		u.defineData(ir.rtSymbol(ir.Rt.rtLive), size: wordBytes)
-	end 'live'
+	u.defineData(ir.rtSymbol(ir.Rt.rtLive), size: wordBytes)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
 	emitEntry(u, mainSymbol: mainSymbol, count: options.countAllocations)
 	return u
@@ -99,7 +91,8 @@ function callRuntime(mutates u CodeUnit, entry ir.Rt, args Count)
 end 'callRuntime'
 
 // emitEntry writes the executable's entry point: it sets up the heap and the standard handles, calls main and exits
-// with what main returns.
+// with what main returns. In an executable that counts its allocations, the runtime's checkLeaks sees main's exit code
+// first, and exits with a leak report in its place when a box is still live.
 function emitEntry(mutates u CodeUnit, mainSymbol String, count bool)
 	u.asm.subImm(rsp, imm: windowsShadowSize)
 	u.asm.callImport(impGetProcessHeap)
@@ -112,47 +105,20 @@ function emitEntry(mutates u CodeUnit, mainSymbol String, count bool)
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStderr), src: rax)
 	u.asm.callSymbol(mainSymbol)
 	if count 'leaks'
-		exitIfLeaking(u)
+		u.asm.push(rax)
+		callRuntime(u, entry: ir.Rt.rtCheckLeaks, args: checkLeaksArguments)
 	end 'leaks'
 	u.asm.mov(rcx, src: rax)
 	u.asm.callImport(impExitProcess)
 end 'emitEntry'
 
-// exitIfLeaking is the end of main in an executable that counts its allocations: a box still live is a drop that the
-// program lacks, so it says so on standard error and exits with leakExitCode. rax, main's exit code, is untouched when none
-// is live. A panic or a trap exits without this check.
-function exitIfLeaking(mutates u CodeUnit)
-	let clean = u.asm.newLabel()
-	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtLive))
-	u.asm.test(rcx, right: rcx)
-	u.asm.jcc(X64CondCode.equal, label: clean)
-	beginWriteError(u)
-	u.asm.leaData(rax, dataOffset: u.data.textOffset(leakMessage))
-	finishWriteError(u)
-	u.asm.loadSymbol(rax, symbol: ir.rtSymbol(ir.Rt.rtLive))
-	u.asm.push(rax)
-	u.asm.movImm(rax, imm: 0)
-	u.asm.push(rax)
-	callRuntime(u, entry: ir.Rt.rtItoa, args: leakArguments)
-	u.asm.mov(rbx, src: rax)
-	beginWriteError(u)
-	u.asm.mov(rax, src: rbx)
-	finishWriteError(u)
-	beginWriteError(u)
-	u.asm.leaData(rax, dataOffset: u.data.textOffset(leakMessageEnd))
-	finishWriteError(u)
-	u.asm.movImm(rcx, imm: leakExitCode)
-	u.asm.callImport(impExitProcess)
-	u.asm.bind(clean)
-end 'exitIfLeaking'
-
-// beginWriteError and finishWriteError write the string that the code between them puts in rax to standard error.
-function beginWriteError(mutates u CodeUnit)
-	u.asm.loadSymbol(rax, symbol: ir.rtSymbol(ir.Rt.rtStderr))
-	u.asm.push(rax)
-end 'beginWriteError'
-
-function finishWriteError(mutates u CodeUnit)
-	u.asm.push(rax)
-	callRuntime(u, entry: ir.Rt.rtWrite, args: leakArguments)
-end 'finishWriteError'
+// importIndex is the slot of a DLL import in the executable's import table, which a call of it goes through.
+export function importIndex(name String) returns Count
+	let names = rtImports()
+	for i in 0 upto names.count() 'names'
+		if names[i] == name 'found'
+			return i
+		end 'found'
+	end 'names'
+	panic("backend: the runtime calls a DLL function the executable does not import")
+end 'importIndex'

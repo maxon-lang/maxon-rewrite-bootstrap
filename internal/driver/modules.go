@@ -566,6 +566,9 @@ func (p *modulePhase) conclude(output string, mark func(string)) []*diag.Compile
 		return failure
 	}
 	if p.capture == nil && !p.emit {
+		if p.proj.Root.IsRuntime {
+			return checkRuntimeFunctions(p.proj)
+		}
 		return nil
 	}
 	if p.options.EmitIr {

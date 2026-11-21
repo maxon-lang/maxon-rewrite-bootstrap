@@ -665,20 +665,27 @@ export type TextPart
 	end 'make'
 end 'TextPart'
 
+// plainText is the text of a string literal with no interpolation.
+function plainText(l Lowerer, p ast.Project, e ast.NodeID) returns String
+	let partsRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: e)
+	let count = p.modules[l.mi].tree.strPartCount(partsRef)
+	if count == 1 'one'
+		return p.modules[l.mi].tree.strPartText(partsRef, index: 0 as Count)
+	end 'one'
+	var text = ByteArray.create(0)
+	for i in 0 upto count 'parts'
+		text.append(p.modules[l.mi].tree.strPartText(partsRef, index: i).toByteArray())
+	end 'parts'
+	return String.from(text)
+end 'plainText'
+
 // visitStrLit joins the parts of an interpolated literal into a new string, dropping each intermediate string once it has
 // been joined. A literal of a single borrowed string is a copy of it, because the literal's value is its own.
 function visitStrLit(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let partsRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: e)
 	let count = p.modules[l.mi].tree.strPartCount(partsRef)
 	if p.modules[l.mi].tree.strIsPlain(partsRef) 'plain'
-		if count == 1 'one'
-			return strReg(l, value: p.modules[l.mi].tree.strPartText(partsRef, index: 0 as Count))
-		end 'one'
-		var text = ByteArray.create(0)
-		for i in 0 upto count 'parts'
-			text.append(p.modules[l.mi].tree.strPartText(partsRef, index: i).toByteArray())
-		end 'parts'
-		return strReg(l, value: String.from(text))
+		return strReg(l, value: plainText(l, p: p, e: e))
 	end 'plain'
 	let first = strPart(l, p: p, partsRef: partsRef, index: 0 as Count)
 	var acc = first.value

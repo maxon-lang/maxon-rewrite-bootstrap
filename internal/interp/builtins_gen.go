@@ -153,7 +153,8 @@ func (vm *vm) runEntry(c *runtimeCall) {
 		ir.RtStderr,
 		ir.RtLive,
 		ir.RtImageDataStart,
-		ir.RtImageDataEnd:
+		ir.RtImageDataEnd,
+		ir.RtCheckLeaks:
 		panic(diag.Internal("interp: %s is no entry the IR calls", c.Symbol()))
 	default:
 		panic(diag.Internal("interp: %d is no runtime symbol", int(c.Symbol())))

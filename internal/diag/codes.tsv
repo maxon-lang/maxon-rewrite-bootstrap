@@ -55,6 +55,7 @@ ErrDivisionByZero	E3103	semanticDivisionByZero	A division or 'mod' has a constan
 ErrZeroOutsideElement	E3106	semanticArrayResizeManagedElement	An array is created with zeroed elements of a type that has no zero value.
 ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names something other than an enum.
 ErrAmbiguousBound	E3114	semanticAmbiguousWitnessDispatch	A method call on a type parameter names a method that more than one of its bounds declares.
+ErrRawIntrinsicOutsideRuntime	E3152	rawIntrinsicOutsideRuntimeTier	A source file outside the runtime calls a __Raw intrinsic.
 ErrExposesHiddenType	E3167	semanticSignatureTypeLessVisibleThanDeclaration	A declaration's signature names a type less visible than the declaration.
 ErrCannotInfer	E3179	genericTypeParameterNotInferable	A type parameter of a generic function is fixed by no argument.
 ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program cannot be spelled as a module name.

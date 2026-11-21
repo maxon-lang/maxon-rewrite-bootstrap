@@ -206,6 +206,60 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return lowerCollectedOutputSucceeded(l, p: p, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
+		return lowerRawLoad8(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawLoad8'
+	if op == ast.Intrinsic.intrRawLoad16 'intrRawLoad16'
+		return lowerRawLoad16(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawLoad16'
+	if op == ast.Intrinsic.intrRawLoad32 'intrRawLoad32'
+		return lowerRawLoad32(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawLoad32'
+	if op == ast.Intrinsic.intrRawLoad64 'intrRawLoad64'
+		return lowerRawLoad64(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawLoad64'
+	if op == ast.Intrinsic.intrRawStore8 'intrRawStore8'
+		return lowerRawStore8(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawStore8'
+	if op == ast.Intrinsic.intrRawStore16 'intrRawStore16'
+		return lowerRawStore16(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawStore16'
+	if op == ast.Intrinsic.intrRawStore32 'intrRawStore32'
+		return lowerRawStore32(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawStore32'
+	if op == ast.Intrinsic.intrRawStore64 'intrRawStore64'
+		return lowerRawStore64(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawStore64'
+	if op == ast.Intrinsic.intrRawWrappingAdd 'intrRawWrappingAdd'
+		return lowerRawWrappingAdd(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawWrappingAdd'
+	if op == ast.Intrinsic.intrRawWrappingSub 'intrRawWrappingSub'
+		return lowerRawWrappingSub(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawWrappingSub'
+	if op == ast.Intrinsic.intrRawAddressOf 'intrRawAddressOf'
+		return lowerRawAddressOf(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawAddressOf'
+	if op == ast.Intrinsic.intrRawStringAddress 'intrRawStringAddress'
+		return lowerRawStringAddress(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawStringAddress'
+	if op == ast.Intrinsic.intrRawStringAt 'intrRawStringAt'
+		return lowerRawStringAt(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawStringAt'
+	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
+		return lowerRawHeapAddress(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawHeapAddress'
+	if op == ast.Intrinsic.intrRawStdoutAddress 'intrRawStdoutAddress'
+		return lowerRawStdoutAddress(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawStdoutAddress'
+	if op == ast.Intrinsic.intrRawStderrAddress 'intrRawStderrAddress'
+		return lowerRawStderrAddress(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawStderrAddress'
+	if op == ast.Intrinsic.intrRawLiveAddress 'intrRawLiveAddress'
+		return lowerRawLiveAddress(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawLiveAddress'
+	if op == ast.Intrinsic.intrRawCallImport 'intrRawCallImport'
+		return lowerRawCallImport(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawCallImport'
 	panic("lower: a call names no intrinsic")
 end 'intrinsicCall'
 
@@ -415,5 +469,59 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return false
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
+		return false
+	end 'intrRawLoad8'
+	if op == ast.Intrinsic.intrRawLoad16 'intrRawLoad16'
+		return false
+	end 'intrRawLoad16'
+	if op == ast.Intrinsic.intrRawLoad32 'intrRawLoad32'
+		return false
+	end 'intrRawLoad32'
+	if op == ast.Intrinsic.intrRawLoad64 'intrRawLoad64'
+		return false
+	end 'intrRawLoad64'
+	if op == ast.Intrinsic.intrRawStore8 'intrRawStore8'
+		return false
+	end 'intrRawStore8'
+	if op == ast.Intrinsic.intrRawStore16 'intrRawStore16'
+		return false
+	end 'intrRawStore16'
+	if op == ast.Intrinsic.intrRawStore32 'intrRawStore32'
+		return false
+	end 'intrRawStore32'
+	if op == ast.Intrinsic.intrRawStore64 'intrRawStore64'
+		return false
+	end 'intrRawStore64'
+	if op == ast.Intrinsic.intrRawWrappingAdd 'intrRawWrappingAdd'
+		return false
+	end 'intrRawWrappingAdd'
+	if op == ast.Intrinsic.intrRawWrappingSub 'intrRawWrappingSub'
+		return false
+	end 'intrRawWrappingSub'
+	if op == ast.Intrinsic.intrRawAddressOf 'intrRawAddressOf'
+		return true
+	end 'intrRawAddressOf'
+	if op == ast.Intrinsic.intrRawStringAddress 'intrRawStringAddress'
+		return false
+	end 'intrRawStringAddress'
+	if op == ast.Intrinsic.intrRawStringAt 'intrRawStringAt'
+		return false
+	end 'intrRawStringAt'
+	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
+		return false
+	end 'intrRawHeapAddress'
+	if op == ast.Intrinsic.intrRawStdoutAddress 'intrRawStdoutAddress'
+		return false
+	end 'intrRawStdoutAddress'
+	if op == ast.Intrinsic.intrRawStderrAddress 'intrRawStderrAddress'
+		return false
+	end 'intrRawStderrAddress'
+	if op == ast.Intrinsic.intrRawLiveAddress 'intrRawLiveAddress'
+		return false
+	end 'intrRawLiveAddress'
+	if op == ast.Intrinsic.intrRawCallImport 'intrRawCallImport'
+		return true
+	end 'intrRawCallImport'
 	panic("lower: a call names no intrinsic")
 end 'ownsOperands'

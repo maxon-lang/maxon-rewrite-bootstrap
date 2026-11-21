@@ -30,3 +30,13 @@ function checkArrayCreateArgs(mutates c Checker, mutates p ast.Project, call ast
 	end 'parameter'
 	failAt(c, p: p, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of '{name}': zero is not a value of '{name}'. Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
 end 'checkArrayCreateArgs'
+
+// checkRawCallImportArgs refuses a DLL import named by anything but a string literal: the name is the import's entry in
+// the executable's import table, which the link fixes, so it is never computed.
+function checkRawCallImportArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	let name = ordered[0]
+	if p.modules[c.modIdx].tree.kindOf(name) == ast.NodeKind.strLit and p.modules[c.modIdx].tree.strIsPlain(ast.strLitPartsRef(p.modules[c.modIdx].tree, id: name)) 'literal'
+		return
+	end 'literal'
+	failAt(c, p: p, node: name, code: diag.errExpressionError, msg: "a DLL import is named by a string literal, as in '__Raw.callImport1(\"ExitProcess\", arg1: code)'", errs: errs)
+end 'checkRawCallImportArgs'

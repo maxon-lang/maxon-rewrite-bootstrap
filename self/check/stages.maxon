@@ -64,7 +64,7 @@ export function stageDeclare(mutates ch Checks, mutates p ast.Project, mutates e
 		let m = ast.modIndex(ch.order[i])
 		let paramsOk = ch.modules[m].paramsOk.clone()
 		ch.modules[m].functions = declareModule(ch.modules[m].checker, p: p, paramsOk: paramsOk, errs: errs)
-		if m == ast.modIndex(p.rootModule) 'root'
+		if m == ast.modIndex(p.rootModule) and not p.modules[m].isRuntime 'root'
 			ch.entry = checkMain(ch.modules[m].checker, p: p, errs: errs)
 		end 'root'
 	end 'each'

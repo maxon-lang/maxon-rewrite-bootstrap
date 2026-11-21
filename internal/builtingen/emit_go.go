@@ -45,7 +45,7 @@ func (f fn) goParams() string {
 
 func emitAst(t table) string {
 	var sb strings.Builder
-	sb.WriteString(header + "package ast\n\n")
+	sb.WriteString(header + "package ast\n\nimport \"minimaxon/internal/diag\"\n\n")
 
 	sb.WriteString("// BuiltinKind says which runtime primitive a BuiltinTy is.\ntype BuiltinKind int\n\nconst (\n")
 	for i, b := range builtinTypes {
@@ -68,6 +68,8 @@ func emitAst(t table) string {
 		fmt.Fprintf(&sb, "\tIntrinsic%s\n", in.name)
 	}
 	sb.WriteString(")\n\n")
+	emitRuntimeOnly(&sb, t)
+	emitTableType(&sb)
 
 	for _, r := range recordTypes {
 		if len(r.Fields) == 0 {
@@ -300,11 +302,20 @@ func emitIr(t table) string {
 		fmt.Fprintf(&sb, "\tRt%s: RtUnit%s,\n", e.Name, e.Unit)
 	}
 	sb.WriteString("}\n\n")
+	emitRtFunctions(&sb, t)
 
 	sb.WriteString("// intrinsicCall lowers a call of a built-in whose receiver and arguments are lowered.\n")
 	sb.WriteString("func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {\n\tswitch c.Target.Intrinsic {\n")
+	var runtimeOnly []string
 	for _, in := range t.intrinsics {
+		if in.runtimeOnly {
+			runtimeOnly = append(runtimeOnly, "ast.Intrinsic"+in.name)
+			continue
+		}
 		fmt.Fprintf(&sb, "\tcase ast.Intrinsic%s:\n\t\treturn l.lower%s(c, recv, args)\n", in.name, in.name)
+	}
+	if len(runtimeOnly) > 0 {
+		fmt.Fprintf(&sb, "\tcase %s:\n\t\treturn l.lowerRuntimeOnly(c)\n", strings.Join(runtimeOnly, ",\n\t\t"))
 	}
 	sb.WriteString("\t}\n\tpanic(diag.Internal(\"lower: %d is no intrinsic\", int(c.Target.Intrinsic)))\n}\n\n")
 
@@ -362,4 +373,70 @@ func emitBackend(table) string {
 		sb.WriteString("}\n")
 	}
 	return sb.String()
+}
+
+// emitRuntimeOnly writes Intrinsic.RuntimeOnly, which the checker asks of every call of a built-in.
+func emitRuntimeOnly(sb *strings.Builder, t table) {
+	sb.WriteString("// RuntimeOnly is whether only the runtime module may call the intrinsic (E3152).\n")
+	sb.WriteString("func (op Intrinsic) RuntimeOnly() bool {\n\tswitch op {\n")
+	var only []string
+	anywhere := []string{"NotIntrinsic"}
+	for _, in := range t.intrinsics {
+		if in.runtimeOnly {
+			only = append(only, "Intrinsic"+in.name)
+		} else {
+			anywhere = append(anywhere, "Intrinsic"+in.name)
+		}
+	}
+	if len(only) > 0 {
+		fmt.Fprintf(sb, "\tcase %s:\n\t\treturn true\n", strings.Join(only, ",\n\t\t"))
+	}
+	if len(anywhere) > 0 {
+		fmt.Fprintf(sb, "\tcase %s:\n\t\treturn false\n", strings.Join(anywhere, ",\n\t\t"))
+	}
+	sb.WriteString("\t}\n\tpanic(diag.Internal(\"ast: %d is no intrinsic\", int(op)))\n}\n\n")
+}
+
+// emitTableType writes Builtins.TableType, the type that a key of primTypes names, which is how a signature that the
+// table writes as text is compared with a declared one.
+func emitTableType(sb *strings.Builder) {
+	sb.WriteString("// TableType is the type that a key of the built-in table's types names.\n")
+	sb.WriteString("func (b *Builtins) TableType(key string) Ty {\n\tswitch key {\n")
+	for _, p := range primTypes {
+		fmt.Fprintf(sb, "\tcase %q:\n\t\treturn %s\n", p.Key, p.Go)
+	}
+	sb.WriteString("\t}\n\tpanic(diag.Internal(\"ast: %s is no type of the built-in table\", key))\n}\n\n")
+}
+
+// emitRtFunctions writes the functions of the runtime's source that define entries, by entry.
+func emitRtFunctions(sb *strings.Builder, t table) {
+	sb.WriteString("// RtFunction is the function of the runtime's source that defines an entry (README, \"The runtime\"): code calls the\n")
+	sb.WriteString("// entry as it calls any function, so its signature is the entry's calling convention.\ntype RtFunction struct {\n")
+	sb.WriteString("\tName string\n\t// Symbol is the function's link name.\n\tSymbol string\n\tParams []RtParam\n")
+	sb.WriteString("\t// Result is the key of ast.Builtins.TableType that names what it returns.\n\tResult string\n}\n\n")
+	sb.WriteString("// RtParam is a parameter of an RtFunction, its type a key of ast.Builtins.TableType.\ntype RtParam struct {\n")
+	sb.WriteString("\tConv ast.Convention\n\tName string\n\tType string\n}\n\n")
+	sb.WriteString("var rtFunctions = [...]*RtFunction{\n")
+	for _, r := range t.rtFuncs {
+		fmt.Fprintf(sb, "\tRt%s: {Name: %q, Symbol: %q, Params: []RtParam{", r.entry.Name, r.name, r.symbol())
+		for i, p := range r.params {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(sb, "{Conv: ast.%s, Name: %q, Type: %q}", goConv(p.conv), p.name, p.ty.name)
+		}
+		fmt.Fprintf(sb, "}, Result: %q},\n", r.result.name)
+	}
+	sb.WriteString("}\n\n")
+	sb.WriteString("// Function is the function of the runtime's source that defines the entry, when one does: self links a call of the\n")
+	sb.WriteString("// entry to it, and the Go compiler, whose runtime is its own code, only holds the runtime's source to it.\n")
+	sb.WriteString("func (r Rt) Function() (*RtFunction, bool) {\n\tif int(r) >= len(rtFunctions) || rtFunctions[r] == nil {\n\t\treturn nil, false\n\t}\n\treturn rtFunctions[r], true\n}\n\n")
+	sb.WriteString("// RtFunctions are the entries that the runtime's source defines, in the table's order.\nvar RtFunctions = []Rt{")
+	for i, r := range t.rtFuncs {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		fmt.Fprintf(sb, "Rt%s", r.entry.Name)
+	}
+	sb.WriteString("}\n\n")
 }

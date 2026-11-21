@@ -14,7 +14,10 @@ $steps = @(
 	@('vet', { go vet ./... }),
 	@('unit tests', { go test ./... }),
 	@('build', { go build -o minimaxon.exe . }),
-	@('corpus', { .\minimaxon.exe test @args })
+	@('corpus', { .\minimaxon.exe test @args }),
+	# The Go compiler never compiles the runtime's source, so this is what holds it to the language and to the
+	# signatures the compiler calls.
+	@('runtime', { .\minimaxon.exe check runtime })
 )
 foreach ($step in $steps) {
 	$name, $run = $step

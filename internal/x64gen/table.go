@@ -33,6 +33,8 @@ const (
 	imm64Bytes     = 8
 	rel32Bytes     = 4
 	opcodeHigh     = 0x0F
+	// operandSizePrefix makes an instruction's operand 16 bits wide.
+	operandSizePrefix = 0x66
 )
 
 // constant is a name and the value that the generated Maxon gives it.
@@ -298,6 +300,23 @@ func buildForms() []form {
 		form{
 			name: "StoreBaseDispReg8", mnemonic: "mov", operands: []operand{mem(), byteReg("src", fieldReg)},
 			opcode: []byte{0x88}, modrm: modOperands, effects: writes,
+		},
+		form{
+			name: "MovzxRegWordBaseDisp", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg), mem()},
+			rexW: true, opcode: []byte{opcodeHigh, 0xB7}, modrm: modOperands, effects: reads,
+		},
+		// A 32-bit load clears the upper half of its register, which is the zero extension a raw load gives.
+		form{
+			name: "LoadReg32BaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg), mem()},
+			opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
+		},
+		form{
+			name: "StoreBaseDispReg16", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg)},
+			prefix: []byte{operandSizePrefix}, opcode: []byte{0x89}, modrm: modOperands, effects: writes,
+		},
+		form{
+			name: "StoreBaseDispReg32", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg)},
+			opcode: []byte{0x89}, modrm: modOperands, effects: writes,
 		},
 		form{
 			name: "StoreBaseDispImm8", mnemonic: "mov", operands: []operand{mem(), imm8()},

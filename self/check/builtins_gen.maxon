@@ -19,6 +19,10 @@ function checkIntrinsicArgs(mutates c Checker, mutates p ast.Project, call ast.N
 		checkThawArgs(c, p: p, call: call, ordered: ordered, errs: errs)
 		return
 	end 'checkThaw'
+	if op == ast.Intrinsic.intrRawCallImport 'checkRawCallImport'
+		checkRawCallImportArgs(c, p: p, call: call, ordered: ordered, errs: errs)
+		return
+	end 'checkRawCallImport'
 	if op == ast.Intrinsic.intrArrayFilled or op == ast.Intrinsic.intrArrayCount or op == ast.Intrinsic.intrArrayIsEmpty or op == ast.Intrinsic.intrArrayGet 'signature0'
 		return
 	end 'signature0'
@@ -67,5 +71,20 @@ function checkIntrinsicArgs(mutates c Checker, mutates p ast.Project, call ast.N
 	if op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrCollectedOutputExitCode or op == ast.Intrinsic.intrCollectedOutputSucceeded 'signature15'
 		return
 	end 'signature15'
+	if op == ast.Intrinsic.intrRawLoad8 or op == ast.Intrinsic.intrRawLoad16 or op == ast.Intrinsic.intrRawLoad32 or op == ast.Intrinsic.intrRawLoad64 'signature16'
+		return
+	end 'signature16'
+	if op == ast.Intrinsic.intrRawStore8 or op == ast.Intrinsic.intrRawStore16 or op == ast.Intrinsic.intrRawStore32 or op == ast.Intrinsic.intrRawStore64 'signature17'
+		return
+	end 'signature17'
+	if op == ast.Intrinsic.intrRawWrappingAdd or op == ast.Intrinsic.intrRawWrappingSub or op == ast.Intrinsic.intrRawAddressOf or op == ast.Intrinsic.intrRawStringAddress 'signature18'
+		return
+	end 'signature18'
+	if op == ast.Intrinsic.intrRawStringAt or op == ast.Intrinsic.intrRawHeapAddress or op == ast.Intrinsic.intrRawStdoutAddress or op == ast.Intrinsic.intrRawStderrAddress 'signature19'
+		return
+	end 'signature19'
+	if op == ast.Intrinsic.intrRawLiveAddress 'signature20'
+		return
+	end 'signature20'
 	panic("check: {op.name} is no intrinsic")
 end 'checkIntrinsicArgs'

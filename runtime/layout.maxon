@@ -1,0 +1,15 @@
+// The layouts that the compiler's code and the runtime share: what a box of each kind holds, at which offset. This file is
+// the start of the ABI layouts table (README, "The runtime"); once the array and byte array layouts join it, a generator
+// writes it and self/backend's constants from one table, so the two cannot disagree.
+
+// wordBytes is the size of a word: an address, a length, an integer, a handle.
+let wordBytes = 8 as Count
+
+// A String is the address of its box, which holds its length in bytes as a word and then the bytes, UTF-8 with no
+// terminator. A literal's box is in the data section and is never freed; any other is on the heap.
+let stringLengthOffset = 0 as Count
+
+let stringBytesOffset = 8 as Count
+
+// noBox is the empty place: a box address that names nothing, which a move leaves behind and a free skips.
+let noBox = 0 as Count

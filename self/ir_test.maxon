@@ -295,8 +295,95 @@ function testMain()
 	expectIr("main", got: ir.irText(p, f: f), want: want)
 end 'testMain'
 
+// rawSite is a call of a raw intrinsic whose operands the lowering evaluates itself: the nodes of its arguments in the order
+// of its parameters, each parameter a Count after the name.
+function rawSite(p ast.Project, first ast.NodeID, consumes ordered ast.NodeIDList) returns ir.CallSite
+	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: ast.noFunc, receiverTy: ast.noType)
+	for i in 0 upto ordered.count() 'specs'
+		info.paramSpecs.push(ast.ParamSpec.make("arg{i}", ty: p.builtins.countTy, conv: ast.Convention.convLet))
+	end 'specs'
+	return ir.CallSite.make(first, info: info, receiver: 0 as ast.NodeID, ordered: ordered)
+end 'rawSite'
+
+// The runtime's raw intrinsics, lowered through the dispatch the lowering of a call goes through, in the function
+// below. The Go compiler never compiles the runtime, so the text is written from the printer's templates.
+//
+//	function probe() returns Count
+//		var w as Count
+//		let address = 4096
+//		let offset = 8
+//		let byte = __Raw.loadByte(address, offset: offset)
+//		__Raw.storeWord(address, offset: offset, value: byte)
+//		let sum = __Raw.wrappingAdd(address, right: offset)
+//		let at = __Raw.addressOf(w)
+//		return __Raw.callImport1("Sleep", arg1: 5)
+//	end 'probe'
+function testRaw()
+	var p = irProject()
+	let probe = irFunction(p, name: "probe", params: 0 as Count)
+	let countTy = p.builtins.countTy
+	var local = ast.LocalEntry.make("w", ty: countTy, isVar: true, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
+	local.slot = 0 as ast.SlotIndex
+	let wID = p.typings[0].allocLocal(local)
+	var ids = ast.LocalIDList.create(0)
+	ids.push(wID)
+	p.typings[0].funcLocals.insert(p.funcs.entries[probe as Count].nodeID as Count, value: ids)
+	let wNode = irNode(p, kind: ast.NodeKind.nameExpr, ty: countTy)
+	p.typings[0].names.insert(wNode as Count, value: ast.NameInfo.localName(wID))
+	let nameNode = ast.newStrLit(p.modules[0].tree, start: 0 as diag.U32)
+	var parts = ast.StrPartsBuilder.new()
+	parts.decoded(p.modules[0].tree, text: "Sleep")
+	let partsRef = parts.finish(p.modules[0].tree)
+	ast.setStrLitPartsRef(p.modules[0].tree, id: nameNode, ref: partsRef)
+	let five = irNode(p, kind: ast.NodeKind.intLit, ty: countTy)
+	ast.setIntLitMagnitude(p.modules[0].tree, id: five, value: ast.I128.fromCount(5 as Count))
+	var addressOperands = ast.NodeIDList.create(0)
+	addressOperands.push(wNode)
+	var importOperands = ast.NodeIDList.create(0)
+	importOperands.push(nameNode)
+	importOperands.push(five)
+	let addressSite = rawSite(p, first: wNode, ordered: addressOperands)
+	let importSite = rawSite(p, first: nameNode, ordered: importOperands)
+	var l = ir.Lowerer.new(ir.InstanceSet.new())
+	ir.begin(l, p: p, fn: probe, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), name: "")
+	ir.pushScope(l, block: true)
+	let address = ir.konst(l, value: 4096 as ir.Word)
+	let offset = ir.konst(l, value: 8 as ir.Word)
+	let byte = ir.intrinsicCall(l, p: p, op: ast.Intrinsic.intrRawLoad8, c: addressSite, recv: ir.noReg, args: ir.argsOf2(address, b: offset))
+	var storeArgs = ir.argsOf2(address, b: offset)
+	storeArgs.push(byte)
+	_ = ir.intrinsicCall(l, p: p, op: ast.Intrinsic.intrRawStore64, c: addressSite, recv: ir.noReg, args: storeArgs)
+	_ = ir.intrinsicCall(l, p: p, op: ast.Intrinsic.intrRawWrappingAdd, c: addressSite, recv: ir.noReg, args: ir.argsOf2(address, b: offset))
+	_ = ir.intrinsicCall(l, p: p, op: ast.Intrinsic.intrRawAddressOf, c: addressSite, recv: ir.noReg, args: ir.RegList.create(0))
+	let status = ir.intrinsicCall(l, p: p, op: ast.Intrinsic.intrRawCallImport, c: importSite, recv: ir.noReg, args: ir.RegList.create(0))
+	ir.unwind(l, p: p, depth: 0 as Count)
+	ir.seal(l, t: ir.newRet(status))
+	ir.popScope(l, p: p)
+	let tail = ir.konst(l, value: 0 as ir.Word)
+	l.b.terminate(l.cur, t: ir.newRet(tail))
+	let f = l.b.finish()
+	var want = ast.StringList.create(0)
+	want.push("function probe params 0 slots [s0 scalar]")
+	want.push("b0:")
+	want.push("  %0 = const 4096")
+	want.push("  %1 = const 8")
+	want.push("  %2 = add.u %0, %1")
+	want.push("  %3 = loadraw.8 %2")
+	want.push("  %4 = add.u %0, %1")
+	want.push("  storeraw.64 %4, %3")
+	want.push("  %5 = const 0")
+	want.push("  %6 = add.u %0, %1")
+	want.push("  %7 = addr s0")
+	want.push("  %8 = const 5")
+	want.push("  %9 = import \"Sleep\"(%8)")
+	want.push("  ret %9")
+	want.push("")
+	expectIr("raw", got: ir.irText(p, f: f), want: want)
+end 'testRaw'
+
 function testIr()
 	testSum()
 	testSwitch()
 	testMain()
+	testRaw()
 end 'testIr'

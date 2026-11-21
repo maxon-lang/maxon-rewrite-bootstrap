@@ -590,3 +590,19 @@ func (g *codegen) jumpUnlessNext(target ir.BlockID) {
 		g.asm.Jmp(&g.labels[target])
 	}
 }
+
+// The raw operations are the runtime's source's (ir.RuntimeSourceOnly), which no IR the Go compiler lowers has.
+
+func (g *codegen) VisitLoadRaw(*ir.LoadRawInstr) { panic(ir.RuntimeSourceOnly("codegen", "loadraw")) }
+
+func (g *codegen) VisitStoreRaw(*ir.StoreRawInstr) {
+	panic(ir.RuntimeSourceOnly("codegen", "storeraw"))
+}
+
+func (g *codegen) VisitGlobalAddr(*ir.GlobalAddrInstr) {
+	panic(ir.RuntimeSourceOnly("codegen", "globaladdr"))
+}
+
+func (g *codegen) VisitCallImport(*ir.CallImportInstr) {
+	panic(ir.RuntimeSourceOnly("codegen", "import"))
+}

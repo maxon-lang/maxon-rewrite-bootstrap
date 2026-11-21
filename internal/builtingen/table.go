@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"slices"
+)
+
 // This file is the source of truth for minimaxon's built-ins: the types every project has before it declares
 // anything, the functions and methods on them, the intrinsic each lowers to, and the runtime entries those intrinsics
 // call. `go generate ./internal/ast` writes from it the declarations, the enums and the dispatch in every package.
@@ -73,6 +78,9 @@ var recordTypes = []recordType{
 	{Key: "Directory", Name: "Directory"},
 	{Key: "CollectedOutput", Name: "CollectedOutput", Fields: []string{"var stdout String", "var stderr String", "private let code ExitCode"}},
 	{Key: "Subprocess", Name: "Subprocess"},
+	// Raw is maxon's __Raw: the closed set of raw machine and OS operations the runtime's source is written on, which
+	// only the runtime module may call (runtimeOnly).
+	{Key: "Raw", Name: "__Raw"},
 }
 
 // unionCase is a case of a built-in union; Payload are its fields as "name Type".
@@ -213,9 +221,61 @@ type function struct {
 	Checked bool
 	// OwnsOperands is whether the lowering evaluates the receiver and arguments itself rather than being given them.
 	OwnsOperands bool
+	// RuntimeOnly is whether only the runtime module may call it (E3152): a raw operation with no runtime between it and
+	// the machine. The Go compiler never compiles the runtime, so its lowering refuses one.
+	RuntimeOnly bool
 }
 
-var functions = []function{
+// maxImportArgs is the most words a DLL import of the runtime takes: CreateProcessA's ten.
+const maxImportArgs = 10
+
+var functions = append(slices.Clone(tableFunctions), rawFunctions()...)
+
+// rawFunctions are the __Raw intrinsics (runtime/README.md). An address and a word are a Count, the unsigned 64-bit
+// word; a load gives the bytes zero-extended and a store keeps the low bytes of its value. A DLL import is called by its
+// name, a string literal, with one row for each number of word arguments, since a row has a fixed signature.
+func rawFunctions() []function {
+	raw := func(name string, params []string, result, intrinsic string) function {
+		return function{Owner: "Raw", Name: name, Static: true, Params: params, Result: result, Intrinsic: intrinsic, RuntimeOnly: true}
+	}
+	// An operand that is a place, or a literal that the lowering reads as text, is not a value the caller evaluates.
+	own := func(f function) function {
+		f.OwnsOperands = true
+		return f
+	}
+	at := []string{"address Count", "offset Count"}
+	fs := []function{
+		raw("loadByte", at, "Byte", "RawLoad8"),
+		raw("loadWord16", at, "Count", "RawLoad16"),
+		raw("loadWord32", at, "Count", "RawLoad32"),
+		raw("loadWord", at, "Count", "RawLoad64"),
+		raw("storeByte", append(slices.Clone(at), "value Byte"), "", "RawStore8"),
+		raw("storeWord16", append(slices.Clone(at), "value Count"), "", "RawStore16"),
+		raw("storeWord32", append(slices.Clone(at), "value Count"), "", "RawStore32"),
+		raw("storeWord", append(slices.Clone(at), "value Count"), "", "RawStore64"),
+		raw("wrappingAdd", []string{"left Count", "right Count"}, "Count", "RawWrappingAdd"),
+		raw("wrappingSub", []string{"left Count", "right Count"}, "Count", "RawWrappingSub"),
+		own(raw("addressOf", []string{"mutates word Count"}, "Count", "RawAddressOf")),
+		raw("stringAddress", []string{"text String"}, "Count", "RawStringAddress"),
+		raw("stringAt", []string{"box Count"}, "String", "RawStringAt"),
+		raw("heapAddress", nil, "Count", "RawHeapAddress"),
+		raw("stdoutAddress", nil, "Count", "RawStdoutAddress"),
+		raw("stderrAddress", nil, "Count", "RawStderrAddress"),
+		raw("liveAddress", nil, "Count", "RawLiveAddress"),
+	}
+	for n := 0; n <= maxImportArgs; n++ {
+		params := []string{"name String"}
+		for i := 1; i <= n; i++ {
+			params = append(params, fmt.Sprintf("arg%d Count", i))
+		}
+		f := raw(fmt.Sprintf("callImport%d", n), params, "Count", "RawCallImport")
+		f.Checked = true
+		fs = append(fs, own(f))
+	}
+	return fs
+}
+
+var tableFunctions = []function{
 	{Owner: "Array", Name: "create", Static: true, Params: []string{"count Count"}, Result: "Self", Intrinsic: "ArrayCreate", Checked: true},
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count Count", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
@@ -318,6 +378,7 @@ var units = []unit{
 	{Key: "Os", Emitter: "osUnit", Doc: "the OS unit, linked into a program that calls an OS entry"},
 	{Key: "Linker", Doc: "the linker, which defines the symbol itself"},
 	{Key: "Interpreter", Doc: "no unit: only the interpreter runs the entry, and the compiler refuses a call of it"},
+	{Key: "Source", Doc: "the runtime's Maxon source (runtime/), which self compiles with every program and the Go compiler never compiles"},
 }
 
 // The roles of a runtime symbol.
@@ -360,9 +421,10 @@ var entries = []entry{
 	{"Heap", "g.heap", "Runtime", roleGlobal, "the process heap"},
 	{"Stdout", "g.stdout", "Runtime", roleGlobal, "the handle of standard output"},
 	{"Stderr", "g.stderr", "Runtime", roleGlobal, "the handle of standard error"},
-	{"Live", "g.live", "Runtime", roleGlobal, "the number of heap boxes allocated and not yet freed, kept only by an executable built to count them"},
+	{"Live", "g.live", "Runtime", roleGlobal, "the number of heap boxes allocated and not yet freed, which the runtime source always keeps and the Go compiler's runtime only in an executable built to count them"},
 	{"ImageDataStart", "g.imageDataStart", "Linker", roleGlobal, "the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap"},
 	{"ImageDataEnd", "g.imageDataEnd", "Linker", roleGlobal, "the end of the data section"},
+	{"CheckLeaks", "rt.checkLeaks", "Source", roleInternal, "(exit code) -> exit code: what the entry of an executable built to count its allocations calls after main, which exits with a leak report when a box is still live"},
 
 	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
@@ -432,4 +494,28 @@ var entries = []entry{
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
 	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
 	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it"},
+}
+
+// runtimeFunction is the function of the runtime's source (runtime/) that defines an entry, so that self links a call of
+// the entry to it: Sig is its signature as the runtime declares it, "name(param Type, ...) Result", with a parameter's
+// convention before its name when it is not let. Code calls it as it calls any function of the program, so the entry is
+// called the same way whichever compiler emits the call; `minimaxon check runtime` holds the runtime to these signatures.
+type runtimeFunction struct {
+	Entry string // an entry's Name
+	Sig   string
+}
+
+var runtimeFunctions = []runtimeFunction{
+	{"Alloc", "alloc(bytes Count) Count"},
+	{"Free", "free(box Count)"},
+	{"Write", "write(handle Count, text String)"},
+	{"Panic", "panicWith(message String)"},
+	{"Concat", "concat(left String, right String) String"},
+	{"Itoa", "itoa(n Count, unsigned Bool) String"},
+	{"Streq", "streq(left String, right String) Bool"},
+	{"StrLen", "stringLength(text String) Count"},
+	{"StrByteAt", "stringByteAt(text String, index Count) Byte"},
+	{"StrSlice", "stringSlice(text String, from Count, until Count) String"},
+	{"PanicIndex", "panicIndex()"},
+	{"CheckLeaks", "checkLeaks(code Count) Count"},
 }

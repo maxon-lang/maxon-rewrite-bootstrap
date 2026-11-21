@@ -131,6 +131,9 @@ var enums = []enum{
 		{"NonNegative", "NonNegative"}, {"SignedAtLeast", "SignedAtLeast"}, {"SignedAtMost", "SignedAtMost"},
 		{"UnsignedAtLeast", "UnsignedAtLeast"}, {"UnsignedAtMost", "UnsignedAtMost"}, {"NonZero", "NonZero"},
 	}},
+	{Name: "RawWidth", Prefix: "Width", Doc: "RawWidth is how many bits a LoadRaw or a StoreRaw moves.", Cases: []enumCase{
+		{"8", "8"}, {"16", "16"}, {"32", "32"}, {"64", "64"},
+	}},
 }
 
 // flag is a bit of an instruction's Flags.
@@ -157,6 +160,7 @@ var (
 	symbolOp  = operand{Name: "Symbol", Kind: kSymbol, Field: fImm}
 	checkedOp = operand{Name: "Fail", Kind: kFail, Field: fC, Flag: "Checked", Text: " else "}
 	unsignOp  = operand{Name: "Unsigned", Kind: kFlag, Field: fFlags, Flag: "Unsigned", Text: ".u"}
+	widthOp   = operand{Name: "Width", Kind: kEnum, Field: fSub, Enum: "RawWidth"}
 )
 
 var ops = []op{
@@ -186,6 +190,18 @@ var ops = []op{
 		Operands: []operand{reg("Addr", fA), reg("Src", fB)}, Effects: []effect{effWrites}, Text: "storeat {Addr}, {Src}"},
 	{Name: "LoadGlobal", Doc: "LoadGlobal reads a global of the runtime.", Result: valueResult,
 		Operands: []operand{symbolOp}, Effects: []effect{effReads}, Text: "global {Symbol}"},
+	// The raw operations are what the runtime's source lowers its __Raw intrinsics to (README, "The runtime"); no other
+	// code has them.
+	{Name: "LoadRaw", Doc: "LoadRaw reads Width bits at an address, zero-extended to the word.", Result: valueResult,
+		Operands: []operand{reg("Addr", fA), widthOp}, Effects: []effect{effReads}, Text: "loadraw.{Width} {Addr}"},
+	{Name: "StoreRaw", Doc: "StoreRaw writes the low Width bits of Src at an address.",
+		Operands: []operand{reg("Addr", fA), reg("Src", fB), widthOp}, Effects: []effect{effWrites},
+		Text: "storeraw.{Width} {Addr}, {Src}"},
+	{Name: "GlobalAddr", Doc: "GlobalAddr gives the address of a global of the runtime.", Result: valueResult,
+		Operands: []operand{symbolOp}, Text: "globaladdr {Symbol}"},
+	{Name: "CallImport", Doc: "CallImport calls the DLL import Name, a string of the function, with the words Args, by the\n// Win64 convention, and gives what it returns.",
+		Result: valueResult, Operands: []operand{{Name: "Name", Kind: kText, Field: fC}, argsOp},
+		Effects: []effect{effReads, effWrites, effCalls}, Text: "import {Name}({Args})"},
 	{Name: "Bin", Doc: "Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a\n// signed '/' is i64.min / -1.",
 		Result:   valueResult,
 		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "BinOp"}, reg("Left", fA), reg("Right", fB), unsignOp, checkedOp},

@@ -84,7 +84,7 @@ func generate() (outs []output, err error) {
 		}
 		outs = append(outs, output{o.path, code})
 	}
-	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRtFile, []byte(emitMaxonRt())}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))})
+	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRtFile, []byte(emitMaxonRt(t))}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))})
 	return outs, nil
 }
 
@@ -160,13 +160,15 @@ type fn struct {
 
 // intrinsic is one value of the Intrinsic enum, with what every row that lowers to it says about it.
 type intrinsic struct {
-	name                  string
-	checked, ownsOperands bool
+	name                               string
+	checked, ownsOperands, runtimeOnly bool
 }
 
 type table struct {
 	fns        []fn
 	intrinsics []intrinsic
+	// rtFuncs are the functions of the runtime's source, in the order of the entries they define.
+	rtFuncs []rtFunc
 }
 
 func load() table {
@@ -212,13 +214,13 @@ func load() table {
 		r.check()
 		t.fns = append(t.fns, r)
 		if i, ok := seen[f.Intrinsic]; ok {
-			if t.intrinsics[i].checked != f.Checked || t.intrinsics[i].ownsOperands != f.OwnsOperands {
-				fail("the rows of intrinsic %s disagree on how it is checked or lowered", f.Intrinsic)
+			if t.intrinsics[i].checked != f.Checked || t.intrinsics[i].ownsOperands != f.OwnsOperands || t.intrinsics[i].runtimeOnly != f.RuntimeOnly {
+				fail("the rows of intrinsic %s disagree on how it is checked or lowered, or where it may be called", f.Intrinsic)
 			}
 			continue
 		}
 		seen[f.Intrinsic] = len(t.intrinsics)
-		t.intrinsics = append(t.intrinsics, intrinsic{f.Intrinsic, f.Checked, f.OwnsOperands})
+		t.intrinsics = append(t.intrinsics, intrinsic{f.Intrinsic, f.Checked, f.OwnsOperands, f.RuntimeOnly})
 	}
 	for _, a := range typeAliases {
 		fn{Name: a.Name}.checkType(parseType(a.Type))
@@ -231,6 +233,7 @@ func load() table {
 			fail("entry %s has the role %q", e.Name, e.Role)
 		}
 	}
+	t.rtFuncs = loadRuntimeFunctions()
 	return t
 }
 
@@ -389,4 +392,87 @@ func codeEntries(u unit) []entry {
 		}
 	}
 	return out
+}
+
+// runtimeLinkPath is the module part of the link name of a function of the runtime's source, as ast.Module.LinkPath
+// gives it; `minimaxon check runtime` fails if the two differ.
+const runtimeLinkPath = "runtime"
+
+// rtFunc is a runtimeFunction row with its signature parsed. A function that returns nothing has the result Void.
+type rtFunc struct {
+	entry  entry
+	name   string
+	params []param
+	result *tyExpr
+}
+
+func (r rtFunc) symbol() string { return runtimeLinkPath + "::" + r.name }
+
+// loadRuntimeFunctions parses the runtimeFunctions rows, in the order of the entries. An entry the runtime's source
+// defines is called by the compiler's own code (internal) or by the IR (call); a global is the entry stub's or the
+// linker's.
+func loadRuntimeFunctions() []rtFunc {
+	byEntry := map[string]runtimeFunction{}
+	for _, r := range runtimeFunctions {
+		if _, twice := byEntry[r.Entry]; twice {
+			fail("entry %s has two runtime functions", r.Entry)
+		}
+		byEntry[r.Entry] = r
+	}
+	var out []rtFunc
+	for _, e := range entries {
+		r, ok := byEntry[e.Name]
+		if !ok {
+			continue
+		}
+		delete(byEntry, e.Name)
+		if e.Role == roleGlobal {
+			fail("entry %s is a global, which no function defines", e.Name)
+		}
+		out = append(out, parseRuntimeFunction(e, r.Sig))
+	}
+	for _, r := range runtimeFunctions {
+		if _, left := byEntry[r.Entry]; left {
+			fail("runtime function %q names the entry %s, which the table does not have", r.Sig, r.Entry)
+		}
+	}
+	return out
+}
+
+func parseRuntimeFunction(e entry, sig string) rtFunc {
+	open, close := strings.Index(sig, "("), strings.LastIndex(sig, ")")
+	if open <= 0 || close < open {
+		fail("runtime function %q is not 'name(param Type, ...) Result'", sig)
+	}
+	r := rtFunc{entry: e, name: sig[:open], result: parseType("Void")}
+	if inner := strings.TrimSpace(sig[open+1 : close]); inner != "" {
+		for p := range strings.SplitSeq(inner, ",") {
+			r.params = append(r.params, parseParam(strings.TrimSpace(p)))
+		}
+	}
+	if result := strings.TrimSpace(sig[close+1:]); result != "" {
+		r.result = parseType(result)
+	}
+	for _, p := range r.params {
+		if p.conv == "mutates" {
+			fail("runtime function %q takes %s mutates: the compiler passes an entry values, never places", sig, p.name)
+		}
+	}
+	for _, p := range append(r.params, param{ty: r.result}) {
+		if primOf(p.ty.name) == nil || p.ty.arg != nil {
+			fail("runtime function %q names %s: a runtime function takes and gives only words, of a type of primTypes", sig, p.ty.name)
+		}
+	}
+	return r
+}
+
+// symbolOf is the symbol self links an entry by: the link name of the runtime's function that defines it, or the
+// entry's own symbol for one that the entry stub or the linker defines.
+func (t table) symbolOf(e entry) string {
+	for _, r := range t.rtFuncs {
+		if r.entry.Name == e.Name {
+			return r.symbol()
+		}
+	}
+	return e.Symbol
 }

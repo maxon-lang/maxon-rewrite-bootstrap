@@ -354,3 +354,8 @@ end 'unsignedNegation'
 export function typeReferenceCycle(name String, path String) returns String
 	return "type '{name}' contains a reference cycle (via {path}); recursive type references are not allowed"
 end 'typeReferenceCycle'
+
+// The text of errRawIntrinsicOutsideRuntime for: call to '{callee}' from outside the runtime source tier: '__Raw' names a raw runtime intrinsic, callable only from a source file under runtime/
+export function rawIntrinsicOutsideRuntime(callee String) returns String
+	return "call to '{callee}' from outside the runtime source tier: '__Raw' names a raw runtime intrinsic, callable only from a source file under runtime/"
+end 'rawIntrinsicOutsideRuntime'

@@ -223,6 +223,10 @@ end 'requireNotFrozenChange'
 // callFunction types a call of a function, a method or a static function, once it is known which. given are the type
 // arguments of the instance a method or a static function is called on, which a generic callee takes as they are.
 function callFunction(mutates c Checker, mutates p ast.Project, call ast.NodeID, kind ast.CallKind, target ast.FuncID, hasGiven bool, given ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
+	if ast.intrinsicRuntimeOnly(p.funcs.entries[target as Count].intrinsic) and not p.modules[c.modIdx].isRuntime 'outsideRuntime'
+		failAt(c, p: p, node: call, code: diag.errRawIntrinsicOutsideRuntime, msg: diag.rawIntrinsicOutsideRuntime(funcSymbol(p, f: target)), errs: errs)
+		return ast.noType
+	end 'outsideRuntime'
 	if not requireVisible(c, p: p, node: call, target: target, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'

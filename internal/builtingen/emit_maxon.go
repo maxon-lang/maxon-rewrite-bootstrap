@@ -124,6 +124,13 @@ func emitMaxon(t table) string {
 		fmt.Fprintf(&sb, "\tintr%s\n", in.name)
 	}
 	sb.WriteString("end 'Intrinsic'\n\n")
+	sb.WriteString("// intrinsicRuntimeOnly is whether only the runtime module may call the intrinsic (E3152).\nexport function intrinsicRuntimeOnly(op Intrinsic) returns bool\n")
+	for _, in := range t.intrinsics {
+		if in.runtimeOnly {
+			fmt.Fprintf(&sb, "\tif op == Intrinsic.intr%s 'intr%s'\n\t\treturn true\n\tend 'intr%s'\n", in.name, in.name, in.name)
+		}
+	}
+	sb.WriteString("\treturn false\nend 'intrinsicRuntimeOnly'\n\n")
 
 	var groups []string
 	byGroup := map[string][]fn{}
@@ -284,9 +291,9 @@ func (m *maxonBody) errorType(f fn, id string) {
 	}
 }
 
-// emitMaxonRt writes self/ir's Rt: the same symbols, numbered as Go's Rt is, so that an instruction holds one as a
-// number in either compiler.
-func emitMaxonRt() string {
+// emitMaxonRt writes self/ir's Rt, numbered as Go's Rt is, so that an instruction holds one as a number in either
+// compiler. Its symbols are self's: an entry that the runtime's source defines is linked by its function's link name.
+func emitMaxonRt(t table) string {
 	var sb strings.Builder
 	sb.WriteString(maxonHeader)
 	sb.WriteString("// Rt names a symbol the runtime defines: an entry that code calls or a global it reads.\nexport enum Rt\n\trtNone\n")
@@ -295,9 +302,13 @@ func emitMaxonRt() string {
 	}
 	sb.WriteString("end 'Rt'\n\n// rtSymbol is the name the runtime defines a symbol by.\nexport function rtSymbol(r Rt) returns String\n")
 	for _, e := range entries {
+		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn %q\n\tend 'rt%s'\n", e.Name, e.Name, t.symbolOf(e), e.Name)
+	}
+	sb.WriteString("\tpanic(\"ir: rtNone names no runtime symbol\")\nend 'rtSymbol'\n\n// rtText is the name the IR text and a report give a symbol, which is the same in either compiler.\nexport function rtText(r Rt) returns String\n")
+	for _, e := range entries {
 		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn %q\n\tend 'rt%s'\n", e.Name, e.Name, e.Symbol, e.Name)
 	}
-	sb.WriteString("\tpanic(\"ir: rtNone names no runtime symbol\")\nend 'rtSymbol'\n\n// rtCode is the number an instruction holds a symbol as.\nexport function rtCode(r Rt) returns Count\n")
+	sb.WriteString("\tpanic(\"ir: rtNone has no text\")\nend 'rtText'\n\n// rtCode is the number an instruction holds a symbol as.\nexport function rtCode(r Rt) returns Count\n")
 	for i, e := range entries {
 		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn %d\n\tend 'rt%s'\n", e.Name, e.Name, i+1, e.Name)
 	}

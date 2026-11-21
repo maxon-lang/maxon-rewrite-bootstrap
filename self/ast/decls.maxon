@@ -181,6 +181,8 @@ export type Module
 	export var id as diag.ModuleID
 	export var path as String
 	export var dir as String
+	// isRuntime is whether the module is the runtime's source, the one module that may call the __Raw intrinsics.
+	export var isRuntime as bool
 	export var filePaths as StringList
 	export var childNames as StringList
 	export var childIDs as Array with diag.ModuleID
@@ -190,7 +192,7 @@ export type Module
 	export var names as DeclIndex
 
 	export static function new(id diag.ModuleID, consumes path String, consumes text String, consumes files FileSpanList) returns Module
-		return Module{id: id, path: path, dir: "", filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new()}
+		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new()}
 	end 'new'
 
 	export function display() returns String

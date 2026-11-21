@@ -18,6 +18,8 @@ func (c *Checker) checkIntrinsicArgs(call ast.CallExpr, target *ast.FuncDecl, or
 		c.checkShareArgs(call, ordered)
 	case ast.IntrinsicThaw:
 		c.checkThawArgs(call, ordered)
+	case ast.IntrinsicRawCallImport:
+		c.checkRawCallImportArgs(call, ordered)
 	case ast.IntrinsicArrayFilled,
 		ast.IntrinsicArrayCount,
 		ast.IntrinsicArrayIsEmpty,
@@ -81,7 +83,24 @@ func (c *Checker) checkIntrinsicArgs(call ast.CallExpr, target *ast.FuncDecl, or
 		ast.IntrinsicDirectoryList,
 		ast.IntrinsicSubprocessRun,
 		ast.IntrinsicCollectedOutputExitCode,
-		ast.IntrinsicCollectedOutputSucceeded:
+		ast.IntrinsicCollectedOutputSucceeded,
+		ast.IntrinsicRawLoad8,
+		ast.IntrinsicRawLoad16,
+		ast.IntrinsicRawLoad32,
+		ast.IntrinsicRawLoad64,
+		ast.IntrinsicRawStore8,
+		ast.IntrinsicRawStore16,
+		ast.IntrinsicRawStore32,
+		ast.IntrinsicRawStore64,
+		ast.IntrinsicRawWrappingAdd,
+		ast.IntrinsicRawWrappingSub,
+		ast.IntrinsicRawAddressOf,
+		ast.IntrinsicRawStringAddress,
+		ast.IntrinsicRawStringAt,
+		ast.IntrinsicRawHeapAddress,
+		ast.IntrinsicRawStdoutAddress,
+		ast.IntrinsicRawStderrAddress,
+		ast.IntrinsicRawLiveAddress:
 		// The signature checks every argument.
 	default:
 		panic(diag.Internal("check: %d is no intrinsic", int(target.Intrinsic)))

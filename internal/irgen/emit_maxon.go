@@ -504,7 +504,7 @@ func maxonText(o op, x operand, unwrap bool) string {
 	case kInt, kWord:
 		return "{" + get + "}"
 	case kSymbol:
-		return "{rtSymbol(" + get + ")}"
+		return "{rtText(" + get + ")}"
 	case kEnum:
 		return "{" + lowerFirst(x.Enum) + "Text(" + get + ")}"
 	case kBlock, kFail:

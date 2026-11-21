@@ -28,6 +28,7 @@ func Discover(path string, errs *[]*diag.CompileError) *ast.Project {
 		return p
 	}
 	p := ast.NewProject(ast.NewModule("", path, false))
+	p.Root.IsRuntime = isRuntimeDir(path)
 	var mu sync.Mutex
 	addDirectory(p, p.Root, errs, &mu)
 	collect(p, p.Root)
@@ -135,4 +136,39 @@ func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) {
 		}
 		m.Names[b.Name] = d
 	}
+}
+
+// runtimeDirName is the directory of the runtime's source (README, "The runtime").
+const runtimeDirName = "runtime"
+
+// runtimeDir is the runtime's source as maxon finds its library tiers: the runtime directory of the nearest directory,
+// from the compiler's executable's upward, that has one. A compiler built in a checkout finds the checkout's, and an
+// installed one the one installed beside it.
+var runtimeDir = sync.OnceValues(func() (string, bool) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", false
+	}
+	for dir := filepath.Dir(exe); ; {
+		candidate := filepath.Join(dir, runtimeDirName)
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate, true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
+	}
+})
+
+// isRuntimeDir is whether a project's directory is the runtime's source, which is then checked as the runtime: it may
+// call the __Raw intrinsics, and it is a library with no main.
+func isRuntimeDir(path string) bool {
+	dir, found := runtimeDir()
+	if !found {
+		return false
+	}
+	abs, err := filepath.Abs(path)
+	return err == nil && strings.EqualFold(filepath.Clean(abs), dir)
 }

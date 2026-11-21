@@ -21,7 +21,10 @@ type Module struct {
 	Path     string
 	Dir      string
 	IsStdlib bool
-	Files    []string
+	// IsRuntime is whether the module is the runtime's source (README, "The runtime"), the one module that may call the __Raw
+	// intrinsics.
+	IsRuntime bool
+	Files     []string
 	// Decls are the module's top-level declarations in source order; a declaration's Ordinal is its index here.
 	Decls []Decl
 	// Tree holds the module's nodes, which are all there are: no phase adds one, so a table sized by Tree.Count has an

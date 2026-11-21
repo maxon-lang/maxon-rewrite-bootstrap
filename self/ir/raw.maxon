@@ -1,0 +1,128 @@
+// The lowerings of the runtime's raw intrinsics (README, "The runtime"): the machine operations that only the runtime's
+// source says. Each is one or two instructions; the checker admits them in no other module.
+
+// rawAddress is the address that a load or a store works at: the address and the offset added, modulo 2^64.
+function rawAddress(mutates l Lowerer, address Reg, offset Reg) returns Reg
+	return wrappingBin(l, op: BinOp.binAdd, a: address, b: offset, kind: IrKind.kindScalar)
+end 'rawAddress'
+
+// wrappingBin is an operation on two words that cannot fail: it has no failure block, so the result wraps.
+function wrappingBin(mutates l Lowerer, op BinOp, a Reg, b Reg, kind IrKind) returns Reg
+	let d = newReg(l, kind: kind)
+	emit(l, i: newBin(d, op: op, left: a, right: b, unsigned: true, fail: noBlock))
+	return d
+end 'wrappingBin'
+
+// rawLoad is the width bits at address + offset, zero-extended.
+function rawLoad(mutates l Lowerer, args RegList, width RawWidth) returns Reg
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadRaw(d, addr: at, width: width))
+	return d
+end 'rawLoad'
+
+// rawStore writes the low width bits of the value at address + offset. A call has a value, which a store gives as 0.
+function rawStore(mutates l Lowerer, args RegList, width RawWidth) returns Reg
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	emit(l, i: newStoreRaw(at, src: args[2], width: width))
+	return konst(l, value: 0 as Word)
+end 'rawStore'
+
+// sameWord is another register of the kind with the word of w, which a value of another type is made of: the box of a
+// string is a word and a word is a box. It is the sum with 0.
+function sameWord(mutates l Lowerer, w Reg, kind IrKind) returns Reg
+	let zero = konst(l, value: 0 as Word)
+	return wrappingBin(l, op: BinOp.binAdd, a: w, b: zero, kind: kind)
+end 'sameWord'
+
+// globalAddress is the address of a global of the entry stub.
+function globalAddress(mutates l Lowerer, symbol Rt) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newGlobalAddr(d, symbol: symbol))
+	return d
+end 'globalAddress'
+
+function lowerRawLoad8(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return rawLoad(l, args: args, width: RawWidth.width8)
+end 'lowerRawLoad8'
+
+function lowerRawLoad16(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return rawLoad(l, args: args, width: RawWidth.width16)
+end 'lowerRawLoad16'
+
+function lowerRawLoad32(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return rawLoad(l, args: args, width: RawWidth.width32)
+end 'lowerRawLoad32'
+
+function lowerRawLoad64(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return rawLoad(l, args: args, width: RawWidth.width64)
+end 'lowerRawLoad64'
+
+function lowerRawStore8(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return rawStore(l, args: args, width: RawWidth.width8)
+end 'lowerRawStore8'
+
+function lowerRawStore16(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return rawStore(l, args: args, width: RawWidth.width16)
+end 'lowerRawStore16'
+
+function lowerRawStore32(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return rawStore(l, args: args, width: RawWidth.width32)
+end 'lowerRawStore32'
+
+function lowerRawStore64(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return rawStore(l, args: args, width: RawWidth.width64)
+end 'lowerRawStore64'
+
+function lowerRawWrappingAdd(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return wrappingBin(l, op: BinOp.binAdd, a: args[0], b: args[1], kind: IrKind.kindScalar)
+end 'lowerRawWrappingAdd'
+
+function lowerRawWrappingSub(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return wrappingBin(l, op: BinOp.binSub, a: args[0], b: args[1], kind: IrKind.kindScalar)
+end 'lowerRawWrappingSub'
+
+// lowerRawAddressOf is the address of the local that the call is given as its place. The call evaluates its operand
+// itself, since the value of the place is not what it is given.
+function lowerRawAddressOf(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return address(l, p: p, e: c.ordered[0])
+end 'lowerRawAddressOf'
+
+// lowerRawStringAddress is the address of a string's box, which is the string.
+function lowerRawStringAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return sameWord(l, w: args[0], kind: IrKind.kindScalar)
+end 'lowerRawStringAddress'
+
+// lowerRawStringAt is the string that owns a box the runtime built, so the one the call gives is dropped like any other.
+function lowerRawStringAt(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return sameWord(l, w: args[0], kind: IrKind.kindManaged)
+end 'lowerRawStringAt'
+
+function lowerRawHeapAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtHeap)
+end 'lowerRawHeapAddress'
+
+function lowerRawStdoutAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtStdout)
+end 'lowerRawStdoutAddress'
+
+function lowerRawStderrAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtStderr)
+end 'lowerRawStderrAddress'
+
+function lowerRawLiveAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtLive)
+end 'lowerRawLiveAddress'
+
+// lowerRawCallImport calls the DLL function that its first operand, a string literal, names. The call evaluates its
+// operands itself, since the name is read as text and is no value.
+function lowerRawCallImport(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	var words = RegList.create(0)
+	for i in 1 upto c.ordered.count() 'words'
+		words.push(lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty))
+	end 'words'
+	let d = newReg(l, kind: IrKind.kindScalar)
+	let instr = l.b.callImport(d, name: plainText(l, p: p, e: c.ordered[0]), args: words)
+	emit(l, i: instr)
+	return d
+end 'lowerRawCallImport'

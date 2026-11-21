@@ -1633,6 +1633,9 @@ func (c *Checker) requireVisible(site ast.Pos, target *ast.FuncDecl) {
 }
 
 func (c *Checker) callFunction(call ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, given []ast.Ty) ast.Ty {
+	if target.Intrinsic.RuntimeOnly() && !c.module.IsRuntime {
+		panic(call.Error(diag.ErrRawIntrinsicOutsideRuntime, diag.RawIntrinsicOutsideRuntime(target.Symbol())))
+	}
 	c.requireVisible(call.Position(), target)
 	info := c.typing.Call(call)
 	info.Kind = kind
@@ -1643,6 +1646,9 @@ func (c *Checker) callFunction(call ast.CallExpr, kind ast.CallKind, target *ast
 	}
 	if c.declares(target) {
 		info.Ordered = c.bindArgs(call, target.Symbol(), target.Pass.Specs, false)
+		if target.Intrinsic != ast.NotIntrinsic {
+			c.checkIntrinsicArgs(call, target, info.Ordered)
+		}
 	} else {
 		// The call is verified later, but its arguments are typed now: each takes the type of the parameter it stands for
 		// as its expected type, as a call in the module does, so an argument means the same whichever module the callee
@@ -2682,4 +2688,13 @@ func (c *Checker) checkArrayCreateArgs(call ast.CallExpr, ordered []ast.Expr) {
 		panic(ordered[0].Error(diag.ErrZeroOutsideElement, fmt.Sprintf("'create(n)' cannot publish zeroed slots of a type parameter: '%s' may be instantiated with a type that has no zero value (a managed type, a handle, an enum, or a ranged alias that excludes 0). Create it empty with 'create(0)' and append with 'push(value)'", elem.Name())))
 	}
 	panic(ordered[0].Error(diag.ErrZeroOutsideElement, fmt.Sprintf("'create(n)' cannot publish zeroed slots of '%s': zero is not a value of '%s'. Create it empty with 'create(0)' and append with 'push(value)'", elem.Name(), elem.Name())))
+}
+
+// checkRawCallImportArgs refuses a DLL import named by anything but a string literal: the name is the import's entry in
+// the executable's import table, which the link fixes, so it is never computed.
+func (c *Checker) checkRawCallImportArgs(_ ast.CallExpr, ordered []ast.Expr) {
+	if s, ok := ordered[0].AsStrLit(); ok && s.IsPlain() {
+		return
+	}
+	panic(ordered[0].Error(diag.ErrExpressionError, "a DLL import is named by a string literal, as in '__Raw.callImport1(\"ExitProcess\", arg1: code)'"))
 }

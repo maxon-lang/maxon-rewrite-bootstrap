@@ -31,7 +31,7 @@ go test ./...
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory; modules that did not change come from the build cache (see "Build cache") |
 | `minimaxon run <file\|dir>` | compile to `%TEMP%\minimaxon\` and run; exits with the program's code |
-| `minimaxon check <file\|dir>` | diagnostics only |
+| `minimaxon check <file\|dir>` | diagnostics only; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
 | `minimaxon test [--with=<exe>] [dir]` | run the corpus (default: `tests` beside the executable); with `--with`, with another compiler (see "Tests") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
@@ -161,7 +161,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `cache` | the store of the build cache: entries found by a key in a directory, written whole by a rename and read so that damage is a miss, the hasher that keys are made with, the hash of the running compiler, trimming what has not been used for days, and the wire format an entry is written in (see "Build cache") | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
 | `ast` | the program model: `Tree`, a module's nodes as 16-byte records with the views that read them and the lists they point into, the structs that stay (the declarations), their kinds and the visitors (generated), `Pos` and `Positions` (where a node is), the handles (`ModuleID`, `NodeID`, `DeclRef`, `LocalID`), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown`, and the records, the union and the errors of the OS functions), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases, with `Resolution` and `Typing`, the tables that phases fill in (see "The AST") | `diag` |
-| `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
+| `project` | loading a project: discovery, finding the runtime's source (see "The runtime"), declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
 | `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar and the `Scratch` a worker reuses to read, lex and parse each module, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
 | `resolve` | name resolution, and binding each `where` constraint to its type parameter, into the module's `Resolution` | `ast`, `diag` |
 | `check` | the type checker, the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag` |
@@ -1020,7 +1020,8 @@ does nothing.
   flag, so an executable built without it has no counter and no check; `minimaxon test` and the program generator always
   use it, so every native run of the corpus ends with no box live, a literal not being one. A panic and a trap exit at once
   and skip the check, because they end the program with values still held; a run test that traps still shows no
-  double free or crash, but not that it freed everything.
+  double free or crash, but not that it freed everything. `self/`'s runtime counts in every build and the flag changes
+  only its entry stub (see "The runtime").
 - **Depth.** A routine calls itself, or the routine of a part, once for each level of nesting, so dropping or copying a
   value nested about 300,000 levels deep (a chain of that many nodes, each holding the next in an array) overflows the 16 MB
   stack. A routine keeps only the words it uses in its frame, to push that out.
@@ -1088,6 +1089,86 @@ test runner. It has no types; it works from the shape of the values and from the
   each accepted program that has an executable, with its allocations counted, and compares it with the interpreter's: the
   same output and exit code, and no box left live.
   `MINIMAXON_GEN_DUMP=file` writes the program of a seed, and `MINIMAXON_GEN_EXPLAIN=1` lists why programs were refused.
+
+## The runtime
+
+`self/`'s runtime is Maxon source: the `runtime/` directory at the repository root, beside `self/`, one module that is
+compiled with every program and cached, as Go's runtime package is, so a change to it is tested by the next compile with
+no rebuild of the compiler. Only what is derived from the program's types stays compiler-emitted: the drop and copy
+routines and the entry stub (`self/backend/routines.maxon`, `entry.maxon`). The Go compiler keeps its own emitted
+runtime (`internal/backend/runtime.go`, `arrays.go`, `bytes.go`, `os.go`) until Go work ends and never compiles
+`runtime/`; it only checks it. `runtime/README.md` lists the files and the rules a runtime file follows.
+
+**Where it is found.** As maxon finds its library tiers: walking up from the compiler's executable, the first directory
+that holds a `runtime/` directory (`project.runtimeDir`), so a compiler built in a checkout uses the checkout's and an
+installed one the one installed beside it. A project whose root is that directory is the runtime itself
+(`ast.Module.IsRuntime`): `minimaxon check runtime` checks it as a library, with no `main`, and `build` and `run` refuse
+it as a program with no `main` (`E3001`). The runtime's link path is `runtime` wherever it is compiled, so its functions
+are `runtime::alloc` and the like; `runtime` is a reserved top-level module name (`E3182`), so no module of a program
+takes it.
+
+**The intrinsics.** The runtime is written on `__Raw`, maxon's name for the closed set of raw machine and OS operations,
+here the static functions of a built-in record (`rawFunctions` in `internal/builtingen/table.go`). An address and a word
+are a `Count`:
+
+| Intrinsic | Gives |
+|---|---|
+| `__Raw.loadByte(address, offset: o)`, `loadWord16`, `loadWord32`, `loadWord` | the 1, 2, 4 or 8 bytes at `address + o`, zero-extended: a `Byte` for one byte, a `Count` for more |
+| `__Raw.storeByte(address, offset: o, value: v)`, `storeWord16`, `storeWord32`, `storeWord` | writes the low 1, 2, 4 or 8 bytes of `v` at `address + o` |
+| `__Raw.wrappingAdd(a, right: b)`, `__Raw.wrappingSub(a, right: b)` | address arithmetic: the sum or the difference modulo 2^64, unchecked |
+| `__Raw.addressOf(word)` | the address of a local `Count`, passed `mutates`: an out-parameter of a DLL function |
+| `__Raw.stringAddress(text)`, `__Raw.stringAt(box)` | the box address of a borrowed `String`; a `String` that owns a box the runtime built |
+| `__Raw.heapAddress()`, `stdoutAddress()`, `stderrAddress()`, `liveAddress()` | the address of a global of the entry stub |
+| `__Raw.callImport0(name)` to `__Raw.callImport10(name, arg1: a, ..., arg10: j)` | calls the DLL function `name`, a string literal (`E2004` otherwise), with that many words by the Win64 convention, and gives what it returns |
+
+Only the runtime module may call them: a call anywhere else is `E3152` (maxon's `rawIntrinsicOutsideRuntimeTier`, with
+its message), which `check.callFunction` raises from the rows' runtime-only flag (`ast.Intrinsic.RuntimeOnly`, and
+`intrinsicRuntimeOnly` in `self/ast`). They lower to four IR operations that only the runtime's code has: `loadraw.W`
+and `storeraw.W`, W the width in bits, at the address plus the offset; `globaladdr` of an `Rt` global; and `import`,
+which names the DLL function among the function's strings. The wrapping arithmetic is an unchecked `bin`, `addressOf`
+the `addr` of the local's slot, and `stringAddress` and `stringAt` the word itself. `self/backend` writes them
+(`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, and `visitCallImport`, which aligns the stack itself, since a Maxon
+function's frame is not aligned, and keeps `rsp` in `rbx`, which the callee preserves, saving `rbx` first). The Go
+compiler's lowering, codegen and interpreter refuse each with a `diag.Internal` error that says the Go compiler does not
+compile the runtime (`ir.RuntimeSourceOnly`).
+
+**From an entry to a function.** The runtime entries the compiler calls are the rows of the table's `entries`
+(`ir.Rt`), and `runtimeFunctions` names the function of `runtime/` that defines each one with its signature
+(`alloc(bytes Count) Count`, `write(handle Count, text String)`, ...). From it the generator writes `ir.RtFunction` for
+Go, and `self/ir`'s `rtSymbol`, which gives a mapped entry its function's link name (`runtime::alloc`) and an entry that
+the stub or the linker defines its own symbol (`rt.entry`, `g.heap`); the linker resolves `rtSymbol(x)` by that text as
+it does any call. The two calling conventions are one by construction: a `callruntime` and a `call` of a Maxon function
+are both written by codegen's one `call`, which pushes the words left to right, calls and pops them, and the callee reads
+parameter `i` at `rbp + 16 + 8 * (count - 1 - i)` and returns in `rax`. So a runtime function takes only words (an
+integer, a `bool`, a `String` as its box address), takes none `mutates`, is not generic and throws nothing, since a
+function that throws returns its error in `rdx` too. `minimaxon check runtime` holds the runtime to the table: each
+mapped function exists with exactly that signature (`E3004` when it is missing, `E3005` when it differs) and links as
+`rtSymbol` says. A new entry is a row of each table and a function in `runtime/`.
+
+**Globals.** The entry stub keeps the process heap and the two standard handles (`g.heap`, `g.stdout`, `g.stderr`),
+which it sets before `main`, and the count of live boxes (`g.live`), which it defines, zero, in every executable; the
+linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a global through its address intrinsic.
+The runtime is the same code whatever the build: `alloc` and `free` always count, and `--count-allocations` changes only
+the stub, which then passes `main`'s exit code to the runtime's `checkLeaks`; that exits with the leak report and 99 when
+a box is live, and gives the code back otherwise. Behaviour, exit codes and messages are the Go runtime's.
+
+**What runtime source may do.** It is ordinary Maxon apart from the intrinsics: integers, `bool`, loops, `panic` with a
+literal (which calls the runtime's own `panicWith`, which allocates nothing), and `String` values, borrowed as a
+parameter or owned once `stringAt` makes one. A dropped `String` goes through the compiler-emitted drop routine, which
+calls `free`, so no free comes back into the code that started it. It uses none of the primitives (`Array`, `Map`, ...),
+which the runtime implements, and throws nothing. Runtime collections are not generic: an array entry takes a
+descriptor of its element's size and layout, and only a thin typed wrapper is per type.
+
+**Layouts.** `runtime/layout.maxon` holds, as named constants, the layouts that the compiler's code and the runtime
+share: the word, the string box (its length at 0, its bytes at 8) and the empty box. It is the start of the ABI layouts
+table: when the array and byte array layouts join it, a generator (plain Go, as `internal/builtingen`) writes this file,
+`self/backend`'s layout constants and the DLL import list (`rtImports`) from one table, so the runtime, codegen and the
+import table cannot disagree.
+
+**Compiled once.** The runtime reads no build option, so one compiled runtime serves every program a compiler builds.
+When the unit cache lands, the runtime's units are kept under a key of the compiler's own hash and the hash of every file
+of `runtime/` (its name and contents), and a program's link takes them from there; an edit to `runtime/` changes the
+key, so the next compile rebuilds the runtime and nothing else.
 
 ## The subset
 
@@ -1852,6 +1933,12 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   the `A` Win32 calls, so a path or an argument is bytes in the system's code page rather than UTF-8 turned into
   UTF-16, and `CommandLine.args()` splits only a token quoted whole, not by every `CommandLineToArgvW` rule; the port
   of the runtime to `self/` does what maxon does.
+- The runtime's source (see "The runtime") is written on a `__Raw` of minimaxon's own: maxon's `loadByte`, `loadWord`,
+  `storeByte` and `storeWord` with the 2- and 4-byte widths beside them, unchecked arithmetic, the addresses of the
+  stub's globals and a call of any DLL function by name, where maxon has a row for each OS operation, a scratch area and
+  atomics. A runtime file may hold a `String` (maxon refuses a managed value there, `E3153`, because its reference counts
+  would call the runtime) and may declare `export` names (maxon's `E3154`), since the runtime is a module of its own whose
+  names are always qualified; names need no `__` prefix for the same reason.
 - Generics are checked once against their bounds, never per instantiation; maxon checks a generic function per inferred
   type. Interfaces are bounds only: no generic interface, no static requirement, no default method, no existential
   value; a type implements one by saying so, and `int` aliases, `String` and `bool` implement none.
@@ -1920,7 +2007,8 @@ A change to the syntax touches many programs, so tools do the mechanical part:
   only keyword spellings left in Go are the constants in `internal/interp/keywords_test.go`, which the program generator
   builds programs from, and a few assertions that name one keyword, which the Go tests find.
 - **`.\check.ps1`** runs every check this repository requires, formatting and applying `go fix` first, and stops at the
-  first failure. Arguments go to `minimaxon test`, so `.\check.ps1 --update-positions` works.
+  first failure; its last step is `minimaxon check runtime`, since neither test suite compiles the runtime. Arguments go
+  to `minimaxon test`, so `.\check.ps1 --update-positions` works.
 
 A refactoring is a list of `syntax.Edit`s (a byte range and its new text), applied by `syntax.ApplyEdits`, so a language
 server can send the same edits to an editor. `.claude/skills/language-change` holds the checklist for a change to the

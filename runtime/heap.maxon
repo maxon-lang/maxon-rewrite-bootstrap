@@ -1,0 +1,31 @@
+// The heap: every box is a block of the process heap, which the entry stub stores in rt.heap before main runs. The
+// number of boxes allocated and not yet freed is kept in rt.live in every executable, so the runtime is the same code
+// whatever the build; only an executable built with --count-allocations reads it at the end (checkLeaks).
+
+// heapZeroMemory is HeapAlloc's HEAP_ZERO_MEMORY: a new box is zeroed, so each place in it starts empty.
+let heapZeroMemory = 8 as Count
+
+// noHeapFlags asks HeapFree for nothing special.
+let noHeapFlags = 0 as Count
+
+// alloc is a new zeroed box of a number of bytes.
+function alloc(bytes Count) returns Count
+	let box = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
+	let live = __Raw.liveAddress()
+	__Raw.storeWord(live, offset: 0, value: __Raw.wrappingAdd(__Raw.loadWord(live, offset: 0), right: 1))
+	return box
+end 'alloc'
+
+// free gives a box back to the heap. An empty place is skipped, since HeapFree does not accept it.
+function free(box Count)
+	if box == noBox 'empty'
+		return
+	end 'empty'
+	let live = __Raw.liveAddress()
+	__Raw.storeWord(live, offset: 0, value: __Raw.wrappingSub(__Raw.loadWord(live, offset: 0), right: 1))
+	_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: box)
+end 'free'
+
+function processHeap() returns Count
+	return __Raw.loadWord(__Raw.heapAddress(), offset: 0)
+end 'processHeap'

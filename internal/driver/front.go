@@ -88,7 +88,7 @@ func (p *modulePhase) declare(w *workerScratch, id ast.ModuleID) {
 			res.Functions = append(res.Functions, checker.Declare(d)...)
 		}
 		res.Bounds = append(res.Bounds, checker.Bounds...)
-		if m == p.proj.Root {
+		if m == p.proj.Root && (!m.IsRuntime || p.emit || p.capture != nil) {
 			p.main = checker.CheckMain()
 		}
 	})

@@ -196,6 +196,26 @@ export type Asm
 		encodeMovzxRegByteBaseDisp(code, dest: dst, base: base, disp: disp)
 	end 'loadByte'
 
+	export function loadWord16(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeMovzxRegWordBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadWord16'
+
+	export function loadWord32(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLoadReg32BaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadWord32'
+
+	export function storeByte(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreBaseDispReg8(code, base: base, disp: disp, src: src)
+	end 'storeByte'
+
+	export function storeWord16(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreBaseDispReg16(code, base: base, disp: disp, src: src)
+	end 'storeWord16'
+
+	export function storeWord32(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreBaseDispReg32(code, base: base, disp: disp, src: src)
+	end 'storeWord32'
+
 	export function movImm(mutates self, dst X64Register, imm FullRangeInt)
 		encodeMovRegImm(code, dest: dst, imm: imm)
 	end 'movImm'

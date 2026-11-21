@@ -1,0 +1,72 @@
+// Output and the ways a program ends early: writing to a standard handle, a panic, and the leak report of an executable
+// built to count its allocations. A panic and a leak write a few strings and exit, allocating nothing but the count's
+// digits, so they work when the heap is the thing that failed.
+
+// panicExitCode is what a panic exits with.
+let panicExitCode = 1 as Count
+
+let panicPrefix = "panic: "
+
+let panicEnd = "\n"
+
+// indexOutOfRange is the panic of an array index past the end.
+let indexOutOfRange = "index out of range"
+
+// leakExitCode is what an executable built to count its allocations exits with when main returned and a box is still
+// live. It differs from every code a program or a trap gives.
+let leakExitCode = 99 as Count
+
+let leakMessage = "leaked allocations: "
+
+let leakMessageEnd = "\n"
+
+// noOverlapped is WriteFile's lpOverlapped for a handle that is written in order.
+let noOverlapped = 0 as Count
+
+// write writes a string to a handle, all of it in one WriteFile, which a console or a pipe takes whole.
+function write(handle Count, text String)
+	var written = 0 as Count
+	let box = __Raw.stringAddress(text)
+	let length = __Raw.loadWord(box, offset: stringLengthOffset)
+	let bytes = __Raw.wrappingAdd(box, right: stringBytesOffset)
+	_ = __Raw.callImport5("WriteFile", arg1: handle, arg2: bytes, arg3: length, arg4: __Raw.addressOf(written), arg5: noOverlapped)
+end 'write'
+
+// panicWith is what a panic runs: it writes the message to standard error and exits.
+function panicWith(message String)
+	let handle = standardError()
+	write(handle, text: panicPrefix)
+	write(handle, text: message)
+	write(handle, text: panicEnd)
+	exitProcess(panicExitCode)
+end 'panicWith'
+
+// panicIndex is the panic of the array entries when an index is past the end.
+function panicIndex()
+	panicWith(indexOutOfRange)
+end 'panicIndex'
+
+// checkLeaks is the end of main in an executable that counts its allocations: a box still live is a drop that the
+// program lacks, so it says how many on standard error and exits with leakExitCode. Otherwise it gives back main's exit
+// code. A panic and a trap exit without it, since they end the program with values still held.
+function checkLeaks(code Count) returns Count
+	let live = __Raw.loadWord(__Raw.liveAddress(), offset: 0)
+	if live == 0 'clean'
+		return code
+	end 'clean'
+	let handle = standardError()
+	write(handle, text: leakMessage)
+	write(handle, text: itoa(live, unsigned: true))
+	write(handle, text: leakMessageEnd)
+	exitProcess(leakExitCode)
+	return code
+end 'checkLeaks'
+
+function standardError() returns Count
+	return __Raw.loadWord(__Raw.stderrAddress(), offset: 0)
+end 'standardError'
+
+// exitProcess ends the process with a code; it does not return.
+function exitProcess(code Count)
+	_ = __Raw.callImport1("ExitProcess", arg1: code)
+end 'exitProcess'

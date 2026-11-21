@@ -172,7 +172,84 @@ export enum Intrinsic
 	intrSubprocessRun
 	intrCollectedOutputExitCode
 	intrCollectedOutputSucceeded
+	intrRawLoad8
+	intrRawLoad16
+	intrRawLoad32
+	intrRawLoad64
+	intrRawStore8
+	intrRawStore16
+	intrRawStore32
+	intrRawStore64
+	intrRawWrappingAdd
+	intrRawWrappingSub
+	intrRawAddressOf
+	intrRawStringAddress
+	intrRawStringAt
+	intrRawHeapAddress
+	intrRawStdoutAddress
+	intrRawStderrAddress
+	intrRawLiveAddress
+	intrRawCallImport
 end 'Intrinsic'
+
+// intrinsicRuntimeOnly is whether only the runtime module may call the intrinsic (E3152).
+export function intrinsicRuntimeOnly(op Intrinsic) returns bool
+	if op == Intrinsic.intrRawLoad8 'intrRawLoad8'
+		return true
+	end 'intrRawLoad8'
+	if op == Intrinsic.intrRawLoad16 'intrRawLoad16'
+		return true
+	end 'intrRawLoad16'
+	if op == Intrinsic.intrRawLoad32 'intrRawLoad32'
+		return true
+	end 'intrRawLoad32'
+	if op == Intrinsic.intrRawLoad64 'intrRawLoad64'
+		return true
+	end 'intrRawLoad64'
+	if op == Intrinsic.intrRawStore8 'intrRawStore8'
+		return true
+	end 'intrRawStore8'
+	if op == Intrinsic.intrRawStore16 'intrRawStore16'
+		return true
+	end 'intrRawStore16'
+	if op == Intrinsic.intrRawStore32 'intrRawStore32'
+		return true
+	end 'intrRawStore32'
+	if op == Intrinsic.intrRawStore64 'intrRawStore64'
+		return true
+	end 'intrRawStore64'
+	if op == Intrinsic.intrRawWrappingAdd 'intrRawWrappingAdd'
+		return true
+	end 'intrRawWrappingAdd'
+	if op == Intrinsic.intrRawWrappingSub 'intrRawWrappingSub'
+		return true
+	end 'intrRawWrappingSub'
+	if op == Intrinsic.intrRawAddressOf 'intrRawAddressOf'
+		return true
+	end 'intrRawAddressOf'
+	if op == Intrinsic.intrRawStringAddress 'intrRawStringAddress'
+		return true
+	end 'intrRawStringAddress'
+	if op == Intrinsic.intrRawStringAt 'intrRawStringAt'
+		return true
+	end 'intrRawStringAt'
+	if op == Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
+		return true
+	end 'intrRawHeapAddress'
+	if op == Intrinsic.intrRawStdoutAddress 'intrRawStdoutAddress'
+		return true
+	end 'intrRawStdoutAddress'
+	if op == Intrinsic.intrRawStderrAddress 'intrRawStderrAddress'
+		return true
+	end 'intrRawStderrAddress'
+	if op == Intrinsic.intrRawLiveAddress 'intrRawLiveAddress'
+		return true
+	end 'intrRawLiveAddress'
+	if op == Intrinsic.intrRawCallImport 'intrRawCallImport'
+		return true
+	end 'intrRawCallImport'
+	return false
+end 'intrinsicRuntimeOnly'
 
 function declareBuiltinTable(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)
 	declareBuiltinTypes(tt, std: std, b: b, typeMap: typeMap)
@@ -189,6 +266,7 @@ function declareBuiltinTable(mutates tt TypeTable, mutates ft FuncTable, mutates
 	declareDirectoryMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
 	declareSubprocessMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
 	declareCollectedOutputMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
+	declareRawMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
 end 'declareBuiltinTable'
 
 function declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap)
@@ -221,6 +299,7 @@ function declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b
 	b.directoryTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "Directory")
 	b.collectedOutputTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "CollectedOutput")
 	b.subprocessTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "Subprocess")
+	b.rawTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "__Raw")
 	addRecordField(tt, owner: b.filePathTy, name: "path", ty: b.stringTy, isVar: false, exported: true)
 	addRecordField(tt, owner: b.collectedOutputTy, name: "stdout", ty: b.stringTy, isVar: true, exported: true)
 	addRecordField(tt, owner: b.collectedOutputTy, name: "stderr", ty: b.stringTy, isVar: true, exported: true)
@@ -656,3 +735,151 @@ function declareCollectedOutputMethods(mutates tt TypeTable, mutates ft FuncTabl
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.collectedOutputTy, op: Intrinsic.intrCollectedOutputExitCode, name: "exitCode", isStatic: false, selfConv: Convention.convLet, ret: b.exitCodeTy, params: ParamSpecList.create(0))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.collectedOutputTy, op: Intrinsic.intrCollectedOutputSucceeded, name: "succeeded", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0))
 end 'declareCollectedOutputMethods'
+
+function declareRawMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+	var ps1 = ParamSpecList.create(0)
+	ps1.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps1.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawLoad8, name: "loadByte", isStatic: true, selfConv: Convention.convLet, ret: b.byteTy, params: ps1)
+	var ps2 = ParamSpecList.create(0)
+	ps2.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps2.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawLoad16, name: "loadWord16", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps2)
+	var ps3 = ParamSpecList.create(0)
+	ps3.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps3.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawLoad32, name: "loadWord32", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps3)
+	var ps4 = ParamSpecList.create(0)
+	ps4.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps4.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawLoad64, name: "loadWord", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps4)
+	var ps5 = ParamSpecList.create(0)
+	ps5.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps5.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))
+	ps5.push(ParamSpec.make("value", ty: b.byteTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawStore8, name: "storeByte", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps5)
+	var ps6 = ParamSpecList.create(0)
+	ps6.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps6.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))
+	ps6.push(ParamSpec.make("value", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawStore16, name: "storeWord16", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps6)
+	var ps7 = ParamSpecList.create(0)
+	ps7.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps7.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))
+	ps7.push(ParamSpec.make("value", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawStore32, name: "storeWord32", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps7)
+	var ps8 = ParamSpecList.create(0)
+	ps8.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("value", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawStore64, name: "storeWord", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps8)
+	var ps9 = ParamSpecList.create(0)
+	ps9.push(ParamSpec.make("left", ty: b.countTy, conv: Convention.convLet))
+	ps9.push(ParamSpec.make("right", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawWrappingAdd, name: "wrappingAdd", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps9)
+	var ps10 = ParamSpecList.create(0)
+	ps10.push(ParamSpec.make("left", ty: b.countTy, conv: Convention.convLet))
+	ps10.push(ParamSpec.make("right", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawWrappingSub, name: "wrappingSub", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps10)
+	var ps11 = ParamSpecList.create(0)
+	ps11.push(ParamSpec.make("word", ty: b.countTy, conv: Convention.convMutates))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawAddressOf, name: "addressOf", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps11)
+	var ps12 = ParamSpecList.create(0)
+	ps12.push(ParamSpec.make("text", ty: b.stringTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawStringAddress, name: "stringAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps12)
+	var ps13 = ParamSpecList.create(0)
+	ps13.push(ParamSpec.make("box", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawStringAt, name: "stringAt", isStatic: true, selfConv: Convention.convLet, ret: b.stringTy, params: ps13)
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawHeapAddress, name: "heapAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawStdoutAddress, name: "stdoutAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawStderrAddress, name: "stderrAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawLiveAddress, name: "liveAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0))
+	var ps14 = ParamSpecList.create(0)
+	ps14.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport0", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps14)
+	var ps15 = ParamSpecList.create(0)
+	ps15.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps15.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport1", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps15)
+	var ps16 = ParamSpecList.create(0)
+	ps16.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps16.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps16.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport2", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps16)
+	var ps17 = ParamSpecList.create(0)
+	ps17.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps17.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps17.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps17.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport3", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps17)
+	var ps18 = ParamSpecList.create(0)
+	ps18.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps18.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps18.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps18.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps18.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport4", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps18)
+	var ps19 = ParamSpecList.create(0)
+	ps19.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps19.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps19.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps19.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps19.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	ps19.push(ParamSpec.make("arg5", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport5", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps19)
+	var ps20 = ParamSpecList.create(0)
+	ps20.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps20.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps20.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps20.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps20.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	ps20.push(ParamSpec.make("arg5", ty: b.countTy, conv: Convention.convLet))
+	ps20.push(ParamSpec.make("arg6", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport6", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps20)
+	var ps21 = ParamSpecList.create(0)
+	ps21.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps21.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps21.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps21.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps21.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	ps21.push(ParamSpec.make("arg5", ty: b.countTy, conv: Convention.convLet))
+	ps21.push(ParamSpec.make("arg6", ty: b.countTy, conv: Convention.convLet))
+	ps21.push(ParamSpec.make("arg7", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport7", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps21)
+	var ps22 = ParamSpecList.create(0)
+	ps22.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps22.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps22.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps22.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps22.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	ps22.push(ParamSpec.make("arg5", ty: b.countTy, conv: Convention.convLet))
+	ps22.push(ParamSpec.make("arg6", ty: b.countTy, conv: Convention.convLet))
+	ps22.push(ParamSpec.make("arg7", ty: b.countTy, conv: Convention.convLet))
+	ps22.push(ParamSpec.make("arg8", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport8", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps22)
+	var ps23 = ParamSpecList.create(0)
+	ps23.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg5", ty: b.countTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg6", ty: b.countTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg7", ty: b.countTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg8", ty: b.countTy, conv: Convention.convLet))
+	ps23.push(ParamSpec.make("arg9", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport9", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps23)
+	var ps24 = ParamSpecList.create(0)
+	ps24.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg5", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg6", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg7", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg8", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg9", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("arg10", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport10", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps24)
+end 'declareRawMethods'

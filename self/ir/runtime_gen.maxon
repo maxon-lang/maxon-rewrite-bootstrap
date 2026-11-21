@@ -21,6 +21,7 @@ export enum Rt
 	rtLive
 	rtImageDataStart
 	rtImageDataEnd
+	rtCheckLeaks
 	rtArrayNew
 	rtArrayLen
 	rtArrayElem
@@ -88,37 +89,37 @@ export function rtSymbol(r Rt) returns String
 		return "rt.entry"
 	end 'rtEntry'
 	if r == Rt.rtAlloc 'rtAlloc'
-		return "rt.alloc"
+		return "runtime::alloc"
 	end 'rtAlloc'
 	if r == Rt.rtFree 'rtFree'
-		return "rt.free"
+		return "runtime::free"
 	end 'rtFree'
 	if r == Rt.rtWrite 'rtWrite'
-		return "rt.write"
+		return "runtime::write"
 	end 'rtWrite'
 	if r == Rt.rtPanic 'rtPanic'
-		return "rt.panic"
+		return "runtime::panicWith"
 	end 'rtPanic'
 	if r == Rt.rtConcat 'rtConcat'
-		return "rt.concat"
+		return "runtime::concat"
 	end 'rtConcat'
 	if r == Rt.rtItoa 'rtItoa'
-		return "rt.itoa"
+		return "runtime::itoa"
 	end 'rtItoa'
 	if r == Rt.rtStreq 'rtStreq'
-		return "rt.streq"
+		return "runtime::streq"
 	end 'rtStreq'
 	if r == Rt.rtStrLen 'rtStrLen'
-		return "rt.str.len"
+		return "runtime::stringLength"
 	end 'rtStrLen'
 	if r == Rt.rtStrByteAt 'rtStrByteAt'
-		return "rt.str.byteAt"
+		return "runtime::stringByteAt"
 	end 'rtStrByteAt'
 	if r == Rt.rtStrSlice 'rtStrSlice'
-		return "rt.str.slice"
+		return "runtime::stringSlice"
 	end 'rtStrSlice'
 	if r == Rt.rtPanicIndex 'rtPanicIndex'
-		return "rt.panicIndex"
+		return "runtime::panicIndex"
 	end 'rtPanicIndex'
 	if r == Rt.rtHeap 'rtHeap'
 		return "g.heap"
@@ -138,6 +139,9 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtImageDataEnd 'rtImageDataEnd'
 		return "g.imageDataEnd"
 	end 'rtImageDataEnd'
+	if r == Rt.rtCheckLeaks 'rtCheckLeaks'
+		return "runtime::checkLeaks"
+	end 'rtCheckLeaks'
 	if r == Rt.rtArrayNew 'rtArrayNew'
 		return "rt.array.new"
 	end 'rtArrayNew'
@@ -318,6 +322,245 @@ export function rtSymbol(r Rt) returns String
 	panic("ir: rtNone names no runtime symbol")
 end 'rtSymbol'
 
+// rtText is the name the IR text and a report give a symbol, which is the same in either compiler.
+export function rtText(r Rt) returns String
+	if r == Rt.rtEntry 'rtEntry'
+		return "rt.entry"
+	end 'rtEntry'
+	if r == Rt.rtAlloc 'rtAlloc'
+		return "rt.alloc"
+	end 'rtAlloc'
+	if r == Rt.rtFree 'rtFree'
+		return "rt.free"
+	end 'rtFree'
+	if r == Rt.rtWrite 'rtWrite'
+		return "rt.write"
+	end 'rtWrite'
+	if r == Rt.rtPanic 'rtPanic'
+		return "rt.panic"
+	end 'rtPanic'
+	if r == Rt.rtConcat 'rtConcat'
+		return "rt.concat"
+	end 'rtConcat'
+	if r == Rt.rtItoa 'rtItoa'
+		return "rt.itoa"
+	end 'rtItoa'
+	if r == Rt.rtStreq 'rtStreq'
+		return "rt.streq"
+	end 'rtStreq'
+	if r == Rt.rtStrLen 'rtStrLen'
+		return "rt.str.len"
+	end 'rtStrLen'
+	if r == Rt.rtStrByteAt 'rtStrByteAt'
+		return "rt.str.byteAt"
+	end 'rtStrByteAt'
+	if r == Rt.rtStrSlice 'rtStrSlice'
+		return "rt.str.slice"
+	end 'rtStrSlice'
+	if r == Rt.rtPanicIndex 'rtPanicIndex'
+		return "rt.panicIndex"
+	end 'rtPanicIndex'
+	if r == Rt.rtHeap 'rtHeap'
+		return "g.heap"
+	end 'rtHeap'
+	if r == Rt.rtStdout 'rtStdout'
+		return "g.stdout"
+	end 'rtStdout'
+	if r == Rt.rtStderr 'rtStderr'
+		return "g.stderr"
+	end 'rtStderr'
+	if r == Rt.rtLive 'rtLive'
+		return "g.live"
+	end 'rtLive'
+	if r == Rt.rtImageDataStart 'rtImageDataStart'
+		return "g.imageDataStart"
+	end 'rtImageDataStart'
+	if r == Rt.rtImageDataEnd 'rtImageDataEnd'
+		return "g.imageDataEnd"
+	end 'rtImageDataEnd'
+	if r == Rt.rtCheckLeaks 'rtCheckLeaks'
+		return "rt.checkLeaks"
+	end 'rtCheckLeaks'
+	if r == Rt.rtArrayNew 'rtArrayNew'
+		return "rt.array.new"
+	end 'rtArrayNew'
+	if r == Rt.rtArrayLen 'rtArrayLen'
+		return "rt.array.len"
+	end 'rtArrayLen'
+	if r == Rt.rtArrayElem 'rtArrayElem'
+		return "rt.array.elem"
+	end 'rtArrayElem'
+	if r == Rt.rtArrayInsert 'rtArrayInsert'
+		return "rt.array.insert"
+	end 'rtArrayInsert'
+	if r == Rt.rtArrayRemove 'rtArrayRemove'
+		return "rt.array.remove"
+	end 'rtArrayRemove'
+	if r == Rt.rtMapNew 'rtMapNew'
+		return "rt.map.new"
+	end 'rtMapNew'
+	if r == Rt.rtMapLen 'rtMapLen'
+		return "rt.map.len"
+	end 'rtMapLen'
+	if r == Rt.rtMapHas 'rtMapHas'
+		return "rt.map.has"
+	end 'rtMapHas'
+	if r == Rt.rtMapElem 'rtMapElem'
+		return "rt.map.elem"
+	end 'rtMapElem'
+	if r == Rt.rtMapInsert 'rtMapInsert'
+		return "rt.map.insert"
+	end 'rtMapInsert'
+	if r == Rt.rtMapRemove 'rtMapRemove'
+		return "rt.map.remove"
+	end 'rtMapRemove'
+	if r == Rt.rtMapCopy 'rtMapCopy'
+		return "rt.map.copy"
+	end 'rtMapCopy'
+	if r == Rt.rtListNew 'rtListNew'
+		return "rt.list.new"
+	end 'rtListNew'
+	if r == Rt.rtListLen 'rtListLen'
+		return "rt.list.len"
+	end 'rtListLen'
+	if r == Rt.rtListContains 'rtListContains'
+		return "rt.list.contains"
+	end 'rtListContains'
+	if r == Rt.rtListElem 'rtListElem'
+		return "rt.list.elem"
+	end 'rtListElem'
+	if r == Rt.rtListPushFront 'rtListPushFront'
+		return "rt.list.pushFront"
+	end 'rtListPushFront'
+	if r == Rt.rtListPushBack 'rtListPushBack'
+		return "rt.list.pushBack"
+	end 'rtListPushBack'
+	if r == Rt.rtListPopFront 'rtListPopFront'
+		return "rt.list.popFront"
+	end 'rtListPopFront'
+	if r == Rt.rtListPopBack 'rtListPopBack'
+		return "rt.list.popBack"
+	end 'rtListPopBack'
+	if r == Rt.rtListFirst 'rtListFirst'
+		return "rt.list.first"
+	end 'rtListFirst'
+	if r == Rt.rtListLast 'rtListLast'
+		return "rt.list.last"
+	end 'rtListLast'
+	if r == Rt.rtListNext 'rtListNext'
+		return "rt.list.next"
+	end 'rtListNext'
+	if r == Rt.rtListPrev 'rtListPrev'
+		return "rt.list.prev"
+	end 'rtListPrev'
+	if r == Rt.rtListRemove 'rtListRemove'
+		return "rt.list.remove"
+	end 'rtListRemove'
+	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
+		return "rt.list.moveToFront"
+	end 'rtListMoveToFront'
+	if r == Rt.rtListCopy 'rtListCopy'
+		return "rt.list.copy"
+	end 'rtListCopy'
+	if r == Rt.rtPoolNew 'rtPoolNew'
+		return "rt.pool.new"
+	end 'rtPoolNew'
+	if r == Rt.rtPoolLen 'rtPoolLen'
+		return "rt.pool.len"
+	end 'rtPoolLen'
+	if r == Rt.rtPoolContains 'rtPoolContains'
+		return "rt.pool.contains"
+	end 'rtPoolContains'
+	if r == Rt.rtPoolElem 'rtPoolElem'
+		return "rt.pool.elem"
+	end 'rtPoolElem'
+	if r == Rt.rtPoolInsert 'rtPoolInsert'
+		return "rt.pool.insert"
+	end 'rtPoolInsert'
+	if r == Rt.rtPoolRemove 'rtPoolRemove'
+		return "rt.pool.remove"
+	end 'rtPoolRemove'
+	if r == Rt.rtPoolCopy 'rtPoolCopy'
+		return "rt.pool.copy"
+	end 'rtPoolCopy'
+	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
+		return "rt.frozen.freeze"
+	end 'rtFrozenFreeze'
+	if r == Rt.rtFrozenGet 'rtFrozenGet'
+		return "rt.frozen.get"
+	end 'rtFrozenGet'
+	if r == Rt.rtShare 'rtShare'
+		return "rt.share"
+	end 'rtShare'
+	if r == Rt.rtCownNew 'rtCownNew'
+		return "rt.cown.new"
+	end 'rtCownNew'
+	if r == Rt.rtBytesNew 'rtBytesNew'
+		return "rt.bytes.new"
+	end 'rtBytesNew'
+	if r == Rt.rtBytesLen 'rtBytesLen'
+		return "rt.bytes.len"
+	end 'rtBytesLen'
+	if r == Rt.rtBytesGet 'rtBytesGet'
+		return "rt.bytes.get"
+	end 'rtBytesGet'
+	if r == Rt.rtBytesSet 'rtBytesSet'
+		return "rt.bytes.set"
+	end 'rtBytesSet'
+	if r == Rt.rtBytesInsert 'rtBytesInsert'
+		return "rt.bytes.insert"
+	end 'rtBytesInsert'
+	if r == Rt.rtBytesRemove 'rtBytesRemove'
+		return "rt.bytes.remove"
+	end 'rtBytesRemove'
+	if r == Rt.rtBytesAppend 'rtBytesAppend'
+		return "rt.bytes.append"
+	end 'rtBytesAppend'
+	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
+		return "rt.bytes.appendStr"
+	end 'rtBytesAppendStr'
+	if r == Rt.rtBytesToString 'rtBytesToString'
+		return "rt.bytes.toString"
+	end 'rtBytesToString'
+	if r == Rt.rtOsArgs 'rtOsArgs'
+		return "rt.os.args"
+	end 'rtOsArgs'
+	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
+		return "rt.os.environmentVariable"
+	end 'rtOsEnvironmentVariable'
+	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
+		return "rt.os.pathFrom"
+	end 'rtOsPathFrom'
+	if r == Rt.rtOsReadText 'rtOsReadText'
+		return "rt.os.readText"
+	end 'rtOsReadText'
+	if r == Rt.rtOsWriteText 'rtOsWriteText'
+		return "rt.os.writeText"
+	end 'rtOsWriteText'
+	if r == Rt.rtOsWriteBinary 'rtOsWriteBinary'
+		return "rt.os.writeBinary"
+	end 'rtOsWriteBinary'
+	if r == Rt.rtOsRename 'rtOsRename'
+		return "rt.os.rename"
+	end 'rtOsRename'
+	if r == Rt.rtOsDelete 'rtOsDelete'
+		return "rt.os.delete"
+	end 'rtOsDelete'
+	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
+		return "rt.os.isDirectory"
+	end 'rtOsIsDirectory'
+	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
+		return "rt.os.createDirectory"
+	end 'rtOsCreateDirectory'
+	if r == Rt.rtOsList 'rtOsList'
+		return "rt.os.list"
+	end 'rtOsList'
+	if r == Rt.rtOsRun 'rtOsRun'
+		return "rt.os.run"
+	end 'rtOsRun'
+	panic("ir: rtNone has no text")
+end 'rtText'
+
 // rtCode is the number an instruction holds a symbol as.
 export function rtCode(r Rt) returns Count
 	if r == Rt.rtEntry 'rtEntry'
@@ -374,182 +617,185 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtImageDataEnd 'rtImageDataEnd'
 		return 18
 	end 'rtImageDataEnd'
-	if r == Rt.rtArrayNew 'rtArrayNew'
+	if r == Rt.rtCheckLeaks 'rtCheckLeaks'
 		return 19
+	end 'rtCheckLeaks'
+	if r == Rt.rtArrayNew 'rtArrayNew'
+		return 20
 	end 'rtArrayNew'
 	if r == Rt.rtArrayLen 'rtArrayLen'
-		return 20
+		return 21
 	end 'rtArrayLen'
 	if r == Rt.rtArrayElem 'rtArrayElem'
-		return 21
+		return 22
 	end 'rtArrayElem'
 	if r == Rt.rtArrayInsert 'rtArrayInsert'
-		return 22
+		return 23
 	end 'rtArrayInsert'
 	if r == Rt.rtArrayRemove 'rtArrayRemove'
-		return 23
+		return 24
 	end 'rtArrayRemove'
 	if r == Rt.rtMapNew 'rtMapNew'
-		return 24
+		return 25
 	end 'rtMapNew'
 	if r == Rt.rtMapLen 'rtMapLen'
-		return 25
+		return 26
 	end 'rtMapLen'
 	if r == Rt.rtMapHas 'rtMapHas'
-		return 26
+		return 27
 	end 'rtMapHas'
 	if r == Rt.rtMapElem 'rtMapElem'
-		return 27
+		return 28
 	end 'rtMapElem'
 	if r == Rt.rtMapInsert 'rtMapInsert'
-		return 28
+		return 29
 	end 'rtMapInsert'
 	if r == Rt.rtMapRemove 'rtMapRemove'
-		return 29
+		return 30
 	end 'rtMapRemove'
 	if r == Rt.rtMapCopy 'rtMapCopy'
-		return 30
+		return 31
 	end 'rtMapCopy'
 	if r == Rt.rtListNew 'rtListNew'
-		return 31
+		return 32
 	end 'rtListNew'
 	if r == Rt.rtListLen 'rtListLen'
-		return 32
+		return 33
 	end 'rtListLen'
 	if r == Rt.rtListContains 'rtListContains'
-		return 33
+		return 34
 	end 'rtListContains'
 	if r == Rt.rtListElem 'rtListElem'
-		return 34
+		return 35
 	end 'rtListElem'
 	if r == Rt.rtListPushFront 'rtListPushFront'
-		return 35
+		return 36
 	end 'rtListPushFront'
 	if r == Rt.rtListPushBack 'rtListPushBack'
-		return 36
+		return 37
 	end 'rtListPushBack'
 	if r == Rt.rtListPopFront 'rtListPopFront'
-		return 37
+		return 38
 	end 'rtListPopFront'
 	if r == Rt.rtListPopBack 'rtListPopBack'
-		return 38
+		return 39
 	end 'rtListPopBack'
 	if r == Rt.rtListFirst 'rtListFirst'
-		return 39
+		return 40
 	end 'rtListFirst'
 	if r == Rt.rtListLast 'rtListLast'
-		return 40
+		return 41
 	end 'rtListLast'
 	if r == Rt.rtListNext 'rtListNext'
-		return 41
+		return 42
 	end 'rtListNext'
 	if r == Rt.rtListPrev 'rtListPrev'
-		return 42
+		return 43
 	end 'rtListPrev'
 	if r == Rt.rtListRemove 'rtListRemove'
-		return 43
+		return 44
 	end 'rtListRemove'
 	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
-		return 44
+		return 45
 	end 'rtListMoveToFront'
 	if r == Rt.rtListCopy 'rtListCopy'
-		return 45
+		return 46
 	end 'rtListCopy'
 	if r == Rt.rtPoolNew 'rtPoolNew'
-		return 46
+		return 47
 	end 'rtPoolNew'
 	if r == Rt.rtPoolLen 'rtPoolLen'
-		return 47
+		return 48
 	end 'rtPoolLen'
 	if r == Rt.rtPoolContains 'rtPoolContains'
-		return 48
+		return 49
 	end 'rtPoolContains'
 	if r == Rt.rtPoolElem 'rtPoolElem'
-		return 49
+		return 50
 	end 'rtPoolElem'
 	if r == Rt.rtPoolInsert 'rtPoolInsert'
-		return 50
+		return 51
 	end 'rtPoolInsert'
 	if r == Rt.rtPoolRemove 'rtPoolRemove'
-		return 51
+		return 52
 	end 'rtPoolRemove'
 	if r == Rt.rtPoolCopy 'rtPoolCopy'
-		return 52
+		return 53
 	end 'rtPoolCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
-		return 53
+		return 54
 	end 'rtFrozenFreeze'
 	if r == Rt.rtFrozenGet 'rtFrozenGet'
-		return 54
+		return 55
 	end 'rtFrozenGet'
 	if r == Rt.rtShare 'rtShare'
-		return 55
+		return 56
 	end 'rtShare'
 	if r == Rt.rtCownNew 'rtCownNew'
-		return 56
+		return 57
 	end 'rtCownNew'
 	if r == Rt.rtBytesNew 'rtBytesNew'
-		return 57
+		return 58
 	end 'rtBytesNew'
 	if r == Rt.rtBytesLen 'rtBytesLen'
-		return 58
+		return 59
 	end 'rtBytesLen'
 	if r == Rt.rtBytesGet 'rtBytesGet'
-		return 59
+		return 60
 	end 'rtBytesGet'
 	if r == Rt.rtBytesSet 'rtBytesSet'
-		return 60
+		return 61
 	end 'rtBytesSet'
 	if r == Rt.rtBytesInsert 'rtBytesInsert'
-		return 61
+		return 62
 	end 'rtBytesInsert'
 	if r == Rt.rtBytesRemove 'rtBytesRemove'
-		return 62
+		return 63
 	end 'rtBytesRemove'
 	if r == Rt.rtBytesAppend 'rtBytesAppend'
-		return 63
+		return 64
 	end 'rtBytesAppend'
 	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
-		return 64
+		return 65
 	end 'rtBytesAppendStr'
 	if r == Rt.rtBytesToString 'rtBytesToString'
-		return 65
+		return 66
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
-		return 66
+		return 67
 	end 'rtOsArgs'
 	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
-		return 67
+		return 68
 	end 'rtOsEnvironmentVariable'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
-		return 68
+		return 69
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return 69
+		return 70
 	end 'rtOsReadText'
 	if r == Rt.rtOsWriteText 'rtOsWriteText'
-		return 70
+		return 71
 	end 'rtOsWriteText'
 	if r == Rt.rtOsWriteBinary 'rtOsWriteBinary'
-		return 71
+		return 72
 	end 'rtOsWriteBinary'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return 72
+		return 73
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return 73
+		return 74
 	end 'rtOsDelete'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return 74
+		return 75
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return 75
+		return 76
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return 76
+		return 77
 	end 'rtOsList'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return 77
+		return 78
 	end 'rtOsRun'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -575,65 +821,66 @@ export function rtOf(code Count) returns Rt
 		16 gives Rt.rtLive
 		17 gives Rt.rtImageDataStart
 		18 gives Rt.rtImageDataEnd
-		19 gives Rt.rtArrayNew
-		20 gives Rt.rtArrayLen
-		21 gives Rt.rtArrayElem
-		22 gives Rt.rtArrayInsert
-		23 gives Rt.rtArrayRemove
-		24 gives Rt.rtMapNew
-		25 gives Rt.rtMapLen
-		26 gives Rt.rtMapHas
-		27 gives Rt.rtMapElem
-		28 gives Rt.rtMapInsert
-		29 gives Rt.rtMapRemove
-		30 gives Rt.rtMapCopy
-		31 gives Rt.rtListNew
-		32 gives Rt.rtListLen
-		33 gives Rt.rtListContains
-		34 gives Rt.rtListElem
-		35 gives Rt.rtListPushFront
-		36 gives Rt.rtListPushBack
-		37 gives Rt.rtListPopFront
-		38 gives Rt.rtListPopBack
-		39 gives Rt.rtListFirst
-		40 gives Rt.rtListLast
-		41 gives Rt.rtListNext
-		42 gives Rt.rtListPrev
-		43 gives Rt.rtListRemove
-		44 gives Rt.rtListMoveToFront
-		45 gives Rt.rtListCopy
-		46 gives Rt.rtPoolNew
-		47 gives Rt.rtPoolLen
-		48 gives Rt.rtPoolContains
-		49 gives Rt.rtPoolElem
-		50 gives Rt.rtPoolInsert
-		51 gives Rt.rtPoolRemove
-		52 gives Rt.rtPoolCopy
-		53 gives Rt.rtFrozenFreeze
-		54 gives Rt.rtFrozenGet
-		55 gives Rt.rtShare
-		56 gives Rt.rtCownNew
-		57 gives Rt.rtBytesNew
-		58 gives Rt.rtBytesLen
-		59 gives Rt.rtBytesGet
-		60 gives Rt.rtBytesSet
-		61 gives Rt.rtBytesInsert
-		62 gives Rt.rtBytesRemove
-		63 gives Rt.rtBytesAppend
-		64 gives Rt.rtBytesAppendStr
-		65 gives Rt.rtBytesToString
-		66 gives Rt.rtOsArgs
-		67 gives Rt.rtOsEnvironmentVariable
-		68 gives Rt.rtOsPathFrom
-		69 gives Rt.rtOsReadText
-		70 gives Rt.rtOsWriteText
-		71 gives Rt.rtOsWriteBinary
-		72 gives Rt.rtOsRename
-		73 gives Rt.rtOsDelete
-		74 gives Rt.rtOsIsDirectory
-		75 gives Rt.rtOsCreateDirectory
-		76 gives Rt.rtOsList
-		77 gives Rt.rtOsRun
+		19 gives Rt.rtCheckLeaks
+		20 gives Rt.rtArrayNew
+		21 gives Rt.rtArrayLen
+		22 gives Rt.rtArrayElem
+		23 gives Rt.rtArrayInsert
+		24 gives Rt.rtArrayRemove
+		25 gives Rt.rtMapNew
+		26 gives Rt.rtMapLen
+		27 gives Rt.rtMapHas
+		28 gives Rt.rtMapElem
+		29 gives Rt.rtMapInsert
+		30 gives Rt.rtMapRemove
+		31 gives Rt.rtMapCopy
+		32 gives Rt.rtListNew
+		33 gives Rt.rtListLen
+		34 gives Rt.rtListContains
+		35 gives Rt.rtListElem
+		36 gives Rt.rtListPushFront
+		37 gives Rt.rtListPushBack
+		38 gives Rt.rtListPopFront
+		39 gives Rt.rtListPopBack
+		40 gives Rt.rtListFirst
+		41 gives Rt.rtListLast
+		42 gives Rt.rtListNext
+		43 gives Rt.rtListPrev
+		44 gives Rt.rtListRemove
+		45 gives Rt.rtListMoveToFront
+		46 gives Rt.rtListCopy
+		47 gives Rt.rtPoolNew
+		48 gives Rt.rtPoolLen
+		49 gives Rt.rtPoolContains
+		50 gives Rt.rtPoolElem
+		51 gives Rt.rtPoolInsert
+		52 gives Rt.rtPoolRemove
+		53 gives Rt.rtPoolCopy
+		54 gives Rt.rtFrozenFreeze
+		55 gives Rt.rtFrozenGet
+		56 gives Rt.rtShare
+		57 gives Rt.rtCownNew
+		58 gives Rt.rtBytesNew
+		59 gives Rt.rtBytesLen
+		60 gives Rt.rtBytesGet
+		61 gives Rt.rtBytesSet
+		62 gives Rt.rtBytesInsert
+		63 gives Rt.rtBytesRemove
+		64 gives Rt.rtBytesAppend
+		65 gives Rt.rtBytesAppendStr
+		66 gives Rt.rtBytesToString
+		67 gives Rt.rtOsArgs
+		68 gives Rt.rtOsEnvironmentVariable
+		69 gives Rt.rtOsPathFrom
+		70 gives Rt.rtOsReadText
+		71 gives Rt.rtOsWriteText
+		72 gives Rt.rtOsWriteBinary
+		73 gives Rt.rtOsRename
+		74 gives Rt.rtOsDelete
+		75 gives Rt.rtOsIsDirectory
+		76 gives Rt.rtOsCreateDirectory
+		77 gives Rt.rtOsList
+		78 gives Rt.rtOsRun
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -646,6 +893,7 @@ export enum RtUnit
 	rtUnitOs
 	rtUnitLinker
 	rtUnitInterpreter
+	rtUnitSource
 end 'RtUnit'
 
 // rtUnit is where the symbol is defined.
@@ -704,6 +952,9 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtImageDataEnd 'rtImageDataEnd'
 		return RtUnit.rtUnitLinker
 	end 'rtImageDataEnd'
+	if r == Rt.rtCheckLeaks 'rtCheckLeaks'
+		return RtUnit.rtUnitSource
+	end 'rtCheckLeaks'
 	if r == Rt.rtArrayNew 'rtArrayNew'
 		return RtUnit.rtUnitArrays
 	end 'rtArrayNew'

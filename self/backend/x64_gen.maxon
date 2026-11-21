@@ -331,6 +331,36 @@ export function encodeStoreBaseDispReg8(mutates code ByteArray, base X64Register
 	writeMem(code, regBits: regLow3(src), base: base, disp: disp)
 end 'encodeStoreBaseDispReg8'
 
+// movzx dest, [base + disp]: REX.W 0F B7 /r.
+export function encodeMovzxRegWordBaseDisp(mutates code ByteArray, dest X64Register, base X64Register, disp Imm32)
+	emitRex(code, wide: true, regField: dest, rmField: base, force: false)
+	code.push(0x0F)
+	code.push(0xB7)
+	writeMem(code, regBits: regLow3(dest), base: base, disp: disp)
+end 'encodeMovzxRegWordBaseDisp'
+
+// mov dest, [base + disp]: 8B /r.
+export function encodeLoadReg32BaseDisp(mutates code ByteArray, dest X64Register, base X64Register, disp Imm32)
+	emitRex(code, wide: false, regField: dest, rmField: base, force: false)
+	code.push(0x8B)
+	writeMem(code, regBits: regLow3(dest), base: base, disp: disp)
+end 'encodeLoadReg32BaseDisp'
+
+// mov [base + disp], src: 66 89 /r.
+export function encodeStoreBaseDispReg16(mutates code ByteArray, base X64Register, disp Imm32, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: src, rmField: base, force: false)
+	code.push(0x89)
+	writeMem(code, regBits: regLow3(src), base: base, disp: disp)
+end 'encodeStoreBaseDispReg16'
+
+// mov [base + disp], src: 89 /r.
+export function encodeStoreBaseDispReg32(mutates code ByteArray, base X64Register, disp Imm32, src X64Register)
+	emitRex(code, wide: false, regField: src, rmField: base, force: false)
+	code.push(0x89)
+	writeMem(code, regBits: regLow3(src), base: base, disp: disp)
+end 'encodeStoreBaseDispReg32'
+
 // mov [base + disp], imm: C6 /0.
 export function encodeStoreBaseDispImm8(mutates code ByteArray, base X64Register, disp Imm32, imm Imm8)
 	emitRex(code, wide: false, regField: X64Register.rax, rmField: base, force: false)
@@ -672,6 +702,10 @@ export enum X64Form
 	leaRegBaseDisp
 	movzxRegByteBaseDisp
 	storeBaseDispReg8
+	movzxRegWordBaseDisp
+	loadReg32BaseDisp
+	storeBaseDispReg16
+	storeBaseDispReg32
 	storeBaseDispImm8
 	movzxRegReg8
 	setccReg
@@ -745,6 +779,10 @@ export function setsFlags(form X64Form) returns bool
 		leaRegBaseDisp or
 		movzxRegByteBaseDisp or
 		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
 		storeBaseDispImm8 or
 		movzxRegReg8 or
 		setccReg or
@@ -787,6 +825,10 @@ export function readsFlags(form X64Form) returns bool
 		leaRegBaseDisp or
 		movzxRegByteBaseDisp or
 		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
 		storeBaseDispImm8 or
 		movzxRegReg8 or
 		movRegImm32 or
@@ -830,6 +872,8 @@ export function readsMemory(form X64Form) returns bool
 	return match form 'form'
 		loadRegBaseDisp or
 		movzxRegByteBaseDisp or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
 		popReg or
 		ret or
 		repMovsb or
@@ -848,6 +892,8 @@ export function readsMemory(form X64Form) returns bool
 		storeBaseDispReg or
 		leaRegBaseDisp or
 		storeBaseDispReg8 or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
 		storeBaseDispImm8 or
 		movzxRegReg8 or
 		setccReg or
@@ -887,6 +933,8 @@ export function writesMemory(form X64Form) returns bool
 	return match form 'form'
 		storeBaseDispReg or
 		storeBaseDispReg8 or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
 		storeBaseDispImm8 or
 		pushReg or
 		repMovsb or
@@ -906,6 +954,8 @@ export function writesMemory(form X64Form) returns bool
 		loadRegBaseDisp or
 		leaRegBaseDisp or
 		movzxRegByteBaseDisp or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
 		movzxRegReg8 or
 		setccReg or
 		movRegImm32 or

@@ -26,6 +26,10 @@ const (
 	OpLoadAt             // LoadAt reads the word at an address.
 	OpStoreAt            // StoreAt writes Src to the word at an address.
 	OpLoadGlobal         // LoadGlobal reads a global of the runtime.
+	OpLoadRaw            // LoadRaw reads Width bits at an address, zero-extended to the word.
+	OpStoreRaw           // StoreRaw writes the low Width bits of Src at an address.
+	OpGlobalAddr         // GlobalAddr gives the address of a global of the runtime.
+	OpCallImport         // CallImport calls the DLL import Name, a string of the function, with the words Args, by the
 	OpBin                // Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a
 	OpCmp                // Cmp gives 1 when Left Op Right holds and 0 when it does not.
 	OpNeg                // Neg negates; when Checked, it goes to Fail for i64.min.
@@ -46,7 +50,7 @@ const (
 	numOpcodes
 )
 
-var opcodeNames = [...]string{opInvalid: "invalid", OpConst: "Const", OpStr: "Str", OpLoadSlot: "LoadSlot", OpStoreSlot: "StoreSlot", OpSlotAddr: "SlotAddr", OpLoadParam: "LoadParam", OpLoadField: "LoadField", OpStoreField: "StoreField", OpFieldAddr: "FieldAddr", OpLoadAt: "LoadAt", OpStoreAt: "StoreAt", OpLoadGlobal: "LoadGlobal", OpBin: "Bin", OpCmp: "Cmp", OpNeg: "Neg", OpNot: "Not", OpGuard: "Guard", OpAlloc: "Alloc", OpCall: "Call", OpCallRuntime: "CallRuntime", OpWhen: "When", OpDrop: "Drop", OpDropSlot: "DropSlot", OpDropAt: "DropAt", OpMoveSlot: "MoveSlot", OpMoveAt: "MoveAt", OpCopy: "Copy"}
+var opcodeNames = [...]string{opInvalid: "invalid", OpConst: "Const", OpStr: "Str", OpLoadSlot: "LoadSlot", OpStoreSlot: "StoreSlot", OpSlotAddr: "SlotAddr", OpLoadParam: "LoadParam", OpLoadField: "LoadField", OpStoreField: "StoreField", OpFieldAddr: "FieldAddr", OpLoadAt: "LoadAt", OpStoreAt: "StoreAt", OpLoadGlobal: "LoadGlobal", OpLoadRaw: "LoadRaw", OpStoreRaw: "StoreRaw", OpGlobalAddr: "GlobalAddr", OpCallImport: "CallImport", OpBin: "Bin", OpCmp: "Cmp", OpNeg: "Neg", OpNot: "Not", OpGuard: "Guard", OpAlloc: "Alloc", OpCall: "Call", OpCallRuntime: "CallRuntime", OpWhen: "When", OpDrop: "Drop", OpDropSlot: "DropSlot", OpDropAt: "DropAt", OpMoveSlot: "MoveSlot", OpMoveAt: "MoveAt", OpCopy: "Copy"}
 
 func (o Opcode) String() string { return opcodeNames[o] }
 
@@ -122,6 +126,20 @@ var guardKindNames = [...]string{"NonNegative", "SignedAtLeast", "SignedAtMost",
 
 func (x GuardKind) String() string { return guardKindNames[x] }
 
+// RawWidth is how many bits a LoadRaw or a StoreRaw moves.
+type RawWidth uint8
+
+const (
+	Width8 RawWidth = iota
+	Width16
+	Width32
+	Width64
+)
+
+var rawWidthNames = [...]string{"8", "16", "32", "64"}
+
+func (x RawWidth) String() string { return rawWidthNames[x] }
+
 // InstrFlags are the booleans of an instruction.
 type InstrFlags uint8
 
@@ -157,7 +175,7 @@ const (
 
 func (e Effects) Has(x Effects) bool { return e&x == x }
 
-var opEffects = [...]Effects{OpConst: 0, OpStr: 0, OpLoadSlot: EffectReads, OpStoreSlot: EffectWrites, OpSlotAddr: 0, OpLoadParam: 0, OpLoadField: EffectReads, OpStoreField: EffectWrites, OpFieldAddr: 0, OpLoadAt: EffectReads, OpStoreAt: EffectWrites, OpLoadGlobal: EffectReads, OpBin: EffectFails, OpCmp: 0, OpNeg: EffectFails, OpNot: 0, OpGuard: EffectFails, OpAlloc: EffectCalls | EffectAllocates, OpCall: EffectReads | EffectWrites | EffectCalls | EffectAllocates | EffectFrees, OpCallRuntime: EffectReads | EffectWrites | EffectCalls | EffectAllocates | EffectFrees, OpWhen: EffectReads | EffectWrites | EffectCalls | EffectAllocates, OpDrop: EffectCalls | EffectFrees, OpDropSlot: EffectReads | EffectWrites | EffectCalls | EffectFrees, OpDropAt: EffectReads | EffectWrites | EffectCalls | EffectFrees, OpMoveSlot: EffectReads | EffectWrites, OpMoveAt: EffectReads | EffectWrites, OpCopy: EffectReads | EffectCalls | EffectAllocates}
+var opEffects = [...]Effects{OpConst: 0, OpStr: 0, OpLoadSlot: EffectReads, OpStoreSlot: EffectWrites, OpSlotAddr: 0, OpLoadParam: 0, OpLoadField: EffectReads, OpStoreField: EffectWrites, OpFieldAddr: 0, OpLoadAt: EffectReads, OpStoreAt: EffectWrites, OpLoadGlobal: EffectReads, OpLoadRaw: EffectReads, OpStoreRaw: EffectWrites, OpGlobalAddr: 0, OpCallImport: EffectReads | EffectWrites | EffectCalls, OpBin: EffectFails, OpCmp: 0, OpNeg: EffectFails, OpNot: 0, OpGuard: EffectFails, OpAlloc: EffectCalls | EffectAllocates, OpCall: EffectReads | EffectWrites | EffectCalls | EffectAllocates | EffectFrees, OpCallRuntime: EffectReads | EffectWrites | EffectCalls | EffectAllocates | EffectFrees, OpWhen: EffectReads | EffectWrites | EffectCalls | EffectAllocates, OpDrop: EffectCalls | EffectFrees, OpDropSlot: EffectReads | EffectWrites | EffectCalls | EffectFrees, OpDropAt: EffectReads | EffectWrites | EffectCalls | EffectFrees, OpMoveSlot: EffectReads | EffectWrites, OpMoveAt: EffectReads | EffectWrites, OpCopy: EffectReads | EffectCalls | EffectAllocates}
 
 // Effects are what the operation does.
 func (o Opcode) Effects() Effects {
@@ -209,11 +227,11 @@ func (t Term) Kind() TermKind { return t.kind }
 // Def is the register an instruction writes, if it writes one.
 func (i Instr) Def() (V, bool) {
 	switch i.op {
-	case OpConst, OpStr, OpLoadSlot, OpSlotAddr, OpLoadParam, OpLoadField, OpFieldAddr, OpLoadAt, OpLoadGlobal, OpBin, OpCmp, OpNeg, OpNot, OpAlloc, OpMoveSlot, OpMoveAt, OpCopy:
+	case OpConst, OpStr, OpLoadSlot, OpSlotAddr, OpLoadParam, OpLoadField, OpFieldAddr, OpLoadAt, OpLoadGlobal, OpLoadRaw, OpGlobalAddr, OpCallImport, OpBin, OpCmp, OpNeg, OpNot, OpAlloc, OpMoveSlot, OpMoveAt, OpCopy:
 		return i.dst, true
 	case OpCall, OpCallRuntime:
 		return i.dst, i.dst != NoReg
-	case OpStoreSlot, OpStoreField, OpStoreAt, OpGuard, OpWhen, OpDrop, OpDropSlot, OpDropAt:
+	case OpStoreSlot, OpStoreField, OpStoreAt, OpStoreRaw, OpGuard, OpWhen, OpDrop, OpDropSlot, OpDropAt:
 		return NoReg, false
 	}
 	panic(diag.Internal("ir: unhandled opcode %d", int(i.op)))
@@ -228,7 +246,7 @@ func (i Instr) Fail() (BlockID, bool) {
 		return BlockID(i.c), i.flags&FlagChecked != 0
 	case OpNeg:
 		return BlockID(i.c), i.flags&FlagChecked != 0
-	case OpConst, OpStr, OpLoadSlot, OpStoreSlot, OpSlotAddr, OpLoadParam, OpLoadField, OpStoreField, OpFieldAddr, OpLoadAt, OpStoreAt, OpLoadGlobal, OpCmp, OpNot, OpAlloc, OpCall, OpCallRuntime, OpWhen, OpDrop, OpDropSlot, OpDropAt, OpMoveSlot, OpMoveAt, OpCopy:
+	case OpConst, OpStr, OpLoadSlot, OpStoreSlot, OpSlotAddr, OpLoadParam, OpLoadField, OpStoreField, OpFieldAddr, OpLoadAt, OpStoreAt, OpLoadGlobal, OpLoadRaw, OpStoreRaw, OpGlobalAddr, OpCallImport, OpCmp, OpNot, OpAlloc, OpCall, OpCallRuntime, OpWhen, OpDrop, OpDropSlot, OpDropAt, OpMoveSlot, OpMoveAt, OpCopy:
 		return NoBlock, false
 	}
 	panic(diag.Internal("ir: unhandled opcode %d", int(i.op)))
@@ -377,6 +395,41 @@ func LoadGlobal(dst V, symbol Rt) Instr {
 	r := Instr{op: OpLoadGlobal}
 	r.dst = dst
 	r.imm = int64(symbol)
+	return r
+}
+
+// LoadRaw reads Width bits at an address, zero-extended to the word.
+func LoadRaw(dst V, addr V, width RawWidth) Instr {
+	r := Instr{op: OpLoadRaw}
+	r.dst = dst
+	r.a = addr
+	r.sub = uint8(width)
+	return r
+}
+
+// StoreRaw writes the low Width bits of Src at an address.
+func StoreRaw(addr V, src V, width RawWidth) Instr {
+	r := Instr{op: OpStoreRaw}
+	r.a = addr
+	r.b = src
+	r.sub = uint8(width)
+	return r
+}
+
+// GlobalAddr gives the address of a global of the runtime.
+func GlobalAddr(dst V, symbol Rt) Instr {
+	r := Instr{op: OpGlobalAddr}
+	r.dst = dst
+	r.imm = int64(symbol)
+	return r
+}
+
+// newCallImport is the CallImport whose pool operands the builder has appended.
+func newCallImport(dst V, name int32, argsStart, argsCount V) Instr {
+	r := Instr{op: OpCallImport}
+	r.dst = dst
+	r.c = name
+	r.a, r.b = argsStart, argsCount
 	return r
 }
 
@@ -668,6 +721,41 @@ func (x *LoadGlobalInstr) Dst() V { return x.dst }
 
 func (x *LoadGlobalInstr) Symbol() Rt { return Rt(x.imm) }
 
+// LoadRawInstr is the view of a LoadRaw. LoadRaw reads Width bits at an address, zero-extended to the word.
+type LoadRawInstr Instr
+
+func (x *LoadRawInstr) Dst() V { return x.dst }
+
+func (x *LoadRawInstr) Addr() V { return x.a }
+
+func (x *LoadRawInstr) Width() RawWidth { return RawWidth(x.sub) }
+
+// StoreRawInstr is the view of a StoreRaw. StoreRaw writes the low Width bits of Src at an address.
+type StoreRawInstr Instr
+
+func (x *StoreRawInstr) Addr() V { return x.a }
+
+func (x *StoreRawInstr) Src() V { return x.b }
+
+func (x *StoreRawInstr) Width() RawWidth { return RawWidth(x.sub) }
+
+// GlobalAddrInstr is the view of a GlobalAddr. GlobalAddr gives the address of a global of the runtime.
+type GlobalAddrInstr Instr
+
+func (x *GlobalAddrInstr) Dst() V { return x.dst }
+
+func (x *GlobalAddrInstr) Symbol() Rt { return Rt(x.imm) }
+
+// CallImportInstr is the view of a CallImport. CallImport calls the DLL import Name, a string of the function, with the words Args, by the
+// Win64 convention, and gives what it returns.
+type CallImportInstr Instr
+
+func (x *CallImportInstr) Dst() V { return x.dst }
+
+func (x *CallImportInstr) Name(f *IrFunction) string { return f.Strings[x.c] }
+
+func (x *CallImportInstr) Args(f *IrFunction) []V { return f.Args[x.a : x.a+x.b] }
+
 // BinInstr is the view of a Bin. Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a
 // signed '/' is i64.min / -1.
 type BinInstr Instr
@@ -880,6 +968,10 @@ type InstrVisitor interface {
 	VisitLoadAt(x *LoadAtInstr)
 	VisitStoreAt(x *StoreAtInstr)
 	VisitLoadGlobal(x *LoadGlobalInstr)
+	VisitLoadRaw(x *LoadRawInstr)
+	VisitStoreRaw(x *StoreRawInstr)
+	VisitGlobalAddr(x *GlobalAddrInstr)
+	VisitCallImport(x *CallImportInstr)
 	VisitBin(x *BinInstr)
 	VisitCmp(x *CmpInstr)
 	VisitNeg(x *NegInstr)
@@ -935,6 +1027,18 @@ func VisitInstr(v InstrVisitor, x *Instr) {
 		return
 	case OpLoadGlobal:
 		v.VisitLoadGlobal((*LoadGlobalInstr)(x))
+		return
+	case OpLoadRaw:
+		v.VisitLoadRaw((*LoadRawInstr)(x))
+		return
+	case OpStoreRaw:
+		v.VisitStoreRaw((*StoreRawInstr)(x))
+		return
+	case OpGlobalAddr:
+		v.VisitGlobalAddr((*GlobalAddrInstr)(x))
+		return
+	case OpCallImport:
+		v.VisitCallImport((*CallImportInstr)(x))
 		return
 	case OpBin:
 		v.VisitBin((*BinInstr)(x))
@@ -1034,6 +1138,10 @@ type InstrStateVisitor[S, R any] interface {
 	VisitLoadAt(x *LoadAtInstr, s S) R
 	VisitStoreAt(x *StoreAtInstr, s S) R
 	VisitLoadGlobal(x *LoadGlobalInstr, s S) R
+	VisitLoadRaw(x *LoadRawInstr, s S) R
+	VisitStoreRaw(x *StoreRawInstr, s S) R
+	VisitGlobalAddr(x *GlobalAddrInstr, s S) R
+	VisitCallImport(x *CallImportInstr, s S) R
 	VisitBin(x *BinInstr, s S) R
 	VisitCmp(x *CmpInstr, s S) R
 	VisitNeg(x *NegInstr, s S) R
@@ -1078,6 +1186,14 @@ func VisitInstrState[S, R any](v InstrStateVisitor[S, R], x *Instr, s S) R {
 		return v.VisitStoreAt((*StoreAtInstr)(x), s)
 	case OpLoadGlobal:
 		return v.VisitLoadGlobal((*LoadGlobalInstr)(x), s)
+	case OpLoadRaw:
+		return v.VisitLoadRaw((*LoadRawInstr)(x), s)
+	case OpStoreRaw:
+		return v.VisitStoreRaw((*StoreRawInstr)(x), s)
+	case OpGlobalAddr:
+		return v.VisitGlobalAddr((*GlobalAddrInstr)(x), s)
+	case OpCallImport:
+		return v.VisitCallImport((*CallImportInstr)(x), s)
 	case OpBin:
 		return v.VisitBin((*BinInstr)(x), s)
 	case OpCmp:
@@ -1184,6 +1300,18 @@ func (f *IrFunction) InstrString(i Instr) string {
 	case OpLoadGlobal:
 		x := (*LoadGlobalInstr)(&i)
 		return resultText(x.dst) + "global " + x.Symbol().String()
+	case OpLoadRaw:
+		x := (*LoadRawInstr)(&i)
+		return resultText(x.dst) + "loadraw." + x.Width().String() + " " + x.Addr().String()
+	case OpStoreRaw:
+		x := (*StoreRawInstr)(&i)
+		return "storeraw." + x.Width().String() + " " + x.Addr().String() + ", " + x.Src().String()
+	case OpGlobalAddr:
+		x := (*GlobalAddrInstr)(&i)
+		return resultText(x.dst) + "globaladdr " + x.Symbol().String()
+	case OpCallImport:
+		x := (*CallImportInstr)(&i)
+		return resultText(x.dst) + "import " + quote(x.Name(f)) + "(" + regList(x.Args(f)) + ")"
 	case OpBin:
 		x := (*BinInstr)(&i)
 		s := resultText(x.dst) + x.Op().String()
@@ -1326,6 +1454,22 @@ func EncodeInstr(e *cache.Encoder, r Instr) {
 	case OpLoadGlobal:
 		putSigned(e, int64(r.dst))
 		putSigned(e, int64(r.imm))
+	case OpLoadRaw:
+		putSigned(e, int64(r.dst))
+		putSigned(e, int64(r.a))
+		e.Int(int(r.sub))
+	case OpStoreRaw:
+		putSigned(e, int64(r.a))
+		putSigned(e, int64(r.b))
+		e.Int(int(r.sub))
+	case OpGlobalAddr:
+		putSigned(e, int64(r.dst))
+		putSigned(e, int64(r.imm))
+	case OpCallImport:
+		putSigned(e, int64(r.dst))
+		putSigned(e, int64(r.a))
+		putSigned(e, int64(r.b))
+		putSigned(e, int64(r.c))
 	case OpBin:
 		putSigned(e, int64(r.dst))
 		putSigned(e, int64(r.a))
@@ -1441,6 +1585,22 @@ func DecodeInstr(d *cache.Decoder) Instr {
 	case OpLoadGlobal:
 		r.dst = V(signedIndex(d))
 		r.imm = signed(d)
+	case OpLoadRaw:
+		r.dst = V(signedIndex(d))
+		r.a = V(signedIndex(d))
+		r.sub = uint8(d.Int(len(rawWidthNames) - 1))
+	case OpStoreRaw:
+		r.a = V(signedIndex(d))
+		r.b = V(signedIndex(d))
+		r.sub = uint8(d.Int(len(rawWidthNames) - 1))
+	case OpGlobalAddr:
+		r.dst = V(signedIndex(d))
+		r.imm = signed(d)
+	case OpCallImport:
+		r.dst = V(signedIndex(d))
+		r.a = V(signedIndex(d))
+		r.b = V(signedIndex(d))
+		r.c = int32(signedIndex(d))
 	case OpBin:
 		r.dst = V(signedIndex(d))
 		r.a = V(signedIndex(d))

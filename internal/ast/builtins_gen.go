@@ -2,6 +2,8 @@
 
 package ast
 
+import "minimaxon/internal/diag"
+
 // BuiltinKind says which runtime primitive a BuiltinTy is.
 type BuiltinKind int
 
@@ -99,7 +101,140 @@ const (
 	IntrinsicSubprocessRun
 	IntrinsicCollectedOutputExitCode
 	IntrinsicCollectedOutputSucceeded
+	IntrinsicRawLoad8
+	IntrinsicRawLoad16
+	IntrinsicRawLoad32
+	IntrinsicRawLoad64
+	IntrinsicRawStore8
+	IntrinsicRawStore16
+	IntrinsicRawStore32
+	IntrinsicRawStore64
+	IntrinsicRawWrappingAdd
+	IntrinsicRawWrappingSub
+	IntrinsicRawAddressOf
+	IntrinsicRawStringAddress
+	IntrinsicRawStringAt
+	IntrinsicRawHeapAddress
+	IntrinsicRawStdoutAddress
+	IntrinsicRawStderrAddress
+	IntrinsicRawLiveAddress
+	IntrinsicRawCallImport
 )
+
+// RuntimeOnly is whether only the runtime module may call the intrinsic (E3152).
+func (op Intrinsic) RuntimeOnly() bool {
+	switch op {
+	case IntrinsicRawLoad8,
+		IntrinsicRawLoad16,
+		IntrinsicRawLoad32,
+		IntrinsicRawLoad64,
+		IntrinsicRawStore8,
+		IntrinsicRawStore16,
+		IntrinsicRawStore32,
+		IntrinsicRawStore64,
+		IntrinsicRawWrappingAdd,
+		IntrinsicRawWrappingSub,
+		IntrinsicRawAddressOf,
+		IntrinsicRawStringAddress,
+		IntrinsicRawStringAt,
+		IntrinsicRawHeapAddress,
+		IntrinsicRawStdoutAddress,
+		IntrinsicRawStderrAddress,
+		IntrinsicRawLiveAddress,
+		IntrinsicRawCallImport:
+		return true
+	case NotIntrinsic,
+		IntrinsicArrayCreate,
+		IntrinsicArrayFilled,
+		IntrinsicArrayCount,
+		IntrinsicArrayIsEmpty,
+		IntrinsicArrayGet,
+		IntrinsicArraySet,
+		IntrinsicArrayPush,
+		IntrinsicArrayAppend,
+		IntrinsicArrayInsert,
+		IntrinsicArrayRemove,
+		IntrinsicArrayPop,
+		IntrinsicArrayDropEmpty,
+		IntrinsicMapCreate,
+		IntrinsicMapCount,
+		IntrinsicMapIsEmpty,
+		IntrinsicMapContains,
+		IntrinsicMapInsert,
+		IntrinsicMapUpsert,
+		IntrinsicMapReplace,
+		IntrinsicMapRemove,
+		IntrinsicMapDropEmpty,
+		IntrinsicListCreate,
+		IntrinsicListCount,
+		IntrinsicListIsEmpty,
+		IntrinsicListContains,
+		IntrinsicListPrepend,
+		IntrinsicListAppend,
+		IntrinsicListRemoveFirst,
+		IntrinsicListRemoveLast,
+		IntrinsicListFirst,
+		IntrinsicListLast,
+		IntrinsicListNext,
+		IntrinsicListPrev,
+		IntrinsicListRemove,
+		IntrinsicListMoveToFront,
+		IntrinsicListDropEmpty,
+		IntrinsicPoolCreate,
+		IntrinsicPoolCount,
+		IntrinsicPoolIsEmpty,
+		IntrinsicPoolContains,
+		IntrinsicPoolInsert,
+		IntrinsicPoolRemove,
+		IntrinsicPoolDropEmpty,
+		IntrinsicStringByteLength,
+		IntrinsicStringByteAt,
+		IntrinsicStringSliceBytes,
+		IntrinsicStringToByteArray,
+		IntrinsicStringFrom,
+		IntrinsicFreeze,
+		IntrinsicShare,
+		IntrinsicThaw,
+		IntrinsicCown,
+		IntrinsicExchange,
+		IntrinsicCommandLineArgs,
+		IntrinsicProcessEnvironmentVariable,
+		IntrinsicFilePathFrom,
+		IntrinsicFilePathToString,
+		IntrinsicFileReadText,
+		IntrinsicFileWriteText,
+		IntrinsicFileWriteBinary,
+		IntrinsicFileRename,
+		IntrinsicFileDelete,
+		IntrinsicDirectoryIsDirectory,
+		IntrinsicDirectoryCreate,
+		IntrinsicDirectoryList,
+		IntrinsicSubprocessRun,
+		IntrinsicCollectedOutputExitCode,
+		IntrinsicCollectedOutputSucceeded:
+		return false
+	}
+	panic(diag.Internal("ast: %d is no intrinsic", int(op)))
+}
+
+// TableType is the type that a key of the built-in table's types names.
+func (b *Builtins) TableType(key string) Ty {
+	switch key {
+	case "Bool":
+		return BoolTy
+	case "String":
+		return StringTy
+	case "Void":
+		return VoidTy
+	case "Count":
+		return b.Count
+	case "Byte":
+		return b.Byte
+	case "ExitCode":
+		return b.exitCode()
+	}
+	panic(diag.Internal("ast: %s is no type of the built-in table", key))
+}
 
 // The fields of FilePath, by index.
 const (
@@ -224,6 +359,7 @@ type builtinDecls struct {
 	Directory                 *RecordTy
 	CollectedOutput           *RecordTy
 	Subprocess                *RecordTy
+	Raw                       *RecordTy
 	Executable                *UnionTy
 	ArithmeticError           *EnumTy
 	ArrayError                *EnumTy
@@ -259,6 +395,7 @@ func (b *Builtins) declareTable() {
 	b.Directory = b.newRecord("Directory")
 	b.CollectedOutput = b.newRecord("CollectedOutput")
 	b.Subprocess = b.newRecord("Subprocess")
+	b.Raw = b.newRecord("__Raw")
 	b.FilePath.Fields = []*FieldInfo{
 		{Name: "path", Visibility: Public, Type: StringTy, IsVar: false, Index: FilePathPathField},
 	}
@@ -462,4 +599,32 @@ func (b *Builtins) declareTable() {
 	}
 	b.method(b.CollectedOutput, IntrinsicCollectedOutputExitCode, "exitCode", false, ConvLet, b.exitCode())
 	b.method(b.CollectedOutput, IntrinsicCollectedOutputSucceeded, "succeeded", false, ConvLet, BoolTy)
+	b.method(b.Raw, IntrinsicRawLoad8, "loadByte", true, ConvLet, b.Byte, param("address", b.Count, ConvLet), param("offset", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawLoad16, "loadWord16", true, ConvLet, b.Count, param("address", b.Count, ConvLet), param("offset", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawLoad32, "loadWord32", true, ConvLet, b.Count, param("address", b.Count, ConvLet), param("offset", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawLoad64, "loadWord", true, ConvLet, b.Count, param("address", b.Count, ConvLet), param("offset", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawStore8, "storeByte", true, ConvLet, VoidTy, param("address", b.Count, ConvLet), param("offset", b.Count, ConvLet), param("value", b.Byte, ConvLet))
+	b.method(b.Raw, IntrinsicRawStore16, "storeWord16", true, ConvLet, VoidTy, param("address", b.Count, ConvLet), param("offset", b.Count, ConvLet), param("value", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawStore32, "storeWord32", true, ConvLet, VoidTy, param("address", b.Count, ConvLet), param("offset", b.Count, ConvLet), param("value", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawStore64, "storeWord", true, ConvLet, VoidTy, param("address", b.Count, ConvLet), param("offset", b.Count, ConvLet), param("value", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawWrappingAdd, "wrappingAdd", true, ConvLet, b.Count, param("left", b.Count, ConvLet), param("right", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawWrappingSub, "wrappingSub", true, ConvLet, b.Count, param("left", b.Count, ConvLet), param("right", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawAddressOf, "addressOf", true, ConvLet, b.Count, param("word", b.Count, ConvMutates))
+	b.method(b.Raw, IntrinsicRawStringAddress, "stringAddress", true, ConvLet, b.Count, param("text", StringTy, ConvLet))
+	b.method(b.Raw, IntrinsicRawStringAt, "stringAt", true, ConvLet, StringTy, param("box", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawHeapAddress, "heapAddress", true, ConvLet, b.Count)
+	b.method(b.Raw, IntrinsicRawStdoutAddress, "stdoutAddress", true, ConvLet, b.Count)
+	b.method(b.Raw, IntrinsicRawStderrAddress, "stderrAddress", true, ConvLet, b.Count)
+	b.method(b.Raw, IntrinsicRawLiveAddress, "liveAddress", true, ConvLet, b.Count)
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport0", true, ConvLet, b.Count, param("name", StringTy, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport1", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport2", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport3", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet), param("arg3", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport4", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet), param("arg3", b.Count, ConvLet), param("arg4", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport5", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet), param("arg3", b.Count, ConvLet), param("arg4", b.Count, ConvLet), param("arg5", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport6", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet), param("arg3", b.Count, ConvLet), param("arg4", b.Count, ConvLet), param("arg5", b.Count, ConvLet), param("arg6", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport7", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet), param("arg3", b.Count, ConvLet), param("arg4", b.Count, ConvLet), param("arg5", b.Count, ConvLet), param("arg6", b.Count, ConvLet), param("arg7", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport8", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet), param("arg3", b.Count, ConvLet), param("arg4", b.Count, ConvLet), param("arg5", b.Count, ConvLet), param("arg6", b.Count, ConvLet), param("arg7", b.Count, ConvLet), param("arg8", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport9", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet), param("arg3", b.Count, ConvLet), param("arg4", b.Count, ConvLet), param("arg5", b.Count, ConvLet), param("arg6", b.Count, ConvLet), param("arg7", b.Count, ConvLet), param("arg8", b.Count, ConvLet), param("arg9", b.Count, ConvLet))
+	b.method(b.Raw, IntrinsicRawCallImport, "callImport10", true, ConvLet, b.Count, param("name", StringTy, ConvLet), param("arg1", b.Count, ConvLet), param("arg2", b.Count, ConvLet), param("arg3", b.Count, ConvLet), param("arg4", b.Count, ConvLet), param("arg5", b.Count, ConvLet), param("arg6", b.Count, ConvLet), param("arg7", b.Count, ConvLet), param("arg8", b.Count, ConvLet), param("arg9", b.Count, ConvLet), param("arg10", b.Count, ConvLet))
 }

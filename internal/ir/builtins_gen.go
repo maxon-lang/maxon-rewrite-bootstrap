@@ -27,9 +27,10 @@ const (
 	RtHeap                                // the process heap
 	RtStdout                              // the handle of standard output
 	RtStderr                              // the handle of standard error
-	RtLive                                // the number of heap boxes allocated and not yet freed, kept only by an executable built to count them
+	RtLive                                // the number of heap boxes allocated and not yet freed, which the runtime source always keeps and the Go compiler's runtime only in an executable built to count them
 	RtImageDataStart                      // the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap
 	RtImageDataEnd                        // the end of the data section
+	RtCheckLeaks                          // (exit code) -> exit code: what the entry of an executable built to count its allocations calls after main, which exits with a leak report when a box is still live
 	RtArrayNew                            // () -> Array
 	RtArrayLen                            // (array) -> count
 	RtArrayElem                           // (array, index) -> address of the element
@@ -110,6 +111,7 @@ var rtNames = [...]string{
 	RtLive:                  "g.live",
 	RtImageDataStart:        "g.imageDataStart",
 	RtImageDataEnd:          "g.imageDataEnd",
+	RtCheckLeaks:            "rt.checkLeaks",
 	RtArrayNew:              "rt.array.new",
 	RtArrayLen:              "rt.array.len",
 	RtArrayElem:             "rt.array.elem",
@@ -181,6 +183,7 @@ const (
 	RtUnitOs                            // the OS unit, linked into a program that calls an OS entry
 	RtUnitLinker                        // the linker, which defines the symbol itself
 	RtUnitInterpreter                   // no unit: only the interpreter runs the entry, and the compiler refuses a call of it
+	RtUnitSource                        // the runtime's Maxon source (runtime/), which self compiles with every program and the Go compiler never compiles
 )
 
 var rtUnits = [...]RtUnit{
@@ -202,6 +205,7 @@ var rtUnits = [...]RtUnit{
 	RtLive:                  RtUnitRuntime,
 	RtImageDataStart:        RtUnitLinker,
 	RtImageDataEnd:          RtUnitLinker,
+	RtCheckLeaks:            RtUnitSource,
 	RtArrayNew:              RtUnitArrays,
 	RtArrayLen:              RtUnitArrays,
 	RtArrayElem:             RtUnitArrays,
@@ -262,6 +266,51 @@ var rtUnits = [...]RtUnit{
 	RtOsList:                RtUnitOs,
 	RtOsRun:                 RtUnitOs,
 }
+
+// RtFunction is the function of the runtime's source that defines an entry (README, "The runtime"): code calls the
+// entry as it calls any function, so its signature is the entry's calling convention.
+type RtFunction struct {
+	Name string
+	// Symbol is the function's link name.
+	Symbol string
+	Params []RtParam
+	// Result is the key of ast.Builtins.TableType that names what it returns.
+	Result string
+}
+
+// RtParam is a parameter of an RtFunction, its type a key of ast.Builtins.TableType.
+type RtParam struct {
+	Conv ast.Convention
+	Name string
+	Type string
+}
+
+var rtFunctions = [...]*RtFunction{
+	RtAlloc:      {Name: "alloc", Symbol: "runtime::alloc", Params: []RtParam{{Conv: ast.ConvLet, Name: "bytes", Type: "Count"}}, Result: "Count"},
+	RtFree:       {Name: "free", Symbol: "runtime::free", Params: []RtParam{{Conv: ast.ConvLet, Name: "box", Type: "Count"}}, Result: "Void"},
+	RtWrite:      {Name: "write", Symbol: "runtime::write", Params: []RtParam{{Conv: ast.ConvLet, Name: "handle", Type: "Count"}, {Conv: ast.ConvLet, Name: "text", Type: "String"}}, Result: "Void"},
+	RtPanic:      {Name: "panicWith", Symbol: "runtime::panicWith", Params: []RtParam{{Conv: ast.ConvLet, Name: "message", Type: "String"}}, Result: "Void"},
+	RtConcat:     {Name: "concat", Symbol: "runtime::concat", Params: []RtParam{{Conv: ast.ConvLet, Name: "left", Type: "String"}, {Conv: ast.ConvLet, Name: "right", Type: "String"}}, Result: "String"},
+	RtItoa:       {Name: "itoa", Symbol: "runtime::itoa", Params: []RtParam{{Conv: ast.ConvLet, Name: "n", Type: "Count"}, {Conv: ast.ConvLet, Name: "unsigned", Type: "Bool"}}, Result: "String"},
+	RtStreq:      {Name: "streq", Symbol: "runtime::streq", Params: []RtParam{{Conv: ast.ConvLet, Name: "left", Type: "String"}, {Conv: ast.ConvLet, Name: "right", Type: "String"}}, Result: "Bool"},
+	RtStrLen:     {Name: "stringLength", Symbol: "runtime::stringLength", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}}, Result: "Count"},
+	RtStrByteAt:  {Name: "stringByteAt", Symbol: "runtime::stringByteAt", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}}, Result: "Byte"},
+	RtStrSlice:   {Name: "stringSlice", Symbol: "runtime::stringSlice", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}, {Conv: ast.ConvLet, Name: "from", Type: "Count"}, {Conv: ast.ConvLet, Name: "until", Type: "Count"}}, Result: "String"},
+	RtPanicIndex: {Name: "panicIndex", Symbol: "runtime::panicIndex", Params: []RtParam{}, Result: "Void"},
+	RtCheckLeaks: {Name: "checkLeaks", Symbol: "runtime::checkLeaks", Params: []RtParam{{Conv: ast.ConvLet, Name: "code", Type: "Count"}}, Result: "Count"},
+}
+
+// Function is the function of the runtime's source that defines the entry, when one does: self links a call of the
+// entry to it, and the Go compiler, whose runtime is its own code, only holds the runtime's source to it.
+func (r Rt) Function() (*RtFunction, bool) {
+	if int(r) >= len(rtFunctions) || rtFunctions[r] == nil {
+		return nil, false
+	}
+	return rtFunctions[r], true
+}
+
+// RtFunctions are the entries that the runtime's source defines, in the table's order.
+var RtFunctions = []Rt{RtAlloc, RtFree, RtWrite, RtPanic, RtConcat, RtItoa, RtStreq, RtStrLen, RtStrByteAt, RtStrSlice, RtPanicIndex, RtCheckLeaks}
 
 // intrinsicCall lowers a call of a built-in whose receiver and arguments are lowered.
 func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
@@ -402,6 +451,25 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerCollectedOutputExitCode(c, recv, args)
 	case ast.IntrinsicCollectedOutputSucceeded:
 		return l.lowerCollectedOutputSucceeded(c, recv, args)
+	case ast.IntrinsicRawLoad8,
+		ast.IntrinsicRawLoad16,
+		ast.IntrinsicRawLoad32,
+		ast.IntrinsicRawLoad64,
+		ast.IntrinsicRawStore8,
+		ast.IntrinsicRawStore16,
+		ast.IntrinsicRawStore32,
+		ast.IntrinsicRawStore64,
+		ast.IntrinsicRawWrappingAdd,
+		ast.IntrinsicRawWrappingSub,
+		ast.IntrinsicRawAddressOf,
+		ast.IntrinsicRawStringAddress,
+		ast.IntrinsicRawStringAt,
+		ast.IntrinsicRawHeapAddress,
+		ast.IntrinsicRawStdoutAddress,
+		ast.IntrinsicRawStderrAddress,
+		ast.IntrinsicRawLiveAddress,
+		ast.IntrinsicRawCallImport:
+		return l.lowerRuntimeOnly(c)
 	}
 	panic(diag.Internal("lower: %d is no intrinsic", int(c.Target.Intrinsic)))
 }
@@ -409,7 +477,9 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 // ownsOperands is whether the lowering of an intrinsic evaluates its receiver and arguments itself.
 func ownsOperands(op ast.Intrinsic) bool {
 	switch op {
-	case ast.IntrinsicExchange:
+	case ast.IntrinsicExchange,
+		ast.IntrinsicRawAddressOf,
+		ast.IntrinsicRawCallImport:
 		return true
 	case ast.IntrinsicArrayCreate,
 		ast.IntrinsicArrayFilled,
@@ -477,7 +547,23 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicDirectoryList,
 		ast.IntrinsicSubprocessRun,
 		ast.IntrinsicCollectedOutputExitCode,
-		ast.IntrinsicCollectedOutputSucceeded:
+		ast.IntrinsicCollectedOutputSucceeded,
+		ast.IntrinsicRawLoad8,
+		ast.IntrinsicRawLoad16,
+		ast.IntrinsicRawLoad32,
+		ast.IntrinsicRawLoad64,
+		ast.IntrinsicRawStore8,
+		ast.IntrinsicRawStore16,
+		ast.IntrinsicRawStore32,
+		ast.IntrinsicRawStore64,
+		ast.IntrinsicRawWrappingAdd,
+		ast.IntrinsicRawWrappingSub,
+		ast.IntrinsicRawStringAddress,
+		ast.IntrinsicRawStringAt,
+		ast.IntrinsicRawHeapAddress,
+		ast.IntrinsicRawStdoutAddress,
+		ast.IntrinsicRawStderrAddress,
+		ast.IntrinsicRawLiveAddress:
 		return false
 	}
 	panic(diag.Internal("lower: %d is no intrinsic", int(op)))

@@ -22,6 +22,29 @@ let zeroInlineSlots = 6
 // The arguments of a call are the words above the return address and the saved frame pointer.
 let paramBase = 16
 
+// A DLL import takes its first win64RegisterArgs words in registers, and has win64ShadowBytes of stack below the rest that
+// it may write.
+let win64RegisterArgs = 4 as Count
+
+let win64ShadowBytes = 32 as Count
+
+// win64ArgRegister is the register of a DLL import's argument, of the first win64RegisterArgs.
+function win64ArgRegister(index Count) returns X64Register
+	if index == 0 'first'
+		return rcx
+	end 'first'
+	if index == 1 'second'
+		return rdx
+	end 'second'
+	if index == 2 'third'
+		return r8
+	end 'third'
+	if index == 3 'fourth'
+		return r9
+	end 'fourth'
+	panic("backend: a DLL import's argument past its registers")
+end 'win64ArgRegister'
+
 typealias CalleeSymbols = table.IntMap with String
 
 // Codegen writes one module's functions into its unit. The visitors get no project, so what the instructions of the
@@ -388,6 +411,62 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		u.asm.loadSymbol(rax, symbol: ir.rtSymbol(ir.loadGlobalSymbol(x)))
 		self.put(f, v: x.dst, r: rax)
 	end 'visitLoadGlobal'
+
+	// The raw operations are the runtime's source's (README, "The runtime"): a load or a store of a width, the address of
+	// a global, and a call of a DLL import.
+	function visitLoadRaw(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rcx, v: ir.loadRawAddr(x))
+		match ir.loadRawWidth(x) 'width'
+			width8 then u.asm.loadByte(rax, base: rcx, disp: 0)
+			width16 then u.asm.loadWord16(rax, base: rcx, disp: 0)
+			width32 then u.asm.loadWord32(rax, base: rcx, disp: 0)
+			width64 then u.asm.load(rax, base: rcx, disp: 0)
+		end 'width'
+		self.put(f, v: x.dst, r: rax)
+	end 'visitLoadRaw'
+
+	function visitStoreRaw(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rcx, v: ir.storeRawAddr(x))
+		self.get(f, r: rax, v: ir.storeRawSrc(x))
+		match ir.storeRawWidth(x) 'width'
+			width8 then u.asm.storeByte(rcx, disp: 0, src: rax)
+			width16 then u.asm.storeWord16(rcx, disp: 0, src: rax)
+			width32 then u.asm.storeWord32(rcx, disp: 0, src: rax)
+			width64 then u.asm.store(rcx, disp: 0, src: rax)
+		end 'width'
+	end 'visitStoreRaw'
+
+	function visitGlobalAddr(mutates self, f ir.IrFunction, x ir.Instr)
+		u.asm.leaSymbol(rax, symbol: ir.rtSymbol(ir.globalAddrSymbol(x)))
+		self.put(f, v: x.dst, r: rax)
+	end 'visitGlobalAddr'
+
+	// visitCallImport calls a DLL import by the Win64 convention: the first four words in rcx, rdx, r8 and r9, the rest on
+	// the stack above the 32 bytes of shadow space the callee may write, rsp aligned to 16 at the call. Code keeps nothing
+	// in a register across an instruction, so rbx, which the callee preserves, holds rsp across the call and is restored.
+	function visitCallImport(mutates self, f ir.IrFunction, x ir.Instr)
+		let start = ir.callImportArgsStart(x)
+		let count = ir.callImportArgsCount(x)
+		let stackWords = count - win64RegisterArgs if count > win64RegisterArgs else 0
+		let frame = try (win64ShadowBytes + stackWords * wordBytes + frameAlignment - 1) / frameAlignment * frameAlignment otherwise panic("backend: more arguments than memory")
+		u.asm.push(rbx)
+		u.asm.mov(rbx, src: rsp)
+		u.asm.andImm(rsp, imm: -frameAlignment)
+		u.asm.subImm(rsp, imm: imm32Of(frame))
+		for i in win64RegisterArgs upto count 'stack'
+			self.get(f, r: rax, v: f.args[try start + i otherwise panic("backend: an argument past the pool")])
+			let at = try win64ShadowBytes + (i - win64RegisterArgs) * wordBytes otherwise panic("backend: more arguments than memory")
+			u.asm.store(rsp, disp: imm32Of(at), src: rax)
+		end 'stack'
+		let inRegisters = count if count < win64RegisterArgs else win64RegisterArgs
+		for i in 0 upto inRegisters 'registers'
+			self.get(f, r: win64ArgRegister(i), v: f.args[try start + i otherwise panic("backend: an argument past the pool")])
+		end 'registers'
+		u.asm.callImport(importIndex(ir.callImportName(f, x: x)))
+		u.asm.mov(rsp, src: rbx)
+		u.asm.pop(rbx)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitCallImport'
 
 	function visitBin(mutates self, f ir.IrFunction, x ir.Instr)
 		self.get(f, r: rax, v: ir.binLeft(x))

@@ -474,3 +474,21 @@ func inRange(g *ir.GuardInstr, v int64) bool {
 	}
 	panic(diag.Internal("interp: guard %d", int(g.Kind())))
 }
+
+// The raw operations are the runtime's source's (ir.RuntimeSourceOnly), which no IR the Go compiler lowers has.
+
+func (vm *vm) VisitLoadRaw(*ir.LoadRawInstr, *frame) bool {
+	panic(ir.RuntimeSourceOnly("interp", "loadraw"))
+}
+
+func (vm *vm) VisitStoreRaw(*ir.StoreRawInstr, *frame) bool {
+	panic(ir.RuntimeSourceOnly("interp", "storeraw"))
+}
+
+func (vm *vm) VisitGlobalAddr(*ir.GlobalAddrInstr, *frame) bool {
+	panic(ir.RuntimeSourceOnly("interp", "globaladdr"))
+}
+
+func (vm *vm) VisitCallImport(*ir.CallImportInstr, *frame) bool {
+	panic(ir.RuntimeSourceOnly("interp", "import"))
+}

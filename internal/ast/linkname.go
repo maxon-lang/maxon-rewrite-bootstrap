@@ -20,7 +20,10 @@ import (
 const (
 	rootLinkPath   = "export"
 	stdlibLinkPath = "stdlib"
-	linkSeparator  = "::"
+	// runtimeLinkPath names the runtime module wherever it is compiled, so that its functions have the symbols the
+	// compiler calls them by (ir.RtFunction).
+	runtimeLinkPath = "runtime"
+	linkSeparator   = "::"
 
 	intLinkAliasMark = "="
 	instanceWith     = " with "
@@ -31,6 +34,8 @@ func (m *Module) LinkPath() string {
 	switch {
 	case m.IsStdlib:
 		return stdlibLinkPath
+	case m.IsRuntime:
+		return runtimeLinkPath
 	case m.Path == "":
 		return rootLinkPath
 	}

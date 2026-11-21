@@ -147,6 +147,9 @@ export let errThrowsNotAnErrorEnum = "E3113"
 // A method call on a type parameter names a method that more than one of its bounds declares.
 export let errAmbiguousBound = "E3114"
 
+// A source file outside the runtime calls a __Raw intrinsic.
+export let errRawIntrinsicOutsideRuntime = "E3152"
+
 // A declaration's signature names a type less visible than the declaration.
 export let errExposesHiddenType = "E3167"
 

@@ -356,3 +356,8 @@ func UnsignedNegation(alias string) string {
 func TypeReferenceCycle(name, path string) string {
 	return "type '" + name + "' contains a reference cycle (via " + path + "); recursive type references are not allowed"
 }
+
+// RawIntrinsicOutsideRuntime is the text of ErrRawIntrinsicOutsideRuntime for: call to '{callee}' from outside the runtime source tier: '__Raw' names a raw runtime intrinsic, callable only from a source file under runtime/
+func RawIntrinsicOutsideRuntime(callee string) string {
+	return "call to '" + callee + "' from outside the runtime source tier: '__Raw' names a raw runtime intrinsic, callable only from a source file under runtime/"
+}

@@ -145,6 +145,14 @@ export type Builder
 		return newStr(dst, text: indexOf(n))
 	end 'str'
 
+	// callImport calls the DLL import name with the words args; the name is one of the function's strings.
+	export function callImport(mutates self, dst Reg, name String, args RegList) returns Instr
+		let n = f.strings.count()
+		f.strings.push(name.clone())
+		let start = self.arguments(args)
+		return newCallImport(dst, name: indexOf(n), argsStart: start, argsCount: regOf(args.count()))
+	end 'callImport'
+
 	// arguments adds the registers of a call to the pool and gives where they start.
 	function arguments(mutates self, args RegList) returns Reg
 		let start = regOf(f.args.count())

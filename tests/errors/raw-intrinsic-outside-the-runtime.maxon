@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	__Raw.storeWord(0, offset: 0, value: 0)
+	return 0
+end 'main'
+
+// expect-error: E3152 at 2:17
