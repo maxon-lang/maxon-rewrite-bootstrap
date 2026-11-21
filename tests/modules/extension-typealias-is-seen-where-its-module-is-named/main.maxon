@@ -1,0 +1,8 @@
+function main() returns ExitCode
+	let c = shapes.Counter.make(21)
+	let step = 3 as shapes.Counter.Step
+	print("{c.bump(step)} {tools.unused()}\n")
+	return 0
+end 'main'
+
+//> 21 0

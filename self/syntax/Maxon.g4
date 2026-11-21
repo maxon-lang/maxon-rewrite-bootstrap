@@ -168,12 +168,12 @@ fieldDecl
     : visibility=('export' | 'public')? ('let' | isVar='var') name=(Name | 'from') ('as' type=typeRef | '=' default=expr)
     ;
 
-// An extension adds methods, and conformances, to a type another declaration names: a type, an enum, a union, a built-in
-// generic type, String, bool or the integers (`extension int`), or methods to every type that implements an interface. A
-// `where` makes its methods those of the instances whose type arguments meet it.
+// An extension adds methods, typealiases and conformances to a type another declaration names: a type, an enum, a union, a
+// built-in generic type, String, bool or the integers (`extension int`), or methods to every type that implements an
+// interface. A `where` makes its methods those of the instances whose type arguments meet it.
 extensionDecl
     : visibility=('export' | 'public')? 'extension' (isInt='int' | target=typeRef) conforms=conformsClause? where=whereClause? Newline
-      (Indent (methods+=funcDecl Newline)+ Dedent)?
+      (Indent ((aliases+=aliasDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
@@ -300,7 +300,7 @@ extendsClause returns [[]*TypeRef interfaces]
 
 interfaceDecl
     : visibility=('export' | 'public')? 'interface' name=Name (typeParams=usesClause parents=extendsClause? | parents=extendsClause typeParams=usesClause?)? Newline
-      (Indent (methods+=funcSig Newline)+ Dedent)?
+      (Indent ((aliases+=aliasDecl | methods+=funcSig) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 

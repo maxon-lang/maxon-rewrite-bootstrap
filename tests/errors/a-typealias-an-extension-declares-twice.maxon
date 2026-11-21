@@ -1,0 +1,18 @@
+type Holder
+	var v as Count
+
+	static function make(v Count) returns Self
+		return Self{v: v}
+	end 'make'
+end 'Holder'
+
+extension Holder
+	typealias Idx = int(0 to 9)
+	typealias Idx = int(0 to 99)
+end 'Holder'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3061 at 11:12

@@ -89,9 +89,12 @@ function namedAliases(p ast.Project, modIdx Count, tr ast.NodeID, mutates out De
 	end 'elems'
 end 'namedAliases'
 
-// aliasSelf is the type that 'Self' names in the target of a typealias: the type whose body declares it, at its own
+// aliasSelf is the type that 'Self' names in the target of a typealias: the type whose body or extension declares it, at its own
 // parameters, or none for a typealias of the module.
-function aliasSelf(c Checker, mutates p ast.Project, a ast.AliasDecl) returns ast.TypeID
+function aliasSelf(c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef) returns ast.TypeID
+	if ast.isExtensionAlias(p.modules[c.modIdx], ordinal: ref.ordinal) 'extension'
+		return ast.selfType(p.types, declTy: ast.extendedBy(p, ref: ref))
+	end 'extension'
 	match consumes ast.nestedAliasOwner(a.name) 'owner'
 		some(ownerName) then return selfOfOwner(c, p: p, ownerName: ownerName)
 		none then return ast.noType
@@ -126,10 +129,11 @@ function funcTypeRefs(p ast.Project, modIdx Count, fn ast.NodeID) returns ast.No
 	return out
 end 'funcTypeRefs'
 
-// declareFuncAlias gives a typealias of a function type its type. One at the top of a module is a brand, as in maxon: a
-// name an author chose to tell two shapes apart. One in a type's body spells the type's own signature and is not.
+// declareFuncAlias gives a typealias of a function type its type. One at the top of a module, or in the body of a type or an
+// extension that is not generic, is a brand, as in maxon: a name an author chose to tell two shapes apart. One in the body of
+// a generic type spells the signature that its instances share, and is not.
 function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
-	let selfTy = aliasSelf(c, p: p, a: a)
+	let selfTy = aliasSelf(c, p: p, a: a, ref: ref)
 	let paramsRef = ast.funcTypeParamsRef(p.modules[c.modIdx].tree, id: a.fn)
 	var params = ast.TypeIDList.create(0)
 	var convs = ast.ConventionList.create(0)
@@ -151,7 +155,7 @@ function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasD
 		end 'failed'
 	end 'returns'
 	var shape = ast.FuncShape.make(convs, mutatesCaptures: ast.funcTypeCapturesRef(p.modules[c.modIdx].tree, id: a.fn) != 0)
-	if selfTy == ast.noType 'brand'
+	if selfTy == ast.noType or p.types.entries[ast.originOf(p.types, t: selfTy) as Count].typeParams.count() == 0 'brand'
 		shape.brand = ast.FuncBrand.make("{ast.declKey(ref)}", name: a.name.clone())
 	end 'brand'
 	p.declTypes.insert(ast.declKey(ref), value: ast.internFuncType(p.types, params: params, shape: shape, result: result))
@@ -176,7 +180,7 @@ function declareAliasType(mutates c Checker, mutates p ast.Project, a ast.AliasD
 		checkFail(c.modID, off: off, code: diag.errAliasTarget, msg: "a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '{target}' itself where '{a.name}' is used", errs: errs)
 		return
 	end 'plain'
-	let selfTy = aliasSelf(c, p: p, a: a)
+	let selfTy = aliasSelf(c, p: p, a: a, ref: ref)
 	let t = resolveTypeRef(c, p: p, tr: a.instance, selfTy: selfTy, errs: errs)
 	if t != ast.noType 'named'
 		p.declTypes.insert(ast.declKey(ref), value: t)
@@ -241,10 +245,12 @@ end 'declareVisitedAlias'
 // stage waits for those of the modules it names. The module's own go in source order, each after the ones it names, and
 // a typealias that names itself through others is refused.
 export function declareAliases(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList)
+	declareExtensionAliases(c, p: p, errs: errs)
+	bindMemberRefs(c, p: p, errs: errs)
 	var w = AliasWalk.make(p.modules[c.modIdx].decls.count())
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'each'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
-		if isInstanceAlias(p, ref: ast.DeclRef.make(c.modID, ordinal: ord)) 'alias'
+		if isInstanceAlias(p, ref: ast.DeclRef.make(c.modID, ordinal: ord)) and not ast.isRefusedExtensionAlias(p.modules[c.modIdx], ordinal: ord) 'alias'
 			visitAlias(w, c: c, p: p, ord: ord, errs: errs)
 		end 'alias'
 	end 'each'

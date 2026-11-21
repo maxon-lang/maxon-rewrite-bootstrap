@@ -1,0 +1,7 @@
+extension shapes.Counter
+	export typealias Step = int(0 to 99)
+end 'Counter'
+
+export function two() returns shapes.Length
+	return 2
+end 'two'

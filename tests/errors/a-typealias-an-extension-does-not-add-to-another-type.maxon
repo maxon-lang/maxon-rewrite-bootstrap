@@ -1,0 +1,23 @@
+type Holder
+	var v as Count
+end 'Holder'
+
+type Other
+	var w as Count
+end 'Other'
+
+extension Holder
+	typealias Idx = int(0 to 99)
+end 'Holder'
+
+extension Other
+	function at(i Idx) returns Count
+		return 0
+	end 'at'
+end 'Other'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3011 at 14:16

@@ -61,7 +61,7 @@ ErrCallDuplicateArg	E3038	callDuplicateArg	Two arguments of one call are for the
 ErrMainCannotThrow	E3054	mainCannotThrow	'main' is declared 'throws', with no caller to handle the error.
 ErrUncheckedFailure	E3057	throwingFunctionRequiresTry	A call that can fail is made without 'try' where nothing catches the failure.
 ErrErrorTypeMismatch	E3059	errorTypeMismatch	An error goes where nothing takes an error of its type: a 'try' or 'throw' with no caller to pass it to, or one that throws another.
-ErrDuplicateTypeAlias	E3061	semanticDuplicateTypeAlias	A typealias is declared twice in one type's body.
+ErrDuplicateTypeAlias	E3061	semanticDuplicateTypeAlias	A typealias is declared twice for one type, in its body or in the extensions of one module, or in its body and an extension.
 ErrEnumNotComparable	E3066	semanticEnumNotComparable	A union is compared with '==' or '!='.
 ErrRefIdentityOnPrimitive	E3068	refIdentityOnPrimitive	An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a union, a function or a type parameter.
 ErrMatchQualifiedCaseName	E3075	matchQualifiedCaseName	A match arm names a case of an enum or union with its type's name, which the subject already gives.
@@ -123,7 +123,7 @@ ErrThrows	E3924	-	A function that takes a 'sets' parameter declares 'throws'.
 ErrClosureBorrow	E3925	-	A function value that holds a borrow escapes it: it is stored, returned, consumed, copied or captured by something that may outlive the borrow.
 ErrRawValueNotLiteral	E3940	-	A raw value is a string with an interpolated value, which a case cannot hold.
 ErrAmbiguousConformance	E3941	-	Two declarations that a module sees say one type implements one interface.
-ErrAmbiguousExtension	E3942	-	A call names a method that two extensions the calling module sees add to the type.
+ErrAmbiguousExtension	E3942	-	A call names a method, or a type names a typealias, that two extensions the module sees add to the type.
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrUnsupported	E9000	-	A construct the compiler does not support yet.

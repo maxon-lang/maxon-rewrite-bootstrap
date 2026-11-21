@@ -44,6 +44,78 @@ export function methodIn(m Module, owner TypeID, name String) returns FuncID
 	return noFunc
 end 'methodIn'
 
+// aliasIn is the typealias of that name that the module's extensions add to the type owner, or none.
+function aliasIn(m Module, owner TypeID, name String) returns table.Option with DeclRef
+	for i in 0 upto m.extAliases.count() 'each'
+		if m.extAliases[i].owner == owner and m.extAliases[i].name == name 'hit'
+			return table.Option.some(DeclRef.make(m.id, ordinal: m.extAliases[i].ordinal))
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'aliasIn'
+
+// bodyAlias is the typealias that the body of the declaration of the type t declares under that name, or none: a type that
+// has no declaration, as Array, declares none.
+export function bodyAlias(p Project, t TypeID, member String) returns table.Option with DeclRef
+	let origin = originOf(p.types, t: t)
+	if not p.types.entries[origin as Count].hasDecl 'undeclared'
+		return table.Option.none
+	end 'undeclared'
+	let owner = p.types.entries[origin as Count].decl.clone()
+	let key = nestedAliasName(p.types.entries[origin as Count].name, name: member)
+	var found as table.Option with DeclOrdinal
+	if owner.module == diag.stdlibID 'std'
+		found = p.stdlib.names.get(key)
+	end 'std' else 'module'
+		found = p.modules[modIndex(owner.module)].names.get(key)
+	end 'module'
+	match consumes found 'declared'
+		some(ord) then return aliasOfBody(p, owner: owner, ref: DeclRef.make(owner.module, ordinal: ord))
+		none then return table.Option.none
+	end 'declared'
+end 'bodyAlias'
+
+// aliasOfBody is the declaration at ref, when it is a typealias that the body of the declaration owner declares, and not one of
+// its extensions.
+function aliasOfBody(p Project, owner DeclRef, ref DeclRef) returns table.Option with DeclRef
+	if declKindOf(p, ref: ref) == DeclKind.aliasDecl and declaresAliasNode(moduleDecl(p, ref: owner), id: declNodeID(p, ref: ref)) 'alias'
+		return table.Option.some(ref.clone())
+	end 'alias'
+	return table.Option.none
+end 'aliasOfBody'
+
+// isRefusedExtensionAlias is whether the typealias at the ordinal is one that an extension declares and that was refused, which
+// gives it no type: a type that the extension does not extend, or a name that is taken.
+export function isRefusedExtensionAlias(m Module, ordinal DeclOrdinal) returns bool
+	for i in 0 upto m.extAliases.count() 'each'
+		if m.extAliases[i].ordinal == ordinal and m.extAliases[i].extended == noType 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'isRefusedExtensionAlias'
+
+// extendedBy is the type that the extension adding the typealias at ref extends, whichever module writes it.
+export function extendedBy(p Project, ref DeclRef) returns TypeID
+	let mi = modIndex(ref.module)
+	for i in 0 upto p.modules[mi].extAliases.count() 'each'
+		if p.modules[mi].extAliases[i].ordinal == ref.ordinal 'hit'
+			return p.modules[mi].extAliases[i].extended
+		end 'hit'
+	end 'each'
+	panic("the typealias at ordinal {ref.ordinal} is added by no extension")
+end 'extendedBy'
+
+// isExtensionAlias is whether an extension of the module declares the typealias at the ordinal.
+export function isExtensionAlias(m Module, ordinal DeclOrdinal) returns bool
+	for i in 0 upto m.extAliases.count() 'each'
+		if m.extAliases[i].ordinal == ordinal 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'isExtensionAlias'
+
 // conformsInModule is whether an extension of the module m says the type owner implements iface, or an interface that
 // extends it. Seen from another module, only a conformance that m may give counts: one of a type or to an interface
 // that m declares (Hylo's rule for orphans), so a module cannot change what a type it does not own means to an interface
@@ -223,6 +295,38 @@ export function extensionMethod(p Project, from diag.ModuleID, owner TypeID, nam
 	end 'none'
 	return MethodLookup.found(seen)
 end 'extensionMethod'
+
+// An AliasLookup is what a typealias's name finds among the ones that extensions add to a type: nothing, one, or two of
+// different modules, which is ambiguous.
+export union AliasLookup
+	absent
+	found(ref DeclRef)
+	ambiguous(first DeclRef, second DeclRef)
+end 'AliasLookup'
+
+// extensionAlias is what the name finds among the typealiases that extensions add to the type owner where code in the module
+// from sees them, by the rule of their methods: its own module's, and the modules it names. The standard library sees none.
+export function extensionAlias(p Project, from diag.ModuleID, owner TypeID, name String) returns AliasLookup
+	if from == diag.stdlibID 'library'
+		return AliasLookup.absent
+	end 'library'
+	var seen = aliasIn(p.modules[modIndex(from)], owner: owner, name: name)
+	for i in 0 upto p.resolutions[modIndex(from)].deps.count() 'deps'
+		let hit = aliasIn(p.modules[modIndex(p.resolutions[modIndex(from)].deps[i].module)], owner: owner, name: name)
+		if not hit.isSome() 'none'
+			continue 'deps'
+		end 'none'
+		if not seen.isSome() 'first'
+			seen = hit.clone()
+			continue 'deps'
+		end 'first'
+		return AliasLookup.ambiguous(seen.unwrap(), second: hit.unwrap())
+	end 'deps'
+	match consumes seen 'k'
+		some(ref) then return AliasLookup.found(ref)
+		none then return AliasLookup.absent
+	end 'k'
+end 'extensionAlias'
 
 // A Conformance is a declaration that says a type implements an interface: the type's own, in its module, or an extension
 // of a module.

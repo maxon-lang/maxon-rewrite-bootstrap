@@ -348,7 +348,7 @@ has any, from every module. A `check` stops short of code generation but runs th
 | parse | `syntax`, `project` | reads each module's files into one buffer, lexes it and parses it into the module's `Tree` and `decls`; a lexical error ends the module's lexing, a syntax error abandons the rest of its file. Then `buildModuleTable` gives each module's declarations their names (a duplicate is `E3006`) and a shell type (a `TypeID` with no members yet) for each type declaration |
 | resolve | `resolve` | `resolveFrom` binds every name, struct literal and type reference to its declaration, and each `where` constraint to the type parameter it names (`E3916`), into the module's `Resolution`; it records the modules the module depends on, checks visibility (`E3008`) and that no signature names a less visible type (`E3167`), and rewrites a qualified name in place (see "The AST"). It reads only the module's own declarations, the standard library and the declarations of the modules the module names |
 | module graph | `project` | `newGraph` turns each module's recorded dependencies into edges; `checkAcyclic` sorts the graph (Kahn's algorithm, linear in the edges) and reports `E2012` where the first module of a cycle names the second; `topoOrder` is the order every later stage visits the modules in |
-| aliases | `check` | `stageAliases`: the bounds of each type's type parameters, then each typealias of an instance, after the typealiases it names (a cycle is `E2012`) |
+| aliases | `check` | `stageAliases`: the bounds of each type's type parameters, the typealiases that the module's extensions declare under the types they extend, each type written `Type.name` bound to the typealias that the type's body or an extension the module sees declares, then each typealias of an instance, after the typealiases it names (a cycle is `E2012`) |
 | declare | `check` | `stageDeclare`: the module's fields, cases, function signatures, type parameters and the interfaces its types implement, into the project's `TypeTable` and `FuncTable`; the declare finds `main`, in the first module that declares it (`E3001` when none does, `E3006` for a second) |
 | constants | `check` | `stageConstantOrder`, `stageConstants`: top-level `let` types, each after the constants of its module that it names (a cycle is `E2012`) |
 | bodies | `check` | `stageBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
@@ -988,13 +988,13 @@ and nothing else.
 
 - `function` (a body may have no statement; every other block with none is `E3082`), `type` (fields, defaults, methods, `static function`, `static let`; a function parameter may have a default, see "Default parameter values, static fields, default throws and fallthrough"), `enum` (integer, float and string raw values, see
   "Raw values"), `union` (payloads, methods, explicit tags), `interface`, `typealias X = int(a to|upto b)`,
-  `typealias X = bits(n)` (see "Bit patterns"), `typealias X = float(a to b)` (see "Floats"), either range with `implements Parent` (see "Integers"), `typealias X = Box with Count` (also in a type's body), a top-level
+  `typealias X = bits(n)` (see "Bit patterns"), `typealias X = float(a to b)` (see "Floats"), either range with `implements Parent` (see "Integers"), `typealias X = Box with Count` (also in the body of a type, an interface or an extension), a top-level
   `let` constant. A function, a type and a union can be generic (see "Generics"). A `type` or a `union` can say
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
   destructors").
 - Function values (see "Function values"): a function type, named by a typealias
-  (`typealias Step = function(Count, mutates Box) returns Count`, also in a type's body, and `... mutates captures` for
+  (`typealias Step = function(Count, mutates Box) returns Count`, also in the body of a type, an interface or an extension, and `... mutates captures` for
   one whose closures change what they capture), a function named without a call, a closure `function(n Count) gives n +
   offset` (its parameters' types and its result may be left to the function type it is written for), a call through a
   value (`f(x)`, `self.op(x)`, `ops[i](x)`, a module-level `let`), and a cast to another function type (`h as Callback`).
@@ -1369,8 +1369,8 @@ types and its result, which it takes from that type; anywhere else a parameter w
 **Brands.** A typealias of a function type at the top of a module is a type of its own, a brand, as in Maxon: two of one
 shape (`Handler` and `Callback`, each `function(Count) returns Count`) do not take each other's values (`E3005`, naming
 both), at any depth (a parameter of type `Handler` in a function type is not one of type `Callback`). A closure and a named
-function carry no brand and fit every alias of their shape, and so does a function typealias in a type's body, which
-spells the type's own signature. `h as Callback` re-brands a value of the same shape (another shape is `E3005`), and so does
+function carry no brand and fit every alias of their shape, and so does a function typealias in the body of a generic type, which
+spells the signature that its instances share. `h as Callback` re-brands a value of the same shape (another shape is `E3005`), and so does
 a `return` without a cast. A conditional of a branded value and an unbranded one of its shape is of the brand; of two
 brands it is `E2028`. A message names a function type by its brand where only the brands differ, and by its shape
 (`fn(Count) returns Count`) where more does, as Maxon's do.
@@ -1522,9 +1522,22 @@ end 'wrap'
   top-level one, named `Pool.Items` in messages, with the type as its scope: the bare name spells it in the type's
   own body (a field, a signature, an expression such as `Items.create(0)`) and shadows a module typealias of the same name
   there, and the type's parameters are in scope in its target, so `Items` of `Pool with Element` is the instance at the
-  type's own parameter. Declaring one twice in a body is `E3061`. A field that holds the type again over a type built from its parameters (`var kids as Array with (Nest with (T, Cell with U))`) is `E3184`, since its instances never end. Not supported: a typealias in an `interface`, an `enum`
-  or a `union`, a ranged one in a generic type (a type for each instance, `E2015`), and naming one from outside the body
-  (`Pool.Items`).
+  type's own parameter. Declaring one twice in a body is `E3061`. A field that holds the type again over a type built from its parameters (`var kids as Array with (Nest with (T, Cell with U))`) is `E3184`, since its instances never end. An `interface`'s body declares
+  them the same way, over its own parameters, and a requirement spells one by its bare name; the interface's typealias is no member that
+  `Holder.Items` names (`E3011`), and a type that implements the interface declares its own. Not supported: a typealias in an `enum`
+  or a `union` (the parser's generic `E2010`, as in Maxon), and a ranged one in a generic type (a type for each instance, `E2015`).
+- **Typealiases of an extension.** An `extension` body may declare typealiases as a `type`'s does, `typealias Level = int(0 to 64)` or
+  `typealias Pairs = Array with T`, over the type parameters of the type it extends, with `Self` the type. The bodies of
+  the extensions of the type that its module writes spell one by its bare name, and those of any module's extensions spell the typealiases that
+  the type's own body declares as well. It is named from anywhere as `Type.Level` (`shapes.Counter.Level` for another module's type),
+  in the places that take a type, and is a declaration of the extension's module, named `Counter.Level` in messages
+  (`Array.Level` for an extension of the built-in `Array`): its own visibility, never the extension's. It is scoped as the
+  extension's methods are: seen from the module that writes the extension and from the modules that name it, and two
+  extensions seen from one module that add one name to a type are ambiguous at the use, `E3942`, whichever modules they are in.
+  The same name twice in the extensions of one module, or in an extension and in the body of its type, is `E3061` at
+  the extension's declaration. An extension of an `enum` or a `union` declares none (`E2010`), and a ranged typealias of an
+  extension of a generic type is `E2015`, as in the body of one. `Type.Level` does not name a typealias of a generic type
+  (`E2015`: write it inside the type or an extension of it).
 - **Calls infer.** An expression writes no type arguments, so brackets are always a subscript. A call takes them from
   its arguments' types (`swap(a, b: c)`, `Option.some(x)`, `Box.make(x)`), and the ones the arguments leave open from
   the type the call's result must have where it is used: a return value, an argument of a function that is not
@@ -1795,7 +1808,7 @@ or a `union` of any module (`extension shapes.Counter`), the built-in `Array`, `
 which stands for every integer type (`self` has the range of `FullRangeInt`). The end label is the extended type's name.
 Inside, `self` and the bare names of the type's fields and type parameters mean what they do in its body, and `Self` is
 the type. A static function is allowed only in an extension of a `type` or of a built-in generic type. An extension
-declares no field, destructor or `typealias`. A method of an extension is called as one of
+declares no field or destructor. Its typealiases are scoped as its methods are (see "Typealiases of an extension" under "Generics"). A method of an extension is called as one of
 the type's, and is `E3006` if the type's body or another extension of the same module declares the name.
 
 An extension's declarations belong to the module that writes it, never to the extended type's module, so each module's
@@ -2333,8 +2346,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and a default on a discard parameter `_` (which maxon's calls name with a synthesized label) are not supported, a default that
   trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. A `static let` is only a
   `type`'s, and a call in its initializer that names a sibling by its bare name is not resolved to the sibling.
-- `extension`: there is no nested `typealias` in an extension, and none of `Set`, `Iterable`, `Iterator` or other library
-  types the compiler does not have. An extension of an interface is Hylo's: its body is checked once, generic over the
+- `extension`: there is no `typealias` in the extension of an enum or a union, and none of `Set`, `Iterable`, `Iterator` or
+  other library types the compiler does not have. An extension of an interface is Hylo's: its body is checked once, generic over the
   conformer, where maxon parses it again for each conformer with the conformer's names in scope, so there it may use what
   one conformer has (a field, a method the interface does not require, an operator or a value of another type for an
   associated type) and its errors name the conformer (`type 'Square1' has no field named 'spare'`, here `'Self'`). Its
@@ -2346,10 +2359,14 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   declare are scoped as Hylo scopes them, where maxon sees every extension from every directory of the program: an
   extension is seen only from its own module and the modules that name it, a bound is met by the conformance seen from
   the module that instantiates the generic and passes it on with the instance, two extensions seen at one call that add
-  one method name are `E3942`, and two conformances of one type to one interface seen at one place are `E3941`. A module
+  one method name, or one typealias name, are `E3942`, and two conformances of one type to one interface seen at one place are `E3941`. A module
   that declares neither the type nor the interface gives its conformance to no other module (Hylo's orphan rule). A method
   that an extension declares under the name of a method in the body of a type of another module is `E3006` at the
-  extension's method, reported when the modules are verified.
+  extension's method, reported when the modules are verified. A typealias of an extension is a member of the type for the
+  modules that see it, where maxon has one member of each name for the whole program: two extensions of different modules that
+  add one name are `E3942` at the use that sees both and not `E3061`, and `Type.name` of a generic type, which would need the
+  type's arguments, is `E2015`. A ranged typealias of an extension of a generic type is `E2015`, as in its body. A function
+  typealias of a non-generic type or extension is a type of its own, as a top-level one is; in the body of a generic type it is not.
 - `for` loops (see "Primitives"): a `Map` is walked as `for (key, value) in m`, in an order that neither language specifies (the two differ in practice), and a loop that names one variable for the pair
   (maxon binds a tuple) is `E2015`; the key and the value are
   lent, not copied, and the map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it. `E.allCases`

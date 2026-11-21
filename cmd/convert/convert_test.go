@@ -498,9 +498,9 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "ranged typealiases in a generic type",
 		},
 		{
-			name:     "typealias in an interface",
-			in:       "interface Seq\n\ttypealias Items = Array with Count\nend 'Seq'\n",
-			wantTodo: "typealias declarations in an interface, enum or union",
+			name:     "typealias in an enum",
+			in:       "enum Color\n\ttypealias Tint = int(0 to 3)\n\tred\nend 'Color'\n",
+			wantTodo: "typealias declarations in an enum or union",
 		},
 		{
 			name:     "for loop over a string's view",
@@ -553,9 +553,9 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "extensions of 'Set'",
 		},
 		{
-			name:     "typealias in an extension",
+			name:     "ranged typealias in an extension of a generic type",
 			in:       "extension Array\n\ttypealias Level = int(0 to 64)\nend 'Array'\n",
-			wantTodo: "typealias declarations in an extension",
+			wantTodo: "ranged typealiases in a generic type",
 		},
 		{
 			name:     "qualified case names in a handler's match",

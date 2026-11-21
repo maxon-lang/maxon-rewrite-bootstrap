@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let step = 3 as shapes.Counter.Step
+	print("{step}\n")
+	return 0
+end 'main'
+
+// expect-error: E3011 at 2:18

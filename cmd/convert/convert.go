@@ -599,8 +599,9 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		return stack[len(stack)-1].kind
 	}
 	inGenericType := func() bool {
-		return len(stack) > 0 && stack[len(stack)-1].kind == blockType && stack[len(stack)-1].generic
+		return len(stack) > 0 && (stack[len(stack)-1].kind == blockType || stack[len(stack)-1].kind == blockExtension || stack[len(stack)-1].kind == blockInterface) && stack[len(stack)-1].generic
 	}
+	generics := genericTypes(lines)
 
 	for i := range lines {
 		line := &lines[i]
@@ -670,7 +671,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			stack = append(stack, openBlock{indent: line.indent, kind: blockEnum})
 			continue
 		case "interface":
-			stack = append(stack, openBlock{indent: line.indent, kind: blockInterface})
+			stack = append(stack, openBlock{indent: line.indent, kind: blockInterface, generic: hasUsesClause(line.code[declIdx:])})
 			continue
 		case "function":
 			if !isClosureLine(line.code, declIdx) {
@@ -682,11 +683,9 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			}
 		case "typealias":
 			switch currentBlock() {
-			case blockInterface, blockEnum, blockUnion:
-				warn(line, "typealias declarations in an interface, enum or union are not supported in minimaxon")
-			case blockExtension:
-				warn(line, "typealias declarations in an extension are not supported in minimaxon")
-			case blockType:
+			case blockEnum, blockUnion:
+				warn(line, "typealias declarations in an enum or union are not supported in minimaxon")
+			case blockType, blockExtension, blockInterface:
 				if inGenericType() && isRangeTypealias(line.code, declIdx) {
 					warn(line, "ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own")
 				}
@@ -697,7 +696,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		case "extension":
 			transformWhereInSlice(line.code, declIdx+1, line, warn)
 			warnUnsupportedExtension(line, declIdx, warn)
-			stack = append(stack, openBlock{indent: line.indent, kind: blockExtension})
+			stack = append(stack, openBlock{indent: line.indent, kind: blockExtension, generic: extendsGeneric(line.code, declIdx, generics)})
 			continue
 		case "test":
 			if len(line.code) >= 2 && line.code[1].kind == tokLabel {
@@ -803,6 +802,30 @@ func opensBlockInBrackets(toks []token) bool {
 // unsupportedExtensionTargets are the names an extension cannot extend in minimaxon although it may name them: library
 // types and interfaces that it has no counterpart of, or that it does not extend.
 var unsupportedExtensionTargets = []string{"Set", "Iterable", "Iterator", "Log", "Logger", "CivilDate", "ParseError", "byte", "float", "Character", "Equatable", "Comparable", "Hashable", "Error"}
+
+// builtinGenericTypes are the library types that an extension may name and that take type arguments.
+var builtinGenericTypes = []string{"Array", "Map", "List", "Pool", "Handle", "Frozen", "Cown", "FixedArray"}
+
+// genericTypes are the types and unions the lines declare with type parameters, and the generic library types.
+func genericTypes(lines []sourceLine) []string {
+	names := slices.Clone(builtinGenericTypes)
+	for i := range lines {
+		line := &lines[i]
+		if line.removed || len(line.code) == 0 {
+			continue
+		}
+		idx := skipModifiers(line.code)
+		if idx+1 < len(line.code) && line.code[idx].kind == tokIdent && (line.code[idx].text == "type" || line.code[idx].text == "union") && hasUsesClause(line.code[idx:]) {
+			names = append(names, line.code[idx+1].text)
+		}
+	}
+	return names
+}
+
+// extendsGeneric is whether the extension at declIdx extends one of the generic types.
+func extendsGeneric(toks []token, declIdx int, generics []string) bool {
+	return declIdx+1 < len(toks) && slices.Contains(generics, toks[declIdx+1].text)
+}
 
 // interfaceArities are the number of associated types of each generic interface the lines declare.
 func interfaceArities(lines []sourceLine) map[string]int {

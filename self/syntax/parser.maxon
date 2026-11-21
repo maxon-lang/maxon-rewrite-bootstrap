@@ -949,20 +949,20 @@ function parseInterpolation(mutates p Parser) returns ast.NodeID throws SyntaxEr
 	return e
 end 'parseInterpolation'
 
-// pushDecl adds a declaration to a module's list, and after a type the typealiases and the static lets its body declares,
-// each named by its owner and its own name: such a member is a declaration of the module like the others, with the type as
-// its scope.
-function pushDecl(mutates decls ast.DeclList, consumes d ast.Decl)
+// pushDecl adds a declaration to a module's list, and after a type the typealiases and the static lets its body declares, and
+// after an extension the typealiases it declares, each named by its owner and its own name: such a member is a declaration
+// of the module like the others, with the type as its scope.
+function pushDecl(mutates decls ast.DeclList, t ast.Tree, consumes d ast.Decl)
 	var nested = ast.DeclList.create(0)
 	match d 'k'
 		typeDecl(td) then nestedMemberDecls(td, out: nested)
+		extensionDecl(xd) then aliasMemberDecls(xd.aliases, owner: ast.extensionOwnerName(t, xd: xd), out: nested)
+		interfaceDecl(ifd) then interfaceMemberDecls(ifd, out: nested)
 		funcDecl(_) then _ = 0
 		constDecl(_) then _ = 0
 		enumDecl(_) then _ = 0
 		unionDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
-		interfaceDecl(_) then _ = 0
-		extensionDecl(_) then _ = 0
 	end 'k'
 	decls.push(d)
 	for i in 0 upto nested.count() 'each'
@@ -984,6 +984,24 @@ function nestedMemberDecls(td ast.TypeDecl, mutates out ast.DeclList)
 		out.push(ast.Decl.constDecl(s))
 	end 'statics'
 end 'nestedMemberDecls'
+
+// aliasMemberDecls files the typealiases of an extension under the type it extends, as it writes it.
+function aliasMemberDecls(aliases ast.AliasDeclList, owner String, mutates out ast.DeclList)
+	for i in 0 upto aliases.count() 'each'
+		var a = aliases[i].clone()
+		a.name = ast.nestedAliasName(owner, name: a.name)
+		out.push(ast.Decl.aliasDecl(a))
+	end 'each'
+end 'aliasMemberDecls'
+
+function interfaceMemberDecls(ifd ast.InterfaceDecl, mutates out ast.DeclList)
+	for i in 0 upto ifd.aliases.count() 'each'
+		var a = ifd.aliases[i].clone()
+		a.visibility = ast.nestedVisibility(ifd.visibility, member: a.visibility)
+		a.name = ast.nestedAliasName(ifd.name, name: a.name)
+		out.push(ast.Decl.aliasDecl(a))
+	end 'each'
+end 'interfaceMemberDecls'
 
 // parseDeclaration parses the declaration at the parser: a test, or one that Maxon.g4 names.
 function parseDeclaration(mutates p Parser) returns ast.Decl throws SyntaxError
@@ -1071,7 +1089,7 @@ function parseProgram(mutates p Parser) returns ast.DeclList
 		try 'decl'
 			p.blanks = blanksBefore(count)
 			let d = parseDeclaration(p)
-			pushDecl(decls, d: d)
+			pushDecl(decls, t: p.tree, d: d)
 			_ = p.expect(TokenKind.newline, what: "the end of the line")
 		end 'decl' otherwise 'refused'
 			abandoned = true

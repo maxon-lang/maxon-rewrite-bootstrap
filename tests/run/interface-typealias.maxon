@@ -1,0 +1,36 @@
+typealias Level = int(0 to 1000)
+
+typealias Levels = Array with Level
+
+interface Sink uses Element
+	typealias Batch = Array with Element
+	function take(mutates self, consumes batch Batch)
+end 'Sink'
+
+type Tally implements Sink with Level
+	var seen as Levels
+
+	static function make() returns Self
+		return Self{seen: Levels.create(0)}
+	end 'make'
+
+	function take(mutates self, consumes batch Levels)
+		seen = batch
+	end 'take'
+
+	function count() returns Count
+		return self.seen.count()
+	end 'count'
+end 'Tally'
+
+function main() returns ExitCode
+	var tally = Tally.make()
+	var batch = Levels.create(0)
+	batch.push(4)
+	batch.push(9)
+	tally.take(batch)
+	print("{tally.count()}\n")
+	return 0
+end 'main'
+
+//> 2

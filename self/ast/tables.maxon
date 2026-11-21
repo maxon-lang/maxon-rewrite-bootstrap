@@ -358,6 +358,20 @@ end 'UnboundName'
 
 export typealias UnboundNameList = Array with UnboundName
 
+// MemberRef is a type written as Owner.member, a typealias that the declaration of a type, or an extension of it, declares: the
+// resolver notes the type and the name, and the check finds the typealias once it knows which extensions the module sees.
+export type MemberRef
+	export var node as NodeID
+	export var owner as DeclRef
+	export var member as String
+
+	export static function make(node NodeID, consumes owner DeclRef, consumes member String) returns MemberRef
+		return MemberRef{node: node, owner: owner, member: member}
+	end 'make'
+end 'MemberRef'
+
+export typealias MemberRefList = Array with MemberRef
+
 export type Resolution
 	export var module as diag.ModuleID
 	export var decls as NodeDeclMap
@@ -372,6 +386,7 @@ export type Resolution
 	export var depSeen as NodeBoolMap
 	export var captures as NodeStrListMap
 	export var unbound as UnboundNameList
+	export var memberRefs as MemberRefList
 
 	export static function new(module diag.ModuleID) returns Resolution
 		let dm = NodeDeclMap.new()
@@ -382,7 +397,7 @@ export type Resolution
 		let eps = NodeSlotMap.new()
 		let ds = NodeBoolMap.new()
 		let cm = NodeStrListMap.new()
-		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, extParams: eps, deps: ModuleDepList.create(0), depSeen: ds, captures: cm, unbound: UnboundNameList.create(0)}
+		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, extParams: eps, deps: ModuleDepList.create(0), depSeen: ds, captures: cm, unbound: UnboundNameList.create(0), memberRefs: MemberRefList.create(0)}
 	end 'new'
 
 	export function addTypeParam(mutates self, consumes tp TypeParam) returns Count

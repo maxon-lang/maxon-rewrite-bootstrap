@@ -1,0 +1,23 @@
+interface Valued
+	function value() returns ExitCode
+end 'Valued'
+
+extension Valued
+	typealias Level = int(0 to 3)
+
+	function doubled() returns ExitCode
+		return self.value() * 2
+	end 'doubled'
+end 'Valued'
+
+type Five implements Valued
+	function value() returns ExitCode
+		return 5
+	end 'value'
+end 'Five'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2015 at 6:2

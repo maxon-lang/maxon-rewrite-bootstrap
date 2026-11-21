@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let step = 3 as shapes.Counter.Step
+	print("{a.one()} {b.two()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3942 at 2:18

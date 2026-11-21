@@ -1,0 +1,13 @@
+interface Sink uses Element
+	typealias Batch = Array with Element
+	function take(mutates self, consumes batch Batch)
+end 'Sink'
+
+function use(batch Sink.Batch)
+end 'use'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3011 at 6:20

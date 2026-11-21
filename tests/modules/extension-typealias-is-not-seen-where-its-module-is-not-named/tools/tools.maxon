@@ -1,0 +1,11 @@
+extension shapes.Counter
+	export typealias Step = int(0 to 9)
+
+	export function bump(by Step) returns shapes.Length
+		return n
+	end 'bump'
+end 'Counter'
+
+export function unused() returns shapes.Length
+	return 0
+end 'unused'

@@ -87,10 +87,15 @@ function typeParamCountOfDecl(d Decl) returns Count
 		constDecl(_) gives 0
 		enumDecl(_) gives 0
 		aliasDecl(_) gives 0
-		interfaceDecl(_) gives 0
+		interfaceDecl(ifd) gives ifd.typeParams.count()
 		extensionDecl(_) gives 0
 	end 'k'
 end 'typeParamCountOfDecl'
+
+// perInstanceRangeRefusal is why a ranged typealias may not be declared in a generic type, or in an extension of one.
+export function perInstanceRangeRefusal(name String) returns String
+	return "the ranged typealias '{name}' is declared in a generic type, where each instance would have a type of its own, which this compiler does not implement: declare it outside the type"
+end 'perInstanceRangeRefusal'
 
 // declareRangeAlias gives a typealias of a range its integer type, which is its own even where another alias has the
 // same range. A typealias of an instance has none yet: its type is the instance, which the checker's aliases stage
@@ -102,7 +107,7 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 	let modIdx = modIndex(ref.module)
 	let off = p.modules[modIdx].tree.startOf(ad.id)
 	if isGenericOwned(p, modIdx: modIdx, name: ad.name) 'perInstance'
-		diag.pushSiteError(errs, code: diag.errUnsupportedFeature, message: "the ranged typealias '{ad.name}' is declared in a generic type, where each instance would have a type of its own, which this compiler does not implement: declare it outside the type", module: ref.module, offset: off)
+		diag.pushSiteError(errs, code: diag.errUnsupportedFeature, message: perInstanceRangeRefusal(ad.name), module: ref.module, offset: off)
 		return
 	end 'perInstance'
 	if ad.high.id == (0 as NodeID) 'noHigh'
@@ -246,25 +251,89 @@ function floatBound(modID diag.ModuleID, tree Tree, b Bound, mutates errs diag.E
 	return table.Option.some(bits)
 end 'floatBound'
 
-// nestedOwnerSeparator is the dot that ends the owner's name in the name of a typealias declared in a type's body.
+// nestedOwnerSeparator is the dot that ends the owner's name in the name of a typealias declared in the body of a type or in
+// an extension.
 let nestedOwnerSeparator = 46 as Byte
 
-// nestedAliasName is the name a typealias declared in the body of the type owner has in its module, which is how
-// messages name it. No name written in a source file has a dot, so it names nothing else.
+// nestedAliasName is the name a typealias declared in the body of the type owner, or in an extension of it, has in its
+// module, which is how messages name it. No name written in a source file has a dot, so it names nothing else. An
+// extension spells its owner as it names the type, with the module in front where it has one.
 export function nestedAliasName(owner String, name String) returns String
 	return "{owner}.{name}"
 end 'nestedAliasName'
 
-// nestedOwnerLength is where the dot is in the name of a nested typealias: the length of its owner's name, or none for
+// extensionOwnerName is the name an extension's nested typealiases are filed under: the type it extends, as it writes it.
+export function extensionOwnerName(t Tree, xd ExtensionDecl) returns String
+	if xd.isInt 'integer'
+		return "int"
+	end 'integer'
+	var buf = ByteArray.create(0)
+	let qualRef = typeRefQualifierRef(t, id: xd.target)
+	for i in 0 upto t.listLen(qualRef) 'qualifiers'
+		buf.append(t.nameAt(t.listAt(qualRef, index: i)).toByteArray())
+		buf.push(nestedOwnerSeparator)
+	end 'qualifiers'
+	buf.append(typeRefName(t, id: xd.target).toByteArray())
+	return String.from(buf)
+end 'extensionOwnerName'
+
+// nestedOwnerLength is where the last dot is in the name of a nested typealias: the length of its owner's name, or none for
 // a name that is not one.
 function nestedOwnerLength(name String) returns table.Option with Count
+	var last as table.Option with Count
+	last = table.Option.none
 	for i in 0 upto name.byteLength() 'each'
 		if name.byteAt(i) == nestedOwnerSeparator 'dot'
-			return table.Option.some(i)
+			last = table.Option.some(i)
 		end 'dot'
 	end 'each'
-	return table.Option.none
+	return last
 end 'nestedOwnerLength'
+
+// nestedMembers adds to out the typealiases that the body of the type owner, or an extension of it, declares in the module
+// declaring, by the name the owner's code writes, as far as code of the module from may name them.
+export function nestedMembers(p Project, declaring diag.ModuleID, owner String, from diag.ModuleID, mutates out DeclRefIndex)
+	if declaring == diag.stdlibID 'std'
+		addNestedMembers(p, declaring: declaring, nested: p.stdlib.nested, owner: owner, from: from, out: out)
+		return
+	end 'std'
+	addNestedMembers(p, declaring: declaring, nested: p.modules[modIndex(declaring)].nested, owner: owner, from: from, out: out)
+end 'nestedMembers'
+
+function addNestedMembers(p Project, declaring diag.ModuleID, nested NestedAliasList, owner String, from diag.ModuleID, mutates out DeclRefIndex)
+	for i in 0 upto nested.count() 'each'
+		if nested[i].owner != owner 'other'
+			continue 'each'
+		end 'other'
+		let ref = DeclRef.make(declaring, ordinal: nested[i].ordinal)
+		if declaring == from or isVisibleFrom(p, v: declLevel(p, ref: ref), owner: declaring, from: from) 'seen'
+			out.insert(nested[i].member.clone(), value: ref)
+		end 'seen'
+	end 'each'
+end 'addNestedMembers'
+
+// declaresAliasNode is whether the declaration is a type whose body declares the typealias with the node id.
+export function declaresAliasNode(d Decl, id NodeID) returns bool
+	return match d 'k'
+		typeDecl(td) gives bodyHasAlias(td.aliases, id: id)
+		interfaceDecl(ifd) gives bodyHasAlias(ifd.aliases, id: id)
+		funcDecl(_) gives false
+		constDecl(_) gives false
+		enumDecl(_) gives false
+		unionDecl(_) gives false
+		aliasDecl(_) gives false
+		extensionDecl(_) gives false
+	end 'k'
+end 'declaresAliasNode'
+
+function bodyHasAlias(aliases AliasDeclList, id NodeID) returns bool
+	for i in 0 upto aliases.count() 'each'
+		if aliases[i].id == id 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'bodyHasAlias'
 
 // isNestedAlias is whether the name is that of a typealias declared in a type's body.
 export function isNestedAlias(name String) returns bool

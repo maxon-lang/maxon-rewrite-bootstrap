@@ -165,7 +165,7 @@ export let errUncheckedFailure = "E3057"
 // An error goes where nothing takes an error of its type: a 'try' or 'throw' with no caller to pass it to, or one that throws another.
 export let errErrorTypeMismatch = "E3059"
 
-// A typealias is declared twice in one type's body.
+// A typealias is declared twice for one type, in its body or in the extensions of one module, or in its body and an extension.
 export let errDuplicateTypeAlias = "E3061"
 
 // A union is compared with '==' or '!='.
@@ -351,7 +351,7 @@ export let errRawValueNotLiteral = "E3940"
 // Two declarations that a module sees say one type implements one interface.
 export let errAmbiguousConformance = "E3941"
 
-// A call names a method that two extensions the calling module sees add to the type.
+// A call names a method, or a type names a typealias, that two extensions the module sees add to the type.
 export let errAmbiguousExtension = "E3942"
 
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.

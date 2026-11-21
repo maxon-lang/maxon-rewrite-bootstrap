@@ -42,9 +42,13 @@ type Resolver
 	export var scopes as ScopeStack
 	export var fields as BoolStrMap
 	export var typeParams as TypeParamMap
-	// members are the typealiases the body being resolved declares, by the name its code writes, which a bare name finds
-	// before the module's own declarations.
-	export var members as ast.DeclIndex
+	// members are the typealiases the body being resolved declares, or, in an extension, the ones its type's body and the
+	// extensions of the module declare, by the name its code writes, which a bare name finds before the module's own
+	// declarations.
+	export var members as ast.DeclRefIndex
+	// expandsMembers is whether a typealias of the body being resolved is the name of its target where a signature spells it,
+	// as in the requirements of an interface: the signature exposes the target, which the typealias's own declaration checks.
+	export var expandsMembers as bool
 	// whenDepth is how many bodies of behaviours and closures enclose the code being resolved, each of which captures the
 	// names it uses from the one around it.
 	export var whenDepth as Count
@@ -52,7 +56,7 @@ type Resolver
 	export var inClosure as bool
 
 	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
-		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclIndex.new(), whenDepth: 0 as Count, inClosure: false}
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false}
 	end 'make'
 end 'Resolver'
 
@@ -112,8 +116,8 @@ end 'takeLookup'
 // declaration, else a built-in. Another module's declarations are always qualified, so resolving a module reads only the
 // modules it names.
 function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
-	match r.members.get(name) 'member'
-		some(ord) then return LookupResult.hit(ast.DeclRef.make(r.modID, ordinal: ord))
+	match consumes r.members.get(name) 'member'
+		some(ref) then return LookupResult.hit(ref)
 		none then _ = 0
 	end 'member'
 	let ownIdx = ast.modIndex(r.modID)
@@ -355,7 +359,7 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 	end 'unqual'
 	let firstQual = r.tree.nameAt(r.tree.listAt(qualRef, index: 0 as Count))
 	if not isModuleRoot(p, name: firstQual) 'noMod'
-		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "no module '{firstQual}'")
+		resolveOwnTypeMember(r, p: p, tr: tr, owner: firstQual, member: tName, qualCount: qualCount, off: off, errs: errs)
 		return
 	end 'noMod'
 	var path = ast.StringList.create(0)
@@ -375,6 +379,17 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 		none then _ = 0
 	end 'hit'
 end 'resolveTypeRef'
+
+// resolveOwnTypeMember notes a type written Owner.member, where Owner is a declaration of the module or of the standard
+// library and not a module: the member is a typealias that Owner's declaration, or an extension of it, declares.
+function resolveOwnTypeMember(mutates r Resolver, p ast.Project, tr ast.NodeID, owner String, member String, qualCount Count, off diag.U32, mutates errs diag.ErrorList)
+	let lr = bareLookup(r, p: p, name: owner)
+	if qualCount != 1 or not lr.found or not isRefType(p, ref: lr.decl) 'noOwner'
+		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "no module '{owner}'")
+		return
+	end 'noOwner'
+	r.res.memberRefs.push(ast.MemberRef.make(tr, owner: lr.decl.clone(), member: member.clone()))
+end 'resolveOwnTypeMember'
 
 function resolveUnqualDeclType(mutates r Resolver, p ast.Project, tr ast.NodeID, tName String, off diag.U32, mutates errs diag.ErrorList)
 	if isPrimTypeName(tName) 'prim'
@@ -403,6 +418,10 @@ function isRefType(p ast.Project, ref ast.DeclRef) returns bool
 end 'isRefType'
 
 function checkAndBindTypeDecl(mutates r Resolver, p ast.Project, tr ast.NodeID, consumes decl ast.DeclRef, used Count, pathLen Count, qualRef diag.U32, tName String, off diag.U32, mutates errs diag.ErrorList)
+	if (try used + 1 otherwise used) == pathLen and isRefType(p, ref: decl) 'member'
+		r.res.memberRefs.push(ast.MemberRef.make(tr, owner: decl, member: tName.clone()))
+		return
+	end 'member'
 	if used != pathLen or not isRefType(p, ref: decl) 'notTy'
 		var qBuf = ByteArray.create(0)
 		let qLen = r.tree.listLen(qualRef)
@@ -1076,7 +1095,7 @@ function requireExposable(mutates r Resolver, p ast.Project, s Surface, position
 		requireExposable(r, p: p, s: s, position: position, tr: r.tree.listAt(elemsRef, index: i) as ast.NodeID, errs: errs)
 	end 'elems'
 	match r.res.decls.get(tr as Count) 'bound'
-		some(ref) then reportIfHidden(p, s: s, position: position, ref: ref, modID: r.modID, errs: errs)
+		some(ref) then reportIfHiddenUnlessExpanded(r, p: p, s: s, position: position, ref: ref, errs: errs)
 		none then _ = 0
 	end 'bound'
 	let argsRef = ast.typeRefTypeArgsRef(r.tree, id: tr)
@@ -1084,6 +1103,13 @@ function requireExposable(mutates r Resolver, p ast.Project, s Surface, position
 		requireExposable(r, p: p, s: s, position: position, tr: r.tree.listAt(argsRef, index: i) as ast.NodeID, errs: errs)
 	end 'args'
 end 'requireExposable'
+
+function reportIfHiddenUnlessExpanded(r Resolver, p ast.Project, s Surface, position String, ref ast.DeclRef, mutates errs diag.ErrorList)
+	if r.expandsMembers and ref.module == r.modID and ast.isNestedAlias(ast.declName(p, ref: ref)) 'expanded'
+		return
+	end 'expanded'
+	reportIfHidden(p, s: s, position: position, ref: ref, modID: r.modID, errs: errs)
+end 'reportIfHiddenUnlessExpanded'
 
 function reportIfHidden(p ast.Project, s Surface, position String, ref ast.DeclRef, modID diag.ModuleID, mutates errs diag.ErrorList)
 	let level = ast.declLevel(p, ref: ref)
@@ -1220,7 +1246,7 @@ end 'resolveConstDecl'
 function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: td.name, endNode: td.endRef, errs: errs)
 	let outer = enterTypeParams(r, p: p, owner: td.name, s: s, params: td.typeParams, constraints: td.whereList, errs: errs)
-	resolveNestedAliases(r, p: p, td: td, s: s, errs: errs)
+	resolveNestedAliases(r, p: p, owner: td.name, aliases: td.aliases, statics: td.statics, s: s, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: td.conforms, errs: errs)
 	var fNames = BoolStrMap.new()
 	for i in 0 upto td.fields.count() 'flds'
@@ -1249,32 +1275,33 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: fNames, hasReceiver: true, errs: errs)
 		end 'inst'
 	end 'meths'
-	r.members = ast.DeclIndex.new()
+	r.members = ast.DeclRefIndex.new()
 	r.typeParams = outer
 end 'resolveTypeDecl'
 
-// resolveNestedAliases brings the typealiases and the static lets the body of td declares into scope, then resolves the
-// targets of the typealiases, which may name the type's parameters and each other, and the values of the static lets.
-function resolveNestedAliases(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
-	for i in 0 upto td.aliases.count() 'scope'
-		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(td.name, name: td.aliases[i].name)) 'declared'
-			some(ord) then r.members.insert(td.aliases[i].name.clone(), value: ord)
-			none then panic("the typealias '{td.aliases[i].name}' of '{td.name}' is not among the declarations of its module")
+// resolveNestedAliases brings the typealiases and the static lets that the body of the type or interface owner declares into
+// scope, then resolves the targets of the typealiases, which may name the parameters and each other, and the values of the
+// static lets.
+function resolveNestedAliases(mutates r Resolver, p ast.Project, owner String, aliases ast.AliasDeclList, statics ast.ConstDeclList, s Surface, mutates errs diag.ErrorList)
+	for i in 0 upto aliases.count() 'scope'
+		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(owner, name: aliases[i].name)) 'declared'
+			some(ord) then r.members.insert(aliases[i].name.clone(), value: ast.DeclRef.make(r.modID, ordinal: ord))
+			none then panic("the typealias '{aliases[i].name}' of '{owner}' is not among the declarations of its module")
 		end 'declared'
 	end 'scope'
-	for i in 0 upto td.statics.count() 'staticScope'
-		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(td.name, name: td.statics[i].name)) 'declared'
-			some(ord) then r.members.insert(td.statics[i].name.clone(), value: ord)
-			none then panic("the static let '{td.statics[i].name}' of '{td.name}' is not among the declarations of its module")
+	for i in 0 upto statics.count() 'staticScope'
+		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(owner, name: statics[i].name)) 'declared'
+			some(ord) then r.members.insert(statics[i].name.clone(), value: ast.DeclRef.make(r.modID, ordinal: ord))
+			none then panic("the static let '{statics[i].name}' of '{owner}' is not among the declarations of its module")
 		end 'declared'
 	end 'staticScope'
-	for i in 0 upto td.aliases.count() 'targets'
-		let a = td.aliases[i].clone()
-		let surface = Surface.make(narrower(s.tier, b: ast.visibilityOf(a.visibility)), noun: "typealias", name: ast.nestedAliasName(td.name, name: a.name), at: r.tree.reportStartOf(a.id))
+	for i in 0 upto aliases.count() 'targets'
+		let a = aliases[i].clone()
+		let surface = Surface.make(narrower(s.tier, b: ast.visibilityOf(a.visibility)), noun: "typealias", name: ast.nestedAliasName(owner, name: a.name), at: r.tree.reportStartOf(a.id))
 		resolveAliasDecl(r, p: p, ad: a, s: surface, errs: errs)
 	end 'targets'
-	for i in 0 upto td.statics.count() 'values'
-		resolveConstDecl(r, p: p, cd: td.statics[i].clone(), errs: errs)
+	for i in 0 upto statics.count() 'values'
+		resolveConstDecl(r, p: p, cd: statics[i].clone(), errs: errs)
 	end 'values'
 end 'resolveNestedAliases'
 
@@ -1377,6 +1404,12 @@ function resolveExtensionDecl(mutates r Resolver, p ast.Project, xd ast.Extensio
 		some(ref) then fieldNames = enterExtendedMembers(r, p: p, xd: xd, ref: ref)
 		none then _ = 0
 	end 'extended'
+	enterExtensionAliases(r, p: p, xd: xd)
+	for i in 0 upto xd.aliases.count() 'aliases'
+		let a = xd.aliases[i].clone()
+		let surface = Surface.make(ast.visibilityOf(a.visibility), noun: "typealias", name: ast.nestedAliasName(ast.extensionOwnerName(r.tree, xd: xd), name: a.name), at: r.tree.reportStartOf(a.id))
+		resolveAliasDecl(r, p: p, ad: a, s: surface, errs: errs)
+	end 'aliases'
 	resolveConforms(r, p: p, s: s, conforms: xd.conforms, errs: errs)
 	enterConstraints(r, p: p, owner: name, s: s, constraints: xd.whereList, ofExtension: true, errs: errs)
 	let emptyFields = BoolStrMap.new()
@@ -1388,8 +1421,19 @@ function resolveExtensionDecl(mutates r Resolver, p ast.Project, xd ast.Extensio
 			resolveFuncDecl(r, p: p, f: xd.methods[i].clone(), s: ms, fieldNames: fieldNames, hasReceiver: true, errs: errs)
 		end 'inst'
 	end 'meths'
+	r.members = ast.DeclRefIndex.new()
 	r.typeParams = outer
 end 'resolveExtensionDecl'
+
+// enterExtensionAliases brings into scope the typealiases that a bare name in the extension may mean: the ones that the body
+// of the extended type declares, and the ones that the extensions of the module declare for it.
+function enterExtensionAliases(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl)
+	match consumes extendedDecl(r, xd: xd) 'extended'
+		some(ref) then ast.nestedMembers(p, declaring: ref.module, owner: ast.declName(p, ref: ref), from: r.modID, out: r.members)
+		none then _ = 0
+	end 'extended'
+	ast.nestedMembers(p, declaring: r.modID, owner: ast.extensionOwnerName(r.tree, xd: xd), from: r.modID, out: r.members)
+end 'enterExtensionAliases'
 
 // enterExtendedMembers brings the type parameters of the extended declaration into scope, and gives its field names.
 function enterExtendedMembers(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl, ref ast.DeclRef) returns BoolStrMap
@@ -1433,12 +1477,16 @@ function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ifd ast.Interfa
 	let tier = ast.visibilityOf(ifd.visibility)
 	let ifs = Surface.make(tier, noun: "interface", name: ifd.name.clone(), at: r.tree.startOf(ifd.id))
 	let outer = enterTypeParams(r, p: p, owner: ifd.name, s: ifs, params: ifd.typeParams, constraints: ast.ConstraintList.create(0), errs: errs)
+	resolveNestedAliases(r, p: p, owner: ifd.name, aliases: ifd.aliases, statics: ast.ConstDeclList.create(0), s: ifs, errs: errs)
 	resolveInterfaceList(r, p: p, s: ifs, interfaces: ifd.parents, position: "in its extends clause", errs: errs)
+	r.expandsMembers = true
 	for i in 0 upto ifd.methods.count() 'sigs'
 		let s = Surface.make(tier, noun: "function", name: "{ifd.name}.{ifd.methods[i].name}", at: r.tree.startOf(ifd.methods[i].id))
 		signature(r, p: p, s: s, params: ifd.methods[i].params, returnsRef: ifd.methods[i].returnsRef, throwsRef: ifd.methods[i].throwsRef, errs: errs)
 		refuseParamDefaults(r, params: ifd.methods[i].params, noun: "interface requirement", errs: errs)
 	end 'sigs'
+	r.expandsMembers = false
+	r.members = ast.DeclRefIndex.new()
 	r.typeParams = outer
 end 'resolveInterfaceDecl'
 

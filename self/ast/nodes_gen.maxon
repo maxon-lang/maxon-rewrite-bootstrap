@@ -320,11 +320,12 @@ export type ExtensionDecl
 	export var target as NodeID
 	export var conforms as diag.U32
 	export var whereList as ConstraintList
+	export var aliases as AliasDeclList
 	export var methods as FuncDeclList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns ExtensionDecl
-		return ExtensionDecl{id: id, visibility: "", isInt: false, target: 0 as NodeID, conforms: 0 as diag.U32, whereList: ConstraintList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+		return ExtensionDecl{id: id, visibility: "", isInt: false, target: 0 as NodeID, conforms: 0 as diag.U32, whereList: ConstraintList.create(0), aliases: AliasDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'ExtensionDecl'
 
@@ -640,11 +641,12 @@ export type InterfaceDecl
 	export var visibility as String
 	export var typeParams as TypeParamList
 	export var parents as diag.U32
+	export var aliases as AliasDeclList
 	export var methods as FuncSigList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns InterfaceDecl
-		return InterfaceDecl{id: id, name: "", visibility: "", typeParams: TypeParamList.create(0), parents: 0 as diag.U32, methods: FuncSigList.create(0), endRef: 0 as NodeID}
+		return InterfaceDecl{id: id, name: "", visibility: "", typeParams: TypeParamList.create(0), parents: 0 as diag.U32, aliases: AliasDeclList.create(0), methods: FuncSigList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'InterfaceDecl'
 

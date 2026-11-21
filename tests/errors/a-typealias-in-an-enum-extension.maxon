@@ -1,0 +1,17 @@
+enum Color
+	red
+end 'Color'
+
+extension Color
+	typealias Tint = int(0 to 3)
+
+	function tinted(tint Tint) returns ExitCode
+		return 1
+	end 'tinted'
+end 'Color'
+
+function main() returns ExitCode
+	return Color.red.tinted(2)
+end 'main'
+
+// expect-error: E2010 at 6:2

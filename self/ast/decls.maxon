@@ -241,6 +241,22 @@ end 'isVisible'
 
 export typealias DeclIndex = table.StringMap with DeclOrdinal
 
+export typealias DeclRefIndex = table.StringMap with DeclRef
+
+// NestedAlias is a typealias that the body of a type, or an extension, declares: its owner as that spells it, the name it
+// has there, and its place among the module's declarations.
+export type NestedAlias
+	export var owner as String
+	export var member as String
+	export var ordinal as DeclOrdinal
+
+	export static function make(consumes owner String, consumes member String, ordinal DeclOrdinal) returns NestedAlias
+		return NestedAlias{owner: owner, member: member, ordinal: ordinal}
+	end 'make'
+end 'NestedAlias'
+
+export typealias NestedAliasList = Array with NestedAlias
+
 export type FileSpan
 	export var path as String
 	export var start as diag.U32
@@ -266,12 +282,16 @@ export type Module
 	export var tree as Tree
 	export var decls as DeclList
 	export var names as DeclIndex
-	// extMethods and extConforms are what the module's extensions add to types, whichever module declares them.
+	// extMethods, extAliases and extConforms are what the module's extensions add to types, whichever module declares them.
 	export var extMethods as ExtMethodList
+	// nested are the typealiases that the module's type bodies and extensions declare, which a bare name finds in an extension of
+	// their owner.
+	export var nested as NestedAliasList
+	export var extAliases as ExtAliasList
 	export var extConforms as ExtConformList
 
 	export static function new(id diag.ModuleID, consumes path String, consumes text String, consumes files FileSpanList) returns Module
-		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), extMethods: ExtMethodList.create(0), extConforms: ExtConformList.create(0)}
+		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), extMethods: ExtMethodList.create(0), extAliases: ExtAliasList.create(0), extConforms: ExtConformList.create(0)}
 	end 'new'
 
 	export function display() returns String

@@ -620,10 +620,21 @@ function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates er
 		let dOff = p.modules[mIdx].decls[i].offset(p.modules[mIdx].tree)
 		match p.modules[mIdx].indexDecl(ord) 'dup'
 			some(prevOrd) then pushDuplicateDecl(p.modules[mIdx], dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
-			none then _ = 0
+			none then noteNestedAlias(p.modules[mIdx], dName: dName, ord: ord)
 		end 'dup'
 	end 'each'
 end 'buildModuleTable'
+
+// noteNestedAlias files a typealias that a type's body or an extension declares under its owner.
+function noteNestedAlias(mutates m ast.Module, dName String, ord ast.DeclOrdinal)
+	if m.decls[ord as Count].keyword() != "typealias" 'other'
+		return
+	end 'other'
+	match consumes ast.nestedAliasOwner(dName) 'owner'
+		some(owner) then m.nested.push(ast.NestedAlias.make(owner, member: ast.nestedAliasMember(dName), ordinal: ord))
+		none then _ = 0
+	end 'owner'
+end 'noteNestedAlias'
 
 function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
 	let testName = m.decls[ord as Count].testName()
@@ -634,7 +645,7 @@ function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, o
 		return
 	end 'tests'
 	if ast.isNestedAlias(dName) 'nested'
-		pushDuplicateNestedAlias(dName, dOff: dOff, modID: modID, errs: errs)
+		pushDuplicateNestedAlias(m, dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
 		return
 	end 'nested'
 	let aliasKeyword = "typealias"
@@ -645,13 +656,72 @@ function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, o
 	diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: diag.duplicateDefinition(dName, keyword: m.decls[prevOrd as Count].keyword()), module: modID, offset: dOff)
 end 'pushDuplicateDecl'
 
-// pushDuplicateNestedAlias reports a typealias that the body of its type declares a second time, at its name.
-function pushDuplicateNestedAlias(dName String, dOff diag.U32, modID diag.ModuleID, mutates errs diag.ErrorList)
+// pushDuplicateNestedAlias reports a typealias that the body of its type, or an extension of it, declares a second time. A
+// typealias that an extension declares is the one at fault where the other is in the body of the type, as it is the one that
+// adds a name that is taken; otherwise the later of the two is.
+function pushDuplicateNestedAlias(m ast.Module, dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
 	match consumes ast.nestedAliasOwner(dName) 'owner'
-		some(owner) then diag.pushSiteError(errs, code: diag.errDuplicateTypeAlias, message: diag.duplicateTypeAlias(ast.nestedAliasMember(dName), qualified: dName, declaredBy: "earlier in the body of `{owner}`"), module: modID, offset: dOff)
+		some(owner) then pushDuplicateMember(m, owner: owner, dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
 		none then panic("'{dName}' is not a nested typealias")
 	end 'owner'
 end 'pushDuplicateNestedAlias'
+
+function pushDuplicateMember(m ast.Module, owner String, dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
+	let inBody = declaredByBody(m, owner: owner, ord: ord)
+	let prevInBody = declaredByBody(m, owner: owner, ord: prevOrd)
+	var at = dOff
+	var declaredBy = "by an `extension` in {fileNameAt(m, offset: m.decls[prevOrd as Count].offset(m.tree))}"
+	if inBody and prevInBody 'bodies'
+		declaredBy = "earlier in the body of `{owner}`"
+	end 'bodies' else if inBody or prevInBody 'mixed'
+		declaredBy = "in the body of `{owner}`"
+		if inBody 'later'
+			at = m.decls[prevOrd as Count].offset(m.tree)
+		end 'later'
+	end 'mixed'
+	diag.pushSiteError(errs, code: diag.errDuplicateTypeAlias, message: diag.duplicateTypeAlias(ast.nestedAliasMember(dName), qualified: dName, declaredBy: declaredBy), module: modID, offset: at)
+end 'pushDuplicateMember'
+
+// declaredByBody is whether the typealias at ord is one that the body of the type owner declares, and not one of its
+// extensions.
+function declaredByBody(m ast.Module, owner String, ord ast.DeclOrdinal) returns bool
+	var id = 0 as ast.NodeID
+	match m.decls[ord as Count].clone() 'k'
+		aliasDecl(a) then id = a.id
+		funcDecl(_) then panic("'{owner}' declares a function where a typealias was declared")
+		constDecl(_) then panic("'{owner}' declares a constant where a typealias was declared")
+		typeDecl(_) then panic("'{owner}' declares a type where a typealias was declared")
+		enumDecl(_) then panic("'{owner}' declares an enum where a typealias was declared")
+		unionDecl(_) then panic("'{owner}' declares a union where a typealias was declared")
+		interfaceDecl(_) then panic("'{owner}' declares an interface where a typealias was declared")
+		extensionDecl(_) then panic("'{owner}' declares an extension where a typealias was declared")
+	end 'k'
+	match consumes m.names.get(owner) 'type'
+		some(typeOrd) then return ast.declaresAliasNode(m.decls[typeOrd as Count], id: id)
+		none then return false
+	end 'type'
+end 'declaredByBody'
+
+// fileNameAt is the name of the file of the module that holds the offset, without its directory.
+function fileNameAt(m ast.Module, offset diag.U32) returns String
+	for i in 0 upto m.files.count() 'each'
+		if offset >= m.files[i].start and offset < m.files[i].endOff 'hit'
+			return lastPathPart(m.files[i].path)
+		end 'hit'
+	end 'each'
+	return m.display()
+end 'fileNameAt'
+
+function lastPathPart(path String) returns String
+	var start = 0 as Count
+	for i in 0 upto path.byteLength() 'each'
+		let c = path.byteAt(i)
+		if c == slashByte or c == backslashByte 'separator'
+			start = try i + 1 otherwise i
+		end 'separator'
+	end 'each'
+	return path.sliceBytes(start, endPos: path.byteLength())
+end 'lastPathPart'
 
 function parseSingleModule(mutates p ast.Project, modIdx Count, memory SourceFiles, mutates errs diag.ErrorList)
 	let mPath = p.modules[modIdx].path.clone()
