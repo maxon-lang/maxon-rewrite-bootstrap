@@ -173,3 +173,8 @@ git worktree add --detach .claude/worktrees/<task> HEAD
   only merges edits on different lines.
 - In a Bash heredoc that feeds Python, write regex backslashes with care or use the Edit tool: `\d` and `\b` do not
   arrive as written.
+- A task that renames shared declarations (generated AST field names, token names, a module's exported API) lands
+  before tasks that write new code against those names start. Ports started on the old names each pay a rename
+  merge afterwards.
+- A patch that deletes a file the main tree has since modified fails `git apply --3way` as a whole: apply with
+  `--exclude=<file>` for each such file, then `git rm` them.
