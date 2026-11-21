@@ -1,0 +1,206 @@
+// The analyses of opt on functions built by hand, each kept by the verifier: the reverse postorder, the immediate
+// dominators, the dominance frontiers, the depth of loop nesting and the use counts, each written as a line of numbers
+// for its segments (or registers), in order.
+
+function countsText(a Array with Count) returns String
+	var text = ""
+	for i in 0 upto a.count() 'each'
+		if i > 0 'gap'
+			text = "{text} "
+		end 'gap'
+		text = "{text}{a[i]}"
+	end 'each'
+	return text
+end 'countsText'
+
+// idomText has the immediate dominator of each segment, - for one the entry does not reach.
+function idomText(flow ir.Flow) returns String
+	var text = ""
+	for s in 0 upto flow.segCount() 'each'
+		if s > 0 'gap'
+			text = "{text} "
+		end 'gap'
+		if flow.reached[s] 'reached'
+			text = "{text}{flow.idom[s]}"
+		end 'reached' else 'dead'
+			text = "{text}-"
+		end 'dead'
+	end 'each'
+	return text
+end 'idomText'
+
+// frontText has the dominance frontier of each segment, its members joined by commas, - for an empty one.
+function frontText(a opt.Analysis) returns String
+	var text = ""
+	for s in 0 upto a.flow.segCount() 'each'
+		if s > 0 'gap'
+			text = "{text} "
+		end 'gap'
+		let first = a.frontStart[s]
+		let stop = a.frontStart[s + 1]
+		if first == stop 'empty'
+			text = "{text}-"
+		end 'empty'
+		for e in first upto stop 'members'
+			if e > first 'comma'
+				text = "{text},"
+			end 'comma'
+			text = "{text}{a.front[e]}"
+		end 'members'
+	end 'each'
+	return text
+end 'frontText'
+
+function expectText(label String, what String, got String, want String)
+	if got != want 'differs'
+		panic("{label}: the {what} is '{got}', not '{want}'")
+	end 'differs'
+end 'expectText'
+
+// expectAnalysis requires the verifier to keep the function and its analyses to come out as written.
+function expectAnalysis(label String, p ast.Project, f ir.IrFunction, rpo String, idom String, front String, depth String, counts String)
+	let problems = ir.verifyIr(p, f: f)
+	if problems.count() > 0 'refused'
+		panic("{label}: the verifier refuses it: {problems[0]}")
+	end 'refused'
+	var a = opt.Analysis.new()
+	a.analyze(f)
+	expectText(label, what: "reverse postorder", got: countsText(a.flow.order), want: rpo)
+	expectText(label, what: "immediate dominators", got: idomText(a.flow), want: idom)
+	expectText(label, what: "dominance frontiers", got: frontText(a), want: front)
+	expectText(label, what: "loop depths", got: countsText(a.loopDepth), want: depth)
+	expectText(label, what: "use counts", got: countsText(a.useCount), want: counts)
+	// A second function on the same analysis finds the same, so nothing of the first is left in it.
+	a.analyze(f)
+	expectText(label, what: "reverse postorder again", got: countsText(a.flow.order), want: rpo)
+	expectText(label, what: "dominance frontiers again", got: frontText(a), want: front)
+	expectText(label, what: "loop depths again", got: countsText(a.loopDepth), want: depth)
+end 'expectAnalysis'
+
+function testAnalysisOfADiamond()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let left = b.block()
+	let right = b.block()
+	let join = b.block()
+	let c = b.konst(entry, value: 1)
+	b.b.terminate(entry, t: ir.newBranch(c, ifTrue: left, ifFalse: right))
+	b.b.terminate(left, t: ir.newJump(join))
+	b.b.terminate(right, t: ir.newJump(join))
+	b.b.terminate(join, t: ir.newRet(c))
+	expectAnalysis("diamond", p: p, f: b.b.finish(), rpo: "0 2 1 3", idom: "0 0 0 0", front: "- 3 3 -", depth: "0 0 0 0", counts: "2")
+end 'testAnalysisOfADiamond'
+
+function testAnalysisOfNestedLoops()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let outer = b.block()
+	let inner = b.block()
+	let body = b.block()
+	let latch = b.block()
+	let exit = b.block()
+	let x = b.konst(entry, value: 0)
+	b.b.terminate(entry, t: ir.newJump(outer))
+	let c = b.cmp(outer, op: ir.CmpOp.cmpLt, left: x, right: x)
+	b.b.terminate(outer, t: ir.newBranch(c, ifTrue: inner, ifFalse: exit))
+	b.b.terminate(inner, t: ir.newBranch(c, ifTrue: body, ifFalse: latch))
+	b.b.terminate(body, t: ir.newJump(inner))
+	b.b.terminate(latch, t: ir.newJump(outer))
+	b.b.terminate(exit, t: ir.newRet(x))
+	expectAnalysis("nested loops", p: p, f: b.b.finish(), rpo: "0 1 5 2 4 3", idom: "0 0 1 2 2 1", front: "- 1 1,2 2 1 -", depth: "0 1 2 2 1 0", counts: "3 2")
+end 'testAnalysisOfNestedLoops'
+
+// A loop with a continue has two back edges to its header, and is one loop.
+function testAnalysisOfALoopWithTwoBackEdges()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let header = b.block()
+	let body = b.block()
+	let rest = b.block()
+	let exit = b.block()
+	let c = b.konst(entry, value: 1)
+	b.b.terminate(entry, t: ir.newJump(header))
+	b.b.terminate(header, t: ir.newBranch(c, ifTrue: body, ifFalse: exit))
+	b.b.terminate(body, t: ir.newBranch(c, ifTrue: header, ifFalse: rest))
+	b.b.terminate(rest, t: ir.newJump(header))
+	b.b.terminate(exit, t: ir.newRet(c))
+	expectAnalysis("two back edges", p: p, f: b.b.finish(), rpo: "0 1 4 2 3", idom: "0 0 1 2 1", front: "- 1 1 1 -", depth: "0 1 1 1 0", counts: "3")
+end 'testAnalysisOfALoopWithTwoBackEdges'
+
+// A loop with a break in the middle of its body is left from two places.
+function testAnalysisOfALoopExitedFromTheMiddle()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let header = b.block()
+	let body = b.block()
+	let rest = b.block()
+	let exit = b.block()
+	let c = b.konst(entry, value: 1)
+	b.b.terminate(entry, t: ir.newJump(header))
+	b.b.terminate(header, t: ir.newBranch(c, ifTrue: body, ifFalse: exit))
+	b.b.terminate(body, t: ir.newBranch(c, ifTrue: exit, ifFalse: rest))
+	b.b.terminate(rest, t: ir.newJump(header))
+	b.b.terminate(exit, t: ir.newRet(c))
+	expectAnalysis("loop exited from the middle", p: p, f: b.b.finish(), rpo: "0 1 2 3 4", idom: "0 0 1 2 1", front: "- 1 1,4 1 -", depth: "0 1 1 1 0", counts: "3")
+end 'testAnalysisOfALoopExitedFromTheMiddle'
+
+function testAnalysisOfASwitch()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let one = b.block()
+	let two = b.block()
+	let other = b.block()
+	let join = b.block()
+	let v = b.konst(entry, value: 2)
+	var values = ir.WordList.create(0)
+	values.push(1)
+	values.push(2)
+	var targets = ir.BlockIDList.create(0)
+	targets.push(one)
+	targets.push(two)
+	let t = b.b.switch(v, values: values, targets: targets, def: other)
+	b.b.terminate(entry, t: t)
+	b.b.terminate(one, t: ir.newJump(join))
+	b.b.terminate(two, t: ir.newJump(join))
+	b.b.terminate(other, t: ir.newJump(join))
+	b.b.terminate(join, t: ir.newRet(v))
+	expectAnalysis("switch", p: p, f: b.b.finish(), rpo: "0 3 2 1 4", idom: "0 0 0 0 0", front: "- 4 4 4 -", depth: "0 0 0 0 0", counts: "2")
+end 'testAnalysisOfASwitch'
+
+// Each instruction that can fail ends a segment, with an edge to its failure block and one to the rest of its block, and
+// its result is defined in the next segment.
+function testAnalysisOfFailureEdges()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let first = b.block()
+	let second = b.block()
+	let done = b.block()
+	let x = b.konst(entry, value: 1)
+	let y = b.bin(entry, op: ir.BinOp.binAdd, left: x, right: x, fail: first)
+	let z = b.bin(entry, op: ir.BinOp.binAdd, left: y, right: x, fail: second)
+	b.b.terminate(entry, t: ir.newJump(done))
+	b.b.terminate(first, t: ir.newRet(x))
+	b.b.terminate(second, t: ir.newRet(y))
+	b.b.terminate(done, t: ir.newRet(z))
+	let f = b.b.finish()
+	expectAnalysis("failure edges", p: p, f: f, rpo: "0 1 2 5 4 3", idom: "0 0 1 0 1 2", front: "- - - - - -", depth: "0 0 0 0 0 0", counts: "4 2 1")
+	var flow = ir.Flow.new()
+	flow.build(f)
+	expectText("failure edges", what: "first segment of each block", got: countsText(flow.segBase), want: "0 3 4 5 6")
+	expectText("failure edges", what: "segment of each definition", got: countsText(flow.defs.seg), want: "0 1 2")
+end 'testAnalysisOfFailureEdges'
+
+function testAnalyses()
+	testAnalysisOfADiamond()
+	testAnalysisOfNestedLoops()
+	testAnalysisOfALoopWithTwoBackEdges()
+	testAnalysisOfALoopExitedFromTheMiddle()
+	testAnalysisOfASwitch()
+	testAnalysisOfFailureEdges()
+end 'testAnalyses'

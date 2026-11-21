@@ -1,11 +1,5 @@
 // What the matcher of the rewrite rules (rewrite_gen.maxon, from internal/rulegen/generic.rules) reads and writes: the
-// instruction that defines each register, and what an instruction is rewritten to.
-
-// DefList is, for each register of a function, the index in its instrs of the instruction that defines it, or noDef
-// for a register that no instruction defines.
-export typealias DefList = Array with ir.Index
-
-export let noDef = -1 as ir.Index
+// instruction that defines each register (ir.Defs, of the function's ir.Flow), and what an instruction is rewritten to.
 
 // RewriteKind is what a rule rewrites an instruction to.
 export enum RewriteKind
@@ -32,31 +26,16 @@ function regIndex(r ir.Reg) returns Count
 	return try r as Count otherwise panic("opt: a register that does not exist is matched")
 end 'regIndex'
 
-// defsOf is the DefList of a function.
-export function defsOf(f ir.IrFunction) returns DefList
-	var defs = DefList.create(0)
-	for r in 0 upto f.regs.count() 'regs'
-		defs.push(noDef)
-	end 'regs'
-	for i in 0 upto f.instrs.count() 'instrs'
-		match ir.instrDef(f.instrs[i]) 'def'
-			some(r) then defs[regIndex(r)] = ir.indexOf(i)
-			none then _ = 0
-		end 'def'
-	end 'instrs'
-	return defs
-end 'defsOf'
-
 // definedBy is whether an instruction of the opcode op defines the register r.
-export function definedBy(f ir.IrFunction, defs DefList, r ir.Reg, op ir.Opcode) returns bool
-	let d = defs[regIndex(r)]
-	if d == noDef 'none'
+export function definedBy(f ir.IrFunction, defs ir.Defs, r ir.Reg, op ir.Opcode) returns bool
+	let i = regIndex(r)
+	if not defs.defined[i] or defs.instr[i] == ir.noDef 'none'
 		return false
 	end 'none'
 	return f.instrs[defOf(defs, r: r)].op == op
 end 'definedBy'
 
 // defOf is the index of the instruction that defines the register r, which one does.
-export function defOf(defs DefList, r ir.Reg) returns Count
-	return try defs[regIndex(r)] as Count otherwise panic("opt: a register that no instruction defines is matched")
+export function defOf(defs ir.Defs, r ir.Reg) returns Count
+	return try defs.instr[regIndex(r)] as Count otherwise panic("opt: a register that no instruction defines is matched")
 end 'defOf'

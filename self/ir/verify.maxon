@@ -3,8 +3,7 @@
 // arguments, of the kinds, as its target has parameters, and the entry has none; and an edge that leaves its block before
 // its end (an instruction's `else`) passes none and is the only edge into the block it goes to.
 //
-// Dominance is over segments: a block is cut after each instruction that can fail, since its failure edge leaves from
-// there, and the result of that instruction is defined only where it did not fail, at the start of the next segment.
+// Dominance is over the segments of Flow (flow.maxon), the blocks cut after each instruction that can fail.
 
 // verifyIr is what is wrong with the IR of a function and of its bodies, a line for each rule it breaks.
 export function verifyIr(p ast.Project, f IrFunction) returns ast.StringList
@@ -30,40 +29,15 @@ function regIndex(r Reg) returns Count
 	return try r as Count otherwise panic("ir: a register that is not one")
 end 'regIndex'
 
-// Verifier checks one function. The segments of block b are segBase[b] up to segBase[b + 1]; a register's definition is
-// in the segment defSeg, at the place defKey: 0 for a block parameter, k + 1 for the instruction instrs[k], and a use
-// in that segment must come at a later place, the terminator's being endAt + 1.
+// Verifier checks one function over its Flow.
 type Verifier
 	var name as String
 	var problems as ast.StringList
-	var segBase as Array with Count
-	var defCount as Array with Count
-	var defSeg as Array with Count
-	var defKey as Array with Count
-	var defBlock as Array with Count
-	// The edges between segments, and the same edges by target: succ[succStart[s]] up to succ[succStart[s + 1]] are where
-	// segment s goes, and pred likewise where segment s is entered from.
-	var edgeFrom as Array with Count
-	var edgeTo as Array with Count
-	var predStart as Array with Count
-	var pred as Array with Count
-	var succStart as Array with Count
-	var succ as Array with Count
-	// predCount is how many edges enter each block, the entry's from the function's caller too; failFrom and failTo are
-	// the edges that leave a block before its end.
-	var predCount as Array with Count
-	var failFrom as Array with Count
-	var failTo as Array with Count
-	// reached is whether the entry reaches a segment, rpo its number in reverse postorder, and idom its immediate dominator
-	// once known says it has one.
-	var reached as Array with bool
-	var rpo as Array with Count
-	var order as Array with Count
-	var idom as Array with Count
-	var known as Array with bool
+	var flow as Flow
+	var scratch as RegList
 
 	static function new(consumes name String) returns Verifier
-		return Verifier{name: name, problems: ast.StringList.create(0), segBase: Array.create(0), defCount: Array.create(0), defSeg: Array.create(0), defKey: Array.create(0), defBlock: Array.create(0), edgeFrom: Array.create(0), edgeTo: Array.create(0), predStart: Array.create(0), pred: Array.create(0), succStart: Array.create(0), succ: Array.create(0), predCount: Array.create(0), failFrom: Array.create(0), failTo: Array.create(0), reached: Array.create(0), rpo: Array.create(0), order: Array.create(0), idom: Array.create(0), known: Array.create(0)}
+		return Verifier{name: name, problems: ast.StringList.create(0), flow: Flow.new(), scratch: RegList.create(0)}
 	end 'new'
 
 	function problem(mutates self, text String)
@@ -78,10 +52,8 @@ type Verifier
 		if not self.checkShape(f) 'malformed'
 			return
 		end 'malformed'
-		self.segments(f)
-		self.definitions(f)
-		self.edges(f)
-		self.dominators()
+		flow.build(f)
+		self.definedOnce()
 		self.checkReads(f)
 		self.midBlockEdges()
 	end 'run'
@@ -185,289 +157,80 @@ type Verifier
 		return ok
 	end 'edgeArgsOk'
 
-	// segments numbers the segments of every block.
-	function segments(mutates self, f IrFunction)
-		segBase = Array.create(0)
-		var total = 0 as Count
-		for b in 0 upto f.blocks.count() 'blocks'
-			segBase.push(total)
-			total = plusOne(total)
-			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
-				if failTarget(f.instrs[k]) != noBlock 'fails'
-					total = plusOne(total)
-				end 'fails'
-			end 'instrs'
-		end 'blocks'
-		segBase.push(total)
-	end 'segments'
-
-	function define(mutates self, r Reg, seg Count, key Count, block Count)
-		let i = regIndex(r)
-		if defCount[i] > 0 'twice'
-			self.problem("%{r} is defined in b{defBlock[i]} and again in b{block}: a register is defined once")
-		end 'twice'
-		defCount[i] = plusOne(defCount[i])
-		defSeg[i] = seg
-		defKey[i] = key
-		defBlock[i] = block
-	end 'define'
-
-	// definitions finds where each register is defined.
-	function definitions(mutates self, f IrFunction)
-		let m = f.regs.count()
-		defCount = Array.create(m)
-		defSeg = Array.create(m)
-		defKey = Array.create(m)
-		defBlock = Array.create(m)
-		for b in 0 upto f.blocks.count() 'blocks'
-			var seg = segBase[b]
-			for i in 0 upto f.blocks[b].paramCount 'params'
-				self.define(f.blockParam(b, i: i), seg: seg, key: 0, block: b)
-			end 'params'
-			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
-				if failTarget(f.instrs[k]) != noBlock 'fails'
-					seg = plusOne(seg)
-				end 'fails'
-				var writes = RegList.create(0)
-				instrWrites(f.instrs[k], out: writes)
-				for w in 0 upto writes.count() 'writes'
-					self.define(writes[w], seg: seg, key: plusOne(k), block: b)
-				end 'writes'
-			end 'instrs'
-		end 'blocks'
-	end 'definitions'
-
-	function edge(mutates self, source Count, dest Count)
-		edgeFrom.push(source)
-		edgeTo.push(dest)
-	end 'edge'
-
-	// edges lists the edges between segments, by source and by target, and counts the edges into each block.
-	function edges(mutates self, f IrFunction)
-		let n = f.blocks.count()
-		predCount = Array.create(n)
-		predCount[0] = 1
-		for b in 0 upto n 'blocks'
-			var seg = segBase[b]
-			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
-				let fail = failTarget(f.instrs[k])
-				if fail != noBlock 'fails'
-					let target = blockIndex(fail)
-					let entry = segBase[target]
-					self.edge(seg, dest: entry)
-					predCount[target] = plusOne(predCount[target])
-					failFrom.push(b)
-					failTo.push(target)
-					self.edge(seg, dest: plusOne(seg))
-					seg = plusOne(seg)
-				end 'fails'
-			end 'instrs'
-			var next = SuccessorVisitor.new()
-			visitTerm(next, f: f, t: f.blocks[b].term)
-			for e in 0 upto next.out.count() 'edges'
-				let target = blockIndex(next.out[e])
-				let entry = segBase[target]
-				self.edge(seg, dest: entry)
-				predCount[target] = plusOne(predCount[target])
-			end 'edges'
-		end 'blocks'
-		let segs = segBase[n]
-		succStart = csrStarts(edgeFrom, nodes: segs)
-		succ = csrFill(edgeFrom, values: edgeTo, starts: succStart)
-		predStart = csrStarts(edgeTo, nodes: segs)
-		pred = csrFill(edgeTo, values: edgeFrom, starts: predStart)
-	end 'edges'
-
-	// dominators numbers the segments the entry reaches in reverse postorder and finds the immediate dominator of each,
-	// by Cooper, Harvey and Kennedy's iteration.
-	function dominators(mutates self)
-		let segs = try succStart.count() - 1 otherwise panic("ir: a function with no segments")
-		reached = Array.create(segs)
-		rpo = Array.create(segs)
-		idom = Array.create(segs)
-		known = Array.create(segs)
-		order = reversePostorder(succStart, succ: succ, nodes: segs)
-		for i in 0 upto order.count() 'number'
-			reached[order[i]] = true
-			rpo[order[i]] = i
-		end 'number'
-		known[0] = true
-		var changed = true
-		while changed 'fixpoint'
-			changed = false
-			for i in 1 upto order.count() 'each'
-				let s = order[i]
-				var found = false
-				var best = 0 as Count
-				for e in predStart[s] upto predStart[plusOne(s)] 'preds'
-					let q = pred[e]
-					if not known[q] 'unknown'
-						continue 'preds'
-					end 'unknown'
-					if not found 'first'
-						best = q
-						found = true
-					end 'first' else 'meet'
-						best = self.intersect(q, b: best)
-					end 'meet'
-				end 'preds'
-				if found and (not known[s] or idom[s] != best) 'moved'
-					idom[s] = best
-					known[s] = true
-					changed = true
-				end 'moved'
-			end 'each'
-		end 'fixpoint'
-	end 'dominators'
-
-	function intersect(a Count, b Count) returns Count
-		var x = a
-		var y = b
-		while x != y 'meet'
-			while rpo[x] > rpo[y] 'upX'
-				x = idom[x]
-			end 'upX'
-			while rpo[y] > rpo[x] 'upY'
-				y = idom[y]
-			end 'upY'
-		end 'meet'
-		return x
-	end 'intersect'
-
-	// dominates is whether every path from the entry to the segment b passes through the segment a, both reached.
-	function dominates(a Count, b Count) returns bool
-		var x = b
-		while rpo[x] > rpo[a] 'up'
-			x = idom[x]
-		end 'up'
-		return x == a
-	end 'dominates'
+	// definedOnce checks that no register is defined twice.
+	function definedOnce(mutates self)
+		for i in 0 upto flow.defs.againReg.count() 'each'
+			let r = flow.defs.againReg[i]
+			let first = flow.segBlock[flow.defs.seg[regIndex(r)]]
+			let again = flow.segBlock[flow.defs.againSeg[i]]
+			self.problem("%{r} is defined in b{first} and again in b{again}: a register is defined once")
+		end 'each'
+	end 'definedOnce'
 
 	function checkRead(mutates self, r Reg, seg Count, key Count, block Count)
 		let i = regIndex(r)
-		if defCount[i] == 0 'undefined'
+		if not flow.defs.defined[i] 'undefined'
 			self.problem("%{r} is used in b{block} and defined nowhere")
 			return
 		end 'undefined'
-		if defSeg[i] == seg 'sameSegment'
-			if defKey[i] >= key 'early'
+		let home = flow.defs.seg[i]
+		if home == seg 'sameSegment'
+			if flow.defs.place(r) >= key 'early'
 				self.problem("%{r} is used in b{block} before its definition")
 			end 'early'
 			return
 		end 'sameSegment'
-		if not reached[defSeg[i]] or not self.dominates(defSeg[i], b: seg) 'undominated'
-			self.problem("%{r} is used in b{block}, which its definition in b{defBlock[i]} does not dominate")
+		if not flow.reached[home] or not flow.dominates(home, b: seg) 'undominated'
+			self.problem("%{r} is used in b{block}, which its definition in b{flow.segBlock[home]} does not dominate")
 		end 'undominated'
 	end 'checkRead'
 
 	// checkReads checks that the definition of each register that a reached instruction or terminator reads comes before it on
 	// every path.
 	function checkReads(mutates self, f IrFunction)
-		for b in 0 upto f.blocks.count() 'blocks'
-			var seg = segBase[b]
-			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
-				if reached[seg] 'live'
-					var reads = RegList.create(0)
-					instrReads(f, x: f.instrs[k], out: reads)
-					for r in 0 upto reads.count() 'reads'
-						self.checkRead(reads[r], seg: seg, key: plusOne(k), block: b)
-					end 'reads'
-				end 'live'
-				if failTarget(f.instrs[k]) != noBlock 'fails'
-					seg = plusOne(seg)
-				end 'fails'
-			end 'instrs'
-			if reached[seg] 'liveTerm'
-				var reads = RegList.create(0)
-				termReads(f, t: f.blocks[b].term, out: reads)
-				for r in 0 upto reads.count() 'reads'
-					self.checkRead(reads[r], seg: seg, key: plusOne(f.blocks[b].endAt), block: b)
+		for s in 0 upto flow.segCount() 'segs'
+			if not flow.reached[s] 'dead'
+				continue 'segs'
+			end 'dead'
+			let b = flow.segBlock[s]
+			for k in flow.segFirst[s] upto flow.segEnd[s] 'instrs'
+				scratch.clear()
+				instrReads(f, x: f.instrs[k], out: scratch)
+				for r in 0 upto scratch.count() 'reads'
+					let read = scratch[r]
+					self.checkRead(read, seg: s, key: plusOne(k), block: b)
 				end 'reads'
-			end 'liveTerm'
-		end 'blocks'
+			end 'instrs'
+			if not flow.endsInFailure(s) 'term'
+				scratch.clear()
+				termReads(f, t: f.blocks[b].term, out: scratch)
+				for r in 0 upto scratch.count() 'reads'
+					let read = scratch[r]
+					self.checkRead(read, seg: s, key: plusOne(f.blocks[b].endAt), block: b)
+				end 'reads'
+			end 'term'
+		end 'segs'
 	end 'checkReads'
 
 	// midBlockEdges checks that the block each failure edge goes to has that edge as its only one in, which keeps what is
-	// defined there a matter of where in its block the instruction is.
+	// defined there a matter of where in its block the instruction is. The entry is entered from the function's caller too.
 	function midBlockEdges(mutates self)
 		var reported as Array with bool
-		reported = Array.create(predCount.count())
-		for i in 0 upto failTo.count() 'each'
-			let target = failTo[i]
-			if predCount[target] != 1 and not reported[target] 'shared'
+		reported = Array.create(flow.segCount())
+		for s in 0 upto flow.segCount() 'segs'
+			if not flow.endsInFailure(s) 'term'
+				continue 'segs'
+			end 'term'
+			let target = flow.succ[flow.succStart[s]]
+			let edgesIn = try flow.predStart[plusOne(target)] - flow.predStart[target] otherwise panic("ir: edges out of order")
+			var entering = edgesIn as Count
+			if target == 0 'entry'
+				entering = plusOne(entering)
+			end 'entry'
+			if entering != 1 and not reported[target] 'shared'
 				reported[target] = true
-				self.problem("b{target}, where an instruction of b{failFrom[i]} fails to, has {predCount[target]} edges in: a block that an instruction's failure goes to has that edge as its only one")
+				self.problem("b{flow.segBlock[target]}, where an instruction of b{flow.segBlock[s]} fails to, has {entering} edges in: a block that an instruction's failure goes to has that edge as its only one")
 			end 'shared'
-		end 'each'
+		end 'segs'
 	end 'midBlockEdges'
 end 'Verifier'
-
-// csrStarts are where the entries of each node start when the entries keyed by keys are grouped by node, with the total
-// at the end.
-function csrStarts(keys Array with Count, nodes Count) returns Array with Count
-	var starts as Array with Count
-	starts = Array.create(plusOne(nodes))
-	for i in 0 upto keys.count() 'count'
-		let at = plusOne(keys[i])
-		starts[at] = plusOne(starts[at])
-	end 'count'
-	for s in 0 upto nodes 'sum'
-		starts[s + 1] = try starts[s + 1] + starts[s] otherwise panic("ir: more edges than memory")
-	end 'sum'
-	return starts
-end 'csrStarts'
-
-// csrFill groups values by the node in keys of each, in the order they come, at the places csrStarts gave.
-function csrFill(keys Array with Count, values Array with Count, starts Array with Count) returns Array with Count
-	var out as Array with Count
-	out = Array.create(keys.count())
-	var fill = starts.clone()
-	for i in 0 upto keys.count() 'each'
-		let k = keys[i]
-		out[fill[k]] = values[i]
-		fill[k] = plusOne(fill[k])
-	end 'each'
-	return out
-end 'csrFill'
-
-// reversePostorder lists the nodes that node 0 reaches, each before its successors but along a back edge, by a depth-first
-// walk that takes the edges of a node in their order.
-function reversePostorder(starts Array with Count, succ Array with Count, nodes Count) returns Array with Count
-	var seen as Array with bool
-	seen = Array.create(nodes)
-	var post as Array with Count
-	post = Array.create(0)
-	var stack as Array with Count
-	stack = Array.create(0)
-	var cursor as Array with Count
-	cursor = Array.create(0)
-	stack.push(0)
-	cursor.push(starts[0])
-	seen[0] = true
-	while stack.count() > 0 'walk'
-		let top = try stack.count() - 1 otherwise panic("ir: an empty walk")
-		let node = stack[top]
-		let at = cursor[top]
-		if at < starts[plusOne(node)] 'more'
-			cursor[top] = plusOne(at)
-			let next = succ[at]
-			if not seen[next] 'unseen'
-				seen[next] = true
-				stack.push(next)
-				cursor.push(starts[next])
-			end 'unseen'
-		end 'more' else 'done'
-			post.push(node)
-			_ = try stack.pop() otherwise panic("ir: an empty walk")
-			_ = try cursor.pop() otherwise panic("ir: an empty walk")
-		end 'done'
-	end 'walk'
-	var order as Array with Count
-	order = Array.create(0)
-	var i = post.count()
-	while i > 0 'reverse'
-		i = try i - 1 otherwise panic("ir: an empty walk")
-		order.push(post[i])
-	end 'reverse'
-	return order
-end 'reversePostorder'

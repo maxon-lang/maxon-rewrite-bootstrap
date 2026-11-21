@@ -1,0 +1,351 @@
+// The control flow of a function, which the verifier holds the IR to and the optimizer's analyses stand on.
+//
+// The graph is over segments, not blocks: a block is cut after each instruction that can fail, since its failure edge
+// leaves from there and its result is defined only where it did not fail. A segment that ends in such an instruction
+// has two edges out, first to the block its failure goes to and then to the next segment of its block, and that
+// instruction's result is defined at the start of the next segment; the last segment of a block ends with the block's
+// terminator and has its edges, in their order. Segment 0 is the entry's first. A block is entered at its first
+// segment, segBase[b], and the failure edges into a block are its only edges in (the verifier's last rule), so every
+// segment but a block's first has one edge in.
+
+// noDef is the instruction of a register that no instruction defines: a block parameter, or a register defined nowhere.
+export let noDef = -1 as Index
+
+// Defs is where each register of a function is defined. defined is whether it has a definition, seg the segment of its
+// first, and instr the index in instrs of that instruction, or noDef for a block parameter. againReg and againSeg are each
+// definition after a register's first, which IR that keeps the verifier's rules has none of.
+export type Defs
+	export var defined as Array with bool
+	export var seg as Array with Count
+	export var instr as Array with Index
+	export var againReg as RegList
+	export var againSeg as Array with Count
+
+	export static function new() returns Defs
+		return Defs{defined: Array.create(0), seg: Array.create(0), instr: Array.create(0), againReg: RegList.create(0), againSeg: Array.create(0)}
+	end 'new'
+
+	function reset(mutates self, regs Count)
+		resetFlags(defined, n: regs)
+		resetCounts(seg, n: regs)
+		resetIndexes(instr, n: regs)
+		againReg.clear()
+		againSeg.clear()
+	end 'reset'
+
+	function define(mutates self, r Reg, home Count, at Index)
+		let i = regIndex(r)
+		if defined[i] 'again'
+			againReg.push(r)
+			againSeg.push(home)
+			return
+		end 'again'
+		defined[i] = true
+		seg[i] = home
+		instr[i] = at
+	end 'define'
+
+	// place is where in its segment a register is defined: 0 for a block parameter, k + 1 for the instruction instrs[k].
+	export function place(r Reg) returns Count
+		let at = instr[regIndex(r)]
+		if at == noDef 'param'
+			return 0
+		end 'param'
+		return plusOne(try at as Count otherwise panic("ir: a definition before the instructions"))
+	end 'place'
+end 'Defs'
+
+// Flow is the segments of a function, where each register is defined, the edges between the segments, the reverse
+// postorder and the immediate dominators. It is built for one function at a time and reused for the next, so its arrays
+// keep their capacity; build assumes the IR's shape is whole (every block, register and argument it names is there),
+// which the verifier checks first.
+export type Flow
+	// The segments of block b are segBase[b] up to segBase[b + 1], with the total at the end; segBlock is the block of
+	// each segment, and segment s holds instrs[segFirst[s]] up to instrs[segEnd[s]].
+	export var segBase as Array with Count
+	export var segBlock as Array with Count
+	export var segFirst as Array with Count
+	export var segEnd as Array with Count
+	export var defs as Defs
+	// The edges, by source and by target: succ[succStart[s]] up to succ[succStart[s + 1]] are where segment s goes, and
+	// pred[predStart[s]] up to pred[predStart[s + 1]] where it is entered from.
+	export var succStart as Array with Count
+	export var succ as Array with Count
+	export var predStart as Array with Count
+	export var pred as Array with Count
+	// order is the segments the entry reaches in reverse postorder, rpo the number of each in it, reached whether the
+	// entry reaches it, and idom the immediate dominator of each reached segment (the entry's is itself).
+	export var order as Array with Count
+	export var rpo as Array with Count
+	export var reached as Array with bool
+	export var idom as Array with Count
+	// The retreating edges of the walk that numbers the segments, retreatFrom[k] to retreatTo[k], in the order it finds
+	// them: in a reducible graph, the back edges of its loops.
+	export var retreatFrom as Array with Count
+	export var retreatTo as Array with Count
+	var edgeFrom as Array with Count
+	var edgeTo as Array with Count
+	var stack as Array with Count
+	var cursor as Array with Count
+	var open as Array with bool
+	var solved as Array with bool
+	var regs as RegList
+	var successors as SuccessorVisitor
+
+	export static function new() returns Flow
+		return Flow{segBase: Array.create(0), segBlock: Array.create(0), segFirst: Array.create(0), segEnd: Array.create(0), defs: Defs.new(), succStart: Array.create(0), succ: Array.create(0), predStart: Array.create(0), pred: Array.create(0), order: Array.create(0), rpo: Array.create(0), reached: Array.create(0), idom: Array.create(0), retreatFrom: Array.create(0), retreatTo: Array.create(0), edgeFrom: Array.create(0), edgeTo: Array.create(0), stack: Array.create(0), cursor: Array.create(0), open: Array.create(0), solved: Array.create(0), regs: RegList.create(0), successors: SuccessorVisitor.new()}
+	end 'new'
+
+	// build finds the flow of the function f, which has a block.
+	export function build(mutates self, f IrFunction)
+		self.segments(f)
+		self.definitions(f)
+		self.edges(f)
+		self.reversePostorder()
+		self.solveImmediateDominators()
+	end 'build'
+
+	export function segCount() returns Count
+		return segBlock.count()
+	end 'segCount'
+
+	// endsInFailure is whether the segment s ends in an instruction that can fail rather than in its block's terminator.
+	export function endsInFailure(s Count) returns bool
+		return plusOne(s) < segBase[plusOne(segBlock[s])]
+	end 'endsInFailure'
+
+	function segment(mutates self, block Count, first Count, stop Count)
+		segBlock.push(block)
+		segFirst.push(first)
+		segEnd.push(stop)
+	end 'segment'
+
+	function segments(mutates self, f IrFunction)
+		segBase.clear()
+		segBlock.clear()
+		segFirst.clear()
+		segEnd.clear()
+		for b in 0 upto f.blocks.count() 'blocks'
+			segBase.push(segBlock.count())
+			var start = f.blocks[b].first
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				if failTarget(f.instrs[k]) != noBlock 'fails'
+					self.segment(b, first: start, stop: plusOne(k))
+					start = plusOne(k)
+				end 'fails'
+			end 'instrs'
+			self.segment(b, first: start, stop: f.blocks[b].endAt)
+		end 'blocks'
+		segBase.push(segBlock.count())
+	end 'segments'
+
+	function definitions(mutates self, f IrFunction)
+		defs.reset(f.regs.count())
+		for b in 0 upto f.blocks.count() 'blocks'
+			let entry = segBase[b]
+			for i in 0 upto f.blocks[b].paramCount 'params'
+				defs.define(f.blockParam(b, i: i), home: entry, at: noDef)
+			end 'params'
+		end 'blocks'
+		for s in 0 upto self.segCount() 'segs'
+			for k in segFirst[s] upto segEnd[s] 'instrs'
+				var home = s
+				if failTarget(f.instrs[k]) != noBlock 'fails'
+					home = plusOne(s)
+				end 'fails'
+				regs.clear()
+				instrWrites(f.instrs[k], out: regs)
+				for w in 0 upto regs.count() 'writes'
+					let r = regs[w]
+					defs.define(r, home: home, at: indexOf(k))
+				end 'writes'
+			end 'instrs'
+		end 'segs'
+	end 'definitions'
+
+	function edge(mutates self, source Count, dest Count)
+		edgeFrom.push(source)
+		edgeTo.push(dest)
+	end 'edge'
+
+	function edges(mutates self, f IrFunction)
+		edgeFrom.clear()
+		edgeTo.clear()
+		for s in 0 upto self.segCount() 'segs'
+			let b = segBlock[s]
+			if self.endsInFailure(s) 'fails'
+				let last = try segEnd[s] - 1 otherwise panic("ir: a segment that fails holds no instruction")
+				let target = segBase[blockIndex(failTarget(f.instrs[last]))]
+				self.edge(s, dest: target)
+				self.edge(s, dest: plusOne(s))
+				continue 'segs'
+			end 'fails'
+			successors.clear()
+			visitTerm(successors, f: f, t: f.blocks[b].term)
+			for e in 0 upto successors.out.count() 'edges'
+				let target = segBase[blockIndex(successors.out[e])]
+				self.edge(s, dest: target)
+			end 'edges'
+		end 'segs'
+		let segs = self.segCount()
+		buildCsr(edgeFrom, targets: edgeTo, nodes: segs, starts: succStart, list: succ)
+		buildCsr(edgeTo, targets: edgeFrom, nodes: segs, starts: predStart, list: pred)
+	end 'edges'
+
+	// reversePostorder numbers the segments that the entry reaches, each before its successors but along a back edge, by a
+	// depth-first walk that takes the edges of a segment in their order, and lists the edges it takes back to a segment
+	// still open on its path. It is a loop over its own stack, since a function can have more blocks than the native stack
+	// has frames.
+	function reversePostorder(mutates self)
+		let segs = self.segCount()
+		resetFlags(reached, n: segs)
+		resetFlags(open, n: segs)
+		resetCounts(rpo, n: segs)
+		order.clear()
+		stack.clear()
+		cursor.clear()
+		retreatFrom.clear()
+		retreatTo.clear()
+		stack.push(0)
+		cursor.push(succStart[0])
+		reached[0] = true
+		open[0] = true
+		while stack.count() > 0 'walk'
+			let top = try stack.count() - 1 otherwise panic("ir: an empty walk")
+			let node = stack[top]
+			let at = cursor[top]
+			if at < succStart[plusOne(node)] 'more'
+				cursor[top] = plusOne(at)
+				let target = succ[at]
+				if not reached[target] 'unseen'
+					reached[target] = true
+					open[target] = true
+					stack.push(target)
+					cursor.push(succStart[target])
+				end 'unseen' else if open[target] 'retreating'
+					retreatFrom.push(node)
+					retreatTo.push(target)
+				end 'retreating'
+			end 'more' else 'done'
+				order.push(node)
+				open[node] = false
+				_ = try stack.pop() otherwise panic("ir: an empty walk")
+				_ = try cursor.pop() otherwise panic("ir: an empty walk")
+			end 'done'
+		end 'walk'
+		let n = order.count()
+		for i in 0 upto n / 2 'reverse'
+			let j = try n - 1 - i otherwise panic("ir: an empty walk")
+			let first = order[i]
+			order[i] = order[j]
+			order[j] = first
+		end 'reverse'
+		for i in 0 upto n 'number'
+			rpo[order[i]] = i
+		end 'number'
+	end 'reversePostorder'
+
+	// solveImmediateDominators finds the immediate dominator of each reached segment by Cooper, Harvey and Kennedy's
+	// iteration over the reverse postorder, which a reducible graph settles in two passes.
+	function solveImmediateDominators(mutates self)
+		let segs = self.segCount()
+		resetCounts(idom, n: segs)
+		resetFlags(solved, n: segs)
+		solved[0] = true
+		var changed = true
+		while changed 'fixpoint'
+			changed = false
+			for i in 1 upto order.count() 'each'
+				let s = order[i]
+				var found = false
+				var best = 0 as Count
+				for e in predStart[s] upto predStart[plusOne(s)] 'preds'
+					let q = pred[e]
+					if not solved[q] 'unsolved'
+						continue 'preds'
+					end 'unsolved'
+					if not found 'first'
+						best = q
+						found = true
+					end 'first' else 'meet'
+						best = self.commonDominatorOf(q, other: best)
+					end 'meet'
+				end 'preds'
+				if found and (not solved[s] or idom[s] != best) 'moved'
+					idom[s] = best
+					solved[s] = true
+					changed = true
+				end 'moved'
+			end 'each'
+		end 'fixpoint'
+	end 'solveImmediateDominators'
+
+	// commonDominatorOf is the nearest segment that dominates both a and other, both reached and with their dominators
+	// known so far.
+	export function commonDominatorOf(a Count, other Count) returns Count
+		var x = a
+		var y = other
+		while x != y 'meet'
+			while rpo[x] > rpo[y] 'upX'
+				x = idom[x]
+			end 'upX'
+			while rpo[y] > rpo[x] 'upY'
+				y = idom[y]
+			end 'upY'
+		end 'meet'
+		return x
+	end 'commonDominatorOf'
+
+	// dominates is whether every path from the entry to the segment b passes through the segment a, both reached.
+	export function dominates(a Count, b Count) returns bool
+		var x = b
+		while rpo[x] > rpo[a] 'up'
+			x = idom[x]
+		end 'up'
+		return x == a
+	end 'dominates'
+end 'Flow'
+
+// buildCsr groups the edges sources[i] to targets[i] by their source, over nodes numbered from 0 up to nodes: list[starts[n]] up
+// to list[starts[n + 1]] are the targets of the edges from n, in the order they come.
+export function buildCsr(sources Array with Count, targets Array with Count, nodes Count, mutates starts Array with Count, mutates list Array with Count)
+	resetCounts(starts, n: plusOne(nodes))
+	for i in 0 upto sources.count() 'count'
+		let at = plusOne(sources[i])
+		starts[at] = plusOne(starts[at])
+	end 'count'
+	for n in 0 upto nodes 'sum'
+		let next = plusOne(n)
+		starts[next] = try starts[next] + starts[n] otherwise panic("ir: more edges than memory")
+	end 'sum'
+	resetCounts(list, n: sources.count())
+	// Filling moves each start to the next node's, so they are moved back one after.
+	for i in 0 upto sources.count() 'fill'
+		let k = sources[i]
+		list[starts[k]] = targets[i]
+		starts[k] = plusOne(starts[k])
+	end 'fill'
+	var n = nodes
+	while n > 0 'shift'
+		let prev = try n - 1 otherwise panic("ir: an empty walk")
+		starts[n] = starts[prev]
+		n = prev
+	end 'shift'
+	starts[0] = 0
+end 'buildCsr'
+
+// resetCounts makes a n zeros long, in the room it has.
+export function resetCounts(mutates a Array with Count, n Count)
+	a.clear()
+	try a.resize(n) otherwise panic("ir: an analysis past memory")
+end 'resetCounts'
+
+export function resetFlags(mutates a Array with bool, n Count)
+	a.clear()
+	try a.resize(n) otherwise panic("ir: an analysis past memory")
+end 'resetFlags'
+
+export function resetIndexes(mutates a Array with Index, n Count)
+	a.clear()
+	try a.resize(n) otherwise panic("ir: an analysis past memory")
+end 'resetIndexes'

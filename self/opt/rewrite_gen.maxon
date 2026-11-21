@@ -2,7 +2,7 @@
 
 // rewriteInstr applies to the instruction at of fn the first rule of generic.rules that matches it, and says whether
 // one did; out then holds what the instruction is rewritten to.
-export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	let op = fn.instrs[at].op
 	if op == ir.Opcode.opConst 'opcodeConst'
 		return false
@@ -158,7 +158,7 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs DefList, m
 end 'rewriteInstr'
 
 // rewriteBin applies the rules of bin.
-function rewriteBin(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rewriteBin(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if rule22(fn, at: at, defs: defs, out: out) 'rule22'
 		return true
 	end 'rule22'
@@ -277,7 +277,7 @@ function rewriteBin(mutates fn ir.IrFunction, at Count, defs DefList, mutates ou
 end 'rewriteBin'
 
 // rewriteCmp applies the rules of cmp.
-function rewriteCmp(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rewriteCmp(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if rule62(fn, at: at, defs: defs, out: out) 'rule62'
 		return true
 	end 'rule62'
@@ -306,7 +306,7 @@ function rewriteCmp(mutates fn ir.IrFunction, at Count, defs DefList, mutates ou
 end 'rewriteCmp'
 
 // rewriteNeg applies the rules of neg.
-function rewriteNeg(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rewriteNeg(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if rule52(fn, at: at, defs: defs, out: out) 'rule52'
 		return true
 	end 'rule52'
@@ -317,7 +317,7 @@ function rewriteNeg(mutates fn ir.IrFunction, at Count, defs DefList, mutates ou
 end 'rewriteNeg'
 
 // rewriteNot applies the rules of not.
-function rewriteNot(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rewriteNot(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if rule50(fn, at: at, defs: defs, out: out) 'rule50'
 		return true
 	end 'rule50'
@@ -325,7 +325,7 @@ function rewriteNot(mutates fn ir.IrFunction, at Count, defs DefList, mutates ou
 end 'rewriteNot'
 
 // generic.rules:22: (bin.add x (const [0])) => x
-function rule22(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule22(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binAdd 'm1'
 		return false
 	end 'm1'
@@ -346,7 +346,7 @@ end 'rule22'
 
 // generic.rules:22: (bin.add x (const [0])) => x
 // with the operands swapped: (bin.add (const [0]) x)
-function rule22v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule22v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binAdd 'm1'
 		return false
 	end 'm1'
@@ -366,7 +366,7 @@ function rule22v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule22v2'
 
 // generic.rules:23: (bin.sub x (const [0])) => x
-function rule23(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule23(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binSub 'm1'
 		return false
 	end 'm1'
@@ -386,7 +386,7 @@ function rule23(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule23'
 
 // generic.rules:24: (bin.mul x (const [1])) => x
-function rule24(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule24(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -407,7 +407,7 @@ end 'rule24'
 
 // generic.rules:24: (bin.mul x (const [1])) => x
 // with the operands swapped: (bin.mul (const [1]) x)
-function rule24v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule24v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -427,7 +427,7 @@ function rule24v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule24v2'
 
 // generic.rules:25: (bin.div x (const [1])) => x
-function rule25(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule25(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binDiv 'm1'
 		return false
 	end 'm1'
@@ -447,7 +447,7 @@ function rule25(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule25'
 
 // generic.rules:26: (bin.or x (const [0])) => x
-function rule26(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule26(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binOr 'm1'
 		return false
 	end 'm1'
@@ -468,7 +468,7 @@ end 'rule26'
 
 // generic.rules:26: (bin.or x (const [0])) => x
 // with the operands swapped: (bin.or (const [0]) x)
-function rule26v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule26v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binOr 'm1'
 		return false
 	end 'm1'
@@ -488,7 +488,7 @@ function rule26v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule26v2'
 
 // generic.rules:27: (bin.xor x (const [0])) => x
-function rule27(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule27(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binXor 'm1'
 		return false
 	end 'm1'
@@ -509,7 +509,7 @@ end 'rule27'
 
 // generic.rules:27: (bin.xor x (const [0])) => x
 // with the operands swapped: (bin.xor (const [0]) x)
-function rule27v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule27v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binXor 'm1'
 		return false
 	end 'm1'
@@ -529,7 +529,7 @@ function rule27v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule27v2'
 
 // generic.rules:28: (bin.and x (const [-1])) => x
-function rule28(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule28(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binAnd 'm1'
 		return false
 	end 'm1'
@@ -550,7 +550,7 @@ end 'rule28'
 
 // generic.rules:28: (bin.and x (const [-1])) => x
 // with the operands swapped: (bin.and (const [-1]) x)
-function rule28v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule28v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binAnd 'm1'
 		return false
 	end 'm1'
@@ -570,7 +570,7 @@ function rule28v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule28v2'
 
 // generic.rules:29: (bin.shl x (const [0])) => x
-function rule29(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule29(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binShl 'm1'
 		return false
 	end 'm1'
@@ -590,7 +590,7 @@ function rule29(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule29'
 
 // generic.rules:30: (bin.shr x (const [0])) => x
-function rule30(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule30(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binShr 'm1'
 		return false
 	end 'm1'
@@ -610,7 +610,7 @@ function rule30(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule30'
 
 // generic.rules:31: (bin.and x x) => x
-function rule31(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule31(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binAnd 'm1'
 		return false
 	end 'm1'
@@ -625,7 +625,7 @@ function rule31(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule31'
 
 // generic.rules:32: (bin.or x x) => x
-function rule32(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule32(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binOr 'm1'
 		return false
 	end 'm1'
@@ -640,7 +640,7 @@ function rule32(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule32'
 
 // generic.rules:35: (bin.mul x z:(const [0])) => z
-function rule35(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule35(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -662,7 +662,7 @@ end 'rule35'
 
 // generic.rules:35: (bin.mul x z:(const [0])) => z
 // with the operands swapped: (bin.mul z:(const [0]) x)
-function rule35v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule35v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -683,7 +683,7 @@ function rule35v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule35v2'
 
 // generic.rules:36: (bin.and x z:(const [0])) => z
-function rule36(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule36(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binAnd 'm1'
 		return false
 	end 'm1'
@@ -705,7 +705,7 @@ end 'rule36'
 
 // generic.rules:36: (bin.and x z:(const [0])) => z
 // with the operands swapped: (bin.and z:(const [0]) x)
-function rule36v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule36v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binAnd 'm1'
 		return false
 	end 'm1'
@@ -726,7 +726,7 @@ function rule36v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule36v2'
 
 // generic.rules:37: (bin.or x m:(const [-1])) => m
-function rule37(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule37(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binOr 'm1'
 		return false
 	end 'm1'
@@ -748,7 +748,7 @@ end 'rule37'
 
 // generic.rules:37: (bin.or x m:(const [-1])) => m
 // with the operands swapped: (bin.or m:(const [-1]) x)
-function rule37v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule37v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binOr 'm1'
 		return false
 	end 'm1'
@@ -769,7 +769,7 @@ function rule37v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule37v2'
 
 // generic.rules:38: (bin.sub x x) => (const [0])
-function rule38(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule38(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binSub 'm1'
 		return false
 	end 'm1'
@@ -785,7 +785,7 @@ function rule38(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule38'
 
 // generic.rules:39: (bin.xor x x) => (const [0])
-function rule39(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule39(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binXor 'm1'
 		return false
 	end 'm1'
@@ -801,7 +801,7 @@ function rule39(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule39'
 
 // generic.rules:40: (bin.mod x (const [1])) => (const [0])
-function rule40(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule40(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMod 'm1'
 		return false
 	end 'm1'
@@ -822,7 +822,7 @@ function rule40(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule40'
 
 // generic.rules:41: (bin.mod.!unsigned x (const [-1])) => (const [0])
-function rule41(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule41(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMod 'm1'
 		return false
 	end 'm1'
@@ -846,7 +846,7 @@ function rule41(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule41'
 
 // generic.rules:44: (bin.mul.!checked x (const [-1])) => (neg x)
-function rule44(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule44(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -871,7 +871,7 @@ end 'rule44'
 
 // generic.rules:44: (bin.mul.!checked x (const [-1])) => (neg x)
 // with the operands swapped: (bin.mul.!checked (const [-1]) x)
-function rule44v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule44v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -895,7 +895,7 @@ function rule44v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule44v2'
 
 // generic.rules:45: (bin.mul.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
-function rule45(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule45(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -924,7 +924,7 @@ end 'rule45'
 
 // generic.rules:45: (bin.mul.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
 // with the operands swapped: (bin.mul.!unsigned.checked (const [-1]) x [fail])
-function rule45v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule45v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -952,7 +952,7 @@ function rule45v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule45v2'
 
 // generic.rules:46: (bin.div.!unsigned.!checked x (const [-1])) => (neg x)
-function rule46(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule46(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binDiv 'm1'
 		return false
 	end 'm1'
@@ -979,7 +979,7 @@ function rule46(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule46'
 
 // generic.rules:47: (bin.div.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
-function rule47(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule47(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binDiv 'm1'
 		return false
 	end 'm1'
@@ -1007,7 +1007,7 @@ function rule47(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule47'
 
 // generic.rules:48: (bin.sub.!checked (const [0]) x) => (neg x)
-function rule48(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule48(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binSub 'm1'
 		return false
 	end 'm1'
@@ -1031,7 +1031,7 @@ function rule48(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule48'
 
 // generic.rules:49: (bin.sub.!unsigned.checked (const [0]) x [fail]) => (neg x [fail])
-function rule49(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule49(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binSub 'm1'
 		return false
 	end 'm1'
@@ -1059,7 +1059,7 @@ function rule49(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule49'
 
 // generic.rules:50: (not (not x)) => x
-function rule50(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule50(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	let reg1 = ir.notSrc(fn.instrs[at])
 	if not definedBy(fn, defs: defs, r: reg1, op: ir.Opcode.opNot) 'm1'
 		return false
@@ -1073,7 +1073,7 @@ function rule50(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule50'
 
 // generic.rules:52: (neg.!checked (neg x)) => x
-function rule52(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule52(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.negHasFail(fn.instrs[at]) 'm1'
 		return false
 	end 'm1'
@@ -1090,7 +1090,7 @@ function rule52(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule52'
 
 // generic.rules:53: (neg.checked (neg.checked x)) => x
-function rule53(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule53(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if not ir.negHasFail(fn.instrs[at]) 'm1'
 		return false
 	end 'm1'
@@ -1110,7 +1110,7 @@ function rule53(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule53'
 
 // generic.rules:57: (bin.mul.!checked x (const [c])) && isPowerOfTwo(c) => (bin.shl x (const [log2(c)]))
-function rule57(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule57(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -1138,7 +1138,7 @@ end 'rule57'
 
 // generic.rules:57: (bin.mul.!checked x (const [c])) && isPowerOfTwo(c) => (bin.shl x (const [log2(c)]))
 // with the operands swapped: (bin.mul.!checked (const [c]) x)
-function rule57v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule57v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -1165,7 +1165,7 @@ function rule57v2(mutates fn ir.IrFunction, at Count, defs DefList, mutates out 
 end 'rule57v2'
 
 // generic.rules:58: (bin.div.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.shr.unsigned x (const [log2(c)]))
-function rule58(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule58(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binDiv 'm1'
 		return false
 	end 'm1'
@@ -1192,7 +1192,7 @@ function rule58(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule58'
 
 // generic.rules:59: (bin.mod.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.and x (const [lowBits(c)]))
-function rule59(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule59(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMod 'm1'
 		return false
 	end 'm1'
@@ -1219,7 +1219,7 @@ function rule59(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule59'
 
 // generic.rules:62: (cmp.eq x x) => (const [1])
-function rule62(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule62(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpEq 'm1'
 		return false
 	end 'm1'
@@ -1235,7 +1235,7 @@ function rule62(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule62'
 
 // generic.rules:63: (cmp.ne x x) => (const [0])
-function rule63(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule63(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpNe 'm1'
 		return false
 	end 'm1'
@@ -1251,7 +1251,7 @@ function rule63(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule63'
 
 // generic.rules:64: (cmp.lt x x) => (const [0])
-function rule64(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule64(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpLt 'm1'
 		return false
 	end 'm1'
@@ -1267,7 +1267,7 @@ function rule64(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule64'
 
 // generic.rules:65: (cmp.le x x) => (const [1])
-function rule65(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule65(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpLe 'm1'
 		return false
 	end 'm1'
@@ -1283,7 +1283,7 @@ function rule65(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule65'
 
 // generic.rules:66: (cmp.gt x x) => (const [0])
-function rule66(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule66(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpGt 'm1'
 		return false
 	end 'm1'
@@ -1299,7 +1299,7 @@ function rule66(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule66'
 
 // generic.rules:67: (cmp.ge x x) => (const [1])
-function rule67(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule67(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpGe 'm1'
 		return false
 	end 'm1'
@@ -1315,7 +1315,7 @@ function rule67(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule67'
 
 // generic.rules:68: (cmp.lt.unsigned x (const [0])) => (const [0])
-function rule68(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule68(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpLt 'm1'
 		return false
 	end 'm1'
@@ -1339,7 +1339,7 @@ function rule68(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Re
 end 'rule68'
 
 // generic.rules:69: (cmp.ge.unsigned x (const [0])) => (const [1])
-function rule69(mutates fn ir.IrFunction, at Count, defs DefList, mutates out Rewrite) returns bool
+function rule69(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpGe 'm1'
 		return false
 	end 'm1'

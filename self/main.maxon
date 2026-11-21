@@ -592,6 +592,7 @@ function selfTest()
 	testInterp()
 	testFormat()
 	testRewrite()
+	testAnalyses()
 	print("self: all checks passed\n")
 end 'selfTest'
 

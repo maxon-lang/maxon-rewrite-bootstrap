@@ -14,6 +14,12 @@ export type SuccessorVisitor implements TermVisitor
 		return SuccessorVisitor{out: BlockIDList.create(0), argsStart: Array.create(0), argsCount: Array.create(0)}
 	end 'new'
 
+	export function clear(mutates self)
+		out.clear()
+		argsStart.clear()
+		argsCount.clear()
+	end 'clear'
+
 	function edge(mutates self, target BlockID, start Count, count Count)
 		out.push(target)
 		argsStart.push(start)

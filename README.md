@@ -230,7 +230,7 @@ layering cannot erode:
 | `resolve` | name resolution, into the module's `Resolution`: which declaration each name and type reference names, which type parameter each constraint binds, which modules the module depends on, visibility | `ast`, `diag`, `table` |
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
-| `opt` | the optimizer's rewrite rules: the matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`), the instruction that defines each register (`DefList`) and the helpers the rules call; the passes that apply them come with Phase 3 | `ir` |
+| `opt` | the optimizer: its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; the passes that apply them come with Phase 3 | `ir` |
 | `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
@@ -392,7 +392,7 @@ never fire because an earlier rule with no condition matches everything it match
 operations). It writes `self/opt/rewrite_gen.maxon`: `rewriteInstr(fn, at, defs, out)` dispatches on the opcode to a
 function per operation that has rules, which tries them in the order of the file, each a function of flat `if`s that
 returns at the first thing that does not match. It reads the operands in place through the generated getters and the
-defining instruction of a register from `defs` (`opt.defsOf`), allocates nothing until a rule fires, and leaves the result
+defining instruction of a register from `defs` (the `ir.Defs` of the function's `ir.Flow`), allocates nothing until a rule fires, and leaves the result
 in a reused `opt.Rewrite`; applying it to the function is the fold pass's work. `selftest` runs it on instructions built by
 hand (`self/opt_test.maxon`).
 
@@ -681,8 +681,14 @@ what a later pass such as reference counting or an optimization changes.
 - The verifier (`ir.verifyIr`, `self/ir/verify.maxon`) checks the rules every pass must keep: each register is defined once;
   every definition dominates its uses; an edge passes as many arguments as its target has parameters, each of the parameter's
   kind, and the entry has none; and an edge that leaves its block before its end (an `else`) passes no arguments and is the
-  only edge into its target. Dominance is computed (Cooper, Harvey and Kennedy) over the blocks cut after each instruction that
-  can fail, whose result is defined only on the edge that did not fail. `selftest` runs it on IR built by hand
+  only edge into its target. It checks them over `ir.Flow` (`self/ir/flow.maxon`), the analysis that the optimizer builds on
+  too: the blocks cut into segments after each instruction that can fail (whose failure edge leaves from there, and whose
+  result is defined only at the start of the next segment), where each register is defined (`Defs`), the edges between the
+  segments as successor and predecessor lists (`buildCsr`), the reverse postorder with the retreating edges of the same walk,
+  and the immediate dominators (Cooper, Harvey and Kennedy: `commonDominatorOf`, `dominates`). Its arrays are reused from
+  one function to the next. `opt.Analysis` adds the dominator tree, the dominance frontiers, the loop nesting depth of each
+  segment (natural loops from the retreating edges, each of which must go to a segment that dominates its source: lowering
+  makes no irreducible flow, having no goto) and how often each register is read. `selftest` runs the verifier on IR built by hand
   (`self/verify_test.maxon`), and `--verify-ir` on everything a build lowers. The interpreter and codegen read every
   argument of an edge before they set a parameter: codegen pushes the arguments' frame slots and pops them into the
   parameters', which are the frame slots of their registers.
@@ -2256,6 +2262,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `Process.executablePath()` | `FilePath`, the running executable's full path (`GetModuleFileNameW`) | `ProcessIntrospectionError.pathUnavailable` |
 | `Process.id()` | `Count`, the running process's id (`GetCurrentProcessId`); maxon's `Pid` is the same unsigned 64-bit integer | — |
 | `Process.setExitCode(code)` | — (the process ends with the last code set in place of `main`'s; see "Where it differs from Maxon") | — |
+| `Clock.nowNanos()` | `Count`, the monotonic clock in nanoseconds; only differences of two readings mean anything (see "Where it differs from Maxon") | — |
 | `FilePath.from(path)` | `FilePath`, with `/` made `\` | `FilePathError.invalidCharacter` for a control character or one of `<>"\|?*` |
 | `path.toString()` | `String` | — |
 | `File.readText(path)` | `String` | `FileReadError` |
@@ -2506,6 +2513,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   in place of `main`'s; the last code set wins. Maxon has none: its programs wait for their behaviours with `await`,
   which minimaxon does not have, so a behaviour that finds the program's result needs this to report it.
 
+- `Clock` has only `nowNanos()`, which maxon's gives as `InstantNanos`, here a `Count`; maxon's `nowMs`, `osTickMs`,
+  `threadCpuTicks`, `elapsedMs`, `elapsedNanos`, `remainingMs` and `WallClock` are not there. Natively a reading is the
+  OS tick counter (`GetTickCount64`) in nanoseconds, which resolves one timer tick of about 15 ms, until the runtime
+  reads `QueryPerformanceCounter`; the interpreter's clock moves by 1000 ns at each reading, so a run is deterministic.
+
 - Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
   directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch
   be any run of tokens); the target is x64 Windows only, so `os(Windows)` and `arch(x64)` are the conditions that hold, and
@@ -2685,7 +2697,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   stdlib code: `FilePath` has only `from`, `toString` and its `path`, and `FilePath.from` does not resolve a `file://`
   URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
   and `writeText` and `writeBinary` take no `mode:`; `Directory` has no `exists`, `delete` or `removeTree`, and
-  `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable` and `executablePath`; `Subprocess.run`
+  `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable`, `executablePath`, `id` and `setExitCode`; `Subprocess.run`
   takes no `workingDirectory:` or `deadline:` (`runWithDeadline` takes the deadline), and `CollectedOutput` has no `status`, `pid` or `durationMs`;
   `SubprocessError` is an enum without maxon's payloads (the name, the reason, the output). Natively the runtime uses
   the `A` Win32 calls, so a path or an argument is bytes in the system's code page rather than UTF-8 turned into

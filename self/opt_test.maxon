@@ -1,7 +1,7 @@
 // The matcher of generic.rules (opt.rewriteInstr) on instructions built by hand: each rewrites to a register, to an
 // instruction after the instructions it needs, or stays.
 
-function expectRewrittenToReg(mutates f ir.IrFunction, defs opt.DefList, at Count, want ir.Reg, label String)
+function expectRewrittenToReg(mutates f ir.IrFunction, defs ir.Defs, at Count, want ir.Reg, label String)
 	var out = opt.Rewrite.new()
 	if not opt.rewriteInstr(f, at: at, defs: defs, out: out) 'none'
 		panic("{label}: no rule rewrites it")
@@ -11,7 +11,7 @@ function expectRewrittenToReg(mutates f ir.IrFunction, defs opt.DefList, at Coun
 	end 'differs'
 end 'expectRewrittenToReg'
 
-function expectKept(mutates f ir.IrFunction, defs opt.DefList, at Count, label String)
+function expectKept(mutates f ir.IrFunction, defs ir.Defs, at Count, label String)
 	var out = opt.Rewrite.new()
 	if opt.rewriteInstr(f, at: at, defs: defs, out: out) 'some'
 		panic("{label}: a rule rewrites it")
@@ -19,7 +19,7 @@ function expectKept(mutates f ir.IrFunction, defs opt.DefList, at Count, label S
 end 'expectKept'
 
 // expectRewrittenToInstr runs the rules on the instruction at and gives what they rewrite it to.
-function expectRewrittenToInstr(mutates f ir.IrFunction, defs opt.DefList, at Count, label String) returns opt.Rewrite
+function expectRewrittenToInstr(mutates f ir.IrFunction, defs ir.Defs, at Count, label String) returns opt.Rewrite
 	var out = opt.Rewrite.new()
 	if not opt.rewriteInstr(f, at: at, defs: defs, out: out) 'none'
 		panic("{label}: no rule rewrites it")
@@ -68,24 +68,27 @@ function testRewrite()
 	let negX = f.newReg(ir.IrKind.kindScalar)
 	_ = emitTo(f, x: ir.newNeg(negX, src: x, fail: ir.noBlock))
 	let negNegX = emitNeg(f, src: negX, fail: fail)
-	let defs = opt.defsOf(f)
-	expectRewrittenToReg(f, defs: defs, at: addZero, want: x, label: "x + 0")
-	expectRewrittenToReg(f, defs: defs, at: zeroAdd, want: y, label: "0 + y")
-	expectRewrittenToReg(f, defs: defs, at: andSelf, want: y, label: "y and y")
-	expectRewrittenToReg(f, defs: defs, at: mulZero, want: zero, label: "0 * x")
-	expectKept(f, defs: defs, at: checkedMulEight, label: "a checked x * 8")
-	expectKept(f, defs: defs, at: subXY, label: "x - y")
+	let stop = f.instrs.count()
+	f.blocks.push(ir.Block.make(0, endAt: stop, params: 0, paramCount: 0, term: ir.newRet(x)))
+	var flow = ir.Flow.new()
+	flow.build(f)
+	expectRewrittenToReg(f, defs: flow.defs, at: addZero, want: x, label: "x + 0")
+	expectRewrittenToReg(f, defs: flow.defs, at: zeroAdd, want: y, label: "0 + y")
+	expectRewrittenToReg(f, defs: flow.defs, at: andSelf, want: y, label: "y and y")
+	expectRewrittenToReg(f, defs: flow.defs, at: mulZero, want: zero, label: "0 * x")
+	expectKept(f, defs: flow.defs, at: checkedMulEight, label: "a checked x * 8")
+	expectKept(f, defs: flow.defs, at: subXY, label: "x - y")
 	// An unchecked -x of i64.min is i64.min, which a checked - of it would fail on.
-	expectKept(f, defs: defs, at: negNegX, label: "a checked -(-x) of an unchecked -x")
+	expectKept(f, defs: flow.defs, at: negNegX, label: "a checked -(-x) of an unchecked -x")
 	let regs = f.regs.count()
-	let shift = expectRewrittenToInstr(f, defs: defs, at: mulEight, label: "8 * x")
+	let shift = expectRewrittenToInstr(f, defs: flow.defs, at: mulEight, label: "8 * x")
 	if shift.pre.count() != 1 or ir.constValue(shift.pre[0]) != 3 or shift.pre[0].dst != ir.regOf(regs) 'pre'
 		panic("8 * x: the shift count is not a new const 3")
 	end 'pre'
 	if shift.instr.op != ir.Opcode.opBin or ir.binOp(shift.instr) != ir.BinOp.binShl or ir.binLeft(shift.instr) != x or ir.binRight(shift.instr) != ir.regOf(regs) or ir.binHasFail(shift.instr) or shift.instr.dst != f.instrs[mulEight].dst 'shl'
 		panic("8 * x: it is not rewritten to x shl 3")
 	end 'shl'
-	let cleared = expectRewrittenToInstr(f, defs: defs, at: xorSelf, label: "x xor x")
+	let cleared = expectRewrittenToInstr(f, defs: flow.defs, at: xorSelf, label: "x xor x")
 	if cleared.instr.op != ir.Opcode.opConst or ir.constValue(cleared.instr) != 0 or cleared.pre.count() != 0 'zero'
 		panic("x xor x: it is not rewritten to const 0")
 	end 'zero'

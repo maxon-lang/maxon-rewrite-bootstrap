@@ -1,0 +1,187 @@
+// The analyses that the optimizer's passes stand on, over the segments of ir.Flow: the dominator tree, the dominance
+// frontiers, the depth of loop nesting, and how often each register is read. Every one is linear or near it, since all
+// of them run on every function of every build.
+//
+// A failure edge is an edge of the graph like any other, from the segment that ends in the instruction that can fail.
+// Its target is a block's first segment with that edge as its only one in, and every segment but a block's first has one
+// edge in, so neither is ever in a dominance frontier: a frontier names only blocks, by their first segments, which is
+// where SSA construction puts block parameters.
+
+// Analysis is the analyses of one function, reused for the next so that its arrays keep their capacity.
+export type Analysis
+	export var flow as ir.Flow
+	// The dominator tree: the children of segment s are domChild[domStart[s]] up to domChild[domStart[s + 1]], in reverse
+	// postorder.
+	export var domStart as Array with Count
+	export var domChild as Array with Count
+	// The dominance frontier of segment s is front[frontStart[s]] up to front[frontStart[s + 1]], in reverse postorder.
+	export var frontStart as Array with Count
+	export var front as Array with Count
+	// loopDepth is how many natural loops each segment is in, and headers the first segment of each loop, in the order
+	// that the walk of ir.Flow found its first back edge.
+	export var loopDepth as Array with Count
+	export var headers as Array with Count
+	// useCount is how many times the instructions and terminators of the function read each register, edge arguments
+	// included.
+	export var useCount as Array with Count
+	// The back edges into each header, latch[latchStart[h]] up to latch[latchStart[h + 1]].
+	var latchStart as Array with Count
+	var latch as Array with Count
+	var pairFrom as Array with Count
+	var pairTo as Array with Count
+	var stamp as Array with Count
+	var work as Array with Count
+	var regs as ir.RegList
+
+	export static function new() returns Analysis
+		return Analysis{flow: ir.Flow.new(), domStart: Array.create(0), domChild: Array.create(0), frontStart: Array.create(0), front: Array.create(0), loopDepth: Array.create(0), headers: Array.create(0), useCount: Array.create(0), latchStart: Array.create(0), latch: Array.create(0), pairFrom: Array.create(0), pairTo: Array.create(0), stamp: Array.create(0), work: Array.create(0), regs: ir.RegList.create(0)}
+	end 'new'
+
+	// analyze analyses the function f, which has a block and keeps the verifier's rules.
+	export function analyze(mutates self, f ir.IrFunction)
+		flow.build(f)
+		self.dominatorTree()
+		self.frontiers()
+		self.loops()
+		self.useCounts(f)
+	end 'analyze'
+
+	function dominatorTree(mutates self)
+		pairFrom.clear()
+		pairTo.clear()
+		for i in 1 upto flow.order.count() 'each'
+			let s = flow.order[i]
+			pairFrom.push(flow.idom[s])
+			pairTo.push(s)
+		end 'each'
+		ir.buildCsr(pairFrom, targets: pairTo, nodes: flow.segCount(), starts: domStart, list: domChild)
+	end 'dominatorTree'
+
+	// frontiers finds the dominance frontiers by Cooper, Harvey and Kennedy's walk: from each predecessor of a join up the
+	// dominator tree to the join's immediate dominator, each segment passed has the join in its frontier. stamp keeps a
+	// join from being listed twice for one segment.
+	function frontiers(mutates self)
+		let segs = flow.segCount()
+		ir.resetCounts(stamp, n: segs)
+		pairFrom.clear()
+		pairTo.clear()
+		for i in 0 upto flow.order.count() 'each'
+			let s = flow.order[i]
+			let edgesIn = try flow.predStart[plusOne(s)] - flow.predStart[s] otherwise panic("opt: edges out of order")
+			var entering = edgesIn as Count
+			if s == 0 'entry'
+				entering = plusOne(entering)
+			end 'entry'
+			if entering < 2 'notJoin'
+				continue 'each'
+			end 'notJoin'
+			let mark = plusOne(s)
+			for e in flow.predStart[s] upto flow.predStart[plusOne(s)] 'preds'
+				var runner = flow.pred[e]
+				if not flow.reached[runner] 'dead'
+					continue 'preds'
+				end 'dead'
+				// The entry has no immediate dominator to stop at, so the walk to a join at the entry goes up to it.
+				while s == 0 or runner != flow.idom[s] 'up'
+					if stamp[runner] != mark 'new'
+						stamp[runner] = mark
+						pairFrom.push(runner)
+						pairTo.push(s)
+					end 'new'
+					if runner == 0 'top'
+						break 'up'
+					end 'top'
+					runner = flow.idom[runner]
+				end 'up'
+			end 'preds'
+		end 'each'
+		ir.buildCsr(pairFrom, targets: pairTo, nodes: segs, starts: frontStart, list: front)
+	end 'frontiers'
+
+	// loops finds the natural loop of each header, the segments that reach one of its back edges without passing through it,
+	// and counts each segment once for each loop it is in. A retreating edge whose target does not dominate its source
+	// would make the graph irreducible, which lowering cannot: Maxon has no goto, every loop is entered at its header, and a
+	// failure edge or a break only leaves a loop.
+	function loops(mutates self)
+		let segs = flow.segCount()
+		ir.resetCounts(loopDepth, n: segs)
+		headers.clear()
+		for k in 0 upto flow.retreatFrom.count() 'check'
+			let tail = flow.retreatFrom[k]
+			let head = flow.retreatTo[k]
+			if not flow.dominates(head, b: tail) 'irreducible'
+				panic("opt: an edge back to segment {head} from segment {tail}, which it does not dominate: the control flow is irreducible")
+			end 'irreducible'
+		end 'check'
+		ir.buildCsr(flow.retreatTo, targets: flow.retreatFrom, nodes: segs, starts: latchStart, list: latch)
+		ir.resetCounts(stamp, n: segs)
+		for k in 0 upto flow.retreatTo.count() 'headers'
+			let head = flow.retreatTo[k]
+			if stamp[head] == 0 'first'
+				stamp[head] = 1
+				headers.push(head)
+			end 'first'
+		end 'headers'
+		ir.resetCounts(stamp, n: segs)
+		for h in 0 upto headers.count() 'each'
+			let mark = plusOne(h)
+			let head = headers[h]
+			stamp[head] = mark
+			loopDepth[head] = plusOne(loopDepth[head])
+			work.clear()
+			for e in latchStart[head] upto latchStart[plusOne(head)] 'latches'
+				let tail = latch[e]
+				self.admit(tail, mark: mark)
+			end 'latches'
+			while work.count() > 0 'members'
+				let n = try work.pop() otherwise panic("opt: an empty walk")
+				for e in flow.predStart[n] upto flow.predStart[plusOne(n)] 'preds'
+					let q = flow.pred[e]
+					if flow.reached[q] 'live'
+						self.admit(q, mark: mark)
+					end 'live'
+				end 'preds'
+			end 'members'
+		end 'each'
+	end 'loops'
+
+	// admit puts a segment in the loop that mark stamps, once.
+	function admit(mutates self, s Count, mark Count)
+		if stamp[s] == mark 'member'
+			return
+		end 'member'
+		stamp[s] = mark
+		loopDepth[s] = plusOne(loopDepth[s])
+		work.push(s)
+	end 'admit'
+
+	function useCounts(mutates self, f ir.IrFunction)
+		ir.resetCounts(useCount, n: f.regs.count())
+		for b in 0 upto f.blocks.count() 'blocks'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				regs.clear()
+				ir.instrReads(f, x: f.instrs[k], out: regs)
+				self.countReads()
+			end 'instrs'
+			regs.clear()
+			ir.termReads(f, t: f.blocks[b].term, out: regs)
+			self.countReads()
+		end 'blocks'
+	end 'useCounts'
+
+	function countReads(mutates self)
+		for i in 0 upto regs.count() 'each'
+			let r = regIndex(regs[i])
+			useCount[r] = plusOne(useCount[r])
+		end 'each'
+	end 'countReads'
+
+	// blockSeg is the first segment of the block b, by which the analyses name a block.
+	export function blockSeg(b Count) returns Count
+		return flow.segBase[b]
+	end 'blockSeg'
+end 'Analysis'
+
+function plusOne(n Count) returns Count
+	return try n + 1 otherwise panic("opt: a count past memory")
+end 'plusOne'
