@@ -26,3 +26,4 @@ One uncached `minimaxon build self --timings` with the Go compiler, one row per 
 | 2026-11-21 | ca244dc | 1.4 bodies check | 26939 | 29.5 | 28.7 | 32.0 |
 | 2026-11-21 | dce0db3 | 1.4 runtime core, behaviours | 28588 | 34.2 | 36.2 | 31.3 |
 | 2026-11-21 | b394ea3 | 1.4 ownership pass | 30889 | 46.1 | 42.2 | 39.8 |
+| 2026-11-21 | 181cfdf | 1.4 runtime arrays, layout table | 30889 | 39.3 | 38.6 | 30.6 |
