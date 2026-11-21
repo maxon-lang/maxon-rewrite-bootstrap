@@ -1,0 +1,369 @@
+// The machine IR: a function as blocks of target instructions over virtual registers, in SSA form with block
+// parameters, between instruction selection and the encoder. It is target-independent but for the types of two fields,
+// the form and the condition code, which are x64's until a second target makes them a union: an instruction is a
+// target's form or one of the pseudo-instructions the allocator and the frame need, and what an operand must be
+// (defined or used, reused by a two-address definition, a fixed register, a clobber) is asked of the target's tables
+// (`regs_x64.maxon`), never of the forms' encodings. Every reference is an index into one of the function's pools.
+
+// RegNum is a register's number in the target's register file.
+export typealias RegNum = int(0 to 63)
+
+// RegMask is a set of registers of the register file, a bit per number.
+export typealias RegMask = bits(64)
+
+// MReg is a register operand: a physical register by its RegNum, or from firstVirtual on, a virtual register.
+export typealias MReg = int(-1 to 2147483647)
+
+export typealias MRegList = Array with MReg
+
+// noMReg is an operand field that the instruction does not have.
+export let noMReg = -1 as MReg
+
+// firstVirtual is one past every number a RegMask can hold, so a physical register of any target is below it.
+let firstVirtual = 64 as MReg
+
+export typealias MBlockID = int(0 to 2147483647)
+
+export typealias MBlockIDList = Array with MBlockID
+
+// SpillSlot is a word of the frame that a value lives in while it is not in a register.
+export typealias SpillSlot = int(0 to 2147483647)
+
+// spillSlotBytes is the size of a spill slot: a word, whatever the value's class.
+let spillSlotBytes = 8
+
+// RegClass is the register file a value lives in. Floats are words in general registers until the xmm class is used.
+export enum RegClass
+	gpr
+	xmm
+end 'RegClass'
+
+export typealias RegClassList = Array with RegClass
+
+// MKind is what an instruction is: a form of the target, or a pseudo-instruction.
+export enum MKind
+	// target is the form `form` with the registers a, b and c, in the order regs_x64.maxon gives.
+	target
+	// copy sets a to b; either may be physical, which is how selection fixes a value to a register.
+	copy
+	// parallelCopy is the copies aux to aux + imm of the function's copies, every source read before any target is
+	// written.
+	parallelCopy
+	// spill stores a to the spill slot aux, and reload loads a from it.
+	spill
+	reload
+	// frameSetup and frameTeardown are the prologue and the epilogue, which the frame writes once allocation has said
+	// how big it is.
+	frameSetup
+	frameTeardown
+end 'MKind'
+
+// MRef is what the 32-bit field a form ends with refers to, which the encoder turns into a label use or a fixup.
+export enum MRef
+	none
+	// edge: aux is an edge of the function, a branch to its target block.
+	edge
+	// symbol: aux indexes the function's symbols, a function or a word that the link finds.
+	symbol
+	// data: aux is an offset into the code unit's data.
+	data
+	// importSlot: aux is the index of a name of the executable's imports, whose slot a call goes through.
+	importSlot
+end 'MRef'
+
+// MInstr is one machine instruction, a fixed-size record as the IR's Instr is: 32 bytes when its fields are packed.
+// aux is the displacement of a memory operand, or the index or offset a reference or a pseudo-instruction names; imm is
+// the immediate, or the number of copies of a parallel copy.
+export type MInstr
+	export var kind as MKind
+	export var ref as MRef
+	export var form as X64Form
+	export var cond as X64CondCode
+	export var a as MReg
+	export var b as MReg
+	export var c as MReg
+	export var aux as Imm32
+	export var imm as FullRangeInt
+
+	export static function make(kind MKind, form X64Form, a MReg, b MReg, c MReg) returns MInstr
+		return MInstr{kind: kind, ref: MRef.none, form: form, cond: unusedCond, a: a, b: b, c: c, aux: 0, imm: 0}
+	end 'make'
+end 'MInstr'
+
+export typealias MInstrList = Array with MInstr
+
+// newTarget is a form with its register operands, the displacement of a memory operand and an immediate.
+export function newTarget(form X64Form, a MReg, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MInstr
+	var x = MInstr.make(MKind.target, form: form, a: a, b: b, c: c)
+	x.aux = aux
+	x.imm = imm
+	return x
+end 'newTarget'
+
+// newReferring is a form whose last field refers to an edge, a symbol, data or an import.
+export function newReferring(form X64Form, a MReg, ref MRef, aux Imm32) returns MInstr
+	var x = MInstr.make(MKind.target, form: form, a: a, b: noMReg, c: noMReg)
+	x.ref = ref
+	x.aux = aux
+	return x
+end 'newReferring'
+
+// newConditional is a form with a condition code: a branch along an edge, or a setcc of a.
+export function newConditional(form X64Form, cond X64CondCode, a MReg, ref MRef, aux Imm32) returns MInstr
+	var x = newReferring(form, a: a, ref: ref, aux: aux)
+	x.cond = cond
+	return x
+end 'newConditional'
+
+export function newCopy(dst MReg, src MReg) returns MInstr
+	return MInstr.make(MKind.copy, form: pseudoForm, a: dst, b: src, c: noMReg)
+end 'newCopy'
+
+function newSpill(src MReg, slot SpillSlot) returns MInstr
+	var x = MInstr.make(MKind.spill, form: pseudoForm, a: src, b: noMReg, c: noMReg)
+	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
+	return x
+end 'newSpill'
+
+function newReload(dst MReg, slot SpillSlot) returns MInstr
+	var x = MInstr.make(MKind.reload, form: pseudoForm, a: dst, b: noMReg, c: noMReg)
+	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
+	return x
+end 'newReload'
+
+export function newFrameSetup() returns MInstr
+	return MInstr.make(MKind.frameSetup, form: pseudoForm, a: noMReg, b: noMReg, c: noMReg)
+end 'newFrameSetup'
+
+export function newFrameTeardown() returns MInstr
+	return MInstr.make(MKind.frameTeardown, form: pseudoForm, a: noMReg, b: noMReg, c: noMReg)
+end 'newFrameTeardown'
+
+// spillSlotOf is the slot an instruction spills to or reloads from.
+function spillSlotOf(x MInstr) returns SpillSlot
+	return try x.aux as SpillSlot otherwise panic("backend: a spill slot below 0")
+end 'spillSlotOf'
+
+// refIndex is the index a reference names.
+function refIndex(x MInstr) returns Count
+	return try x.aux as Count otherwise panic("backend: a reference to an index below 0")
+end 'refIndex'
+
+// operandAt and setOperand are register operand i of an instruction, in the order of its fields a, b and c.
+function operandAt(x MInstr, index Count) returns MReg
+	if index == 0 'a'
+		return x.a
+	end 'a'
+	if index == 1 'b'
+		return x.b
+	end 'b'
+	if index == 2 'c'
+		return x.c
+	end 'c'
+	panic("backend: a machine instruction has three register operands")
+end 'operandAt'
+
+function setOperand(mutates x MInstr, index Count, r MReg)
+	if index == 0 'a'
+		x.a = r
+		return
+	end 'a'
+	if index == 1 'b'
+		x.b = r
+		return
+	end 'b'
+	if index == 2 'c'
+		x.c = r
+		return
+	end 'c'
+	panic("backend: a machine instruction has three register operands")
+end 'setOperand'
+
+function isVirtual(r MReg) returns bool
+	return r >= firstVirtual
+end 'isVirtual'
+
+function isPhysical(r MReg) returns bool
+	return r >= 0 and r < firstVirtual
+end 'isPhysical'
+
+// physicalNumber is the register number of a physical operand.
+function physicalNumber(r MReg) returns RegNum
+	return try r as RegNum otherwise panic("backend: a register operand that is not physical")
+end 'physicalNumber'
+
+function regBit(number RegNum) returns RegMask
+	return (1 as RegMask) shl number
+end 'regBit'
+
+export function maskHas(mask RegMask, number RegNum) returns bool
+	return (mask and regBit(number)) != 0
+end 'maskHas'
+
+// Likelihood is how often a block runs compared with its function, which block layout and spill placement read.
+export enum Likelihood
+	usual
+	// cold blocks are the ones a check fails into: they are laid out last, and a spill prefers them.
+	cold
+end 'Likelihood'
+
+// MBlock is a block's instructions, first to endAt, and its parameters, paramCount of the function's blockParams from
+// params, which edges into it give values to.
+export type MBlock
+	export var first as Count
+	export var endAt as Count
+	export var params as Count
+	export var paramCount as Count
+	export var loopDepth as Count
+	export var likelihood as Likelihood
+
+	export static function make(first Count, params Count) returns MBlock
+		return MBlock{first: first, endAt: first, params: params, paramCount: 0, loopDepth: 0, likelihood: Likelihood.usual}
+	end 'make'
+end 'MBlock'
+
+export typealias MBlockList = Array with MBlock
+
+// MEdge is a branch to a block with the arguments that become its parameters: argCount of the function's edgeArgs
+// from args.
+export type MEdge
+	export var target as MBlockID
+	export var args as Count
+	export var argCount as Count
+
+	export static function make(target MBlockID, args Count, argCount Count) returns MEdge
+		return MEdge{target: target, args: args, argCount: argCount}
+	end 'make'
+end 'MEdge'
+
+export typealias MEdgeList = Array with MEdge
+
+// MCopy is one copy of a parallel copy.
+export type MCopy
+	export var dst as MReg
+	export var src as MReg
+
+	export static function make(dst MReg, src MReg) returns MCopy
+		return MCopy{dst: dst, src: src}
+	end 'make'
+end 'MCopy'
+
+export typealias MCopyList = Array with MCopy
+
+// MirFunction is the machine IR of one function. Its blocks are numbered in the order they are made, and order is the
+// order the encoder lays them out in. classes holds the class of each virtual register, from firstVirtual.
+export type MirFunction
+	export var symbol as String
+	export var instrs as MInstrList
+	export var blocks as MBlockList
+	export var order as MBlockIDList
+	export var blockParams as MRegList
+	export var edges as MEdgeList
+	export var edgeArgs as MRegList
+	export var copies as MCopyList
+	export var symbols as NameList
+	export var classes as RegClassList
+	// spillSlots is how many words the frame holds below the frame pointer, which allocation decides.
+	export var spillSlots as Count
+	// canThrow is whether the function returns an error beside its value, so a return reads the convention's error
+	// register too.
+	export var canThrow as bool
+
+	export static function new(symbol String, canThrow bool) returns MirFunction
+		return MirFunction{symbol: symbol.clone(), instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), spillSlots: 0, canThrow: canThrow}
+	end 'new'
+
+	export function newVReg(mutates self, class RegClass) returns MReg
+		let r = try (firstVirtual as Count + classes.count()) as MReg otherwise panic("backend: more virtual registers than an operand names")
+		classes.push(class)
+		return r
+	end 'newVReg'
+
+	function vregCount() returns Count
+		return classes.count()
+	end 'vregCount'
+
+	// startBlock ends the block being written, if any, and starts the next one, which comes next in the order.
+	export function startBlock(mutates self) returns MBlockID
+		self.endBlock()
+		let id = try blocks.count() as MBlockID otherwise panic("backend: more blocks than a branch names")
+		blocks.push(MBlock.make(instrs.count(), params: blockParams.count()))
+		order.push(id)
+		return id
+	end 'startBlock'
+
+	// endBlock makes the instructions since the last block started its body.
+	export function endBlock(mutates self)
+		let n = blocks.count()
+		if n > 0 'open'
+			let last = try n - 1 otherwise panic("backend: no block")
+			blocks[last].endAt = instrs.count()
+		end 'open'
+	end 'endBlock'
+
+	// addParam gives the block being written a parameter; its parameters are added before another block starts.
+	export function addParam(mutates self, class RegClass) returns MReg
+		let r = self.newVReg(class)
+		let last = try blocks.count() - 1 otherwise panic("backend: a parameter of no block")
+		let after = try blocks[last].params + blocks[last].paramCount otherwise panic("backend: more parameters than memory")
+		if after != blockParams.count() 'contiguous'
+			panic("backend: a block's parameters are added after another block's")
+		end 'contiguous'
+		blockParams.push(r)
+		blocks[last].paramCount = try blocks[last].paramCount + 1 otherwise panic("backend: more parameters than memory")
+		return r
+	end 'addParam'
+
+	// addEdge is an edge to a block with the given arguments, for a branch to name.
+	export function addEdge(mutates self, target MBlockID, args MRegList) returns Imm32
+		let at = try edges.count() as Imm32 otherwise panic("backend: more edges than a branch names")
+		edges.push(MEdge.make(target, args: edgeArgs.count(), argCount: args.count()))
+		for i in 0 upto args.count() 'args'
+			edgeArgs.push(args[i])
+		end 'args'
+		return at
+	end 'addEdge'
+
+	export function addSymbol(mutates self, name String) returns Imm32
+		let at = try symbols.count() as Imm32 otherwise panic("backend: more symbols than an instruction names")
+		symbols.push(name.clone())
+		return at
+	end 'addSymbol'
+
+	// addParallelCopy is a parallel copy of the pairs dsts[i] := srcs[i].
+	function addParallelCopy(mutates self, dsts MRegList, srcs MRegList) returns MInstr
+		if dsts.count() != srcs.count() 'paired'
+			panic("backend: a parallel copy with more targets than sources")
+		end 'paired'
+		var x = MInstr.make(MKind.parallelCopy, form: pseudoForm, a: noMReg, b: noMReg, c: noMReg)
+		x.aux = try copies.count() as Imm32 otherwise panic("backend: more copies than an instruction names")
+		x.imm = try dsts.count() as FullRangeInt otherwise panic("backend: more copies than memory")
+		for i in 0 upto dsts.count() 'pairs'
+			copies.push(MCopy.make(dsts[i], src: srcs[i]))
+		end 'pairs'
+		return x
+	end 'addParallelCopy'
+
+	export function emit(mutates self, consumes x MInstr)
+		instrs.push(x)
+	end 'emit'
+
+	// frameBytes is the size of the frame below the frame pointer.
+	function frameBytes() returns Count
+		return try spillSlots * spillSlotBytes otherwise panic("backend: a frame past memory")
+	end 'frameBytes'
+end 'MirFunction'
+
+export typealias MirFunctionList = Array with MirFunction
+
+// spillSlotOffset is where a spill slot sits below the frame pointer.
+function spillSlotOffset(slot SpillSlot) returns Imm32
+	let below = try (slot as Count + 1) * spillSlotBytes otherwise panic("backend: a frame past memory")
+	let signed = try below as FullRangeInt otherwise panic("backend: a frame past memory")
+	return try 0 - signed otherwise panic("backend: a frame past 2 GiB")
+end 'spillSlotOffset'
+
+// copyCount is how many copies a parallel copy has.
+function copyCount(x MInstr) returns Count
+	return try x.imm as Count otherwise panic("backend: a parallel copy of fewer than no copies")
+end 'copyCount'

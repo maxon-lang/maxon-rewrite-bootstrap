@@ -195,6 +195,7 @@ func check() {
 	for _, f := range forms {
 		claim(f.name)
 		checkForm(f)
+		checkAlloc(f)
 	}
 	for _, c := range choices {
 		claim(c.name)
@@ -324,7 +325,7 @@ func checkSequence(s sequence) {
 // checkEffects refuses a table in which no form has an effect or every form does, as the generated predicates are
 // matches over every form.
 func checkEffects() {
-	for _, e := range effectList {
+	for _, e := range append(effectList[:len(effectList):len(effectList)], allocPredicates...) {
 		any, all := false, true
 		for _, f := range forms {
 			if e.of(f) {

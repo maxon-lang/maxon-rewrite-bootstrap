@@ -1,0 +1,235 @@
+// The trivial allocator: every virtual register lives in a spill slot of its own, and each instruction reloads the
+// virtual registers it reads into scratch registers and spills the one it defines. It leaves SSA by turning every
+// edge's arguments into copies to the target's parameters, splitting a conditional branch's edge that has any. It
+// makes the machine IR's path from selection to bytes complete before the real allocator replaces it.
+
+// TrivialAlloc is the allocation of one function: the instructions written so far and how many temporary slots a
+// parallel copy has needed.
+type TrivialAlloc
+	var out as MInstrList
+	var vregs as Count
+	var temps as Count
+
+	static function new(vregs Count) returns TrivialAlloc
+		return TrivialAlloc{out: MInstrList.create(0), vregs: vregs, temps: 0}
+	end 'new'
+
+	// moveInto puts the value of src into the physical register dst.
+	function moveInto(mutates self, dst MReg, src MReg)
+		if isVirtual(src) 'reload'
+			out.push(newReload(dst, slot: vregSlot(src)))
+		end 'reload' else if src != dst 'move'
+			out.push(newCopy(dst, src: src))
+		end 'move'
+	end 'moveInto'
+
+	// moveOut puts the value of the physical register src into dst.
+	function moveOut(mutates self, dst MReg, src MReg)
+		if isVirtual(dst) 'spill'
+			out.push(newSpill(src, slot: vregSlot(dst)))
+		end 'spill' else if src != dst 'move'
+			out.push(newCopy(dst, src: src))
+		end 'move'
+	end 'moveOut'
+
+	function copyOne(mutates self, dst MReg, src MReg)
+		if isVirtual(dst) and isVirtual(src) 'virtual'
+			let scratch = trivialScratch(0)
+			self.moveInto(scratch, src: src)
+			self.moveOut(dst, src: scratch)
+		end 'virtual' else if isVirtual(dst) 'toSlot'
+			self.moveOut(dst, src: src)
+		end 'toSlot' else 'toRegister'
+			self.moveInto(dst, src: src)
+		end 'toRegister'
+	end 'copyOne'
+
+	// parallelCopy copies each source to its target as if every source were read first: through temporary slots
+	// above the virtual registers' when there is more than one.
+	function parallelCopy(mutates self, dsts MRegList, srcs MRegList)
+		let n = dsts.count()
+		if n == 1 'one'
+			self.copyOne(dsts[0], src: srcs[0])
+			return
+		end 'one'
+		let scratch = trivialScratch(0)
+		for i in 0 upto n 'read'
+			self.moveInto(scratch, src: srcs[i])
+			out.push(newSpill(scratch, slot: self.tempSlot(i)))
+		end 'read'
+		for i in 0 upto n 'write'
+			if isVirtual(dsts[i]) 'slot'
+				out.push(newReload(scratch, slot: self.tempSlot(i)))
+				out.push(newSpill(scratch, slot: vregSlot(dsts[i])))
+			end 'slot' else 'register'
+				out.push(newReload(dsts[i], slot: self.tempSlot(i)))
+			end 'register'
+		end 'write'
+		if n > temps 'more'
+			temps = n
+		end 'more'
+	end 'parallelCopy'
+
+	function tempSlot(index Count) returns SpillSlot
+		return try (vregs + index) as SpillSlot otherwise panic("backend: a frame past 2 GiB")
+	end 'tempSlot'
+
+	// target writes a form with its virtual registers in scratch registers. A definition may share a use's scratch
+	// register, since an instruction reads every operand before it writes one.
+	function target(mutates self, x MInstr)
+		var y = x.clone()
+		let n = operandCount(y)
+		var first = 0 as Count
+		var scratch = 0 as Count
+		let def = y.a
+		if defines(y) 'defines'
+			first = 1
+		end 'defines'
+		if reuses(y) 'reuses'
+			var shared = y.b
+			if isPhysical(def) 'fixedDef'
+				shared = def
+			end 'fixedDef' else if isVirtual(shared) 'inScratch'
+				shared = trivialScratch(scratch)
+				scratch = try scratch + 1 otherwise panic("backend: more operands than memory")
+			end 'inScratch'
+			self.moveInto(shared, src: y.b)
+			y.a = shared
+			y.b = shared
+			first = 2
+		end 'reuses'
+		for i in first upto n 'uses'
+			let r = operandAt(y, index: i)
+			if isVirtual(r) 'virtual'
+				let into = trivialScratch(scratch)
+				scratch = try scratch + 1 otherwise panic("backend: more operands than memory")
+				self.moveInto(into, src: r)
+				setOperand(y, index: i, r: into)
+			end 'virtual'
+		end 'uses'
+		let defined = defines(y)
+		if defined and not reuses(y) and isVirtual(def) 'def'
+			y.a = trivialScratch(0)
+		end 'def'
+		let result = y.a
+		out.push(y)
+		if defined 'spill'
+			self.moveOut(def, src: result)
+		end 'spill'
+	end 'target'
+end 'TrivialAlloc'
+
+function vregSlot(r MReg) returns SpillSlot
+	return try (r - firstVirtual) as SpillSlot otherwise panic("backend: a virtual register below the first")
+end 'vregSlot'
+
+// edgeCopy writes the copies of an edge's arguments to its target's parameters, and takes the arguments off the edge.
+function edgeCopy(mutates t TrivialAlloc, mutates fn MirFunction, edge Count)
+	let target = fn.edges[edge].target as Count
+	let count = fn.edges[edge].argCount
+	if count != fn.blocks[target].paramCount 'arity'
+		panic("backend: an edge gives a block other than its number of parameters")
+	end 'arity'
+	if count == 0 'none'
+		return
+	end 'none'
+	var dsts = MRegList.create(0)
+	var srcs = MRegList.create(0)
+	let params = fn.blocks[target].params
+	let args = fn.edges[edge].args
+	for i in 0 upto count 'pairs'
+		dsts.push(fn.blockParams[try params + i otherwise panic("backend: a parameter past the pool")])
+		srcs.push(fn.edgeArgs[try args + i otherwise panic("backend: an argument past the pool")])
+	end 'pairs'
+	t.parallelCopy(dsts, srcs: srcs)
+	fn.edges[edge].argCount = 0
+end 'edgeCopy'
+
+// Split is an edge of a conditional branch that had arguments, and the block made on it for their copies.
+type Split
+	var edge as Count
+	var block as MBlockID
+
+	static function make(edge Count, block MBlockID) returns Split
+		return Split{edge: edge, block: block}
+	end 'make'
+end 'Split'
+
+typealias SplitList = Array with Split
+
+// allocateTrivially gives every virtual register of the function a spill slot, after which every operand is
+// physical, no edge has arguments and no parallel copy is left.
+export function allocateTrivially(mutates fn MirFunction)
+	var t = TrivialAlloc.new(fn.vregCount())
+	var splits = SplitList.create(0)
+	for pos in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[pos] as Count
+		let first = t.out.count()
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			let x = fn.instrs[k].clone()
+			match x.kind 'kind'
+				target then trivialTarget(t, fn: fn, x: x, splits: splits)
+				copy then t.copyOne(x.a, src: x.b)
+				parallelCopy then trivialParallelCopy(t, fn: fn, x: x)
+				spill or
+				reload then panic("backend: the trivial allocator allocates machine IR that has not been spilled")
+				frameSetup or
+				frameTeardown then t.out.push(x)
+			end 'kind'
+		end 'instrs'
+		fn.blocks[b].first = first
+		fn.blocks[b].endAt = t.out.count()
+	end 'blocks'
+	for i in 0 upto splits.count() 'splits'
+		let first = t.out.count()
+		let edge = splits[i].edge
+		edgeCopy(t, fn: fn, edge: edge)
+		t.out.push(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: try edge as Imm32 otherwise panic("backend: more edges than a branch names")))
+		var block = MBlock.make(first, params: 0)
+		block.endAt = t.out.count()
+		block.likelihood = fn.blocks[fn.edges[edge].target as Count].likelihood
+		fn.blocks.push(block)
+		fn.order.push(splits[i].block)
+	end 'splits'
+	for b in 0 upto fn.blocks.count() 'params'
+		fn.blocks[b].paramCount = 0
+	end 'params'
+	fn.instrs = exchange(t.out, value: MInstrList.create(0))
+	fn.spillSlots = try t.vregs + t.temps otherwise panic("backend: a frame past memory")
+end 'allocateTrivially'
+
+// trivialTarget writes a form; a branch along an edge first copies the edge's arguments, or, for a conditional one,
+// goes to a block of its own that does.
+function trivialTarget(mutates t TrivialAlloc, mutates fn MirFunction, x MInstr, mutates splits SplitList)
+	if x.ref != MRef.edge 'plain'
+		t.target(x)
+		return
+	end 'plain'
+	let edge = refIndex(x)
+	if isUnconditionalJump(x) 'jump'
+		edgeCopy(t, fn: fn, edge: edge)
+		t.target(x)
+		return
+	end 'jump'
+	if fn.edges[edge].argCount == 0 'bare'
+		t.target(x)
+		return
+	end 'bare'
+	let block = try (fn.blocks.count() + splits.count()) as MBlockID otherwise panic("backend: more blocks than a branch names")
+	splits.push(Split.make(edge, block: block))
+	var y = x.clone()
+	y.aux = fn.addEdge(block, args: MRegList.create(0))
+	t.target(y)
+end 'trivialTarget'
+
+function trivialParallelCopy(mutates t TrivialAlloc, fn MirFunction, x MInstr)
+	var dsts = MRegList.create(0)
+	var srcs = MRegList.create(0)
+	let start = refIndex(x)
+	for i in 0 upto copyCount(x) 'pairs'
+		let at = try start + i otherwise panic("backend: a copy past the pool")
+		dsts.push(fn.copies[at].dst)
+		srcs.push(fn.copies[at].src)
+	end 'pairs'
+	t.parallelCopy(dsts, srcs: srcs)
+end 'trivialParallelCopy'

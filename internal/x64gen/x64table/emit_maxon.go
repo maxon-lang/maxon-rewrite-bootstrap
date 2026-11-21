@@ -6,7 +6,8 @@ import (
 )
 
 // emitMaxon writes the whole of x64_gen.maxon: the types and constants, the helpers every encoder is written with, one
-// encoder per form, the choices and sequences, and the effects of the forms.
+// encoder per form, the choices and sequences, the effects of the forms, and what the register allocator and the
+// encoder of the machine IR ask of them.
 func emitMaxon() string {
 	var b strings.Builder
 	b.WriteString(header)
@@ -26,6 +27,7 @@ func emitMaxon() string {
 	for _, e := range effectList {
 		emitEffect(&b, e.name, e.of)
 	}
+	emitAlloc(&b)
 	return strings.TrimRight(b.String(), "\n") + "\n"
 }
 

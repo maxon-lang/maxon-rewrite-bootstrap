@@ -1228,3 +1228,953 @@ export function writesMemory(form X64Form) returns bool
 		cvttsd2siRaxXmm0 gives false
 	end 'form'
 end 'writesMemory'
+
+// x64FirstVector is the number of xmm0 in the register file, after the general registers.
+export let x64FirstVector = 16
+
+export let x64RegisterFileSize = 32
+
+export let x64FormCount = 74
+
+// x64RegisterOf is the general register with a number of the register file.
+export function x64RegisterOf(number RegNum) returns X64Register
+	return match number 'number'
+		0 gives X64Register.rax
+		1 gives X64Register.rcx
+		2 gives X64Register.rdx
+		3 gives X64Register.rbx
+		4 gives X64Register.rsp
+		5 gives X64Register.rbp
+		6 gives X64Register.rsi
+		7 gives X64Register.rdi
+		8 gives X64Register.r8
+		9 gives X64Register.r9
+		10 gives X64Register.r10
+		11 gives X64Register.r11
+		12 gives X64Register.r12
+		13 gives X64Register.r13
+		14 gives X64Register.r14
+		15 gives X64Register.r15
+		default panic("backend: a register number that is no general register")
+	end 'number'
+end 'x64RegisterOf'
+
+// x64FormOf is the form with a number, its rawValue.
+export function x64FormOf(number Count) returns X64Form
+	return match number 'number'
+		0 gives X64Form.movRegReg
+		1 gives X64Form.addRegReg
+		2 gives X64Form.subRegReg
+		3 gives X64Form.andRegReg
+		4 gives X64Form.orRegReg
+		5 gives X64Form.xorRegReg
+		6 gives X64Form.cmpRegReg
+		7 gives X64Form.testRegReg
+		8 gives X64Form.imulRegReg
+		9 gives X64Form.loadRegBaseDisp
+		10 gives X64Form.storeBaseDispReg
+		11 gives X64Form.leaRegBaseDisp
+		12 gives X64Form.movzxRegByteBaseDisp
+		13 gives X64Form.storeBaseDispReg8
+		14 gives X64Form.movzxRegWordBaseDisp
+		15 gives X64Form.loadReg32BaseDisp
+		16 gives X64Form.storeBaseDispReg16
+		17 gives X64Form.storeBaseDispReg32
+		18 gives X64Form.storeBaseDispImm8
+		19 gives X64Form.movzxRegReg8
+		20 gives X64Form.setccReg
+		21 gives X64Form.movRegImm32
+		22 gives X64Form.movRegImm32Signed
+		23 gives X64Form.movRegImm64
+		24 gives X64Form.addRegImm8
+		25 gives X64Form.addRegImm32
+		26 gives X64Form.andRegImm8
+		27 gives X64Form.andRegImm32
+		28 gives X64Form.subRegImm8
+		29 gives X64Form.subRegImm32
+		30 gives X64Form.cmpRegImm8
+		31 gives X64Form.cmpRegImm32
+		32 gives X64Form.notReg
+		33 gives X64Form.negReg
+		34 gives X64Form.mulReg
+		35 gives X64Form.divReg
+		36 gives X64Form.idivReg
+		37 gives X64Form.cqo
+		38 gives X64Form.shlRegCl
+		39 gives X64Form.shrRegCl
+		40 gives X64Form.sarRegCl
+		41 gives X64Form.sarRegImm8
+		42 gives X64Form.pushReg
+		43 gives X64Form.popReg
+		44 gives X64Form.ret
+		45 gives X64Form.ud2
+		46 gives X64Form.repMovsb
+		47 gives X64Form.repStosq
+		48 gives X64Form.repeCmpsb
+		49 gives X64Form.leaRegRip
+		50 gives X64Form.loadRegRip
+		51 gives X64Form.storeRipReg
+		52 gives X64Form.callRip
+		53 gives X64Form.callReg
+		54 gives X64Form.lockXaddBaseDispReg
+		55 gives X64Form.xchgBaseDispReg
+		56 gives X64Form.lockCmpxchgBaseDispReg
+		57 gives X64Form.pause
+		58 gives X64Form.loadRegGsBaseDisp
+		59 gives X64Form.jmpRel32
+		60 gives X64Form.callRel32
+		61 gives X64Form.jccRel32
+		62 gives X64Form.movqXmm0Reg
+		63 gives X64Form.movqXmm1Reg
+		64 gives X64Form.movqRegXmm0
+		65 gives X64Form.addsdXmm0Xmm1
+		66 gives X64Form.subsdXmm0Xmm1
+		67 gives X64Form.mulsdXmm0Xmm1
+		68 gives X64Form.divsdXmm0Xmm1
+		69 gives X64Form.sqrtsdXmm0Xmm0
+		70 gives X64Form.ucomisdXmm0Xmm1
+		71 gives X64Form.roundsdXmm0Xmm0Imm8
+		72 gives X64Form.cvtsi2sdXmm0Reg
+		73 gives X64Form.cvttsd2siRaxXmm0
+		default panic("backend: a number that is no x64 form")
+	end 'number'
+end 'x64FormOf'
+
+// machineOperandCount is how many register operands a machine instruction of a form has.
+export function machineOperandCount(form X64Form) returns Count
+	return match form 'form'
+		movRegReg or
+		cmpRegReg or
+		testRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		movzxRegReg8 or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		notReg or
+		negReg or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		lockCmpxchgBaseDispReg or
+		loadRegGsBaseDisp gives 2
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		imulRegReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg gives 3
+		storeBaseDispImm8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		mulReg or
+		divReg or
+		idivReg or
+		pushReg or
+		popReg or
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		callReg or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		cvtsi2sdXmm0Reg gives 1
+		cqo or
+		ret or
+		ud2 or
+		repMovsb or
+		repStosq or
+		repeCmpsb or
+		callRip or
+		pause or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvttsd2siRaxXmm0 gives 0
+	end 'form'
+end 'machineOperandCount'
+
+export function definesOperand(form X64Form) returns bool
+	return match form 'form'
+		movRegReg or
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		imulRegReg or
+		loadRegBaseDisp or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		movzxRegReg8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		notReg or
+		negReg or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		popReg or
+		leaRegRip or
+		loadRegRip or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		loadRegGsBaseDisp or
+		movqRegXmm0 gives true
+		cmpRegReg or
+		testRegReg or
+		storeBaseDispReg or
+		storeBaseDispReg8 or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		mulReg or
+		divReg or
+		idivReg or
+		cqo or
+		pushReg or
+		ret or
+		ud2 or
+		repMovsb or
+		repStosq or
+		repeCmpsb or
+		storeRipReg or
+		callRip or
+		callReg or
+		lockCmpxchgBaseDispReg or
+		pause or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
+	end 'form'
+end 'definesOperand'
+
+export function reusesOperand(form X64Form) returns bool
+	return match form 'form'
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		imulRegReg or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		notReg or
+		negReg or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg gives true
+		movRegReg or
+		cmpRegReg or
+		testRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		movzxRegReg8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		mulReg or
+		divReg or
+		idivReg or
+		cqo or
+		pushReg or
+		popReg or
+		ret or
+		ud2 or
+		repMovsb or
+		repStosq or
+		repeCmpsb or
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		callRip or
+		callReg or
+		lockCmpxchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
+	end 'form'
+end 'reusesOperand'
+
+export function isCall(form X64Form) returns bool
+	return match form 'form'
+		callRip or
+		callReg or
+		callRel32 gives true
+		movRegReg or
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		cmpRegReg or
+		testRegReg or
+		imulRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		movzxRegReg8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		notReg or
+		negReg or
+		mulReg or
+		divReg or
+		idivReg or
+		cqo or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		pushReg or
+		popReg or
+		ret or
+		ud2 or
+		repMovsb or
+		repStosq or
+		repeCmpsb or
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		lockCmpxchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
+		jmpRel32 or
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
+	end 'form'
+end 'isCall'
+
+export function isReturn(form X64Form) returns bool
+	return match form 'form'
+		ret gives true
+		movRegReg or
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		cmpRegReg or
+		testRegReg or
+		imulRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		movzxRegReg8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		notReg or
+		negReg or
+		mulReg or
+		divReg or
+		idivReg or
+		cqo or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		pushReg or
+		popReg or
+		ud2 or
+		repMovsb or
+		repStosq or
+		repeCmpsb or
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		callRip or
+		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		lockCmpxchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
+	end 'form'
+end 'isReturn'
+
+export function hasPatchField(form X64Form) returns bool
+	return match form 'form'
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		callRip or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 gives true
+		movRegReg or
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		cmpRegReg or
+		testRegReg or
+		imulRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		movzxRegReg8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		notReg or
+		negReg or
+		mulReg or
+		divReg or
+		idivReg or
+		cqo or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		pushReg or
+		popReg or
+		ret or
+		ud2 or
+		repMovsb or
+		repStosq or
+		repeCmpsb or
+		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		lockCmpxchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
+	end 'form'
+end 'hasPatchField'
+
+// fixedUses is the registers a form reads that no operand names.
+export function fixedUses(form X64Form) returns RegMask
+	return match form 'form'
+		movRegReg or
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		cmpRegReg or
+		testRegReg or
+		imulRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		movzxRegReg8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		notReg or
+		negReg or
+		sarRegImm8 or
+		pushReg or
+		popReg or
+		ret or
+		ud2 or
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		callRip or
+		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		cvtsi2sdXmm0Reg gives 0x0
+		mulReg or
+		cqo or
+		lockCmpxchgBaseDispReg gives 0x1
+		divReg or
+		idivReg gives 0x5
+		shlRegCl or
+		shrRegCl or
+		sarRegCl gives 0x2
+		repMovsb or
+		repeCmpsb gives 0xC2
+		repStosq gives 0x83
+		movqRegXmm0 or
+		sqrtsdXmm0Xmm0 or
+		roundsdXmm0Xmm0Imm8 or
+		cvttsd2siRaxXmm0 gives 0x10000
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		ucomisdXmm0Xmm1 gives 0x30000
+	end 'form'
+end 'fixedUses'
+
+// fixedDefs is the registers a form writes a result to that no operand names.
+export function fixedDefs(form X64Form) returns RegMask
+	return match form 'form'
+		movRegReg or
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		cmpRegReg or
+		testRegReg or
+		imulRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		movzxRegReg8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		notReg or
+		negReg or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		pushReg or
+		popReg or
+		ret or
+		ud2 or
+		repMovsb or
+		repStosq or
+		repeCmpsb or
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		callRip or
+		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 or
+		movqRegXmm0 or
+		ucomisdXmm0Xmm1 gives 0x0
+		mulReg or
+		divReg or
+		idivReg gives 0x5
+		cqo gives 0x4
+		lockCmpxchgBaseDispReg or
+		cvttsd2siRaxXmm0 gives 0x1
+		movqXmm0Reg or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg gives 0x10000
+		movqXmm1Reg gives 0x20000
+	end 'form'
+end 'fixedDefs'
+
+// clobbers is the registers a form leaves holding nothing, besides a call's.
+export function clobbers(form X64Form) returns RegMask
+	return match form 'form'
+		movRegReg or
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		cmpRegReg or
+		testRegReg or
+		imulRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		movzxRegReg8 or
+		setccReg or
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		notReg or
+		negReg or
+		mulReg or
+		divReg or
+		idivReg or
+		cqo or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		pushReg or
+		popReg or
+		ret or
+		ud2 or
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		callRip or
+		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		lockCmpxchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives 0x0
+		repMovsb or
+		repeCmpsb gives 0xC2
+		repStosq gives 0x82
+	end 'form'
+end 'clobbers'
+
+// chooseAddRegImm is the first of AddRegImm8, AddRegImm32 whose immediate holds the value.
+export function chooseAddRegImm(imm Imm32) returns X64Form
+	if imm >= imm8Min and imm <= imm8Max 'addRegImm8'
+		return X64Form.addRegImm8
+	end 'addRegImm8'
+	return X64Form.addRegImm32
+end 'chooseAddRegImm'
+
+// chooseAndRegImm is the first of AndRegImm8, AndRegImm32 whose immediate holds the value.
+export function chooseAndRegImm(imm Imm32) returns X64Form
+	if imm >= imm8Min and imm <= imm8Max 'andRegImm8'
+		return X64Form.andRegImm8
+	end 'andRegImm8'
+	return X64Form.andRegImm32
+end 'chooseAndRegImm'
+
+// chooseSubRegImm is the first of SubRegImm8, SubRegImm32 whose immediate holds the value.
+export function chooseSubRegImm(imm Imm32) returns X64Form
+	if imm >= imm8Min and imm <= imm8Max 'subRegImm8'
+		return X64Form.subRegImm8
+	end 'subRegImm8'
+	return X64Form.subRegImm32
+end 'chooseSubRegImm'
+
+// chooseCmpRegImm is the first of CmpRegImm8, CmpRegImm32 whose immediate holds the value.
+export function chooseCmpRegImm(imm Imm32) returns X64Form
+	if imm >= imm8Min and imm <= imm8Max 'cmpRegImm8'
+		return X64Form.cmpRegImm8
+	end 'cmpRegImm8'
+	return X64Form.cmpRegImm32
+end 'chooseCmpRegImm'
+
+// chooseMovRegImm is the first of MovRegImm32, MovRegImm32Signed, MovRegImm64 whose immediate holds the value.
+export function chooseMovRegImm(imm FullRangeInt) returns X64Form
+	if imm >= 0 and imm <= imm32UMax 'movRegImm32'
+		return X64Form.movRegImm32
+	end 'movRegImm32'
+	if imm >= imm32Min and imm <= imm32Max 'movRegImm32Signed'
+		return X64Form.movRegImm32Signed
+	end 'movRegImm32Signed'
+	return X64Form.movRegImm64
+end 'chooseMovRegImm'
+
+// encodeMachineForm encodes a form from the fields of a machine instruction: a defines, a reused register is
+// the same as a, and the registers a form does not have are not read.
+export function encodeMachineForm(mutates code ByteArray, form X64Form, a X64Register, b X64Register, c X64Register, aux Imm32, imm FullRangeInt, cond X64CondCode)
+	match form 'form'
+		movRegReg then encodeMovRegReg(code, dest: a, src: b)
+		addRegReg then encodeAddRegReg(code, dest: a, src: c)
+		subRegReg then encodeSubRegReg(code, dest: a, src: c)
+		andRegReg then encodeAndRegReg(code, dest: a, src: c)
+		orRegReg then encodeOrRegReg(code, dest: a, src: c)
+		xorRegReg then encodeXorRegReg(code, dest: a, src: c)
+		cmpRegReg then encodeCmpRegReg(code, left: a, right: b)
+		testRegReg then encodeTestRegReg(code, left: a, right: b)
+		imulRegReg then encodeImulRegReg(code, dest: a, src: c)
+		loadRegBaseDisp then encodeLoadRegBaseDisp(code, dest: a, base: b, disp: aux)
+		storeBaseDispReg then encodeStoreBaseDispReg(code, base: a, disp: aux, src: b)
+		leaRegBaseDisp then encodeLeaRegBaseDisp(code, dest: a, base: b, disp: aux)
+		movzxRegByteBaseDisp then encodeMovzxRegByteBaseDisp(code, dest: a, base: b, disp: aux)
+		storeBaseDispReg8 then encodeStoreBaseDispReg8(code, base: a, disp: aux, src: b)
+		movzxRegWordBaseDisp then encodeMovzxRegWordBaseDisp(code, dest: a, base: b, disp: aux)
+		loadReg32BaseDisp then encodeLoadReg32BaseDisp(code, dest: a, base: b, disp: aux)
+		storeBaseDispReg16 then encodeStoreBaseDispReg16(code, base: a, disp: aux, src: b)
+		storeBaseDispReg32 then encodeStoreBaseDispReg32(code, base: a, disp: aux, src: b)
+		storeBaseDispImm8 then encodeStoreBaseDispImm8(code, base: a, disp: aux, imm: try imm as Imm8 otherwise panic("backend: the immediate of StoreBaseDispImm8 does not fit it"))
+		movzxRegReg8 then encodeMovzxRegReg8(code, dest: a, src: b)
+		setccReg then encodeSetccReg(code, cond: cond, dest: a)
+		movRegImm32 then encodeMovRegImm32(code, dest: a, imm: try imm as Imm32U otherwise panic("backend: the immediate of MovRegImm32 does not fit it"))
+		movRegImm32Signed then encodeMovRegImm32Signed(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of MovRegImm32Signed does not fit it"))
+		movRegImm64 then encodeMovRegImm64(code, dest: a, imm: imm)
+		addRegImm8 then encodeAddRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of AddRegImm8 does not fit it"))
+		addRegImm32 then encodeAddRegImm32(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of AddRegImm32 does not fit it"))
+		andRegImm8 then encodeAndRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of AndRegImm8 does not fit it"))
+		andRegImm32 then encodeAndRegImm32(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of AndRegImm32 does not fit it"))
+		subRegImm8 then encodeSubRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of SubRegImm8 does not fit it"))
+		subRegImm32 then encodeSubRegImm32(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of SubRegImm32 does not fit it"))
+		cmpRegImm8 then encodeCmpRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of CmpRegImm8 does not fit it"))
+		cmpRegImm32 then encodeCmpRegImm32(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of CmpRegImm32 does not fit it"))
+		notReg then encodeNotReg(code, reg: a)
+		negReg then encodeNegReg(code, reg: a)
+		mulReg then encodeMulReg(code, reg: a)
+		divReg then encodeDivReg(code, reg: a)
+		idivReg then encodeIdivReg(code, reg: a)
+		cqo then encodeCqo(code)
+		shlRegCl then encodeShlRegCl(code, reg: a)
+		shrRegCl then encodeShrRegCl(code, reg: a)
+		sarRegCl then encodeSarRegCl(code, reg: a)
+		sarRegImm8 then encodeSarRegImm8(code, reg: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of SarRegImm8 does not fit it"))
+		pushReg then encodePushReg(code, reg: a)
+		popReg then encodePopReg(code, reg: a)
+		ret then encodeRet(code)
+		ud2 then encodeUd2(code)
+		repMovsb then encodeRepMovsb(code)
+		repStosq then encodeRepStosq(code)
+		repeCmpsb then encodeRepeCmpsb(code)
+		leaRegRip then encodeLeaRegRip(code, dest: a, disp: 0)
+		loadRegRip then encodeLoadRegRip(code, dest: a, disp: 0)
+		storeRipReg then encodeStoreRipReg(code, disp: 0, src: a)
+		callRip then encodeCallRip(code, disp: 0)
+		callReg then encodeCallReg(code, reg: a)
+		lockXaddBaseDispReg then encodeLockXaddBaseDispReg(code, base: c, disp: aux, src: a)
+		xchgBaseDispReg then encodeXchgBaseDispReg(code, base: c, disp: aux, src: a)
+		lockCmpxchgBaseDispReg then encodeLockCmpxchgBaseDispReg(code, base: a, disp: aux, src: b)
+		pause then encodePause(code)
+		loadRegGsBaseDisp then encodeLoadRegGsBaseDisp(code, dest: a, base: b, disp: aux)
+		jmpRel32 then encodeJmpRel32(code, rel: 0)
+		callRel32 then encodeCallRel32(code, rel: 0)
+		jccRel32 then encodeJccRel32(code, cond: cond, rel: 0)
+		movqXmm0Reg then encodeMovqXmm0Reg(code, src: a)
+		movqXmm1Reg then encodeMovqXmm1Reg(code, src: a)
+		movqRegXmm0 then encodeMovqRegXmm0(code, dest: a)
+		addsdXmm0Xmm1 then encodeAddsdXmm0Xmm1(code)
+		subsdXmm0Xmm1 then encodeSubsdXmm0Xmm1(code)
+		mulsdXmm0Xmm1 then encodeMulsdXmm0Xmm1(code)
+		divsdXmm0Xmm1 then encodeDivsdXmm0Xmm1(code)
+		sqrtsdXmm0Xmm0 then encodeSqrtsdXmm0Xmm0(code)
+		ucomisdXmm0Xmm1 then encodeUcomisdXmm0Xmm1(code)
+		roundsdXmm0Xmm0Imm8 then encodeRoundsdXmm0Xmm0Imm8(code, imm: try imm as Imm8 otherwise panic("backend: the immediate of RoundsdXmm0Xmm0Imm8 does not fit it"))
+		cvtsi2sdXmm0Reg then encodeCvtsi2sdXmm0Reg(code, src: a)
+		cvttsd2siRaxXmm0 then encodeCvttsd2siRaxXmm0(code)
+	end 'form'
+end 'encodeMachineForm'

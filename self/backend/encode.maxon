@@ -1,0 +1,113 @@
+// The encoder of machine IR: an allocated function, every operand physical, into a code unit, with the same label
+// uses and fixups for the linker as the rest of the backend writes. Blocks are laid out in the function's order, and
+// a jump to the block that follows is left out.
+
+// machinePageSize is how far the stack may grow past the last page it touched: a frame bigger than that touches each
+// page on the way down, so the guard page is met in order.
+let machinePageSize = 4096
+
+let machineFrameAlignment = 16
+
+// encodeMachineFunction writes a function whose registers are allocated into the unit, as a section of its own, and
+// defines its symbol.
+export function encodeMachineFunction(mutates u CodeUnit, fn MirFunction, instance bool)
+	u.beginSection()
+	for _ in 0 upto fn.blocks.count() 'labels'
+		_ = u.asm.newLabel()
+	end 'labels'
+	u.defineFunction(fn.symbol, instance: instance)
+	for pos in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[pos]
+		u.asm.bind(b as LabelID)
+		var next = 0 as MBlockID
+		let hasNext = pos + 1 < fn.order.count()
+		if hasNext 'follows'
+			next = fn.order[pos + 1]
+		end 'follows'
+		for k in fn.blocks[b as Count].first upto fn.blocks[b as Count].endAt 'instrs'
+			let falls = hasNext and fallsThrough(fn, x: fn.instrs[k], next: next)
+			if not falls 'encode'
+				encodeMachineInstr(u, fn: fn, x: fn.instrs[k])
+			end 'encode'
+		end 'instrs'
+	end 'blocks'
+end 'encodeMachineFunction'
+
+// fallsThrough is whether an instruction is a jump to the block laid out next.
+function fallsThrough(fn MirFunction, x MInstr, next MBlockID) returns bool
+	if not isUnconditionalJump(x) or x.ref != MRef.edge 'other'
+		return false
+	end 'other'
+	return fn.edges[refIndex(x)].target == next
+end 'fallsThrough'
+
+function encodeMachineInstr(mutates u CodeUnit, fn MirFunction, x MInstr)
+	match x.kind 'kind'
+		target then encodeTargetInstr(u, fn: fn, x: x)
+		copy then encodeCopy(u, x: x)
+		spill then encodeStoreBaseDispReg(u.asm.code, base: X64Register.rbp, disp: spillSlotOffset(spillSlotOf(x)), src: generalRegister(x.a))
+		reload then encodeLoadRegBaseDisp(u.asm.code, dest: generalRegister(x.a), base: X64Register.rbp, disp: spillSlotOffset(spillSlotOf(x)))
+		parallelCopy then panic("backend: a parallel copy that allocation left")
+		frameSetup then encodeFrameSetup(u, bytes: fn.frameBytes())
+		frameTeardown then encodeFrameTeardown(u)
+	end 'kind'
+end 'encodeMachineInstr'
+
+function encodeCopy(mutates u CodeUnit, x MInstr)
+	if x.a != x.b 'move'
+		encodeMovRegReg(u.asm.code, dest: generalRegister(x.a), src: generalRegister(x.b))
+	end 'move'
+end 'encodeCopy'
+
+// operandRegister is register operand i of a form, or rax for one the form does not have, which its encoder does not
+// read.
+function operandRegister(x MInstr, index Count) returns X64Register
+	if index >= operandCount(x) 'absent'
+		return X64Register.rax
+	end 'absent'
+	return generalRegister(operandAt(x, index: index))
+end 'operandRegister'
+
+function encodeTargetInstr(mutates u CodeUnit, fn MirFunction, x MInstr)
+	if reuses(x) and x.a != x.b 'reuse'
+		panic("backend: a two-address definition in another register than the operand it reuses")
+	end 'reuse'
+	if hasPatchField(x.form) != (x.ref != MRef.none) 'reference'
+		panic("backend: a reference on a form without a field for it, or a field with no reference")
+	end 'reference'
+	encodeMachineForm(u.asm.code, form: x.form, a: operandRegister(x, index: 0), b: operandRegister(x, index: 1), c: operandRegister(x, index: 2), aux: x.aux, imm: x.imm, cond: x.cond)
+	match x.ref 'ref'
+		none then return
+		edge then u.asm.useLabel(edgeLabel(fn, edge: refIndex(x)))
+		symbol then u.asm.noteSymbolFixup(fn.symbols[refIndex(x)])
+		data then u.asm.noteDataFixup(refIndex(x))
+		importSlot then u.asm.importFixups.push(ImportFixup.make(lastField32(u.asm.code), index: refIndex(x)))
+	end 'ref'
+end 'encodeTargetInstr'
+
+// edgeLabel is the label of an edge's target: a function's labels are made for its blocks first, in order.
+function edgeLabel(fn MirFunction, edge Count) returns LabelID
+	if fn.edges[edge].argCount != 0 'arguments'
+		panic("backend: an edge keeps its arguments past allocation")
+	end 'arguments'
+	return fn.edges[edge].target as LabelID
+end 'edgeLabel'
+
+function encodeFrameSetup(mutates u CodeUnit, bytes Count)
+	encodePushReg(u.asm.code, reg: X64Register.rbp)
+	encodeMovRegReg(u.asm.code, dest: X64Register.rbp, src: X64Register.rsp)
+	var frame = alignUp(bytes, alignment: machineFrameAlignment)
+	while frame > machinePageSize 'pages'
+		encodeSubRegImm(u.asm.code, dest: X64Register.rsp, imm: machinePageSize)
+		encodeStoreBaseDispReg(u.asm.code, base: X64Register.rsp, disp: 0, src: X64Register.rax)
+		frame = try frame - machinePageSize otherwise panic("backend: a frame below zero")
+	end 'pages'
+	if frame > 0 'rest'
+		encodeSubRegImm(u.asm.code, dest: X64Register.rsp, imm: imm32Of(frame))
+	end 'rest'
+end 'encodeFrameSetup'
+
+function encodeFrameTeardown(mutates u CodeUnit)
+	encodeMovRegReg(u.asm.code, dest: X64Register.rsp, src: X64Register.rbp)
+	encodePopReg(u.asm.code, reg: X64Register.rbp)
+end 'encodeFrameTeardown'

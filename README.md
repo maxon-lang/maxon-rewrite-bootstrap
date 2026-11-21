@@ -231,7 +231,7 @@ layering cannot erode:
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; the passes that apply them come with Phase 3 | `ir` |
-| `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `ir`, `table` |
+| `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), the trivial allocator (`trivial.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -334,6 +334,9 @@ one shape of operands, named as maxon's `X64Backend.maxon` names its encoders (`
 | `prefix`, `rexW`, `opcode` | the mandatory prefix (`rep`), REX.W, and the opcode with its `0F` escape; a condition code is added to the last opcode byte |
 | `modrm`, `digit` | no ModRM byte, one the operands fill, or one whose reg field is the form's `/digit` |
 | `setsFlags`, `readsFlags`, `readsMemory`, `writesMemory` | what instruction selection asks of a form; written as `X64Form` predicates of the same names |
+| `access` of each register operand | read, written, or both (a two-address form, whose definition reuses the operand's register); the base of a memory operand is read |
+| `fixedUses`, `fixedDefs`, `clobbers` | the registers a form reads, writes a result to, or leaves holding nothing, that no operand names (`idiv`: rdx:rax in, rax and rdx out; a shift by `cl`: rcx; `rep movsb`: rsi, rdi and rcx; the SSE forms: xmm0 and xmm1) |
+| `call`, `ret` | a call clobbers what its calling convention does not keep, and a return reads the convention's result registers |
 
 A register that is used as an 8-bit register is marked, and its encoder writes a REX prefix whenever the register is `rsp` or
 above in number, since `spl` to `dil` exist only under one. The displacement of a memory operand is none, a byte or a
@@ -347,6 +350,15 @@ ByteArray` first. `go test ./internal/x64gen/...` also encodes every form with r
 to 32 bits, bases of `rsp`, `rbp`, `r12` and `r13`, immediates at the limits of each kind and every condition code, with a
 reference encoder in the test, and compares the bytes with `internal/x64gen/x64table/testdata/assembler.golden`; `selftest` runs the
 generated Maxon on a set of those encodings (in `self/main.maxon`) and compares them with the same bytes.
+
+The allocation columns are what the machine IR asks of a form (see "The machine IR"), and the generator refuses a table in
+which they contradict the operands: a register operand with no access, two written operands, more than three register operands
+in machine order, a fixed `rsp` or `rbp`, a register both a result and a clobber, or an immediate after a field a reference
+patches. From them it writes `machineOperandCount`, `definesOperand`, `reusesOperand`, `isCall`, `isReturn`, `hasPatchField`
+and the masks `fixedUses`, `fixedDefs` and `clobbers` (a `RegMask` over the register file: the general registers, then xmm0
+to xmm15 from `x64FirstVector`), `x64RegisterOf` and `x64FormOf` from a number, a `choose` function per choice that names
+the form an immediate selects (`chooseAddRegImm`), and `encodeMachineForm`, which encodes a form from the fields of a machine
+instruction.
 
 The IR table and the x64 instruction table are Go packages of their own (`internal/irgen/irtable`,
 `internal/x64gen/x64table`), so that `rulegen` reads the same tables as the generators of the records and the encoder.
@@ -1002,6 +1014,35 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   `self/fuzz/library.txt`. The command runs its seeds in worker processes, loads each program from memory
   (`project.loadSourceInto`), and with `--native` also builds each accepted program that has an executable, with its
   allocations counted, and compares it with the interpreter's: the same output and exit code, and no box left live.
+
+### The machine IR
+
+Phase 3 puts a machine IR between the IR and the encoder (`self/backend/mir.maxon`); nothing in a build uses it yet, and
+`selftest` runs it on functions written by hand. A function (`MirFunction`) is blocks of fixed-size instructions over
+virtual registers, in SSA form: a block is a range of `instrs` with a range of `blockParams`, a branch names an edge
+(`MEdge`: a target block and a range of `edgeArgs`), and the encoder lays the blocks out in `order`. Each block has a loop
+depth and a likelihood (`cold` for a failing check) for the passes that will read them. A virtual register's class
+(`RegClass`: `gpr`, and `xmm` once floats leave the general registers) is in `classes`, from `firstVirtual` (64) on;
+an operand below that is a physical register by its number in the register file, which is how selection fixes a value to a
+register: it copies the value into, say, rcx before a shift by `cl`, and the allocator sees the fixed register at the copy.
+
+An instruction (`MInstr`, 32 bytes when packed: kind, reference kind, form, condition, three register operands `a b c`, a
+32-bit `aux` and a 64-bit `imm`) is an x64 form (`MKind.target`) or a pseudo-instruction: `copy`, `parallelCopy` (a range
+of `copies`, every source read before any target is written), `spill` and `reload` against a spill slot, and `frameSetup`
+and `frameTeardown`. A form's register operands are in one order: the register it defines, then the one a two-address form
+reads and writes (which the definition must be given the register of: `reuses`), then the ones it reads. `aux` is a
+memory operand's displacement, or what the reference of a form's last 32-bit field names (`MRef`: an edge, a symbol of the
+function's `symbols`, a data offset, an import), which the encoder turns into the same label uses and fixups as the rest
+of the backend. `regs_x64.maxon` holds the constraints the allocator reads, never the encodings: `operandCount`,
+`defines`, `reuses`, `implicitUses` (a form's fixed uses, and the result registers at a return) and `implicitDefs` (fixed
+results, clobbers and a call's convention), the register file's masks (`classMask`, `allocatable`, `reservedMask`) and the
+calling conventions (`CallConvention`: argument, result and error registers, and what a call keeps): today's internal
+one (every argument on the stack, the result in rax and the error in rdx, nothing kept) and Win64 for an import.
+
+The trivial allocator (`allocateTrivially`) gives every virtual register a spill slot of its own, reloads each instruction's
+virtual operands into r10 and r11 (which no form or convention fixes) and spills its definition; it turns each edge's
+arguments into a parallel copy through temporary slots, splitting a conditional branch's edge that has any into a block of
+its own. `encodeMachineFunction` writes an allocated function into a code unit, leaving out a jump to the block that follows.
 
 ## The runtime
 

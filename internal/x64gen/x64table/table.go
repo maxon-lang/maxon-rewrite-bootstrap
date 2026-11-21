@@ -89,6 +89,13 @@ var registers = []string{
 	"r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
 }
 
+// vectorRegisters are the xmm registers, which the register allocator numbers after the general ones: a register's
+// number is its index in registers, or len(registers) plus its index here.
+var vectorRegisters = []string{
+	"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
+	"xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
+}
+
 // condition is a condition code and the number that is added to the opcode of jcc and setcc. The names are maxon's
 // X64CondCode, where it has one.
 type condition struct {
@@ -149,6 +156,30 @@ type operand struct {
 	// byteReg says that the register is used as 8-bit register, where the numbers 4 to 7 are spl to dil only under a REX
 	// prefix, which is then written even if it holds no bit.
 	byteReg bool
+	// access is what the instruction does with a register operand; the base of a memory operand is always read.
+	access access
+}
+
+// access is whether an instruction reads a register operand, writes it, or both: a two-address form, whose result the
+// machine IR gives a register of its own that the allocator must make the same as the operand's (a reuse).
+type access int
+
+const (
+	accessNone access = iota // not a register operand
+	read
+	write
+	readWrite
+)
+
+// alloc is what the register allocator needs of a form beyond its operands: the registers it reads or writes that no
+// operand names, which instruction selection moves values into and out of, and whether the calling convention says
+// what it reads and clobbers.
+type alloc struct {
+	// fixedUses are registers the form reads, fixedDefs registers it writes a result to, and clobbers registers it
+	// leaves holding nothing.
+	fixedUses, fixedDefs, clobbers []string
+	// call clobbers what the calling convention of the call does not keep; ret reads the convention's result registers.
+	call, ret bool
 }
 
 // modrm says what a form's ModRM byte is.
@@ -179,6 +210,7 @@ type form struct {
 	modrm  modrm
 	digit  int
 	effects
+	alloc
 }
 
 // choice is a form picked by the value of an immediate.
@@ -199,10 +231,12 @@ type sequence struct {
 	steps    []step
 }
 
-func reg(name string, f field) operand { return operand{name: name, kind: kindReg, field: f} }
+func reg(name string, f field, a access) operand {
+	return operand{name: name, kind: kindReg, field: f, access: a}
+}
 
-func byteReg(name string, f field) operand {
-	return operand{name: name, kind: kindReg, field: f, byteReg: true}
+func byteReg(name string, f field, a access) operand {
+	return operand{name: name, kind: kindReg, field: f, byteReg: true, access: a}
 }
 
 func mem() operand { return operand{name: "base", kind: kindMem, field: fieldRM} }
@@ -222,56 +256,61 @@ func rel32() operand { return operand{name: "rel", kind: kindRel32} }
 func cond() operand { return operand{name: "cond", kind: kindCond, field: fieldNone} }
 
 var (
-	flags     = effects{setsFlags: true}
-	noEffects = effects{}
-	reads     = effects{readsMemory: true}
-	writes    = effects{writesMemory: true}
-	readsFlag = effects{readsFlags: true}
+	// divides reads the dividend from rdx:rax and writes the quotient to rax and the remainder to rdx.
+	divides = alloc{fixedUses: []string{"rax", "rdx"}, fixedDefs: []string{"rax", "rdx"}}
+	// stringScan walks rsi and rdi for rcx bytes, and leaves the three past where it stopped.
+	stringScan = alloc{fixedUses: []string{"rsi", "rdi", "rcx"}, clobbers: []string{"rsi", "rdi", "rcx"}}
+	flags      = effects{setsFlags: true}
+	noEffects  = effects{}
+	reads      = effects{readsMemory: true}
+	writes     = effects{writesMemory: true}
+	readsFlag  = effects{readsFlags: true}
 )
 
 // aluRegReg are the instructions of the shape op r/m64, r64: the destination is the r/m operand.
-func aluRegReg(name, mnemonic string, opcode byte, left, right string, e effects) form {
+func aluRegReg(name, mnemonic string, opcode byte, left, right string, leftAccess access, e effects) form {
 	return form{
-		name: name, mnemonic: mnemonic, operands: []operand{reg(left, fieldRM), reg(right, fieldReg)},
+		name: name, mnemonic: mnemonic, operands: []operand{reg(left, fieldRM, leftAccess), reg(right, fieldReg, read)},
 		rexW: true, opcode: []byte{opcode}, modrm: modOperands, effects: e,
 	}
 }
 
 // group1 are add, and, sub and cmp with an immediate: one opcode for a byte and one for a doubleword, and a /digit.
-func group1(mnemonic string, digit int) []form {
+func group1(mnemonic string, digit int, a access) []form {
 	return []form{
 		{
-			name: capitalize(mnemonic) + "RegImm8", mnemonic: mnemonic, operands: []operand{reg("dest", fieldRM), imm8()},
+			name: capitalize(mnemonic) + "RegImm8", mnemonic: mnemonic, operands: []operand{reg("dest", fieldRM, a), imm8()},
 			rexW: true, opcode: []byte{0x83}, modrm: modDigit, digit: digit, effects: flags,
 		},
 		{
-			name: capitalize(mnemonic) + "RegImm32", mnemonic: mnemonic, operands: []operand{reg("dest", fieldRM), imm32()},
+			name: capitalize(mnemonic) + "RegImm32", mnemonic: mnemonic, operands: []operand{reg("dest", fieldRM, a), imm32()},
 			rexW: true, opcode: []byte{0x81}, modrm: modDigit, digit: digit, effects: flags,
 		},
 	}
 }
 
 // groupF7 are the instructions of one operand with opcode F7: not, neg, mul, div and idiv.
-func groupF7(name, mnemonic string, digit int, e effects) form {
+func groupF7(name, mnemonic string, digit int, a access, e effects, al alloc) form {
 	return form{
-		name: name, mnemonic: mnemonic, operands: []operand{reg("reg", fieldRM)},
-		rexW: true, opcode: []byte{0xF7}, modrm: modDigit, digit: digit, effects: e,
+		name: name, mnemonic: mnemonic, operands: []operand{reg("reg", fieldRM, a)},
+		rexW: true, opcode: []byte{0xF7}, modrm: modDigit, digit: digit, effects: e, alloc: al,
 	}
 }
 
 // shiftCl are the shifts by cl.
 func shiftCl(name, mnemonic string, digit int) form {
 	return form{
-		name: name, mnemonic: mnemonic, operands: []operand{reg("reg", fieldRM)},
+		name: name, mnemonic: mnemonic, operands: []operand{reg("reg", fieldRM, readWrite)},
 		rexW: true, opcode: []byte{0xD3}, modrm: modDigit, digit: digit, effects: flags,
+		fixedUses: []string{"rcx"},
 	}
 }
 
 // ripReg are the instructions that move between a register and [rip + disp32].
 func ripReg(name, mnemonic string, opcode byte, regIsFirst bool, e effects) form {
-	ops := []operand{reg("dest", fieldReg), rip()}
+	ops := []operand{reg("dest", fieldReg, write), rip()}
 	if !regIsFirst {
-		ops = []operand{rip(), reg("src", fieldReg)}
+		ops = []operand{rip(), reg("src", fieldReg, read)}
 	}
 	return form{name: name, mnemonic: mnemonic, operands: ops, rexW: true, opcode: []byte{opcode}, modrm: modOperands, effects: e}
 }
@@ -281,53 +320,53 @@ var forms = buildForms()
 func buildForms() []form {
 	var fs []form
 	fs = append(fs,
-		aluRegReg("MovRegReg", "mov", 0x89, "dest", "src", noEffects),
-		aluRegReg("AddRegReg", "add", 0x01, "dest", "src", flags),
-		aluRegReg("SubRegReg", "sub", 0x29, "dest", "src", flags),
-		aluRegReg("AndRegReg", "and", 0x21, "dest", "src", flags),
-		aluRegReg("OrRegReg", "or", 0x09, "dest", "src", flags),
-		aluRegReg("XorRegReg", "xor", 0x31, "dest", "src", flags),
-		aluRegReg("CmpRegReg", "cmp", 0x39, "left", "right", flags),
-		aluRegReg("TestRegReg", "test", 0x85, "left", "right", flags),
+		aluRegReg("MovRegReg", "mov", 0x89, "dest", "src", write, noEffects),
+		aluRegReg("AddRegReg", "add", 0x01, "dest", "src", readWrite, flags),
+		aluRegReg("SubRegReg", "sub", 0x29, "dest", "src", readWrite, flags),
+		aluRegReg("AndRegReg", "and", 0x21, "dest", "src", readWrite, flags),
+		aluRegReg("OrRegReg", "or", 0x09, "dest", "src", readWrite, flags),
+		aluRegReg("XorRegReg", "xor", 0x31, "dest", "src", readWrite, flags),
+		aluRegReg("CmpRegReg", "cmp", 0x39, "left", "right", read, flags),
+		aluRegReg("TestRegReg", "test", 0x85, "left", "right", read, flags),
 		form{
-			name: "ImulRegReg", mnemonic: "imul", operands: []operand{reg("dest", fieldReg), reg("src", fieldRM)},
+			name: "ImulRegReg", mnemonic: "imul", operands: []operand{reg("dest", fieldReg, readWrite), reg("src", fieldRM, read)},
 			rexW: true, opcode: []byte{opcodeHigh, 0xAF}, modrm: modOperands, effects: flags,
 		},
 		form{
-			name: "LoadRegBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg), mem()},
+			name: "LoadRegBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
 		},
 		form{
-			name: "StoreBaseDispReg", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg)},
+			name: "StoreBaseDispReg", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg, read)},
 			rexW: true, opcode: []byte{0x89}, modrm: modOperands, effects: writes,
 		},
 		form{
-			name: "LeaRegBaseDisp", mnemonic: "lea", operands: []operand{reg("dest", fieldReg), mem()},
+			name: "LeaRegBaseDisp", mnemonic: "lea", operands: []operand{reg("dest", fieldReg, write), mem()},
 			rexW: true, opcode: []byte{0x8D}, modrm: modOperands, effects: noEffects,
 		},
 		form{
-			name: "MovzxRegByteBaseDisp", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg), mem()},
+			name: "MovzxRegByteBaseDisp", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg, write), mem()},
 			rexW: true, opcode: []byte{opcodeHigh, 0xB6}, modrm: modOperands, effects: reads,
 		},
 		form{
-			name: "StoreBaseDispReg8", mnemonic: "mov", operands: []operand{mem(), byteReg("src", fieldReg)},
+			name: "StoreBaseDispReg8", mnemonic: "mov", operands: []operand{mem(), byteReg("src", fieldReg, read)},
 			opcode: []byte{0x88}, modrm: modOperands, effects: writes,
 		},
 		form{
-			name: "MovzxRegWordBaseDisp", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg), mem()},
+			name: "MovzxRegWordBaseDisp", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg, write), mem()},
 			rexW: true, opcode: []byte{opcodeHigh, 0xB7}, modrm: modOperands, effects: reads,
 		},
 		// A 32-bit load clears the upper half of its register, which is the zero extension a raw load gives.
 		form{
-			name: "LoadReg32BaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg), mem()},
+			name: "LoadReg32BaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
 		},
 		form{
-			name: "StoreBaseDispReg16", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg)},
+			name: "StoreBaseDispReg16", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg, read)},
 			prefix: []byte{operandSizePrefix}, opcode: []byte{0x89}, modrm: modOperands, effects: writes,
 		},
 		form{
-			name: "StoreBaseDispReg32", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg)},
+			name: "StoreBaseDispReg32", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg, read)},
 			opcode: []byte{0x89}, modrm: modOperands, effects: writes,
 		},
 		form{
@@ -335,90 +374,103 @@ func buildForms() []form {
 			opcode: []byte{0xC6}, modrm: modDigit, digit: 0, effects: writes,
 		},
 		form{
-			name: "MovzxRegReg8", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg), byteReg("src", fieldRM)},
+			name: "MovzxRegReg8", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg, write), byteReg("src", fieldRM, read)},
 			rexW: true, opcode: []byte{opcodeHigh, 0xB6}, modrm: modOperands, effects: noEffects,
 		},
 		form{
-			name: "SetccReg", mnemonic: "setcc", operands: []operand{cond(), byteReg("dest", fieldRM)},
+			name: "SetccReg", mnemonic: "setcc", operands: []operand{cond(), byteReg("dest", fieldRM, write)},
 			opcode: []byte{opcodeHigh, 0x90}, modrm: modDigit, digit: 0, effects: readsFlag,
 		},
 		form{
-			name: "MovRegImm32", mnemonic: "mov", operands: []operand{reg("dest", fieldOpcode), imm32U()},
+			name: "MovRegImm32", mnemonic: "mov", operands: []operand{reg("dest", fieldOpcode, write), imm32U()},
 			opcode: []byte{0xB8}, effects: noEffects,
 		},
 		form{
-			name: "MovRegImm32Signed", mnemonic: "mov", operands: []operand{reg("dest", fieldRM), imm32()},
+			name: "MovRegImm32Signed", mnemonic: "mov", operands: []operand{reg("dest", fieldRM, write), imm32()},
 			rexW: true, opcode: []byte{0xC7}, modrm: modDigit, digit: 0, effects: noEffects,
 		},
 		form{
-			name: "MovRegImm64", mnemonic: "mov", operands: []operand{reg("dest", fieldOpcode), imm64()},
+			name: "MovRegImm64", mnemonic: "mov", operands: []operand{reg("dest", fieldOpcode, write), imm64()},
 			rexW: true, opcode: []byte{0xB8}, effects: noEffects,
 		},
 	)
 	for _, g := range []struct {
 		mnemonic string
 		digit    int
-	}{{"add", 0}, {"and", 4}, {"sub", 5}, {"cmp", 7}} {
-		fs = append(fs, group1(g.mnemonic, g.digit)...)
+		access   access
+	}{{"add", 0, readWrite}, {"and", 4, readWrite}, {"sub", 5, readWrite}, {"cmp", 7, read}} {
+		fs = append(fs, group1(g.mnemonic, g.digit, g.access)...)
 	}
 	fs = append(fs,
-		groupF7("NotReg", "not", 2, noEffects),
-		groupF7("NegReg", "neg", 3, flags),
-		groupF7("MulReg", "mul", 4, flags),
-		groupF7("DivReg", "div", 6, flags),
-		groupF7("IdivReg", "idiv", 7, flags),
-		form{name: "Cqo", mnemonic: "cqo", rexW: true, opcode: []byte{0x99}, effects: noEffects},
+		groupF7("NotReg", "not", 2, readWrite, noEffects, alloc{}),
+		groupF7("NegReg", "neg", 3, readWrite, flags, alloc{}),
+		groupF7("MulReg", "mul", 4, read, flags, alloc{fixedUses: []string{"rax"}, fixedDefs: []string{"rax", "rdx"}}),
+		groupF7("DivReg", "div", 6, read, flags, divides),
+		groupF7("IdivReg", "idiv", 7, read, flags, divides),
+		form{
+			name: "Cqo", mnemonic: "cqo", rexW: true, opcode: []byte{0x99}, effects: noEffects,
+			fixedUses: []string{"rax"}, fixedDefs: []string{"rdx"},
+		},
 		shiftCl("ShlRegCl", "shl", 4),
 		shiftCl("ShrRegCl", "shr", 5),
 		shiftCl("SarRegCl", "sar", 7),
 		form{
-			name: "SarRegImm8", mnemonic: "sar", operands: []operand{reg("reg", fieldRM), imm8()},
+			name: "SarRegImm8", mnemonic: "sar", operands: []operand{reg("reg", fieldRM, readWrite), imm8()},
 			rexW: true, opcode: []byte{0xC1}, modrm: modDigit, digit: 7, effects: flags,
 		},
-		form{name: "PushReg", mnemonic: "push", operands: []operand{reg("reg", fieldOpcode)}, opcode: []byte{0x50}, effects: writes},
-		form{name: "PopReg", mnemonic: "pop", operands: []operand{reg("reg", fieldOpcode)}, opcode: []byte{0x58}, effects: reads},
-		form{name: "Ret", mnemonic: "ret", opcode: []byte{0xC3}, effects: reads},
+		form{name: "PushReg", mnemonic: "push", operands: []operand{reg("reg", fieldOpcode, read)}, opcode: []byte{0x50}, effects: writes},
+		form{name: "PopReg", mnemonic: "pop", operands: []operand{reg("reg", fieldOpcode, write)}, opcode: []byte{0x58}, effects: reads},
+		form{name: "Ret", mnemonic: "ret", opcode: []byte{0xC3}, effects: reads, ret: true},
 		form{name: "Ud2", mnemonic: "ud2", opcode: []byte{opcodeHigh, 0x0B}, effects: noEffects},
 		form{
 			name: "RepMovsb", mnemonic: "rep movsb", prefix: []byte{0xF3}, opcode: []byte{0xA4},
-			readsMemory: true, writesMemory: true,
+			readsMemory: true, writesMemory: true, alloc: stringScan,
 		},
-		form{name: "RepStosq", mnemonic: "rep stosq", prefix: []byte{0xF3}, rexW: true, opcode: []byte{0xAB}, effects: writes},
-		form{name: "RepeCmpsb", mnemonic: "repe cmpsb", prefix: []byte{0xF3}, opcode: []byte{0xA6}, setsFlags: true, readsMemory: true},
+		form{
+			name: "RepStosq", mnemonic: "rep stosq", prefix: []byte{0xF3}, rexW: true, opcode: []byte{0xAB}, effects: writes,
+			fixedUses: []string{"rdi", "rcx", "rax"}, clobbers: []string{"rdi", "rcx"},
+		},
+		form{
+			name: "RepeCmpsb", mnemonic: "repe cmpsb", prefix: []byte{0xF3}, opcode: []byte{0xA6},
+			setsFlags: true, readsMemory: true, alloc: stringScan,
+		},
 		ripReg("LeaRegRip", "lea", 0x8D, true, noEffects),
 		ripReg("LoadRegRip", "mov", 0x8B, true, reads),
 		ripReg("StoreRipReg", "mov", 0x89, false, writes),
 		form{
 			name: "CallRip", mnemonic: "call", operands: []operand{rip()},
 			opcode: []byte{0xFF}, modrm: modDigit, digit: 2, readsMemory: true, writesMemory: true,
+			call: true,
 		},
 		form{
-			name: "CallReg", mnemonic: "call", operands: []operand{reg("reg", fieldRM)},
+			name: "CallReg", mnemonic: "call", operands: []operand{reg("reg", fieldRM, read)},
 			opcode: []byte{0xFF}, modrm: modDigit, digit: 2, readsMemory: true, writesMemory: true,
+			call: true,
 		},
 		// The atomic forms and the thread's context, which the runtime's scheduler is written on (README, "The runtime").
 		form{
-			name: "LockXaddBaseDispReg", mnemonic: "lock xadd", operands: []operand{mem(), reg("src", fieldReg)},
+			name: "LockXaddBaseDispReg", mnemonic: "lock xadd", operands: []operand{mem(), reg("src", fieldReg, readWrite)},
 			prefix: []byte{lockPrefix}, rexW: true, opcode: []byte{opcodeHigh, 0xC1}, modrm: modOperands,
 			setsFlags: true, readsMemory: true, writesMemory: true,
 		},
 		// xchg with a memory operand is locked whether or not it has the prefix.
 		form{
-			name: "XchgBaseDispReg", mnemonic: "xchg", operands: []operand{mem(), reg("src", fieldReg)},
+			name: "XchgBaseDispReg", mnemonic: "xchg", operands: []operand{mem(), reg("src", fieldReg, readWrite)},
 			rexW: true, opcode: []byte{0x87}, modrm: modOperands, readsMemory: true, writesMemory: true,
 		},
 		form{
-			name: "LockCmpxchgBaseDispReg", mnemonic: "lock cmpxchg", operands: []operand{mem(), reg("src", fieldReg)},
+			name: "LockCmpxchgBaseDispReg", mnemonic: "lock cmpxchg", operands: []operand{mem(), reg("src", fieldReg, read)},
 			prefix: []byte{lockPrefix}, rexW: true, opcode: []byte{opcodeHigh, 0xB1}, modrm: modOperands,
 			setsFlags: true, readsMemory: true, writesMemory: true,
+			fixedUses: []string{"rax"}, fixedDefs: []string{"rax"},
 		},
 		form{name: "Pause", mnemonic: "pause", prefix: []byte{repPrefix}, opcode: []byte{0x90}, effects: noEffects},
 		form{
-			name: "LoadRegGsBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg), mem()},
+			name: "LoadRegGsBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			prefix: []byte{gsSegmentPrefix}, rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
 		},
 		form{name: "JmpRel32", mnemonic: "jmp", operands: []operand{rel32()}, opcode: []byte{0xE9}, effects: noEffects},
-		form{name: "CallRel32", mnemonic: "call", operands: []operand{rel32()}, opcode: []byte{0xE8}, effects: writes},
+		form{name: "CallRel32", mnemonic: "call", operands: []operand{rel32()}, opcode: []byte{0xE8}, effects: writes, call: true},
 		form{
 			name: "JccRel32", mnemonic: "jcc", operands: []operand{cond(), rel32()},
 			opcode: []byte{opcodeHigh, 0x80}, effects: readsFlag,
@@ -434,37 +486,43 @@ func buildForms() []form {
 func sseForms() []form {
 	toXmm := func(name string, xmm int) form {
 		return form{
-			name: name, mnemonic: "movq", operands: []operand{reg("src", fieldRM)}, prefix: []byte{operandSizePrefix},
+			name: name, mnemonic: "movq", operands: []operand{reg("src", fieldRM, read)}, prefix: []byte{operandSizePrefix},
 			rexW: true, opcode: []byte{opcodeHigh, 0x6E}, modrm: modDigit, digit: xmm, effects: noEffects,
+			fixedDefs: []string{vectorRegisters[xmm]},
 		}
 	}
-	xmmOnly := func(name, mnemonic string, prefix byte, op byte, rm byte, e effects) form {
-		return form{name: name, mnemonic: mnemonic, prefix: []byte{prefix}, opcode: []byte{opcodeHigh, op, rm}, effects: e}
+	xmmOnly := func(name, mnemonic string, prefix byte, op byte, rm byte, e effects, al alloc) form {
+		return form{name: name, mnemonic: mnemonic, prefix: []byte{prefix}, opcode: []byte{opcodeHigh, op, rm}, effects: e, alloc: al}
 	}
+	binary := alloc{fixedUses: []string{"xmm0", "xmm1"}, fixedDefs: []string{"xmm0"}}
+	unary := alloc{fixedUses: []string{"xmm0"}, fixedDefs: []string{"xmm0"}}
 	return []form{
 		toXmm("MovqXmm0Reg", 0),
 		toXmm("MovqXmm1Reg", 1),
 		{
-			name: "MovqRegXmm0", mnemonic: "movq", operands: []operand{reg("dest", fieldRM)}, prefix: []byte{operandSizePrefix},
+			name: "MovqRegXmm0", mnemonic: "movq", operands: []operand{reg("dest", fieldRM, write)}, prefix: []byte{operandSizePrefix},
 			rexW: true, opcode: []byte{opcodeHigh, 0x7E}, modrm: modDigit, digit: 0, effects: noEffects,
+			fixedUses: []string{"xmm0"},
 		},
-		xmmOnly("AddsdXmm0Xmm1", "addsd", scalarDoublePrefix, 0x58, modrmXmm0Xmm1, noEffects),
-		xmmOnly("SubsdXmm0Xmm1", "subsd", scalarDoublePrefix, 0x5C, modrmXmm0Xmm1, noEffects),
-		xmmOnly("MulsdXmm0Xmm1", "mulsd", scalarDoublePrefix, 0x59, modrmXmm0Xmm1, noEffects),
-		xmmOnly("DivsdXmm0Xmm1", "divsd", scalarDoublePrefix, 0x5E, modrmXmm0Xmm1, noEffects),
-		xmmOnly("SqrtsdXmm0Xmm0", "sqrtsd", scalarDoublePrefix, 0x51, modrmXmm0Xmm0, noEffects),
-		xmmOnly("UcomisdXmm0Xmm1", "ucomisd", operandSizePrefix, 0x2E, modrmXmm0Xmm1, flags),
+		xmmOnly("AddsdXmm0Xmm1", "addsd", scalarDoublePrefix, 0x58, modrmXmm0Xmm1, noEffects, binary),
+		xmmOnly("SubsdXmm0Xmm1", "subsd", scalarDoublePrefix, 0x5C, modrmXmm0Xmm1, noEffects, binary),
+		xmmOnly("MulsdXmm0Xmm1", "mulsd", scalarDoublePrefix, 0x59, modrmXmm0Xmm1, noEffects, binary),
+		xmmOnly("DivsdXmm0Xmm1", "divsd", scalarDoublePrefix, 0x5E, modrmXmm0Xmm1, noEffects, binary),
+		xmmOnly("SqrtsdXmm0Xmm0", "sqrtsd", scalarDoublePrefix, 0x51, modrmXmm0Xmm0, noEffects, unary),
+		xmmOnly("UcomisdXmm0Xmm1", "ucomisd", operandSizePrefix, 0x2E, modrmXmm0Xmm1, flags, alloc{fixedUses: []string{"xmm0", "xmm1"}}),
 		{
 			name: "RoundsdXmm0Xmm0Imm8", mnemonic: "roundsd", operands: []operand{imm8()}, prefix: []byte{operandSizePrefix},
-			opcode: []byte{opcodeHigh, 0x3A, 0x0B, modrmXmm0Xmm0}, effects: noEffects,
+			opcode: []byte{opcodeHigh, 0x3A, 0x0B, modrmXmm0Xmm0}, effects: noEffects, alloc: unary,
 		},
 		{
-			name: "Cvtsi2sdXmm0Reg", mnemonic: "cvtsi2sd", operands: []operand{reg("src", fieldRM)}, prefix: []byte{scalarDoublePrefix},
+			name: "Cvtsi2sdXmm0Reg", mnemonic: "cvtsi2sd", operands: []operand{reg("src", fieldRM, read)}, prefix: []byte{scalarDoublePrefix},
 			rexW: true, opcode: []byte{opcodeHigh, 0x2A}, modrm: modDigit, digit: 0, effects: noEffects,
+			fixedDefs: []string{"xmm0"},
 		},
 		{
 			name: "Cvttsd2siRaxXmm0", mnemonic: "cvttsd2si", prefix: []byte{scalarDoublePrefix}, rexW: true,
 			opcode: []byte{opcodeHigh, 0x2C, modrmXmm0Xmm0}, effects: noEffects,
+			fixedUses: []string{"xmm0"}, fixedDefs: []string{"rax"},
 		},
 	}
 }
