@@ -39,12 +39,17 @@ export type Analysis
 
 	// analyze analyses the function f, which has a block and keeps the verifier's rules.
 	export function analyze(mutates self, f ir.IrFunction)
-		flow.build(f)
-		self.dominatorTree()
-		self.frontiers()
+		self.dominance(f)
 		self.loops()
 		self.useCounts(f)
 	end 'analyze'
+
+	// dominance is the part of analyze that SSA construction reads: the flow, the dominator tree and the frontiers.
+	export function dominance(mutates self, f ir.IrFunction)
+		flow.build(f)
+		self.dominatorTree()
+		self.frontiers()
+	end 'dominance'
 
 	function dominatorTree(mutates self)
 		pairFrom.clear()

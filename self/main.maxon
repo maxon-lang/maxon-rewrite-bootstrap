@@ -595,6 +595,7 @@ function selfTest()
 	testRewrite()
 	testAnalyses()
 	testTimings()
+	testSsa()
 	print("self: all checks passed\n")
 end 'selfTest'
 

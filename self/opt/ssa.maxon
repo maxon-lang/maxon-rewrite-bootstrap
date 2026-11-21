@@ -1,0 +1,618 @@
+// SSA construction: every slot that nothing takes the address of becomes registers, so the IR that the backend gets is in
+// SSA form. A slot is promoted when every instruction that names it is a load, a store, a move or a dropslot of the whole
+// slot, of the slot's own kind; one that `addr` names stays in the frame. Construction is Cytron's: a parameter at each
+// join in the iterated dominance frontier of the segments that write the slot, kept only where the slot is live (pruned, so
+// no parameter is dead), then renaming along the dominator tree in preorder, which carries the value each slot holds.
+//
+// Ownership stays exactly as lowering wrote it. A slot holds nothing until it is first stored, and after a move or a
+// dropslot, which is a value that renaming knows to be empty: a read of it is a register that holds 0 (the frame's
+// zeroing, made explicit), a dropslot of it does nothing and goes, and a dropslot of any other value is a drop of that
+// value. A value that is empty only on some paths reaches a join as a 0 through the parameter, whose drop stays.
+//
+// The cost is linear in the function plus, for each promoted slot, the segments where it is live and its frontiers: one
+// analysis, a sweep that finds where each slot is read and written, the placement, one walk of the dominator tree and one
+// copy of the instructions. Every array is kept from one function to the next.
+
+// knownEmpty is what renaming holds for a slot that holds nothing on every path to the point it is at.
+let knownEmpty = ir.noReg
+
+export type Ssa
+	export var analysis as Analysis
+	// What construction did, over every function it was given: the slots promoted and those that stay in the frame, the
+	// parameters placed, and the drops removed because the slot held nothing there.
+	export var promoted as Count
+	export var kept as Count
+	export var params as Count
+	export var dropsRemoved as Count
+	// By slot: whether it is promoted, the number a slot that stays has from here on, and the segment, plus 1, that last
+	// recorded a read or a write of it.
+	var promotable as Array with bool
+	var newSlot as Array with Count
+	var defMark as Array with Count
+	var useMark as Array with Count
+	// The segments where each slot is read before it is written, and those where it is written, as pairs and then grouped
+	// by slot: useSeg[useStart[v]] up to useSeg[useStart[v + 1]].
+	var useFrom as Array with Count
+	var useTo as Array with Count
+	var defFrom as Array with Count
+	var defTo as Array with Count
+	var useStart as Array with Count
+	var useSeg as Array with Count
+	var defStart as Array with Count
+	var defSeg as Array with Count
+	// By segment, stamped with the slot plus 1 that the placement is at: live on entry, written in it, given a parameter,
+	// and on the worklist.
+	var liveMark as Array with Count
+	var defHere as Array with Count
+	var placed as Array with Count
+	var queued as Array with Count
+	var work as Array with Count
+	// The parameters placed, paramBlock[k], paramSlot[k] and paramReg[k] for each, and grouped by block in the order placed:
+	// paramAt[paramStart[b]] up to paramAt[paramStart[b + 1]] index them.
+	var paramBlock as Array with Count
+	var paramSlot as Array with Count
+	var paramReg as ir.RegList
+	var paramOrder as Array with Count
+	var paramStart as Array with Count
+	var paramAt as Array with Count
+	// Renaming: the value each slot holds, the changes to undo when the walk leaves a segment, the register that each
+	// register is read as, and whether each instruction stays.
+	var cur as ir.RegList
+	var undoSlot as Array with Count
+	var undoValue as ir.RegList
+	var repl as ir.RegList
+	var keep as Array with bool
+	var stack as Array with Count
+	var cursor as Array with Count
+	var heights as Array with Count
+	// The registers that hold 0 for a read of an empty slot of each kind, ir.noReg until one is needed.
+	var zeroScalar as ir.Reg
+	var zeroManaged as ir.Reg
+	// rebuildTerm sends an edge to retargetFrom to retargetTo instead, and, when extending, gives it an argument for each
+	// parameter placed at its target; edgeStart and edgeCount are the arguments of the edge it last made.
+	var retargetFrom as ir.BlockID
+	var retargetTo as ir.BlockID
+	var extending as bool
+	var edgeStart as ir.Index
+	var edgeCount as ir.Index
+	var successors as ir.SuccessorVisitor
+	var instrs as ir.InstrList
+	var blockParams as ir.RegList
+
+	export static function new() returns Ssa
+		return Ssa{analysis: Analysis.new(), promoted: 0, kept: 0, params: 0, dropsRemoved: 0, promotable: Array.create(0), newSlot: Array.create(0), defMark: Array.create(0), useMark: Array.create(0), useFrom: Array.create(0), useTo: Array.create(0), defFrom: Array.create(0), defTo: Array.create(0), useStart: Array.create(0), useSeg: Array.create(0), defStart: Array.create(0), defSeg: Array.create(0), liveMark: Array.create(0), defHere: Array.create(0), placed: Array.create(0), queued: Array.create(0), work: Array.create(0), paramBlock: Array.create(0), paramSlot: Array.create(0), paramReg: ir.RegList.create(0), paramOrder: Array.create(0), paramStart: Array.create(0), paramAt: Array.create(0), cur: ir.RegList.create(0), undoSlot: Array.create(0), undoValue: ir.RegList.create(0), repl: ir.RegList.create(0), keep: Array.create(0), stack: Array.create(0), cursor: Array.create(0), heights: Array.create(0), zeroScalar: ir.noReg, zeroManaged: ir.noReg, retargetFrom: ir.noBlock, retargetTo: ir.noBlock, extending: false, edgeStart: 0 as ir.Index, edgeCount: 0 as ir.Index, successors: ir.SuccessorVisitor.new(), instrs: ir.InstrList.create(0), blockParams: ir.RegList.create(0)}
+	end 'new'
+
+	// construct puts the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures in
+	// SSA form. A function with a refusal is never compiled, so it is left as it is.
+	export function construct(mutates self, mutates f ir.IrFunction)
+		if f.refusals.count() > 0 'refused'
+			return
+		end 'refused'
+		for i in 0 upto f.bodies.count() 'bodies'
+			self.construct(f.bodies[i])
+		end 'bodies'
+		if f.blocks.count() == 0 or not self.classify(f) 'nothing'
+			return
+		end 'nothing'
+		analysis.dominance(f)
+		if analysis.flow.predStart[1] > 0 'entryEntered'
+			self.splitEntry(f)
+			analysis.dominance(f)
+		end 'entryEntered'
+		for b in 0 upto f.blocks.count() 'reached'
+			if not analysis.flow.reached[analysis.blockSeg(b)] 'unreached'
+				panic("opt: block b{b} of {f.name} is not reached, which lowering never leaves")
+			end 'unreached'
+		end 'reached'
+		self.collect(f)
+		self.place(f)
+		self.rename(f)
+		self.compact(f)
+	end 'construct'
+
+	// classify finds the slots that are promoted, numbers the others from 0, and says whether any is promoted.
+	function classify(mutates self, f ir.IrFunction) returns bool
+		let n = f.slots.count()
+		ir.resetFlags(promotable, n: n)
+		for v in 0 upto n 'all'
+			promotable[v] = true
+		end 'all'
+		for k in 0 upto f.instrs.count() 'instrs'
+			let op = f.instrs[k].op
+			if op == ir.Opcode.opSlotAddr 'addr'
+				promotable[ir.slotAddrSlot(f.instrs[k])] = false
+			end 'addr' else if op == ir.Opcode.opLoadSlot 'load'
+				let v = ir.loadSlotSlot(f.instrs[k])
+				self.requireKind(f, v: v, r: f.instrs[k].dst)
+			end 'load' else if op == ir.Opcode.opMoveSlot 'move'
+				let v = ir.moveSlotSlot(f.instrs[k])
+				self.requireKind(f, v: v, r: f.instrs[k].dst)
+			end 'move' else if op == ir.Opcode.opStoreSlot 'store'
+				let v = ir.storeSlotSlot(f.instrs[k])
+				self.requireKind(f, v: v, r: ir.storeSlotSrc(f.instrs[k]))
+			end 'store'
+		end 'instrs'
+		ir.resetCounts(newSlot, n: n)
+		var stays = 0 as Count
+		for v in 0 upto n 'number'
+			if not promotable[v] 'stays'
+				newSlot[v] = stays
+				stays = plusOne(stays)
+			end 'stays'
+		end 'number'
+		let moved = try n - stays otherwise panic("opt: more slots stay than there are")
+		promoted = try promoted + moved otherwise panic("opt: a count past memory")
+		kept = try kept + stays otherwise panic("opt: a count past memory")
+		return moved > 0
+	end 'classify'
+
+	// requireKind keeps the slot v in the frame when the register r that it is read into or stored from is of another kind,
+	// since a register in its place would then change kind.
+	function requireKind(mutates self, f ir.IrFunction, v Count, r ir.Reg)
+		if f.regs[regIndex(r)] != f.slots[v] 'other'
+			promotable[v] = false
+		end 'other'
+	end 'requireKind'
+
+	// splitEntry gives a function whose entry is the target of an edge, a loop at its start, a new entry that only jumps to
+	// the old one, which becomes the last block: the entry takes no parameters, and a join may need some.
+	function splitEntry(mutates self, mutates f ir.IrFunction)
+		for k in 0 upto f.instrs.count() 'fails'
+			if ir.failTarget(f.instrs[k]) == 0 'intoEntry'
+				panic("opt: a failure edge into the entry of {f.name}, which the builder never makes")
+			end 'intoEntry'
+		end 'fails'
+		let moved = ir.blockOf(f.blocks.count())
+		let first = f.blocks[0].first
+		let old = exchange(f.blocks[0], value: ir.Block.make(first, endAt: first, params: 0, paramCount: 0, term: ir.newJump(moved)))
+		f.blocks.push(old)
+		retargetFrom = 0 as ir.BlockID
+		retargetTo = moved
+		extending = false
+		for b in 1 upto f.blocks.count() 'blocks'
+			self.rebuildTerm(f, b: b)
+		end 'blocks'
+	end 'splitEntry'
+
+	// collect records, for each promoted slot, the segments that read it before they write it and those that write it.
+	function collect(mutates self, f ir.IrFunction)
+		let n = f.slots.count()
+		ir.resetCounts(defMark, n: n)
+		ir.resetCounts(useMark, n: n)
+		useFrom.clear()
+		useTo.clear()
+		defFrom.clear()
+		defTo.clear()
+		for s in 0 upto analysis.flow.segCount() 'segs'
+			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+				let op = f.instrs[k].op
+				if op == ir.Opcode.opLoadSlot 'load'
+					self.noteUse(ir.loadSlotSlot(f.instrs[k]), s: s)
+				end 'load' else if op == ir.Opcode.opStoreSlot 'store'
+					self.noteDef(ir.storeSlotSlot(f.instrs[k]), s: s)
+				end 'store' else if op == ir.Opcode.opMoveSlot 'move'
+					let v = ir.moveSlotSlot(f.instrs[k])
+					self.noteUse(v, s: s)
+					self.noteDef(v, s: s)
+				end 'move' else if op == ir.Opcode.opDropSlot 'drop'
+					let v = ir.dropSlotSlot(f.instrs[k])
+					self.noteUse(v, s: s)
+					self.noteDef(v, s: s)
+				end 'drop'
+			end 'instrs'
+		end 'segs'
+		ir.buildCsr(useFrom, targets: useTo, nodes: n, starts: useStart, list: useSeg)
+		ir.buildCsr(defFrom, targets: defTo, nodes: n, starts: defStart, list: defSeg)
+	end 'collect'
+
+	function noteUse(mutates self, v Count, s Count)
+		let mark = plusOne(s)
+		if not promotable[v] or defMark[v] == mark or useMark[v] == mark 'known'
+			return
+		end 'known'
+		useMark[v] = mark
+		useFrom.push(v)
+		useTo.push(s)
+	end 'noteUse'
+
+	function noteDef(mutates self, v Count, s Count)
+		let mark = plusOne(s)
+		if not promotable[v] or defMark[v] == mark 'known'
+			return
+		end 'known'
+		defMark[v] = mark
+		defFrom.push(v)
+		defTo.push(s)
+	end 'noteDef'
+
+	// place gives each join where a promoted slot is live, in the iterated dominance frontier of the segments that write it,
+	// a parameter for it.
+	function place(mutates self, mutates f ir.IrFunction)
+		let segs = analysis.flow.segCount()
+		ir.resetCounts(liveMark, n: segs)
+		ir.resetCounts(defHere, n: segs)
+		ir.resetCounts(placed, n: segs)
+		ir.resetCounts(queued, n: segs)
+		paramBlock.clear()
+		paramSlot.clear()
+		paramReg.clear()
+		paramOrder.clear()
+		repl.clear()
+		for r in 0 upto f.regs.count() 'identity'
+			repl.push(ir.regOf(r))
+		end 'identity'
+		for v in 0 upto f.slots.count() 'slots'
+			if promotable[v] 'promoted'
+				self.liveness(v)
+				self.frontiers(f, v: v)
+			end 'promoted'
+		end 'slots'
+		params = try params + paramReg.count() otherwise panic("opt: a count past memory")
+		ir.buildCsr(paramBlock, targets: paramOrder, nodes: f.blocks.count(), starts: paramStart, list: paramAt)
+	end 'place'
+
+	// liveness marks the segments that the slot v is live on entry to: those that read it before writing it, and every
+	// segment that reaches one of them without writing it on the way.
+	function liveness(mutates self, v Count)
+		let stamp = plusOne(v)
+		work.clear()
+		for e in defStart[v] upto defStart[plusOne(v)] 'defs'
+			defHere[defSeg[e]] = stamp
+		end 'defs'
+		for e in useStart[v] upto useStart[plusOne(v)] 'uses'
+			let s = useSeg[e]
+			liveMark[s] = stamp
+			work.push(s)
+		end 'uses'
+		while work.count() > 0 'walk'
+			let s = try work.pop() otherwise panic("opt: an empty walk")
+			for e in analysis.flow.predStart[s] upto analysis.flow.predStart[plusOne(s)] 'preds'
+				let q = analysis.flow.pred[e]
+				if analysis.flow.reached[q] and liveMark[q] != stamp and defHere[q] != stamp 'through'
+					liveMark[q] = stamp
+					work.push(q)
+				end 'through'
+			end 'preds'
+		end 'walk'
+	end 'liveness'
+
+	// frontiers places the parameters of the slot v: a join in the dominance frontier of a segment that writes it, or of a
+	// join that got one, takes one where the slot is live.
+	function frontiers(mutates self, mutates f ir.IrFunction, v Count)
+		let stamp = plusOne(v)
+		work.clear()
+		for e in defStart[v] upto defStart[plusOne(v)] 'defs'
+			let d = defSeg[e]
+			queued[d] = stamp
+			work.push(d)
+		end 'defs'
+		while work.count() > 0 'walk'
+			let d = try work.pop() otherwise panic("opt: an empty walk")
+			for e in analysis.frontStart[d] upto analysis.frontStart[plusOne(d)] 'front'
+				let join = analysis.front[e]
+				if placed[join] == stamp or liveMark[join] != stamp 'skip'
+					continue 'front'
+				end 'skip'
+				placed[join] = stamp
+				let kind = f.slots[v]
+				let r = self.newReg(f, kind: kind)
+				paramOrder.push(paramReg.count())
+				paramBlock.push(analysis.flow.segBlock[join])
+				paramSlot.push(v)
+				paramReg.push(r)
+				if queued[join] != stamp 'more'
+					queued[join] = stamp
+					work.push(join)
+				end 'more'
+			end 'front'
+		end 'walk'
+	end 'frontiers'
+
+	function newReg(mutates self, mutates f ir.IrFunction, kind ir.IrKind) returns ir.Reg
+		let r = f.newReg(kind)
+		repl.push(r)
+		return r
+	end 'newReg'
+
+	// rename walks the dominator tree in preorder from the entry, with the value of each promoted slot, and rewrites what
+	// reads and writes the slots.
+	function rename(mutates self, mutates f ir.IrFunction)
+		let n = f.slots.count()
+		cur.clear()
+		for _ in 0 upto n 'empty'
+			cur.push(knownEmpty)
+		end 'empty'
+		ir.resetFlags(keep, n: f.instrs.count())
+		for k in 0 upto f.instrs.count() 'keep'
+			keep[k] = true
+		end 'keep'
+		undoSlot.clear()
+		undoValue.clear()
+		stack.clear()
+		cursor.clear()
+		heights.clear()
+		zeroScalar = ir.noReg
+		zeroManaged = ir.noReg
+		retargetFrom = ir.noBlock
+		retargetTo = ir.noBlock
+		extending = true
+		self.enter(f, s: 0)
+		while stack.count() > 0 'walk'
+			let top = try stack.count() - 1 otherwise panic("opt: an empty walk")
+			let s = stack[top]
+			let at = cursor[top]
+			if at < analysis.domStart[plusOne(s)] 'child'
+				cursor[top] = plusOne(at)
+				let child = analysis.domChild[at]
+				self.enter(f, s: child)
+			end 'child' else 'done'
+				let height = heights[top]
+				while undoSlot.count() > height 'undo'
+					let v = try undoSlot.pop() otherwise panic("opt: an empty undo")
+					cur[v] = try undoValue.pop() otherwise panic("opt: an empty undo")
+				end 'undo'
+				_ = try stack.pop() otherwise panic("opt: an empty walk")
+				_ = try cursor.pop() otherwise panic("opt: an empty walk")
+				_ = try heights.pop() otherwise panic("opt: an empty walk")
+			end 'done'
+		end 'walk'
+	end 'rename'
+
+	// enter renames the segment s: the parameters placed at its block, if it is the block's first, then its instructions,
+	// then the terminator, if the segment ends in it.
+	function enter(mutates self, mutates f ir.IrFunction, s Count)
+		stack.push(s)
+		cursor.push(analysis.domStart[s])
+		heights.push(undoSlot.count())
+		let b = analysis.flow.segBlock[s]
+		if analysis.blockSeg(b) == s 'first'
+			for e in paramStart[b] upto paramStart[plusOne(b)] 'params'
+				let k = paramAt[e]
+				let v = paramSlot[k]
+				let r = paramReg[k]
+				self.set(v, r: r)
+			end 'params'
+		end 'first'
+		for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+			self.instr(f, k: k)
+		end 'instrs'
+		if not analysis.flow.endsInFailure(s) 'term'
+			ir.renameTermReads(f.blocks[b].term, args: f.args, cases: f.cases, names: repl)
+			if self.passesToParams(f, b: b) 'extend'
+				self.rebuildTerm(f, b: b)
+			end 'extend'
+		end 'term'
+	end 'enter'
+
+	function set(mutates self, v Count, r ir.Reg)
+		undoSlot.push(v)
+		undoValue.push(cur[v])
+		cur[v] = r
+	end 'set'
+
+	// instr renames the instruction instrs[k]: what it reads, and, for a promoted slot, the slot.
+	function instr(mutates self, mutates f ir.IrFunction, k Count)
+		ir.renameInstrReads(f.instrs[k], args: f.args, names: repl)
+		let op = f.instrs[k].op
+		if op == ir.Opcode.opLoadSlot 'load'
+			let v = ir.loadSlotSlot(f.instrs[k])
+			if not promotable[v] 'stays'
+				ir.setInstrSlot(f.instrs[k], slot: newSlot[v])
+				return
+			end 'stays'
+			let value = self.valueOf(f, v: v)
+			repl[regIndex(f.instrs[k].dst)] = value
+			keep[k] = false
+		end 'load' else if op == ir.Opcode.opStoreSlot 'store'
+			let v = ir.storeSlotSlot(f.instrs[k])
+			if not promotable[v] 'stays'
+				ir.setInstrSlot(f.instrs[k], slot: newSlot[v])
+				return
+			end 'stays'
+			self.set(v, r: ir.storeSlotSrc(f.instrs[k]))
+			keep[k] = false
+		end 'store' else if op == ir.Opcode.opMoveSlot 'move'
+			let v = ir.moveSlotSlot(f.instrs[k])
+			if not promotable[v] 'stays'
+				ir.setInstrSlot(f.instrs[k], slot: newSlot[v])
+				return
+			end 'stays'
+			let value = self.valueOf(f, v: v)
+			repl[regIndex(f.instrs[k].dst)] = value
+			self.set(v, r: knownEmpty)
+			keep[k] = false
+		end 'move' else if op == ir.Opcode.opDropSlot 'drop'
+			let v = ir.dropSlotSlot(f.instrs[k])
+			if not promotable[v] 'stays'
+				ir.setInstrSlot(f.instrs[k], slot: newSlot[v])
+				return
+			end 'stays'
+			let value = cur[v]
+			if value == knownEmpty 'empty'
+				keep[k] = false
+				dropsRemoved = try dropsRemoved + 1 otherwise panic("opt: a count past memory")
+				return
+			end 'empty'
+			// A dropslot's type is the index that a drop takes, in the same field.
+			let ty = f.instrs[k].c
+			f.instrs[k] = ir.newDrop(value, ty: ty)
+			self.set(v, r: knownEmpty)
+		end 'drop' else if op == ir.Opcode.opSlotAddr 'addr'
+			ir.setInstrSlot(f.instrs[k], slot: newSlot[ir.slotAddrSlot(f.instrs[k])])
+		end 'addr'
+	end 'instr'
+
+	// valueOf is the register that holds the value of the promoted slot v here.
+	function valueOf(mutates self, mutates f ir.IrFunction, v Count) returns ir.Reg
+		let r = cur[v]
+		if r != knownEmpty 'held'
+			return r
+		end 'held'
+		if f.slots[v] == ir.IrKind.kindManaged 'managed'
+			if zeroManaged == ir.noReg 'make'
+				let r = self.newReg(f, kind: ir.IrKind.kindManaged)
+				zeroManaged = r
+			end 'make'
+			return zeroManaged
+		end 'managed'
+		if zeroScalar == ir.noReg 'make'
+			let r = self.newReg(f, kind: ir.IrKind.kindScalar)
+			zeroScalar = r
+		end 'make'
+		return zeroScalar
+	end 'valueOf'
+
+	// passesToParams is whether an edge of the terminator of block b goes to a block that was given parameters.
+	function passesToParams(mutates self, f ir.IrFunction, b Count) returns bool
+		successors.clear()
+		ir.visitTerm(successors, f: f, t: f.blocks[b].term)
+		for e in 0 upto successors.out.count() 'edges'
+			if self.placedAt(ir.blockIndex(successors.out[e])) > 0 'some'
+				return true
+			end 'some'
+		end 'edges'
+		return false
+	end 'passesToParams'
+
+	function placedAt(b Count) returns Count
+		return try paramStart[plusOne(b)] - paramStart[b] otherwise panic("opt: parameters out of order")
+	end 'placedAt'
+
+	// rebuildTerm makes the terminator of block b again with the targets and the arguments that retargetFrom, retargetTo
+	// and extending say.
+	function rebuildTerm(mutates self, mutates f ir.IrFunction, b Count)
+		let kind = f.blocks[b].term.kind
+		if kind == ir.TermKind.termJump 'jump'
+			let target = self.targetOf(ir.jumpTarget(f.blocks[b].term))
+			self.edge(f, start: ir.jumpArgsStart(f.blocks[b].term), count: ir.jumpArgsCount(f.blocks[b].term), target: target)
+			f.blocks[b].term = ir.newJumpWith(target, argsStart: edgeStart, argsCount: edgeCount)
+		end 'jump' else if kind == ir.TermKind.termBranch 'branch'
+			let cond = ir.branchCond(f.blocks[b].term)
+			let yes = self.targetOf(ir.branchIfTrue(f.blocks[b].term))
+			let no = self.targetOf(ir.branchIfFalse(f.blocks[b].term))
+			let falseStart = ir.branchFalseArgsStart(f.blocks[b].term)
+			let falseCount = ir.branchFalseArgsCount(f.blocks[b].term)
+			// The false edge's arguments come right after the true edge's, so both are copied when either changes.
+			self.edgeAlways(f, start: ir.branchTrueArgsStart(f.blocks[b].term), count: ir.branchTrueArgsCount(f.blocks[b].term), target: yes)
+			let trueStart = edgeStart
+			let trueCount = edgeCount
+			self.edgeAlways(f, start: falseStart, count: falseCount, target: no)
+			f.blocks[b].term = ir.newBranchWith(cond, ifTrue: yes, trueArgsStart: trueStart, trueArgsCount: trueCount, ifFalse: no, falseArgsCount: edgeCount)
+		end 'branch' else if kind == ir.TermKind.termSwitch 'switch'
+			let value = ir.switchValue(f.blocks[b].term)
+			let first = ir.switchCasesStart(f.blocks[b].term)
+			let count = ir.switchCasesCount(f.blocks[b].term)
+			let fallback = self.targetOf(ir.switchFallback(f.blocks[b].term))
+			let fallbackStart = ir.switchFallbackArgsStart(f.blocks[b].term)
+			let fallbackCount = ir.switchFallbackArgsCount(f.blocks[b].term)
+			let cases = f.cases.count()
+			for i in 0 upto count 'cases'
+				let at = try first + i otherwise panic("opt: a case list is out of range")
+				let caseValue = f.cases[at].value
+				let target = self.targetOf(f.cases[at].target)
+				self.edge(f, start: f.cases[at].argsStart(), count: f.cases[at].argsCount(), target: target)
+				f.cases.push(ir.SwitchCase.make(caseValue, target: target, args: edgeStart, argCount: edgeCount))
+			end 'cases'
+			self.edge(f, start: fallbackStart, count: fallbackCount, target: fallback)
+			f.blocks[b].term = ir.newSwitchWith(value, casesFirst: ir.indexOf(cases), casesCount: ir.indexOf(count), fallback: fallback, fallbackArgsStart: edgeStart, fallbackArgsCount: edgeCount)
+		end 'switch' else if kind == ir.TermKind.termRet or kind == ir.TermKind.termTrap or kind == ir.TermKind.termThrow 'exits'
+			return
+		end 'exits' else 'none'
+			panic("opt: block b{b} of {f.name} has no terminator")
+		end 'none'
+	end 'rebuildTerm'
+
+	function targetOf(target ir.BlockID) returns ir.BlockID
+		if target == retargetFrom 'moved'
+			return retargetTo
+		end 'moved'
+		return target
+	end 'targetOf'
+
+	// edge gives an edge to target that passed args[start] on, count of them, its arguments: the same ones, or, when
+	// extending and the target was given parameters, a copy of them followed by the value of each parameter's slot.
+	function edge(mutates self, mutates f ir.IrFunction, start Count, count Count, target ir.BlockID)
+		if extending and self.placedAt(ir.blockIndex(target)) > 0 'extend'
+			self.edgeAlways(f, start: start, count: count, target: target)
+			return
+		end 'extend'
+		edgeStart = ir.indexOf(start)
+		edgeCount = ir.indexOf(count)
+	end 'edge'
+
+	// edgeAlways is edge with the arguments copied to the end of args whether or not any is added.
+	function edgeAlways(mutates self, mutates f ir.IrFunction, start Count, count Count, target ir.BlockID)
+		let at = f.args.count()
+		for i in 0 upto count 'old'
+			let r = f.args[try start + i otherwise panic("opt: an edge's arguments are out of range")]
+			f.args.push(r)
+		end 'old'
+		if extending 'params'
+			let tb = ir.blockIndex(target)
+			for e in paramStart[tb] upto paramStart[plusOne(tb)] 'each'
+				let v = paramSlot[paramAt[e]]
+				let value = self.valueOf(f, v: v)
+				f.args.push(value)
+			end 'each'
+		end 'params'
+		edgeStart = ir.indexOf(at)
+		edgeCount = ir.indexOf(try f.args.count() - at otherwise panic("opt: arguments out of order"))
+	end 'edgeAlways'
+
+	// compact lays the instructions that stay out block after block, the registers that hold 0 first, gives each block its
+	// parameters, and keeps only the slots that stay in the frame.
+	function compact(mutates self, mutates f ir.IrFunction)
+		instrs.clear()
+		blockParams.clear()
+		for b in 0 upto f.blocks.count() 'blocks'
+			let first = instrs.count()
+			if b == 0 'entry'
+				if zeroScalar != ir.noReg 'scalar'
+					instrs.push(ir.newConst(zeroScalar, value: 0))
+				end 'scalar'
+				if zeroManaged != ir.noReg 'managed'
+					instrs.push(ir.newConst(zeroManaged, value: 0))
+				end 'managed'
+			end 'entry'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				if keep[k] 'kept'
+					instrs.push(f.instrs[k].clone())
+				end 'kept'
+			end 'instrs'
+			let firstParam = blockParams.count()
+			for i in 0 upto f.blocks[b].paramCount 'old'
+				blockParams.push(f.blockParam(b, i: i))
+			end 'old'
+			for e in paramStart[b] upto paramStart[plusOne(b)] 'placed'
+				blockParams.push(paramReg[paramAt[e]])
+			end 'placed'
+			f.blocks[b].first = first
+			f.blocks[b].endAt = instrs.count()
+			f.blocks[b].params = firstParam
+			f.blocks[b].paramCount = try blockParams.count() - firstParam otherwise panic("opt: parameters out of order")
+		end 'blocks'
+		let oldInstrs = exchange(f.instrs, value: exchange(instrs, value: ir.InstrList.create(0)))
+		instrs = oldInstrs
+		let oldParams = exchange(f.blockParams, value: exchange(blockParams, value: ir.RegList.create(0)))
+		blockParams = oldParams
+		var stays = 0 as Count
+		for v in 0 upto f.slots.count() 'slots'
+			if not promotable[v] 'stays'
+				let kind = f.slots[v]
+				f.slots[stays] = kind
+				stays = plusOne(stays)
+			end 'stays'
+		end 'slots'
+		while f.slots.count() > stays 'trim'
+			_ = try f.slots.pop() otherwise panic("opt: an empty slot list")
+		end 'trim'
+	end 'compact'
+end 'Ssa'
+
+// optimizeModule runs the optimizer on the functions of a module that the backend compiles.
+export function optimizeModule(mutates ssa Ssa, mutates fns ir.IrFunctionList)
+	for i in 0 upto fns.count() 'each'
+		ssa.construct(fns[i])
+	end 'each'
+end 'optimizeModule'

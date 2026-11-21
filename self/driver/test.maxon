@@ -454,11 +454,18 @@ function testOptions() returns Options
 	return options
 end 'testOptions'
 
+// interpretedTestOptions are testOptions for a test that the interpreter runs too, on the IR as lowered.
+function interpretedTestOptions() returns Options
+	var options = testOptions()
+	options.keepsLowered = true
+	return options
+end 'interpretedTestOptions'
+
 // compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
 // an error the generate stage raises gets it. What it lowered is kept for the interpreter, which runs it as the executable
 // is made from it.
 function compileForTest(mutates shared SharedRuntime, file String, output String, mutates errs diag.ErrorList) returns CompiledProgram
-	let compiled = compileProjectWith(shared, path: file, output: output, options: testOptions(), errs: errs)
+	let compiled = compileProjectWith(shared, path: file, output: output, options: interpretedTestOptions(), errs: errs)
 	diag.sortErrors(errs)
 	return compiled
 end 'compileForTest'
@@ -500,7 +507,7 @@ function runTest(mutates shared SharedRuntime, mutates scratch Scratch, file Str
 	var errs = diag.ErrorList.create(0)
 	var compiled as CompiledProgram
 	if expect.runtimeTier 'runtimeTier'
-		compiled = compileRuntimeTest(file, output: exe, options: testOptions(), errs: errs)
+		compiled = compileRuntimeTest(file, output: exe, options: interpretedTestOptions(), errs: errs)
 		diag.sortErrors(errs)
 	end 'runtimeTier' else 'program'
 		compiled = compileForTest(shared, file: file, output: exe, errs: errs)

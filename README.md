@@ -76,11 +76,11 @@ fixes move text; if that is never reached it is left as it was. A test whose pro
 walks gets `<!-- skip: language difference: a loop holds the collection it walks -->`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
 never edited by hand, except that the runner writes `specs/passed.txt` (see "Tests").
 
-`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, and `--emit-map` the map of its code,
+`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, in SSA form as codegen gets it, and `--emit-map` the map of its code,
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal
 and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
 `.\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
-`--verify-ir` checks the IR of every function with the IR verifier (see "The IR") before code is made, and stops the compile
+`--verify-ir` checks the IR of every function with the IR verifier (see "The IR") as lowered and again in SSA form, before code is made, and stops the compile
 with an internal error naming the rules the first broken function breaks. `--timings` (on `build`, `run` and `check`) prints on standard error, once the stages have run, a table with one line for
 each stage of the task graph: the wall time its tasks took, in milliseconds, and its share of the total, and the five modules whose
 tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. The tasks
@@ -233,7 +233,7 @@ layering cannot erode:
 | `resolve` | name resolution, into the module's `Resolution`: which declaration each name and type reference names, which type parameter each constraint binds, which modules the module depends on, visibility | `ast`, `diag`, `table` |
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
-| `opt` | the optimizer: its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; the passes that apply them come with Phase 3 | `ir` |
+| `opt` | the optimizer: its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters), which `optimizeModule` runs on every function a native build compiles | `ir` |
 | `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), the trivial allocator (`trivial.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
@@ -430,6 +430,7 @@ any, from every module. A `check` stops short of code generation but runs the st
 | bodies | `check` | `moduleBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
 | verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
 | lower | `ir` | after `endChecks` has given every module's typing back to the project, `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before codegen, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
+| optimize | `opt` | for a native build, in the task that lowers the module, right after it: `opt.optimizeModule` puts each function in SSA form (see "The IR"); `--emit-ir` and `--verify-ir` see the result. A test keeps the IR as lowered for the interpreter (`Options.keepsLowered`), which tracks borrows by the loads of slots and reports a drop of a register that holds nothing |
 | emit | `backend` | `emitModule`: IR to x64, one code unit per module, in module order, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. In the link (`linkProgram`) the entry stub and the runtime's unit come first; `emitTypeRoutines` then makes the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in waves, ordered by where the modules first ask for them |
 | link | `backend` | `link` keeps only the sections of code and the pieces of data that the entry reaches through symbol and data references (every function is compiled; what nothing calls is dropped here), lays the units out in order, patches the references and `writePeImage` writes the executable. A symbol is its link name (see "Link names"); the one symbol that may be defined more than once is an instance of a generic function, and the table keeps the first unit's definition, so the copies are never reached and drop out like any dead section. Any other symbol defined twice is an internal error |
 
@@ -670,9 +671,17 @@ what a later pass such as reference counting or an optimization changes.
   so an edge that passes `(%3, %2)` to `b1(%2, %3)` swaps them. An edge's arguments are a range of `args`: a `jump`'s
   (`jump b1(%0)`), a `branch`'s two (the true edge's `targetArgs` from `args` on, then the false edge's `otherArgs` right
   after), a `switch`'s fallback in the terminator's record and each case's in its `SwitchCase`; `newJump`, `newBranch` and
-  `newSwitch` make edges that pass none, and `Builder.jumpWith`, `branchWith` and `switchWith` edges that pass some. Locals, and every
-  value that lowering carries from one block to another, still live in numbered slots (`s0`): lowering makes no block
-  parameters, which SSA construction will.
+  `newSwitch` make edges that pass none, and `Builder.jumpWith`, `branchWith` and `switchWith` edges that pass some. Lowering puts locals, and
+  every value that it carries from one block to another, in numbered slots (`s0`), and makes no block parameters. For a
+  native build, SSA construction (`opt.Ssa`) then promotes every slot that no `addr` names and that each instruction naming
+  it loads, stores, moves or drops whole, of its own kind: pruned SSA, a parameter at each join of the iterated dominance
+  frontier of the slot's writes where the slot is live, then renaming along the dominator tree, linear in the function plus
+  the live range and frontiers of each slot, on arrays kept from one function to the next. A slot holds nothing until its
+  first store and after a `move` or a `dropslot`; a read of such a slot is a register that holds 0 (a `const 0` at the
+  entry), its `dropslot` is removed, and the `dropslot` of a slot that holds a value is a `drop` of that value, so a value
+  that is empty only on some paths reaches its drop as a 0, which drops as nothing. An entry block that a back edge enters
+  gets a new entry that jumps to it, since the entry takes no parameters. The slots that stay are numbered again from 0,
+  so codegen reserves and zeroes only those. On `self`, 17,784 of 17,923 slots are promoted.
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
 - Checks are explicit, and only the ones the range analysis could not rule out are there (see "Checked arithmetic"): a range
   check, a divisor that may be 0 and a shift count that may be negative are each a `guard` with its bound, and a `bin` or a
@@ -704,7 +713,7 @@ what a later pass such as reference counting or an optimization changes.
   one function to the next. `opt.Analysis` adds the dominator tree, the dominance frontiers, the loop nesting depth of each
   segment (natural loops from the retreating edges, each of which must go to a segment that dominates its source: lowering
   makes no irreducible flow, having no goto) and how often each register is read. `selftest` runs the verifier on IR built by hand
-  (`self/verify_test.maxon`), and `--verify-ir` on everything a build lowers. The interpreter and codegen read every
+  (`self/verify_test.maxon`), and `--verify-ir` on everything a build lowers, before SSA construction and after it. The interpreter and codegen read every
   argument of an edge before they set a parameter: codegen pushes the arguments' frame slots and pops them into the
   parameters', which are the frame slots of their registers.
 - What an analysis asks of every operation is generated from the IR table: the registers it reads (`instrReads`, `termReads`,
@@ -938,10 +947,12 @@ nothing.
 
 - **A move empties its source.** `move` and `moveat` load the value and store 0 where it was, and every frame starts with its
   managed slots zeroed (one store each, or `rep stosq` over the slots of a frame with more than six), so a slot that was moved
-  from, or never assigned, or whose `dropslot` has run, holds 0. That includes a slot that a loop body declares: its `dropslot`
+  from, or never assigned, or whose `dropslot` has run, holds 0. Only the slots that SSA construction leaves in the frame are
+  there to zero: a promoted slot's emptiness is a `const 0` where it is read, and a `drop` of a register that a 0 reaches
+  through a block parameter does nothing. That includes a slot that a loop body declares: its `dropslot`
   at the end of the body leaves it empty for the next pass. `dropslot` and `dropat` leave the place 0 too. A register is always
-  written before it is dropped on every path, so a frame does not zero registers; the interpreter reports a drop of a register
-  that holds nothing, which is how a hole in that would show.
+  written before it is dropped on every path, so a frame does not zero registers; the interpreter, which runs the IR as
+  lowered, reports a drop of a register that holds nothing, which is how a hole in that would show.
 - **A routine for each type.** `drop` of a type `T` calls the drop routine of `T`, and `copy` its copy routine; each is generated
   once for the program, for each concrete type (after monomorphization) that the code drops or copies and each type those reach
   (`backend.emitTypeRoutines`); the link drops a routine that only unreachable code calls. A drop routine takes the value (0 does

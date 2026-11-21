@@ -261,6 +261,27 @@ end 'IrFunction'
 
 export typealias IrFunctionList = Array with IrFunction
 
+// renamedReg is the register that names puts in place of r.
+export function renamedReg(names RegList, r Reg) returns Reg
+	return names[try r as Count otherwise panic("ir: a register that does not exist is renamed")]
+end 'renamedReg'
+
+// renameRegs replaces each register r of args[start] on, count of them, with names[r].
+export function renameRegs(mutates args RegList, start Count, count Count, names RegList)
+	for i in 0 upto count 'each'
+		let at = try start + i otherwise panic("ir: a register list is out of range")
+		args[at] = renamedReg(names, r: args[at])
+	end 'each'
+end 'renameRegs'
+
+// renameCaseArgs replaces each register r that cases[start] on, count of them, pass with names[r].
+export function renameCaseArgs(mutates args RegList, cases CaseList, start Count, count Count, names RegList)
+	for i in 0 upto count 'each'
+		let at = try start + i otherwise panic("ir: a case list is out of range")
+		renameRegs(args, start: cases[at].argsStart(), count: cases[at].argsCount(), names: names)
+	end 'each'
+end 'renameCaseArgs'
+
 // resultText is what comes before an operation that gives a value, and nothing for a call whose value nothing reads.
 export function resultText(dst Reg) returns String
 	if dst == noReg 'none'

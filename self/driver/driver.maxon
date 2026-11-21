@@ -69,9 +69,12 @@ type Options
 	var countAllocations as bool
 	// timings prints the time of each stage and of the slowest modules on standard error when the compile ends.
 	var timings as bool
+	// keepsLowered keeps the IR as lowered, before the optimizer changes it for codegen, for the interpreter to run after
+	// the executable is made, as a test does.
+	var keepsLowered as bool
 
 	static function new() returns Options
-		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, timings: false}
+		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, keepsLowered: false, timings: false}
 	end 'new'
 end 'Options'
 

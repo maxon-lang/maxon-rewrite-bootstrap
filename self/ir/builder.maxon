@@ -93,7 +93,11 @@ export type RenumberVisitor implements TermVisitor
 end 'RenumberVisitor'
 
 // failTarget is the block an instruction goes to when its check fails, or noBlock for one that has no check.
-function failTarget(x Instr) returns BlockID
+export function failTarget(x Instr) returns BlockID
+	// Most instructions cannot fail, and asking instrCanFail first spares them the Option.
+	if not instrCanFail(x) 'cannot'
+		return noBlock
+	end 'cannot'
 	return match consumes instrFail(x) 'fail'
 		some(target) gives target
 		none gives noBlock

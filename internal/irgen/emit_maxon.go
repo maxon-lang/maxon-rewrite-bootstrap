@@ -412,6 +412,21 @@ func emitMaxonQueries(w *writer) {
 		w.p("\tend '%s'\n", maxonCase(o))
 	}
 	w.p("\tpanic(\"ir: an instruction has no opcode\")\nend 'instrFail'\n\n")
+
+	w.p("// instrCanFail is whether an instruction has a block it goes to when its check fails, which instrFail gives.\nexport function instrCanFail(x Instr) returns bool\n\treturn match x.op 'op'\n")
+	w.p("\t\topNone gives false\n")
+	for _, o := range instrOps() {
+		x, ok := failOperand(o)
+		switch {
+		case !ok:
+			w.p("\t\t%s gives false\n", maxonCase(o))
+		case optional(x):
+			w.p("\t\t%s gives %s(x)\n", maxonCase(o), maxonHas(o, x))
+		default:
+			w.p("\t\t%s gives true\n", maxonCase(o))
+		}
+	}
+	w.p("\tend 'op'\nend 'instrCanFail'\n\n")
 }
 
 func emitMaxonVisitors(w *writer) {
@@ -610,6 +625,52 @@ func emitMaxonRegisters(w *writer) {
 		w.p("\t\treturn\n\tend '%s'\n", maxonCase(o))
 	}
 	w.p("\tpanic(\"ir: an instruction has no opcode\")\nend 'instrWrites'\n\n")
+	emitMaxonRenames(w)
+}
+
+// emitMaxonRenames writes what a pass that renames registers or slots asks of each operation: every register it reads
+// replaced by the one a table gives, and the slot it names replaced.
+func emitMaxonRenames(w *writer) {
+	for _, term := range []bool{false, true} {
+		fn, v, rec, what := "renameInstrReads", "x", "Instr", "an instruction has no opcode"
+		doc := "// renameInstrReads replaces each register r that an instruction reads, in its fields and in args, with names[r].\n"
+		pools := "mutates args RegList"
+		if term {
+			fn, v, rec, what = "renameTermReads", "t", "Term", "a block has no terminator"
+			doc = "// renameTermReads replaces each register r that a terminator reads, its value and the arguments of its edges, with\n// names[r].\n"
+			pools = "mutates args RegList, cases CaseList"
+		}
+		w.p("%sexport function %s(mutates %s %s, %s, names RegList)\n", doc, fn, v, rec, pools)
+		for _, o := range ops {
+			if o.Term != term {
+				continue
+			}
+			w.p("\tif %s.%s == %s '%s'\n", v, recordSelector(o), maxonConst(o), maxonCase(o))
+			for _, x := range o.Operands {
+				g := maxonGetter(o, x)
+				switch x.Kind {
+				case kReg:
+					w.p("\t\t%s.%s = renamedReg(names, r: %s.%s)\n", v, x.Field, v, x.Field)
+				case kRegs, kMoreRegs, kEdgeArgs, kMoreEdgeArgs:
+					w.p("\t\trenameRegs(args, start: %sStart(%s), count: %sCount(%s), names: names)\n", g, v, g, v)
+				case kCases:
+					w.p("\t\trenameCaseArgs(args, cases: cases, start: %sStart(%s), count: %sCount(%s), names: names)\n", g, v, g, v)
+				}
+			}
+			w.p("\t\treturn\n\tend '%s'\n", maxonCase(o))
+		}
+		w.p("\tpanic(\"ir: %s\")\nend '%s'\n\n", what, fn)
+	}
+
+	w.p("// setInstrSlot makes an instruction that names a slot name the slot slot instead.\nexport function setInstrSlot(mutates x Instr, slot Count)\n")
+	for _, o := range instrOps() {
+		for _, x := range o.Operands {
+			if x.Kind == kSlot {
+				w.p("\tif x.op == %s '%s'\n\t\tx.%s = %s\n\t\treturn\n\tend '%s'\n", maxonConst(o), maxonCase(o), x.Field, toField(x.Field, "slot", lowerFirst(o.Name)+" "+lowerFirst(x.Name)), maxonCase(o))
+			}
+		}
+	}
+	w.p("\tpanic(\"ir: an instruction that names no slot is given one\")\nend 'setInstrSlot'\n\n")
 }
 
 // recordSelector is the field of a record that says which operation it is.

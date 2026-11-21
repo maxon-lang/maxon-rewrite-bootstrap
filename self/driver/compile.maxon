@@ -193,18 +193,23 @@ end 'appendErrors'
 // verifyIr stops the compile at the first function whose IR breaks a rule of the verifier, which is a fault of the compiler.
 function verifyIr(p ast.Project, lowered backend.FunctionLists)
 	for m in 0 upto lowered.count() 'modules'
-		for i in 0 upto lowered[m].count() 'functions'
-			let problems = ir.verifyIr(p, f: lowered[m][i])
-			if problems.count() > 0 'broken'
-				var text = ByteArray.create(0)
-				for k in 0 upto problems.count() 'each'
-					text.append("\n  {problems[k]}".toByteArray())
-				end 'each'
-				panic("driver: the IR breaks the verifier's rules:{String.from(text)}")
-			end 'broken'
-		end 'functions'
+		verifyFunctions(p, fns: lowered[m])
 	end 'modules'
 end 'verifyIr'
+
+// verifyFunctions is verifyIr for the functions of one module.
+function verifyFunctions(p ast.Project, fns ir.IrFunctionList)
+	for i in 0 upto fns.count() 'functions'
+		let problems = ir.verifyIr(p, f: fns[i])
+		if problems.count() > 0 'broken'
+			var text = ByteArray.create(0)
+			for k in 0 upto problems.count() 'each'
+				text.append("\n  {problems[k]}".toByteArray())
+			end 'each'
+			panic("driver: the IR breaks the verifier's rules:{String.from(text)}")
+		end 'broken'
+	end 'functions'
+end 'verifyFunctions'
 
 // writeIr writes the IR of every module's functions, in module order, as --emit-ir asks.
 function writeIr(p ast.Project, lowered backend.FunctionLists, path String)

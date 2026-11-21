@@ -203,6 +203,18 @@ function lowersBodies(goal Goal) returns bool
 	end 'g'
 end 'lowersBodies'
 
+// makesCode is whether a compile compiles its modules' functions to code.
+function makesCode(goal Goal) returns bool
+	return match goal 'g'
+		declared gives false
+		checked gives false
+		instances gives false
+		lowered gives false
+		units gives true
+		executable gives true
+	end 'g'
+end 'makesCode'
+
 // Run is the state of one compile's task graph: the graph, and what the tasks made that later tasks and the caller read.
 type Run
 	var graph as TaskGraph
@@ -216,8 +228,11 @@ type Run
 	var checksEnded as bool
 	// generates is whether the check ended as a task, which it does when every module's verify ran and the goal goes on.
 	var generates as bool
-	// lowered and units are by module from first on.
+	// lowered and units are by module from first on, and so is kept, the IR as lowered, which a compile that keeps it gives
+	// in place of lowered once the optimizer has changed that.
 	var lowered as backend.FunctionLists
+	var kept as backend.FunctionLists
+	var keepsLowered as bool
 	var units as backend.UnitList
 	// failed is whether a task failed, and failedPhase the earliest phase that one did in.
 	var failed as bool
@@ -228,7 +243,7 @@ type Run
 	var timings as Timings
 
 	static function make(goal Goal, first Count, makesProgram bool, modules Count) returns Run
-		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off()}
+		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), keepsLowered: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off()}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors.
@@ -236,6 +251,9 @@ type Run
 		if not generates 'nothing'
 			return Generated.nothing()
 		end 'nothing'
+		if keepsLowered 'kept'
+			return Generated.make(checked.entry, modules: exchange(kept, value: backend.FunctionLists.create(0)))
+		end 'kept'
 		return Generated.make(checked.entry, modules: exchange(lowered, value: backend.FunctionLists.create(0)))
 	end 'generated'
 end 'Run'
@@ -261,6 +279,7 @@ end 'noChecked'
 // of the earliest phase that has any, which the error list also holds when it is not empty at the start.
 function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList) returns Run
 	var run = Run.make(goal, first: first, makesProgram: makesProgram, modules: p.modules.count())
+	run.keepsLowered = options.keepsLowered
 	run.earlierErrors = errs.count()
 	if options.timings 'timed'
 		run.timings = Timings.start(Stage.allCaseNames, modules: p.modules.count())
@@ -412,7 +431,7 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, memory proj
 		bodies then check.moduleBodies(run.checks, p: p, m: m, errs: errs)
 		verify then check.moduleVerify(run.checks, p: p, m: m, errs: errs)
 		endCheck then endCheckTask(run, p: p)
-		lower then lowerModule(run, p: p, m: m, errs: errs)
+		lower then lowerModule(run, p: p, m: m, options: options, errs: errs)
 		program then holdProgram(run, p: p, output: output, options: options, errs: errs)
 		emit then emitModule(run, p: p, m: m)
 		link then linkUnits(run, p: p, output: output, options: options, ready: ready)
@@ -486,17 +505,31 @@ function endCheckTask(mutates run Run, mutates p ast.Project)
 	run.generates = true
 	for _ in run.first upto p.modules.count() 'slots'
 		run.lowered.push(ir.IrFunctionList.create(0))
+		run.kept.push(ir.IrFunctionList.create(0))
 		run.units.push(backend.CodeUnit.new())
 	end 'slots'
 end 'endCheckTask'
 
 // lowerModule finds the instances of generic functions that a module needs and, for a compile that lowers, lowers the
-// module's functions and those instances.
-function lowerModule(mutates run Run, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
+// module's functions and those instances; for a compile that makes code, the optimizer then runs on them while they are
+// fresh, so --emit-ir and --verify-ir see what codegen gets. The interpreter runs the IR as lowered (kept): it tracks
+// borrows by the loads of slots, which SSA form has none of, and reports a drop of a register that holds nothing, which a
+// parameter that a moved value reaches may be.
+function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Options, mutates errs diag.ErrorList)
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is lowered again")
 	var found = diag.ErrorList.create(0)
 	if lowersBodies(run.goal) 'lower'
 		run.lowered[slot] = ir.lowerModule(p, functions: run.checked.functions[m], callers: run.checked.callers[m], errs: found)
+		if run.keepsLowered 'keep'
+			run.kept[slot] = run.lowered[slot].clone()
+		end 'keep'
+		if makesCode(run.goal) and found.count() == 0 'optimize'
+			if options.verifyIr 'verifyLowered'
+				verifyFunctions(p, fns: run.lowered[slot])
+			end 'verifyLowered'
+			var ssa = opt.Ssa.new()
+			opt.optimizeModule(ssa, fns: run.lowered[slot])
+		end 'optimize'
 	end 'lower' else 'instances'
 		_ = ir.findInstances(p, callers: run.checked.callers[m], errs: found)
 	end 'instances'

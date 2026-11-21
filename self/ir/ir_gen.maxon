@@ -2213,6 +2213,63 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	panic("ir: an instruction has no opcode")
 end 'instrFail'
 
+// instrCanFail is whether an instruction has a block it goes to when its check fails, which instrFail gives.
+export function instrCanFail(x Instr) returns bool
+	return match x.op 'op'
+		opNone gives false
+		opConst gives false
+		opStr gives false
+		opLoadSlot gives false
+		opStoreSlot gives false
+		opSlotAddr gives false
+		opLoadParam gives false
+		opLoadField gives false
+		opStoreField gives false
+		opFieldAddr gives false
+		opLoadAt gives false
+		opStoreAt gives false
+		opLoadGlobal gives false
+		opLoadRaw gives false
+		opStoreRaw gives false
+		opGlobalAddr gives false
+		opCallImport gives false
+		opAtomicAdd gives false
+		opAtomicExchange gives false
+		opCompareExchange gives false
+		opSpinPause gives false
+		opThreadContext gives false
+		opCallCode gives false
+		opCodeAddress gives false
+		opBin gives binHasFail(x)
+		opCmp gives false
+		opFBin gives false
+		opFCmp gives false
+		opFUnary gives false
+		opIntToFloat gives false
+		opFloatToInt gives false
+		opNeg gives negHasFail(x)
+		opNot gives false
+		opGuard gives true
+		opAlloc gives false
+		opCall gives false
+		opCallRuntime gives false
+		opWhen gives false
+		opClosure gives false
+		opFuncValue gives false
+		opCallValue gives false
+		opBox gives false
+		opFrameBox gives false
+		opCallWitness gives false
+		opIsType gives false
+		opDrop gives false
+		opDropSlot gives false
+		opDropAt gives false
+		opMoveSlot gives false
+		opMoveAt gives false
+		opCopy gives false
+	end 'op'
+end 'instrCanFail'
+
 // instrReads appends the registers an instruction reads to out, in the order of its operands.
 export function instrReads(f IrFunction, x Instr, mutates out RegList)
 	if x.op == Opcode.opConst 'opConst'
@@ -2655,6 +2712,265 @@ export function instrWrites(x Instr, mutates out RegList)
 	end 'opCopy'
 	panic("ir: an instruction has no opcode")
 end 'instrWrites'
+
+// renameInstrReads replaces each register r that an instruction reads, in its fields and in args, with names[r].
+export function renameInstrReads(mutates x Instr, mutates args RegList, names RegList)
+	if x.op == Opcode.opConst 'opConst'
+		return
+	end 'opConst'
+	if x.op == Opcode.opStr 'opStr'
+		return
+	end 'opStr'
+	if x.op == Opcode.opLoadSlot 'opLoadSlot'
+		return
+	end 'opLoadSlot'
+	if x.op == Opcode.opStoreSlot 'opStoreSlot'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opStoreSlot'
+	if x.op == Opcode.opSlotAddr 'opSlotAddr'
+		return
+	end 'opSlotAddr'
+	if x.op == Opcode.opLoadParam 'opLoadParam'
+		return
+	end 'opLoadParam'
+	if x.op == Opcode.opLoadField 'opLoadField'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opLoadField'
+	if x.op == Opcode.opStoreField 'opStoreField'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opStoreField'
+	if x.op == Opcode.opFieldAddr 'opFieldAddr'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opFieldAddr'
+	if x.op == Opcode.opLoadAt 'opLoadAt'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opLoadAt'
+	if x.op == Opcode.opStoreAt 'opStoreAt'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opStoreAt'
+	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
+		return
+	end 'opLoadGlobal'
+	if x.op == Opcode.opLoadRaw 'opLoadRaw'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opLoadRaw'
+	if x.op == Opcode.opStoreRaw 'opStoreRaw'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opStoreRaw'
+	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
+		return
+	end 'opGlobalAddr'
+	if x.op == Opcode.opCallImport 'opCallImport'
+		renameRegs(args, start: callImportArgsStart(x), count: callImportArgsCount(x), names: names)
+		return
+	end 'opCallImport'
+	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opAtomicAdd'
+	if x.op == Opcode.opAtomicExchange 'opAtomicExchange'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opAtomicExchange'
+	if x.op == Opcode.opCompareExchange 'opCompareExchange'
+		renameRegs(args, start: compareExchangeArgsStart(x), count: compareExchangeArgsCount(x), names: names)
+		return
+	end 'opCompareExchange'
+	if x.op == Opcode.opSpinPause 'opSpinPause'
+		return
+	end 'opSpinPause'
+	if x.op == Opcode.opThreadContext 'opThreadContext'
+		return
+	end 'opThreadContext'
+	if x.op == Opcode.opCallCode 'opCallCode'
+		renameRegs(args, start: callCodeArgsStart(x), count: callCodeArgsCount(x), names: names)
+		return
+	end 'opCallCode'
+	if x.op == Opcode.opCodeAddress 'opCodeAddress'
+		return
+	end 'opCodeAddress'
+	if x.op == Opcode.opBin 'opBin'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opBin'
+	if x.op == Opcode.opCmp 'opCmp'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opCmp'
+	if x.op == Opcode.opFBin 'opFBin'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opFBin'
+	if x.op == Opcode.opFCmp 'opFCmp'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opFCmp'
+	if x.op == Opcode.opFUnary 'opFUnary'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opFUnary'
+	if x.op == Opcode.opIntToFloat 'opIntToFloat'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opIntToFloat'
+	if x.op == Opcode.opFloatToInt 'opFloatToInt'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opFloatToInt'
+	if x.op == Opcode.opNeg 'opNeg'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opNeg'
+	if x.op == Opcode.opNot 'opNot'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opNot'
+	if x.op == Opcode.opGuard 'opGuard'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opGuard'
+	if x.op == Opcode.opAlloc 'opAlloc'
+		return
+	end 'opAlloc'
+	if x.op == Opcode.opCall 'opCall'
+		renameRegs(args, start: callArgsStart(x), count: callArgsCount(x), names: names)
+		return
+	end 'opCall'
+	if x.op == Opcode.opCallRuntime 'opCallRuntime'
+		renameRegs(args, start: callRuntimeArgsStart(x), count: callRuntimeArgsCount(x), names: names)
+		return
+	end 'opCallRuntime'
+	if x.op == Opcode.opWhen 'opWhen'
+		renameRegs(args, start: whenCownsStart(x), count: whenCownsCount(x), names: names)
+		renameRegs(args, start: whenCapturesStart(x), count: whenCapturesCount(x), names: names)
+		return
+	end 'opWhen'
+	if x.op == Opcode.opClosure 'opClosure'
+		renameRegs(args, start: closureCapturesStart(x), count: closureCapturesCount(x), names: names)
+		return
+	end 'opClosure'
+	if x.op == Opcode.opFuncValue 'opFuncValue'
+		return
+	end 'opFuncValue'
+	if x.op == Opcode.opCallValue 'opCallValue'
+		renameRegs(args, start: callValueArgsStart(x), count: callValueArgsCount(x), names: names)
+		return
+	end 'opCallValue'
+	if x.op == Opcode.opBox 'opBox'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opBox'
+	if x.op == Opcode.opFrameBox 'opFrameBox'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opFrameBox'
+	if x.op == Opcode.opCallWitness 'opCallWitness'
+		renameRegs(args, start: callWitnessArgsStart(x), count: callWitnessArgsCount(x), names: names)
+		return
+	end 'opCallWitness'
+	if x.op == Opcode.opIsType 'opIsType'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opIsType'
+	if x.op == Opcode.opDrop 'opDrop'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opDrop'
+	if x.op == Opcode.opDropSlot 'opDropSlot'
+		return
+	end 'opDropSlot'
+	if x.op == Opcode.opDropAt 'opDropAt'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opDropAt'
+	if x.op == Opcode.opMoveSlot 'opMoveSlot'
+		return
+	end 'opMoveSlot'
+	if x.op == Opcode.opMoveAt 'opMoveAt'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opMoveAt'
+	if x.op == Opcode.opCopy 'opCopy'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opCopy'
+	panic("ir: an instruction has no opcode")
+end 'renameInstrReads'
+
+// renameTermReads replaces each register r that a terminator reads, its value and the arguments of its edges, with
+// names[r].
+export function renameTermReads(mutates t Term, mutates args RegList, cases CaseList, names RegList)
+	if t.kind == TermKind.termJump 'termJump'
+		renameRegs(args, start: jumpArgsStart(t), count: jumpArgsCount(t), names: names)
+		return
+	end 'termJump'
+	if t.kind == TermKind.termBranch 'termBranch'
+		t.value = renamedReg(names, r: t.value)
+		renameRegs(args, start: branchTrueArgsStart(t), count: branchTrueArgsCount(t), names: names)
+		renameRegs(args, start: branchFalseArgsStart(t), count: branchFalseArgsCount(t), names: names)
+		return
+	end 'termBranch'
+	if t.kind == TermKind.termSwitch 'termSwitch'
+		t.value = renamedReg(names, r: t.value)
+		renameCaseArgs(args, cases: cases, start: switchCasesStart(t), count: switchCasesCount(t), names: names)
+		renameRegs(args, start: switchFallbackArgsStart(t), count: switchFallbackArgsCount(t), names: names)
+		return
+	end 'termSwitch'
+	if t.kind == TermKind.termRet 'termRet'
+		t.value = renamedReg(names, r: t.value)
+		return
+	end 'termRet'
+	if t.kind == TermKind.termTrap 'termTrap'
+		return
+	end 'termTrap'
+	if t.kind == TermKind.termThrow 'termThrow'
+		t.value = renamedReg(names, r: t.value)
+		return
+	end 'termThrow'
+	panic("ir: a block has no terminator")
+end 'renameTermReads'
+
+// setInstrSlot makes an instruction that names a slot name the slot slot instead.
+export function setInstrSlot(mutates x Instr, slot Count)
+	if x.op == Opcode.opLoadSlot 'opLoadSlot'
+		x.imm = try slot as Word otherwise panic("ir: loadSlot slot is out of range")
+		return
+	end 'opLoadSlot'
+	if x.op == Opcode.opStoreSlot 'opStoreSlot'
+		x.imm = try slot as Word otherwise panic("ir: storeSlot slot is out of range")
+		return
+	end 'opStoreSlot'
+	if x.op == Opcode.opSlotAddr 'opSlotAddr'
+		x.imm = try slot as Word otherwise panic("ir: slotAddr slot is out of range")
+		return
+	end 'opSlotAddr'
+	if x.op == Opcode.opDropSlot 'opDropSlot'
+		x.imm = try slot as Word otherwise panic("ir: dropSlot slot is out of range")
+		return
+	end 'opDropSlot'
+	if x.op == Opcode.opMoveSlot 'opMoveSlot'
+		x.imm = try slot as Word otherwise panic("ir: moveSlot slot is out of range")
+		return
+	end 'opMoveSlot'
+	panic("ir: an instruction that names no slot is given one")
+end 'setInstrSlot'
 
 // InstrVisitor has a method for every kind of instr, so one added to the table fails the build where it is not handled yet.
 export interface InstrVisitor
