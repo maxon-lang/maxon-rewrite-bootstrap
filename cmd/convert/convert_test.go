@@ -320,6 +320,11 @@ end 'make'
 			want: "function f(c Color)\n\t_ = c\n\t_ = c\n\tmatch c 'm'\n\t\tred then _ = c\n\t\tdefault then return\n\tend 'm'\nend 'f'\n",
 		},
 		{
+			name: "tuples convert as they are written",
+			in:   "typealias Pair = (Count, Count)\n\nfunction swap(t Pair) returns (Count, Count)\n\tlet (a, b) = t\n\tvar x = a\n\tvar y = b\n\t(x, y) = (b, a)\n\tfor (p, q) in pairs() 'each'\n\t\tprint(\"{p.0}\")\n\tend 'each'\n\treturn (x, t.1)\nend 'swap'\n",
+			want: "typealias Pair = (Count, Count)\n\nfunction swap(t Pair) returns (Count, Count)\n\tlet (a, b) = t\n\tvar x = a\n\tvar y = b\n\t(x, y) = (b, a)\n\tfor (p, q) in pairs() 'each'\n\t\tprint(\"{p.0}\")\n\tend 'each'\n\treturn (x, t.1)\nend 'swap'\n",
+		},
+		{
 			name: "CRLF, BOM, trailing spaces, and extra blank lines",
 			in:   "\xef\xbb\xbflet a = 1  \r\n\r\n\r\nlet b = 2\t\r\n",
 			want: "let a = 1\n\nlet b = 2\n",
@@ -402,21 +407,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "Type from value",
 			in:       "function f(text String) returns Path\n\treturn Path from text\nend 'f'\n",
 			wantTodo: "'Type from value' takes an array literal or a string literal",
-		},
-		{
-			name:     "tuple value",
-			in:       "function f(a Count, b Count) returns Pair\n\treturn (a, b)\nend 'f'\n",
-			wantTodo: "tuple values and types",
-		},
-		{
-			name:     "tuple parameter type",
-			in:       "function f(pair (Count, Count))\n\tprint(\"{pair}\")\nend 'f'\n",
-			wantTodo: "tuple parameter types",
-		},
-		{
-			name:     "tuple element access",
-			in:       "function f(pair Pair) returns Count\n\treturn pair.0\nend 'f'\n",
-			wantTodo: "tuple element access",
 		},
 		{
 			name:     "keyword as a function name",

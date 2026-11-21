@@ -110,6 +110,7 @@ func buildModel(g *grammar) *model {
 	}
 	m.checkReferences()
 	m.classify()
+	m.checkPredicates()
 	m.collectKeywords()
 	m.expandKeywordSets()
 	m.buildSets()
@@ -163,7 +164,6 @@ func (m *model) walkElems(alts []*alt, visit func(*elem)) {
 }
 
 func (m *model) checkReferences() {
-	m.checkPredicates()
 	for _, r := range m.g.rules {
 		m.walkElems(r.alts, func(e *elem) {
 			switch e.kind {
@@ -190,15 +190,15 @@ func (m *model) checkReferences() {
 	}
 }
 
-// checkPredicates refuses a predicate anywhere but at the start of the only alternative of an optional group, the one place
-// the parser tests it.
+// checkPredicates refuses a predicate anywhere but at the start of the only alternative of an optional group, or at the
+// start of an alternative of a set rule, the places the parser tests it.
 func (m *model) checkPredicates() {
 	var walk func(alts []*alt, allowed bool)
 	walk = func(alts []*alt, allowed bool) {
 		for _, a := range alts {
 			for i, e := range a.elems {
 				if e.kind == ekPredicate && !(allowed && i == 0) {
-					m.fail(e.line, "a predicate {%s}? belongs at the start of the only alternative of an optional group", e.text)
+					m.fail(e.line, "a predicate {%s}? belongs at the start of the only alternative of an optional group, or of an alternative of a set rule", e.text)
 				}
 				if e.kind == ekGroup {
 					walk(e.group, e.suffix == '?' && len(e.group) == 1)
@@ -207,7 +207,7 @@ func (m *model) checkPredicates() {
 		}
 	}
 	for _, r := range m.g.rules {
-		walk(r.alts, false)
+		walk(r.alts, m.kind[r] == rkSet)
 	}
 }
 

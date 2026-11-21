@@ -116,6 +116,9 @@ function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if k == ast.NodeKind.structLitExpr 'structLitExpr'
 		return checkStructLit(c, p: p, e: e, errs: errs)
 	end 'structLitExpr'
+	if k == ast.NodeKind.tupleExpr 'tupleExpr'
+		return checkTupleLit(c, p: p, e: e, errs: errs)
+	end 'tupleExpr'
 	if k == ast.NodeKind.indexExpr 'indexExpr'
 		return checkIndex(c, p: p, e: e, errs: errs)
 	end 'indexExpr'

@@ -223,7 +223,7 @@ function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 	if k == ast.NodeKind.strLit 'strLit'
 		return rangeStrLit(r, p: p, e: e)
 	end 'strLit'
-	if k == ast.NodeKind.structLitExpr 'structLit'
+	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'structLit'
 		return rangeStructLit(r, p: p, e: e)
 	end 'structLit'
 	if k == ast.NodeKind.collectionLitExpr 'collectionLit'

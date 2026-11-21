@@ -22,6 +22,10 @@ export enum NodeKind
 	funcSig
 	endLabel
 	letStmt
+	destructStmt
+	bindName
+	tupleAssignStmt
+	assignTarget
 	discardStmt
 	assignStmt
 	exprStmt
@@ -56,6 +60,7 @@ export enum NodeKind
 	boolLit
 	nameExpr
 	selfExpr
+	tupleExpr
 	structLitExpr
 	structField
 	collectionLitExpr
@@ -153,7 +158,7 @@ export function numberSlots(tree Tree, mutates slots U32List) returns Slots
 	var count = Slots.zero()
 	for id in 1 upto tree.records.count() 'each'
 		let k = tree.records[id].kind
-		if k == NodeKind.letStmt or k == NodeKind.ifTryStmt or k == NodeKind.forStmt or k == NodeKind.tryStmt or k == NodeKind.handlerBlock 'c_localSlots'
+		if k == NodeKind.letStmt or k == NodeKind.bindName or k == NodeKind.assignTarget or k == NodeKind.ifTryStmt or k == NodeKind.forStmt or k == NodeKind.tryStmt or k == NodeKind.handlerBlock 'c_localSlots'
 			count.localSlots = try count.localSlots + 1 otherwise panic("slot overflow")
 			slots[id] = count.localSlots
 		end 'c_localSlots'
@@ -491,7 +496,7 @@ end 'newBound'
 
 export function newTypeRef(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.typeRef, start: start)
-	let blk = t.reserve(2 as Count)
+	let blk = t.reserve(3 as Count)
 	t.records[id as Count].b = blk
 	return id
 end 'newTypeRef'
@@ -523,6 +528,22 @@ end 'typeRefTypeArgsRef'
 export function setTypeRefTypeArgsRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
 end 'setTypeRefTypeArgsRef'
+
+export function typeRefIsTuple(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'typeRefIsTuple'
+
+export function setTypeRefIsTuple(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setTypeRefIsTuple'
+
+export function typeRefElemsRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 2 as Count)
+end 'typeRefElemsRef'
+
+export function setTypeRefElemsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 2 as Count, value: ref)
+end 'setTypeRefElemsRef'
 
 export type TypeParam
 	export var id as NodeID
@@ -651,6 +672,106 @@ end 'letStmtType'
 export function setLetStmtType(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
 end 'setLetStmtType'
+
+export function newDestructStmt(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.destructStmt, start: start)
+	return id
+end 'newDestructStmt'
+
+export function destructStmtIsVar(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'destructStmtIsVar'
+
+export function setDestructStmtIsVar(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setDestructStmtIsVar'
+
+export function destructStmtNamesRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'destructStmtNamesRef'
+
+export function setDestructStmtNamesRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setDestructStmtNamesRef'
+
+export function destructStmtInit(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].b as NodeID
+end 'destructStmtInit'
+
+export function setDestructStmtInit(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].b = value as diag.U32
+end 'setDestructStmtInit'
+
+export function newBindName(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.bindName, start: start)
+	return id
+end 'newBindName'
+
+export function bindNameName(t Tree, id NodeID) returns String
+	return t.nameAt(t.records[id as Count].a)
+end 'bindNameName'
+
+export function bindNameNameRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'bindNameNameRef'
+
+export function setBindNameNameRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setBindNameNameRef'
+
+export function newTupleAssignStmt(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.tupleAssignStmt, start: start)
+	return id
+end 'newTupleAssignStmt'
+
+export function tupleAssignStmtTargetsRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'tupleAssignStmtTargetsRef'
+
+export function setTupleAssignStmtTargetsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setTupleAssignStmtTargetsRef'
+
+export function tupleAssignStmtValue(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].b as NodeID
+end 'tupleAssignStmtValue'
+
+export function setTupleAssignStmtValue(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].b = value as diag.U32
+end 'setTupleAssignStmtValue'
+
+export function newAssignTarget(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.assignTarget, start: start)
+	return id
+end 'newAssignTarget'
+
+export function assignTargetIsLet(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'assignTargetIsLet'
+
+export function setAssignTargetIsLet(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setAssignTargetIsLet'
+
+export function assignTargetIsVar(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (2 as Byte)) != 0
+end 'assignTargetIsVar'
+
+export function setAssignTargetIsVar(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (2 as Byte)
+end 'setAssignTargetIsVar'
+
+export function assignTargetName(t Tree, id NodeID) returns String
+	return t.nameAt(t.records[id as Count].a)
+end 'assignTargetName'
+
+export function assignTargetNameRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'assignTargetNameRef'
+
+export function setAssignTargetNameRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setAssignTargetNameRef'
 
 export function newDiscardStmt(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.discardStmt, start: start)
@@ -942,7 +1063,7 @@ end 'setWhileStmtEnd'
 
 export function newForStmt(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.forStmt, start: start)
-	let blk = t.reserve(5 as Count)
+	let blk = t.reserve(6 as Count)
 	t.records[id as Count].b = blk
 	return id
 end 'newForStmt'
@@ -959,12 +1080,20 @@ export function setForStmtVarRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.records[id as Count].a = ref
 end 'setForStmtVarRef'
 
+export function forStmtVarsRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 0 as Count)
+end 'forStmtVarsRef'
+
+export function setForStmtVarsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 0 as Count, value: ref)
+end 'setForStmtVarsRef'
+
 export function forStmtFrom(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 0 as Count) as NodeID
+	return t.blockWordAt(id, offset: 1 as Count) as NodeID
 end 'forStmtFrom'
 
 export function setForStmtFrom(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
 end 'setForStmtFrom'
 
 export function forStmtInclusive(t Tree, id NodeID) returns bool
@@ -976,39 +1105,39 @@ export function setForStmtInclusive(mutates t Tree, id NodeID)
 end 'setForStmtInclusive'
 
 export function forStmtTo(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+	return t.blockWordAt(id, offset: 2 as Count) as NodeID
 end 'forStmtTo'
 
 export function setForStmtTo(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 2 as Count, value: value as diag.U32)
 end 'setForStmtTo'
 
 export function forStmtLabel(t Tree, id NodeID) returns String
-	return t.labelAt(t.blockWordAt(id, offset: 2 as Count))
+	return t.labelAt(t.blockWordAt(id, offset: 3 as Count))
 end 'forStmtLabel'
 
 export function forStmtLabelRef(t Tree, id NodeID) returns diag.U32
-	return t.blockWordAt(id, offset: 2 as Count)
+	return t.blockWordAt(id, offset: 3 as Count)
 end 'forStmtLabelRef'
 
 export function setForStmtLabelRef(mutates t Tree, id NodeID, ref diag.U32)
-	t.setBlockWordAt(id, offset: 2 as Count, value: ref)
+	t.setBlockWordAt(id, offset: 3 as Count, value: ref)
 end 'setForStmtLabelRef'
 
 export function forStmtBodyRef(t Tree, id NodeID) returns diag.U32
-	return t.blockWordAt(id, offset: 3 as Count)
+	return t.blockWordAt(id, offset: 4 as Count)
 end 'forStmtBodyRef'
 
 export function setForStmtBodyRef(mutates t Tree, id NodeID, ref diag.U32)
-	t.setBlockWordAt(id, offset: 3 as Count, value: ref)
+	t.setBlockWordAt(id, offset: 4 as Count, value: ref)
 end 'setForStmtBodyRef'
 
 export function forStmtEnd(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 4 as Count) as NodeID
+	return t.blockWordAt(id, offset: 5 as Count) as NodeID
 end 'forStmtEnd'
 
 export function setForStmtEnd(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 4 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 5 as Count, value: value as diag.U32)
 end 'setForStmtEnd'
 
 export function newTryStmt(mutates t Tree, start diag.U32) returns NodeID
@@ -1827,6 +1956,19 @@ export function newSelfExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.selfExpr, start: start)
 	return id
 end 'newSelfExpr'
+
+export function newTupleExpr(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.tupleExpr, start: start)
+	return id
+end 'newTupleExpr'
+
+export function tupleExprElemsRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'tupleExprElemsRef'
+
+export function setTupleExprElemsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setTupleExprElemsRef'
 
 export function newStructLitExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.structLitExpr, start: start)

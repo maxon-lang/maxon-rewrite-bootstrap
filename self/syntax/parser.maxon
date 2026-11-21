@@ -53,6 +53,16 @@ let blankBeforeFunction = "expected a blank line before this function, which is 
 
 let blankAfterDeclaration = "expected a blank line after the declaration above"
 
+// ParenScan is what the tokens from an opening parenthesis to its closing one say about the parenthesis.
+type ParenScan
+	var hasComma as bool
+	var closing as Count
+
+	static function make(hasComma bool, closing Count) returns ParenScan
+		return ParenScan{hasComma: hasComma, closing: closing}
+	end 'make'
+end 'ParenScan'
+
 // Parser holds what the generated parse functions (parser_gen.maxon) share: the module's source, its token stream, the
 // position in it, and the file the parser is in.
 type Parser
@@ -215,6 +225,43 @@ type Parser
 		let opening = before(name)
 		return toks[before(opening)].kind == TokenKind.kw_otherwise and toks[opening].kind == TokenKind.lParen and toks[name].kind == TokenKind.name and toks[closing].kind == TokenKind.rParen
 	end 'atHandlerBinding'
+
+	// scanParen reads the tokens from the parenthesis the parser is at to the one that closes it: whether a comma stands
+	// between them, outside any bracket inside, and the place of the closing one, which is the end of the tokens where
+	// none does.
+	function scanParen() returns ParenScan
+		var depth = 0 as Count
+		var hasComma = false
+		var i = after(pos)
+		while i < toks.count() and toks[i].kind != TokenKind.fileEnd and toks[i].kind != TokenKind.eof 'scan'
+			let kind = toks[i].kind
+			if kind == TokenKind.lParen or kind == TokenKind.lBracket or kind == TokenKind.lBrace 'open'
+				depth = after(depth)
+			end 'open' else if kind == TokenKind.rParen or kind == TokenKind.rBracket or kind == TokenKind.rBrace 'close'
+				if depth == 0 'closes'
+					return ParenScan.make(hasComma, closing: i)
+				end 'closes'
+				depth = try depth - 1 otherwise 0 as Count
+			end 'close' else if kind == TokenKind.comma and depth == 0 'comma'
+				hasComma = true
+			end 'comma'
+			i = after(i)
+		end 'scan'
+		return ParenScan.make(hasComma, closing: toks.count())
+	end 'scanParen'
+
+	// atTuple is whether the parenthesis here opens a tuple, which holds a comma between its parentheses; `(a)` is the
+	// expression a.
+	function atTuple() returns bool
+		return self.scanParen().hasComma
+	end 'atTuple'
+
+	// atTupleAssignment is whether the parenthesis here opens the targets of a tuple assignment, which the `=` after the
+	// closing one tells from an expression that starts with a parenthesis.
+	function atTupleAssignment() returns bool
+		let scan = self.scanParen()
+		return scan.hasComma and after(scan.closing) < toks.count() and toks[after(scan.closing)].kind == TokenKind.assign
+	end 'atTupleAssignment'
 
 	function atEndOfInput() returns bool
 		return self.at(TokenKind.fileEnd) or self.at(TokenKind.eof)

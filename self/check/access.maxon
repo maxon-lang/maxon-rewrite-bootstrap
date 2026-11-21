@@ -82,6 +82,77 @@ function checkLiteralField(mutates c Checker, mutates p ast.Project, rt ast.Type
 	return true
 end 'checkLiteralField'
 
+// checkTupleLit types a tuple literal, whose elements are the fields of the record that the tuple type is. The type the
+// context expects, when it is a tuple of as many elements, gives each element its own; otherwise each element has the type
+// it is written with, and a bare number keeps the range it spans, or takes the whole word inside another literal.
+function checkTupleLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let elemsRef = ast.tupleExprElemsRef(p.modules[c.modIdx].tree, id: e)
+	let count = p.modules[c.modIdx].tree.listLen(elemsRef)
+	let want = c.expect
+	var given = ast.TypeIDList.create(0)
+	if ast.isTupleType(p.types, t: want) and p.types.entries[want as Count].typeArgs.count() == count 'stated'
+		given = ast.cloneTypeArgs(p.types.entries[want as Count].typeArgs)
+	end 'stated'
+	let wide = c.literalWide
+	c.literalWide = true
+	var elems = ast.TypeIDList.create(0)
+	var ordered = ast.NodeIDList.create(0)
+	for i in 0 upto count 'each'
+		let node = p.modules[c.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID
+		var wanted = ast.noType
+		if given.count() == count 'hasWanted'
+			wanted = given[i]
+		end 'hasWanted'
+		let t = checkTupleElement(c, p: p, node: node, wanted: wanted, want: want, index: i, wide: wide, errs: errs)
+		if t == ast.noType 'failed'
+			c.literalWide = wide
+			return ast.noType
+		end 'failed'
+		elems.push(t)
+		ordered.push(node)
+	end 'each'
+	c.literalWide = wide
+	let ty = ast.tupleType(p.types, elems: elems)
+	c.typing.structLits.insert(e as Count, value: ast.StructLitInfo.make(ty, ordered: ordered))
+	return ty
+end 'checkTupleLit'
+
+// checkTupleElement types one element of a tuple literal and gives the type it has in the tuple.
+function checkTupleElement(mutates c Checker, mutates p ast.Project, node ast.NodeID, wanted ast.TypeID, want ast.TypeID, index Count, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
+	let t = checkExpecting(c, p: p, e: node, want: wanted, errs: errs)
+	if t == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	let off = offsetOf(c, p: p, node: node)
+	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "an element of a tuple is an expression with no value", errs: errs)
+		return ast.noType
+	end 'noValue'
+	if not requireSigned64(c, off: off, t: t, p: p, errs: errs) 'wide'
+		return ast.noType
+	end 'wide'
+	if wanted != ast.noType 'stated'
+		if not coerce(c, p: p, node: node, at: exprOffset(c, p: p, node: node), src: t, target: wanted, wrong: Mismatch.assignment("element {index} of tuple {nameOfType(p, t: want)}"), errs: errs) 'badType'
+			return ast.noType
+		end 'badType'
+		return wanted
+	end 'stated'
+	return tupleElementType(p, t: t, wide: wide)
+end 'checkTupleElement'
+
+// tupleElementType is the type that an element written with the type t has in a tuple that states none: bare numbers keep
+// the range they span, as those of an array literal do, and take the whole word inside another literal.
+function tupleElementType(mutates p ast.Project, t ast.TypeID, wide bool) returns ast.TypeID
+	let held = bareRange(p, t: t)
+	if wide and typeIsAnonInt(p.types, t: held) 'word'
+		if rangeHi(p.types, t: held).gt(ast.I128.i64Max()) 'unsigned'
+			return p.builtins.anonU64Ty
+		end 'unsigned'
+		return p.builtins.anon64Ty
+	end 'word'
+	return held
+end 'tupleElementType'
+
 function declaredTypeOrNone(p ast.Project, ref ast.DeclRef) returns ast.TypeID
 	match p.declTypes.get(ast.declKey(ref)) 'dt'
 		some(tid) then return tid
@@ -127,6 +198,9 @@ end 'checkIndex'
 
 // checkMember types 'Type.case' and the members that an enum or a union value has.
 function checkMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if c.typing.members.has(e as Count) 'typed'
+		return ast.nodeType(c.typing, node: e)
+	end 'typed'
 	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: e)
 	var named = ast.noType
 	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'

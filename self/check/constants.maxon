@@ -50,7 +50,7 @@ function constRefs(p ast.Project, modIdx Count, e ast.NodeID, mutates out DeclRe
 		constRefsOfMatch(p, modIdx: modIdx, core: ast.matchExprMatch(p.modules[modIdx].tree, id: e), out: out)
 		return
 	end 'match'
-	if k == ast.NodeKind.callExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.structLitExpr or k == ast.NodeKind.collectionLitExpr 'lists'
+	if k == ast.NodeKind.callExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.structLitExpr or k == ast.NodeKind.collectionLitExpr or k == ast.NodeKind.tupleExpr 'lists'
 		constRefsOfLists(p, modIdx: modIdx, e: e, k: k, out: out)
 		return
 	end 'lists'
@@ -131,7 +131,12 @@ function constRefsOfLists(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeK
 			let field = p.modules[modIdx].tree.listAt(fieldsRef, index: i) as ast.NodeID
 			constRefs(p, modIdx: modIdx, e: ast.structFieldValue(p.modules[modIdx].tree, id: field), out: out)
 		end 'fields'
-	end 'literal' else if k == ast.NodeKind.collectionLitExpr 'collection'
+	end 'literal' else if k == ast.NodeKind.tupleExpr 'tuple'
+		let tupleRef = ast.tupleExprElemsRef(p.modules[modIdx].tree, id: e)
+		for i in 0 upto p.modules[modIdx].tree.listLen(tupleRef) 'members'
+			constRefs(p, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(tupleRef, index: i) as ast.NodeID, out: out)
+		end 'members'
+	end 'tuple' else if k == ast.NodeKind.collectionLitExpr 'collection'
 		let elemsRef = ast.collectionLitExprElemsRef(p.modules[modIdx].tree, id: e)
 		for i in 0 upto p.modules[modIdx].tree.listLen(elemsRef) 'elems'
 			constRefs(p, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID, out: out)

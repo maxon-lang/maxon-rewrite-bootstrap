@@ -207,6 +207,9 @@ end 'closingEnd'
 // typeEnd is past the type written at at: a name, which may be qualified, an int range, and the type arguments after with.
 function typeEnd(text String, at Count) returns Count
 	let start = skipSpace(text, at: at)
+	if start < text.byteLength() and text.byteAt(start) == openParenByte 'tuple'
+		return closingEnd(text, at: start)
+	end 'tuple'
 	var i = dottedEnd(text, at: start)
 	if text.sliceBytes(start, endPos: i) == intTypeWord 'range'
 		let open = skipSpace(text, at: i)
@@ -249,7 +252,8 @@ export function exprStart(t Tree, e NodeID) returns Count
 	return t.startOf(e) as Count
 end 'exprStart'
 
-// exprEnd is past the expression's last token, or nothing for an expression whose end it does not know.
+// exprEnd is past the expression's last token, or nothing for an expression whose end it does not know, such as the read of
+// an element that a destructuring makes up, which no text holds.
 export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	let k = t.kindOf(e)
 	let start = t.startOf(e) as Count
@@ -268,10 +272,13 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	if k == NodeKind.castExpr 'cast'
 		return table.Option.some(typeEnd(t.text, at: wordEnd(t.text, at: start)))
 	end 'cast'
+	if k == NodeKind.memberExpr and t.text.byteAt(start) != dotByte 'element'
+		return table.Option.none
+	end 'element'
 	if k == NodeKind.memberExpr 'member'
 		return table.Option.some(wordEnd(t.text, at: skipSpace(t.text, at: stepOn(start))))
 	end 'member'
-	if k == NodeKind.indexExpr or k == NodeKind.callExpr or k == NodeKind.collectionLitExpr 'bracketed'
+	if k == NodeKind.indexExpr or k == NodeKind.callExpr or k == NodeKind.collectionLitExpr or k == NodeKind.tupleExpr 'bracketed'
 		return table.Option.some(closingEnd(t.text, at: start))
 	end 'bracketed'
 	if k == NodeKind.floatLit 'float'

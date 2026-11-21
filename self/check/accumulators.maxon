@@ -312,6 +312,13 @@ function scanStmt(r Ranges, p ast.Project, s ast.NodeID, mutates found Candidate
 		end 'arms'
 		return
 	end 'match'
+	if k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt 'expansion'
+		let steps = ast.expansionOf(r.typing, node: s)
+		for i in 0 upto steps.count() 'steps'
+			scanStmt(r, p: p, s: steps[i], found: found)
+		end 'steps'
+		return
+	end 'expansion'
 	if k == ast.NodeKind.letStmt or k == ast.NodeKind.discardStmt or k == ast.NodeKind.whenStmt or k == ast.NodeKind.returnStmt or k == ast.NodeKind.throwStmt or k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt or k == ast.NodeKind.exprStmt 'assignsNothing'
 		return
 	end 'assignsNothing'

@@ -941,6 +941,9 @@ function verifyInterfaceTarget(c Checker, p ast.Project, off diag.U32, tName Str
 end 'verifyInterfaceTarget'
 
 export function resolveTypeRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if ast.typeRefIsTuple(p.modules[c.modIdx].tree, id: tr) 'tuple'
+		return resolveTupleTypeRef(c, p: p, tr: tr, selfTy: selfTy, errs: errs)
+	end 'tuple'
 	let t = resolveNamedTypeRef(c, p: p, tr: tr, selfTy: selfTy, errs: errs)
 	if t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.interfaceTy 'ifTy'
 		let off = p.modules[c.modIdx].tree.startOf(tr)
@@ -950,6 +953,22 @@ export function resolveTypeRef(mutates c Checker, mutates p ast.Project, tr ast.
 	end 'ifTy'
 	return t
 end 'resolveTypeRef'
+
+// resolveTupleTypeRef is the tuple that a parenthesized list of types stands for. A type that cannot be an element is
+// refused where the list names it.
+function resolveTupleTypeRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let elemsRef = ast.typeRefElemsRef(p.modules[c.modIdx].tree, id: tr)
+	var elems = ast.TypeIDList.create(0)
+	for i in 0 upto p.modules[c.modIdx].tree.listLen(elemsRef) 'each'
+		let node = p.modules[c.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID
+		let t = resolveTypeRef(c, p: p, tr: node, selfTy: selfTy, errs: errs)
+		if t == ast.noType 'failed'
+			return ast.noType
+		end 'failed'
+		elems.push(t)
+	end 'each'
+	return ast.tupleType(p.types, elems: elems)
+end 'resolveTupleTypeRef'
 
 function resolveNamedTypeRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = p.modules[c.modIdx].tree.startOf(tr)

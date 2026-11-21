@@ -413,6 +413,13 @@ function rangeStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 		rangeAssignStmt(r, p: p, s: s)
 		return
 	end 'assign'
+	if k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt 'expansion'
+		let steps = ast.expansionOf(r.typing, node: s)
+		for i in 0 upto steps.count() 'steps'
+			rangeStmt(r, p: p, s: steps[i])
+		end 'steps'
+		return
+	end 'expansion'
 	if k == ast.NodeKind.discardStmt 'discard'
 		_ = rangeEval(r, p: p, e: ast.discardStmtValue(p.modules[r.modIdx].tree, id: s))
 		return

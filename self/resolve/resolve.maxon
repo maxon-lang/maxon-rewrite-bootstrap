@@ -319,6 +319,13 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 	if tr == 0 'nil'
 		return
 	end 'nil'
+	if ast.typeRefIsTuple(r.tree, id: tr) 'tuple'
+		let elemsRef = ast.typeRefElemsRef(r.tree, id: tr)
+		for i in 0 upto r.tree.listLen(elemsRef) 'elems'
+			resolveTypeRef(r, p: p, tr: r.tree.listAt(elemsRef, index: i) as ast.NodeID, errs: errs)
+		end 'elems'
+		return
+	end 'tuple'
 	let argsRef = ast.typeRefTypeArgsRef(r.tree, id: tr)
 	let argCount = r.tree.listLen(argsRef)
 	for i in 0 upto argCount 'args'
@@ -514,7 +521,22 @@ function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 			resolveTypeRef(r, p: p, tr: ast.letStmtType(r.tree, id: id), errs: errs)
 		end 'tp'
 		bindLocalName(r, name: ast.letStmtName(r.tree, id: id))
-	end 'sLet' else if k == ast.NodeKind.assignStmt 'sAss'
+	end 'sLet' else if k == ast.NodeKind.destructStmt 'sDes'
+		resolveExpr(r, p: p, id: ast.destructStmtInit(r.tree, id: id), errs: errs)
+		let namesRef = ast.destructStmtNamesRef(r.tree, id: id)
+		for i in 0 upto r.tree.listLen(namesRef) 'names'
+			bindLocalName(r, name: ast.bindNameName(r.tree, id: r.tree.listAt(namesRef, index: i) as ast.NodeID))
+		end 'names'
+	end 'sDes' else if k == ast.NodeKind.tupleAssignStmt 'sTup'
+		resolveExpr(r, p: p, id: ast.tupleAssignStmtValue(r.tree, id: id), errs: errs)
+		let targetsRef = ast.tupleAssignStmtTargetsRef(r.tree, id: id)
+		for i in 0 upto r.tree.listLen(targetsRef) 'targets'
+			let target = r.tree.listAt(targetsRef, index: i) as ast.NodeID
+			if ast.assignTargetIsLet(r.tree, id: target) or ast.assignTargetIsVar(r.tree, id: target) 'declares'
+				bindLocalName(r, name: ast.assignTargetName(r.tree, id: target))
+			end 'declares'
+		end 'targets'
+	end 'sTup' else if k == ast.NodeKind.assignStmt 'sAss'
 		resolveExpr(r, p: p, id: ast.assignStmtTarget(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, id: ast.assignStmtValue(r.tree, id: id), errs: errs)
 	end 'sAss' else if k == ast.NodeKind.discardStmt 'sDisc'
@@ -539,7 +561,7 @@ function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		checkEnd(r, label: ast.forStmtLabel(r.tree, id: id), endNode: ast.forStmtEnd(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, id: ast.forStmtFrom(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, id: ast.forStmtTo(r.tree, id: id), errs: errs)
-		pushScopeWith(r, name: ast.forStmtVar(r.tree, id: id))
+		pushScopeList(r, names: forNames(r, id: id))
 		resolveBlock(r, p: p, listRef: ast.forStmtBodyRef(r.tree, id: id), errs: errs)
 		popScope(r)
 	end 'sFor' else if k == ast.NodeKind.matchStmt 'sM'
@@ -561,6 +583,20 @@ function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		panic("resolveStmt: unexpected node kind")
 	end 'unk'
 end 'resolveStmt'
+
+// forNames are the names that a for declares: its variable, or the names of the tuple pattern.
+function forNames(r Resolver, id ast.NodeID) returns ast.StringList
+	var names = ast.StringList.create(0)
+	let vars = ast.forStmtVarsRef(r.tree, id: id)
+	if r.tree.listLen(vars) == 0 'single'
+		names.push(ast.forStmtVar(r.tree, id: id))
+		return names
+	end 'single'
+	for i in 0 upto r.tree.listLen(vars) 'each'
+		names.push(ast.bindNameName(r.tree, id: r.tree.listAt(vars, index: i) as ast.NodeID))
+	end 'each'
+	return names
+end 'forNames'
 
 function resolveWhenStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
 	checkEnd(r, label: ast.whenStmtLabel(r.tree, id: id), endNode: ast.whenStmtEnd(r.tree, id: id), errs: errs)
@@ -820,7 +856,9 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 	end 'slit' else if k == ast.NodeKind.collectionLitExpr 'coll'
 		resolveExprList(r, p: p, list: ast.collectionLitExprElemsRef(r.tree, id: id), errs: errs)
 		resolveExprList(r, p: p, list: ast.collectionLitExprValuesRef(r.tree, id: id), errs: errs)
-	end 'coll' else if k == ast.NodeKind.castExpr 'cast'
+	end 'coll' else if k == ast.NodeKind.tupleExpr 'tup'
+		resolveExprList(r, p: p, list: ast.tupleExprElemsRef(r.tree, id: id), errs: errs)
+	end 'tup' else if k == ast.NodeKind.castExpr 'cast'
 		resolveExpr(r, p: p, id: ast.castExprE(r.tree, id: id), errs: errs)
 		resolveTypeRef(r, p: p, tr: ast.castExprTarget(r.tree, id: id), errs: errs)
 	end 'cast' else if k == ast.NodeKind.fromExpr 'from'
@@ -966,6 +1004,10 @@ function signatureType(mutates r Resolver, p ast.Project, s Surface, position St
 end 'signatureType'
 
 function requireExposable(mutates r Resolver, p ast.Project, s Surface, position String, tr ast.NodeID, mutates errs diag.ErrorList)
+	let elemsRef = ast.typeRefElemsRef(r.tree, id: tr)
+	for i in 0 upto r.tree.listLen(elemsRef) 'elems'
+		requireExposable(r, p: p, s: s, position: position, tr: r.tree.listAt(elemsRef, index: i) as ast.NodeID, errs: errs)
+	end 'elems'
 	match r.res.decls.get(tr as Count) 'bound'
 		some(ref) then reportIfHidden(p, s: s, position: position, ref: ref, modID: r.modID, errs: errs)
 		none then _ = 0

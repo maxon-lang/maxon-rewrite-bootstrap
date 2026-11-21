@@ -1,0 +1,70 @@
+//> 42 hello 21 a
+//> 2 39 1
+//> 10 hi
+//> 7 seven
+//> 2 1
+//> 4 3
+//> 9 nine
+//> 1 2
+//> 3 4
+//> 5
+//> 3 4
+
+typealias Pair = (Count, Count)
+
+typealias Pairs = Array with Pair
+
+typealias Named = (Count, String)
+
+typealias Nameds = Array with Named
+
+function sum(t Pair) returns Count
+	return try t.0 + t.1 otherwise 0
+end 'sum'
+
+function makePair(a Count, consumes b String) returns (Count, String)
+	return (a, b)
+end 'makePair'
+
+function swap(t Pair) returns Pair
+	let (x, y) = t
+	return (y, x)
+end 'swap'
+
+function main() returns ExitCode
+	var u = swap((1, 2))
+	u.0 = 20
+	let mixed = (42, "hello")
+	let p = ("a", 5 as Count)
+	print("{mixed.0} {mixed.1} {sum(u)} {p.0}\n")
+	let r = ((1, 2), 39)
+	print("{r.0.1} {r.1} {r.0.0}\n")
+	let (n, s) = makePair(10, b: "hi")
+	print("{n} {s}\n")
+	let named = makePair(7, b: "seven")
+	let (m, _) = named
+	print("{m} {named.1}\n")
+	var a = 1 as Count
+	var b = 2 as Count
+	(a, b) = swap((a, b))
+	print("{a} {b}\n")
+	(a, let c) = swap((3, 4))
+	print("{a} {c}\n")
+	var name = "x"
+	(a, name) = makePair(9, b: "nine")
+	print("{a} {name}\n")
+	var pairs = Pairs.create(0)
+	pairs.push((1, 2))
+	pairs.push((3, 4))
+	for (x, y) in pairs 'each'
+		print("{x} {y}\n")
+	end 'each'
+	var nameds = Nameds.create(0)
+	nameds.push((5, "five"))
+	for (count, _) in nameds 'named'
+		print("{count}\n")
+	end 'named'
+	let (x, y) = pairs[1]
+	print("{x} {y}\n")
+	return 0
+end 'main'

@@ -176,7 +176,7 @@ end 'bareRange'
 // take a number outside their range later.
 function holdsBareNumbers(p ast.Project, t ast.TypeID) returns bool
 	let kind = p.types.entries[t as Count].kind
-	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinMap and kind != ast.TypeKind.builtinList 'other'
+	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinMap and kind != ast.TypeKind.builtinList and not ast.isTupleType(p.types, t: t) 'other'
 		return false
 	end 'other'
 	for i in 0 upto p.types.entries[t as Count].typeArgs.count() 'args'

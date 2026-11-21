@@ -305,7 +305,7 @@ function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	if k == ast.NodeKind.memberExpr 'member'
 		return memberExprOwn(o, p: p, e: e, s: s)
 	end 'member'
-	if k == ast.NodeKind.structLitExpr 'structLit'
+	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'structLit'
 		return structLitOwn(o, p: p, e: e, s: s)
 	end 'structLit'
 	if k == ast.NodeKind.collectionLitExpr 'collectionLit'

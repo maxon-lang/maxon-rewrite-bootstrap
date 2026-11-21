@@ -267,6 +267,9 @@ end 'typeLinkNames'
 // nominalLinkName is the link name of a declared type, and of an instance of a generic one.
 function nominalLinkName(p Project, t TypeID) returns String
 	let origin = p.types.entries[t as Count].effectiveOrigin()
+	if p.types.entries[origin as Count].isTuple 'tuple'
+		return "({joinNames(typeLinkNames(p, args: p.types.entries[t as Count].typeArgs), sep: ", ")})"
+	end 'tuple'
 	if not p.types.entries[origin as Count].hasDecl 'undeclared'
 		panic("the type {p.types.entries[origin as Count].name} has no declaration, so no module can be named for its code")
 	end 'undeclared'

@@ -120,7 +120,7 @@ function visitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	if k == ast.NodeKind.callExpr 'callExpr'
 		return visitCallExpr(l, p: p, node: e)
 	end 'callExpr'
-	if k == ast.NodeKind.structLitExpr 'structLitExpr'
+	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'structLitExpr'
 		return visitStructLitExpr(l, p: p, e: e)
 	end 'structLitExpr'
 	if k == ast.NodeKind.indexExpr 'indexExpr'

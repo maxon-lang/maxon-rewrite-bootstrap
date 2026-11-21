@@ -43,7 +43,9 @@
 //                      token to its neighbours wherever it appears.
 //   ^x, x^             Join a literal or token to the one before or after it, here only: a call's `^'('`.
 //   {name}?           A predicate: at the start of the only alternative of an optional group, the group is entered only where the
-//                      hand-written parser method name is also true, as `atHandlerBinding` decides what the tokens cannot.
+//                      hand-written parser method name is also true, as `atHandlerBinding` decides what the tokens cannot; at the
+//                      start of an alternative of a set rule, that alternative is chosen only where it is true, and it does not
+//                      shadow a later alternative that starts as it does, as `atTuple` tells a tuple from a parenthesis.
 //
 // Lookahead is one token, or two where one does not decide; where two alternatives share a leading rule, it is
 // parsed once and the token after it decides. Otherwise the earlier alternative wins, as in ANTLR.
@@ -201,11 +203,13 @@ funcTypeParam
 // list that holds it.
 aliasInstance builds TypeRef
     : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self') ('with' typeArgs=aliasTypeArgs)?
+    | isTuple='(' elems+=typeRef (',' elems+=typeRef)+ ')'
     ;
 
+// A parenthesized list is the arguments, so a tuple that is one argument is written with its own parentheses inside.
 aliasTypeArgs returns [[]*TypeRef args]
-    : args+=typeRef (',' args+=typeRef)*
-    | '(' args+=typeRef (',' args+=typeRef)* ')'
+    : '(' args+=typeRef (',' args+=typeRef)* ')'
+    | args+=typeRef (',' args+=typeRef)*
     ;
 
 /** a range bound */
@@ -221,12 +225,13 @@ bound
 /** a type */
 typeRef
     : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self') ('with' typeArgs=typeArgs)?
+    | isTuple='(' elems+=typeRef (',' elems+=typeRef)+ ')'
     ;
 
 /** type arguments */
 typeArgs returns [[]*TypeRef args]
-    : args+=typeRef
-    | '(' args+=typeRef (',' args+=typeRef)* ')'
+    : '(' args+=typeRef (',' args+=typeRef)* ')'
+    | args+=typeRef
     ;
 
 usesClause returns [[]*TypeParam params]
@@ -287,7 +292,8 @@ block returns [[]Stmt stmts]
 
 /** a statement */
 stmt
-    : letStmt
+    : destructStmt
+    | letStmt
     | discardStmt
     | ifTryStmt
     | ifStmt
@@ -300,6 +306,7 @@ stmt
     | returnStmt
     | breakStmt
     | continueStmt
+    | {atTupleAssignment}? tupleAssignStmt
     | assignStmt
     | exprStmt
     ;
@@ -310,6 +317,33 @@ letStmt
     ;
 
 @ast::LetStmt {
+	Local Slot[Local]
+}
+
+// A destructuring declaration binds each element of a tuple to a name; _ discards one.
+destructStmt
+    : ('let' | isVar='var') '(' names+=bindName (',' names+=bindName)+ ')' '=' init=expr
+    ;
+
+// bindName is a name that a destructuring or a loop over tuples declares; _ declares none.
+bindName
+    : name=(Name | '_')
+    ;
+
+@ast::BindName {
+	Local Slot[Local]
+}
+
+// A tuple assignment gives each element of a tuple to a target: an existing var, a new let or var, or _.
+tupleAssignStmt
+    : '(' targets+=assignTarget (',' targets+=assignTarget)+ ')' '=' value=expr
+    ;
+
+assignTarget
+    : (isLet='let' | isVar='var')? name=(Name | '_')
+    ;
+
+@ast::AssignTarget {
 	Local Slot[Local]
 }
 
@@ -360,7 +394,7 @@ whileStmt
     ;
 
 forStmt
-    : 'for' var=(Name | 'from' | '_') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
+    : 'for' (var=(Name | 'from' | '_') | '(' vars+=bindName (',' vars+=bindName)+ ')') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
       body=block
       'end' end=endLabel?
     ;
@@ -488,8 +522,9 @@ expr
     | panicExpr
     | matchExpr
     | closureExpr
+    | {atTuple}? tupleExpr
     | '(' expr ')'
-    | obj=expr '.' name=(Name | 'from')                              # MemberExpr
+    | obj=expr '.' name=(Name | 'from' | Integer)                    # MemberExpr
     | obj=expr ^'[' args+=expr (',' args+=expr)* ']'                 # IndexExpr
     | callee=expr ^'(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
     | head=expr 'from' value=expr                                    # FromExpr
@@ -580,6 +615,11 @@ selfExpr
     : 'self'
     ;
 
+// A tuple has at least two elements: (a) is only a parenthesized expression.
+tupleExpr
+    : '(' elems+=expr (',' elems+=expr)+ ')'
+    ;
+
 structLitExpr
     : typeName=(Name | 'Self') '{' (fields+=structField (',' fields+=structField)*)? '}'
     ;
@@ -643,7 +683,7 @@ Integer
     ;
 
 /** a float */
-FloatNumber : [0-9] [0-9_]* '.' [0-9_]* ([eE] [+\-]? [0-9]+)? ;
+FloatNumber : [0-9] [0-9_]* '.' [0-9] [0-9_]* ([eE] [+\-]? [0-9]+)? ;
 
 /** a string */
 String : '"' (~["\\{}\n] | '\\' . | '{' ~[}\n]* '}')* '"' -> scan ;

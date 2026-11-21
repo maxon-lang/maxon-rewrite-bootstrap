@@ -904,9 +904,6 @@ func transformFunctionHeader(line *sourceLine, fnIdx int, inInterface bool, warn
 			if i+1 < len(line.code) && isCapabilityWord(line.code[i+1].text) {
 				warn(line, fmt.Sprintf("return type capability '%s' is not supported in minimaxon", line.code[i+1].text))
 			}
-			if i+1 < len(line.code) && line.code[i+1].text == "(" {
-				warn(line, "tuple return types are not supported in minimaxon")
-			}
 		}
 	}
 }
@@ -954,7 +951,7 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 			g = rewritten
 		}
 
-		// Check for capability qualifiers or a tuple in parameter type.
+		// Check for capability qualifiers in parameter type.
 		nameIdx := 0
 		if len(g) >= 3 && (g[0].text == "mutates" || g[0].text == "consumes" || g[0].text == "sets") {
 			nameIdx = 1
@@ -963,9 +960,6 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 			if g[k].kind == tokIdent && isCapabilityWord(g[k].text) {
 				warn(line, fmt.Sprintf("parameter capability '%s' is not supported in minimaxon", g[k].text))
 			}
-		}
-		if nameIdx+1 < len(g) && g[nameIdx+1].text == "(" {
-			warn(line, "tuple parameter types are not supported in minimaxon")
 		}
 		if nameIdx < len(g) && g[nameIdx].kind == tokIdent && isKeywordName(g[nameIdx].text) {
 			warn(line, keywordNameMessage(g[nameIdx].text))
@@ -992,8 +986,6 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 	case "function":
 		line.code = append(toks[:eqIdx+1:eqIdx+1], rewriteFunctionType(rhs, line, warn)...)
 		return
-	case "(":
-		warn(line, "tuple typealiases are not supported in minimaxon")
 	case "isolated", "immutable":
 		warn(line, fmt.Sprintf("capability typealias '%s' is not supported in minimaxon", rhs[0].text))
 	}
@@ -1092,22 +1084,12 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				warn(line, "acquire blocks are not supported in minimaxon; use when with cowns")
 			}
 		case "for":
-			if len(toks) > 1 && toks[1].text == "(" {
-				warn(line, "tuple loop variables in for loops are not supported in minimaxon")
-			}
 			if !hasRangeKeyword(toks) && !iteratesArray(toks) {
 				warn(line, "iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array")
 			}
 		case "let", "var":
-			if len(toks) > 1 && toks[1].text == "(" {
-				warn(line, "tuple destructuring declarations are not supported in minimaxon")
-			}
 			if len(toks) > 1 && toks[1].kind == tokIdent && isKeywordName(toks[1].text) {
 				warn(line, keywordNameMessage(toks[1].text))
-			}
-		case "(":
-			if hasTopLevelAssign(toks) {
-				warn(line, "tuple assignment is not supported in minimaxon")
 			}
 		case "end":
 			if len(toks) >= 3 && toks[len(toks)-1].kind != tokLabel {
@@ -1142,13 +1124,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 		case tokPunct:
 			if t.text == "[" && isCollectionLiteralBracket(toks, i) && i+1 < len(toks) && toks[i+1].text == "]" {
 				warn(line, "an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array")
-			}
-			if t.text == "(" && isTupleParen(toks, i) {
-				warn(line, "tuple values and types are not supported in minimaxon")
-			}
-		case tokInt:
-			if i > 0 && toks[i-1].text == "." {
-				warn(line, "tuple element access is not supported in minimaxon")
 			}
 		case tokIdent:
 			switch t.text {
@@ -1256,9 +1231,6 @@ func rewriteFunctionType(rhs []token, line *sourceLine, warn func(*sourceLine, s
 			if t.kind == tokIdent && isCapabilityWord(t.text) {
 				warn(line, fmt.Sprintf("parameter capability '%s' is not supported in minimaxon", t.text))
 			}
-			if t.text == "(" {
-				warn(line, "tuple values and types are not supported in minimaxon")
-			}
 		}
 		params = append(params, g...)
 	}
@@ -1269,9 +1241,6 @@ func rewriteFunctionType(rhs []token, line *sourceLine, warn func(*sourceLine, s
 		}
 		if t.text == "immutable" || t.text == "isolated" {
 			warn(line, fmt.Sprintf("region capability '%s' is not supported in minimaxon", t.text))
-		}
-		if t.text == "(" {
-			warn(line, "tuple values and types are not supported in minimaxon")
 		}
 	}
 	out := append(slices.Clone(rhs[:2]), params...)
@@ -1588,25 +1557,6 @@ func hasRangeKeyword(toks []token) bool {
 	return false
 }
 
-func hasTopLevelAssign(toks []token) bool {
-	depth := 0
-	for _, t := range toks {
-		switch t.text {
-		case "(", "[", "{":
-			depth++
-		case ")", "]", "}":
-			if depth > 0 {
-				depth--
-			}
-		case "=":
-			if depth == 0 {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // hasFormatSpecifier reports whether a string literal contains an interpolation with a top-level ':spec'.
 func hasFormatSpecifier(s string) bool {
 	i, n := 1, len(s)-1
@@ -1686,36 +1636,6 @@ func isCollectionLiteralBracket(toks []token, idx int) bool {
 		return false
 	}
 	return true
-}
-
-// isTupleParen reports whether the `(` at idx opens a tuple, a parenthesis in value or type position that holds a
-// comma. A tuple that a loop or a declaration takes apart has its own warning, and a call's arguments and the type
-// arguments after `with` are not tuples.
-func isTupleParen(toks []token, idx int) bool {
-	if idx == 0 || !isCollectionLiteralBracket(toks, idx) {
-		return false
-	}
-	switch toks[idx-1].text {
-	case "for", "let", "var":
-		return false
-	}
-	depth := 0
-	for i := idx; i < len(toks); i++ {
-		switch toks[i].text {
-		case "(", "[", "{":
-			depth++
-		case ")", "]", "}":
-			depth--
-			if depth == 0 {
-				return false
-			}
-		case ",":
-			if depth == 1 {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func isExprPrefixKeyword(word string) bool {

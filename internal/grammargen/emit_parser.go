@@ -167,19 +167,38 @@ func (g *pgen) describe(las []laSet) string {
 
 // choice emits a decision between alternatives with the given lookahead sets, calling branch for each.
 func (g *pgen) choice(las []laSet, line int, desc string, branch func(i int)) {
+	g.choicePredicated(las, nil, line, desc, branch)
+}
+
+// predicateOf is the hand-written predicate that an alternative starts with, which decides it where the tokens cannot, or "".
+func predicateOf(a *alt) string {
+	if len(a.elems) > 0 && a.elems[0].kind == ekPredicate {
+		return a.elems[0].text
+	}
+	return ""
+}
+
+// choicePredicated is choice where the alternative i is also entered only where the predicate preds[i] holds, if it has one.
+// An alternative with a predicate may start as a later one does, and does not shadow it.
+func (g *pgen) choicePredicated(las []laSet, preds []string, line int, desc string, branch func(i int)) {
+	predicated := func(i int) bool { return i < len(preds) && preds[i] != "" }
+	var unconditional []laSet
 	for i, l := range las {
 		shadowed := len(l) > 0
 		for s := range l {
-			shadowed = shadowed && covered(s, las[:i])
+			shadowed = shadowed && covered(s, unconditional)
 		}
 		if shadowed {
 			g.fail(line, "alternative %d can never be chosen: every way it can start, an earlier alternative starts", i+1)
+		}
+		if !predicated(i) {
+			unconditional = append(unconditional, l)
 		}
 	}
 	if desc == "" {
 		desc = g.describe(las)
 	}
-	disjoint := true
+	disjoint := len(preds) == 0
 	seen := map[string]bool{}
 	for _, l := range las {
 		for _, t := range firstTerminals(l) {
@@ -199,10 +218,14 @@ func (g *pgen) choice(las []laSet, line int, desc string, branch func(i int)) {
 		return
 	}
 	for i, l := range las {
+		test := g.test(l, las[i+1:])
+		if predicated(i) {
+			test = g.l.and(test, g.l.predicate(preds[i]))
+		}
 		if i == 0 {
-			g.l.ifOpen(g.test(l, las[i+1:]))
+			g.l.ifOpen(test)
 		} else {
-			g.l.elseIfOpen(g.test(l, las[i+1:]))
+			g.l.elseIfOpen(test)
 		}
 		branch(i)
 	}
@@ -734,6 +757,7 @@ func (g *pgen) setRule(r *rule) {
 	}
 	var options []option
 	var las []laSet
+	var preds []string
 	needT := len(groups) > 0
 	for i, a := range r.alts {
 		grp := groupOf[i]
@@ -743,6 +767,7 @@ func (g *pgen) setRule(r *rule) {
 		options = append(options, option{alt: a, group: grp})
 		if grp == nil {
 			las = append(las, g.a.lookahead(a.elems, c))
+			preds = append(preds, predicateOf(a))
 			needT = needT || a.label != ""
 			continue
 		}
@@ -751,12 +776,13 @@ func (g *pgen) setRule(r *rule) {
 			la = union(la, g.a.lookahead(r.alts[m].elems, c))
 		}
 		las = append(las, la)
+		preds = append(preds, "")
 	}
 	g.l.funcOpen(parseFunc(r), nil, g.l.setType(s))
 	if needT {
 		g.l.startVar()
 	}
-	g.choice(las, r.line, r.desc, func(i int) {
+	g.choicePredicated(las, preds, r.line, r.desc, func(i int) {
 		o := options[i]
 		switch {
 		case o.group != nil:
@@ -832,10 +858,12 @@ func (g *pgen) operatorRule(r *rule) {
 	}
 	g.l.setVar("left", s)
 	las := make([]laSet, len(operands))
+	preds := make([]string, len(operands))
 	for i, a := range operands {
 		las[i] = g.a.lookahead(a.elems, c)
+		preds[i] = predicateOf(a)
 	}
-	g.choice(las, r.line, r.desc, func(i int) {
+	g.choicePredicated(las, preds, r.line, r.desc, func(i int) {
 		a := operands[i]
 		switch {
 		case a.label != "":

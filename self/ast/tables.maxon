@@ -316,6 +316,10 @@ export typealias NodeIterationMap = table.IntMap with IterationInfo
 
 export typealias NodeLocalMap = table.IntMap with LocalID
 
+// NodeExpansionMap holds the statements that a destructuring or a tuple assignment is made of, which the check makes up: a
+// let for the tuple where it is not a variable, and then one let or assignment for each element, in the order that they run.
+export typealias NodeExpansionMap = table.IntMap with NodeIDList
+
 export typealias NodeLocalListMap = table.IntMap with LocalIDList
 
 export type ModuleDep
@@ -419,6 +423,14 @@ export typealias NodeIDList = Array with NodeID
 
 export typealias NodeUsesMap = table.IntMap with NodeIDList
 
+// expansionOf is the statements that the check made a destructuring or a tuple assignment out of, in the order they run.
+export function expansionOf(tp Typing, node NodeID) returns NodeIDList
+	return match consumes tp.expansions.get(node as Count) 'hit'
+		some(steps) gives steps
+		none panic("ast: the statement at node {node} was checked into no statements")
+	end 'hit'
+end 'expansionOf'
+
 export type Typing
 	export var module as diag.ModuleID
 	export var types as NodeTypes
@@ -435,6 +447,7 @@ export type Typing
 	export var jumps as NodeJumpMap
 	export var locals as LocalEntryList
 	export var nodeLocals as NodeLocalMap
+	export var expansions as NodeExpansionMap
 	export var funcLocals as NodeLocalListMap
 	export var funcUses as NodeUsesMap
 	export var fieldUses as NodeUsesMap
@@ -459,11 +472,12 @@ export type Typing
 		let im = NodeIterationMap.new()
 		let jm = NodeJumpMap.new()
 		let nlm = NodeLocalMap.new()
+		let exm = NodeExpansionMap.new()
 		let flm = NodeLocalListMap.new()
 		let fum = NodeUsesMap.new()
 		let fdum = NodeUsesMap.new()
 		let con = NodeBoolMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

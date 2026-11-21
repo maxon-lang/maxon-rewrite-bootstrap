@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let t = (1 as Count, 2 as Count)
+	t.0 = 5
+	return 0
+end 'main'
+
+// expect-error: E2013 at 3:2

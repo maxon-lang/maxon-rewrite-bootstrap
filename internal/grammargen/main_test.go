@@ -245,7 +245,7 @@ func TestGrammarErrorsNameTheLine(t *testing.T) {
 		"grammar G;\nA : 'x' .*? 'y' ;\n":                   "g.g4:2: the DFA lexer takes the longest match; a non-greedy loop cannot be compiled",
 		"grammar G;\na : W ;\nW : ' ' -> skip ;\n":          "g.g4:2: token 'W' is skipped, so no rule can use it",
 		"grammar G;\na : b^ ;\nb : 'x' ;\n":                 "g.g4:2: ^ joins a token to its neighbour; put it on a literal or a token",
-		"grammar G;\na : {ok}? 'p' ;\n":                     "g.g4:2: a predicate {ok}? belongs at the start of the only alternative of an optional group",
+		"grammar G;\na : {ok}? 'p' ;\n":                     "g.g4:2: a predicate {ok}? belongs at the start of the only alternative of an optional group, or of an alternative of a set rule",
 		"grammar G;\nA : 'x' -> more ;\n":                   "g.g4:2: token 'A' has the command 'more'; a token takes skip, scan, noSpaceBefore, noSpaceAfter or noSpace",
 	}
 	for src, want := range cases {
@@ -351,7 +351,7 @@ Name : [a-z]+ ;
 
 func TestARecordHoldsOnlyWhatARecordCan(t *testing.T) {
 	cases := map[string]string{
-		"grammar G;\na : 'p' x=Integer ;\nInteger : [0-9]+ ;\n":       "g.g4:2: record A: field X is text made of the token Integer; only a Name or a Label can be read back from the module's text",
+		"grammar G;\na : 'p' x=Digits ;\nDigits : [0-9]+ ;\n":         "g.g4:2: record A: field X is text made of the token Digits; only a Name, an Integer or a Label can be read back from the module's text",
 		"grammar G;\na : 'p' ;\n@ast::A {\n\tX Go = 1\n}\n":           "g.g4:4: record A: field X has an initial value, which a record cannot hold",
 		"grammar G;\n@ast::Structs { B }\na : 'p' b=b ;\nb : 'q' ;\n": "g.g4:3: record A: field B has the type *B, which a record cannot hold: it holds flags, texts, integers, nodes and lists of nodes",
 		"grammar G;\n@ast::Structs { Nothing }\na : 'p' ;\n":          "g.g4:0: @ast::Structs names 'Nothing', which is no node",

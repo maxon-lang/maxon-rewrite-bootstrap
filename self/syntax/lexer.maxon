@@ -14,6 +14,8 @@ let byteLParen = 40 as Byte
 
 let byteRParen = 41 as Byte
 
+let byteDot = 46 as Byte
+
 let byteSlash = 47 as Byte
 
 let byteZero = 48 as Byte
@@ -496,7 +498,14 @@ type Lexer
 				state = next
 				i = after(i)
 			end 'run'
-			let kind = dfaAccept(state)
+			var kind = dfaAccept(state)
+			if self.isIntegerBeforePoint(src, kind: kind, start: start, stop: i) 'integer'
+				kind = TokenKind.integer
+				i = start
+				while src.text.byteAt(i) != byteDot 'digits'
+					i = after(i)
+				end 'digits'
+			end 'integer'
 			if kind == TokenKind.noToken 'unfinished'
 				throw self.unfinished(src, state: state, start: start)
 			end 'unfinished'
@@ -532,6 +541,22 @@ type Lexer
 			try self.emit(src, kind: kind, start: start, stop: i)
 		end 'tokens'
 	end 'lexLine'
+
+	// isIntegerBeforePoint is whether the DFA, which reads the longest token and never backs off, took a `.` after the
+	// digits from start for the point of a float when the number is an integer. That is so where a number follows a `.`,
+	// as an element index does, so `t.0.1` reaches into a tuple and takes no fraction, and where the point is no
+	// fraction's: `21.doubled()` calls a method, and the DFA stops after `21.`, in a state that no float finishes.
+	function isIntegerBeforePoint(src Source, kind TokenKind, start Count, stop Count) returns bool
+		if kind == TokenKind.floatNumber 'float'
+			let n = tokens.count()
+			return n > 0 and tokens[before(n)].kind == TokenKind.dot
+		end 'float'
+		if kind != TokenKind.noToken 'token'
+			return false
+		end 'token'
+		let first = src.text.byteAt(start)
+		return first >= byteZero and first <= byteNine and src.text.byteAt(before(stop)) == byteDot
+	end 'isIntegerBeforePoint'
 
 	// skipped is where lexLine goes on after the whitespace or the comment from start to stop, which are not tokens.
 	// They are checked here, off lexLine's path: whitespace is an error unless it is the one space lexLine steps over,

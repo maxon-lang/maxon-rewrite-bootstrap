@@ -83,6 +83,10 @@ function namedAliases(p ast.Project, modIdx Count, tr ast.NodeID, mutates out De
 	for i in 0 upto p.modules[modIdx].tree.listLen(argsRef) 'args'
 		namedAliases(p, modIdx: modIdx, tr: p.modules[modIdx].tree.listAt(argsRef, index: i) as ast.NodeID, out: out)
 	end 'args'
+	let elemsRef = ast.typeRefElemsRef(p.modules[modIdx].tree, id: tr)
+	for i in 0 upto p.modules[modIdx].tree.listLen(elemsRef) 'elems'
+		namedAliases(p, modIdx: modIdx, tr: p.modules[modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID, out: out)
+	end 'elems'
 end 'namedAliases'
 
 // aliasSelf is the type that 'Self' names in the target of a typealias: the type whose body declares it, at its own
@@ -155,7 +159,7 @@ function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl,
 		return
 	end 'function'
 	let off = p.modules[c.modIdx].tree.startOf(a.instance)
-	if p.modules[c.modIdx].tree.listLen(ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: a.instance)) == 0 'plain'
+	if not ast.typeRefIsTuple(p.modules[c.modIdx].tree, id: a.instance) and p.modules[c.modIdx].tree.listLen(ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: a.instance)) == 0 'plain'
 		let target = ast.typeRefName(p.modules[c.modIdx].tree, id: a.instance)
 		checkFail(c.modID, off: off, code: diag.errAliasTarget, msg: "a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '{target}' itself where '{a.name}' is used", errs: errs)
 		return

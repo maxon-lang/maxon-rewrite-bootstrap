@@ -27,6 +27,14 @@ function visitStmtOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID,
 	if k == ast.NodeKind.assignStmt 'assign'
 		return assignStmtOwn(o, p: p, st: st, s: s)
 	end 'assign'
+	if k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt 'expansion'
+		let steps = ast.expansionOf(o.c.typing, node: st)
+		var cur = s
+		for i in 0 upto steps.count() 'steps'
+			cur = stmt(o, p: p, st: steps[i], s: cur)
+		end 'steps'
+		return cur
+	end 'expansion'
 	if k == ast.NodeKind.discardStmt 'discard'
 		let value = ast.discardStmtValue(p.modules[o.c.modIdx].tree, id: st)
 		let out = eval(o, p: p, e: value, s: s)

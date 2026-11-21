@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	var a = 0 as Count
+	(a, a) = (1 as Count, 2 as Count, 3 as Count)
+	return 0
+end 'main'
+
+// expect-error: E3005 at 3:2

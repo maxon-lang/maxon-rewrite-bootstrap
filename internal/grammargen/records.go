@@ -192,8 +192,8 @@ func (m *model) planOf(n *node) *plan {
 				fp.st = stLabel
 			default:
 				for _, t := range tokens {
-					if t != "Name" {
-						fail(f, "is text made of the token %s; only a Name or a Label can be read back from the module's text", t)
+					if t != "Name" && t != "Integer" {
+						fail(f, "is text made of the token %s; only a Name, an Integer or a Label can be read back from the module's text", t)
 					}
 				}
 				for _, l := range literals {

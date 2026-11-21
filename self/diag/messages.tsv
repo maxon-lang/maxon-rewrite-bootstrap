@@ -108,3 +108,6 @@ wrongSignatureMethods	ErrConformance	Partial interface implementation: type '{ty
 undefinedReservedFunction	ErrUnknownFunction	call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
 typeDoesNotConform	ErrTypeMismatch	Type '{typeName}' does not conform to {interfaceName}
 throwingFunctionAsValue	ErrFunctionValueThrows	Cannot use throwing function '{name}' as a value: it throws '{errorType}', and a function type cannot express 'throws'. Wrap the call in a non-throwing function that handles the error with 'try'.
+destructureArity	ErrUnsupportedFeature	Unsupported: a destructuring binding of {names} names against a tuple of {elements} elements (every element must be named)
+destructureNonTuple	ErrUnsupportedFeature	Unsupported: a destructuring binding of a '{valueType}' initializer (only a TUPLE can be destructured — `let (x, y) = …` needs a right-hand side that is a tuple)
+tupleAssignArity	ErrTypeMismatch	Tuple has {elements} elements but destructuring has {names} bindings

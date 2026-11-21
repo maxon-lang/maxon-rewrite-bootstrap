@@ -104,8 +104,7 @@ function main() returns ExitCode
 	print("meter {m.size()} {total(m)}\n")
 	print("suite {Suite.spades.width()}\n")
 	print("shape {Shape.square(5).area()} {Shape.dot.area()}\n")
-	let n = 21
-	print("int {n.doubled()} {true.flip()} {"hi".shout()}\n")
+	print("int {21.doubled()} {true.flip()} {"hi".shout()}\n")
 	let xs = [10 as Score, 20, 30]
 	print("array {xs.second()}\n")
 	return 0

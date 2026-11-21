@@ -26,7 +26,7 @@ function terminates(tree ast.Tree, s ast.NodeID) returns bool
 	if k == ast.NodeKind.tryStmt 'try'
 		return bodyTerminates(tree, body: ast.tryStmtBodyRef(tree, id: s)) and (not ast.tryStmtHasOtherwise(tree, id: s) or bodyTerminates(tree, body: ast.tryStmtHandlerRef(tree, id: s)))
 	end 'try'
-	if k == ast.NodeKind.letStmt or k == ast.NodeKind.assignStmt or k == ast.NodeKind.discardStmt or k == ast.NodeKind.whileStmt or k == ast.NodeKind.whenStmt or k == ast.NodeKind.forStmt or k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt 'continues'
+	if k == ast.NodeKind.letStmt or k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt or k == ast.NodeKind.assignStmt or k == ast.NodeKind.discardStmt or k == ast.NodeKind.whileStmt or k == ast.NodeKind.whenStmt or k == ast.NodeKind.forStmt or k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt 'continues'
 		return false
 	end 'continues'
 	panic("the node {s} of kind {k.name} is no statement")
@@ -100,6 +100,14 @@ function checkStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutat
 		checkAssign(c, p: p, s: s, errs: errs)
 		return
 	end 'assign'
+	if k == ast.NodeKind.destructStmt 'destruct'
+		checkDestruct(c, p: p, s: s, errs: errs)
+		return
+	end 'destruct'
+	if k == ast.NodeKind.tupleAssignStmt 'tupleAssign'
+		checkTupleAssign(c, p: p, s: s, errs: errs)
+		return
+	end 'tupleAssign'
 	if k == ast.NodeKind.exprStmt 'expr'
 		checkExprStmt(c, p: p, s: s, errs: errs)
 		return
@@ -281,12 +289,22 @@ end 'checkFor'
 function checkForBody(mutates c Checker, mutates p ast.Project, s ast.NodeID, varType ast.TypeID, borrows bool, mutates errs diag.ErrorList)
 	pushBlock(c, label: ast.forStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
 	pushScope(c)
-	let name = ast.forStmtVar(p.modules[c.modIdx].tree, id: s)
-	let local = declareLocal(c, p: p, name: name, t: varType, isVar: false, definedAt: s, off: offsetOf(c, p: p, node: s), errs: errs)
+	let destructures = p.modules[c.modIdx].tree.listLen(ast.forStmtVarsRef(p.modules[c.modIdx].tree, id: s)) > 0
+	var local = ast.noLocal
+	var bound = ast.NodeIDList.create(0)
+	if destructures 'tuples'
+		local = declareTupleVariable(c, p: p, s: s, varType: varType, bound: bound, errs: errs)
+	end 'tuples' else 'single'
+		let name = ast.forStmtVar(p.modules[c.modIdx].tree, id: s)
+		local = declareLocal(c, p: p, name: name, t: varType, isVar: false, definedAt: s, off: offsetOf(c, p: p, node: s), errs: errs)
+	end 'single'
 	if local != ast.noLocal 'declared'
 		c.typing.locals[local as Count].projected = borrows
 		c.typing.nodeLocals.insert(s as Count, value: local)
 		checkStmts(c, p: p, body: ast.forStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+		if destructures 'steps'
+			putStepsBeforeBody(c, p: p, s: s, steps: bound)
+		end 'steps'
 	end 'declared'
 	popScope(c)
 	popBlock(c)

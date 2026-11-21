@@ -956,6 +956,8 @@ and nothing else.
   whose every branch returns or panics) is allowed and type-checked, but never compiled (`ast.Live`): its calls make no
   instance of a generic. A `break` or `continue` inside a branch does not end the code after the `if` or `match`,
   since a `break` can leave a `match`.
+- Tuples (see "Tuples"): the type `(A, B)`, the value `(a, b)`, `t.0`, `typealias Span = (A, B)`, a tuple as a parameter, a result or a
+  field, `let (a, b) = t`, `(a, let b) = t` and `for (a, b) in xs`.
 - Integer, float, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
@@ -1412,7 +1414,53 @@ end 'wrap'
   order that has it, at the first call in its walk that asks for the too deep instance. That is
   the recursive call inside the generic whenever the growth is in one call, the case that one error covers however many modules use it.
 
-### Capabilities and destructors
+### Tuples
+
+A tuple is a record whose fields are named by their places, `0`, `1` and so on: `(Count, String)` is the instance of the record
+`Tuple2` at its two elements, found as a generic instance is (`ast.tupleType`, interned by the element types, so it is one type however it
+is written), with a type parameter and a field for each element, and every other fact about it follows from that. It has the layout, the
+copy and drop routines and the ownership rules of a record with those fields (`ast.TypeTable.tupleOrigin`; a number of elements no
+program uses has no record), and an element is a field: `t.0` borrows it, assigns it where `t` is a `var`, and moves it out where it is
+consumed, as a field is moved out of an owned local. `Droppable` and `Copyable` hold of a tuple when they hold of every element.
+
+```
+typealias Span = (Count, Count)
+
+typealias Spans = Array with Span
+
+function widen(consumes pair (Count, String)) returns (Count, String)
+	return (pair.0, pair.1)
+end 'widen'
+
+function main() returns ExitCode
+	let (low, high) = widen((1 as Count, "one"))
+	var spans = Spans.create(0)
+	spans.push((low, high.byteLength()))
+	for (a, b) in spans 'each'
+		print("{a} {b}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+
+- **Syntax.** `(a, b)` has at least two elements, and `(a)` is a parenthesis. A tuple type is a parenthesized list of two or more
+  types, in a signature, a field, a cast and the right-hand side of a `typealias`. As a type argument it takes its own parentheses,
+  `Array with ((Count, Count))`, since `Array with (Count, Count)` is two arguments (`E2056`), as in Maxon. An element is `.0`,
+  `.1` and so on, `t.0.1` reaching into a tuple that holds one. The parser tells a tuple from a parenthesis, and a tuple
+  assignment from an expression that starts with a parenthesis, by looking for a comma inside the parentheses before it parses them
+  (`{atTuple}?` and `{atTupleAssignment}?`, predicates of the grammar that `Parser` decides).
+- **Typing.** A tuple literal takes the type of its context when that is a tuple of as many elements, and checks each element against
+  its own; elsewhere each element has the type it is written with, and a bare number keeps the range it spans, as an element of an array
+  literal does, or takes the whole word inside another literal. A `var` that starts from a tuple of bare numbers is `E2004`. An element
+  keeps its own alias, so `(Tally, Tally)` and `(Score, Score)` are two types, and an element is held to its alias's range.
+- **Taking a tuple apart.** A destructuring declaration (`let (a, b) = e`, `var (a, b) = e`, `_` for an element it does not name), a tuple
+  assignment (`(a, let b) = e`: a name with no keyword is an existing `var`, `let` and `var` declare one, `_` discards) and a `for` over a
+  collection whose elements are tuples (`for (a, b) in xs`) are made up by the check of ordinary statements, which it writes into the
+  tree (`check/destructure.maxon`, `ast.Typing.expansions`): a `let` that holds the tuple, unless it is a variable, a field or an element at a
+  simple index, which is read again for each element; then a `let` or an assignment for each name, whose value is that element read as a
+  field. The ranges, the ownership pass and the lowering run those statements as they run any, so a scalar element is copied, a managed
+  one is moved out of an owned tuple and a borrowed one is `E3900` (`.clone()` is the fix), and no pass has a rule of its own for
+  tuples. The names count against the elements: `E2015` for a declaration and `E3005` for an assignment.
 
 A value that must be ended in one of several ways (a transaction that commits or rolls back, a socket, a reply token) is
 the "Higher RAII" of [Vale's linear types](https://verdagon.dev/blog/higher-raii-uses-linear-types), built here from
@@ -1868,6 +1916,15 @@ compares its tokens with the input's, so a formatter bug is an internal error an
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.
+- Tuples (see "Tuples"): a tuple is owned by one variable like a `type`'s record and not shared by reference counting, so
+  assigning it moves it and `.clone()` copies it, and a two-element tuple of integers is a heap record like any other (no pair
+  in two registers). Destructuring a managed element out of a borrowed tuple, which Maxon shares, is `E3900` and takes
+  `.clone()`, and so does naming it in a `for (a, b) in xs` over a collection of them. A tuple of bare numbers has the ranges of
+  its numbers (`(int(1 to 1), int(2 to 2))`, for the messages that name it), not `(int, int)`, and two tuple literals of
+  different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), `withIterator()`, the loop over
+  a `Map`'s `(key, value)` pairs, which needs the map to be walked (see "Primitives"), the spelling `t._0` of an element that
+  some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
+  and the `E3064` lint on a tuple assignment of nothing but `_`.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
   `HeapFree` and no reference counting; Maxon counts references. There is no green thread, scheduler or atomic count, so
   a frozen value, a cown and a behaviour have no native code: the interpreter counts a frozen value and a cown, schedules
@@ -1903,7 +1960,7 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   There is no float `match` pattern, map key or interface conformance, no `float.fromString`, no `Math`, no format
   specifier for a float, and no `f32` storage. `trunc` of a NaN or of a double past the word gives `i64.min`, as x64's
   `cvttsd2si` does.
-- No alias subtyping (an alias implementing another), characters, tuples, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
+- No alias subtyping (an alias implementing another), characters, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
   parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs

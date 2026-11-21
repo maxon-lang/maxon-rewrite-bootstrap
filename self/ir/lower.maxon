@@ -192,6 +192,13 @@ function visitStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 		visitLetStmt(l, p: p, s: s)
 		return
 	end 'letStmt'
+	if k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt 'expansion'
+		let steps = ast.expansionOf(p.typings[l.mi], node: s)
+		for i in 0 upto steps.count() 'steps'
+			lowerStmt(l, p: p, s: steps[i])
+		end 'steps'
+		return
+	end 'expansion'
 	if k == ast.NodeKind.discardStmt 'discardStmt'
 		_ = lowerExpr(l, p: p, e: ast.discardStmtValue(p.modules[l.mi].tree, id: s))
 		return

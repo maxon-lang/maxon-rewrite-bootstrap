@@ -245,10 +245,11 @@ export type TypeEntry
 	// paramConvs are the conventions of the parameters of a function type, on the origin that every function type with
 	// them is an instance of: its type arguments are the parameters' types and then the result's.
 	export var paramConvs as ConventionList
+	export var isTuple as bool
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0)}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID
@@ -359,11 +360,14 @@ export type TypeTable
 	export var rangeCache as TypeInternMap
 	export var constCache as TypeInternMap
 	export var instCache as TypeInternMap
+	// tupleOrigins holds the record that tuples of each number of elements are instances of, by the number: noType for a
+	// number no tuple of the program has.
+	export var tupleOrigins as TypeIDList
 
 	export static function new() returns TypeTable
 		var es = TypeEntryList.create(0)
 		es.push(TypeEntry.make(TypeKind.invalid, name: "<invalid>"))
-		return TypeTable{entries: es, rangeCache: TypeInternMap.new(), constCache: TypeInternMap.new(), instCache: TypeInternMap.new()}
+		return TypeTable{entries: es, rangeCache: TypeInternMap.new(), constCache: TypeInternMap.new(), instCache: TypeInternMap.new(), tupleOrigins: TypeIDList.create(0)}
 	end 'new'
 end 'TypeTable'
 
@@ -524,6 +528,7 @@ export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeID
 	var e = TypeEntry.make(origKind, name: origName)
 	e.origin = baseOrigin
 	e.typeArgs = cloneTypeArgs(args)
+	e.isTuple = tt.entries[baseOrigin as Count].isTuple
 	e.isNoncopyable = origNoncopyable
 	e.hasDecl = hasOrigDecl
 	e.decl = origDecl
@@ -531,6 +536,39 @@ export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeID
 	tt.instCache.insert(key, value: id)
 	return id
 end 'instantiateType'
+
+// tupleOrigin is the record of which every tuple of arity elements is an instance: its fields are named by their places, 0, 1,
+// and so on, so that an element is read and written as a field is, and it has one type parameter for each, so that a tuple
+// has the layout, the copy and drop routines and the ownership rules of a record with those fields.
+export function tupleOrigin(mutates tt TypeTable, arity Count) returns TypeID
+	while tt.tupleOrigins.count() <= arity 'room'
+		tt.tupleOrigins.push(noType)
+	end 'room'
+	if tt.tupleOrigins[arity] != noType 'made'
+		return tt.tupleOrigins[arity]
+	end 'made'
+	var e = TypeEntry.make(TypeKind.record, name: "Tuple{arity}")
+	e.isTuple = true
+	let origin = allocType(tt, e: e)
+	for i in 0 upto arity 'each'
+		var tp = TypeEntry.make(TypeKind.typeParam, name: "T{i}")
+		let param = allocType(tt, e: tp)
+		tt.entries[origin as Count].typeParams.push(param)
+		tt.entries[origin as Count].fields.push(FieldInfo.make("{i}", ty: param, isVar: true, exported: true, hasDefault: false, defaultExpr: 0 as NodeID, index: i))
+	end 'each'
+	tt.tupleOrigins[arity] = origin
+	return origin
+end 'tupleOrigin'
+
+// tupleType is the tuple of the element types, which is one type however it is written.
+export function tupleType(mutates tt TypeTable, elems TypeIDList) returns TypeID
+	let origin = tupleOrigin(tt, arity: elems.count())
+	return instantiateType(tt, origin: origin, args: elems)
+end 'tupleType'
+
+export function isTupleType(tt TypeTable, t TypeID) returns bool
+	return t != noType and tt.entries[t as Count].isTuple
+end 'isTupleType'
 
 export function selfType(mutates tt TypeTable, declTy TypeID) returns TypeID
 	let orig = tt.entries[declTy as Count].effectiveOrigin()
@@ -834,6 +872,18 @@ export function typeName(tt TypeTable, t TypeID) returns String
 	if k == TypeKind.floatRange and tt.entries[t as Count].name == "" 'anonFloat'
 		return floatSpelling(tt, t: t)
 	end 'anonFloat'
+	if isTupleType(tt, t: t) and tt.entries[t as Count].typeArgs.count() > 0 'tuple'
+		var parts = ByteArray.create(0)
+		parts.push(40 as Byte)
+		for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
+			if i > 0 'sep'
+				parts.append(", ".toByteArray())
+			end 'sep'
+			parts.append(typeName(tt, t: tt.entries[t as Count].typeArgs[i]).toByteArray())
+		end 'each'
+		parts.push(41 as Byte)
+		return String.from(parts)
+	end 'tuple'
 	if tt.entries[t as Count].typeArgs.count() > 0 'inst'
 		var argNames = StringList.create(0)
 		for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'

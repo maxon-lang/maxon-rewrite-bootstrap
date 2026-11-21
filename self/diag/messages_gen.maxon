@@ -509,3 +509,18 @@ end 'typeDoesNotConform'
 export function throwingFunctionAsValue(name String, errorType String) returns String
 	return "Cannot use throwing function '{name}' as a value: it throws '{errorType}', and a function type cannot express 'throws'. Wrap the call in a non-throwing function that handles the error with 'try'."
 end 'throwingFunctionAsValue'
+
+// The text of errUnsupportedFeature for: Unsupported: a destructuring binding of {names} names against a tuple of {elements} elements (every element must be named)
+export function destructureArity(names String, elements String) returns String
+	return "Unsupported: a destructuring binding of {names} names against a tuple of {elements} elements (every element must be named)"
+end 'destructureArity'
+
+// The text of errUnsupportedFeature for: Unsupported: a destructuring binding of a '{valueType}' initializer (only a TUPLE can be destructured — `let (x, y) = …` needs a right-hand side that is a tuple)
+export function destructureNonTuple(valueType String) returns String
+	return "Unsupported: a destructuring binding of a '{valueType}' initializer (only a TUPLE can be destructured — `let (x, y) = …` needs a right-hand side that is a tuple)"
+end 'destructureNonTuple'
+
+// The text of errTypeMismatch for: Tuple has {elements} elements but destructuring has {names} bindings
+export function tupleAssignArity(elements String, names String) returns String
+	return "Tuple has {elements} elements but destructuring has {names} bindings"
+end 'tupleAssignArity'
