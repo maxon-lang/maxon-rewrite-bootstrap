@@ -1,9 +1,10 @@
 package ir
 
+//go:generate go run minimaxon/internal/irgen
+
 import (
 	"fmt"
 	"minimaxon/internal/ast"
-	"minimaxon/internal/diag"
 	"strconv"
 	"strings"
 )
@@ -29,298 +30,14 @@ type BlockID int32
 // NoBlock is the failure target of an operation that cannot fail.
 const NoBlock BlockID = -1
 
-type BinOp uint8
-
-const (
-	BinAdd BinOp = iota
-	BinSub
-	BinMul
-	BinDiv
-	BinMod
-	BinAnd
-	BinOr
-	BinXor
-	BinShl
-	BinShr
-)
-
-var binOpNames = [...]string{"add", "sub", "mul", "div", "mod", "and", "or", "xor", "shl", "shr"}
-
-type CmpOp uint8
-
-const (
-	CmpEq CmpOp = iota
-	CmpNe
-	CmpLt
-	CmpLe
-	CmpGt
-	CmpGe
-)
-
-var cmpOpNames = [...]string{"eq", "ne", "lt", "le", "gt", "ge"}
-
-type GuardKind uint8
-
-const (
-	GuardNonNegative GuardKind = iota
-	GuardSignedAtLeast
-	GuardSignedAtMost
-	GuardUnsignedAtLeast
-	GuardUnsignedAtMost
-	GuardNonZero
-)
-
-var guardNames = [...]string{"NonNegative", "SignedAtLeast", "SignedAtMost", "UnsignedAtLeast", "UnsignedAtMost", "NonZero"}
-
-// Opcode says what an Instr does, which is also what each of its fields means (below). The set is closed, and a pass
-// that handles every opcode ends in a panic for one it does not know.
-type Opcode uint8
-
-const (
-	opInvalid Opcode = iota
-	OpConst
-	OpStr
-	OpLoadSlot
-	OpStoreSlot
-	OpSlotAddr
-	OpLoadParam
-	OpLoadField
-	OpStoreField
-	OpFieldAddr
-	OpLoadAt
-	OpStoreAt
-	OpLoadGlobal
-	OpBin
-	OpCmp
-	OpNeg
-	OpNot
-	OpGuard
-	OpAlloc
-	OpCall
-	OpCallRuntime
-	OpWhen
-	OpDrop
-	OpDropSlot
-	OpDropAt
-	OpMoveSlot
-	OpMoveAt
-	OpCopy
-)
-
-// InstrFlags are the booleans of an instruction.
-type InstrFlags uint8
-
-const (
-	// FlagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing.
-	FlagBorrow InstrFlags = 1 << iota
-	// FlagUnsigned is on a Bin or a Cmp that treats its operands as unsigned.
-	FlagUnsigned
-	// FlagChecked is on a Bin or a Neg whose result may not fit the word: when it does not, the instruction goes to the block
-	// C instead of to the next instruction.
-	FlagChecked
-	// FlagThrows is on a Call of a function that throws: Imm is the register that receives its error, 0 when it
-	// returned and the error's case plus 1 when it failed.
-	FlagThrows
-)
-
-// NoRoutine is the C of a CallRuntime that stores no routine.
+// NoRoutine is the routine index of a CallRuntime that stores no routine.
 const NoRoutine = -1
-
-// Instr is one instruction: a record of fixed size, so a function's instructions are one slice, read in order. The fields
-// mean what the opcode says; the ones that name a register are always V, and an operand that is a number lives in Imm.
-// What does not fit in a record (a type, a callee, a string, a list of arguments) is in the function's pools, which C and
-// a range of A and B index.
-//
-//	OpConst        Dst = Imm
-//	OpStr          Dst = the string Strings[C]
-//	OpLoadSlot     Dst = slot Imm
-//	OpStoreSlot    slot Imm = A (FlagBorrow: the slot owns nothing)
-//	OpSlotAddr     Dst = address of slot Imm
-//	OpLoadParam    Dst = parameter Imm
-//	OpLoadField    Dst = word at A + Imm
-//	OpStoreField   word at A + Imm = B
-//	OpFieldAddr    Dst = A + Imm
-//	OpLoadAt       Dst = word at A
-//	OpStoreAt      word at A = B
-//	OpLoadGlobal   Dst = the global Imm (a Rt)
-//	OpBin          Dst = A op Sub B (FlagUnsigned; FlagChecked: to block C when the result does not fit, which for a
-//	               signed '/' is i64.min / -1)
-//	OpCmp          Dst = A cmp Sub B (FlagUnsigned)
-//	OpNeg, OpNot   Dst = op A (FlagChecked on a Neg: to block C when A is i64.min)
-//	OpGuard        to block C unless A is in range Sub of bound Imm
-//	OpAlloc        Dst = a new box of Imm bytes
-//	OpCall         Dst (or NoReg) = Callees[C] applied to the arguments Args[A : A+B]; FlagThrows: the register Imm
-//	               receives the error
-//	OpCallRuntime  Dst (or NoReg) = the entry Imm (a Rt) applied to Args[A : A+B]; C is the index in Callees of the routine
-//	               the entry stores to call later (the destructor of a cown), or NoRoutine
-//	OpWhen         schedules the behaviour Behaviours[Imm] on the cowns Args[A : A+B], capturing Args[A+B : A+B+C]
-//	OpDrop         drops the value in A, of type Types[C]
-//	OpDropSlot     drops what slot Imm owns, of type Types[C]
-//	OpDropAt       drops what the address A holds, of type Types[C]
-//	OpMoveSlot     Dst = slot Imm, which is left empty
-//	OpMoveAt       Dst = the value at A, which is left empty
-//	OpCopy         Dst = a deep copy of A, of type Types[C]
-type Instr struct {
-	Op    Opcode
-	Sub   uint8
-	Flags InstrFlags
-	Dst   V
-	A     V
-	B     V
-	C     int32
-	Imm   int64
-}
-
-func (i Instr) Has(flag InstrFlags) bool { return i.Flags&flag != 0 }
-
-// Fail is the block an instruction goes to when its check fails, if it has one: a checked Bin or Neg, or a Guard.
-func (i Instr) Fail() (BlockID, bool) {
-	switch {
-	case i.Op == OpGuard, (i.Op == OpBin || i.Op == OpNeg) && i.Has(FlagChecked):
-		return BlockID(i.C), true
-	}
-	return NoBlock, false
-}
-
-// ErrorReg is the register that receives the error of a call of a function that throws.
-func (i Instr) ErrorReg() V { return V(i.Imm) }
-
-func flags(borrow, unsigned, checked bool) InstrFlags {
-	var f InstrFlags
-	if borrow {
-		f |= FlagBorrow
-	}
-	if unsigned {
-		f |= FlagUnsigned
-	}
-	if checked {
-		f |= FlagChecked
-	}
-	return f
-}
-
-func Const(dst V, value int64) Instr { return Instr{Op: OpConst, Dst: dst, Imm: value} }
-
-func LoadSlot(dst V, slot int) Instr { return Instr{Op: OpLoadSlot, Dst: dst, Imm: int64(slot)} }
-
-// StoreSlot puts a value in a slot. A slot owns what it holds unless borrow is set, which a match binding of a payload
-// uses: the slot names a part of the match subject for the arm, and nothing drops it.
-func StoreSlot(slot int, src V, borrow bool) Instr {
-	return Instr{Op: OpStoreSlot, A: src, Imm: int64(slot), Flags: flags(borrow, false, false)}
-}
-
-func SlotAddr(dst V, slot int) Instr { return Instr{Op: OpSlotAddr, Dst: dst, Imm: int64(slot)} }
-
-func LoadParam(dst V, param int) Instr { return Instr{Op: OpLoadParam, Dst: dst, Imm: int64(param)} }
-
-func LoadField(dst, obj V, offset int) Instr {
-	return Instr{Op: OpLoadField, Dst: dst, A: obj, Imm: int64(offset)}
-}
-
-func StoreField(obj V, offset int, src V) Instr {
-	return Instr{Op: OpStoreField, A: obj, B: src, Imm: int64(offset)}
-}
-
-func FieldAddr(dst, obj V, offset int) Instr {
-	return Instr{Op: OpFieldAddr, Dst: dst, A: obj, Imm: int64(offset)}
-}
-
-func LoadAt(dst, addr V) Instr { return Instr{Op: OpLoadAt, Dst: dst, A: addr} }
-
-func StoreAt(addr, src V) Instr { return Instr{Op: OpStoreAt, A: addr, B: src} }
-
-func LoadGlobal(dst V, symbol Rt) Instr { return Instr{Op: OpLoadGlobal, Dst: dst, Imm: int64(symbol)} }
-
-// Bin is a binary operation; fail is where it goes when its result does not fit the word, or NoBlock for one that
-// cannot fail.
-func Bin(dst V, op BinOp, a, b V, unsigned bool, fail BlockID) Instr {
-	return Instr{Op: OpBin, Dst: dst, A: a, B: b, Sub: uint8(op), Flags: flags(false, unsigned, fail != NoBlock), C: int32(fail)}
-}
-
-func Cmp(dst V, op CmpOp, a, b V, unsigned bool) Instr {
-	return Instr{Op: OpCmp, Dst: dst, A: a, B: b, Sub: uint8(op), Flags: flags(false, unsigned, false)}
-}
-
-// Neg is a negation; fail is where it goes for i64.min, or NoBlock for one that cannot fail.
-func Neg(dst, src V, fail BlockID) Instr {
-	return Instr{Op: OpNeg, Dst: dst, A: src, Flags: flags(false, false, fail != NoBlock), C: int32(fail)}
-}
-
-func Not(dst, src V) Instr { return Instr{Op: OpNot, Dst: dst, A: src} }
-
-// Guard checks that a value is in a range, and goes to fail when it is not.
-func Guard(src V, kind GuardKind, bound int64, fail BlockID) Instr {
-	return Instr{Op: OpGuard, A: src, Sub: uint8(kind), Imm: bound, C: int32(fail)}
-}
-
-func Alloc(dst V, bytes int) Instr { return Instr{Op: OpAlloc, Dst: dst, Imm: int64(bytes)} }
-
-func MoveSlot(dst V, slot int) Instr { return Instr{Op: OpMoveSlot, Dst: dst, Imm: int64(slot)} }
-
-func MoveAt(dst, addr V) Instr { return Instr{Op: OpMoveAt, Dst: dst, A: addr} }
-
-func (i Instr) BinOp() BinOp { return BinOp(i.Sub) }
-
-func (i Instr) CmpOp() CmpOp { return CmpOp(i.Sub) }
-
-func (i Instr) GuardKind() GuardKind { return GuardKind(i.Sub) }
-
-// Slot is the slot an instruction names.
-func (i Instr) Slot() int { return int(i.Imm) }
-
-// Offset is the byte offset a field instruction names.
-func (i Instr) Offset() int { return int(i.Imm) }
-
-// Symbol is the runtime entry or global an instruction names.
-func (i Instr) Symbol() Rt { return Rt(i.Imm) }
-
-// TermKind says how a block ends.
-type TermKind uint8
-
-const (
-	termNone TermKind = iota
-	TermJump
-	TermBranch
-	TermSwitch
-	TermRet
-	TermTrap
-	TermThrow
-)
 
 // SwitchCase is a value of a switch and the block it goes to.
 type SwitchCase struct {
 	Value  int64
 	Target BlockID
 }
-
-// Term is how a block ends, a record of fixed size like an instruction.
-//
-//	TermJump    to Then
-//	TermBranch  to Then if Value is not 0, else to Else
-//	TermSwitch  to the target of the case of Cases[First : First+Count] that Value equals, else to Then
-//	TermRet     returns Value
-//	TermTrap    stops the program
-//	TermThrow   returns the error Value, a case of the function's error plus 1, from a function that throws
-type Term struct {
-	Kind  TermKind
-	Value V
-	Then  BlockID
-	Else  BlockID
-	First int32
-	Count int32
-}
-
-func Jump(target BlockID) Term { return Term{Kind: TermJump, Then: target} }
-
-func Branch(cond V, then, els BlockID) Term {
-	return Term{Kind: TermBranch, Value: cond, Then: then, Else: els}
-}
-
-func Ret(value V) Term { return Term{Kind: TermRet, Value: value} }
-
-func Trap() Term { return Term{Kind: TermTrap} }
-
-func Throw(err V) Term { return Term{Kind: TermThrow, Value: err} }
 
 // Block is a run of instructions, Instrs[First:End] of its function, and how it ends.
 type Block struct {
@@ -392,32 +109,6 @@ func (f *IrFunction) BlockInstrs(b int) []Instr {
 	return f.Instrs[blk.First:blk.End]
 }
 
-// CallArgs are the arguments of a call or of a runtime entry.
-func (f *IrFunction) CallArgs(i Instr) []V { return f.Args[i.A : i.A+i.B] }
-
-// Callee is the function an OpCall calls.
-func (f *IrFunction) Callee(i Instr) *ast.FuncDecl { return f.Callees[i.C] }
-
-// Routine is the function an OpCallRuntime stores to call later, or nil.
-func (f *IrFunction) Routine(i Instr) *ast.FuncDecl {
-	if i.C == NoRoutine {
-		return nil
-	}
-	return f.Callees[i.C]
-}
-
-// TypeOf is the type a drop or a copy names.
-func (f *IrFunction) TypeOf(i Instr) ast.Ty { return f.Types[i.C] }
-
-// Text is the string an OpStr makes.
-func (f *IrFunction) Text(i Instr) string { return f.Strings[i.C] }
-
-// WhenParts are the behaviour an OpWhen schedules, the cowns it waits for and the values it captures.
-func (f *IrFunction) WhenParts(i Instr) (body *IrFunction, cowns, captures []V) {
-	end := i.A + i.B
-	return f.Behaviours[i.Imm], f.Args[i.A:end], f.Args[end : end+V(i.C)]
-}
-
 func kindName(k IrKind) string {
 	if k == KindManaged {
 		return "managed"
@@ -425,10 +116,12 @@ func kindName(k IrKind) string {
 	return "scalar"
 }
 
-func argList(args []V) string {
-	parts := make([]string, len(args))
-	for i, a := range args {
-		parts[i] = a.String()
+// The texts of the printer's parts, which the generated InstrString and TermString put together.
+
+func regList(regs []V) string {
+	parts := make([]string, len(regs))
+	for i, r := range regs {
+		parts[i] = r.String()
 	}
 	return strings.Join(parts, ", ")
 }
@@ -437,11 +130,24 @@ func quote(s string) string {
 	return "\"" + strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "\n", "\\n").Replace(s) + "\""
 }
 
-func dstPrefix(d V) string {
+// resultText is what comes before an operation that gives a value, and nothing for a call whose value nothing reads.
+func resultText(d V) string {
 	if d == NoReg {
 		return ""
 	}
 	return d.String() + " = "
+}
+
+func slotText(slot int) string { return "s" + strconv.Itoa(slot) }
+
+func blockText(b BlockID) string { return "b" + strconv.Itoa(int(b)) }
+
+func caseList(cases []SwitchCase) string {
+	parts := make([]string, len(cases))
+	for i, c := range cases {
+		parts[i] = strconv.FormatInt(c.Value, 10) + ": " + blockText(c.Target)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func PrintIr(f *IrFunction, sb *strings.Builder) {
@@ -465,116 +171,4 @@ func PrintIr(f *IrFunction, sb *strings.Builder) {
 	for _, body := range f.Behaviours {
 		PrintIr(body, sb)
 	}
-}
-
-// InstrString is the text the printer gives an instruction, for a tool that reports a place in a function.
-func (f *IrFunction) InstrString(i Instr) string {
-	switch i.Op {
-	case OpConst:
-		return fmt.Sprintf("%s = const %d", i.Dst, i.Imm)
-	case OpStr:
-		return fmt.Sprintf("%s = str %s", i.Dst, quote(f.Text(i)))
-	case OpLoadSlot:
-		return fmt.Sprintf("%s = load s%d", i.Dst, i.Imm)
-	case OpStoreSlot:
-		if i.Has(FlagBorrow) {
-			return fmt.Sprintf("store s%d, %s borrow", i.Imm, i.A)
-		}
-		return fmt.Sprintf("store s%d, %s", i.Imm, i.A)
-	case OpSlotAddr:
-		return fmt.Sprintf("%s = addr s%d", i.Dst, i.Imm)
-	case OpLoadParam:
-		return fmt.Sprintf("%s = param %d", i.Dst, i.Imm)
-	case OpLoadField:
-		return fmt.Sprintf("%s = field %s+%d", i.Dst, i.A, i.Imm)
-	case OpStoreField:
-		return fmt.Sprintf("setfield %s+%d, %s", i.A, i.Imm, i.B)
-	case OpFieldAddr:
-		return fmt.Sprintf("%s = fieldaddr %s+%d", i.Dst, i.A, i.Imm)
-	case OpLoadAt:
-		return fmt.Sprintf("%s = loadat %s", i.Dst, i.A)
-	case OpStoreAt:
-		return fmt.Sprintf("storeat %s, %s", i.A, i.B)
-	case OpLoadGlobal:
-		return fmt.Sprintf("%s = global %s", i.Dst, i.Symbol())
-	case OpBin:
-		suffix := ""
-		if i.Has(FlagUnsigned) {
-			suffix += ".u"
-		}
-		text := fmt.Sprintf("%s = %s%s %s, %s", i.Dst, binOpNames[i.Sub], suffix, i.A, i.B)
-		if fail, ok := i.Fail(); ok {
-			text += fmt.Sprintf(" else b%d", fail)
-		}
-		return text
-	case OpCmp:
-		suffix := ""
-		if i.Has(FlagUnsigned) {
-			suffix = ".u"
-		}
-		return fmt.Sprintf("%s = cmp.%s%s %s, %s", i.Dst, cmpOpNames[i.Sub], suffix, i.A, i.B)
-	case OpNeg:
-		if fail, ok := i.Fail(); ok {
-			return fmt.Sprintf("%s = neg %s else b%d", i.Dst, i.A, fail)
-		}
-		return fmt.Sprintf("%s = neg %s", i.Dst, i.A)
-	case OpNot:
-		return fmt.Sprintf("%s = not %s", i.Dst, i.A)
-	case OpGuard:
-		return fmt.Sprintf("guard %s %s %d else b%d", i.A, guardNames[i.Sub], i.Imm, i.C)
-	case OpAlloc:
-		return fmt.Sprintf("%s = alloc %d", i.Dst, i.Imm)
-	case OpCall:
-		text := fmt.Sprintf("%scall %s(%s)", dstPrefix(i.Dst), f.Callee(i).Symbol(), argList(f.CallArgs(i)))
-		if i.Has(FlagThrows) {
-			text += fmt.Sprintf(" error %s", i.ErrorReg())
-		}
-		return text
-	case OpCallRuntime:
-		text := fmt.Sprintf("%sruntime %s(%s)", dstPrefix(i.Dst), i.Symbol(), argList(f.CallArgs(i)))
-		if routine := f.Routine(i); routine != nil {
-			text += " routine " + routine.Symbol()
-		}
-		return text
-	case OpWhen:
-		body, cowns, captures := f.WhenParts(i)
-		return fmt.Sprintf("when %s cowns [%s] captures [%s]", body.Symbol(), argList(cowns), argList(captures))
-	case OpDrop:
-		return fmt.Sprintf("drop %s %s", i.A, f.TypeOf(i).Name())
-	case OpDropSlot:
-		return fmt.Sprintf("dropslot s%d %s", i.Imm, f.TypeOf(i).Name())
-	case OpDropAt:
-		return fmt.Sprintf("dropat %s %s", i.A, f.TypeOf(i).Name())
-	case OpCopy:
-		return fmt.Sprintf("%s = copy %s %s", i.Dst, i.A, f.TypeOf(i).Name())
-	case OpMoveSlot:
-		return fmt.Sprintf("%s = move s%d", i.Dst, i.Imm)
-	case OpMoveAt:
-		return fmt.Sprintf("%s = moveat %s", i.Dst, i.A)
-	}
-	panic(diag.Internal("printer: unhandled opcode %d", int(i.Op)))
-}
-
-// TermString is the text the printer gives a terminator.
-func (f *IrFunction) TermString(t Term) string {
-	switch t.Kind {
-	case TermJump:
-		return fmt.Sprintf("jump b%d", t.Then)
-	case TermBranch:
-		return fmt.Sprintf("branch %s, b%d, b%d", t.Value, t.Then, t.Else)
-	case TermSwitch:
-		cases := f.Cases[t.First : t.First+t.Count]
-		parts := make([]string, len(cases))
-		for i, c := range cases {
-			parts[i] = fmt.Sprintf("%d: b%d", c.Value, c.Target)
-		}
-		return fmt.Sprintf("switch %s [%s] default b%d", t.Value, strings.Join(parts, ", "), t.Then)
-	case TermRet:
-		return fmt.Sprintf("ret %s", t.Value)
-	case TermTrap:
-		return "trap"
-	case TermThrow:
-		return fmt.Sprintf("throw %s", t.Value)
-	}
-	panic(diag.Internal("printer: a block has no terminator"))
 }

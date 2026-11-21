@@ -204,7 +204,7 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 		instrs := fn.BlockInstrs(bi)
 		in.windowAt[bi] = make([][]waitingCall, len(instrs))
 		for pc, ins := range instrs {
-			if dst, ok := destination(ins); ok {
+			if dst, ok := ins.Def(); ok {
 				defs[dst] = position{bi, pc}
 			}
 		}
@@ -213,11 +213,14 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 		instrs := fn.BlockInstrs(bi)
 		for pc := range instrs {
 			call := &instrs[pc]
-			if call.Op != ir.OpCall || call.B < 2 {
+			if call.Op() != ir.OpCall {
 				continue
 			}
-			args := fn.CallArgs(*call)
-			target := fn.Callee(*call)
+			args := (*ir.CallInstr)(call).Args(fn)
+			target := (*ir.CallInstr)(call).Callee(fn)
+			if len(args) < 2 {
+				continue
+			}
 			for i, arg := range args[:len(args)-1] {
 				if argumentConv(target, i).Owns() {
 					continue
@@ -235,11 +238,11 @@ func (vm *vm) infoOf(fn *ir.IrFunction) *info {
 // borrowsStorage is whether an instruction gives a pointer or an address into storage that already exists, which a
 // change would leave dangling, and not a value that is new and only being built.
 func borrowsStorage(i ir.Instr) bool {
-	switch i.Op {
+	switch i.Op() {
 	case ir.OpLoadSlot, ir.OpLoadParam, ir.OpLoadField, ir.OpLoadAt, ir.OpSlotAddr, ir.OpFieldAddr:
 		return true
 	case ir.OpCallRuntime:
-		return strings.HasSuffix(i.Symbol().String(), ".elem")
+		return strings.HasSuffix((*ir.CallRuntimeInstr)(&i).Symbol().String(), ".elem")
 	}
 	return false
 }
@@ -254,20 +257,6 @@ func argumentConv(target *ast.FuncDecl, i int) ast.Convention {
 		i--
 	}
 	return target.Pass.Specs[i].Conv
-}
-
-// destination is the register an instruction writes.
-func destination(i ir.Instr) (ir.V, bool) {
-	switch i.Op {
-	case ir.OpConst, ir.OpStr, ir.OpLoadSlot, ir.OpSlotAddr, ir.OpLoadParam, ir.OpLoadField, ir.OpFieldAddr, ir.OpLoadAt,
-		ir.OpLoadGlobal, ir.OpBin, ir.OpCmp, ir.OpNeg, ir.OpNot, ir.OpAlloc, ir.OpCopy, ir.OpMoveSlot, ir.OpMoveAt:
-		return i.Dst, true
-	case ir.OpCall, ir.OpCallRuntime:
-		return i.Dst, i.Dst != ir.NoReg
-	case ir.OpStoreSlot, ir.OpStoreField, ir.OpStoreAt, ir.OpGuard, ir.OpDrop, ir.OpDropSlot, ir.OpDropAt, ir.OpWhen:
-		return 0, false
-	}
-	panic(diag.Internal("interp: unhandled opcode %d", int(i.Op)))
 }
 
 // call runs a function, and gives its value and its error: 0 when it returned, and for a function that throws, the error's
@@ -301,7 +290,8 @@ func (vm *vm) call(fn *ir.IrFunction, args []value) (value, int64) {
 			fr.pc = pc
 			vm.tick()
 			if vm.exec(fr, ins) {
-				block, failed = int(ins.C), true
+				fail, _ := ins.Fail()
+				block, failed = int(fail), true
 				vm.skipWindows(fr, block)
 				break
 			}
@@ -315,37 +305,54 @@ func (vm *vm) call(fn *ir.IrFunction, args []value) (value, int64) {
 		}
 		fr.pc = -1
 		vm.tick()
-		switch t := fn.Blocks[block].Term; t.Kind {
-		case ir.TermJump:
-			block = int(t.Then)
-		case ir.TermBranch:
-			if fr.regs[t.Value].n != 0 {
-				block = int(t.Then)
-			} else {
-				block = int(t.Else)
-			}
-		case ir.TermSwitch:
-			block = int(t.Then)
-			for _, c := range fn.Cases[t.First : t.First+t.Count] {
-				if fr.regs[t.Value].n == c.Value {
-					block = int(c.Target)
-					break
-				}
-			}
-		case ir.TermRet:
-			vm.endWindows(fr)
-			return vm.ret(fr, t), 0
-		case ir.TermThrow:
-			vm.endWindows(fr)
-			vm.requireSlotsDropped(fr)
-			return value{}, fr.regs[t.Value].n
-		case ir.TermTrap:
-			vm.stderr = append(vm.stderr, "trap\n"...)
-			panic(&exitSignal{code: illegalInstructionExitCode})
-		default:
-			panic(diag.Internal("interp: block b%d of %s has no terminator", block, fn.Symbol()))
+		next := ir.VisitTermState[*frame, step](vm, &fn.Blocks[block].Term, fr)
+		if next.done {
+			return next.result, next.err
+		}
+		block = int(next.block)
+	}
+}
+
+// step is where a terminator sends its frame: to the next block, or out of the function with its value and its error.
+type step struct {
+	block  ir.BlockID
+	done   bool
+	result value
+	err    int64
+}
+
+func (vm *vm) VisitJump(t *ir.JumpTerm, fr *frame) step { return step{block: t.Target()} }
+
+func (vm *vm) VisitBranch(t *ir.BranchTerm, fr *frame) step {
+	if fr.regs[t.Cond()].n != 0 {
+		return step{block: t.IfTrue()}
+	}
+	return step{block: t.IfFalse()}
+}
+
+func (vm *vm) VisitSwitch(t *ir.SwitchTerm, fr *frame) step {
+	for _, c := range t.Cases(fr.fn) {
+		if fr.regs[t.Value()].n == c.Value {
+			return step{block: c.Target}
 		}
 	}
+	return step{block: t.Fallback()}
+}
+
+func (vm *vm) VisitRet(t *ir.RetTerm, fr *frame) step {
+	vm.endWindows(fr)
+	return step{done: true, result: vm.ret(fr, t)}
+}
+
+func (vm *vm) VisitThrow(t *ir.ThrowTerm, fr *frame) step {
+	vm.endWindows(fr)
+	vm.requireSlotsDropped(fr)
+	return step{done: true, err: fr.regs[t.Err()].n}
+}
+
+func (vm *vm) VisitTrap(t *ir.TrapTerm, fr *frame) step {
+	vm.stderr = append(vm.stderr, "trap\n"...)
+	panic(&exitSignal{code: illegalInstructionExitCode})
 }
 
 func (vm *vm) tick() {
@@ -363,9 +370,9 @@ func (vm *vm) tick() {
 
 // ret hands the result to the caller. It must be a value that nothing owns, and no slot may still own anything: an
 // owner that dies without dropping what it holds leaks it.
-func (vm *vm) ret(fr *frame, t ir.Term) value {
-	v := fr.regs[t.Value]
-	if fr.fn.Regs[t.Value] == ir.KindManaged {
+func (vm *vm) ret(fr *frame, t *ir.RetTerm) value {
+	v := fr.regs[t.Value()]
+	if fr.fn.Regs[t.Value()] == ir.KindManaged {
 		if v.ref == nil {
 			vm.violate(MovedUse, "the function returns a value that was moved out or never assigned")
 		}
@@ -389,7 +396,7 @@ func (vm *vm) requireSlotsDropped(fr *frame) {
 }
 
 func (vm *vm) openWindow(fr *frame, ins *ir.Instr, waiting waitingCall, def int) {
-	dst, _ := destination(*ins)
+	dst, _ := ins.Def()
 	v := fr.regs[dst]
 	var r region
 	switch {
@@ -439,21 +446,7 @@ func pathEnters(fn *ir.IrFunction, from, to, avoid int) bool {
 				visit(int(fail))
 			}
 		}
-		switch t := fn.Blocks[b].Term; t.Kind {
-		case ir.TermJump:
-			visit(int(t.Then))
-		case ir.TermBranch:
-			visit(int(t.Then))
-			visit(int(t.Else))
-		case ir.TermSwitch:
-			for _, c := range fn.Cases[t.First : t.First+t.Count] {
-				visit(int(c.Target))
-			}
-			visit(int(t.Then))
-		case ir.TermRet, ir.TermTrap, ir.TermThrow:
-		default:
-			panic(diag.Internal("interp: block b%d of %s has no terminator", b, fn.Symbol()))
-		}
+		fn.Successors(fn.Blocks[b].Term, func(next ir.BlockID) { visit(int(next)) })
 	}
 	return reached[to]
 }

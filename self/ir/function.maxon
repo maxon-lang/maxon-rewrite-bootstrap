@@ -1,0 +1,102 @@
+// The parts of internal/ir that ir_gen.maxon reads: a function's pools, which its records index, and the texts the
+// printer puts together. The lowering port fills in the rest of IrFunction.
+
+export typealias RegList = Array with Reg
+
+// SwitchCase is a value of a switch and the block it goes to.
+export type SwitchCase
+	export var value as Word
+	export var target as BlockID
+
+	export static function make(value Word, target BlockID) returns SwitchCase
+		return SwitchCase{value: value, target: target}
+	end 'make'
+end 'SwitchCase'
+
+export typealias CaseList = Array with SwitchCase
+
+// IrFunction is a function's IR: its records and the pools that they index.
+export type IrFunction
+	export var name as String
+	export var instrs as InstrList
+	export var args as RegList
+	export var types as ast.TypeIDList
+	export var callees as ast.FuncIDList
+	export var strings as ast.StringList
+	export var cases as CaseList
+	export var behaviours as IrFunctionList
+
+	export function stringAt(i Index) returns String
+		return strings[try i as Count otherwise panic("ir: a string index is out of range")].clone()
+	end 'stringAt'
+
+	export function typeAt(i Index) returns ast.TypeID
+		return types[try i as Count otherwise panic("ir: a type index is out of range")]
+	end 'typeAt'
+
+	export function calleeAt(i Index) returns ast.FuncID
+		return callees[try i as Count otherwise panic("ir: a callee index is out of range")]
+	end 'calleeAt'
+
+	export function behaviourName(i Count) returns String
+		return behaviours[i].name.clone()
+	end 'behaviourName'
+
+	export function regsText(start Count, count Count) returns String
+		var b = ByteArray.create(0)
+		for i in 0 upto count 'each'
+			if i > 0 'sep'
+				b.append(", ".toByteArray())
+			end 'sep'
+			let at = try start + i otherwise panic("ir: a register list is out of range")
+			b.append("%{args[at]}".toByteArray())
+		end 'each'
+		return String.from(b)
+	end 'regsText'
+
+	export function casesText(start Count, count Count) returns String
+		var b = ByteArray.create(0)
+		for i in 0 upto count 'each'
+			if i > 0 'sep'
+				b.append(", ".toByteArray())
+			end 'sep'
+			let at = try start + i otherwise panic("ir: a case list is out of range")
+			b.append("{cases[at].value}: b{cases[at].target}".toByteArray())
+		end 'each'
+		return String.from(b)
+	end 'casesText'
+end 'IrFunction'
+
+export typealias IrFunctionList = Array with IrFunction
+
+// resultText is what comes before an operation that gives a value, and nothing for a call whose value nothing reads.
+export function resultText(dst Reg) returns String
+	if dst == noReg 'none'
+		return ""
+	end 'none'
+	return "%{dst} = "
+end 'resultText'
+
+// quote is a string as the printer writes it, between quotes with a backslash before a quote or a backslash and a
+// newline as \n.
+export function quote(s String) returns String
+	var b = ByteArray.create(0)
+	b.push(34 as Byte)
+	let bytes = s.toByteArray()
+	for i in 0 upto bytes.count() 'each'
+		let c = bytes[i]
+		if c == 92 or c == 34 'escaped'
+			b.push(92 as Byte)
+			b.push(c)
+		end 'escaped' else 'other'
+			if c == 10 'newline'
+				b.push(92 as Byte)
+				b.push(110 as Byte)
+			end 'newline' else 'plain'
+				b.push(c)
+			end 'plain'
+		end 'other'
+	end 'each'
+	b.push(34 as Byte)
+	return String.from(b)
+end 'quote'

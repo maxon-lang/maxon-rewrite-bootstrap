@@ -17,19 +17,26 @@ const (
 
 // runtimeCall is a call of a runtime entry with its arguments and its routine looked up, in the frame that makes it.
 type runtimeCall struct {
-	ir.Instr
+	ir.CallRuntimeInstr
 	fr      *frame
 	args    []ir.V
 	routine *ast.FuncDecl
 }
 
-func (vm *vm) runtimeEntry(fr *frame, in *ir.Instr) {
-	vm.runEntry(&runtimeCall{Instr: *in, fr: fr, args: fr.fn.CallArgs(*in), routine: fr.fn.Routine(*in)})
+func (vm *vm) runtimeEntry(fr *frame, in *ir.CallRuntimeInstr) {
+	routine, _ := in.Routine(fr.fn)
+	vm.runEntry(&runtimeCall{CallRuntimeInstr: *in, fr: fr, args: in.Args(fr.fn), routine: routine})
 }
 
 func (c *runtimeCall) arg(i int) value { return c.fr.regs[c.args[i]] }
 
-func (c *runtimeCall) set(v value) { c.fr.regs[c.Dst] = v }
+func (c *runtimeCall) set(v value) {
+	dst, gives := c.Dst()
+	if !gives {
+		panic(diag.Internal("interp: %s gives a value that its call does not receive", c.Symbol()))
+	}
+	c.fr.regs[dst] = v
+}
 
 func (c *runtimeCall) num(n int64) { c.set(value{n: n}) }
 

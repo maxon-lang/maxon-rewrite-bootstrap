@@ -283,3 +283,28 @@ func (m *maxonBody) errorType(f fn, id string) {
 		m.line("ft.entries[%s as Count].errTy = b.%s", id, maxonField(f.Throws, false))
 	}
 }
+
+// emitMaxonRt writes self/ir's Rt: the same symbols, numbered as Go's Rt is, so that an instruction holds one as a
+// number in either compiler.
+func emitMaxonRt() string {
+	var sb strings.Builder
+	sb.WriteString(maxonHeader)
+	sb.WriteString("// Rt names a symbol the runtime defines: an entry that code calls or a global it reads.\nexport enum Rt\n\trtNone\n")
+	for _, e := range entries {
+		fmt.Fprintf(&sb, "\trt%s\n", e.Name)
+	}
+	sb.WriteString("end 'Rt'\n\n// rtSymbol is the name the runtime defines a symbol by.\nexport function rtSymbol(r Rt) returns String\n")
+	for _, e := range entries {
+		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn %q\n\tend 'rt%s'\n", e.Name, e.Name, e.Symbol, e.Name)
+	}
+	sb.WriteString("\tpanic(\"ir: rtNone names no runtime symbol\")\nend 'rtSymbol'\n\n// rtCode is the number an instruction holds a symbol as.\nexport function rtCode(r Rt) returns Count\n")
+	for i, e := range entries {
+		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn %d\n\tend 'rt%s'\n", e.Name, e.Name, i+1, e.Name)
+	}
+	sb.WriteString("\tpanic(\"ir: rtNone has no number\")\nend 'rtCode'\n\n// rtOf is the symbol an instruction holds as a number.\nexport function rtOf(code Count) returns Rt\n\treturn match code 'code'\n")
+	for i, e := range entries {
+		fmt.Fprintf(&sb, "\t\t%d gives Rt.rt%s\n", i+1, e.Name)
+	}
+	sb.WriteString("\t\tdefault panic(\"ir: a number that is no runtime symbol\")\n\tend 'code'\nend 'rtOf'\n")
+	return sb.String()
+}

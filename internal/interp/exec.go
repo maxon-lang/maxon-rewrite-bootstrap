@@ -24,96 +24,175 @@ func (vm *vm) trap(message string) {
 
 // exec runs an instruction, and gives whether its check failed, which sends the code to the instruction's failure block.
 func (vm *vm) exec(fr *frame, x *ir.Instr) (failed bool) {
-	switch x.Op {
-	case ir.OpConst:
-		fr.regs[x.Dst] = value{n: x.Imm}
-	case ir.OpStr:
-		fr.regs[x.Dst] = value{ref: vm.literal(fr.fn.Text(*x))}
-	case ir.OpLoadSlot:
-		c := &fr.slots[x.Slot()]
-		if fr.fn.Slots[x.Slot()] == ir.KindManaged {
-			vm.live(c.v, "a read of the slot")
-		}
-		fr.regs[x.Dst] = c.v
-	case ir.OpStoreSlot:
-		c := &fr.slots[x.Slot()]
-		switch {
-		case fr.fn.Regs[x.A] != ir.KindManaged:
-			c.v = fr.regs[x.A]
-		case x.Has(ir.FlagBorrow):
-			vm.live(fr.regs[x.A], "a binding")
-			c.v = fr.regs[x.A]
-		default:
-			vm.changed(region{cell: c})
-			vm.adopt(c, fr.regs[x.A], "the store")
-		}
-	case ir.OpSlotAddr:
-		fr.regs[x.Dst] = value{adr: &address{cell: &fr.slots[x.Slot()]}}
-	case ir.OpLoadParam:
-		fr.regs[x.Dst] = fr.params[x.Imm]
-	case ir.OpLoadField:
-		fr.regs[x.Dst] = vm.fieldOf(fr, x.A, x.Offset(), "a field read").v
-	case ir.OpStoreField:
-		c := vm.fieldOf(fr, x.A, x.Offset(), "a field write")
-		vm.changed(region{cell: c})
-		vm.store(fr, c, x.B, "the field store")
-	case ir.OpFieldAddr:
-		fr.regs[x.Dst] = value{adr: &address{cell: vm.fieldOf(fr, x.A, x.Offset(), "taking the address of a field")}}
-	case ir.OpLoadAt:
-		fr.regs[x.Dst] = vm.target(fr, x.A, "a read through an address").v
-	case ir.OpStoreAt:
-		c := vm.target(fr, x.A, "a write through an address")
-		vm.changed(region{cell: c})
-		vm.store(fr, c, x.B, "the store")
-	case ir.OpLoadGlobal:
-		fr.regs[x.Dst] = value{n: vm.global(x.Symbol())}
-	case ir.OpBin:
-		n, fits := vm.binary(*x, fr.regs[x.A].n, fr.regs[x.B].n)
-		if !fits {
-			return true
-		}
-		fr.regs[x.Dst] = value{n: n}
-	case ir.OpCmp:
-		fr.regs[x.Dst] = value{n: compare(*x, fr.regs[x.A].n, fr.regs[x.B].n)}
-	case ir.OpNeg:
-		a := fr.regs[x.A].n
-		if a == math.MinInt64 && x.Has(ir.FlagChecked) {
-			return true
-		}
-		fr.regs[x.Dst] = value{n: -a}
-	case ir.OpNot:
-		fr.regs[x.Dst] = value{n: ^fr.regs[x.A].n}
-	case ir.OpGuard:
-		return !inRange(*x, fr.regs[x.A].n)
-	case ir.OpAlloc:
-		fr.regs[x.Dst] = value{ref: vm.newBox(max(int(x.Imm)/wordBytes, 1))}
-	case ir.OpCall:
-		vm.execCall(fr, x)
-	case ir.OpCallRuntime:
-		vm.runtimeEntry(fr, x)
-	case ir.OpWhen:
-		vm.schedule(fr, x)
-	case ir.OpDrop:
-		// A register is written before it is dropped on every path, so one that holds nothing is a drop of a value that was
-		// never made: a native frame does not zero its registers, and would free whatever they held.
-		if o := fr.regs[x.A].ref; o != nil {
-			vm.drop(o)
-		} else {
-			vm.violate(MovedUse, "a drop of a register that holds no value: it was never assigned on this path")
-		}
-	case ir.OpCopy:
-		fr.regs[x.Dst] = value{ref: vm.copyObject(vm.live(fr.regs[x.A], "a copy"))}
-	case ir.OpDropSlot:
-		vm.dropCell(&fr.slots[x.Slot()])
-	case ir.OpDropAt:
-		vm.dropCell(vm.target(fr, x.A, "a drop through an address"))
-	case ir.OpMoveSlot:
-		fr.regs[x.Dst] = vm.moveOut(&fr.slots[x.Slot()], "a move out of the slot")
-	case ir.OpMoveAt:
-		fr.regs[x.Dst] = vm.moveOut(vm.target(fr, x.A, "a move through an address"), "a move out of the place")
-	default:
-		panic(diag.Internal("interp: unhandled opcode %d", int(x.Op)))
+	return ir.VisitInstrState[*frame, bool](vm, x, fr)
+}
+
+// The Visit methods of vm are its ir.InstrStateVisitor and ir.TermStateVisitor: each runs one operation in a frame.
+
+func (vm *vm) VisitConst(x *ir.ConstInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{n: x.Value()}
+	return false
+}
+
+func (vm *vm) VisitStr(x *ir.StrInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{ref: vm.literal(x.Text(fr.fn))}
+	return false
+}
+
+func (vm *vm) VisitLoadSlot(x *ir.LoadSlotInstr, fr *frame) bool {
+	c := &fr.slots[x.Slot()]
+	if fr.fn.Slots[x.Slot()] == ir.KindManaged {
+		vm.live(c.v, "a read of the slot")
 	}
+	fr.regs[x.Dst()] = c.v
+	return false
+}
+
+func (vm *vm) VisitStoreSlot(x *ir.StoreSlotInstr, fr *frame) bool {
+	c := &fr.slots[x.Slot()]
+	src := x.Src()
+	switch {
+	case fr.fn.Regs[src] != ir.KindManaged:
+		c.v = fr.regs[src]
+	case x.Borrow():
+		vm.live(fr.regs[src], "a binding")
+		c.v = fr.regs[src]
+	default:
+		vm.changed(region{cell: c})
+		vm.adopt(c, fr.regs[src], "the store")
+	}
+	return false
+}
+
+func (vm *vm) VisitSlotAddr(x *ir.SlotAddrInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{adr: &address{cell: &fr.slots[x.Slot()]}}
+	return false
+}
+
+func (vm *vm) VisitLoadParam(x *ir.LoadParamInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = fr.params[x.Param()]
+	return false
+}
+
+func (vm *vm) VisitLoadField(x *ir.LoadFieldInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = vm.fieldOf(fr, x.Obj(), x.Offset(), "a field read").v
+	return false
+}
+
+func (vm *vm) VisitStoreField(x *ir.StoreFieldInstr, fr *frame) bool {
+	c := vm.fieldOf(fr, x.Obj(), x.Offset(), "a field write")
+	vm.changed(region{cell: c})
+	vm.store(fr, c, x.Src(), "the field store")
+	return false
+}
+
+func (vm *vm) VisitFieldAddr(x *ir.FieldAddrInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{adr: &address{cell: vm.fieldOf(fr, x.Obj(), x.Offset(), "taking the address of a field")}}
+	return false
+}
+
+func (vm *vm) VisitLoadAt(x *ir.LoadAtInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = vm.target(fr, x.Addr(), "a read through an address").v
+	return false
+}
+
+func (vm *vm) VisitStoreAt(x *ir.StoreAtInstr, fr *frame) bool {
+	c := vm.target(fr, x.Addr(), "a write through an address")
+	vm.changed(region{cell: c})
+	vm.store(fr, c, x.Src(), "the store")
+	return false
+}
+
+func (vm *vm) VisitLoadGlobal(x *ir.LoadGlobalInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{n: vm.global(x.Symbol())}
+	return false
+}
+
+func (vm *vm) VisitBin(x *ir.BinInstr, fr *frame) bool {
+	n, fits := vm.binary(x, fr.regs[x.Left()].n, fr.regs[x.Right()].n)
+	if !fits {
+		return true
+	}
+	fr.regs[x.Dst()] = value{n: n}
+	return false
+}
+
+func (vm *vm) VisitCmp(x *ir.CmpInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{n: compare(x, fr.regs[x.Left()].n, fr.regs[x.Right()].n)}
+	return false
+}
+
+func (vm *vm) VisitNeg(x *ir.NegInstr, fr *frame) bool {
+	a := fr.regs[x.Src()].n
+	if _, checked := x.Fail(); checked && a == math.MinInt64 {
+		return true
+	}
+	fr.regs[x.Dst()] = value{n: -a}
+	return false
+}
+
+func (vm *vm) VisitNot(x *ir.NotInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{n: ^fr.regs[x.Src()].n}
+	return false
+}
+
+func (vm *vm) VisitGuard(x *ir.GuardInstr, fr *frame) bool {
+	return !inRange(x, fr.regs[x.Src()].n)
+}
+
+func (vm *vm) VisitAlloc(x *ir.AllocInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{ref: vm.newBox(max(x.Bytes()/wordBytes, 1))}
+	return false
+}
+
+func (vm *vm) VisitCall(x *ir.CallInstr, fr *frame) bool {
+	vm.execCall(fr, x)
+	return false
+}
+
+func (vm *vm) VisitCallRuntime(x *ir.CallRuntimeInstr, fr *frame) bool {
+	vm.runtimeEntry(fr, x)
+	return false
+}
+
+func (vm *vm) VisitWhen(x *ir.WhenInstr, fr *frame) bool {
+	vm.schedule(fr, x)
+	return false
+}
+
+func (vm *vm) VisitDrop(x *ir.DropInstr, fr *frame) bool {
+	// A register is written before it is dropped on every path, so one that holds nothing is a drop of a value that was
+	// never made: a native frame does not zero its registers, and would free whatever they held.
+	if o := fr.regs[x.Src()].ref; o != nil {
+		vm.drop(o)
+	} else {
+		vm.violate(MovedUse, "a drop of a register that holds no value: it was never assigned on this path")
+	}
+	return false
+}
+
+func (vm *vm) VisitCopy(x *ir.CopyInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = value{ref: vm.copyObject(vm.live(fr.regs[x.Src()], "a copy"))}
+	return false
+}
+
+func (vm *vm) VisitDropSlot(x *ir.DropSlotInstr, fr *frame) bool {
+	vm.dropCell(&fr.slots[x.Slot()])
+	return false
+}
+
+func (vm *vm) VisitDropAt(x *ir.DropAtInstr, fr *frame) bool {
+	vm.dropCell(vm.target(fr, x.Addr(), "a drop through an address"))
+	return false
+}
+
+func (vm *vm) VisitMoveSlot(x *ir.MoveSlotInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = vm.moveOut(&fr.slots[x.Slot()], "a move out of the slot")
+	return false
+}
+
+func (vm *vm) VisitMoveAt(x *ir.MoveAtInstr, fr *frame) bool {
+	fr.regs[x.Dst()] = vm.moveOut(vm.target(fr, x.Addr(), "a move through an address"), "a move out of the place")
 	return false
 }
 
@@ -202,23 +281,23 @@ func (vm *vm) function(f *ast.FuncDecl) *ir.IrFunction {
 	return fn
 }
 
-func (vm *vm) execCall(fr *frame, c *ir.Instr) {
-	target := fr.fn.Callee(*c)
+func (vm *vm) execCall(fr *frame, c *ir.CallInstr) {
+	target := c.Callee(fr.fn)
 	callee := vm.function(target)
-	regs := fr.fn.CallArgs(*c)
+	regs := c.Args(fr.fn)
 	args := make([]value, len(regs))
 	for i, r := range regs {
 		args[i] = fr.regs[r]
 		vm.checkArgument(fr, target, i, r)
 	}
 	vm.requireDisjoint(target, args)
-	vm.closeWindows(fr, c)
+	vm.closeWindows(fr, (*ir.Instr)(c))
 	result, err := vm.call(callee, args)
-	if c.Dst != ir.NoReg {
-		fr.regs[c.Dst] = result
+	if dst, gives := c.Dst(); gives {
+		fr.regs[dst] = result
 	}
-	if c.Has(ir.FlagThrows) {
-		fr.regs[c.ErrorReg()] = value{n: err}
+	if errReg, throws := c.ErrReg(); throws {
+		fr.regs[errReg] = value{n: err}
 	}
 }
 
@@ -263,16 +342,16 @@ func (vm *vm) requireDisjoint(target *ast.FuncDecl, args []value) {
 	}
 }
 
-func compare(c ir.Instr, a, b int64) int64 {
+func compare(c *ir.CmpInstr, a, b int64) int64 {
 	var less, equal bool
 	equal = a == b
-	if c.Has(ir.FlagUnsigned) {
+	if c.Unsigned() {
 		less = uint64(a) < uint64(b)
 	} else {
 		less = a < b
 	}
 	var result bool
-	switch c.CmpOp() {
+	switch c.Op() {
 	case ir.CmpEq:
 		result = equal
 	case ir.CmpNe:
@@ -286,7 +365,7 @@ func compare(c ir.Instr, a, b int64) int64 {
 	case ir.CmpGe:
 		result = !less
 	default:
-		panic(diag.Internal("interp: comparison %d", int(c.Sub)))
+		panic(diag.Internal("interp: comparison %d", int(c.Op())))
 	}
 	if result {
 		return 1
@@ -297,9 +376,10 @@ func compare(c ir.Instr, a, b int64) int64 {
 // binary computes an operation in a word, and gives whether the result fits it, which only a checked operation asks.
 // The range analysis proved that an operation without a check fits, and a guard before it rules out a divisor of 0 and a
 // negative shift count, so finding one is a compiler bug.
-func (vm *vm) binary(b ir.Instr, x, y int64) (int64, bool) {
-	unsigned, checked := b.Has(ir.FlagUnsigned), b.Has(ir.FlagChecked)
-	switch b.BinOp() {
+func (vm *vm) binary(b *ir.BinInstr, x, y int64) (int64, bool) {
+	_, checked := b.Fail()
+	unsigned := b.Unsigned()
+	switch b.Op() {
 	case ir.BinAdd:
 		r := x + y
 		return r, !checked || !(unsigned && uint64(r) < uint64(x) || !unsigned && (x^r)&(y^r) < 0)
@@ -321,12 +401,12 @@ func (vm *vm) binary(b ir.Instr, x, y int64) (int64, bool) {
 			panic(diag.Internal("interp: a division by 0 that no guard checked"))
 		}
 		if unsigned {
-			if b.BinOp() == ir.BinDiv {
+			if b.Op() == ir.BinDiv {
 				return int64(uint64(x) / uint64(y)), true
 			}
 			return int64(uint64(x) % uint64(y)), true
 		}
-		if b.BinOp() == ir.BinMod {
+		if b.Op() == ir.BinMod {
 			return x % y, true
 		}
 		if x == math.MinInt64 && y == -1 {
@@ -354,7 +434,7 @@ func (vm *vm) binary(b ir.Instr, x, y int64) (int64, bool) {
 		}
 		return r, shift(false, unsigned, r, y) == x
 	}
-	panic(diag.Internal("interp: operator %d", int(b.Sub)))
+	panic(diag.Internal("interp: operator %d", int(b.Op())))
 }
 
 func shift(left, unsigned bool, x, count int64) int64 {
@@ -377,20 +457,20 @@ func shift(left, unsigned bool, x, count int64) int64 {
 }
 
 // inRange is whether a value passes a guard.
-func inRange(g ir.Instr, v int64) bool {
-	switch g.GuardKind() {
+func inRange(g *ir.GuardInstr, v int64) bool {
+	switch g.Kind() {
 	case ir.GuardNonNegative:
 		return v >= 0
 	case ir.GuardSignedAtLeast:
-		return v >= g.Imm
+		return v >= g.Bound()
 	case ir.GuardSignedAtMost:
-		return v <= g.Imm
+		return v <= g.Bound()
 	case ir.GuardUnsignedAtLeast:
-		return uint64(v) >= uint64(g.Imm)
+		return uint64(v) >= uint64(g.Bound())
 	case ir.GuardUnsignedAtMost:
-		return uint64(v) <= uint64(g.Imm)
+		return uint64(v) <= uint64(g.Bound())
 	case ir.GuardNonZero:
 		return v != 0
 	}
-	panic(diag.Internal("interp: guard %d", int(g.Sub)))
+	panic(diag.Internal("interp: guard %d", int(g.Kind())))
 }

@@ -35,6 +35,8 @@ type codegen struct {
 	rtAlloc *Label
 	f       *ir.IrFunction
 	labels  []Label
+	// next is the block whose code follows the block being written, which a jump to it falls through to, or NoBlock.
+	next ir.BlockID
 }
 
 func EmitModule(fns []*ir.IrFunction) *CodeUnit {
@@ -44,7 +46,7 @@ func EmitModule(fns []*ir.IrFunction) *CodeUnit {
 		instrs += len(f.Instrs) + len(f.Blocks)
 		for _, in := range f.Instrs {
 			symbols += symbolFixups(in)
-			if in.Op == ir.OpStr {
+			if in.Op() == ir.OpStr {
 				data++
 			}
 		}
@@ -65,7 +67,7 @@ func EmitModule(fns []*ir.IrFunction) *CodeUnit {
 // unit's fixups are sized from it, and from the strings it loads, because a slice grown by appending allocates several
 // times its final size.
 func symbolFixups(in ir.Instr) int {
-	switch in.Op {
+	switch in.Op() {
 	case ir.OpLoadGlobal, ir.OpCall, ir.OpCallRuntime, ir.OpAlloc, ir.OpDrop, ir.OpDropSlot, ir.OpDropAt, ir.OpCopy:
 		return 1
 	}
@@ -112,14 +114,15 @@ func (g *codegen) function(fn *ir.IrFunction) {
 
 	for i := range fn.Blocks {
 		a.Bind(&g.labels[i])
-		for _, instr := range fn.BlockInstrs(i) {
-			g.instr(instr)
+		instrs := fn.BlockInstrs(i)
+		for k := range instrs {
+			ir.VisitInstr(g, &instrs[k])
 		}
-		next := ir.BlockID(-1)
+		g.next = ir.NoBlock
 		if i+1 < len(fn.Blocks) {
-			next = ir.BlockID(i + 1)
+			g.next = ir.BlockID(i + 1)
 		}
-		g.term(fn.Blocks[i].Term, next)
+		ir.VisitTerm(g, &fn.Blocks[i].Term)
 	}
 }
 
@@ -165,7 +168,7 @@ func (g *codegen) allocateFrame(bytes int) {
 	}
 }
 
-func (g *codegen) call(symbol string, args []ir.V, dst ir.V) {
+func (g *codegen) call(symbol string, args []ir.V, dst ir.V, gives bool) {
 	a := g.asm
 	for _, arg := range args {
 		g.get(Rax, arg)
@@ -175,7 +178,7 @@ func (g *codegen) call(symbol string, args []ir.V, dst ir.V) {
 	if len(args) > 0 {
 		a.AddImm(Rsp, len(args)*wordBytes)
 	}
-	if dst != ir.NoReg {
+	if gives {
 		g.put(dst, Rax)
 	}
 }
@@ -188,164 +191,216 @@ func (g *codegen) callRoutine(kind routineKind, t ast.Ty) {
 	g.asm.AddImm(Rsp, wordBytes)
 }
 
-func (g *codegen) instr(x ir.Instr) {
+// The Visit methods are codegen's ir.InstrVisitor and ir.TermVisitor: each writes the code of one operation.
+
+func (g *codegen) VisitConst(x *ir.ConstInstr) {
+	g.asm.MovImm(Rax, x.Value())
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitStr(x *ir.StrInstr) {
+	g.asm.LeaData(Rax, g.u.Data.String(x.Text(g.f)))
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitLoadSlot(x *ir.LoadSlotInstr) {
+	g.asm.Load(Rax, Rbp, slotOffset(x.Slot()))
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitMoveSlot(x *ir.MoveSlotInstr) {
 	a := g.asm
-	switch x.Op {
-	case ir.OpConst:
-		a.MovImm(Rax, x.Imm)
-		g.put(x.Dst, Rax)
-	case ir.OpStr:
-		a.LeaData(Rax, g.u.Data.String(g.f.Text(x)))
-		g.put(x.Dst, Rax)
-	case ir.OpLoadSlot:
-		a.Load(Rax, Rbp, slotOffset(x.Slot()))
-		g.put(x.Dst, Rax)
-	case ir.OpMoveSlot:
-		a.Load(Rax, Rbp, slotOffset(x.Slot()))
-		g.put(x.Dst, Rax)
-		a.Xor(Rcx, Rcx)
-		a.Store(Rbp, slotOffset(x.Slot()), Rcx)
-	case ir.OpStoreSlot:
-		g.get(Rax, x.A)
-		a.Store(Rbp, slotOffset(x.Slot()), Rax)
-	case ir.OpSlotAddr:
-		a.Lea(Rax, Rbp, slotOffset(x.Slot()))
-		g.put(x.Dst, Rax)
-	case ir.OpLoadParam:
-		a.Load(Rax, Rbp, g.paramOffset(int(x.Imm)))
-		g.put(x.Dst, Rax)
-	case ir.OpLoadField:
-		g.get(Rax, x.A)
-		a.Load(Rax, Rax, x.Offset())
-		g.put(x.Dst, Rax)
-	case ir.OpStoreField:
-		g.get(Rcx, x.A)
-		g.get(Rax, x.B)
-		a.Store(Rcx, x.Offset(), Rax)
-	case ir.OpFieldAddr:
-		g.get(Rax, x.A)
-		a.Lea(Rax, Rax, x.Offset())
-		g.put(x.Dst, Rax)
-	case ir.OpLoadAt:
-		g.get(Rax, x.A)
-		a.Load(Rax, Rax, 0)
-		g.put(x.Dst, Rax)
-	case ir.OpMoveAt:
-		g.get(Rcx, x.A)
-		a.Load(Rax, Rcx, 0)
-		g.put(x.Dst, Rax)
-		a.Xor(Rdx, Rdx)
-		a.Store(Rcx, 0, Rdx)
-	case ir.OpDrop:
-		g.get(Rax, x.A)
-		g.callRoutine(dropRoutine, g.f.TypeOf(x))
-	case ir.OpDropSlot:
-		a.Load(Rax, Rbp, slotOffset(x.Slot()))
-		a.Xor(Rcx, Rcx)
-		a.Store(Rbp, slotOffset(x.Slot()), Rcx)
-		g.callRoutine(dropRoutine, g.f.TypeOf(x))
-	case ir.OpDropAt:
-		g.get(Rcx, x.A)
-		a.Load(Rax, Rcx, 0)
-		a.Xor(Rdx, Rdx)
-		a.Store(Rcx, 0, Rdx)
-		g.callRoutine(dropRoutine, g.f.TypeOf(x))
-	case ir.OpCopy:
-		g.get(Rax, x.A)
-		g.callRoutine(copyRoutine, g.f.TypeOf(x))
-		g.put(x.Dst, Rax)
-	case ir.OpStoreAt:
-		g.get(Rcx, x.A)
-		g.get(Rax, x.B)
-		a.Store(Rcx, 0, Rax)
-	case ir.OpLoadGlobal:
-		a.LoadSymbol(Rax, x.Symbol().String())
-		g.put(x.Dst, Rax)
-	case ir.OpBin:
-		g.get(Rax, x.A)
-		g.get(Rcx, x.B)
-		g.binary(x)
-		g.put(x.Dst, Rax)
-	case ir.OpCmp:
-		g.get(Rax, x.A)
-		g.get(Rcx, x.B)
-		a.Cmp(Rax, Rcx)
-		a.SetccRax(g.condition(x))
-		g.put(x.Dst, Rax)
-	case ir.OpNeg:
-		g.get(Rax, x.A)
-		a.Neg(Rax)
-		if fail, ok := x.Fail(); ok {
-			a.Jcc(CcO, &g.labels[fail])
-		}
-		g.put(x.Dst, Rax)
-	case ir.OpNot:
-		g.get(Rax, x.A)
-		a.Not(Rax)
-		g.put(x.Dst, Rax)
-	case ir.OpGuard:
-		g.guard(x)
-	case ir.OpAlloc:
-		a.MovImm(Rax, x.Imm)
-		a.Push(Rax)
-		a.Call(g.rtAlloc)
-		a.AddImm(Rsp, wordBytes)
-		g.put(x.Dst, Rax)
-	case ir.OpCall:
-		g.call(functionSymbol(g.f.Callee(x)), g.f.CallArgs(x), x.Dst)
-		if x.Has(ir.FlagThrows) {
-			g.put(x.ErrorReg(), errorReg)
-		}
-	case ir.OpCallRuntime:
-		g.call(x.Symbol().String(), g.f.CallArgs(x), x.Dst)
-	case ir.OpWhen:
-		panic(diag.Internal("codegen: a behaviour has no native code, and the driver refuses it before code is generated"))
-	default:
-		panic(diag.Internal("codegen: unhandled opcode %d", int(x.Op)))
+	a.Load(Rax, Rbp, slotOffset(x.Slot()))
+	g.put(x.Dst(), Rax)
+	a.Xor(Rcx, Rcx)
+	a.Store(Rbp, slotOffset(x.Slot()), Rcx)
+}
+
+func (g *codegen) VisitStoreSlot(x *ir.StoreSlotInstr) {
+	g.get(Rax, x.Src())
+	g.asm.Store(Rbp, slotOffset(x.Slot()), Rax)
+}
+
+func (g *codegen) VisitSlotAddr(x *ir.SlotAddrInstr) {
+	g.asm.Lea(Rax, Rbp, slotOffset(x.Slot()))
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitLoadParam(x *ir.LoadParamInstr) {
+	g.asm.Load(Rax, Rbp, g.paramOffset(x.Param()))
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitLoadField(x *ir.LoadFieldInstr) {
+	g.get(Rax, x.Obj())
+	g.asm.Load(Rax, Rax, x.Offset())
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitStoreField(x *ir.StoreFieldInstr) {
+	g.get(Rcx, x.Obj())
+	g.get(Rax, x.Src())
+	g.asm.Store(Rcx, x.Offset(), Rax)
+}
+
+func (g *codegen) VisitFieldAddr(x *ir.FieldAddrInstr) {
+	g.get(Rax, x.Obj())
+	g.asm.Lea(Rax, Rax, x.Offset())
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitLoadAt(x *ir.LoadAtInstr) {
+	g.get(Rax, x.Addr())
+	g.asm.Load(Rax, Rax, 0)
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitMoveAt(x *ir.MoveAtInstr) {
+	a := g.asm
+	g.get(Rcx, x.Addr())
+	a.Load(Rax, Rcx, 0)
+	g.put(x.Dst(), Rax)
+	a.Xor(Rdx, Rdx)
+	a.Store(Rcx, 0, Rdx)
+}
+
+func (g *codegen) VisitDrop(x *ir.DropInstr) {
+	g.get(Rax, x.Src())
+	g.callRoutine(dropRoutine, x.Ty(g.f))
+}
+
+func (g *codegen) VisitDropSlot(x *ir.DropSlotInstr) {
+	a := g.asm
+	a.Load(Rax, Rbp, slotOffset(x.Slot()))
+	a.Xor(Rcx, Rcx)
+	a.Store(Rbp, slotOffset(x.Slot()), Rcx)
+	g.callRoutine(dropRoutine, x.Ty(g.f))
+}
+
+func (g *codegen) VisitDropAt(x *ir.DropAtInstr) {
+	a := g.asm
+	g.get(Rcx, x.Addr())
+	a.Load(Rax, Rcx, 0)
+	a.Xor(Rdx, Rdx)
+	a.Store(Rcx, 0, Rdx)
+	g.callRoutine(dropRoutine, x.Ty(g.f))
+}
+
+func (g *codegen) VisitCopy(x *ir.CopyInstr) {
+	g.get(Rax, x.Src())
+	g.callRoutine(copyRoutine, x.Ty(g.f))
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitStoreAt(x *ir.StoreAtInstr) {
+	g.get(Rcx, x.Addr())
+	g.get(Rax, x.Src())
+	g.asm.Store(Rcx, 0, Rax)
+}
+
+func (g *codegen) VisitLoadGlobal(x *ir.LoadGlobalInstr) {
+	g.asm.LoadSymbol(Rax, x.Symbol().String())
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitBin(x *ir.BinInstr) {
+	g.get(Rax, x.Left())
+	g.get(Rcx, x.Right())
+	g.binary(x)
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitCmp(x *ir.CmpInstr) {
+	g.get(Rax, x.Left())
+	g.get(Rcx, x.Right())
+	g.asm.Cmp(Rax, Rcx)
+	g.asm.SetccRax(condition(x))
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitNeg(x *ir.NegInstr) {
+	g.get(Rax, x.Src())
+	g.asm.Neg(Rax)
+	if fail, ok := x.Fail(); ok {
+		g.asm.Jcc(CcO, &g.labels[fail])
+	}
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitNot(x *ir.NotInstr) {
+	g.get(Rax, x.Src())
+	g.asm.Not(Rax)
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitAlloc(x *ir.AllocInstr) {
+	a := g.asm
+	a.MovImm(Rax, int64(x.Bytes()))
+	a.Push(Rax)
+	a.Call(g.rtAlloc)
+	a.AddImm(Rsp, wordBytes)
+	g.put(x.Dst(), Rax)
+}
+
+func (g *codegen) VisitCall(x *ir.CallInstr) {
+	dst, gives := x.Dst()
+	g.call(functionSymbol(x.Callee(g.f)), x.Args(g.f), dst, gives)
+	if err, throws := x.ErrReg(); throws {
+		g.put(err, errorReg)
 	}
 }
 
-func (g *codegen) condition(c ir.Instr) Cc {
-	switch c.CmpOp() {
+func (g *codegen) VisitCallRuntime(x *ir.CallRuntimeInstr) {
+	dst, gives := x.Dst()
+	g.call(x.Symbol().String(), x.Args(g.f), dst, gives)
+}
+
+func (g *codegen) VisitWhen(*ir.WhenInstr) {
+	panic(diag.Internal("codegen: a behaviour has no native code, and the driver refuses it before code is generated"))
+}
+
+func condition(c *ir.CmpInstr) Cc {
+	unsigned := c.Unsigned()
+	switch c.Op() {
 	case ir.CmpEq:
 		return CcE
 	case ir.CmpNe:
 		return CcNE
 	case ir.CmpLt:
-		if c.Has(ir.FlagUnsigned) {
+		if unsigned {
 			return CcB
 		}
 		return CcL
 	case ir.CmpLe:
-		if c.Has(ir.FlagUnsigned) {
+		if unsigned {
 			return CcBE
 		}
 		return CcLE
 	case ir.CmpGt:
-		if c.Has(ir.FlagUnsigned) {
+		if unsigned {
 			return CcA
 		}
 		return CcG
 	case ir.CmpGe:
-		if c.Has(ir.FlagUnsigned) {
+		if unsigned {
 			return CcAE
 		}
 		return CcGE
 	}
-	panic(diag.Internal("codegen: comparison %d", int(c.Sub)))
+	panic(diag.Internal("codegen: comparison %d", int(c.Op())))
 }
 
 // binary computes an operation on rax and rcx into rax. A checked one jumps to its failure block when the result does not
 // fit: the carry flag says so for an unsigned word and the overflow flag for a signed one.
-func (g *codegen) binary(b ir.Instr) {
+func (g *codegen) binary(b *ir.BinInstr) {
 	a := g.asm
-	unsigned := b.Has(ir.FlagUnsigned)
+	unsigned := b.Unsigned()
 	overflow := CcO
 	if unsigned {
 		overflow = CcB
 	}
 	fail, checked := b.Fail()
-	switch b.BinOp() {
+	switch b.Op() {
 	case ir.BinAdd:
 		a.Add(Rax, Rcx)
 	case ir.BinSub:
@@ -357,7 +412,7 @@ func (g *codegen) binary(b ir.Instr) {
 			a.Imul(Rax, Rcx)
 		}
 	case ir.BinDiv, ir.BinMod:
-		g.divide(b.BinOp() == ir.BinMod, unsigned, fail, checked)
+		g.divide(b.Op() == ir.BinMod, unsigned, fail, checked)
 		return
 	case ir.BinAnd:
 		a.And(Rax, Rcx)
@@ -366,10 +421,10 @@ func (g *codegen) binary(b ir.Instr) {
 	case ir.BinXor:
 		a.Xor(Rax, Rcx)
 	case ir.BinShl, ir.BinShr:
-		g.shift(b.BinOp() == ir.BinShl, unsigned, fail, checked)
+		g.shift(b.Op() == ir.BinShl, unsigned, fail, checked)
 		return
 	default:
-		panic(diag.Internal("codegen: operator %d", int(b.Sub)))
+		panic(diag.Internal("codegen: operator %d", int(b.Op())))
 	}
 	if checked {
 		a.Jcc(overflow, &g.labels[fail])
@@ -456,11 +511,11 @@ func (g *codegen) shift(left, unsigned bool, fail ir.BlockID, checked bool) {
 }
 
 // guard jumps to the guard's failure block unless the value is in its range.
-func (g *codegen) guard(x ir.Instr) {
+func (g *codegen) VisitGuard(x *ir.GuardInstr) {
 	a := g.asm
-	fail, _ := x.Fail()
-	g.get(Rax, x.A)
-	switch x.GuardKind() {
+	fail := x.Fail()
+	g.get(Rax, x.Src())
+	switch x.Kind() {
 	case ir.GuardNonNegative:
 		a.Test(Rax, Rax)
 		a.Jcc(CcS, &g.labels[fail])
@@ -470,10 +525,10 @@ func (g *codegen) guard(x ir.Instr) {
 		a.Jcc(CcE, &g.labels[fail])
 		return
 	}
-	a.MovImm(Rcx, x.Imm)
+	a.MovImm(Rcx, x.Bound())
 	a.Cmp(Rax, Rcx)
 	var cc Cc
-	switch x.GuardKind() {
+	switch x.Kind() {
 	case ir.GuardSignedAtLeast:
 		cc = CcL
 	case ir.GuardSignedAtMost:
@@ -483,52 +538,55 @@ func (g *codegen) guard(x ir.Instr) {
 	case ir.GuardUnsignedAtMost:
 		cc = CcA
 	default:
-		panic(diag.Internal("codegen: guard %d", int(x.Sub)))
+		panic(diag.Internal("codegen: guard %d", int(x.Kind())))
 	}
 	a.Jcc(cc, &g.labels[fail])
 }
 
-func (g *codegen) term(t ir.Term, next ir.BlockID) {
-	a := g.asm
-	switch t.Kind {
-	case ir.TermJump:
-		g.jumpUnlessNext(t.Then, next)
-	case ir.TermBranch:
-		g.get(Rax, t.Value)
-		a.Test(Rax, Rax)
-		a.Jcc(CcE, &g.labels[t.Else])
-		g.jumpUnlessNext(t.Then, next)
-	case ir.TermSwitch:
-		g.get(Rax, t.Value)
-		for _, c := range g.f.Cases[t.First : t.First+t.Count] {
-			a.MovImm(Rcx, c.Value)
-			a.Cmp(Rax, Rcx)
-			a.Jcc(CcE, &g.labels[c.Target])
-		}
-		g.jumpUnlessNext(t.Then, next)
-	case ir.TermRet:
-		g.get(Rax, t.Value)
-		if g.f.Decl.ErrorType != nil {
-			a.Xor(errorReg, errorReg)
-		}
-		a.Mov(Rsp, Rbp)
-		a.Pop(Rbp)
-		a.Ret()
-	case ir.TermThrow:
-		g.get(errorReg, t.Value)
-		a.Xor(Rax, Rax)
-		a.Mov(Rsp, Rbp)
-		a.Pop(Rbp)
-		a.Ret()
-	case ir.TermTrap:
-		a.Raw(trapOpcodeFirst, trapOpcodeNext)
-	default:
-		panic(diag.Internal("codegen: block of %s has no terminator", g.f.Decl.Symbol()))
-	}
+func (g *codegen) VisitJump(t *ir.JumpTerm) { g.jumpUnlessNext(t.Target()) }
+
+func (g *codegen) VisitBranch(t *ir.BranchTerm) {
+	g.get(Rax, t.Cond())
+	g.asm.Test(Rax, Rax)
+	g.asm.Jcc(CcE, &g.labels[t.IfFalse()])
+	g.jumpUnlessNext(t.IfTrue())
 }
 
-func (g *codegen) jumpUnlessNext(target, next ir.BlockID) {
-	if target != next {
+func (g *codegen) VisitSwitch(t *ir.SwitchTerm) {
+	a := g.asm
+	g.get(Rax, t.Value())
+	for _, c := range t.Cases(g.f) {
+		a.MovImm(Rcx, c.Value)
+		a.Cmp(Rax, Rcx)
+		a.Jcc(CcE, &g.labels[c.Target])
+	}
+	g.jumpUnlessNext(t.Fallback())
+}
+
+func (g *codegen) VisitRet(t *ir.RetTerm) {
+	a := g.asm
+	g.get(Rax, t.Value())
+	if g.f.Decl.ErrorType != nil {
+		a.Xor(errorReg, errorReg)
+	}
+	a.Mov(Rsp, Rbp)
+	a.Pop(Rbp)
+	a.Ret()
+}
+
+func (g *codegen) VisitThrow(t *ir.ThrowTerm) {
+	a := g.asm
+	g.get(errorReg, t.Err())
+	a.Xor(Rax, Rax)
+	a.Mov(Rsp, Rbp)
+	a.Pop(Rbp)
+	a.Ret()
+}
+
+func (g *codegen) VisitTrap(*ir.TrapTerm) { g.asm.Raw(trapOpcodeFirst, trapOpcodeNext) }
+
+func (g *codegen) jumpUnlessNext(target ir.BlockID) {
+	if target != g.next {
 		g.asm.Jmp(&g.labels[target])
 	}
 }

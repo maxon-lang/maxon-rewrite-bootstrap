@@ -250,10 +250,10 @@ func (vm *vm) abort() {
 }
 
 // schedule is a `when`: the behaviour joins the queue of each cown it names and holds a count on each until it has run.
-func (vm *vm) schedule(fr *frame, w *ir.Instr) {
+func (vm *vm) schedule(fr *frame, w *ir.WhenInstr) {
 	vm.tracking = true
 	vm.concurrent = true
-	body, cownRegs, captureRegs := fr.fn.WhenParts(*w)
+	body, cownRegs, captureRegs := w.Body(fr.fn), w.Cowns(fr.fn), w.Captures(fr.fn)
 	cowns := make([]*object, len(cownRegs))
 	for i, r := range cownRegs {
 		o := vm.live(fr.regs[r], "a behaviour's cown")

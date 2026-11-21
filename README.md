@@ -165,13 +165,13 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar and the `Scratch` a worker reuses to read, lex and parse each module, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
 | `resolve` | name resolution, and binding each `where` constraint to its type parameter, into the module's `Resolution` | `ast`, `diag` |
 | `check` | the type checker, the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag` |
-| `ir` | the IR (fixed-size records in per-worker arenas), its builder and printer, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag` |
+| `ir` | the IR (fixed-size records in per-worker arenas, with the views, visitors, printer and cache codec generated from the IR table), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, and the body of each behaviour included), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `cache`, `diag` |
 | `backend` | the x64 encoder, codegen, the runtime unit and the array runtime unit, the drop and copy routine of each type, the linker and the PE writer, and the format a code unit is written in for the build cache | `ast`, `cache`, `diag`, `ir`, `par` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives in Go and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `diag`, `ir` |
 | `driver` | `Compile`: discovers the project and runs every module's stages, parse to generate, as one scheduled phase (the modules phase), with the build cache's export summaries, keys and entries, then the routines and the link; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
-that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/diaggen` the one that generates the error code constants and message functions of `internal/diag` and `self/diag` from `internal/diag/codes.tsv` and `internal/diag/messages.tsv`, `internal/x64gen` the one that generates the x64 encoder of `self/backend` from its instruction table, and `cmd/convert` is the standalone tool that converts existing Maxon source
+that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/irgen` the one that generates the IR's records and what reads them from the table of IR operations, `internal/diaggen` the one that generates the error code constants and message functions of `internal/diag` and `self/diag` from `internal/diag/codes.tsv` and `internal/diag/messages.tsv`, `internal/x64gen` the one that generates the x64 encoder of `self/backend` from its instruction table, and `cmd/convert` is the standalone tool that converts existing Maxon source
 to minimaxon syntax and layout; nothing imports either.
 
 ### Generated code
@@ -234,6 +234,21 @@ The error codes are a table, `internal/diag/codes.tsv`: each row is a constant, 
 
 The text of a diagnostic that carries a maxon code is maxon's, so that a spec's expected stderr matches byte for byte. `internal/diag/messages.tsv` holds it, one row per situation maxon words alone: a function name, the code constant and maxon's message with `{placeholders}`. The same `go generate` writes a function per row to `internal/diag/messages_gen.go` (`diag.UndefinedFunction(name)`) and to `self/diag/messages_gen.maxon`, which return the text while the raise site still chooses where the error is. A situation that only minimaxon refuses, or that maxon words for a rule minimaxon changed, keeps its own text at the place that raises it.
 
+The IR has one table, `internal/irgen/table.go`: a row per instruction and terminator with its operands (each a name,
+a kind such as register, slot, block, flag or pool index, and the field of the record that holds it), what it gives
+(a register, an optional one or nothing), its effects (reads or writes memory, calls, allocates, frees, leaves the
+function; one with a failure block may also fail) and the template the printer writes it by, plus the small enums
+(`BinOp`, `CmpOp`, `GuardKind`) and the flags. From it `go generate ./internal/ir` writes `internal/ir/ir_gen.go`:
+the `Opcode` and `TermKind` enums, the `Instr` and `Term` records, a constructor per row (unexported, for the
+builder, when it indexes a pool), a view per row with an accessor per operand (`ir.BinInstr.Left()`), `Def`, `Fail`,
+`Effects` and `Successors`, `InstrString` and `TermString` (the `--emit-ir` text), `EncodeInstr`/`DecodeInstr` and
+`EncodeTerm`/`DecodeTerm` in the build cache's wire format, and the visitors `InstrVisitor`, `InstrStateVisitor[S, R]`,
+`TermVisitor` and `TermStateVisitor[S, R]`, whose dispatch codegen and the interpreter go through. It writes the same
+enums, records, constructors, getters (`binLeft(x)`), printer (`instrText`, `termText`) and visitors (interfaces with a
+generic dispatch) to `self/ir/ir_gen.maxon`; `builtingen` writes self's `Rt` beside it (`self/ir/runtime_gen.maxon`).
+The pools and the texts of a function's parts stay hand-written (`internal/ir/ir.go`, the builder,
+`self/ir/function.maxon`).
+
 The x64 encoder is generated from an instruction table, `internal/x64gen/table.go`, into `self/backend/x64_gen.maxon`. The
 Go compiler's own backend (`internal/backend/x64.go`) is not generated and goes when `self/` compiles itself; the table
 is the encoder of `self/backend` from the start, and a test proves it against `x64.go`. A row is a form, one instruction with
@@ -267,8 +282,8 @@ from none to 32 bits, bases of `rsp`, `rbp`, `r12` and `r13`, immediates at the 
 once from the table and once through `internal/backend`'s `Asm`, and compares the bytes. `self/main.maxon`'s `selftest`
 runs the generated Maxon on a set of those encodings (`golden` in the test) and compares them with the same bytes.
 
-`go test ./internal/grammargen`, `go test ./internal/builtingen` and `go test ./internal/x64gen` fail if a generated file is not what the grammar or
-the table generates. A package exports only what another
+`go test ./internal/grammargen`, `go test ./internal/builtingen`, `go test ./internal/irgen` and `go test ./internal/x64gen` fail if a
+generated file is not what the grammar or the table generates. A package exports only what another
 package uses. What resolution and the check of the bodies decide is not in the nodes but in tables beside them (see
 "The AST"); the declarations, which are structs, still carry the semantic types that declare fills in, which is why `ast` holds both.
 Moving those into tables too, as `go/ast` and `go/types` do, would let the two separate.
@@ -817,10 +832,12 @@ The checker works on the AST, which mirrors what the author wrote. Everything af
   error beside its value, 0 when it returned and the error's case plus 1 when it failed (`rdx` in the executable), and
   a `call` of one names the register that receives it (`error %7`). An allocation is `alloc`.
 - An instruction is one fixed-size record (`ir.Instr`, 32 bytes): an opcode, three registers, a small index and an
-  immediate, whose meaning the opcode says (`internal/ir/ir.go` has the table), and a terminator is a record of its
+  immediate, whose meaning the opcode says (the IR table, `internal/irgen/table.go`, has it, and the view of each opcode
+  such as `ir.BinInstr` reads the fields by their operands' names), and a terminator is a record of its
   own (`ir.Term`). What does not fit a record (a type, a callee, a string, the arguments of a call, the cases of a
   switch) is in the function's pools, which an instruction indexes; a block, a register, a slot and a case are indexes
-  too. The opcodes are a closed set, and a pass that handles them all ends in a panic for an opcode it does not know.
+  too. The opcodes are a closed set, and a pass that handles them all is an `ir.InstrVisitor` (and `ir.TermVisitor`),
+  so an opcode added to the table fails the build there; each dispatch ends in a panic for one it does not know.
   A record per instruction, instead of a struct behind an interface, is what lets a function's IR be built in buffers
   that the next function builds over (below): an interface value is a heap object for each instruction, which is
   allocation the compiler cannot reuse, and with the collector off every allocated byte is a page the operating
@@ -1916,8 +1933,8 @@ A typical change touches one file per stage:
    `consume`, which is what marks it for lowering.
 5. **Lowering:** `Visit<Node>` on `Lowerer`, built from the existing instructions where it can. A value it makes that
    nothing consumes is a temporary, and a place it declares or assigns drops what it held (see "Drops"). A new
-   instruction needs a case in `codegen.instr` (`internal/backend`), `instrText` (`internal/ir`) and `exec` and
-   `destination` (`internal/interp`) as well.
+   instruction is a row of the IR table (`internal/irgen/table.go`, see "Generated code"); after `go generate
+   ./internal/ir`, `go build` names its missing `Visit` method in codegen (`internal/backend`) and the interpreter.
 6. **Tests:** a unit test in the package that changed, a `tests/run/` program for the behaviour (it runs natively
    and under the interpreter), and a `tests/errors/` program for each diagnostic. A new construct that the memory
    model's rules cover also goes into the program generator (`internal/interp/generator_*_test.go`).

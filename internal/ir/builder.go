@@ -113,11 +113,11 @@ func (b *Builder) Emit(block BlockID, i Instr) {
 func (b *Builder) Terminate(block BlockID, t Term) { b.terms[block] = t }
 
 // Terminated is whether a block has been ended.
-func (b *Builder) Terminated(block BlockID) bool { return b.terms[block].Kind != termNone }
+func (b *Builder) Terminated(block BlockID) bool { return b.terms[block].kind != termNone }
 
 func (b *Builder) Str(dst V, text string) Instr {
 	b.F.Strings = append(b.F.Strings, text)
-	return Instr{Op: OpStr, Dst: dst, C: int32(len(b.F.Strings) - 1)}
+	return newStr(dst, int32(len(b.F.Strings)-1))
 }
 
 func (b *Builder) arguments(args []V) (start V, count V) {
@@ -131,35 +131,32 @@ func (b *Builder) callee(target *ast.FuncDecl) int32 {
 	return int32(len(b.F.Callees) - 1)
 }
 
-func (b *Builder) typed(op Opcode, ty ast.Ty) Instr {
+func (b *Builder) typed(ty ast.Ty) int32 {
 	b.F.Types = append(b.F.Types, ty)
-	return Instr{Op: op, C: int32(len(b.F.Types) - 1)}
+	return int32(len(b.F.Types) - 1)
 }
 
 // Call calls a function; dst is NoReg for one whose value nothing reads.
 func (b *Builder) Call(dst V, target *ast.FuncDecl, args []V) Instr {
-	i := Instr{Op: OpCall, Dst: dst, C: b.callee(target)}
-	i.A, i.B = b.arguments(args)
-	return i
+	return b.ThrowingCall(dst, target, args, NoReg)
 }
 
 // ThrowingCall calls a function that throws, whose error err receives.
 func (b *Builder) ThrowingCall(dst V, target *ast.FuncDecl, args []V, err V) Instr {
-	i := b.Call(dst, target, args)
-	i.Flags |= FlagThrows
-	i.Imm = int64(err)
-	return i
+	callee := b.callee(target)
+	start, count := b.arguments(args)
+	return newCall(dst, callee, start, count, err)
 }
 
 // CallRuntime calls a runtime entry. routine is the function the entry stores to call later, nil for every entry but the
 // one that makes a cown.
 func (b *Builder) CallRuntime(dst V, symbol Rt, args []V, routine *ast.FuncDecl) Instr {
-	i := Instr{Op: OpCallRuntime, Dst: dst, Imm: int64(symbol), C: NoRoutine}
-	i.A, i.B = b.arguments(args)
+	start, count := b.arguments(args)
+	stored := int32(NoRoutine)
 	if routine != nil {
-		i.C = b.callee(routine)
+		stored = b.callee(routine)
 	}
-	return i
+	return newCallRuntime(dst, symbol, start, count, stored)
 }
 
 // Behaviour adds the body of a `when` to the function, which the instruction that schedules it names by the index this
@@ -171,34 +168,27 @@ func (b *Builder) Behaviour(body *IrFunction) int {
 
 // When schedules a behaviour that Behaviour added.
 func (b *Builder) When(behaviour int, cowns, captures []V) Instr {
-	i := Instr{Op: OpWhen, Imm: int64(behaviour), C: int32(len(captures))}
-	i.A, i.B = b.arguments(cowns)
+	start, count := b.arguments(cowns)
 	b.F.Args = append(b.F.Args, captures...)
-	return i
+	return newWhen(behaviour, start, count, int32(len(captures)))
 }
 
 // Drop drops the owned value in a register, such as a temporary that nothing took, a removed element, or the old value of
 // a place just read. Dropping a value drops what it owns, deeply by type, and a place that holds no value is dropped as a
 // no-op, so a drop at the end of a scope needs no knowledge of the path that led there.
 func (b *Builder) Drop(src V, ty ast.Ty) Instr {
-	i := b.typed(OpDrop, ty)
-	i.A = src
-	return i
+	return newDrop(src, b.typed(ty))
 }
 
 // DropSlot drops what a slot owns, if anything, and leaves it empty.
 func (b *Builder) DropSlot(slot int, ty ast.Ty) Instr {
-	i := b.typed(OpDropSlot, ty)
-	i.Imm = int64(slot)
-	return i
+	return newDropSlot(slot, b.typed(ty))
 }
 
 // DropAt drops what the address holds, if anything, and leaves it empty: the old value of a field, an element or a
 // mutates parameter that is about to be assigned.
 func (b *Builder) DropAt(addr V, ty ast.Ty) Instr {
-	i := b.typed(OpDropAt, ty)
-	i.A = addr
-	return i
+	return newDropAt(addr, b.typed(ty))
 }
 
 // Copy is a deep copy of the owned value in src, which is left as it is: a new box for each record, union and array
@@ -206,9 +196,7 @@ func (b *Builder) DropAt(addr V, ty ast.Ty) Instr {
 // its own to free it. A frozen value or a cown reference copies as another owner of the same box. ty is the type of the
 // value, with an instance's type arguments applied, which is what tells the copy where the managed words of each box are.
 func (b *Builder) Copy(dst, src V, ty ast.Ty) Instr {
-	i := b.typed(OpCopy, ty)
-	i.Dst, i.A = dst, src
-	return i
+	return newCopy(dst, src, b.typed(ty))
 }
 
 // Switch is a terminator that goes to the target of the value that matches, or to def.
@@ -217,26 +205,7 @@ func (b *Builder) Switch(value V, values []int64, targets []BlockID, def BlockID
 	for i, v := range values {
 		b.F.Cases = append(b.F.Cases, SwitchCase{Value: v, Target: targets[i]})
 	}
-	return Term{Kind: TermSwitch, Value: value, Then: def, First: int32(first), Count: int32(len(values))}
-}
-
-// successors calls visit for each block that a block can go to.
-func (b *Builder) successors(t Term, visit func(BlockID)) {
-	switch t.Kind {
-	case TermJump:
-		visit(t.Then)
-	case TermBranch:
-		visit(t.Then)
-		visit(t.Else)
-	case TermSwitch:
-		for _, c := range b.F.Cases[t.First : t.First+t.Count] {
-			visit(c.Target)
-		}
-		visit(t.Then)
-	case TermRet, TermTrap, TermThrow:
-	default:
-		panic(diag.Internal("a block has no terminator"))
-	}
+	return newSwitch(value, int32(first), int32(len(values)), def)
 }
 
 // failEdges lists, for each block, the blocks its instructions can fail to.
@@ -282,7 +251,7 @@ func (b *Builder) markReachable() {
 	for len(b.work) > 0 {
 		blk := b.work[len(b.work)-1]
 		b.work = b.work[:len(b.work)-1]
-		b.successors(b.terms[blk], visit)
+		b.F.Successors(b.terms[blk], visit)
 		for _, fail := range b.edges[b.edgeStart[blk]:b.edgeStart[blk+1]] {
 			visit(fail)
 		}
@@ -324,13 +293,13 @@ func (b *Builder) Finish(a *Arena) *IrFunction {
 			id := b.newID[blk]
 			blocks[id].First = b.places[blk]
 			blocks[id].End = b.places[blk] + b.counts[blk]
-			blocks[id].Term = b.remapped(b.terms[blk])
+			blocks[id].Term = b.terms[blk].renumbered(b.newID)
 		}
 	}
 	for i, in := range b.instrs {
 		if blk := b.instrBlock[i]; b.reached[blk] {
 			if fail, ok := in.Fail(); ok {
-				in.C = int32(b.newID[fail])
+				in.setFail(b.newID[fail])
 			}
 			instrs[b.places[blk]] = in
 			b.places[blk]++
@@ -352,31 +321,14 @@ func (b *Builder) Finish(a *Arena) *IrFunction {
 	return f
 }
 
-// remapped is a terminator with its targets numbered as in the kept blocks. The cases of a switch are renumbered in the
-// function's pool afterwards, once, by renumberCases.
-func (b *Builder) remapped(t Term) Term {
-	switch t.Kind {
-	case TermJump:
-		t.Then = b.newID[t.Then]
-	case TermBranch:
-		t.Then, t.Else = b.newID[t.Then], b.newID[t.Else]
-	case TermSwitch:
-		t.Then = b.newID[t.Then]
-	case TermRet, TermTrap, TermThrow:
-	default:
-		panic(diag.Internal("a block has no terminator"))
-	}
-	return t
-}
-
 // renumberCases numbers the targets of the cases that the kept switches use.
 func (b *Builder) renumberCases(f *IrFunction) {
 	for blk := range f.Blocks {
-		t := f.Blocks[blk].Term
-		if t.Kind != TermSwitch {
+		t := &f.Blocks[blk].Term
+		if t.kind != TermSwitch {
 			continue
 		}
-		cases := f.Cases[t.First : t.First+t.Count]
+		cases := (*SwitchTerm)(t).Cases(f)
 		for i := range cases {
 			cases[i].Target = b.newID[cases[i].Target]
 		}
