@@ -11,15 +11,15 @@ type LookupResult
 	export var errCode as String
 	export var errMsg as String
 
-	export static function hit(consumes d ast.DeclRef) returns LookupResult
+	static function hit(consumes d ast.DeclRef) returns LookupResult
 		return LookupResult{found: true, decl: d, hasErr: false, errCode: "", errMsg: ""}
 	end 'hit'
 
-	export static function miss() returns LookupResult
+	static function miss() returns LookupResult
 		return LookupResult{found: false, decl: ast.DeclRef.make(0 as diag.ModuleID, ordinal: 0 as ast.DeclOrdinal), hasErr: false, errCode: "", errMsg: ""}
 	end 'miss'
 
-	export static function fail(consumes code String, consumes msg String) returns LookupResult
+	static function fail(consumes code String, consumes msg String) returns LookupResult
 		return LookupResult{found: false, decl: ast.DeclRef.make(0 as diag.ModuleID, ordinal: 0 as ast.DeclOrdinal), hasErr: true, errCode: code, errMsg: msg}
 	end 'fail'
 end 'LookupResult'
@@ -28,7 +28,7 @@ type Segment
 	export var name as String
 	export var node as ast.NodeID
 
-	export static function make(consumes name String, node ast.NodeID) returns Segment
+	static function make(consumes name String, node ast.NodeID) returns Segment
 		return Segment{name: name, node: node}
 	end 'make'
 end 'Segment'
@@ -44,7 +44,7 @@ type Resolver
 	export var typeParams as TypeParamMap
 	export var whenDepth as Count
 
-	export static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
+	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
 		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.new(), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), whenDepth: 0 as Count}
 	end 'make'
 end 'Resolver'
@@ -72,15 +72,30 @@ function isDeclVisible(r Resolver, p ast.Project, ref ast.DeclRef) returns bool
 	if ref.module == r.modID or ref.module == diag.stdlibID 'ownOrStd'
 		return true
 	end 'ownOrStd'
-	let mIdx = ast.modIndex(ref.module)
-	return p.modules[mIdx].decls[ref.ordinal as Count].isExported()
+	let owner = p.modules[ast.modIndex(ref.module)].path.copy()
+	let from = p.modules[ast.modIndex(r.modID)].path.copy()
+	return ast.isVisible(ast.moduleDecl(p, ref: ref).level(), owner: ref.module, ownerPath: owner, from: r.modID, fromPath: from)
 end 'isDeclVisible'
 
-function hiddenMessage(p ast.Project, ref ast.DeclRef) returns String
-	let mIdx = ast.modIndex(ref.module)
-	let dName = p.modules[mIdx].decls[ref.ordinal as Count].name()
-	return "'{dName}' is not exported from module {p.modules[mIdx].display()}"
+// hiddenMessage is the message for naming, from the resolver's module, a declaration that isDeclVisible refused.
+function hiddenMessage(r Resolver, p ast.Project, ref ast.DeclRef) returns String
+	let d = ast.moduleDecl(p, ref: ref)
+	let dName = d.name()
+	let from = describeModule(p, modID: r.modID)
+	if d.level() == ast.Visibility.unexported 'priv'
+		return "'{dName}' is not exported from {describeModule(p, modID: ref.module)}: mark it 'export' to use it from {from}"
+	end 'priv'
+	let parent = ast.parentPath(p.modules[ast.modIndex(ref.module)].path)
+	return "'{dName}' is exported only to module {parent} and the modules under it: mark it 'public' to use it from {from}"
 end 'hiddenMessage'
+
+// describeModule names a module in a sentence.
+function describeModule(p ast.Project, modID diag.ModuleID) returns String
+	if modID != diag.stdlibID and p.modules[ast.modIndex(modID)].path == "" 'rt'
+		return "the project root"
+	end 'rt'
+	return "module {modDisplayFor(p, modID: modID)}"
+end 'describeModule'
 
 function modDisplayFor(p ast.Project, modID diag.ModuleID) returns String
 	if modID == diag.stdlibID 'std'
@@ -103,52 +118,14 @@ function takeLookup(mutates r Resolver, p ast.Project, consumes lr LookupResult,
 	return Option.some(lr.decl)
 end 'takeLookup'
 
+// bareLookup looks up a name written without a module: the module's own declaration, else a built-in. Another module's
+// declarations are always qualified, so resolving a module reads only the modules it names.
 function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
 	let ownIdx = ast.modIndex(r.modID)
 	match p.modules[ownIdx].names.get(name) 'own'
 		some(ord) then return LookupResult.hit(ast.DeclRef.make(r.modID, ordinal: ord))
 		none then _ = 0
 	end 'own'
-	let rootIdx = ast.modIndex(p.rootModule)
-	match p.modules[rootIdx].names.get(name) 'rt'
-		some(ord) then return checkRootLookup(r, p: p, ref: ast.DeclRef.make(p.rootModule, ordinal: ord))
-		none then _ = 0
-	end 'rt'
-	var vis = ast.DeclRefList.new()
-	var hiddenFirst as Option with ast.DeclRef
-	hiddenFirst = Option.none
-	match p.byName.get(name) 'glob'
-		some(allRefs) then collectVisible(r, p: p, allRefs: allRefs, vis: vis, hiddenFirst: hiddenFirst)
-		none then _ = 0
-	end 'glob'
-	if vis.count() == 1 'one'
-		return LookupResult.hit(vis[0].copy())
-	end 'one'
-	if vis.count() > 1 'ambig'
-		let firstIdx = ast.modIndex(vis[0].module)
-		var code = diag.errAmbiguousName
-		if p.modules[firstIdx].decls[vis[0].ordinal as Count].isType() 'ty'
-			code = diag.errAmbiguousType
-		end 'ty'
-		var whereBuf = Bytes.new()
-		for i in 0 upto vis.count() 'each'
-			if i > 0 'sep'
-				whereBuf.appendString(", ")
-			end 'sep'
-			let mi = ast.modIndex(vis[i].module)
-			let mp = p.modules[mi].path.copy()
-			if mp == "" 'emptyP'
-				whereBuf.appendString(name)
-			end 'emptyP' else 'modP'
-				whereBuf.appendString("{mp}.{name}")
-			end 'modP'
-		end 'each'
-		return LookupResult.fail(code, msg: "'{name}' is ambiguous: qualify it as one of {whereBuf.toString()}")
-	end 'ambig'
-	match consumes hiddenFirst 'hid'
-		some(hf) then return LookupResult.fail(diag.errNotExported, msg: hiddenMessage(p, ref: hf))
-		none then _ = 0
-	end 'hid'
 	match p.stdlib.names.get(name) 'std'
 		some(ord) then return LookupResult.hit(ast.DeclRef.make(diag.stdlibID, ordinal: ord))
 		none then _ = 0
@@ -156,31 +133,8 @@ function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
 	return LookupResult.miss()
 end 'bareLookup'
 
-function checkRootLookup(r Resolver, p ast.Project, consumes ref ast.DeclRef) returns LookupResult
-	if isDeclVisible(r, p: p, ref: ref) 'ok'
-		return LookupResult.hit(ref)
-	end 'ok'
-	return LookupResult.fail(diag.errNotExported, msg: hiddenMessage(p, ref: ref))
-end 'checkRootLookup'
-
-function collectVisible(r Resolver, p ast.Project, allRefs ast.DeclRefList, mutates vis ast.DeclRefList, mutates hiddenFirst Option with ast.DeclRef)
-	for i in 0 upto allRefs.count() 'each'
-		let d = allRefs[i].copy()
-		if d.module != r.modID and d.module != p.rootModule 'other'
-			if isDeclVisible(r, p: p, ref: d) 'v'
-				vis.append(d)
-			end 'v' else 'h'
-				match hiddenFirst 'setFirst'
-					none then hiddenFirst = Option.some(d)
-					some(_) then _ = 0
-				end 'setFirst'
-			end 'h'
-		end 'other'
-	end 'each'
-end 'collectVisible'
-
 function isModuleRoot(p ast.Project, name String) returns bool
-	if name == "export" or name == "stdlib" 'special'
+	if name == ast.rootQualifier or name == ast.stdlibQualifier 'special'
 		return true
 	end 'special'
 	let rIdx = ast.modIndex(p.rootModule)
@@ -189,9 +143,9 @@ end 'isModuleRoot'
 
 function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff diag.U32, rest ast.StringList, offs ast.U32List, mutates errs diag.ErrorList) returns Count
 	var curMod = p.rootModule
-	if head == "export" 'exp'
+	if head == ast.rootQualifier 'exp'
 		curMod = p.rootModule
-	end 'exp' else if head == "stdlib" 'std'
+	end 'exp' else if head == ast.stdlibQualifier 'std'
 		curMod = diag.stdlibID
 	end 'std' else 'child'
 		match p.modules[ast.modIndex(p.rootModule)].findChild(head) 'ch'
@@ -247,7 +201,7 @@ end 'qualifiedLookup'
 
 function finishQualified(mutates r Resolver, p ast.Project, consumes ref ast.DeclRef, off diag.U32, used Count, mutates errs diag.ErrorList) returns Count
 	if not isDeclVisible(r, p: p, ref: ref) 'hid'
-		pushErr(errs, modID: r.modID, off: off, code: diag.errNotExported, msg: hiddenMessage(p, ref: ref))
+		pushErr(errs, modID: r.modID, off: off, code: diag.errNotExported, msg: hiddenMessage(r, p: p, ref: ref))
 		return 0 as Count
 	end 'hid'
 	if ref.module != r.modID and ref.module != diag.stdlibID 'dep'
@@ -258,9 +212,9 @@ end 'finishQualified'
 
 function qualifiedDeclRef(p ast.Project, head String, rest ast.StringList) returns Option with ast.DeclRef
 	var curMod = p.rootModule
-	if head == "export" 'exp'
+	if head == ast.rootQualifier 'exp'
 		curMod = p.rootModule
-	end 'exp' else if head == "stdlib" 'std'
+	end 'exp' else if head == ast.stdlibQualifier 'std'
 		curMod = diag.stdlibID
 	end 'std' else 'child'
 		match p.modules[ast.modIndex(p.rootModule)].findChild(head) 'ch'
@@ -305,7 +259,7 @@ function cloneTypeParamMap(m TypeParamMap) returns TypeParamMap
 	return m.copy()
 end 'cloneTypeParamMap'
 
-function enterTypeParams(mutates r Resolver, p ast.Project, owner String, params ast.TypeParamList, constraints ast.ConstraintList, mutates errs diag.ErrorList) returns TypeParamMap
+function enterTypeParams(mutates r Resolver, p ast.Project, owner String, s Surface, params ast.TypeParamList, constraints ast.ConstraintList, mutates errs diag.ErrorList) returns TypeParamMap
 	let outer = cloneTypeParamMap(r.typeParams)
 	for i in 0 upto params.count() 'add'
 		let tp = ast.TypeParam.make(params[i].id, name: params[i].name.copy())
@@ -322,7 +276,7 @@ function enterTypeParams(mutates r Resolver, p ast.Project, owner String, params
 		let bCount = c.bounds.count()
 		for bi in 0 upto bCount 'bnd'
 			let bNode = c.bounds[bi] as ast.NodeID
-			resolveTypeRef(r, p: p, tr: bNode, errs: errs)
+			signatureType(r, p: p, s: s, position: "in its where clause", tr: bNode, errs: errs)
 		end 'bnd'
 	end 'cons'
 	return outer
@@ -666,6 +620,10 @@ function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 	if n == "Self" 's'
 		return
 	end 's'
+	if n == ast.rootQualifier 'root'
+		pushErr(errs, modID: r.modID, off: r.tree.startOf(id), code: diag.errExpressionError, msg: "'export' is the root module, not a value: name one of its declarations, as in 'export.limit'")
+		return
+	end 'root'
 	if not isNameBound(r, name: n) 'free'
 		let off = r.tree.startOf(id)
 		let lr = bareLookup(r, p: p, name: n)
@@ -723,10 +681,6 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 		end 'keepBare'
 	end 'hasBare'
 	if not isModuleRoot(p, name: headName) 'notRoot'
-		if bare.hasErr 'repBare'
-			let headOff = r.tree.startOf(cur)
-			_ = takeLookup(r, p: p, lr: bare, off: headOff, errs: errs)
-		end 'repBare'
 		return
 	end 'notRoot'
 	var names = ast.StringList.new()
@@ -854,20 +808,97 @@ function resolveStructLitExpr(mutates r Resolver, p ast.Project, id ast.NodeID, 
 	end 'each'
 end 'resolveStructLitExpr'
 
-function resolveConforms(mutates r Resolver, p ast.Project, conforms ast.U32List, mutates errs diag.ErrorList)
+// Surface is a declaration that other modules read the signature of, as far as its visibility reaches: whoever may
+// name it must be able to name every type its signature names, so each must be at least as visible (E3167). at is
+// where a violation is reported.
+type Surface
+	export var tier as ast.Visibility
+	export var noun as String
+	export var name as String
+	export var at as diag.U32
+
+	static function make(tier ast.Visibility, consumes noun String, consumes name String, at diag.U32) returns Surface
+		return Surface{tier: tier, noun: noun, name: name, at: at}
+	end 'make'
+end 'Surface'
+
+function declSurface(r Resolver, d ast.Decl, consumes noun String) returns Surface
+	return Surface.make(d.level(), noun: noun, name: d.name(), at: r.tree.startOf(d.nodeID()))
+end 'declSurface'
+
+// methodSurface is a method's: its own visibility decides, not its type's.
+function methodSurface(r Resolver, owner String, m ast.FuncDecl) returns Surface
+	return Surface.make(ast.visibilityOf(m.visibility), noun: "function", name: "{owner}.{m.name}", at: r.tree.startOf(m.id))
+end 'methodSurface'
+
+function narrower(a ast.Visibility, b ast.Visibility) returns ast.Visibility
+	if a.ordinal < b.ordinal 'a'
+		return a
+	end 'a'
+	return b
+end 'narrower'
+
+// signatureType resolves a type that the surface's signature writes at position, and refuses a declaration that it or
+// its arguments name and that is less visible than the surface.
+function signatureType(mutates r Resolver, p ast.Project, s Surface, position String, tr ast.NodeID, mutates errs diag.ErrorList)
+	resolveTypeRef(r, p: p, tr: tr, errs: errs)
+	if tr != 0 and s.tier != ast.Visibility.unexported 'exposed'
+		requireExposable(r, p: p, s: s, position: position, tr: tr, errs: errs)
+	end 'exposed'
+end 'signatureType'
+
+function requireExposable(mutates r Resolver, p ast.Project, s Surface, position String, tr ast.NodeID, mutates errs diag.ErrorList)
+	match r.res.decls.get(tr as Count) 'bound'
+		some(ref) then reportIfHidden(p, s: s, position: position, d: ast.moduleDecl(p, ref: ref), modID: r.modID, errs: errs)
+		none then _ = 0
+	end 'bound'
+	let argsRef = ast.typeRefTypeArgsRef(r.tree, id: tr)
+	for i in 0 upto r.tree.listLen(argsRef) 'args'
+		requireExposable(r, p: p, s: s, position: position, tr: r.tree.listAt(argsRef, index: i) as ast.NodeID, errs: errs)
+	end 'args'
+end 'requireExposable'
+
+function reportIfHidden(p ast.Project, s Surface, position String, d ast.Decl, modID diag.ModuleID, mutates errs diag.ErrorList)
+	let level = d.level()
+	if level.ordinal >= s.tier.ordinal 'wide'
+		return
+	end 'wide'
+	let tName = d.name()
+	pushErr(errs, modID: modID, off: s.at, code: diag.errExposesHiddenType, msg: "{ast.visibilityWord(s.tier)} {s.noun} '{s.name}' names {ast.visibilityWord(level)} {typeNoun(d)} '{tName}' {position}: mark '{tName}' '{ast.visibilityModifier(s.tier)}', or narrow the {s.noun}")
+end 'reportIfHidden'
+
+// typeNoun names the kind of a type declaration in a message.
+function typeNoun(d ast.Decl) returns String
+	return match d 'k'
+		typeDecl(_) gives "type"
+		enumDecl(_) gives "enum"
+		unionDecl(_) gives "union"
+		aliasDecl(_) gives "typealias"
+		interfaceDecl(_) gives "interface"
+		funcDecl(_) gives panic("a type reference names a function")
+		constDecl(_) gives panic("a type reference names a constant")
+	end 'k'
+end 'typeNoun'
+
+// signature resolves the types of a function's signature, each held to the surface.
+function signature(mutates r Resolver, p ast.Project, s Surface, params ast.ParamList, returnsRef ast.NodeID, throwsRef ast.NodeID, mutates errs diag.ErrorList)
+	for i in 0 upto params.count() 'pars'
+		signatureType(r, p: p, s: s, position: "in the type of parameter '{params[i].name}'", tr: params[i].typeRef, errs: errs)
+	end 'pars'
+	signatureType(r, p: p, s: s, position: "in its return type", tr: returnsRef, errs: errs)
+	signatureType(r, p: p, s: s, position: "in its throws clause", tr: throwsRef, errs: errs)
+end 'signature'
+
+function resolveConforms(mutates r Resolver, p ast.Project, s Surface, conforms ast.U32List, mutates errs diag.ErrorList)
 	for i in 0 upto conforms.count() 'each'
-		resolveTypeRef(r, p: p, tr: conforms[i] as ast.NodeID, errs: errs)
+		signatureType(r, p: p, s: s, position: "in its implements clause", tr: conforms[i] as ast.NodeID, errs: errs)
 	end 'each'
 end 'resolveConforms'
 
-function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, fieldNames BoolStrMap, mutates errs diag.ErrorList)
-	let outer = enterTypeParams(r, p: p, owner: f.name, params: f.typeParams, constraints: f.constraints, errs: errs)
+function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, mutates errs diag.ErrorList)
+	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.constraints, errs: errs)
 	checkEnd(r, label: f.name, endNode: f.endLabel, errs: errs)
-	for i in 0 upto f.params.count() 'pars'
-		resolveTypeRef(r, p: p, tr: f.params[i].typeRef, errs: errs)
-	end 'pars'
-	resolveTypeRef(r, p: p, tr: f.returnsRef, errs: errs)
-	resolveTypeRef(r, p: p, tr: f.throwsRef, errs: errs)
+	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
 	r.scopes = ScopeStack.new()
 	pushScope(r)
 	r.fields = cloneBoolStrMap(fieldNames)
@@ -886,12 +917,12 @@ end 'cloneBoolStrMap'
 function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates errs diag.ErrorList)
 	let emptyFields = BoolStrMap.new()
 	match d 'k'
-		funcDecl(fd) then resolveFuncDecl(r, p: p, f: fd, fieldNames: emptyFields, errs: errs)
+		funcDecl(fd) then resolveFuncDecl(r, p: p, f: fd, s: declSurface(r, d: d, noun: "function"), fieldNames: emptyFields, errs: errs)
 		constDecl(cd) then resolveConstDecl(r, p: p, cd: cd, errs: errs)
-		typeDecl(td) then resolveTypeDecl(r, p: p, td: td, errs: errs)
-		enumDecl(ed) then resolveEnumDecl(r, p: p, ed: ed, errs: errs)
-		unionDecl(ud) then resolveUnionDecl(r, p: p, ud: ud, errs: errs)
-		aliasDecl(ad) then resolveAliasDecl(r, p: p, ad: ad, errs: errs)
+		typeDecl(td) then resolveTypeDecl(r, p: p, td: td, s: declSurface(r, d: d, noun: "type"), errs: errs)
+		enumDecl(ed) then resolveEnumDecl(r, p: p, ed: ed, s: declSurface(r, d: d, noun: "enum"), errs: errs)
+		unionDecl(ud) then resolveUnionDecl(r, p: p, ud: ud, s: declSurface(r, d: d, noun: "union"), errs: errs)
+		aliasDecl(ad) then resolveAliasDecl(r, p: p, ad: ad, s: declSurface(r, d: d, noun: "typealias"), errs: errs)
 		interfaceDecl(ifd) then resolveInterfaceDecl(r, p: p, ifd: ifd, errs: errs)
 	end 'k'
 end 'resolveTopDecl'
@@ -904,16 +935,18 @@ function resolveConstDecl(mutates r Resolver, p ast.Project, cd ast.ConstDecl, m
 	popScope(r)
 end 'resolveConstDecl'
 
-function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, mutates errs diag.ErrorList)
+function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: td.name, endNode: td.endLabel, errs: errs)
-	let outer = enterTypeParams(r, p: p, owner: td.name, params: td.typeParams, constraints: td.constraints, errs: errs)
-	resolveConforms(r, p: p, conforms: td.conforms, errs: errs)
+	let outer = enterTypeParams(r, p: p, owner: td.name, s: s, params: td.typeParams, constraints: td.constraints, errs: errs)
+	resolveConforms(r, p: p, s: s, conforms: td.conforms, errs: errs)
 	var fNames = BoolStrMap.new()
 	for i in 0 upto td.fields.count() 'flds'
 		fNames.insert(td.fields[i].name.copy(), value: true)
 		let tRef = td.fields[i].typeRef
 		if tRef != 0 'ht'
-			resolveTypeRef(r, p: p, tr: tRef, errs: errs)
+			let fTier = narrower(s.tier, b: ast.visibilityOf(td.fields[i].visibility))
+			let fs = Surface.make(fTier, noun: "field", name: "{td.name}.{td.fields[i].name}", at: r.tree.startOf(tRef))
+			signatureType(r, p: p, s: fs, position: "in its type", tr: tRef, errs: errs)
 		end 'ht'
 		let dExpr = td.fields[i].defaultExpr
 		if dExpr != 0 'hd'
@@ -926,54 +959,59 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, mut
 	end 'flds'
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto td.methods.count() 'meths'
+		let ms = methodSurface(r, owner: td.name, m: td.methods[i])
 		if td.methods[i].isStatic 'st'
-			resolveFuncDecl(r, p: p, f: td.methods[i].copy(), fieldNames: emptyFields, errs: errs)
+			resolveFuncDecl(r, p: p, f: td.methods[i].copy(), s: ms, fieldNames: emptyFields, errs: errs)
 		end 'st' else 'inst'
-			resolveFuncDecl(r, p: p, f: td.methods[i].copy(), fieldNames: fNames, errs: errs)
+			resolveFuncDecl(r, p: p, f: td.methods[i].copy(), s: ms, fieldNames: fNames, errs: errs)
 		end 'inst'
 	end 'meths'
 	r.typeParams = outer
 end 'resolveTypeDecl'
 
-function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, mutates errs diag.ErrorList)
+function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: ed.name, endNode: ed.endLabel, errs: errs)
-	resolveConforms(r, p: p, conforms: ed.conforms, errs: errs)
+	resolveConforms(r, p: p, s: s, conforms: ed.conforms, errs: errs)
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ed.methods.count() 'meths'
-		resolveFuncDecl(r, p: p, f: ed.methods[i].copy(), fieldNames: emptyFields, errs: errs)
+		let ms = methodSurface(r, owner: ed.name, m: ed.methods[i])
+		resolveFuncDecl(r, p: p, f: ed.methods[i].copy(), s: ms, fieldNames: emptyFields, errs: errs)
 	end 'meths'
 end 'resolveEnumDecl'
 
-function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, mutates errs diag.ErrorList)
+function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: ud.name, endNode: ud.endLabel, errs: errs)
-	let outer = enterTypeParams(r, p: p, owner: ud.name, params: ud.typeParams, constraints: ud.constraints, errs: errs)
-	resolveConforms(r, p: p, conforms: ud.conforms, errs: errs)
+	let outer = enterTypeParams(r, p: p, owner: ud.name, s: s, params: ud.typeParams, constraints: ud.constraints, errs: errs)
+	resolveConforms(r, p: p, s: s, conforms: ud.conforms, errs: errs)
 	for i in 0 upto ud.cases.count() 'cs'
 		for j in 0 upto ud.cases[i].fields.count() 'ps'
-			resolveTypeRef(r, p: p, tr: ud.cases[i].fields[j].typeRef, errs: errs)
+			let tRef = ud.cases[i].fields[j].typeRef
+			let cs = Surface.make(s.tier, noun: "union case", name: "{ud.name}.{ud.cases[i].name}", at: r.tree.startOf(tRef))
+			signatureType(r, p: p, s: cs, position: "in the type of payload '{ud.cases[i].fields[j].name}'", tr: tRef, errs: errs)
 		end 'ps'
 	end 'cs'
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ud.methods.count() 'meths'
-		resolveFuncDecl(r, p: p, f: ud.methods[i].copy(), fieldNames: emptyFields, errs: errs)
+		let ms = methodSurface(r, owner: ud.name, m: ud.methods[i])
+		resolveFuncDecl(r, p: p, f: ud.methods[i].copy(), s: ms, fieldNames: emptyFields, errs: errs)
 	end 'meths'
 	r.typeParams = outer
 end 'resolveUnionDecl'
 
-function resolveAliasDecl(mutates r Resolver, p ast.Project, ad ast.AliasDecl, mutates errs diag.ErrorList)
+function resolveAliasDecl(mutates r Resolver, p ast.Project, ad ast.AliasDecl, s Surface, mutates errs diag.ErrorList)
 	if ad.instanceRef != 0 'inst'
-		resolveTypeRef(r, p: p, tr: ad.instanceRef, errs: errs)
+		signatureType(r, p: p, s: s, position: "in its target", tr: ad.instanceRef, errs: errs)
 	end 'inst'
 end 'resolveAliasDecl'
 
+// resolveInterfaceDecl resolves the requirements, which take the interface's visibility: a conformer's caller reaches
+// them through the interface.
 function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
 	checkEnd(r, label: ifd.name, endNode: ifd.endLabel, errs: errs)
+	let tier = ast.visibilityOf(ifd.visibility)
 	for i in 0 upto ifd.methods.count() 'sigs'
-		for j in 0 upto ifd.methods[i].params.count() 'ps'
-			resolveTypeRef(r, p: p, tr: ifd.methods[i].params[j].typeRef, errs: errs)
-		end 'ps'
-		resolveTypeRef(r, p: p, tr: ifd.methods[i].returnsRef, errs: errs)
-		resolveTypeRef(r, p: p, tr: ifd.methods[i].throwsRef, errs: errs)
+		let s = Surface.make(tier, noun: "function", name: "{ifd.name}.{ifd.methods[i].name}", at: r.tree.startOf(ifd.methods[i].id))
+		signature(r, p: p, s: s, params: ifd.methods[i].params, returnsRef: ifd.methods[i].returnsRef, throwsRef: ifd.methods[i].throwsRef, errs: errs)
 	end 'sigs'
 end 'resolveInterfaceDecl'
 

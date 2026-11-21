@@ -61,6 +61,24 @@ func (m *Module) Display() string {
 	return m.Path
 }
 
+// RootQualifier and StdlibQualifier start a qualified name of the root module's and of the standard library's
+// declarations; every other module is qualified by its path.
+const (
+	RootQualifier   = "export"
+	StdlibQualifier = "stdlib"
+)
+
+// Qualifier is what another module writes before the name of one of the module's declarations.
+func (m *Module) Qualifier() string {
+	switch {
+	case m.IsStdlib:
+		return StdlibQualifier
+	case m.Path == "":
+		return RootQualifier
+	}
+	return m.Path
+}
+
 func (m *Module) ChildNames() []string {
 	names := make([]string, 0, len(m.Children))
 	for n := range m.Children {
@@ -77,7 +95,6 @@ type Project struct {
 	Builtins *Builtins
 	// Modules lists every module of the project, indexed by ModuleID.
 	Modules []*Module
-	ByName  map[string][]Decl
 }
 
 // Module is the module a handle names, the standard library included.
@@ -112,7 +129,7 @@ func (p *Project) Locate(errs []*diag.CompileError) {
 }
 
 func NewProject(root *Module) *Project {
-	p := &Project{Root: root, Stdlib: NewModule("stdlib", "", true), ByName: map[string][]Decl{}}
+	p := &Project{Root: root, Stdlib: NewModule("stdlib", "", true)}
 	p.Stdlib.ID = StdlibID
 	p.Stdlib.Tree = NewTree(StdlibID, "", 0)
 	p.Stdlib.Positions = stdlibPositions

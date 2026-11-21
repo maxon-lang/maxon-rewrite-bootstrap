@@ -1,0 +1,3 @@
+export function send() returns String
+	return "send {net.http.parse()}"
+end 'send'

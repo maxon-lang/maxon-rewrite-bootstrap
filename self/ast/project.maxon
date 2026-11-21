@@ -1,5 +1,3 @@
-export typealias DeclRefList = array with DeclRef
-
 export type ConstValue
 	export var ty as TypeID
 	export var isBool as bool
@@ -48,15 +46,12 @@ export typealias DeclConstMap = table.IntMap with ConstValue
 
 export typealias PathModMap = table.StringMap with diag.ModuleID
 
-export typealias NameDeclsMap = table.StringMap with DeclRefList
-
 export type Project
 	export var root as String
 	export var rootModule as diag.ModuleID
 	export var modules as ModuleList
 	export var stdlib as Module
 	export var byPath as PathModMap
-	export var byName as NameDeclsMap
 	export var types as TypeTable
 	export var funcs as FuncTable
 	export var builtins as Builtins
@@ -73,12 +68,11 @@ export type Project
 		var std = Module.new(diag.stdlibID, path: "", text: "", files: FileSpanList.new())
 		let bs = initBuiltins(tt, ft: ft, std: std)
 		let bp = PathModMap.new()
-		let bn = NameDeclsMap.new()
 		let dtm = DeclTypeMap.new()
 		let dfm = DeclFuncMap.new()
 		let nfm = NodeFuncMap.new()
 		let dcm = DeclConstMap.new()
-		var p = Project{root: root, rootModule: 0 as diag.ModuleID, modules: ModuleList.new(), stdlib: std, byPath: bp, byName: bn, types: tt, funcs: ft, builtins: bs, resolutions: array.new(), typings: array.new(), declTypes: dtm, declFuncs: dfm, nodeFuncs: nfm, declConsts: dcm}
+		var p = Project{root: root, rootModule: 0 as diag.ModuleID, modules: ModuleList.new(), stdlib: std, byPath: bp, types: tt, funcs: ft, builtins: bs, resolutions: array.new(), typings: array.new(), declTypes: dtm, declFuncs: dfm, nodeFuncs: nfm, declConsts: dcm}
 		for i in 0 upto p.stdlib.decls.count() 'stdReg'
 			let ord = try i as DeclOrdinal otherwise 0 as DeclOrdinal
 			let ref = DeclRef.make(diag.stdlibID, ordinal: ord)
@@ -108,24 +102,11 @@ export function addModule(mutates p Project, consumes m Module) returns diag.Mod
 	return id
 end 'addModule'
 
-export function addGlobalDecl(mutates p Project, consumes name String, consumes ref DeclRef)
-	match consumes p.byName.get(name) 'hit'
-		some(list) then beginUpdate(p, name: name, cur: list, ref: ref)
-		none then insertFirstGlobal(p, name: name, ref: ref)
-	end 'hit'
-end 'addGlobalDecl'
+// rootQualifier and stdlibQualifier start a qualified name of the root module's and of the standard library's
+// declarations; every other module is qualified by its path.
+export let rootQualifier = "export"
 
-function beginUpdate(mutates p Project, consumes name String, consumes cur DeclRefList, consumes ref DeclRef)
-	var xs = cur
-	xs.append(ref)
-	p.byName.insert(name, value: xs)
-end 'beginUpdate'
-
-function insertFirstGlobal(mutates p Project, consumes name String, consumes ref DeclRef)
-	var xs = DeclRefList.new()
-	xs.append(ref)
-	p.byName.insert(name, value: xs)
-end 'insertFirstGlobal'
+export let stdlibQualifier = "stdlib"
 
 export function moduleDecl(p Project, ref DeclRef) returns Decl
 	if ref.module == diag.stdlibID 'std'

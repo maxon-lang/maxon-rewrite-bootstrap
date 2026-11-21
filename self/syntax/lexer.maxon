@@ -82,7 +82,7 @@ let byteLBrace = 123 as Byte
 
 let byteRBrace = 125 as Byte
 
-typealias Offsets = array with Count
+export typealias Offsets = array with Count
 
 function isDigit(b Byte) returns bool
 	return b >= byteZero and b <= byteNine

@@ -359,7 +359,7 @@ func (c *Checker) dropWithCall(site ast.CallExpr, arg ast.Arg, content ast.Ty) *
 	if !found || method.IsStatic || !method.IsDestructor() || len(method.Pass.Specs) > 0 || method.ReturnType != ast.Ty(ast.VoidTy) {
 		panic(arg.Error(diag.ErrCapabilityMisuse, fmt.Sprintf("'%s' is not a destructor of '%s' that takes no other argument and returns nothing%s", name.Name(), nt.Name(), c.dropWithCandidates(nt))))
 	}
-	c.requireExported(arg.Position(), method)
+	c.requireVisible(arg.Position(), method)
 	c.queueMethodBounds(site.Position(), method, nt.Base().Args)
 	info := &ast.CallInfo{Kind: ast.CallMethod, Target: method, Pass: &method.Pass}
 	if len(method.Generics) > 0 {

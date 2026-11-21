@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("{ui.show()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3008 at 2:24

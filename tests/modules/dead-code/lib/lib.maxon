@@ -1,4 +1,4 @@
-typealias Count = int(0 to 100)
+export typealias Count = int(0 to 100)
 
 type Tag
 	var name as String

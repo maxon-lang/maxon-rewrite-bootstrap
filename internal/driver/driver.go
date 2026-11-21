@@ -21,7 +21,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
 	"sync/atomic"
 )
 
@@ -155,7 +154,6 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 	var readBytes, lexBytes, parseBytes, tableBytes atomic.Uint64
 	parseStart := heapAllocated()
 	parsed := make([]int, len(modules))
-	declared := make([][]ast.Decl, len(modules))
 	par.ForEachIndexWith(len(modules), jobs, syntax.NewScratch, func(scratch *syntax.Scratch, i int) {
 		m, res := modules[i], &results[i]
 		diag.Guard(&res.Errors, func() {
@@ -175,7 +173,7 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 		parsed[m.ID] = len(res.Errors)
 		if parsed[m.ID] == 0 {
 			a0 := stepAllocated(timings)
-			declared[m.ID] = project.BuildModuleTable(m, &res.Errors)
+			project.BuildModuleTable(m, &res.Errors)
 			tableBytes.Add(stepAllocated(timings) - a0)
 		}
 	})
@@ -187,24 +185,13 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 		return parseErrors
 	}
 
-	// The name index is serial and cheap, so the cores it leaves idle size the tables that the check pass fills in: the
-	// bodies are checked many modules at a time, and allocating the tables of a large project there would make them wait
-	// for the heap one after another.
-	sizeTypings := func() {
-		par.ForEachIndex(len(modules), jobs, func(i int) { results[i].Typing.Size(modules[i].Tree) })
-	}
-	if jobs <= 1 {
-		project.IndexNames(proj, declared)
-		sizeTypings()
-	} else {
-		var sized sync.WaitGroup
-		sized.Go(sizeTypings)
-		project.IndexNames(proj, declared)
-		sized.Wait()
-	}
-	mark("names")
-
-	phase(func(m *ast.Module, res *ast.ModuleResult) { resolve.NewResolver(proj, m, res).Run() })
+	// Resolve also sizes the tables that the check pass fills in, while the module's tree is in cache: the bodies are checked
+	// many modules at a time, and allocating the tables of a large project there would make them wait for the heap one
+	// after another.
+	phase(func(m *ast.Module, res *ast.ModuleResult) {
+		res.Typing.Size(m.Tree)
+		resolve.NewResolver(proj, m, res).Run()
+	})
 	mark("resolve")
 	if resolveErrors := failed(); resolveErrors != nil {
 		return resolveErrors

@@ -23,7 +23,7 @@ end 'parseTypeRef'
 function parseTypeRefWith(mutates p Parser, bareArgs bool) returns ast.NodeID
 	let start = p.curStart()
 	var quals = ast.U32List.new()
-	while p.curKind() == TokenKind.name and p.peekKind(1 as Count) == TokenKind.dot 'q'
+	while (p.curKind() == TokenKind.name or p.curKind() == TokenKind.kwExport) and p.peekKind(1 as Count) == TokenKind.dot 'q'
 		quals.append(p.curTextRef())
 		_ = p.advance()
 		_ = p.advance()
@@ -462,6 +462,13 @@ function parsePrimary(mutates p Parser) returns ast.NodeID
 		_ = p.expect(TokenKind.rParen, what: "')'")
 		return e
 	end 'grp'
+	// 'export' is a name only as the start of a qualified name, where it is the root module.
+	if k == TokenKind.kwExport 'root'
+		let id = ast.newNameExpr(p.tree, start: p.curStart())
+		ast.setNameExprNameRef(p.tree, id: id, ref: p.curTextRef())
+		_ = p.advance()
+		return id
+	end 'root'
 	if k == TokenKind.name or k == TokenKind.kwSelfType 'nm'
 		let start = p.curStart()
 		let nameRef = p.curTextRef()

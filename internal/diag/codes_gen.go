@@ -26,10 +26,10 @@ const (
 	ErrUnknownFunction           = "E3004" // A call names a function or method that does not exist.
 	ErrTypeMismatch              = "E3005" // A value's type is not the type required where it stands.
 	ErrDuplicateDefinition       = "E3006" // A name is declared twice where only one declaration is allowed.
-	ErrNotExported               = "E3008" // A symbol is used from outside its directory without being exported.
+	ErrNotExported               = "E3008" // A declaration is named from a module its visibility does not reach.
 	ErrUnknownType               = "E3011" // A named type resolves to no declared type.
 	ErrMissingReturn             = "E3013" // A function that returns a value can reach its end without returning one.
-	ErrFieldNotExported          = "E3014" // A field that is not exported is read or written from outside its directory.
+	ErrFieldNotExported          = "E3014" // A field is read or written from a module its visibility does not reach.
 	ErrConformance               = "E3016" // A type says it implements an interface but lacks or mismatches a member.
 	ErrBoundNotMet               = "E3017" // A type argument does not meet the bound its type parameter declares.
 	ErrUnknownField              = "E3018" // A field access names a field the type does not have.
@@ -42,14 +42,13 @@ const (
 	ErrCallDuplicateArg          = "E3038" // Two arguments of one call are for the same parameter.
 	ErrMainCannotThrow           = "E3054" // 'main' is declared 'throws', with no caller to handle the error.
 	ErrUncheckedFailure          = "E3057" // A call that can fail is made without 'try' where nothing catches the failure.
-	ErrAmbiguousType             = "E3063" // A bare type name reaches more than one declaration and none is nearer.
 	ErrEnumNotComparable         = "E3066" // A union is compared with '==' or '!='.
 	ErrConstructorRestriction    = "E3076" // A struct literal is written outside the methods of its type.
 	ErrFieldNotInitialized       = "E3086" // A struct literal omits a field that has no default.
-	ErrAmbiguousName             = "E3095" // A bare function or binding name has more than one reachable declaration.
 	ErrUseAfterMove              = "E3102" // A name is read after its value was moved out of it.
 	ErrDivisionByZero            = "E3103" // A division or 'mod' has a constant zero divisor.
 	ErrAmbiguousBound            = "E3114" // A method call on a type parameter names a method that more than one of its bounds declares.
+	ErrExposesHiddenType         = "E3167" // A declaration's signature names a type less visible than the declaration.
 	ErrCannotInfer               = "E3179" // A type parameter of a generic function is fixed by no argument.
 	ErrBadModuleName             = "E3182" // A directory of the program cannot be spelled as a module name.
 	ErrExclusivity               = "E3186" // An argument handed to a written parameter overlaps another operand of the call.

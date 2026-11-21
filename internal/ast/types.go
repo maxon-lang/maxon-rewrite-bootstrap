@@ -137,12 +137,12 @@ func (n *NominalBase) initGeneric(params []*TypeParam, where []*Constraint) {
 }
 
 type FieldInfo struct {
-	Name     string
-	Exported bool
-	Type     Ty
-	IsVar    bool
-	Default  Expr
-	Index    int
+	Name       string
+	Visibility Visibility
+	Type       Ty
+	IsVar      bool
+	Default    Expr
+	Index      int
 	// Uses are the calls to generic functions in the default, which a literal that takes the default also makes.
 	Uses []CallUse
 }

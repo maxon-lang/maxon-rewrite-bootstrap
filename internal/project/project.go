@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-var reservedTopLevel = map[string]bool{"export": true, "stdlib": true, "runtime": true, "scriptlib": true}
+var reservedTopLevel = map[string]bool{ast.RootQualifier: true, ast.StdlibQualifier: true, "runtime": true, "scriptlib": true}
 
 func Discover(path string, errs *[]*diag.CompileError) *ast.Project {
 	info, err := os.Stat(path)
@@ -104,20 +104,17 @@ func collect(p *ast.Project, m *ast.Module) {
 	}
 }
 
-// BuildTables fills in each module's declaration table and the project-wide name index; a duplicate declaration is an
-// error in the result of the module that repeats it.
+// BuildTables fills in each module's declaration table; a duplicate declaration is an error in the result of the module
+// that repeats it.
 func BuildTables(p *ast.Project, results []ast.ModuleResult, jobs int) {
-	declared := make([][]ast.Decl, len(p.Modules))
 	par.ForEachIndex(len(p.Modules), jobs, func(i int) {
-		declared[i] = BuildModuleTable(p.Modules[i], &results[i].Errors)
+		BuildModuleTable(p.Modules[i], &results[i].Errors)
 	})
-	IndexNames(p, declared)
 }
 
-// BuildModuleTable fills in the module's own declaration table and an empty type object for each of its types, and
-// returns the declarations the table holds, in source order. It reads nothing of another module, so it runs on the
-// worker that parsed the module.
-func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
+// BuildModuleTable fills in the module's own declaration table and an empty type object for each of its types. It reads
+// nothing of another module, so it runs on the worker that parsed the module.
+func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) {
 	// A table that grows by doubling allocates twice its final size, and it holds one entry per declaration.
 	m.Names = make(map[string]ast.Decl, len(m.Decls))
 	for i, d := range m.Decls {
@@ -137,26 +134,5 @@ func BuildModuleTable(m *ast.Module, errs *[]*diag.CompileError) []ast.Decl {
 			continue
 		}
 		m.Names[b.Name] = d
-	}
-	decls := make([]ast.Decl, 0, len(m.Names))
-	for _, d := range m.Decls {
-		if m.Names[d.Base().Name] == d {
-			decls = append(decls, d)
-		}
-	}
-	sort.SliceStable(decls, func(a, b int) bool {
-		return decls[a].Position().Off < decls[b].Position().Off
-	})
-	return decls
-}
-
-// IndexNames builds the project-wide name index from each module's declarations, as BuildModuleTable returned them,
-// modules in order so the index does not depend on how many compile at once.
-func IndexNames(p *ast.Project, declared [][]ast.Decl) {
-	for _, decls := range declared {
-		for _, d := range decls {
-			name := d.Base().Name
-			p.ByName[name] = append(p.ByName[name], d)
-		}
 	}
 }

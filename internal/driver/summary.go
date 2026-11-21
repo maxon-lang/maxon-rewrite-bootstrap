@@ -287,7 +287,7 @@ func (s *shape) VisitTypeDecl(t *ast.TypeDecl) {
 	s.int(len(rt.Fields))
 	for i, f := range rt.Fields {
 		s.str(f.Name)
-		s.bool(f.Exported)
+		s.int(int(f.Visibility))
 		s.bool(f.IsVar)
 		s.ty(f.Type)
 		hasDefault := !f.Default.IsNil()

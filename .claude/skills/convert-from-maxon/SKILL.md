@@ -87,6 +87,9 @@ Exists today:
 - minimaxon's own corpus is `tests/run/`, `tests/errors/` (`// expect-error: CODE [at L:C]`) and `tests/modules/`, run by
   `minimaxon.exe test`. It does not read the spec format and there is no `specs/` directory.
 - `cmd/convert` takes `.maxon` files only; the code blocks in specs are not extracted.
+- `cmd/convert` works one file at a time, so a name of another module stays bare as Maxon writes it. After converting
+  a multi-module project, run `minimaxon qualify <dir>`, which writes each such name qualified by its module's path
+  (`export.X` for the root's), as minimaxon requires.
 
 Planned, Stage 1.7 (after M1; none of this exists yet):
 

@@ -290,8 +290,12 @@ export union Decl
 		end 'd'
 	end 'nodeID'
 
+	export function level() returns Visibility
+		return visibilityOf(self.visibility())
+	end 'level'
+
 	export function isExported() returns bool
-		return self.visibility() == "export"
+		return self.level() != Visibility.unexported
 	end 'isExported'
 
 	export function isType() returns bool
@@ -313,6 +317,77 @@ export union Decl
 end 'Decl'
 
 export typealias DeclList = array with Decl
+
+// Visibility is how far a declaration, field or method can be named from, narrowest first: the declaring module only;
+// the tree rooted at the declaring module's parent, as Go's internal/, which is the whole project for a top-level module
+// or the root; everyone, programs that use the project as a library included.
+export enum Visibility
+	unexported
+	exported
+	everyone
+end 'Visibility'
+
+export function visibilityOf(modifier String) returns Visibility
+	if modifier == "" 'none'
+		return Visibility.unexported
+	end 'none'
+	if modifier == "export" 'exp'
+		return Visibility.exported
+	end 'exp'
+	if modifier == "public" 'pub'
+		return Visibility.everyone
+	end 'pub'
+	panic("'{modifier}' is not a visibility modifier")
+end 'visibilityOf'
+
+// visibilityWord is the visibility as a diagnostic names it, which is Maxon's.
+export function visibilityWord(v Visibility) returns String
+	return match v 'v'
+		unexported gives "unexported"
+		exported gives "exported"
+		everyone gives "public"
+	end 'v'
+end 'visibilityWord'
+
+// visibilityModifier is what a declaration writes to have the visibility.
+export function visibilityModifier(v Visibility) returns String
+	return match v 'v'
+		unexported gives ""
+		exported gives "export"
+		everyone gives "public"
+	end 'v'
+end 'visibilityModifier'
+
+// parentPath is the path of the module a module's path is under; the root's and a top-level module's is the root's.
+export function parentPath(path String) returns String
+	var i = path.byteCount()
+	while i > 0 'back'
+		i = try i - 1 otherwise 0 as Count
+		if path.byteAt(i) == 46 'dot'
+			return path.slice(0 as Count, until: i)
+		end 'dot'
+	end 'back'
+	return ""
+end 'parentPath'
+
+// isWithin is whether the module at path is the one at under or one under it.
+export function isWithin(path String, under String) returns bool
+	if under == "" or path == under 'same'
+		return true
+	end 'same'
+	let n = under.byteCount()
+	return path.byteCount() > n and path.byteAt(n) == 46 and path.slice(0 as Count, until: n) == under
+end 'isWithin'
+
+// isVisible is whether something that the module owner declares with the visibility v can be named from the module
+// from. This is the one place that decides it.
+export function isVisible(v Visibility, owner diag.ModuleID, ownerPath String, from diag.ModuleID, fromPath String) returns bool
+	return match v 'v'
+		everyone gives true
+		exported gives owner == diag.stdlibID or isWithin(fromPath, under: parentPath(ownerPath))
+		unexported gives owner == from
+	end 'v'
+end 'isVisible'
 
 export typealias DeclIndex = table.StringMap with DeclOrdinal
 

@@ -178,7 +178,7 @@ aliasDecl
 // A typealias takes its type arguments as a bare list, which a type elsewhere cannot because the comma would end the
 // list that holds it.
 aliasInstance builds TypeRef
-    : (qualifier+=Name '.')* name=(Name | 'Self') ('with' typeArgs=aliasTypeArgs)?
+    : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self') ('with' typeArgs=aliasTypeArgs)?
     ;
 
 aliasTypeArgs returns [[]*TypeRef args]
@@ -197,7 +197,7 @@ bound
 
 /** a type */
 typeRef
-    : (qualifier+=Name '.')* name=(Name | 'Self') ('with' typeArgs=typeArgs)?
+    : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self') ('with' typeArgs=typeArgs)?
     ;
 
 /** type arguments */
@@ -491,8 +491,9 @@ boolLit
     | 'false'
     ;
 
+// 'export' is a name only as the start of a qualified name, where it is the root module.
 nameExpr
-    : name=(Name | 'Self')
+    : name=(Name | 'Self' | 'export')
     ;
 
 @ast::NameExpr {

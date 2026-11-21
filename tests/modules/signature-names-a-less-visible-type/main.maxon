@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("{lib.describe(lib.make())}\n")
+	return 0
+end 'main'
+
+// expect-error: E3167 at 5:1

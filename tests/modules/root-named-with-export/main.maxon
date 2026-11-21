@@ -1,0 +1,12 @@
+export typealias Small = int(0 to 9)
+
+export function twice(n Small) returns Count
+	return n * 2
+end 'twice'
+
+function main() returns ExitCode
+	print("ok\n")
+	return 0
+end 'main'
+
+//> ok

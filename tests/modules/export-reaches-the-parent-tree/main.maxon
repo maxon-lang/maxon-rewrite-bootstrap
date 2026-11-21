@@ -1,6 +1,6 @@
 function main() returns ExitCode
-	print("{greet()}\n")
+	print("{net.fetch()}\n")
 	return 0
 end 'main'
 
-// expect-error: E3095
+//> fetch send parse

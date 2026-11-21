@@ -296,44 +296,6 @@ func TestAModuleThatNoLongerCompilesReportsTheErrorsOfABuildWithNoCache(t *testi
 	}
 }
 
-const (
-	rebindMain = `function main() returns ExitCode
-	return 0
-end 'main'
-`
-	rebindUse = `export function run() returns Count
-	return foo()
-end 'run'
-`
-	rebindLib = `export function foo() returns Count
-	return 1
-end 'foo'
-`
-	rebindRootFoo = `
-export function foo() returns Count
-	return 2
-end 'foo'
-`
-)
-
-// A module that names a bare name is bound to the root's declaration of it before any other module's. A declaration that the root
-// gains is therefore a dependency the module did not have, which is in its key: the module is built again, though not one byte
-// of its own text or of the module it called before has changed. (The root calls nothing here, since a module that the root
-// calls cannot depend on the root.)
-func TestABareNameThatThenResolvesToTheRootIsRebuilt(t *testing.T) {
-	project := writeProject(t, map[string]string{"main.maxon": rebindMain, "useit/useit.maxon": rebindUse, "libx/libx.maxon": rebindLib})
-	dir := t.TempDir()
-	cold := cachedBuild(t, project, dir, "c1", 2, nil)
-	requireStats(t, "cold", cold.stats, 0, 3, 0)
-	requireStats(t, "warm", cachedBuild(t, project, dir, "c1", 2, nil).stats, 3, 0, 3)
-	editFile(t, project, "main.maxon", "end 'main'\n", "end 'main'\n"+rebindRootFoo)
-	got := cachedBuild(t, project, dir, "c1", 2, nil)
-	// useit's text and libx are as they were; useit is rebuilt because it now depends on the root, and the root because
-	// it changed. libx is not touched.
-	requireStats(t, "the root gained foo", got.stats, 1, 2, 1)
-	requireSameAsWithoutCache(t, project, got, 2)
-}
-
 // A build that does not ask for the IR leaves entries without it, so a build that does is a miss for each of them, and writes
 // entries that serve both.
 func TestABuildThatAsksForTheIrNeedsEntriesThatHoldIt(t *testing.T) {

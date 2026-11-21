@@ -34,6 +34,7 @@ const usage = `usage:
   minimaxon interp <file.maxon|dir>               run under the tracking interpreter (development only)
   minimaxon rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths
   minimaxon fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files under the paths in the one layout
+  minimaxon qualify <dir>...                      write the module before each name of another module's declaration in the projects
   minimaxon cache [trim|clean]                    show the build cache's directory and size; trim it now; remove everything in it
 
 A directory is a project: each directory under it is a module. --jobs=N sets how many modules
@@ -286,6 +287,8 @@ func run(args []string) int {
 			return usageExitCode
 		}
 		return formatFiles(paths, check)
+	case args[0] == "qualify" && len(args) >= 2:
+		return qualifyProjects(args[1:])
 	case args[0] == "cache" && len(args) <= 2:
 		return cacheCommand(args[1:], os.Stdout, os.Stderr)
 	case args[0] == "test":

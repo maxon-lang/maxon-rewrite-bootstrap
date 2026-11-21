@@ -1,0 +1,4 @@
+export function four() returns Count
+	let n = 2 as export.Small
+	return export.twice(n)
+end 'four'

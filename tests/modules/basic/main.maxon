@@ -7,7 +7,7 @@ end 'twice'
 function main() returns ExitCode
 	let a = geometry.area(3, height: 4)
 	let side = 7 as geometry.Length
-	print("area {a} side {side} perimeter {perimeter(2, height: 5)}\n")
+	print("area {a} side {side} perimeter {geometry.perimeter(2, height: 5)}\n")
 	var p = geometry.Point.create(1, y: 2)
 	try p.shift(10) otherwise return 1
 	print("point {p.x} {p.y} {p.describe()}\n")

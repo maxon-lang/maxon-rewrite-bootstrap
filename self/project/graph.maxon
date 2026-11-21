@@ -1,8 +1,8 @@
 export typealias ModIDList = array with diag.ModuleID
 
-typealias ModDepArray = array with ast.ModuleDepList
+export typealias ModDepArray = array with ast.ModuleDepList
 
-typealias ModIDListArray = array with ModIDList
+export typealias ModIDListArray = array with ModIDList
 
 typealias CountList = array with Count
 

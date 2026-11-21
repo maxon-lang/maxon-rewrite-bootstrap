@@ -1,7 +1,7 @@
-export typealias Factor = int(0 to 1000)
+public typealias Factor = int(0 to 1000)
 
-export typealias Scaled = int(0 to 5000)
+public typealias Scaled = int(0 to 5000)
 
-export function scale(n Factor) returns Scaled
+public function scale(n Factor) returns Scaled
 	return n * 5
 end 'scale'

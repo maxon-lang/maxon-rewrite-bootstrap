@@ -69,7 +69,7 @@ export let errTypeMismatch = "E3005"
 // A name is declared twice where only one declaration is allowed.
 export let errDuplicateDefinition = "E3006"
 
-// A symbol is used from outside its directory without being exported.
+// A declaration is named from a module its visibility does not reach.
 export let errNotExported = "E3008"
 
 // A named type resolves to no declared type.
@@ -78,7 +78,7 @@ export let errUnknownType = "E3011"
 // A function that returns a value can reach its end without returning one.
 export let errMissingReturn = "E3013"
 
-// A field that is not exported is read or written from outside its directory.
+// A field is read or written from a module its visibility does not reach.
 export let errFieldNotExported = "E3014"
 
 // A type says it implements an interface but lacks or mismatches a member.
@@ -117,9 +117,6 @@ export let errMainCannotThrow = "E3054"
 // A call that can fail is made without 'try' where nothing catches the failure.
 export let errUncheckedFailure = "E3057"
 
-// A bare type name reaches more than one declaration and none is nearer.
-export let errAmbiguousType = "E3063"
-
 // A union is compared with '==' or '!='.
 export let errEnumNotComparable = "E3066"
 
@@ -129,9 +126,6 @@ export let errConstructorRestriction = "E3076"
 // A struct literal omits a field that has no default.
 export let errFieldNotInitialized = "E3086"
 
-// A bare function or binding name has more than one reachable declaration.
-export let errAmbiguousName = "E3095"
-
 // A name is read after its value was moved out of it.
 export let errUseAfterMove = "E3102"
 
@@ -140,6 +134,9 @@ export let errDivisionByZero = "E3103"
 
 // A method call on a type parameter names a method that more than one of its bounds declares.
 export let errAmbiguousBound = "E3114"
+
+// A declaration's signature names a type less visible than the declaration.
+export let errExposesHiddenType = "E3167"
 
 // A type parameter of a generic function is fixed by no argument.
 export let errCannotInfer = "E3179"

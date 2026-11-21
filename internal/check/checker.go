@@ -241,7 +241,7 @@ func (c *Checker) resolveNamed(tr ast.TypeRef, self ast.Ty) ast.Ty {
 			return c.withTypeArgs(tr, t, self)
 		}
 	}
-	panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())))
+	panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())+c.qualifyHint(tr.Qualifier().Len(), tr.Name())))
 }
 
 func (c *Checker) requireNoTypeArgs(tr ast.TypeRef, name string) {
@@ -355,7 +355,7 @@ func (c *Checker) boundsOf(p *ast.TypeParamTy) []*ast.InterfaceTy {
 func (c *Checker) resolveBound(tr ast.TypeRef) *ast.InterfaceTy {
 	target := c.target(tr.ID)
 	if target == nil && c.resolution.TypeParam(tr.ID) == nil {
-		panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())))
+		panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())+c.qualifyHint(tr.Qualifier().Len(), tr.Name())))
 	}
 	d, ok := target.(*ast.InterfaceDecl)
 	if !ok {
@@ -416,12 +416,12 @@ func (c *Checker) declareMembers(d ast.Decl) {
 				ft = c.resolve(f.Type, self)
 			}
 			rt.Fields = append(rt.Fields, &ast.FieldInfo{
-				Name:     f.Name,
-				Type:     ft,
-				IsVar:    f.IsVar,
-				Default:  f.Default,
-				Index:    len(rt.Fields),
-				Exported: f.Visibility == "export" || f.Visibility == "public",
+				Name:       f.Name,
+				Type:       ft,
+				IsVar:      f.IsVar,
+				Default:    f.Default,
+				Index:      len(rt.Fields),
+				Visibility: ast.VisibilityOf(f.Visibility),
 			})
 		}
 	case *ast.EnumDecl:
@@ -1058,7 +1058,7 @@ func (c *Checker) VisitNameExpr(n ast.NameExpr) ast.Ty {
 	if n.Name() == "Self" {
 		panic(n.Error(diag.ErrExpressionError, "'Self' is a type, not a value"))
 	}
-	panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name())))
+	panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name())+c.qualifyHint(0, n.Name())))
 }
 
 func (c *Checker) VisitSelfExpr(s ast.SelfExpr) ast.Ty {
@@ -1499,6 +1499,25 @@ func (c *Checker) callGeneric(call ast.CallExpr, target *ast.FuncDecl, given []a
 	return ast.Binding{Params: target.Generics, Args: args}.Apply(c.returnType(target))
 }
 
+// qualifyHint is how to name a declaration that a name written with qualifiers parts before it did not find, when the
+// name is bare and other modules declare it: another module's declarations are always qualified. It reads every
+// module's table, which only a program with this error pays for.
+func (c *Checker) qualifyHint(qualifiers int, name string) string {
+	if qualifiers > 0 {
+		return ""
+	}
+	var spellings []string
+	for _, m := range c.project.Modules {
+		if _, declared := m.Names[name]; declared && m != c.module {
+			spellings = append(spellings, "'"+m.Qualifier()+"."+name+"'")
+		}
+	}
+	if len(spellings) == 0 {
+		return ""
+	}
+	return ": a declaration of another module is named with its module, as " + strings.Join(spellings, " or ")
+}
+
 // declares is whether a call of the function is checked now: its signature is known, because this module declares it
 // or because it is built in. Another module may still be declaring its own, so a call into it waits for the verify
 // phase.
@@ -1506,15 +1525,15 @@ func (c *Checker) declares(f *ast.FuncDecl) bool {
 	return f.Module == c.module || f.Intrinsic != ast.NotIntrinsic
 }
 
-// requireExported refuses a function of another module that the module does not export.
-func (c *Checker) requireExported(site ast.Pos, target *ast.FuncDecl) {
-	if !c.declares(target) && !target.IsExported() {
-		panic(site.Position().Error(diag.ErrNotExported, fmt.Sprintf("'%s' is not exported from module %s", target.Symbol(), target.Module.Display())))
+// requireVisible refuses a function of another module that the module cannot name.
+func (c *Checker) requireVisible(site ast.Pos, target *ast.FuncDecl) {
+	if !c.declares(target) && !ast.Visible(target.Level(), target.Module, c.module) {
+		panic(site.Position().Error(diag.ErrNotExported, ast.NotVisible(target.Symbol(), target.Level(), target.Module, c.module)))
 	}
 }
 
 func (c *Checker) callFunction(call ast.CallExpr, kind ast.CallKind, target *ast.FuncDecl, given []ast.Ty) ast.Ty {
-	c.requireExported(call.Position(), target)
+	c.requireVisible(call.Position(), target)
 	info := c.typing.Call(call)
 	info.Kind = kind
 	info.Target = target
@@ -1604,7 +1623,7 @@ func (c *Checker) VisitCallExpr(call ast.CallExpr) ast.Ty {
 		if ast.IsCownConstructor(callee) {
 			return c.cownCall(call)
 		}
-		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name())))
+		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name())+c.qualifyHint(0, n.Name())))
 	}
 
 	if m, ok := call.Callee().AsMemberExpr(); ok {
@@ -1890,8 +1909,8 @@ func (c *Checker) VisitMemberExpr(m ast.MemberExpr) ast.Ty {
 	requireNotCown(m.Position(), ast.Content(t), "reading", m.Name())
 	if rt, ok := ast.Content(t).(*ast.RecordTy); ok {
 		if f := rt.Field(m.Name()); f != nil {
-			if rt.Decl.Module != c.module && !f.Exported {
-				panic(m.Error(diag.ErrFieldNotExported, fmt.Sprintf("field '%s.%s' is not exported", rt.Name(), f.Name)))
+			if !ast.Visible(f.Visibility, rt.Decl.Module, c.module) {
+				panic(m.Error(diag.ErrFieldNotExported, "field "+ast.NotVisible(rt.Name()+"."+f.Name, f.Visibility, rt.Decl.Module, c.module)))
 			}
 			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberField, Field: f})
 			return rt.FieldType(f)

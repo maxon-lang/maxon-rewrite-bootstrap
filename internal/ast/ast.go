@@ -63,8 +63,6 @@ type Decl interface {
 
 func (d *DeclBase) Base() *DeclBase { return d }
 
-func (d *DeclBase) IsExported() bool { return d.Visibility == "export" || d.Visibility == "public" }
-
 type TypeDeclNode interface {
 	Decl
 	TypeBase() *TypeDeclNodeBase

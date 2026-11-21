@@ -2,8 +2,6 @@ typealias BoolStrMap = table.StringMap with bool
 
 typealias DiscDirList = array with DiscoveredDir
 
-typealias DeclRefListArray = array with ast.DeclRefList
-
 type DiscoveredDir
 	export var modPath as String
 	export var dir as String
@@ -11,7 +9,7 @@ type DiscoveredDir
 	export var subNames as ast.StringList
 	export var children as CountList
 
-	export static function make(consumes modPath String, consumes dir String) returns DiscoveredDir
+	static function make(consumes modPath String, consumes dir String) returns DiscoveredDir
 		return DiscoveredDir{modPath: modPath, dir: dir, filePaths: ast.StringList.new(), subNames: ast.StringList.new(), children: CountList.new()}
 	end 'make'
 end 'DiscoveredDir'
@@ -111,7 +109,7 @@ function isQualifier(name String) returns bool
 end 'isQualifier'
 
 function isReservedTopLevel(name String) returns bool
-	return name == "export" or name == "stdlib" or name == "runtime" or name == "scriptlib"
+	return name == ast.rootQualifier or name == ast.stdlibQualifier or name == "runtime" or name == "scriptlib"
 end 'isReservedTopLevel'
 
 function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes modPath String, isRoot bool, mutates errs diag.ErrorList) returns Option with Count
@@ -258,8 +256,7 @@ function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.Interfa
 	p.declTypes.insert(ast.declKey(ref), value: tid)
 end 'allocIfaceShell'
 
-function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates errs diag.ErrorList) returns ast.DeclRefList
-	var kept = ast.DeclRefList.new()
+function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates errs diag.ErrorList)
 	let mIdx = ast.modIndex(modID)
 	let count = p.modules[mIdx].decls.count()
 	for i in 0 upto count 'each'
@@ -269,10 +266,9 @@ function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates er
 		let dOff = p.modules[mIdx].decls[i].offset(p.modules[mIdx].tree)
 		match p.modules[mIdx].indexDecl(ord) 'dup'
 			some(prevOrd) then pushDuplicateDecl(p.modules[mIdx], dName: dName, dOff: dOff, prevOrd: prevOrd, modID: modID, errs: errs)
-			none then kept.append(ast.DeclRef.make(modID, ordinal: ord))
+			none then _ = 0
 		end 'dup'
 	end 'each'
-	return kept
 end 'buildModuleTable'
 
 function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
@@ -352,19 +348,10 @@ export function loadProject(rootPath String, mutates errs diag.ErrorList) return
 		p.rootModule = rootMid
 		parseSingleModule(p, modIdx: 0 as Count, singleSrc: Option.some(singleText), errs: errs)
 	end 'single'
-	var keptPerMod = DeclRefListArray.new()
 	for i in 0 upto p.modules.count() 'buildTbl'
 		let mid = p.modules[i].id
-		keptPerMod.append(buildModuleTable(p, modID: mid, errs: errs))
+		buildModuleTable(p, modID: mid, errs: errs)
 	end 'buildTbl'
-	for i in 0 upto keptPerMod.count() 'idxGlobal'
-		for j in 0 upto keptPerMod[i].count() 'eachD'
-			let ref = keptPerMod[i][j].copy()
-			let mIdx = ast.modIndex(ref.module)
-			let dName = p.modules[mIdx].decls[ref.ordinal as Count].name()
-			ast.addGlobalDecl(p, name: dName, ref: ref)
-		end 'eachD'
-	end 'idxGlobal'
 	return Option.some(p)
 end 'loadProject'
 

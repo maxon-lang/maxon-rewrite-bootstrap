@@ -31,6 +31,10 @@ type Resolver struct {
 	typeParams map[string]int
 	// whenDepth is how many behaviours the name being resolved is in the body of.
 	whenDepth int
+	// Unbound, when it is set, hears of each name written without a module that is not a local, a field, a type
+	// parameter, a declaration of the module or a built-in: a name of another module that the source has not qualified,
+	// which the qualify command qualifies, or a name the checker refuses.
+	Unbound func(name string, site ast.Pos)
 }
 
 func NewResolver(p *ast.Project, m *ast.Module, result *ast.ModuleResult) *Resolver {
@@ -65,16 +69,18 @@ func (r *Resolver) resolveDecl(d ast.Decl) {
 }
 
 func (r *Resolver) VisitFuncDecl(d *ast.FuncDecl) {
-	r.resolveFunction(d, nil)
+	r.resolveFunction(d, nil, surface{tier: d.Level(), noun: "function", name: d.Name, at: d.Position()})
 }
 
 func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
 	checkEnd(d.Name, d.End)
-	outer := r.enterTypeParams(d.Name, d.TypeParams, d.Where)
-	r.resolveConforms(d.Conforms)
+	s := typeSurface(&d.DeclBase, "type")
+	outer := r.enterTypeParams(d.Name, d.TypeParams, d.Where, s)
+	r.resolveConforms(d.Conforms, s)
 	for _, f := range d.Fields {
 		if !f.Type.IsNil() {
-			r.resolveType(f.Type)
+			field := surface{tier: min(s.tier, ast.VisibilityOf(f.Visibility)), noun: "field", name: d.Name + "." + f.Name, at: f.Type.Position()}
+			r.signatureType(field, "in its type", f.Type)
 		}
 		if !f.Default.IsNil() {
 			r.enter(map[string]bool{})
@@ -83,9 +89,9 @@ func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
 	}
 	for _, m := range d.Methods {
 		if m.IsStatic {
-			r.resolveFunction(m, nil)
+			r.resolveFunction(m, nil, methodSurface(d.Name, m))
 		} else {
-			r.resolveFunction(m, d)
+			r.resolveFunction(m, d, methodSurface(d.Name, m))
 		}
 	}
 	r.typeParams = outer
@@ -93,46 +99,43 @@ func (r *Resolver) VisitTypeDecl(d *ast.TypeDecl) {
 
 func (r *Resolver) VisitEnumDecl(d *ast.EnumDecl) {
 	checkEnd(d.Name, d.End)
-	r.resolveConforms(d.Conforms)
+	r.resolveConforms(d.Conforms, typeSurface(&d.DeclBase, "enum"))
 	for _, m := range d.Methods {
-		r.resolveFunction(m, nil)
+		r.resolveFunction(m, nil, methodSurface(d.Name, m))
 	}
 }
 
 func (r *Resolver) VisitUnionDecl(d *ast.UnionDecl) {
 	checkEnd(d.Name, d.End)
-	outer := r.enterTypeParams(d.Name, d.TypeParams, d.Where)
-	r.resolveConforms(d.Conforms)
+	s := typeSurface(&d.DeclBase, "union")
+	outer := r.enterTypeParams(d.Name, d.TypeParams, d.Where, s)
+	r.resolveConforms(d.Conforms, s)
 	for _, c := range d.Cases {
 		for _, p := range c.Fields {
-			r.resolveType(p.Type)
+			payload := surface{tier: s.tier, noun: "union case", name: d.Name + "." + c.Name, at: p.Type.Position()}
+			r.signatureType(payload, "in the type of payload '"+p.Name+"'", p.Type)
 		}
 	}
 	for _, m := range d.Methods {
-		r.resolveFunction(m, nil)
+		r.resolveFunction(m, nil, methodSurface(d.Name, m))
 	}
 	r.typeParams = outer
 }
 
+// VisitInterfaceDecl resolves the requirements, which take the interface's visibility: a conformer's caller reaches
+// them through the interface.
 func (r *Resolver) VisitInterfaceDecl(d *ast.InterfaceDecl) {
 	checkEnd(d.Name, d.End)
 	for _, m := range d.Methods {
-		for _, p := range m.Params {
-			r.resolveType(p.Type)
-		}
-		if !m.Returns.IsNil() {
-			r.resolveType(m.Returns)
-		}
-		if !m.Throws.IsNil() {
-			r.resolveType(m.Throws)
-		}
+		r.signature(surface{tier: d.Level(), noun: "function", name: d.Name + "." + m.Name, at: m.Position()}, m.Params, m.Returns, m.Throws)
 	}
 }
 
 // enterTypeParams puts the type parameters of the declaration named owner in scope and returns the scope to restore
 // afterwards. Each constraint of its 'where' clause binds one of them, and its bounds are resolved with the
-// parameters in scope. A method's constraint may also bind a parameter of its type, which is in scope already.
-func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where []*ast.Constraint) map[string]int {
+// parameters in scope and held to the declaration's surface. A method's constraint may also bind a parameter of its
+// type, which is in scope already.
+func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where []*ast.Constraint, s surface) map[string]int {
 	outer := r.typeParams
 	if len(params) > 0 {
 		r.typeParams = make(map[string]int, len(outer)+len(params))
@@ -144,7 +147,7 @@ func (r *Resolver) enterTypeParams(owner string, params []*ast.TypeParam, where 
 	for _, c := range where {
 		r.result.Resolution.BindTypeParam(c.ID, r.constrained(owner, where, c))
 		for _, b := range c.Bounds.All() {
-			r.resolveType(b)
+			r.signatureType(s, "in its where clause", b)
 		}
 	}
 	return outer
@@ -165,9 +168,9 @@ func (r *Resolver) constrained(owner string, where []*ast.Constraint, c *ast.Con
 	return target
 }
 
-func (r *Resolver) resolveConforms(interfaces ast.TypeRefList) {
+func (r *Resolver) resolveConforms(interfaces ast.TypeRefList, s surface) {
 	for _, tr := range interfaces.All() {
-		r.resolveType(tr)
+		r.signatureType(s, "in its implements clause", tr)
 	}
 }
 
@@ -178,8 +181,78 @@ func (r *Resolver) VisitConstDecl(d *ast.ConstDecl) {
 
 func (r *Resolver) VisitAliasDecl(d *ast.AliasDecl) {
 	if !d.Instance.IsNil() {
-		r.resolveType(d.Instance)
+		r.signatureType(typeSurface(&d.DeclBase, "typealias"), "in its target", d.Instance)
 	}
+}
+
+// surface is a declaration that other modules read the signature of, as far as its visibility reaches: whoever may
+// name it must be able to name every type its signature names, so each must be at least as visible (E3167). at is
+// where a violation is reported.
+type surface struct {
+	tier ast.Visibility
+	noun string
+	name string
+	at   ast.Pos
+}
+
+func typeSurface(d *ast.DeclBase, noun string) surface {
+	return surface{tier: d.Level(), noun: noun, name: d.Name, at: d.Position()}
+}
+
+// methodSurface is a method's: its own visibility decides, not its type's.
+func methodSurface(owner string, m *ast.FuncDecl) surface {
+	return surface{tier: m.Level(), noun: "function", name: owner + "." + m.Name, at: m.Position()}
+}
+
+// signature resolves the types of a function's signature, each held to the surface.
+func (r *Resolver) signature(s surface, params []*ast.Param, returns, throws ast.TypeRef) {
+	for _, p := range params {
+		r.signatureType(s, "in the type of parameter '"+p.Name+"'", p.Type)
+	}
+	if !returns.IsNil() {
+		r.signatureType(s, "in its return type", returns)
+	}
+	if !throws.IsNil() {
+		r.signatureType(s, "in its throws clause", throws)
+	}
+}
+
+// signatureType resolves a type that the surface's signature writes at position, and refuses a declaration that it or
+// its arguments name and that is less visible than the surface.
+func (r *Resolver) signatureType(s surface, position string, tr ast.TypeRef) {
+	r.resolveType(tr)
+	if s.tier != ast.Private {
+		r.requireExposable(s, position, tr)
+	}
+}
+
+func (r *Resolver) requireExposable(s surface, position string, tr ast.TypeRef) {
+	if d := r.result.Resolution.Decl(r.project, tr.ID); d != nil && d.Base().Level() < s.tier {
+		b := d.Base()
+		panic(s.at.Error(diag.ErrExposesHiddenType, fmt.Sprintf("%s %s '%s' names %s %s '%s' %s: mark '%s' '%s', or narrow the %s",
+			s.tier.Word(), s.noun, s.name, b.Level().Word(), ast.VisitDeclResult[string](typeNouns{}, d), b.Name, position,
+			b.Name, s.tier.Modifier(), s.noun)))
+	}
+	for _, a := range tr.TypeArgs().All() {
+		r.requireExposable(s, position, a)
+	}
+}
+
+// typeNouns names the kind of a type declaration in a message.
+type typeNouns struct{}
+
+func (typeNouns) VisitTypeDecl(*ast.TypeDecl) string           { return "type" }
+func (typeNouns) VisitEnumDecl(*ast.EnumDecl) string           { return "enum" }
+func (typeNouns) VisitUnionDecl(*ast.UnionDecl) string         { return "union" }
+func (typeNouns) VisitAliasDecl(*ast.AliasDecl) string         { return "typealias" }
+func (typeNouns) VisitInterfaceDecl(*ast.InterfaceDecl) string { return "interface" }
+
+func (typeNouns) VisitFuncDecl(f *ast.FuncDecl) string {
+	panic(diag.Internal("a type reference names the function '%s'", f.Name))
+}
+
+func (typeNouns) VisitConstDecl(c *ast.ConstDecl) string {
+	panic(diag.Internal("a type reference names the constant '%s'", c.Name))
 }
 
 // checkEnd refuses an 'end' whose label is not the block's.
@@ -194,23 +267,15 @@ func (r *Resolver) enter(fieldNames map[string]bool) {
 	r.fields = fieldNames
 }
 
-func (r *Resolver) resolveFunction(f *ast.FuncDecl, instanceOf *ast.TypeDecl) {
-	outer := r.enterTypeParams(f.Name, f.TypeParams, f.Where)
-	r.resolveBody(f, instanceOf)
+func (r *Resolver) resolveFunction(f *ast.FuncDecl, instanceOf *ast.TypeDecl, s surface) {
+	outer := r.enterTypeParams(f.Name, f.TypeParams, f.Where, s)
+	r.resolveBody(f, instanceOf, s)
 	r.typeParams = outer
 }
 
-func (r *Resolver) resolveBody(f *ast.FuncDecl, instanceOf *ast.TypeDecl) {
+func (r *Resolver) resolveBody(f *ast.FuncDecl, instanceOf *ast.TypeDecl, s surface) {
 	checkEnd(f.Name, f.End)
-	for _, p := range f.Params {
-		r.resolveType(p.Type)
-	}
-	if !f.Returns.IsNil() {
-		r.resolveType(f.Returns)
-	}
-	if !f.Throws.IsNil() {
-		r.resolveType(f.Throws)
-	}
+	r.signature(s, f.Params, f.Returns, f.Throws)
 	names := map[string]bool{}
 	if instanceOf != nil {
 		for _, fd := range instanceOf.Fields {
@@ -383,8 +448,10 @@ func (r *Resolver) VisitSelfExpr(e ast.SelfExpr) {}
 func (r *Resolver) VisitNameExpr(e ast.NameExpr) {
 	switch {
 	case e.Name() == "Self":
+	case e.Name() == ast.RootQualifier:
+		panic(e.Error(diag.ErrExpressionError, "'export' is the root module, not a value: name one of its declarations, as in 'export.limit'"))
 	case !r.isBound(e.Name()):
-		r.bindDecl(e.ID, r.take(r.bare(e.Name()), e.Position()))
+		r.bindDecl(e.ID, r.take(r.bare(e.Name(), e.Position()), e.Position()))
 	case r.whenDepth > 0:
 		r.module.Tree.AppendCaptureRefs(e, r.whenDepth)
 	}
@@ -451,7 +518,7 @@ func (r *Resolver) VisitCallExpr(e ast.CallExpr) {
 
 func (r *Resolver) VisitStructLitExpr(e ast.StructLitExpr) {
 	if e.TypeName() != "Self" {
-		r.bindDecl(e.ID, r.take(r.bare(e.TypeName()), e.Position()))
+		r.bindDecl(e.ID, r.take(r.bare(e.TypeName(), e.Position()), e.Position()))
 	}
 	for _, f := range e.Fields().All() {
 		r.expr(f.Value())
@@ -520,7 +587,7 @@ func (memberDeclarations) VisitConstDecl(*ast.ConstDecl, string) bool { return f
 func (memberDeclarations) VisitAliasDecl(*ast.AliasDecl, string) bool { return false }
 
 func (r *Resolver) isModuleRoot(name string) bool {
-	if name == "export" || name == "stdlib" {
+	if name == ast.RootQualifier || name == ast.StdlibQualifier {
 		return true
 	}
 	_, ok := r.project.Root.Children[name]
@@ -553,16 +620,15 @@ func (r *Resolver) member(m ast.MemberExpr) {
 		r.expr(m.Obj())
 		return
 	}
-	bare := r.bare(head.Name())
-	decl := bare.Decl
-	if decl != nil {
+	if decl := r.bareDecl(head.Name()); decl != nil {
 		_, isConst := decl.(*ast.ConstDecl)
 		if isConst || (isType(decl) && declaresMember(decl, segments[0].Name)) || !r.isModuleRoot(head.Name()) {
-			r.bindDecl(head.ID, r.take(bare, head.Position()))
+			r.bindDecl(head.ID, r.take(lookup{Decl: decl}, head.Position()))
 			return
 		}
 	}
 	if !r.isModuleRoot(head.Name()) {
+		r.bare(head.Name(), head.Position())
 		return
 	}
 
@@ -580,9 +646,9 @@ func (r *Resolver) member(m ast.MemberExpr) {
 func (r *Resolver) qualified(head string, headSite ast.Pos, rest []string, sites []ast.Pos) (ast.Decl, int) {
 	var mod *ast.Module
 	switch head {
-	case "export":
+	case ast.RootQualifier:
 		mod = r.project.Root
-	case "stdlib":
+	case ast.StdlibQualifier:
 		mod = r.project.Stdlib
 	default:
 		mod = r.project.Root.Children[head]
@@ -608,7 +674,7 @@ func (r *Resolver) qualified(head string, headSite ast.Pos, rest []string, sites
 	}
 	found := lookup{Decl: decl}
 	if !r.visible(decl) {
-		found.Error = hidden(decl, sites[i])
+		found.Error = r.hidden(decl, sites[i])
 	}
 	return r.take(found, sites[i]), i + 1
 }
@@ -625,7 +691,7 @@ func (r *Resolver) resolveType(tr ast.TypeRef) {
 		if primitiveTypes[tr.Name()] {
 			return
 		}
-		found := r.take(r.bare(tr.Name()), tr.Position())
+		found := r.take(r.bare(tr.Name(), tr.Position()), tr.Position())
 		if found != nil && !isType(found) {
 			panic(tr.Error(diag.ErrUnknownType, "'"+tr.Name()+"' is not a type"))
 		}
@@ -649,12 +715,12 @@ func (r *Resolver) resolveType(tr ast.TypeRef) {
 
 func (r *Resolver) visible(d ast.Decl) bool {
 	b := d.Base()
-	return b.Module == r.module || b.IsExported()
+	return ast.Visible(b.Level(), b.Module, r.module)
 }
 
-func hidden(d ast.Decl, site ast.Pos) *diag.CompileError {
+func (r *Resolver) hidden(d ast.Decl, site ast.Pos) *diag.CompileError {
 	b := d.Base()
-	return site.Position().Error(diag.ErrNotExported, "'"+b.Name+"' is not exported from module "+b.Module.Display())
+	return site.Position().Error(diag.ErrNotExported, ast.NotVisible(b.Name, b.Level(), b.Module, r.module))
 }
 
 // bindDecl records that a node names d, unless it names no declaration, as 'print' does not.
@@ -682,44 +748,22 @@ func (r *Resolver) take(found lookup, site ast.Pos) ast.Decl {
 	return found.Decl
 }
 
-func (r *Resolver) bare(name string) lookup {
+// bare looks up a name written without a module: the module's own declaration, else a built-in. Another module's
+// declarations are always qualified, so resolving a module reads only the modules it names.
+func (r *Resolver) bare(name string, site ast.Pos) lookup {
+	decl := r.bareDecl(name)
+	if decl == nil && r.Unbound != nil {
+		r.Unbound(name, site)
+	}
+	return lookup{Decl: decl}
+}
+
+func (r *Resolver) bareDecl(name string) ast.Decl {
 	if own, ok := r.module.Names[name]; ok {
-		return lookup{Decl: own}
+		return own
 	}
-	if root, ok := r.project.Root.Names[name]; ok {
-		if r.visible(root) {
-			return lookup{Decl: root}
-		}
-		return lookup{Decl: root, Error: hidden(root, root.Position())}
+	if builtin, ok := r.project.Stdlib.Names[name]; ok {
+		return builtin
 	}
-	var candidates, visible []ast.Decl
-	for _, d := range r.project.ByName[name] {
-		dm := d.Base().Module
-		if dm != r.module && dm != r.project.Root {
-			candidates = append(candidates, d)
-		}
-	}
-	for _, d := range candidates {
-		if r.visible(d) {
-			visible = append(visible, d)
-		}
-	}
-	if len(visible) == 1 {
-		return lookup{Decl: visible[0]}
-	}
-	if len(visible) > 1 {
-		code := diag.ErrAmbiguousName
-		if isType(visible[0]) {
-			code = diag.ErrAmbiguousType
-		}
-		where := make([]string, len(visible))
-		for i, d := range visible {
-			where[i] = d.Base().Module.Path + "." + name
-		}
-		return lookup{Error: diag.NewError(code, "'"+name+"' is ambiguous: qualify it as one of "+strings.Join(where, ", "), "", 0, 0)}
-	}
-	if len(candidates) > 0 {
-		return lookup{Error: hidden(candidates[0], candidates[0].Position())}
-	}
-	return lookup{Decl: r.project.Stdlib.Names[name]}
+	return nil
 }

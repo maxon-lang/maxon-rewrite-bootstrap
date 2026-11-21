@@ -34,6 +34,7 @@ go test ./...
 | `minimaxon check <file\|dir>` | diagnostics only |
 | `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
+| `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
@@ -105,22 +106,37 @@ is found, that is the error. Correct programs pay nothing for the checks, and an
 before it produces an executable.
 
 Cross-module calls already work this way: they are typed from the callee's declared signature and checked in the
-verify stage of the check pass. Name resolution still builds the project-wide name index first; it is the next candidate for the
-same treatment.
+verify stage of the check pass. Name resolution reads only the module's own declarations, the standard library and the
+declarations of the modules the module names, because another module's names are always qualified.
 
 ## Modules
 
 A module is a directory. The project root is the root module, which holds `main`, and every directory
-under it that holds source, at any depth, is a module of its own. Names follow Maxon's rules:
+under it that holds source, at any depth, is a module of its own.
 
-- **Qualified:** `geometry.area()`, `7 as geometry.Length`, `geometry.units.scale(3)`. A path is read
-  from the root. `export.X` names the root module's `X` and `stdlib.X` a built-in.
-- **Bare:** the module's own declaration, else the root's, else the one exported declaration anywhere.
-  Two candidates is `E3095` for a function or binding and `E3063` for a type.
-- **Visibility is flat:** an unmarked declaration, field or method is visible only inside its own module.
-  `export` and `public` make it visible everywhere. Naming a hidden one is `E3008` (`E3014` for a field).
+- **Another module's names are always qualified**, by the module's path read from the root: `geometry.area()`,
+  `7 as geometry.Length`, `net.http.parse()`, `geometry.Shape.circle(2)`. The root module's own declarations are
+  `export.X` (`export` is a name only as the start of a qualified name), and `stdlib.X` is a built-in.
+- **A bare name** is a local, a field, a type parameter, the module's own declaration or a built-in, and nothing else, so
+  adding a declaration to one module never changes how another resolves, and resolving a module reads only the
+  declarations of the modules it names. A bare name that only another module declares is unknown (`E3004` for a call,
+  `E3011` for a type, `E2004` for a value), and the message names the qualified spellings.
+- **Visibility has three levels**, for a declaration, a field or a method:
+  - no modifier: the declaring module only;
+  - `export`: the tree rooted at the declaring module's parent, as Go's `internal/`. An `export` in `app/net/http` is
+    visible to `app/net` and every module under it (`app/net/tcp` too), not to `app` or `app/ui`. In a top-level
+    module or the root module that tree is the whole project. It never reaches past the project;
+  - `public`: everyone, programs that use the project as a library included.
+
+  Naming a declaration from a module its visibility does not reach is `E3008` (`E3014` for a field), and the message
+  says which modifier would reach.
+- **A signature may not name a less visible type** (`E3167`): each type that the parameters, return type, `throws`
+  clause, `where` clause or `implements` clause of an `export` or `public` declaration name, the type of a field (at the
+  narrower of the field's and its type's visibility), a payload (at its union's) and a typealias's target must be at
+  least as visible. A method is held to its own visibility, a requirement of an interface to the interface's.
 - **One namespace per module:** a name declared twice across the module's files is `E3006`.
-- **No import cycles:** module A depends on B when A names one of B's declarations. A cycle is `E2012`, reported at where the first module of the cycle names the second.
+- **No import cycles:** module A depends on B when A names one of B's declarations. A cycle is `E2012`, reported at
+  where the first module of the cycle names the second. A module that the root names therefore cannot name `export.X`.
 - A directory whose name is not an identifier, or a top-level one named `export`, `stdlib`, `runtime` or
   `scriptlib`, is `E3182`.
 
@@ -232,8 +248,7 @@ merged in source order, which keeps the output deterministic.
 |---|---|---|
 | discover | `project` | walks the directory tree, one goroutine per subdirectory |
 | parse | `syntax`, `project` | reads the module's files into one buffer, lexes the whole buffer in one pass and parses the token stream into the AST; anything the grammar does not allow is a syntax error. A module that parsed cleanly then gets its declaration table and an empty type object for each of its types, while its AST is in cache (a duplicate declaration is `E3006`, reported only if no module has a syntax error) |
-| names | `project` | serial and cheap: the project-wide name index, which lists the declarations of each name in module order. The cores it leaves idle meanwhile size the tables of each module's `Typing` that have an entry for every node (see "The AST") |
-| resolve | `resolve` | binds every name to its declaration and records the modules the module depends on in its result, and each `where` constraint to the type parameter it names (`E3916`) |
+| resolve | `resolve` | sizes the tables of the module's `Typing` that have an entry for every node (see "The AST"), then binds every name to its declaration and records the modules the module depends on in its result, and each `where` constraint to the type parameter it names (`E3916`); it reads the module's own declarations, the standard library and those of the modules the module qualifies, and checks visibility (`E3008`) and that no signature names a less visible type (`E3167`) |
 | aliases | `check` | serial and cheap: each typealias of an instance gets its type, after the typealiases it names, in source order (a cycle is `E2012`) |
 | declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass. It also numbers the module's nodes that have a slot, now that resolve has changed the kind of some, and sizes the tables of the `Typing` that only some nodes have |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
@@ -436,7 +451,7 @@ A name is a third of the expressions or more and a call a tenth or fewer, so a n
 share a word) and a call's is not paid by the expressions that are not calls; the receiver of a call is not stored, because it is
 the object of the member the call names. A parameter's local is not in a table but in its function (`FuncDecl.ParamLocals`), and
 the call that a cown's `dropWith:` names is the `CallInfo` of the cown's call, with no node. `Typing.Size` makes the tables that have
-an entry for every node (the driver does it while the serial name index leaves the other cores idle) and `Typing.Reset` numbers the
+an entry for every node (the resolve pass does it, while the module's tree is in cache) and `Typing.Reset` numbers the
 slots and sizes the rest after resolution. The types are 16 bytes for every node, the statements, declarations and type references
 too, which is more than a table of only the expressions would take; handing the types out as 4-byte handles into a per-module
 table of the distinct types was measured and kept out (see "Allocation").
@@ -616,11 +631,10 @@ something that the summary of a module d reaches holds, and the key holds the su
   and the summary writes each of them. A function or constant that is not exported cannot be named from m (`E3008`, which the front
   reports for every build, cache or none), and one that m reaches without naming is a method, which is in the type. A type that d's
   signature leads m to is in a module d depends on, whose summary is folded into d's.
-- **Which names resolve where.** A bare name is the module's own declaration, else the root's, else the one exported declaration anywhere
-  (`E3095`, `E3063` for two, which the front reports). A declaration that the root gains and that a bare name now resolves to is a
-  dependency m did not have, so the list of summaries in m's key changes; one that is exported by a module m already depends on changes
-  that module's summary, since the names a module exports are in it; a private one is not a candidate; the module's own declarations are
-  m's source. So no way for a name to resolve elsewhere leaves m's key as it was.
+- **Which names resolve where.** A bare name is the module's own declaration or a built-in, and any other name is qualified by the
+  module that declares it, which is then a module m depends on. A declaration that such a module gains, loses or changes the
+  visibility of changes that module's summary, since the names a module declares and their visibility are in it; the module's own
+  declarations are m's source. So no way for a name to resolve elsewhere leaves m's key as it was.
 - **The bodies and check results of generics.** An instance is lowered in the module that needs it, from the generic's body and the
   results of checking it. They are made from the generic's source (in the summary), the declarations of its module (all of them, since
   the module shows every function when it has a generic) and what its module reaches (folded). The same holds for the instances that the
@@ -1444,8 +1458,8 @@ keeps its place and no value is dropped.
   dies (see "The primitives in the IR" and "Native freeing"). A map, a list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
   program that uses one is refused when it is compiled to an executable (`E9900`) and still passes `check`; the test
   runner runs such a program under the interpreter alone.
-- **Limits.** `Option with T` here is the stdlib's; a module that exports its own `Option` wins the bare name in the
-  other modules, and `stdlib.Option with T` names this one. A primitive implements no interface (`E3017`). A record
+- **Limits.** `Option with T` here is the stdlib's; a module that declares its own `Option` wins the bare name in
+  that module, and `stdlib.Option with T` names this one there. A primitive implements no interface (`E3017`). A record
   that contains itself through an array (`var kids as array with Tree` in `Tree`) is fine, natively too: its drop and
   its copy are routines that call themselves.
 
@@ -1602,9 +1616,10 @@ compares its tokens with the input's, so a formatter bug is an internal error an
 - A parameter convention is a verb written before the parameter's name, with the function as its subject:
   `push(consumes item T)`, `swap(mutates a T, mutates b T)`, `parse(sets result Ast)`, and `mutates self` or
   `consumes self` for a receiver, and `destructs self` for a destructor.
-- Modules differ from Maxon in three ways. Visibility is flat, not "the directory and its subdirectories".
-  Import cycles are refused. And the rule that an exported signature may not name a less visible type
-  (`E3167`) is not checked.
+- Modules are Go's, not Maxon's. Another module's names are always qualified by its path (`net.http.parse()`, and
+  `export.X` for the root's), where Maxon also finds a bare name in the root or as the one exported declaration
+  anywhere (`E3095`, `E3063` for two, which minimaxon does not have). `export` reaches the tree rooted at the declaring
+  module's parent, as Go's `internal/`, and `public` everyone. Import cycles are refused.
 - It checks only the rules that the generated code depends on. The style rules are left out: an unused
   name (`E3012`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
   an unneeded cast (`E3010`), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
@@ -1631,6 +1646,12 @@ A change to the syntax touches many programs, so tools do the mechanical part:
   holds such files on purpose; a file named on the command line that does not parse is an error and exits 1). The
   unit-test sources under `internal/*/testdata`, case files included, are whole files of declarations and comments,
   so `fmt` handles them like any other.
+- **`minimaxon qualify <dir>...`** qualifies, in each project, every bare name of another module's declaration, as a
+  program must write it: it resolves each module and writes the module's path (`export` for the root's) before each
+  name that the module, the standard library and its scopes do not declare and another module does. The name is taken
+  to mean what Maxon's bare lookup finds, the root's declaration, else the one exported declaration of that name; a
+  name that two modules export is listed and left alone. It is the step after converting a Maxon project, whose names
+  may be bare.
 - **`minimaxon test --update-positions`** moves each `expect-error` whose code is now reported at another line or column,
   as after a rename that changes a line's length. It never changes the code a test expects, so a test that now fails
   with another error still fails.

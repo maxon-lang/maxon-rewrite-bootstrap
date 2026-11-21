@@ -1,0 +1,11 @@
+type Secret
+	let code as Count
+end 'Secret'
+
+export function make() returns Secret
+	return Secret{code: 7}
+end 'make'
+
+export function describe(s Secret) returns String
+	return "secret"
+end 'describe'

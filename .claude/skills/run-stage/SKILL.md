@@ -56,9 +56,13 @@ spawns no agents.
    `port-to-self` is planned (no plan stage names it), so give its steps in the brief itself.
 5. **Run, monitor and merge.** Start subagents, wait for their short reports, and monitor them (next section) after
    each round, before merging. Subagents in a worktree leave their changes
-   uncommitted; transfer each in source order with `git add -N .` then `git diff | git apply` run from the worktree
-   into the main tree (`-N` makes new files, such as `self/` files and `cmd/<name>/` tools, appear in the diff), resolve
-   conflicts, then `git worktree remove --force`. Then run the checks once, on the merged tree. A failure goes to a fresh subagent with
+   uncommitted; transfer each with `git -C <worktree> add -A`, then
+   `git -C <worktree> diff --cached --binary --no-renames HEAD > <scratch>/task.patch`, then
+   `git apply --3way <scratch>/task.patch` in the main tree (a plain `git diff` after `add -N` breaks when the agent
+   moved a file with `git mv`). Resolve conflicts by script where both sides ran a rewrite (take the main tree's side
+   and re-run the rewrite on those files), run `go generate ./internal/syntax ./internal/diag ./internal/ast` on the
+   merged tree, then `git worktree remove --force`. The main tree is for merging only: every agent gets a worktree.
+   Run git against a worktree with `git -C`, never `cd` into it (the shell's working directory would stay there). Then run the checks once, on the merged tree. A failure goes to a fresh subagent with
    the failing output saved to a scratch file; `opus` when the cause is not obvious.
 6. **Update the docs.** `README.md` for what the stage changed (subset, commands and flags, packages, pipeline, IR,
    "Where it differs from Maxon"), and the stage's status in the plan, in its heading as the existing ones do
