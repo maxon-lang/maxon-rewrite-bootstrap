@@ -162,3 +162,14 @@ git worktree add --detach .claude/worktrees/<task> HEAD
 - `.claude/worktrees/` is in `.git/info/exclude`, so the main tree's `git status` and Grep do not see it.
 - After merging: `git worktree remove --force .claude/worktrees/<task>` (`git worktree unlock` first for one the
   harness created).
+
+## Parallel agents and the corpus
+
+- Every checkout's `minimaxon test` writes `%TEMP%\minimaxon\<test>.exe`, so agents running the corpus at the same
+  time can fail one test with "cannot write ...exe: Access is denied". Say so in each brief (rerun once before treating
+  it as real) until the path is made per-process.
+- Two parallel tasks must not both restructure the same logic. When one task moves code (a pass, a check) and another
+  edits inside it, the second's brief names that code as off limits or the tasks run in sequence; a three-way apply
+  only merges edits on different lines.
+- In a Bash heredoc that feeds Python, write regex backslashes with care or use the Edit tool: `\d` and `\b` do not
+  arrive as written.
