@@ -51,9 +51,10 @@ function temporaries() returns Count
 	return 1
 end 'temporaries'
 
-function unwrapped(consumes o Option with String) returns String
-	return o.unwrap()
-end 'unwrapped'
+union Option uses T
+	some(value T)
+	none
+end 'Option'
 
 function bound(o Option with String) returns Count
 	match o 'm'

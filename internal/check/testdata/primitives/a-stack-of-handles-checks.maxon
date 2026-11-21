@@ -1,3 +1,22 @@
+union Option uses T
+	some(value T)
+	none
+
+	function isSome() returns bool
+		return match self 'o'
+			some(v) gives true
+			none gives false
+		end 'o'
+	end 'isSome'
+
+	function unwrap(consumes self) returns T
+		match consumes self 'o'
+			some(value) then return value
+			none then panic("unwrap of an Option that holds no value")
+		end 'o'
+	end 'unwrap'
+end 'Option'
+
 typealias CountOption = Option with Count
 
 typealias NodeHandleOption = Option with (Handle with Node)
@@ -31,7 +50,7 @@ type Stack
 			return CountOption.none
 		end 'empty'
 		let handle = top.clone().unwrap()
-		let node = nodes.remove(handle).unwrap()
+		let node = try nodes.remove(handle) otherwise panic("the handle names no element")
 		top = node.next.clone()
 		return Option.some(node.value)
 	end 'pop'

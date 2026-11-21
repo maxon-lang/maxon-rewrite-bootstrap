@@ -429,27 +429,27 @@ export type Module
 		return path.clone()
 	end 'display'
 
-	export function findChild(name String) returns Option with diag.ModuleID
+	export function findChild(name String) returns table.Option with diag.ModuleID
 		for i in 0 upto childNames.count() 'each'
 			if childNames[i] == name 'hit'
-				return Option.some(childIDs[i])
+				return table.Option.some(childIDs[i])
 			end 'hit'
 		end 'each'
-		return Option.none
+		return table.Option.none
 	end 'findChild'
 
 	export function appendRawDecl(mutates self, consumes d Decl)
 		decls.push(d)
 	end 'appendRawDecl'
 
-	export function indexDecl(mutates self, ord DeclOrdinal) returns Option with DeclOrdinal
+	export function indexDecl(mutates self, ord DeclOrdinal) returns table.Option with DeclOrdinal
 		let n = decls[ord as Count].name()
 		let prev = names.get(n)
 		match prev 'dup'
 			some(_) then return prev
 			none then names.insert(n, value: ord)
 		end 'dup'
-		return Option.none
+		return table.Option.none
 	end 'indexDecl'
 
 	export function declare(mutates self, consumes d Decl) returns bool

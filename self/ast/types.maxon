@@ -201,31 +201,31 @@ export type TypeEntry
 		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc}
 	end 'make'
 
-	export function findMethod(methodName String) returns Option with FuncID
+	export function findMethod(methodName String) returns table.Option with FuncID
 		for i in 0 upto methods.count() 'each'
 			if methods[i].name == methodName 'hit'
-				return Option.some(methods[i].func)
+				return table.Option.some(methods[i].func)
 			end 'hit'
 		end 'each'
-		return Option.none
+		return table.Option.none
 	end 'findMethod'
 
-	export function findField(fieldName String) returns Option with Count
+	export function findField(fieldName String) returns table.Option with Count
 		for i in 0 upto fields.count() 'each'
 			if fields[i].name == fieldName 'hit'
-				return Option.some(i)
+				return table.Option.some(i)
 			end 'hit'
 		end 'each'
-		return Option.none
+		return table.Option.none
 	end 'findField'
 
-	export function findCase(caseName String) returns Option with Count
+	export function findCase(caseName String) returns table.Option with Count
 		for i in 0 upto cases.count() 'each'
 			if cases[i].name == caseName 'hit'
-				return Option.some(i)
+				return table.Option.some(i)
 			end 'hit'
 		end 'each'
-		return Option.none
+		return table.Option.none
 	end 'findCase'
 
 	export function effectiveOrigin() returns TypeID

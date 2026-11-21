@@ -104,6 +104,11 @@ func (m *maxonBody) params(f fn, generic string) string {
 func emitMaxon(t table) string {
 	var sb strings.Builder
 	sb.WriteString(maxonHeader)
+	for _, r := range recordTypes {
+		for i, f := range r.Fields {
+			fmt.Fprintf(&sb, "export let %s = %d as Count\n\n", lowerFirst(fieldConst(r, parseField(f))), i)
+		}
+	}
 	for _, u := range unionTypes {
 		for i, c := range u.Cases {
 			fmt.Fprintf(&sb, "export let %s = %d as Count\n\n", lowerFirst(c.Const), i)
@@ -141,6 +146,17 @@ func emitMaxon(t table) string {
 	for _, bt := range builtinTypes {
 		names := types.strings(bt.Params)
 		types.line("%s = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtin%s, name: %q, paramNames: %s)", maxonOwner(bt.Key), bt.Key, bt.Name, names)
+	}
+	for _, r := range recordTypes {
+		types.line("%s = registerRecordType(tt, std: std, typeMap: typeMap, name: %q)", maxonOwner(r.Key), r.Name)
+	}
+	for _, r := range recordTypes {
+		owner := fn{Owner: r.Key}
+		for _, s := range r.Fields {
+			f := parseField(s)
+			ty := types.ty(owner, "", f.ty)
+			types.line("addRecordField(tt, owner: %s, name: %q, ty: %s, isVar: %v, exported: %v)", maxonOwner(r.Key), f.name, ty, f.isVar, !f.private)
+		}
 	}
 	for _, u := range unionTypes {
 		names := types.strings(u.Params)

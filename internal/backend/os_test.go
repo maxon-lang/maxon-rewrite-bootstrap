@@ -9,17 +9,18 @@ import (
 func TestOsRuntimeDefinesItsEntries(t *testing.T) {
 	u := EmitOsRuntime()
 	for _, entry := range []ir.Rt{
-		ir.RtOsCliArgs,
-		ir.RtOsGetEnv,
-		ir.RtOsReadFile,
-		ir.RtOsWriteFile,
-		ir.RtOsWriteBytes,
-		ir.RtOsRenameFile,
-		ir.RtOsRemoveFile,
-		ir.RtOsIsDir,
-		ir.RtOsMkdir,
-		ir.RtOsListDir,
-		ir.RtOsRunProcess,
+		ir.RtOsArgs,
+		ir.RtOsEnvironmentVariable,
+		ir.RtOsPathFrom,
+		ir.RtOsReadText,
+		ir.RtOsWriteText,
+		ir.RtOsWriteBinary,
+		ir.RtOsRename,
+		ir.RtOsDelete,
+		ir.RtOsIsDirectory,
+		ir.RtOsCreateDirectory,
+		ir.RtOsList,
+		ir.RtOsRun,
 	} {
 		if !definesCode(u, entry.String()) {
 			t.Errorf("the OS runtime does not define %s", entry)
@@ -34,6 +35,7 @@ func TestOsRuntimeDefinesItsEntries(t *testing.T) {
 		ir.RtPanic.String():       true,
 		ir.RtArrayNew.String():    true,
 		ir.RtArrayLen.String():    true,
+		ir.RtArrayElem.String():   true,
 		ir.RtArrayInsert.String(): true,
 	}
 	for _, f := range u.Asm.SymbolFixups {

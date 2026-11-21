@@ -30,8 +30,7 @@ func TestALinkNameStartsWithTheModuleThatDeclaresIt(t *testing.T) {
 	if got := geometryCounter.LinkName(); got != "geometry::Counter" {
 		t.Errorf("a module's type is %q", got)
 	}
-	option := p.Builtins.Option
-	if got := Instantiate(option, []Ty{p.Builtins.Count}).LinkName(); got != "stdlib::Option with Count=int(0 to 18446744073709551615)" {
+	if got := Instantiate(p.Builtins.List, []Ty{p.Builtins.Count}).LinkName(); got != "stdlib::List with Count=int(0 to 18446744073709551615)" {
 		t.Errorf("the standard library's instance is %q", got)
 	}
 }
@@ -87,7 +86,7 @@ func TestALinkNameReadsBackAsTheTypeItNames(t *testing.T) {
 	for _, ty := range []Ty{
 		StringTy, BoolTy, b.Count, rootCounter, geometryCounter,
 		Instantiate(box, []Ty{rootCounter}), nested, Instantiate(b.Map, []Ty{StringTy, nested}),
-		Instantiate(b.Option, []Ty{b.HandleOf(rootCounter)}),
+		Instantiate(b.List, []Ty{b.HandleOf(rootCounter)}), b.FilePath, b.Executable,
 	} {
 		got, err := ParseLinkType(p, ty.LinkName())
 		if err != nil {

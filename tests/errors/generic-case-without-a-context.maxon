@@ -1,6 +1,25 @@
+union Option uses T
+	some(value T)
+	none
+
+	function isSome() returns bool
+		return match self 'o'
+			some(v) gives true
+			none gives false
+		end 'o'
+	end 'isSome'
+
+	function unwrap(consumes self) returns T
+		match consumes self 'o'
+			some(value) then return value
+			none then panic("unwrap of an Option that holds no value")
+		end 'o'
+	end 'unwrap'
+end 'Option'
+
 function main() returns ExitCode
 	let nothing = Option.none
 	return 0
 end 'main'
 
-// expect-error: E3179 at 2:16
+// expect-error: E3179 at 21:16

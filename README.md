@@ -35,7 +35,7 @@ go test ./...
 | `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
-| `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")` (the rules are in `rename.go`) |
+| `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `rename.go`) |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
@@ -152,7 +152,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item; `Run`: runs a `Plan`, tasks that wait for other tasks, on the pool, preferring the group a worker was just on and then the lowest task, where a running task can make the tasks that wait for it wait for more (`Edges`); a panic is raised by item or task number, not by time | `diag` |
 | `cache` | the store of the build cache: entries found by a key in a directory, written whole by a rename and read so that damage is a miss, the hasher that keys are made with, the hash of the running compiler, trimming what has not been used for days, and the wire format an entry is written in (see "Build cache") | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
-| `ast` | the program model: `Tree`, a module's nodes as 16-byte records with the views that read them and the lists they point into, the structs that stay (the declarations), their kinds and the visitors (generated), `Pos` and `Positions` (where a node is), the handles (`ModuleID`, `NodeID`, `DeclRef`, `LocalID`), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown` and `Option`), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases, with `Resolution` and `Typing`, the tables that phases fill in (see "The AST") | `diag` |
+| `ast` | the program model: `Tree`, a module's nodes as 16-byte records with the views that read them and the lists they point into, the structs that stay (the declarations), their kinds and the visitors (generated), `Pos` and `Positions` (where a node is), the handles (`ModuleID`, `NodeID`, `DeclRef`, `LocalID`), which statements of a block are live, semantic types, generic instances and their substitution, the built-in types (the runtime primitives, `frozen`, `cown`, and the records, the union and the errors of the OS functions), `I128`, `Module` and `Project`, and `ModuleResult`, the per-module products of the phases, with `Resolution` and `Typing`, the tables that phases fill in (see "The AST") | `diag` |
 | `project` | loading a project: discovery, declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `par` |
 | `syntax` | the grammar (`Maxon.g4`), module source buffers, the lexer, the parser generated from the grammar and the `Scratch` a worker reuses to read, lex and parse each module, the formatter (the parser in a mode that writes the layout instead of checking it), and refactorings as edits to the source (of Maxon files and of the code in Markdown) | `ast`, `diag` |
 | `resolve` | name resolution, and binding each `where` constraint to its type parameter, into the module's `Resolution` | `ast`, `diag` |
@@ -823,10 +823,15 @@ interpreter and the backend each implement the entries. The element is always vi
   that holds the byte, which is stored back into the element after the call returns, on its failure path too.
 - An entry that is given an index, a key or a handle that names nothing traps. The queries that cannot miss
   (`rt.<primitive>.len`, `rt.map.has`, `rt.pool.contains`, `rt.list.contains`) are what lowering tests before it
-  calls an entry that would trap, to build an `Option`.
-- A handle is a word, never 0. An entry that returns one returns 0 for none, and lowering turns that into `none`.
-- An `Option` is a union box of case index and payload (`some` is 0, `none` is 1), built by lowering, so no entry
-  knows the layout of a union.
+  calls an entry that would trap, failing with the operation's error when the test fails (see "Primitives").
+- A handle is a word, never 0. An entry that returns one returns 0 for none, where the operation fails.
+- **The OS entries** (`rt.os.*`) take and give Strings and arrays, never a record or a union: lowering takes the String
+  out of a `FilePath` or an `Executable` and makes the `FilePath`s and the `CollectedOutput` from what the entry gives,
+  so no entry knows the layout of a record. An entry that can fail takes last the address of a word, a slot of the
+  caller's, which it sets to the case plus 1 of the operation's error or to 0, and lowering branches on it as on the
+  error of a throwing call. The runtime tells a failure from the Win32 error under it (`ir.Win32Failures`: not found,
+  access denied, busy, already exists, or another), and each operation names the case of its own error that each
+  failure is (`ir.FailureCases`); the interpreter reads the same Win32 error out of Go's error.
 - `clone()` is one instruction, `%r = copy %s T` (see "Drops"), whatever `T` is: a record, a union, a string or a
   primitive. What it does to each part is code that depends on the type, so it is a routine of its own for each type that
   the backend makes (below) and the interpreter does by the shape of the value; a copy of an array copies every element by
@@ -886,9 +891,9 @@ interpreter and codegen free exactly there.
 |---|---|
 | `dropslot s2 T` | what slot `s2` owns, if anything, and leaves it empty: a local at the end of its block, on every way out of it (fallthrough, `return`, `break`, `continue`), and the old value of a local that is assigned |
 | `dropat %a T` | what the address holds, if anything: the old value of a field, an element or a `mutates` or `sets` parameter that is assigned |
-| `drop %r T` | the value in a register: a temporary that nothing took, an element removed and discarded, the box of an `Option` that was unwrapped, the value given to `array.filled` |
+| `drop %r T` | the value in a register: a temporary that nothing took, an element removed and discarded, the key and the value that a failed `Map.insert` or `Map.replace` was given, the value given to `array.filled` |
 | `%r = move s2` | reads a slot and leaves it empty: a whole local that moves (a binding, a `consumes` argument, a return, a field, a branch of a conditional) |
-| `%r = moveat %a` | reads the value at an address and leaves it empty: the payload that leaves the box of an `Option` that `unwrap` consumes or of a union that `match consumes` takes apart, and the value that `exchange` takes from a place |
+| `%r = moveat %a` | reads the value at an address and leaves it empty: the payload that leaves the box of a union that `match consumes` takes apart, the String that leaves each element of the array `Directory.list` gives, for the `FilePath` made of it to take its place, and the value that `exchange` takes from a place |
 | `%r = copy %s T` | a deep copy of the owned value in `%s`, which stays where it is: a new box for each record, union and array inside it, a new string for each string that is not a literal, and another owner of the same box for a frozen value or a cown |
 
 `T` is the type with an instance's type arguments applied, so codegen can call the drop routine of that type. Dropping a
@@ -994,7 +999,7 @@ test runner. It has no types; it works from the shape of the values and from the
   reference, where a call cannot be made. The interpreter takes the value out of the cown, frees the cown, and appends
   (destructor, value) to a list; once the instruction that dropped has finished, the thread that ran it calls the
   destructors in list order, which is the order of the frees (`Result.Frees`), so it is deterministic.
-- **Traps** behave as the executable does: `rt.panic`, an index out of range, a stale handle, an unwrap of none and a behaviour that names one cown twice write to
+- **Traps** behave as the executable does: `rt.panic`, an index out of range, a stale handle, a collection ended with `dropEmpty` while it holds an element and a behaviour that names one cown twice write to
   standard error and exit with 1; the same standard output and the same exit code. A trap is not a violation.
 - **How tests use it.** `minimaxon test` runs every program under it, under 20 schedules when the program schedules
   behaviours, and requires the same stdout and exit code as the directives and no violation. `internal/interp` tests it
@@ -1039,9 +1044,10 @@ test runner. It has no types; it works from the shape of the values and from the
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
-- Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS/CLI functions `cliArgs`, `getEnv`, `readFile`, `writeFile`, `writeBytes`, `renameFile`, `removeFile`, `isDir`, `mkdir`, `listDir`, `runProcess`, the aliases `ExitCode`, `Count`,
-  `FullRangeInt`, `Byte`, `ByteArray` (`Array with Byte`), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, the enums `ArithmeticError`, `ArrayError` and `MapError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle`, `Option` (see "Primitives"),
-  `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib.
+- Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the aliases `ExitCode`, `Count`,
+  `FullRangeInt`, `Byte`, `ByteArray` (`Array with Byte`), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, the enums `ArithmeticError`, `ArrayError` and `MapError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle` (see "Primitives"),
+  `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib, and no `Option`: a
+  program that wants one declares a generic union (`union Option uses T`).
 
 ### Integers
 
@@ -1135,6 +1141,9 @@ end 'forms'
 - An error comes back from the call as a value: the function returns it beside its result, its case plus 1 in a
   register and 0 for none (`rdx` in the executable), and the call is followed by one branch on it. There are no unwind
   tables and nothing is allocated for an error; a failure drops what it leaves as any other exit does.
+- A built-in that can fail throws maxon's error enum for it, which the stdlib declares: `ArrayError` and `MapError` for
+  the collections (see "Primitives"), and the errors of the OS functions (see "The OS"). Its call is covered by a `try`
+  like any other, and its failure takes the same register and branch.
 
 ### Checked arithmetic
 
@@ -1307,6 +1316,11 @@ end 'Box'
 
 typealias SquareBox = Box with Square
 
+union Option uses T
+	some(value T)
+	none
+end 'Option'
+
 function total(a T, b T) uses T returns Count where T implements Shape
 	return a.area() + b.area()
 end 'total'
@@ -1353,8 +1367,8 @@ end 'wrap'
   it, passing it to a `consumes` parameter, returning it or storing it moves it (`E3102` after); a `let` or `mutates`
   parameter of type `T`, a payload of one and a field of a generic type are borrowed when their owner is (`E3900`); `clone()` of a
   `Copyable` one keeps it. A `T` that is only bounded by interfaces cannot be dropped either: where one dies, the
-  declaration says `where T implements Droppable` (`E3919`). So a generic container gives its element out with `.clone()` where `T` is `Copyable`, or takes it out of a primitive with `remove`, `pop`
-  or `unwrap` (see "Primitives"), or moves the field out of an owned value.
+  declaration says `where T implements Droppable` (`E3919`). So a generic container gives its element out with `.clone()` where `T` is `Copyable`, or takes it out of a primitive with `remove` or `pop`
+  (see "Primitives"), or moves the field out of an owned value.
 - **Copyable and Droppable.** Two built-in interfaces in the stdlib, with no methods, name capabilities of a type; a
   bound is written like any other (`where T implements Copyable and Droppable`). See "Capabilities and destructors".
 - **A method's `where`.** A method may bound its type's parameters further: `function peek() returns T where T
@@ -1437,7 +1451,7 @@ A `Txn` has no copy and no drop, so every path that makes one ends it with `comm
 
 `Copyable` and `Droppable` are structural: a type never says it has one (`implements Copyable` on a declaration is
 `E3921`), it says what removes it. `Copyable` is lost by `is noncopyable` or by a part that lacks it; a part is a field,
-a union payload, an element of an `Array`, `List`, `Pool` or `Option`, or a value of a `Map`. A `frozen`, a `cown` and a
+a union payload, an element of an `Array`, `List` or `Pool`, or a value of a `Map`. A `frozen`, a `cown` and a
 `Handle` have both whatever they hold, so the loss stops there. A generic type is judged per instance (`Box with Socket`
 is not `Copyable`, `Box with Count` is), and a type parameter has a capability only by bound; `Copyable` includes
 `Droppable`. A type that declares a destructor, a method whose receiver is `destructs self`, loses both, and so does
@@ -1495,11 +1509,10 @@ one anywhere.
 | Type | Operations |
 |---|---|
 | `Array with T` | `create(n)`, `n` zero elements, where `T` has a zero value or `n` is the literal `0` (`E3106`); `filled(n, value: x)` where `T` is `Copyable`; `count()`, `isEmpty()`; `get(i)`, a copy of the element, where `T` is `Copyable`, and `set(i, value: v)`, where `T` is `Droppable`, both throwing `ArrayError.indexOutOfBounds` past the end; `push(value)`; `append(other)`, a copy of each element of `other`, where `T` is `Copyable`; `insert(at, value: v)`, which clamps `at` to the count; `remove(at)` and `pop()` return `T` and throw `ArrayError`; `dropEmpty()` |
-| `Map with (K, V)` | `create()`; `count()`, `isEmpty()`, `contains(k)`; `insert(k, value: v)`, which throws `MapError.keyAlreadyExists` for a key that is there, and `upsert(k, value: v)`, which replaces its value, both where `V` is `Droppable`; `replace(k, value: v)` returns the old `Option with V`; `remove(k)` drops the value and returns whether the key was there, where `V` is `Droppable`; `dropEmpty()` |
-| `List with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`, `next(h)`, `prev(h)`; `first()` and `last()` return `Handle with T` and throw `ArrayError`; `prepend(value)` and `append(value)` return `Handle with T`; `removeFirst()` and `removeLast()` return `T` and throw `ArrayError`; `remove(h)` returns `Option with T`; `moveToFront(h)`; `dropEmpty()` |
-| `Pool with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `Handle with T`; `remove(h)` returns `Option with T`; `dropEmpty()` |
+| `Map with (K, V)` | `create()`; `count()`, `isEmpty()`, `contains(k)`; `insert(k, value: v)`, which throws `MapError.keyAlreadyExists` for a key that is there, and `upsert(k, value: v)`, which replaces its value, both where `V` is `Droppable`; `replace(k, value: v)` returns the old value and throws `MapError.keyNotFound` for a key that is not there; `remove(k)` drops the value and returns whether the key was there, where `V` is `Droppable`; `dropEmpty()` |
+| `List with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `first()`, `last()`, `next(h)` and `prev(h)` return `Handle with T` and throw `ArrayError.indexOutOfBounds` where there is no such node; `prepend(value)` and `append(value)` return `Handle with T`; `removeFirst()` and `removeLast()` return `T` and throw `ArrayError`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `moveToFront(h)`; `dropEmpty()` |
+| `Pool with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `Handle with T`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `dropEmpty()` |
 | `Handle with T` | no operations; `==` and `!=` |
-| `Option with T` | cases `some(value)` and `none`; `isSome()`; `unwrap()`, which consumes the option (`consumes self`) and panics on `none` |
 | `ArrayError`, `MapError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists` |
 | `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
 
@@ -1507,19 +1520,18 @@ An array of an integer type whose range fits in a `Byte` holds one byte to an el
 interpreter, and any other array a word; the program cannot tell, except by how much memory it takes.
 
 `create` and `filled` are static functions, called through a typealias of the instance (`Counts.create(0)`) or where
-the type is known (`Shelf{items: Array.create(0)}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`. `next` and
-`prev` return `Option with (Handle with T)`. `dropEmpty()` takes `consumes self`, ends the collection and
-traps if an element is left, as `unwrap` does on `none`: it is how a collection of values with destructors, which cannot be
+the type is known (`Shelf{items: Array.create(0)}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`.
+`dropEmpty()` takes `consumes self`, ends the collection and traps if an element is left: it is how a collection of values with destructors, which cannot be
 dropped, ends after every element was taken out. `Map.replace` lowers to `has`, `elem`, `moveat` and `insert`, so the key
-keeps its place and no value is dropped.
-- **Operations that fail throw.** `remove`, `pop`, `removeFirst`, `removeLast`, `first`, `last` and `Map.insert` throw
+keeps its place and no value is dropped. Nothing built in returns an `Option`, and there is none built in.
+- **Operations that fail throw.** `remove`, `pop`, `removeFirst`, `removeLast`, `first`, `last`, `next`, `prev`, `Map.insert` and `Map.replace` throw
   maxon's error, so a call of one is covered by a `try` like any other that throws (`E3057`): `try a.pop() otherwise
   fallback`, or `try a.remove(i) otherwise panic("index out of range")` where a miss is a bug. The lowering tests first
   and fails as a compiled throwing function does, with the case plus 1 in the error register, so a failure allocates
-  nothing; `Map.insert` drops the key and the value it was given on a failure.
+  nothing; `Map.insert` and `Map.replace` drop the key and the value they were given on a failure.
 
 - **Collections own their elements.** Adding takes the element `consumes`, so it moves in. Taking one out is `remove`,
-  `pop`, `removeFirst`, `removeLast` or `unwrap`, which move it out to the caller, owned; the only other way to hold an
+  `pop`, `removeFirst` or `removeLast`, which move it out to the caller, owned; the only other way to hold an
   element is `.clone()`. `clone()` of a collection is deep.
 -  **A subscript is a projection.** `a[i]`, `m[k]`, `l[h]` and `p[h]` borrow the element: the array is indexed by a
   `Count`, a map by its key, a list and a pool by the `Handle` of the element. Read, it is a `let` borrow; assigned
@@ -1528,7 +1540,7 @@ keeps its place and no value is dropped.
   itself is borrowed, and `clone()` is the fix. A scalar element is copied like any scalar, so `let n = a[i]` is fine.
   The element of a temporary (`make()[0]`) cannot be moved or assigned either.
 - **A miss traps**, as an out-of-range index, a missing key or a stale handle: a range-check guard, safe, and it
-  never touches freed memory. The operations that cannot miss let a program test first: `count`, `isEmpty`, `contains`, and `next` and `prev`, which return an `Option`.
+  never touches freed memory. The operations that cannot miss let a program test first: `count`, `isEmpty` and `contains`.
 - **Exclusivity.** A path gains a second kind of step, an element, and every element of a collection overlaps every
   other one, whatever the indexes say: `a[i]` and `a[j]` overlap, so `pair(a[i], b: a[j])` and `f(a, n: a[0])` are
   refused (`E3186`), while `pair(a[i], b: b[j])` and `pair(r.left[0], b: r.right[0])` are fine. A method with an
@@ -1567,10 +1579,51 @@ keeps its place and no value is dropped.
   dies (see "The primitives in the IR" and "Native freeing"). A map, a list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
   program that uses one is refused when it is compiled to an executable (`E9900`) and still passes `check`; the test
   runner runs such a program under the interpreter alone.
-- **Limits.** `Option with T` here is the stdlib's; a module that declares its own `Option` wins the bare name in
-  that module, and `stdlib.Option with T` names this one there. A primitive implements no interface (`E3017`). A record
+- **Limits.** A primitive implements no interface (`E3017`). A record
   that contains itself through an array (`var kids as Array with Tree` in `Tree`) is fine, natively too: its drop and
   its copy are routines that call themselves.
+
+### The OS
+
+The OS functions are maxon's stdlib, names, labels, results and errors, declared as static functions of built-in
+records that have no fields (`internal/builtingen/table.go`), so a program calls them as maxon's does:
+
+| Call | Gives | Throws |
+|---|---|---|
+| `CommandLine.args()` | `Array with String`, the program's own name first | — |
+| `Process.environmentVariable(name)` | `String` | `ProcessIntrospectionError.variableUnset` |
+| `FilePath.from(path)` | `FilePath`, with `/` made `\` | `FilePathError.invalidCharacter` for a control character or one of `<>"\|?*` |
+| `path.toString()` | `String` | — |
+| `File.readText(path)` | `String` | `FileReadError` |
+| `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)` | — (a file that is there is replaced) | `FileWriteError` |
+| `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
+| `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
+| `Directory.isDirectory(path)` | `bool` | — |
+| `Directory.create(path)` | `bool`, whether the directory is there after it; the missing parents are made too | — |
+| `Directory.list(path)` | `Array with FilePath`, each the path joined to an entry's name (no `.` or `..`) | `DirectoryListError` |
+| `Subprocess.run(executable, arguments: args)` | `CollectedOutput`: `exitCode()`, `succeeded()`, `stdout`, `stderr` | `SubprocessError` |
+
+- **`FilePath`** is a record holding the path's `String` (`path`), which every `File` and `Directory` function takes. It
+  is made with `FilePath.from`; a string literal does not convert to one.
+- **Errors** are maxon's enums, cases and all: `FileReadError` (`notFound`, `accessDenied`, `busy`, `failed`),
+  `FileWriteError` (`failed`, `notFound`, `accessDenied`, `alreadyExists`, `busy`, `partialFileLeft`),
+  `FileRenameError` (`failed`, `notFound`, `accessDenied`, `busy`, `alreadyExists`), `FileDeleteError` (`notFound`,
+  `accessDenied`, `busy`, `failed`), `DirectoryListError` (`notFound`, `accessDenied`, `listFailed`),
+  `ProcessIntrospectionError` (`pathUnavailable`, `variableUnset`, `environmentUnreadable`), `FilePathError`
+  (`invalidCharacter`, `notFileURL`, `malformedURL`, `noParent`) and `SubprocessError` (`executableNotFound`,
+  `spawnFailed`, `busy`, `ioFailed`, `timeout`, `treeNotEnded`, `detachRefused`, `inputTooLarge`, `statusLost`). Which
+  case a failure is comes from the Win32 error, as maxon's runtime tells them: not found (2, 3), access denied (5),
+  busy (32), already exists (80), and the operation's catch-all for any other. Cases that nothing here fails with are
+  kept so that a `match` is the one maxon needs.
+- **`Subprocess.run`** takes an `Executable`, maxon's union: `Executable.name(n)`, searched for as Windows searches the
+  first word of a command line, or `Executable.path(p)`. Each argument is quoted as the C runtime's
+  `CommandLineToArgvW` splits it back: one with a space or a tab is quoted, and a quote is escaped with a backslash
+  after doubling the backslashes before it (Go's `syscall.EscapeArg`). The child's standard output and error are pipes,
+  which the run drains in turn without waiting on either, so a child that fills one cannot block; its standard input is
+  the program's. A name that is not found is `executableNotFound`.
+- **Natively**, the entries are x64 over the `A` Win32 calls (`internal/backend/os.go`), and `CommandLine.args()` splits
+  the command line simply: space or tab outside quotes, and a token that is quoted whole. The interpreter runs them
+  through Go's `os` and `os/exec` (`internal/interp/os.go`).
 
 ### Immutable values, cowns and behaviours
 
@@ -1716,11 +1769,22 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   protocol and no `slice`, `clear`, `reserve` or `sort` yet; `create(n)` refuses an enum element, whose
   zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has only
   `byteLength`, `byteAt`, `sliceBytes`, `toByteArray` and the static `String.from(bytes)`, whose names leave `slice` and
-  `count` for maxon's graphemes.
+  `count` for maxon's graphemes. There is no built-in `Option`, which maxon's stdlib has no more of either: an
+  operation that can miss throws.
 - `ByteArray` is a built-in typealias rather than maxon's in `stdlib/File.maxon`, and the minimaxon `Bytes` buffer is
   gone for it. Only an array of an integer type that fits in a byte packs its elements; maxon sizes an enum's and a
   narrower integer's elements by their range too. `String.from(bytes)` copies the bytes where maxon's shares the
   array's buffer, and a `String` here is its bytes, so neither direction scans them.
+- The OS functions (see "The OS") have maxon's names, signatures and errors, but are a subset, built in rather than
+  stdlib code: `FilePath` has only `from`, `toString` and its `path`, and `FilePath.from` does not resolve a `file://`
+  URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
+  and `writeText` and `writeBinary` take no `mode:`; `Directory` has no `exists`, `delete` or `removeTree`, and
+  `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable`; `Subprocess.run`
+  takes no `workingDirectory:` or `deadline:`, and `CollectedOutput` has no `status`, `pid` or `durationMs`;
+  `SubprocessError` is an enum without maxon's payloads (the name, the reason, the output). Natively the runtime uses
+  the `A` Win32 calls, so a path or an argument is bytes in the system's code page rather than UTF-8 turned into
+  UTF-16, and `CommandLine.args()` splits only a token quoted whole, not by every `CommandLineToArgvW` rule; the port
+  of the runtime to `self/` does what maxon does.
 - Generics are checked once against their bounds, never per instantiation; maxon checks a generic function per inferred
   type. Interfaces are bounds only: no generic interface, no static requirement, no default method, no existential
   value; a type implements one by saying so, and `int` aliases, `String` and `bool` implement none.
@@ -1778,7 +1842,8 @@ A change to the syntax touches many programs, so tools do the mechanical part:
 - **`minimaxon rename <rule>... <program>...`** changes the programs that use a built-in when the table renames it or
   changes its signature, while the old one still compiles: it checks each program and rewrites each type name and each
   call by the declaration the checker resolved, so `append` on an `Array` becomes `push` and `append` on a `List` stays.
-  A rule can write a call again from a template, reordering its arguments or wrapping it in a `try`; a file of cases is
+  A rule can write a call again from a template, reordering its arguments or wrapping it in a `try`, and write a call of
+  a built-in free function again as a whole (`isDir()=Directory.isDirectory({path})`); a file of cases is
   checked case by case after its `--prelude`. What the checker does not reach, in a program that stops at an error
   first, is listed for a hand edit.
 - **`minimaxon test --update-positions`** moves each `expect-error` whose code is now reported at another line or column,

@@ -147,8 +147,8 @@ function main() returns ExitCode
 	p[h].n = 2
 	touch(p[h])
 	if p.contains(h) 'c'
-		let gone = p.remove(h)
-		print("{gone.isSome()}")
+		let gone = try p.remove(h) otherwise panic("the handle names no element")
+		print("{gone.n}")
 	end 'c'
 	return 0
 end 'main'
@@ -186,10 +186,12 @@ function main() returns ExitCode
 	touch(l[a])
 	let first = try l.first() otherwise panic("the list is empty")
 	let last = try l.last() otherwise panic("the list is empty")
-	print("{first == b} {l.next(a).isSome()} {l.prev(b).isSome()} {last == a} {l.contains(a)}")
+	let after = try l.next(a) otherwise a
+	let before = try l.prev(b) otherwise b
+	print("{first == b} {after == b} {before == a} {last == a} {l.contains(a)}")
 	let popped = try l.removeLast() otherwise panic("the list is empty")
-	let gone = l.remove(a)
-	print("{popped.n} {gone.isSome()} {l.count()}")
+	let gone = try l.remove(a) otherwise Cell.make(0)
+	print("{popped.n} {gone.n} {l.count()}")
 	return 0
 end 'main'
 

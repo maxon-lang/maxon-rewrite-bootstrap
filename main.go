@@ -149,7 +149,9 @@ func describeInternal(r any, stack []byte) string {
 }
 
 func main() {
-	os.Exit(runMain(os.Args[1:]))
+	code := runMain(os.Args[1:])
+	removeTempDir()
+	os.Exit(code)
 }
 
 func runMain(args []string) (code int) {
@@ -339,13 +341,32 @@ func exitCodeOf(state *os.ProcessState) int {
 	return int(int32(state.ExitCode()))
 }
 
+// tempDir is the directory of the executables this process builds to run, made on first use: one per process, so two
+// commands at once never write the same file, and removed when the command ends.
+var tempDir struct {
+	once sync.Once
+	path string
+}
+
+const tempDirPattern = "minimaxon-"
+
 func tempExe(source string) string {
-	dir := filepath.Join(os.TempDir(), "minimaxon")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		panic(diag.Internal("cannot create %s: %v", dir, err))
-	}
+	tempDir.once.Do(func() {
+		dir, err := os.MkdirTemp("", tempDirPattern)
+		if err != nil {
+			panic(diag.Internal("cannot create a directory for executables: %v", err))
+		}
+		tempDir.path = dir
+	})
 	base := filepath.Base(strings.TrimRight(source, "/\\"))
-	return filepath.Join(dir, strings.TrimSuffix(base, filepath.Ext(base))+executableExtension)
+	return filepath.Join(tempDir.path, strings.TrimSuffix(base, filepath.Ext(base))+executableExtension)
+}
+
+// removeTempDir removes the directory of executables, when the command made one.
+func removeTempDir() {
+	if tempDir.path != "" {
+		_ = os.RemoveAll(tempDir.path)
+	}
 }
 
 func report(errs []*diag.CompileError) bool {

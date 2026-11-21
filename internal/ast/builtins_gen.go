@@ -31,8 +31,6 @@ type Intrinsic int
 
 const (
 	NotIntrinsic Intrinsic = iota
-	IntrinsicOptionIsSome
-	IntrinsicOptionUnwrap
 	IntrinsicArrayCreate
 	IntrinsicArrayFilled
 	IntrinsicArrayCount
@@ -86,23 +84,39 @@ const (
 	IntrinsicThaw
 	IntrinsicCown
 	IntrinsicExchange
-	IntrinsicOsCliArgs
-	IntrinsicOsGetEnv
-	IntrinsicOsReadFile
-	IntrinsicOsWriteFile
-	IntrinsicOsWriteBytes
-	IntrinsicOsRenameFile
-	IntrinsicOsRemoveFile
-	IntrinsicOsIsDir
-	IntrinsicOsMkdir
-	IntrinsicOsListDir
-	IntrinsicOsRunProcess
+	IntrinsicCommandLineArgs
+	IntrinsicProcessEnvironmentVariable
+	IntrinsicFilePathFrom
+	IntrinsicFilePathToString
+	IntrinsicFileReadText
+	IntrinsicFileWriteText
+	IntrinsicFileWriteBinary
+	IntrinsicFileRename
+	IntrinsicFileDelete
+	IntrinsicDirectoryIsDirectory
+	IntrinsicDirectoryCreate
+	IntrinsicDirectoryList
+	IntrinsicSubprocessRun
+	IntrinsicCollectedOutputExitCode
+	IntrinsicCollectedOutputSucceeded
 )
 
-// The cases of Option, by index.
+// The fields of FilePath, by index.
 const (
-	OptionSome = 0
-	OptionNone = 1
+	FilePathPathField = 0
+)
+
+// The fields of CollectedOutput, by index.
+const (
+	CollectedOutputStdoutField = 0
+	CollectedOutputStderrField = 1
+	CollectedOutputCodeField   = 2
+)
+
+// The cases of Executable, by index.
+const (
+	ExecutableName = 0
+	ExecutablePath = 1
 )
 
 // The cases of ArithmeticError, by index.
@@ -124,24 +138,109 @@ const (
 	ErrorKeyAlreadyExists = 1
 )
 
+// The cases of FilePathError, by index.
+const (
+	ErrorPathInvalidCharacter = 0
+	ErrorPathNotFileURL       = 1
+	ErrorPathMalformedURL     = 2
+	ErrorPathNoParent         = 3
+)
+
+// The cases of FileReadError, by index.
+const (
+	ErrorReadNotFound     = 0
+	ErrorReadAccessDenied = 1
+	ErrorReadBusy         = 2
+	ErrorReadFailed       = 3
+)
+
+// The cases of FileWriteError, by index.
+const (
+	ErrorWriteFailed          = 0
+	ErrorWriteNotFound        = 1
+	ErrorWriteAccessDenied    = 2
+	ErrorWriteAlreadyExists   = 3
+	ErrorWriteBusy            = 4
+	ErrorWritePartialFileLeft = 5
+)
+
+// The cases of FileDeleteError, by index.
+const (
+	ErrorDeleteNotFound     = 0
+	ErrorDeleteAccessDenied = 1
+	ErrorDeleteBusy         = 2
+	ErrorDeleteFailed       = 3
+)
+
+// The cases of FileRenameError, by index.
+const (
+	ErrorRenameFailed        = 0
+	ErrorRenameNotFound      = 1
+	ErrorRenameAccessDenied  = 2
+	ErrorRenameBusy          = 3
+	ErrorRenameAlreadyExists = 4
+)
+
+// The cases of DirectoryListError, by index.
+const (
+	ErrorListNotFound     = 0
+	ErrorListAccessDenied = 1
+	ErrorListFailed       = 2
+)
+
+// The cases of ProcessIntrospectionError, by index.
+const (
+	ErrorPathUnavailable       = 0
+	ErrorVariableUnset         = 1
+	ErrorEnvironmentUnreadable = 2
+)
+
+// The cases of SubprocessError, by index.
+const (
+	ErrorExecutableNotFound = 0
+	ErrorSpawnFailed        = 1
+	ErrorSpawnBusy          = 2
+	ErrorIoFailed           = 3
+	ErrorTimeout            = 4
+	ErrorTreeNotEnded       = 5
+	ErrorDetachRefused      = 6
+	ErrorInputTooLarge      = 7
+	ErrorStatusLost         = 8
+)
+
 // builtinDecls are the declarations of the table that the rest of the compiler names.
 type builtinDecls struct {
-	Array           *BuiltinTy
-	Map             *BuiltinTy
-	List            *BuiltinTy
-	Pool            *BuiltinTy
-	Handle          *BuiltinTy
-	Frozen          *BuiltinTy
-	Cown            *BuiltinTy
-	Option          *UnionTy
-	ArithmeticError *EnumTy
-	ArrayError      *EnumTy
-	MapError        *EnumTy
-	Copyable        *InterfaceTy
-	Droppable       *InterfaceTy
-	Error           *InterfaceTy
-	CownNew         *FuncDecl
-	CownNewDropWith *FuncDecl
+	Array                     *BuiltinTy
+	Map                       *BuiltinTy
+	List                      *BuiltinTy
+	Pool                      *BuiltinTy
+	Handle                    *BuiltinTy
+	Frozen                    *BuiltinTy
+	Cown                      *BuiltinTy
+	CommandLine               *RecordTy
+	Process                   *RecordTy
+	FilePath                  *RecordTy
+	File                      *RecordTy
+	Directory                 *RecordTy
+	CollectedOutput           *RecordTy
+	Subprocess                *RecordTy
+	Executable                *UnionTy
+	ArithmeticError           *EnumTy
+	ArrayError                *EnumTy
+	MapError                  *EnumTy
+	FilePathError             *EnumTy
+	FileReadError             *EnumTy
+	FileWriteError            *EnumTy
+	FileDeleteError           *EnumTy
+	FileRenameError           *EnumTy
+	DirectoryListError        *EnumTy
+	ProcessIntrospectionError *EnumTy
+	SubprocessError           *EnumTy
+	Copyable                  *InterfaceTy
+	Droppable                 *InterfaceTy
+	Error                     *InterfaceTy
+	CownNew                   *FuncDecl
+	CownNewDropWith           *FuncDecl
 }
 
 // declareTable declares every type and function of the table in the stdlib module.
@@ -153,20 +252,41 @@ func (b *Builtins) declareTable() {
 	b.Handle = b.newPrimitive(BuiltinHandle, "T")
 	b.Frozen = b.newPrimitive(BuiltinFrozen, "T")
 	b.Cown = b.newPrimitive(BuiltinCown, "T")
-	b.Option = b.newUnion("Option", "T")
-	b.Option.Cases = []*UnionCase{
-		{Name: "some", Payload: []PayloadField{{Name: "value", Type: b.Option.Params[0]}}},
-		{Name: "none"},
+	b.CommandLine = b.newRecord("CommandLine")
+	b.Process = b.newRecord("Process")
+	b.FilePath = b.newRecord("FilePath")
+	b.File = b.newRecord("File")
+	b.Directory = b.newRecord("Directory")
+	b.CollectedOutput = b.newRecord("CollectedOutput")
+	b.Subprocess = b.newRecord("Subprocess")
+	b.FilePath.Fields = []*FieldInfo{
+		{Name: "path", Visibility: Public, Type: StringTy, IsVar: false, Index: FilePathPathField},
+	}
+	b.CollectedOutput.Fields = []*FieldInfo{
+		{Name: "stdout", Visibility: Public, Type: StringTy, IsVar: true, Index: CollectedOutputStdoutField},
+		{Name: "stderr", Visibility: Public, Type: StringTy, IsVar: true, Index: CollectedOutputStderrField},
+		{Name: "code", Visibility: Private, Type: b.exitCode(), IsVar: false, Index: CollectedOutputCodeField},
+	}
+	b.Executable = b.newUnion("Executable")
+	b.Executable.Cases = []*UnionCase{
+		{Name: "name", Payload: []PayloadField{{Name: "value", Type: StringTy}}},
+		{Name: "path", Payload: []PayloadField{{Name: "value", Type: b.FilePath}}},
 	}
 	b.ArithmeticError = b.newEnum("ArithmeticError", "overflow", "divisionByZero", "negativeShift")
 	b.ArrayError = b.newEnum("ArrayError", "indexOutOfBounds", "emptySlot")
 	b.MapError = b.newEnum("MapError", "keyNotFound", "keyAlreadyExists")
+	b.FilePathError = b.newEnum("FilePathError", "invalidCharacter", "notFileURL", "malformedURL", "noParent")
+	b.FileReadError = b.newEnum("FileReadError", "notFound", "accessDenied", "busy", "failed")
+	b.FileWriteError = b.newEnum("FileWriteError", "failed", "notFound", "accessDenied", "alreadyExists", "busy", "partialFileLeft")
+	b.FileDeleteError = b.newEnum("FileDeleteError", "notFound", "accessDenied", "busy", "failed")
+	b.FileRenameError = b.newEnum("FileRenameError", "failed", "notFound", "accessDenied", "busy", "alreadyExists")
+	b.DirectoryListError = b.newEnum("DirectoryListError", "notFound", "accessDenied", "listFailed")
+	b.ProcessIntrospectionError = b.newEnum("ProcessIntrospectionError", "pathUnavailable", "variableUnset", "environmentUnreadable")
+	b.SubprocessError = b.newEnum("SubprocessError", "executableNotFound", "spawnFailed", "busy", "ioFailed", "timeout", "treeNotEnded", "detachRefused", "inputTooLarge", "statusLost")
 	b.Copyable = b.declareInterface("Copyable")
 	b.Droppable = b.declareInterface("Droppable")
 	b.Error = b.declareInterface("Error")
 	b.declareAlias("ByteArray", Instantiate(b.Array, []Ty{b.Byte}))
-	b.method(b.Option, IntrinsicOptionIsSome, "isSome", false, ConvLet, BoolTy)
-	b.method(b.Option, IntrinsicOptionUnwrap, "unwrap", false, ConvConsumes, b.Option.Params[0])
 	b.method(b.Array, IntrinsicArrayCreate, "create", true, ConvLet, SelfType(b.Array), param("count", b.Count, ConvLet))
 	{
 		f := b.method(b.Array, IntrinsicArrayFilled, "filled", true, ConvLet, SelfType(b.Array), param("count", b.Count, ConvLet), param("value", b.Array.Params[0], ConvConsumes))
@@ -212,7 +332,10 @@ func (b *Builtins) declareTable() {
 		f := b.method(b.Map, IntrinsicMapUpsert, "upsert", false, ConvMutates, VoidTy, param("key", b.Map.Params[0], ConvConsumes), param("value", b.Map.Params[1], ConvConsumes))
 		f.Bounds = append(f.Bounds, ParamBound{Param: b.Map.Params[1], Iface: b.Droppable})
 	}
-	b.method(b.Map, IntrinsicMapReplace, "replace", false, ConvMutates, Instantiate(b.Option, []Ty{b.Map.Params[1]}), param("key", b.Map.Params[0], ConvConsumes), param("value", b.Map.Params[1], ConvConsumes))
+	{
+		f := b.method(b.Map, IntrinsicMapReplace, "replace", false, ConvMutates, b.Map.Params[1], param("key", b.Map.Params[0], ConvConsumes), param("value", b.Map.Params[1], ConvConsumes))
+		f.ErrorType = b.MapError
+	}
 	{
 		f := b.method(b.Map, IntrinsicMapRemove, "remove", false, ConvMutates, BoolTy, param("key", b.Map.Params[0], ConvLet))
 		f.Bounds = append(f.Bounds, ParamBound{Param: b.Map.Params[1], Iface: b.Droppable})
@@ -240,9 +363,18 @@ func (b *Builtins) declareTable() {
 		f := b.method(b.List, IntrinsicListLast, "last", false, ConvLet, Instantiate(b.Handle, []Ty{b.List.Params[0]}))
 		f.ErrorType = b.ArrayError
 	}
-	b.method(b.List, IntrinsicListNext, "next", false, ConvLet, Instantiate(b.Option, []Ty{Instantiate(b.Handle, []Ty{b.List.Params[0]})}), param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
-	b.method(b.List, IntrinsicListPrev, "prev", false, ConvLet, Instantiate(b.Option, []Ty{Instantiate(b.Handle, []Ty{b.List.Params[0]})}), param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
-	b.method(b.List, IntrinsicListRemove, "remove", false, ConvMutates, Instantiate(b.Option, []Ty{b.List.Params[0]}), param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
+	{
+		f := b.method(b.List, IntrinsicListNext, "next", false, ConvLet, Instantiate(b.Handle, []Ty{b.List.Params[0]}), param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
+		f.ErrorType = b.ArrayError
+	}
+	{
+		f := b.method(b.List, IntrinsicListPrev, "prev", false, ConvLet, Instantiate(b.Handle, []Ty{b.List.Params[0]}), param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
+		f.ErrorType = b.ArrayError
+	}
+	{
+		f := b.method(b.List, IntrinsicListRemove, "remove", false, ConvMutates, b.List.Params[0], param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
+		f.ErrorType = b.ArrayError
+	}
 	b.method(b.List, IntrinsicListMoveToFront, "moveToFront", false, ConvMutates, VoidTy, param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
 	b.method(b.List, IntrinsicListDropEmpty, "dropEmpty", false, ConvConsumes, VoidTy)
 	b.method(b.Pool, IntrinsicPoolCreate, "create", true, ConvLet, SelfType(b.Pool))
@@ -250,7 +382,10 @@ func (b *Builtins) declareTable() {
 	b.method(b.Pool, IntrinsicPoolIsEmpty, "isEmpty", false, ConvLet, BoolTy)
 	b.method(b.Pool, IntrinsicPoolContains, "contains", false, ConvLet, BoolTy, param("handle", Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), ConvLet))
 	b.method(b.Pool, IntrinsicPoolInsert, "insert", false, ConvMutates, Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), param("value", b.Pool.Params[0], ConvConsumes))
-	b.method(b.Pool, IntrinsicPoolRemove, "remove", false, ConvMutates, Instantiate(b.Option, []Ty{b.Pool.Params[0]}), param("handle", Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), ConvLet))
+	{
+		f := b.method(b.Pool, IntrinsicPoolRemove, "remove", false, ConvMutates, b.Pool.Params[0], param("handle", Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), ConvLet))
+		f.ErrorType = b.ArrayError
+	}
 	b.method(b.Pool, IntrinsicPoolDropEmpty, "dropEmpty", false, ConvConsumes, VoidTy)
 	b.StringMethods["byteLength"] = b.function(IntrinsicStringByteLength, "byteLength", b.Count)
 	b.StringMethods["byteAt"] = b.function(IntrinsicStringByteAt, "byteAt", b.Byte, param("index", b.Count, ConvLet))
@@ -285,15 +420,46 @@ func (b *Builtins) declareTable() {
 		t := newTypeParamTy("T")
 		b.stdlib.Declare(b.genericFunction(IntrinsicExchange, "exchange", t, t, param("place", t, ConvMutates), param("value", t, ConvConsumes)))
 	}
-	b.stdlib.Declare(b.function(IntrinsicOsCliArgs, "cliArgs", Instantiate(b.Array, []Ty{StringTy})))
-	b.stdlib.Declare(b.function(IntrinsicOsGetEnv, "getEnv", Instantiate(b.Option, []Ty{StringTy}), param("name", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsReadFile, "readFile", Instantiate(b.Option, []Ty{StringTy}), param("path", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsWriteFile, "writeFile", BoolTy, param("path", StringTy, ConvLet), param("text", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsWriteBytes, "writeBytes", BoolTy, param("path", StringTy, ConvLet), param("data", Instantiate(b.Array, []Ty{b.Byte}), ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsRenameFile, "renameFile", BoolTy, param("from", StringTy, ConvLet), param("dest", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsRemoveFile, "removeFile", BoolTy, param("path", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsIsDir, "isDir", BoolTy, param("path", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsMkdir, "mkdir", BoolTy, param("path", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsListDir, "listDir", Instantiate(b.Option, []Ty{Instantiate(b.Array, []Ty{StringTy})}), param("path", StringTy, ConvLet)))
-	b.stdlib.Declare(b.function(IntrinsicOsRunProcess, "runProcess", Instantiate(b.Option, []Ty{b.exitCode()}), param("commandLine", StringTy, ConvLet)))
+	b.method(b.CommandLine, IntrinsicCommandLineArgs, "args", true, ConvLet, Instantiate(b.Array, []Ty{StringTy}))
+	{
+		f := b.method(b.Process, IntrinsicProcessEnvironmentVariable, "environmentVariable", true, ConvLet, StringTy, param("name", StringTy, ConvLet))
+		f.ErrorType = b.ProcessIntrospectionError
+	}
+	{
+		f := b.method(b.FilePath, IntrinsicFilePathFrom, "from", true, ConvLet, SelfType(b.FilePath), param("path", StringTy, ConvLet))
+		f.ErrorType = b.FilePathError
+	}
+	b.method(b.FilePath, IntrinsicFilePathToString, "toString", false, ConvLet, StringTy)
+	{
+		f := b.method(b.File, IntrinsicFileReadText, "readText", true, ConvLet, StringTy, param("path", b.FilePath, ConvLet))
+		f.ErrorType = b.FileReadError
+	}
+	{
+		f := b.method(b.File, IntrinsicFileWriteText, "writeText", true, ConvLet, VoidTy, param("path", b.FilePath, ConvLet), param("content", StringTy, ConvLet))
+		f.ErrorType = b.FileWriteError
+	}
+	{
+		f := b.method(b.File, IntrinsicFileWriteBinary, "writeBinary", true, ConvLet, VoidTy, param("path", b.FilePath, ConvLet), param("content", Instantiate(b.Array, []Ty{b.Byte}), ConvLet))
+		f.ErrorType = b.FileWriteError
+	}
+	{
+		f := b.method(b.File, IntrinsicFileRename, "rename", true, ConvLet, VoidTy, param("from", b.FilePath, ConvLet), param("to", b.FilePath, ConvLet))
+		f.ErrorType = b.FileRenameError
+	}
+	{
+		f := b.method(b.File, IntrinsicFileDelete, "delete", true, ConvLet, VoidTy, param("path", b.FilePath, ConvLet))
+		f.ErrorType = b.FileDeleteError
+	}
+	b.method(b.Directory, IntrinsicDirectoryIsDirectory, "isDirectory", true, ConvLet, BoolTy, param("path", b.FilePath, ConvLet))
+	b.method(b.Directory, IntrinsicDirectoryCreate, "create", true, ConvLet, BoolTy, param("path", b.FilePath, ConvLet))
+	{
+		f := b.method(b.Directory, IntrinsicDirectoryList, "list", true, ConvLet, Instantiate(b.Array, []Ty{b.FilePath}), param("path", b.FilePath, ConvLet))
+		f.ErrorType = b.DirectoryListError
+	}
+	{
+		f := b.method(b.Subprocess, IntrinsicSubprocessRun, "run", true, ConvLet, b.CollectedOutput, param("executable", b.Executable, ConvLet), param("arguments", Instantiate(b.Array, []Ty{StringTy}), ConvLet))
+		f.ErrorType = b.SubprocessError
+	}
+	b.method(b.CollectedOutput, IntrinsicCollectedOutputExitCode, "exitCode", false, ConvLet, b.exitCode())
+	b.method(b.CollectedOutput, IntrinsicCollectedOutputSucceeded, "succeeded", false, ConvLet, BoolTy)
 }

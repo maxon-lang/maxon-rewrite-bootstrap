@@ -120,28 +120,30 @@ func (vm *vm) runEntry(c *runtimeCall) {
 		vm.entryBytesAppendStr(c)
 	case ir.RtBytesToString:
 		vm.entryBytesToString(c)
-	case ir.RtOsCliArgs:
-		vm.entryOsCliArgs(c)
-	case ir.RtOsGetEnv:
-		vm.entryOsGetEnv(c)
-	case ir.RtOsReadFile:
-		vm.entryOsReadFile(c)
-	case ir.RtOsWriteFile:
-		vm.entryOsWriteFile(c)
-	case ir.RtOsWriteBytes:
-		vm.entryOsWriteBytes(c)
-	case ir.RtOsRenameFile:
-		vm.entryOsRenameFile(c)
-	case ir.RtOsRemoveFile:
-		vm.entryOsRemoveFile(c)
-	case ir.RtOsIsDir:
-		vm.entryOsIsDir(c)
-	case ir.RtOsMkdir:
-		vm.entryOsMkdir(c)
-	case ir.RtOsListDir:
-		vm.entryOsListDir(c)
-	case ir.RtOsRunProcess:
-		vm.entryOsRunProcess(c)
+	case ir.RtOsArgs:
+		vm.entryOsArgs(c)
+	case ir.RtOsEnvironmentVariable:
+		vm.entryOsEnvironmentVariable(c)
+	case ir.RtOsPathFrom:
+		vm.entryOsPathFrom(c)
+	case ir.RtOsReadText:
+		vm.entryOsReadText(c)
+	case ir.RtOsWriteText:
+		vm.entryOsWriteText(c)
+	case ir.RtOsWriteBinary:
+		vm.entryOsWriteBinary(c)
+	case ir.RtOsRename:
+		vm.entryOsRename(c)
+	case ir.RtOsDelete:
+		vm.entryOsDelete(c)
+	case ir.RtOsIsDirectory:
+		vm.entryOsIsDirectory(c)
+	case ir.RtOsCreateDirectory:
+		vm.entryOsCreateDirectory(c)
+	case ir.RtOsList:
+		vm.entryOsList(c)
+	case ir.RtOsRun:
+		vm.entryOsRun(c)
 	case ir.RtEntry,
 		ir.RtAlloc,
 		ir.RtFree,

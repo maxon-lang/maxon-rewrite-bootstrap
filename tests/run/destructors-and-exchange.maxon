@@ -48,9 +48,9 @@ function main() returns ExitCode
 	print("{before} {label}\n")
 	var names = CountStringMap.create()
 	names.upsert(1, value: "one")
-	let previous = names.replace(1, value: "uno")
-	let fresh = names.replace(2, value: "dos")
-	print("{previous.unwrap()} {fresh.isSome()} {names[1]} {names.count()}\n")
+	let previous = try names.replace(1, value: "uno") otherwise panic("the map has no such key")
+	let fresh = try names.replace(2, value: "dos") otherwise "none"
+	print("{previous} {fresh} {names[1]} {names.count()}\n")
 	return 0
 end 'main'
 
@@ -61,4 +61,4 @@ end 'main'
 //> commit 5
 //> commit 6
 //> a b
-//> one false uno 2
+//> one none uno 1

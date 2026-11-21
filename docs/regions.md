@@ -210,11 +210,10 @@ Where this document was open, minimaxon does the following. The operations and t
   moving and exclusivity code as a call of any method. Adding an element is a `consumes` parameter. Removing is a return
   value, which is owned. `mutates self` on everything that changes the structure is what makes "a container method
   overlaps any projection of its container" follow from the exclusivity rule, with no rule of its own.
-- **Results that can miss are an `Option with T`.** `Option` is a built-in union (`some`, `none`) with two methods:
-  `isSome()` and `unwrap(consumes self)`. Matching it only borrows the payload (a match binding is a projection), so
-  `unwrap` is how a program takes the element out of a `remove`: it consumes the whole option, so no value is left
-  partly moved. A miss that is a bug and not an expected answer (`a[i]`, `m[k]`, `p[h]`) traps instead, and
-  `a.remove(i)` throws maxon's `ArrayError`.
+- **Results that can miss throw.** An operation that can miss (`a.remove(i)`, `p.remove(h)`, `l.next(h)`,
+  `m.replace(k, value: v)`) returns the element itself, owned, and throws maxon's `ArrayError` or `MapError` on a miss,
+  so no value is left partly moved and nothing is allocated for the answer. A miss that is a bug and not an expected
+  answer (`a[i]`, `m[k]`, `p[h]`) traps instead.
 - **A subscript is a projection, an element step in the path.** `a[i]` is typed as the element and is never an owned
   value, so binding, returning or sinking it is the existing `E3901` (`E3900` under a borrowed root); no new code.
   Assigning through it needs a mutable root like a field does. Every element step overlaps every other element step

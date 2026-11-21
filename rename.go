@@ -22,8 +22,11 @@ import (
 //	                         text of the argument for that parameter of the old signature
 //	Owner.old=...{call}...   the whole call, receiver and all, written again from the template, in parentheses where it is
 //	                         an operand: Array.pop=try {call} otherwise panic("empty"); {self} in it is the text of the
-//	                         receiver, and {param} the argument's: Bytes.byteAt={self}[{index}]
+//	                         receiver, and {param} the argument's: String.byteAt={self}[{index}]
 //	Owner.old.m=...{call}... as the one before, for a call followed by '.m()', which the template replaces too
+//	old()=template           a built-in free function: the whole call written again from the template, {param} as above,
+//	                         as when the table makes one a static method: readFile()=File.readText({path})
+//	old().m=template         as the one before, for a call followed by '.m()', which the template replaces too
 //	Owner.old=?              lists the calls instead of rewriting them
 //
 // A program is a file or a project directory as check takes it; a file of cases ("// case: name" lines) is checked case by
@@ -53,7 +56,12 @@ type renameRule struct {
 	// suffix, when not empty, is a method with no arguments that the call must be followed by, as in
 	// Array.pop.unwrap=...: the rule then replaces the call of it too.
 	suffix string
+	// free is whether old is a built-in free function, whose whole call the template replaces.
+	free bool
 }
+
+// freeCallMark ends the name of a free function in a rule.
+const freeCallMark = "()"
 
 func parseRenameRule(s string) (renameRule, bool) {
 	from, to, ok := strings.Cut(s, "=")
@@ -63,6 +71,16 @@ func parseRenameRule(s string) (renameRule, bool) {
 	r := renameRule{newName: to}
 	if name, _, hasArgs := strings.Cut(to, "("); hasArgs || strings.Contains(to, "{") {
 		r.newName, r.template = name, to
+	}
+	if name, rest, isFree := strings.Cut(from, freeCallMark); isFree && !strings.Contains(name, ".") {
+		r.free, r.old = true, name
+		if rest != "" {
+			if !strings.HasPrefix(rest, ".") {
+				return renameRule{}, false
+			}
+			r.suffix = rest[1:]
+		}
+		return r, name != "" && r.template != ""
 	}
 	owner, old, isMethod := strings.Cut(from, ".")
 	if !isMethod {
@@ -420,7 +438,7 @@ func (r *renamer) rulesFor(proj *ast.Project, info *ast.CallInfo, name string) [
 	var out []*renameRule
 	for i := range r.rules {
 		rule := &r.rules[i]
-		if rule.isType || rule.old != name {
+		if rule.isType || rule.free || rule.old != name {
 			continue
 		}
 		if rule.owner == copyRuleOwner {
@@ -439,40 +457,39 @@ func (r *renamer) rulesFor(proj *ast.Project, info *ast.CallInfo, name string) [
 	return out
 }
 
-// builtinMethod is the method name of the built-in type that a rule names by its key in the table, or of String.
+// builtinMethod is the method name of the built-in type that a rule names, or of String.
 func builtinMethod(proj *ast.Project, owner, name string) *ast.FuncDecl {
-	b := proj.Builtins
-	var nt ast.NominalTy
-	switch owner {
-	case "String":
-		return b.StringMethods[name]
-	case "Array":
-		nt = b.Array
-	case "Map":
-		nt = b.Map
-	case "List":
-		nt = b.List
-	case "Pool":
-		nt = b.Pool
-	case "Option":
-		nt = b.Option
-	default:
+	if owner == "String" {
+		return proj.Builtins.StringMethods[name]
+	}
+	var ty ast.Ty
+	switch d := proj.Stdlib.Names[owner].(type) {
+	case *ast.TypeDecl:
+		ty = d.Ty
+	case *ast.UnionDecl:
+		ty = d.Ty
+	}
+	nt, ok := ty.(ast.NominalTy)
+	if !ok {
 		panic(diag.Internal("rename: %s is no built-in type with methods", owner))
 	}
 	return nt.MethodTable()[name]
 }
 
 func (r *renamer) call(proj *ast.Project, res *ast.ModuleResult, text *moduleText, call ast.CallExpr) []renameSite {
+	info := res.Typing.Call(call)
+	if n, isName := call.Callee().AsNameExpr(); isName {
+		return r.freeCall(proj, text, call, info, n)
+	}
 	m, ok := call.Callee().AsMemberExpr()
 	if !ok {
 		return nil
 	}
-	info := res.Typing.Call(call)
 	candidates := r.rulesFor(proj, info, m.Name())
 	if len(candidates) == 0 {
 		if info.Kind == ast.CallUnresolved {
 			for _, other := range r.rules {
-				if !other.isType && other.old == m.Name() {
+				if !other.isType && !other.free && other.old == m.Name() {
 					file, src, at := text.at(int(call.Position().Off))
 					return r.miss(file, src, at, "."+m.Name())
 				}
@@ -547,6 +564,55 @@ func (r *renamer) call(proj *ast.Project, res *ast.ModuleResult, text *moduleTex
 }
 
 func placeholderName(p string) string { return p[1 : len(p)-1] }
+
+// freeCall rewrites a call of a built-in free function that a rule names: the whole call, and the method after it that
+// the rule's suffix names.
+func (r *renamer) freeCall(proj *ast.Project, text *moduleText, call ast.CallExpr, info *ast.CallInfo, n ast.NameExpr) []renameSite {
+	var candidates []*renameRule
+	for i := range r.rules {
+		rule := &r.rules[i]
+		if rule.free && rule.old == n.Name() {
+			candidates = append(candidates, rule)
+		}
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	file, src, at := text.at(int(n.Position().Off))
+	if info.Target == nil || info.Target.Module != proj.Stdlib || info.Target.Intrinsic == ast.NotIntrinsic {
+		if info.Kind == ast.CallUnresolved {
+			return r.miss(file, src, at, n.Name()+freeCallMark)
+		}
+		return nil
+	}
+	end := at + len(n.Name())
+	if !hasName(src, at, n.Name()) || end >= len(src) || src[end] != '(' {
+		return r.miss(file, src, at, n.Name()+freeCallMark)
+	}
+	close := skipGroup(src, end)
+	for _, rule := range candidates {
+		spanEnd := close
+		if rule.suffix != "" {
+			if !strings.HasPrefix(src[close:], "."+rule.suffix+"()") {
+				continue
+			}
+			spanEnd += len("." + rule.suffix + "()")
+		}
+		var parts []templatePart
+		argText, ok := r.argTexts(src, call, info, end, close)
+		if ok {
+			parts, ok = templateParts(rule.template, argText)
+		}
+		if !ok {
+			return r.miss(file, src, at, n.Name()+freeCallMark)
+		}
+		if needsParens(src, at, spanEnd) && !isPostfix(rule.template) {
+			parts = append(append([]templatePart{{literal: "("}}, parts...), templatePart{literal: ")"})
+		}
+		return []renameSite{{file: file, edit: renameEdit{begin: at, end: spanEnd, parts: parts}}}
+	}
+	return nil
+}
 
 // argTexts are the spans of the arguments of a call whose parentheses are at open and before close, by the name of the
 // parameter of the old signature each is given to.
@@ -643,6 +709,23 @@ func chainNames(src string, start int) []int {
 		}
 	}
 	return names
+}
+
+// isPostfix is whether a template is one postfix chain, a name with its steps and calls, which stays one operand where
+// it is written.
+func isPostfix(t string) bool {
+	at := skipPrimary(t, 0)
+	for at < len(t) {
+		switch {
+		case t[at] == '.' && at+1 < len(t) && isNameByte(t[at+1]):
+			at = skipName(t, at+1)
+		case t[at] == '(' || t[at] == '[' || t[at] == '{':
+			at = skipGroup(t, at)
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func isNameByte(b byte) bool {

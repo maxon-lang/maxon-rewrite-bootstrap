@@ -121,10 +121,10 @@ type Lexer
 	var depth as Count
 	var indent as Count
 	var tokens as Tokens
-	var error as Option with LexError
+	var error as table.Option with LexError
 
 	static function make(consumes text String, begin Count, limit Count, inline bool) returns Lexer
-		return Lexer{text: text, begin: begin, limit: limit, inline: inline, pos: begin, depth: 0, indent: 0, tokens: Tokens.create(0), error: Option.none}
+		return Lexer{text: text, begin: begin, limit: limit, inline: inline, pos: begin, depth: 0, indent: 0, tokens: Tokens.create(0), error: table.Option.none}
 	end 'make'
 
 	function hasError() returns bool
@@ -133,7 +133,7 @@ type Lexer
 
 	function fail(mutates self, offset Count, consumes message String)
 		if not self.error.isSome() 'firstError'
-			self.error = Option.some(LexError.make(offset, message: message))
+			self.error = table.Option.some(LexError.make(offset, message: message))
 		end 'firstError'
 	end 'fail'
 

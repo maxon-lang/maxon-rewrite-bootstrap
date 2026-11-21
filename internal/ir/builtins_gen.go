@@ -12,161 +12,163 @@ import (
 type Rt uint8
 
 const (
-	RtEntry           Rt = iota + 1 // the executable's entry point, which calls main
-	RtAlloc                         // (ByteArray) -> a zeroed box
-	RtFree                          // (box): 0 is skipped
-	RtWrite                         // (handle, text String)
-	RtPanic                         // (message String): exits
-	RtConcat                        // (String, String) -> String
-	RtItoa                          // (n, unsigned) -> String
-	RtStreq                         // (String, String) -> bool
-	RtStrLen                        // (String) -> count of bytes
-	RtStrByteAt                     // (String, index) -> byte
-	RtStrSlice                      // (String, from, until) -> String
-	RtPanicIndex                    // panics with an index out of range
-	RtHeap                          // the process heap
-	RtStdout                        // the handle of standard output
-	RtStderr                        // the handle of standard error
-	RtLive                          // the number of heap boxes allocated and not yet freed, kept only by an executable built to count them
-	RtImageDataStart                // the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap
-	RtImageDataEnd                  // the end of the data section
-	RtArrayNew                      // () -> Array
-	RtArrayLen                      // (array) -> count
-	RtArrayElem                     // (array, index) -> address of the element
-	RtArrayInsert                   // (array, index, element): moves it in at index, which may be the length
-	RtArrayRemove                   // (array, index) -> element: moves it out
-	RtMapNew                        // () -> map
-	RtMapLen                        // (map) -> count
-	RtMapHas                        // (map, key) -> bool
-	RtMapElem                       // (map, key) -> address of the value
-	RtMapInsert                     // (map, key, value): moves both in; the value of an existing key is dropped
-	RtMapRemove                     // (map, key) -> value: moves it out; the key is dropped
-	RtMapCopy                       // (map) -> map: every key and value copied
-	RtListNew                       // () -> list
-	RtListLen                       // (list) -> count
-	RtListContains                  // (list, handle) -> bool
-	RtListElem                      // (list, handle) -> address of the element
-	RtListPushFront                 // (list, element) -> handle: moves it in
-	RtListPushBack                  // (list, element) -> handle: moves it in
-	RtListPopFront                  // (list) -> element: moves it out; traps if empty
-	RtListPopBack                   // (list) -> element: moves it out; traps if empty
-	RtListFirst                     // (list) -> handle, or 0 if empty
-	RtListLast                      // (list) -> handle, or 0 if empty
-	RtListNext                      // (list, handle) -> handle, or 0 after the last
-	RtListPrev                      // (list, handle) -> handle, or 0 before the first
-	RtListRemove                    // (list, handle) -> element: moves it out
-	RtListMoveToFront               // (list, handle)
-	RtListCopy                      // (list) -> list: every element copied, handles still valid in the copy
-	RtPoolNew                       // () -> pool
-	RtPoolLen                       // (pool) -> count
-	RtPoolContains                  // (pool, handle) -> bool
-	RtPoolElem                      // (pool, handle) -> address of the element
-	RtPoolInsert                    // (pool, element) -> handle: moves it in
-	RtPoolRemove                    // (pool, handle) -> element: moves it out
-	RtPoolCopy                      // (pool) -> pool: every element copied, handles still valid in the copy
-	RtFrozenFreeze                  // (value) -> frozen: moves the value into a new box with a count of 1
-	RtFrozenGet                     // (frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is
-	RtShare                         // (frozen or cown) -> the same box: another owner, with the count raised by 1
-	RtCownNew                       // (value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop
-	RtBytesNew                      // () -> ByteArray
-	RtBytesLen                      // (ByteArray) -> count
-	RtBytesGet                      // (ByteArray, index) -> byte
-	RtBytesSet                      // (ByteArray, index, byte)
-	RtBytesInsert                   // (ByteArray, index, byte): at index, which may be the length
-	RtBytesRemove                   // (ByteArray, index) -> byte
-	RtBytesAppend                   // (ByteArray, other ByteArray)
-	RtBytesAppendStr                // (ByteArray, text String)
-	RtBytesToString                 // (ByteArray) -> String
-	RtOsCliArgs                     // () -> Array with String
-	RtOsGetEnv                      // (name String) -> String or 0
-	RtOsReadFile                    // (path String) -> String or 0
-	RtOsWriteFile                   // (path String, text String) -> bool
-	RtOsWriteBytes                  // (path String, data ByteArray) -> bool
-	RtOsRenameFile                  // (from String, dest String) -> bool
-	RtOsRemoveFile                  // (path String) -> bool
-	RtOsIsDir                       // (path String) -> bool
-	RtOsMkdir                       // (path String) -> bool
-	RtOsListDir                     // (path String) -> Array with String or 0
-	RtOsRunProcess                  // (commandLine String) -> (exitCode<<1)|1 or 0
+	RtEntry                 Rt = iota + 1 // the executable's entry point, which calls main
+	RtAlloc                               // (ByteArray) -> a zeroed box
+	RtFree                                // (box): 0 is skipped
+	RtWrite                               // (handle, text String)
+	RtPanic                               // (message String): exits
+	RtConcat                              // (String, String) -> String
+	RtItoa                                // (n, unsigned) -> String
+	RtStreq                               // (String, String) -> bool
+	RtStrLen                              // (String) -> count of bytes
+	RtStrByteAt                           // (String, index) -> byte
+	RtStrSlice                            // (String, from, until) -> String
+	RtPanicIndex                          // panics with an index out of range
+	RtHeap                                // the process heap
+	RtStdout                              // the handle of standard output
+	RtStderr                              // the handle of standard error
+	RtLive                                // the number of heap boxes allocated and not yet freed, kept only by an executable built to count them
+	RtImageDataStart                      // the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap
+	RtImageDataEnd                        // the end of the data section
+	RtArrayNew                            // () -> Array
+	RtArrayLen                            // (array) -> count
+	RtArrayElem                           // (array, index) -> address of the element
+	RtArrayInsert                         // (array, index, element): moves it in at index, which may be the length
+	RtArrayRemove                         // (array, index) -> element: moves it out
+	RtMapNew                              // () -> map
+	RtMapLen                              // (map) -> count
+	RtMapHas                              // (map, key) -> bool
+	RtMapElem                             // (map, key) -> address of the value
+	RtMapInsert                           // (map, key, value): moves both in; the value of an existing key is dropped
+	RtMapRemove                           // (map, key) -> value: moves it out; the key is dropped
+	RtMapCopy                             // (map) -> map: every key and value copied
+	RtListNew                             // () -> list
+	RtListLen                             // (list) -> count
+	RtListContains                        // (list, handle) -> bool
+	RtListElem                            // (list, handle) -> address of the element
+	RtListPushFront                       // (list, element) -> handle: moves it in
+	RtListPushBack                        // (list, element) -> handle: moves it in
+	RtListPopFront                        // (list) -> element: moves it out; traps if empty
+	RtListPopBack                         // (list) -> element: moves it out; traps if empty
+	RtListFirst                           // (list) -> handle, or 0 if empty
+	RtListLast                            // (list) -> handle, or 0 if empty
+	RtListNext                            // (list, handle) -> handle, or 0 after the last
+	RtListPrev                            // (list, handle) -> handle, or 0 before the first
+	RtListRemove                          // (list, handle) -> element: moves it out
+	RtListMoveToFront                     // (list, handle)
+	RtListCopy                            // (list) -> list: every element copied, handles still valid in the copy
+	RtPoolNew                             // () -> pool
+	RtPoolLen                             // (pool) -> count
+	RtPoolContains                        // (pool, handle) -> bool
+	RtPoolElem                            // (pool, handle) -> address of the element
+	RtPoolInsert                          // (pool, element) -> handle: moves it in
+	RtPoolRemove                          // (pool, handle) -> element: moves it out
+	RtPoolCopy                            // (pool) -> pool: every element copied, handles still valid in the copy
+	RtFrozenFreeze                        // (value) -> frozen: moves the value into a new box with a count of 1
+	RtFrozenGet                           // (frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is
+	RtShare                               // (frozen or cown) -> the same box: another owner, with the count raised by 1
+	RtCownNew                             // (value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop
+	RtBytesNew                            // () -> ByteArray
+	RtBytesLen                            // (ByteArray) -> count
+	RtBytesGet                            // (ByteArray, index) -> byte
+	RtBytesSet                            // (ByteArray, index, byte)
+	RtBytesInsert                         // (ByteArray, index, byte): at index, which may be the length
+	RtBytesRemove                         // (ByteArray, index) -> byte
+	RtBytesAppend                         // (ByteArray, other ByteArray)
+	RtBytesAppendStr                      // (ByteArray, text String)
+	RtBytesToString                       // (ByteArray) -> String
+	RtOsArgs                              // () -> Array with String
+	RtOsEnvironmentVariable               // (name String, error) -> String
+	RtOsPathFrom                          // (path String, error) -> String: the path with the native separator for the other one
+	RtOsReadText                          // (path String, error) -> String
+	RtOsWriteText                         // (path String, content String, error)
+	RtOsWriteBinary                       // (path String, content ByteArray, error)
+	RtOsRename                            // (from String, to String, error): replaces what is at to
+	RtOsDelete                            // (path String, error)
+	RtOsIsDirectory                       // (path String) -> bool
+	RtOsCreateDirectory                   // (path String) -> bool: makes the missing parents too, and is whether the directory is there after it
+	RtOsList                              // (path String, error) -> Array with String: the path joined to the name of each entry
+	RtOsRun                               // (executable String, arguments Array with String, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it
 )
 
 var rtNames = [...]string{
-	RtEntry:           "rt.entry",
-	RtAlloc:           "rt.alloc",
-	RtFree:            "rt.free",
-	RtWrite:           "rt.write",
-	RtPanic:           "rt.panic",
-	RtConcat:          "rt.concat",
-	RtItoa:            "rt.itoa",
-	RtStreq:           "rt.streq",
-	RtStrLen:          "rt.str.len",
-	RtStrByteAt:       "rt.str.byteAt",
-	RtStrSlice:        "rt.str.slice",
-	RtPanicIndex:      "rt.panicIndex",
-	RtHeap:            "g.heap",
-	RtStdout:          "g.stdout",
-	RtStderr:          "g.stderr",
-	RtLive:            "g.live",
-	RtImageDataStart:  "g.imageDataStart",
-	RtImageDataEnd:    "g.imageDataEnd",
-	RtArrayNew:        "rt.array.new",
-	RtArrayLen:        "rt.array.len",
-	RtArrayElem:       "rt.array.elem",
-	RtArrayInsert:     "rt.array.insert",
-	RtArrayRemove:     "rt.array.remove",
-	RtMapNew:          "rt.map.new",
-	RtMapLen:          "rt.map.len",
-	RtMapHas:          "rt.map.has",
-	RtMapElem:         "rt.map.elem",
-	RtMapInsert:       "rt.map.insert",
-	RtMapRemove:       "rt.map.remove",
-	RtMapCopy:         "rt.map.copy",
-	RtListNew:         "rt.list.new",
-	RtListLen:         "rt.list.len",
-	RtListContains:    "rt.list.contains",
-	RtListElem:        "rt.list.elem",
-	RtListPushFront:   "rt.list.pushFront",
-	RtListPushBack:    "rt.list.pushBack",
-	RtListPopFront:    "rt.list.popFront",
-	RtListPopBack:     "rt.list.popBack",
-	RtListFirst:       "rt.list.first",
-	RtListLast:        "rt.list.last",
-	RtListNext:        "rt.list.next",
-	RtListPrev:        "rt.list.prev",
-	RtListRemove:      "rt.list.remove",
-	RtListMoveToFront: "rt.list.moveToFront",
-	RtListCopy:        "rt.list.copy",
-	RtPoolNew:         "rt.pool.new",
-	RtPoolLen:         "rt.pool.len",
-	RtPoolContains:    "rt.pool.contains",
-	RtPoolElem:        "rt.pool.elem",
-	RtPoolInsert:      "rt.pool.insert",
-	RtPoolRemove:      "rt.pool.remove",
-	RtPoolCopy:        "rt.pool.copy",
-	RtFrozenFreeze:    "rt.frozen.freeze",
-	RtFrozenGet:       "rt.frozen.get",
-	RtShare:           "rt.share",
-	RtCownNew:         "rt.cown.new",
-	RtBytesNew:        "rt.bytes.new",
-	RtBytesLen:        "rt.bytes.len",
-	RtBytesGet:        "rt.bytes.get",
-	RtBytesSet:        "rt.bytes.set",
-	RtBytesInsert:     "rt.bytes.insert",
-	RtBytesRemove:     "rt.bytes.remove",
-	RtBytesAppend:     "rt.bytes.append",
-	RtBytesAppendStr:  "rt.bytes.appendStr",
-	RtBytesToString:   "rt.bytes.toString",
-	RtOsCliArgs:       "rt.os.cliArgs",
-	RtOsGetEnv:        "rt.os.getEnv",
-	RtOsReadFile:      "rt.os.readFile",
-	RtOsWriteFile:     "rt.os.writeFile",
-	RtOsWriteBytes:    "rt.os.writeBytes",
-	RtOsRenameFile:    "rt.os.renameFile",
-	RtOsRemoveFile:    "rt.os.removeFile",
-	RtOsIsDir:         "rt.os.isDir",
-	RtOsMkdir:         "rt.os.mkdir",
-	RtOsListDir:       "rt.os.listDir",
-	RtOsRunProcess:    "rt.os.runProcess",
+	RtEntry:                 "rt.entry",
+	RtAlloc:                 "rt.alloc",
+	RtFree:                  "rt.free",
+	RtWrite:                 "rt.write",
+	RtPanic:                 "rt.panic",
+	RtConcat:                "rt.concat",
+	RtItoa:                  "rt.itoa",
+	RtStreq:                 "rt.streq",
+	RtStrLen:                "rt.str.len",
+	RtStrByteAt:             "rt.str.byteAt",
+	RtStrSlice:              "rt.str.slice",
+	RtPanicIndex:            "rt.panicIndex",
+	RtHeap:                  "g.heap",
+	RtStdout:                "g.stdout",
+	RtStderr:                "g.stderr",
+	RtLive:                  "g.live",
+	RtImageDataStart:        "g.imageDataStart",
+	RtImageDataEnd:          "g.imageDataEnd",
+	RtArrayNew:              "rt.array.new",
+	RtArrayLen:              "rt.array.len",
+	RtArrayElem:             "rt.array.elem",
+	RtArrayInsert:           "rt.array.insert",
+	RtArrayRemove:           "rt.array.remove",
+	RtMapNew:                "rt.map.new",
+	RtMapLen:                "rt.map.len",
+	RtMapHas:                "rt.map.has",
+	RtMapElem:               "rt.map.elem",
+	RtMapInsert:             "rt.map.insert",
+	RtMapRemove:             "rt.map.remove",
+	RtMapCopy:               "rt.map.copy",
+	RtListNew:               "rt.list.new",
+	RtListLen:               "rt.list.len",
+	RtListContains:          "rt.list.contains",
+	RtListElem:              "rt.list.elem",
+	RtListPushFront:         "rt.list.pushFront",
+	RtListPushBack:          "rt.list.pushBack",
+	RtListPopFront:          "rt.list.popFront",
+	RtListPopBack:           "rt.list.popBack",
+	RtListFirst:             "rt.list.first",
+	RtListLast:              "rt.list.last",
+	RtListNext:              "rt.list.next",
+	RtListPrev:              "rt.list.prev",
+	RtListRemove:            "rt.list.remove",
+	RtListMoveToFront:       "rt.list.moveToFront",
+	RtListCopy:              "rt.list.copy",
+	RtPoolNew:               "rt.pool.new",
+	RtPoolLen:               "rt.pool.len",
+	RtPoolContains:          "rt.pool.contains",
+	RtPoolElem:              "rt.pool.elem",
+	RtPoolInsert:            "rt.pool.insert",
+	RtPoolRemove:            "rt.pool.remove",
+	RtPoolCopy:              "rt.pool.copy",
+	RtFrozenFreeze:          "rt.frozen.freeze",
+	RtFrozenGet:             "rt.frozen.get",
+	RtShare:                 "rt.share",
+	RtCownNew:               "rt.cown.new",
+	RtBytesNew:              "rt.bytes.new",
+	RtBytesLen:              "rt.bytes.len",
+	RtBytesGet:              "rt.bytes.get",
+	RtBytesSet:              "rt.bytes.set",
+	RtBytesInsert:           "rt.bytes.insert",
+	RtBytesRemove:           "rt.bytes.remove",
+	RtBytesAppend:           "rt.bytes.append",
+	RtBytesAppendStr:        "rt.bytes.appendStr",
+	RtBytesToString:         "rt.bytes.toString",
+	RtOsArgs:                "rt.os.args",
+	RtOsEnvironmentVariable: "rt.os.environmentVariable",
+	RtOsPathFrom:            "rt.os.pathFrom",
+	RtOsReadText:            "rt.os.readText",
+	RtOsWriteText:           "rt.os.writeText",
+	RtOsWriteBinary:         "rt.os.writeBinary",
+	RtOsRename:              "rt.os.rename",
+	RtOsDelete:              "rt.os.delete",
+	RtOsIsDirectory:         "rt.os.isDirectory",
+	RtOsCreateDirectory:     "rt.os.createDirectory",
+	RtOsList:                "rt.os.list",
+	RtOsRun:                 "rt.os.run",
 }
 
 // RtUnit is where a runtime symbol is defined.
@@ -182,91 +184,88 @@ const (
 )
 
 var rtUnits = [...]RtUnit{
-	RtEntry:           RtUnitRuntime,
-	RtAlloc:           RtUnitRuntime,
-	RtFree:            RtUnitRuntime,
-	RtWrite:           RtUnitRuntime,
-	RtPanic:           RtUnitRuntime,
-	RtConcat:          RtUnitRuntime,
-	RtItoa:            RtUnitRuntime,
-	RtStreq:           RtUnitRuntime,
-	RtStrLen:          RtUnitRuntime,
-	RtStrByteAt:       RtUnitRuntime,
-	RtStrSlice:        RtUnitRuntime,
-	RtPanicIndex:      RtUnitArrays,
-	RtHeap:            RtUnitRuntime,
-	RtStdout:          RtUnitRuntime,
-	RtStderr:          RtUnitRuntime,
-	RtLive:            RtUnitRuntime,
-	RtImageDataStart:  RtUnitLinker,
-	RtImageDataEnd:    RtUnitLinker,
-	RtArrayNew:        RtUnitArrays,
-	RtArrayLen:        RtUnitArrays,
-	RtArrayElem:       RtUnitArrays,
-	RtArrayInsert:     RtUnitArrays,
-	RtArrayRemove:     RtUnitArrays,
-	RtMapNew:          RtUnitInterpreter,
-	RtMapLen:          RtUnitInterpreter,
-	RtMapHas:          RtUnitInterpreter,
-	RtMapElem:         RtUnitInterpreter,
-	RtMapInsert:       RtUnitInterpreter,
-	RtMapRemove:       RtUnitInterpreter,
-	RtMapCopy:         RtUnitInterpreter,
-	RtListNew:         RtUnitInterpreter,
-	RtListLen:         RtUnitInterpreter,
-	RtListContains:    RtUnitInterpreter,
-	RtListElem:        RtUnitInterpreter,
-	RtListPushFront:   RtUnitInterpreter,
-	RtListPushBack:    RtUnitInterpreter,
-	RtListPopFront:    RtUnitInterpreter,
-	RtListPopBack:     RtUnitInterpreter,
-	RtListFirst:       RtUnitInterpreter,
-	RtListLast:        RtUnitInterpreter,
-	RtListNext:        RtUnitInterpreter,
-	RtListPrev:        RtUnitInterpreter,
-	RtListRemove:      RtUnitInterpreter,
-	RtListMoveToFront: RtUnitInterpreter,
-	RtListCopy:        RtUnitInterpreter,
-	RtPoolNew:         RtUnitInterpreter,
-	RtPoolLen:         RtUnitInterpreter,
-	RtPoolContains:    RtUnitInterpreter,
-	RtPoolElem:        RtUnitInterpreter,
-	RtPoolInsert:      RtUnitInterpreter,
-	RtPoolRemove:      RtUnitInterpreter,
-	RtPoolCopy:        RtUnitInterpreter,
-	RtFrozenFreeze:    RtUnitInterpreter,
-	RtFrozenGet:       RtUnitInterpreter,
-	RtShare:           RtUnitInterpreter,
-	RtCownNew:         RtUnitInterpreter,
-	RtBytesNew:        RtUnitBytes,
-	RtBytesLen:        RtUnitBytes,
-	RtBytesGet:        RtUnitBytes,
-	RtBytesSet:        RtUnitBytes,
-	RtBytesInsert:     RtUnitBytes,
-	RtBytesRemove:     RtUnitBytes,
-	RtBytesAppend:     RtUnitBytes,
-	RtBytesAppendStr:  RtUnitBytes,
-	RtBytesToString:   RtUnitBytes,
-	RtOsCliArgs:       RtUnitOs,
-	RtOsGetEnv:        RtUnitOs,
-	RtOsReadFile:      RtUnitOs,
-	RtOsWriteFile:     RtUnitOs,
-	RtOsWriteBytes:    RtUnitOs,
-	RtOsRenameFile:    RtUnitOs,
-	RtOsRemoveFile:    RtUnitOs,
-	RtOsIsDir:         RtUnitOs,
-	RtOsMkdir:         RtUnitOs,
-	RtOsListDir:       RtUnitOs,
-	RtOsRunProcess:    RtUnitOs,
+	RtEntry:                 RtUnitRuntime,
+	RtAlloc:                 RtUnitRuntime,
+	RtFree:                  RtUnitRuntime,
+	RtWrite:                 RtUnitRuntime,
+	RtPanic:                 RtUnitRuntime,
+	RtConcat:                RtUnitRuntime,
+	RtItoa:                  RtUnitRuntime,
+	RtStreq:                 RtUnitRuntime,
+	RtStrLen:                RtUnitRuntime,
+	RtStrByteAt:             RtUnitRuntime,
+	RtStrSlice:              RtUnitRuntime,
+	RtPanicIndex:            RtUnitArrays,
+	RtHeap:                  RtUnitRuntime,
+	RtStdout:                RtUnitRuntime,
+	RtStderr:                RtUnitRuntime,
+	RtLive:                  RtUnitRuntime,
+	RtImageDataStart:        RtUnitLinker,
+	RtImageDataEnd:          RtUnitLinker,
+	RtArrayNew:              RtUnitArrays,
+	RtArrayLen:              RtUnitArrays,
+	RtArrayElem:             RtUnitArrays,
+	RtArrayInsert:           RtUnitArrays,
+	RtArrayRemove:           RtUnitArrays,
+	RtMapNew:                RtUnitInterpreter,
+	RtMapLen:                RtUnitInterpreter,
+	RtMapHas:                RtUnitInterpreter,
+	RtMapElem:               RtUnitInterpreter,
+	RtMapInsert:             RtUnitInterpreter,
+	RtMapRemove:             RtUnitInterpreter,
+	RtMapCopy:               RtUnitInterpreter,
+	RtListNew:               RtUnitInterpreter,
+	RtListLen:               RtUnitInterpreter,
+	RtListContains:          RtUnitInterpreter,
+	RtListElem:              RtUnitInterpreter,
+	RtListPushFront:         RtUnitInterpreter,
+	RtListPushBack:          RtUnitInterpreter,
+	RtListPopFront:          RtUnitInterpreter,
+	RtListPopBack:           RtUnitInterpreter,
+	RtListFirst:             RtUnitInterpreter,
+	RtListLast:              RtUnitInterpreter,
+	RtListNext:              RtUnitInterpreter,
+	RtListPrev:              RtUnitInterpreter,
+	RtListRemove:            RtUnitInterpreter,
+	RtListMoveToFront:       RtUnitInterpreter,
+	RtListCopy:              RtUnitInterpreter,
+	RtPoolNew:               RtUnitInterpreter,
+	RtPoolLen:               RtUnitInterpreter,
+	RtPoolContains:          RtUnitInterpreter,
+	RtPoolElem:              RtUnitInterpreter,
+	RtPoolInsert:            RtUnitInterpreter,
+	RtPoolRemove:            RtUnitInterpreter,
+	RtPoolCopy:              RtUnitInterpreter,
+	RtFrozenFreeze:          RtUnitInterpreter,
+	RtFrozenGet:             RtUnitInterpreter,
+	RtShare:                 RtUnitInterpreter,
+	RtCownNew:               RtUnitInterpreter,
+	RtBytesNew:              RtUnitBytes,
+	RtBytesLen:              RtUnitBytes,
+	RtBytesGet:              RtUnitBytes,
+	RtBytesSet:              RtUnitBytes,
+	RtBytesInsert:           RtUnitBytes,
+	RtBytesRemove:           RtUnitBytes,
+	RtBytesAppend:           RtUnitBytes,
+	RtBytesAppendStr:        RtUnitBytes,
+	RtBytesToString:         RtUnitBytes,
+	RtOsArgs:                RtUnitOs,
+	RtOsEnvironmentVariable: RtUnitOs,
+	RtOsPathFrom:            RtUnitOs,
+	RtOsReadText:            RtUnitOs,
+	RtOsWriteText:           RtUnitOs,
+	RtOsWriteBinary:         RtUnitOs,
+	RtOsRename:              RtUnitOs,
+	RtOsDelete:              RtUnitOs,
+	RtOsIsDirectory:         RtUnitOs,
+	RtOsCreateDirectory:     RtUnitOs,
+	RtOsList:                RtUnitOs,
+	RtOsRun:                 RtUnitOs,
 }
 
 // intrinsicCall lowers a call of a built-in whose receiver and arguments are lowered.
 func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 	switch c.Target.Intrinsic {
-	case ast.IntrinsicOptionIsSome:
-		return l.lowerOptionIsSome(c, recv, args)
-	case ast.IntrinsicOptionUnwrap:
-		return l.lowerOptionUnwrap(c, recv, args)
 	case ast.IntrinsicArrayCreate:
 		return l.lowerArrayCreate(c, recv, args)
 	case ast.IntrinsicArrayFilled:
@@ -373,28 +372,36 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerCown(c, recv, args)
 	case ast.IntrinsicExchange:
 		return l.lowerExchange(c, recv, args)
-	case ast.IntrinsicOsCliArgs:
-		return l.lowerOsCliArgs(c, recv, args)
-	case ast.IntrinsicOsGetEnv:
-		return l.lowerOsGetEnv(c, recv, args)
-	case ast.IntrinsicOsReadFile:
-		return l.lowerOsReadFile(c, recv, args)
-	case ast.IntrinsicOsWriteFile:
-		return l.lowerOsWriteFile(c, recv, args)
-	case ast.IntrinsicOsWriteBytes:
-		return l.lowerOsWriteBytes(c, recv, args)
-	case ast.IntrinsicOsRenameFile:
-		return l.lowerOsRenameFile(c, recv, args)
-	case ast.IntrinsicOsRemoveFile:
-		return l.lowerOsRemoveFile(c, recv, args)
-	case ast.IntrinsicOsIsDir:
-		return l.lowerOsIsDir(c, recv, args)
-	case ast.IntrinsicOsMkdir:
-		return l.lowerOsMkdir(c, recv, args)
-	case ast.IntrinsicOsListDir:
-		return l.lowerOsListDir(c, recv, args)
-	case ast.IntrinsicOsRunProcess:
-		return l.lowerOsRunProcess(c, recv, args)
+	case ast.IntrinsicCommandLineArgs:
+		return l.lowerCommandLineArgs(c, recv, args)
+	case ast.IntrinsicProcessEnvironmentVariable:
+		return l.lowerProcessEnvironmentVariable(c, recv, args)
+	case ast.IntrinsicFilePathFrom:
+		return l.lowerFilePathFrom(c, recv, args)
+	case ast.IntrinsicFilePathToString:
+		return l.lowerFilePathToString(c, recv, args)
+	case ast.IntrinsicFileReadText:
+		return l.lowerFileReadText(c, recv, args)
+	case ast.IntrinsicFileWriteText:
+		return l.lowerFileWriteText(c, recv, args)
+	case ast.IntrinsicFileWriteBinary:
+		return l.lowerFileWriteBinary(c, recv, args)
+	case ast.IntrinsicFileRename:
+		return l.lowerFileRename(c, recv, args)
+	case ast.IntrinsicFileDelete:
+		return l.lowerFileDelete(c, recv, args)
+	case ast.IntrinsicDirectoryIsDirectory:
+		return l.lowerDirectoryIsDirectory(c, recv, args)
+	case ast.IntrinsicDirectoryCreate:
+		return l.lowerDirectoryCreate(c, recv, args)
+	case ast.IntrinsicDirectoryList:
+		return l.lowerDirectoryList(c, recv, args)
+	case ast.IntrinsicSubprocessRun:
+		return l.lowerSubprocessRun(c, recv, args)
+	case ast.IntrinsicCollectedOutputExitCode:
+		return l.lowerCollectedOutputExitCode(c, recv, args)
+	case ast.IntrinsicCollectedOutputSucceeded:
+		return l.lowerCollectedOutputSucceeded(c, recv, args)
 	}
 	panic(diag.Internal("lower: %d is no intrinsic", int(c.Target.Intrinsic)))
 }
@@ -404,9 +411,7 @@ func ownsOperands(op ast.Intrinsic) bool {
 	switch op {
 	case ast.IntrinsicExchange:
 		return true
-	case ast.IntrinsicOptionIsSome,
-		ast.IntrinsicOptionUnwrap,
-		ast.IntrinsicArrayCreate,
+	case ast.IntrinsicArrayCreate,
 		ast.IntrinsicArrayFilled,
 		ast.IntrinsicArrayCount,
 		ast.IntrinsicArrayIsEmpty,
@@ -458,17 +463,21 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicShare,
 		ast.IntrinsicThaw,
 		ast.IntrinsicCown,
-		ast.IntrinsicOsCliArgs,
-		ast.IntrinsicOsGetEnv,
-		ast.IntrinsicOsReadFile,
-		ast.IntrinsicOsWriteFile,
-		ast.IntrinsicOsWriteBytes,
-		ast.IntrinsicOsRenameFile,
-		ast.IntrinsicOsRemoveFile,
-		ast.IntrinsicOsIsDir,
-		ast.IntrinsicOsMkdir,
-		ast.IntrinsicOsListDir,
-		ast.IntrinsicOsRunProcess:
+		ast.IntrinsicCommandLineArgs,
+		ast.IntrinsicProcessEnvironmentVariable,
+		ast.IntrinsicFilePathFrom,
+		ast.IntrinsicFilePathToString,
+		ast.IntrinsicFileReadText,
+		ast.IntrinsicFileWriteText,
+		ast.IntrinsicFileWriteBinary,
+		ast.IntrinsicFileRename,
+		ast.IntrinsicFileDelete,
+		ast.IntrinsicDirectoryIsDirectory,
+		ast.IntrinsicDirectoryCreate,
+		ast.IntrinsicDirectoryList,
+		ast.IntrinsicSubprocessRun,
+		ast.IntrinsicCollectedOutputExitCode,
+		ast.IntrinsicCollectedOutputSucceeded:
 		return false
 	}
 	panic(diag.Internal("lower: %d is no intrinsic", int(op)))

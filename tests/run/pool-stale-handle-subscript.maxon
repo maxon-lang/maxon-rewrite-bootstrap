@@ -12,13 +12,13 @@ end 'Cell'
 function main() returns ExitCode
 	var p = CellPool.create()
 	let old = p.insert(Cell.make(1))
-	let gone = p.remove(old)
-	print("removed {gone.isSome()}\n")
+	let gone = try p.remove(old) otherwise panic("the handle names no element")
+	print("removed {gone.n}\n")
 	let fresh = p.insert(Cell.make(2))
 	print("reused {p[fresh].n} {p.contains(old)}\n")
 	print("{p[old].n}\n")
 	return 0
 end 'main'
 
-//> removed true
+//> removed 1
 //> reused 2 false

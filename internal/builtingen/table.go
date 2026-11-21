@@ -55,6 +55,26 @@ var typeAliases = []typeAlias{
 	{Name: "ByteArray", Type: "Array with Byte"},
 }
 
+// recordType is a built-in record: a type whose fields a program reads as it reads its own record's, with the methods
+// and static functions the table gives it. One with no fields is maxon's stdlib type of only static functions.
+type recordType struct {
+	Key  string // the ast.Builtins field
+	Name string
+	// Fields are "var name Type" or "let name Type", public as maxon's are, or "private let name Type" for a field
+	// only the lowering reads, each with the Go constant of its index Key+upper(name)+"Field".
+	Fields []string
+}
+
+var recordTypes = []recordType{
+	{Key: "CommandLine", Name: "CommandLine"},
+	{Key: "Process", Name: "Process"},
+	{Key: "FilePath", Name: "FilePath", Fields: []string{"let path String"}},
+	{Key: "File", Name: "File"},
+	{Key: "Directory", Name: "Directory"},
+	{Key: "CollectedOutput", Name: "CollectedOutput", Fields: []string{"var stdout String", "var stderr String", "private let code ExitCode"}},
+	{Key: "Subprocess", Name: "Subprocess"},
+}
+
 // unionCase is a case of a built-in union; Payload are its fields as "name Type".
 type unionCase struct {
 	Name    string
@@ -70,9 +90,10 @@ type unionType struct {
 }
 
 var unionTypes = []unionType{
-	{Key: "Option", Name: "Option", Params: []string{"T"}, Cases: []unionCase{
-		{Name: "some", Const: "OptionSome", Payload: []string{"value T"}},
-		{Name: "none", Const: "OptionNone"},
+	// Executable is maxon's: a name the host searches for when the child is spawned, or a path.
+	{Key: "Executable", Name: "Executable", Cases: []unionCase{
+		{Name: "name", Const: "ExecutableName", Payload: []string{"value String"}},
+		{Name: "path", Const: "ExecutablePath", Payload: []string{"value FilePath"}},
 	}},
 }
 
@@ -93,8 +114,8 @@ var enumTypes = []enumType{
 		{"divisionByZero", "ErrorDivisionByZero"},
 		{"negativeShift", "ErrorNegativeShift"},
 	}},
-	// ArrayError and MapError are maxon's stdlib errors of its collections, cases and all; emptySlot is a case no
-	// operation here fails with, kept so a match on the error is the one maxon's needs.
+	// The rest are maxon's stdlib errors, cases and all, so a match on one is the one maxon's needs, though no operation
+	// here fails with some of the cases.
 	{Key: "ArrayError", Name: "ArrayError", Cases: []enumCase{
 		{"indexOutOfBounds", "ErrorIndexOutOfBounds"},
 		{"emptySlot", "ErrorEmptySlot"},
@@ -102,6 +123,61 @@ var enumTypes = []enumType{
 	{Key: "MapError", Name: "MapError", Cases: []enumCase{
 		{"keyNotFound", "ErrorKeyNotFound"},
 		{"keyAlreadyExists", "ErrorKeyAlreadyExists"},
+	}},
+	{Key: "FilePathError", Name: "FilePathError", Cases: []enumCase{
+		{"invalidCharacter", "ErrorPathInvalidCharacter"},
+		{"notFileURL", "ErrorPathNotFileURL"},
+		{"malformedURL", "ErrorPathMalformedURL"},
+		{"noParent", "ErrorPathNoParent"},
+	}},
+	{Key: "FileReadError", Name: "FileReadError", Cases: []enumCase{
+		{"notFound", "ErrorReadNotFound"},
+		{"accessDenied", "ErrorReadAccessDenied"},
+		{"busy", "ErrorReadBusy"},
+		{"failed", "ErrorReadFailed"},
+	}},
+	{Key: "FileWriteError", Name: "FileWriteError", Cases: []enumCase{
+		{"failed", "ErrorWriteFailed"},
+		{"notFound", "ErrorWriteNotFound"},
+		{"accessDenied", "ErrorWriteAccessDenied"},
+		{"alreadyExists", "ErrorWriteAlreadyExists"},
+		{"busy", "ErrorWriteBusy"},
+		{"partialFileLeft", "ErrorWritePartialFileLeft"},
+	}},
+	{Key: "FileDeleteError", Name: "FileDeleteError", Cases: []enumCase{
+		{"notFound", "ErrorDeleteNotFound"},
+		{"accessDenied", "ErrorDeleteAccessDenied"},
+		{"busy", "ErrorDeleteBusy"},
+		{"failed", "ErrorDeleteFailed"},
+	}},
+	{Key: "FileRenameError", Name: "FileRenameError", Cases: []enumCase{
+		{"failed", "ErrorRenameFailed"},
+		{"notFound", "ErrorRenameNotFound"},
+		{"accessDenied", "ErrorRenameAccessDenied"},
+		{"busy", "ErrorRenameBusy"},
+		{"alreadyExists", "ErrorRenameAlreadyExists"},
+	}},
+	{Key: "DirectoryListError", Name: "DirectoryListError", Cases: []enumCase{
+		{"notFound", "ErrorListNotFound"},
+		{"accessDenied", "ErrorListAccessDenied"},
+		{"listFailed", "ErrorListFailed"},
+	}},
+	{Key: "ProcessIntrospectionError", Name: "ProcessIntrospectionError", Cases: []enumCase{
+		{"pathUnavailable", "ErrorPathUnavailable"},
+		{"variableUnset", "ErrorVariableUnset"},
+		{"environmentUnreadable", "ErrorEnvironmentUnreadable"},
+	}},
+	// SubprocessError is maxon's union without its payloads, since an error here is an enum.
+	{Key: "SubprocessError", Name: "SubprocessError", Cases: []enumCase{
+		{"executableNotFound", "ErrorExecutableNotFound"},
+		{"spawnFailed", "ErrorSpawnFailed"},
+		{"busy", "ErrorSpawnBusy"},
+		{"ioFailed", "ErrorIoFailed"},
+		{"timeout", "ErrorTimeout"},
+		{"treeNotEnded", "ErrorTreeNotEnded"},
+		{"detachRefused", "ErrorDetachRefused"},
+		{"inputTooLarge", "ErrorInputTooLarge"},
+		{"statusLost", "ErrorStatusLost"},
 	}},
 }
 
@@ -140,9 +216,6 @@ type function struct {
 }
 
 var functions = []function{
-	{Owner: "Option", Name: "isSome", Result: "Bool", Intrinsic: "OptionIsSome"},
-	{Owner: "Option", Name: "unwrap", Self: "consumes", Result: "T", Intrinsic: "OptionUnwrap"},
-
 	{Owner: "Array", Name: "create", Static: true, Params: []string{"count Count"}, Result: "Self", Intrinsic: "ArrayCreate", Checked: true},
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count Count", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
@@ -162,7 +235,7 @@ var functions = []function{
 	{Owner: "Map", Name: "contains", Params: []string{"key K"}, Result: "Bool", Intrinsic: "MapContains"},
 	{Owner: "Map", Name: "insert", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Bounds: []string{"V Droppable"}, Throws: "MapError", Intrinsic: "MapInsert"},
 	{Owner: "Map", Name: "upsert", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Bounds: []string{"V Droppable"}, Intrinsic: "MapUpsert"},
-	{Owner: "Map", Name: "replace", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Result: "Option with V", Intrinsic: "MapReplace"},
+	{Owner: "Map", Name: "replace", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Result: "V", Throws: "MapError", Intrinsic: "MapReplace"},
 	{Owner: "Map", Name: "remove", Self: "mutates", Params: []string{"key K"}, Result: "Bool", Bounds: []string{"V Droppable"}, Intrinsic: "MapRemove"},
 	{Owner: "Map", Name: "dropEmpty", Self: "consumes", Intrinsic: "MapDropEmpty"},
 
@@ -176,9 +249,9 @@ var functions = []function{
 	{Owner: "List", Name: "removeLast", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ListRemoveLast"},
 	{Owner: "List", Name: "first", Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListFirst"},
 	{Owner: "List", Name: "last", Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListLast"},
-	{Owner: "List", Name: "next", Params: []string{"handle Handle with T"}, Result: "Option with Handle with T", Intrinsic: "ListNext"},
-	{Owner: "List", Name: "prev", Params: []string{"handle Handle with T"}, Result: "Option with Handle with T", Intrinsic: "ListPrev"},
-	{Owner: "List", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "Option with T", Intrinsic: "ListRemove"},
+	{Owner: "List", Name: "next", Params: []string{"handle Handle with T"}, Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListNext"},
+	{Owner: "List", Name: "prev", Params: []string{"handle Handle with T"}, Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListPrev"},
+	{Owner: "List", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "ListRemove"},
 	{Owner: "List", Name: "moveToFront", Self: "mutates", Params: []string{"handle Handle with T"}, Intrinsic: "ListMoveToFront"},
 	{Owner: "List", Name: "dropEmpty", Self: "consumes", Intrinsic: "ListDropEmpty"},
 
@@ -187,7 +260,7 @@ var functions = []function{
 	{Owner: "Pool", Name: "isEmpty", Result: "Bool", Intrinsic: "PoolIsEmpty"},
 	{Owner: "Pool", Name: "contains", Params: []string{"handle Handle with T"}, Result: "Bool", Intrinsic: "PoolContains"},
 	{Owner: "Pool", Name: "insert", Self: "mutates", Params: []string{"consumes value T"}, Result: "Handle with T", Intrinsic: "PoolInsert"},
-	{Owner: "Pool", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "Option with T", Intrinsic: "PoolRemove"},
+	{Owner: "Pool", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "PoolRemove"},
 	{Owner: "Pool", Name: "dropEmpty", Self: "consumes", Intrinsic: "PoolDropEmpty"},
 
 	{Owner: "String", Name: "byteLength", Result: "Count", Intrinsic: "StringByteLength"},
@@ -209,17 +282,24 @@ var functions = []function{
 	// exchange moves a value into a place and gives back the one that was there, so the place is never dropped.
 	{Name: "exchange", Generic: "T", Params: []string{"mutates place T", "consumes value T"}, Result: "T", Intrinsic: "Exchange", OwnsOperands: true},
 
-	{Name: "cliArgs", Result: "Array with String", Intrinsic: "OsCliArgs"},
-	{Name: "getEnv", Params: []string{"name String"}, Result: "Option with String", Intrinsic: "OsGetEnv"},
-	{Name: "readFile", Params: []string{"path String"}, Result: "Option with String", Intrinsic: "OsReadFile"},
-	{Name: "writeFile", Params: []string{"path String", "text String"}, Result: "Bool", Intrinsic: "OsWriteFile"},
-	{Name: "writeBytes", Params: []string{"path String", "data Array with Byte"}, Result: "Bool", Intrinsic: "OsWriteBytes"},
-	{Name: "renameFile", Params: []string{"from String", "dest String"}, Result: "Bool", Intrinsic: "OsRenameFile"},
-	{Name: "removeFile", Params: []string{"path String"}, Result: "Bool", Intrinsic: "OsRemoveFile"},
-	{Name: "isDir", Params: []string{"path String"}, Result: "Bool", Intrinsic: "OsIsDir"},
-	{Name: "mkdir", Params: []string{"path String"}, Result: "Bool", Intrinsic: "OsMkdir"},
-	{Name: "listDir", Params: []string{"path String"}, Result: "Option with Array with String", Intrinsic: "OsListDir"},
-	{Name: "runProcess", Params: []string{"commandLine String"}, Result: "Option with ExitCode", Intrinsic: "OsRunProcess"},
+	// The OS functions are maxon's stdlib, names, labels, results and errors.
+	{Owner: "CommandLine", Name: "args", Static: true, Result: "Array with String", Intrinsic: "CommandLineArgs"},
+	{Owner: "Process", Name: "environmentVariable", Static: true, Params: []string{"name String"}, Result: "String", Throws: "ProcessIntrospectionError", Intrinsic: "ProcessEnvironmentVariable"},
+	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
+	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
+	{Owner: "File", Name: "readText", Static: true, Params: []string{"path FilePath"}, Result: "String", Throws: "FileReadError", Intrinsic: "FileReadText"},
+	{Owner: "File", Name: "writeText", Static: true, Params: []string{"path FilePath", "content String"}, Throws: "FileWriteError", Intrinsic: "FileWriteText"},
+	{Owner: "File", Name: "writeBinary", Static: true, Params: []string{"path FilePath", "content Array with Byte"}, Throws: "FileWriteError", Intrinsic: "FileWriteBinary"},
+	{Owner: "File", Name: "rename", Static: true, Params: []string{"from FilePath", "to FilePath"}, Throws: "FileRenameError", Intrinsic: "FileRename"},
+	{Owner: "File", Name: "delete", Static: true, Params: []string{"path FilePath"}, Throws: "FileDeleteError", Intrinsic: "FileDelete"},
+	{Owner: "Directory", Name: "isDirectory", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryIsDirectory"},
+	// create makes the missing parents too, and gives whether the directory is there after it.
+	{Owner: "Directory", Name: "create", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryCreate"},
+	// list gives the path of each entry, the directory's path joined to its name.
+	{Owner: "Directory", Name: "list", Static: true, Params: []string{"path FilePath"}, Result: "Array with FilePath", Throws: "DirectoryListError", Intrinsic: "DirectoryList"},
+	{Owner: "Subprocess", Name: "run", Static: true, Params: []string{"executable Executable", "arguments Array with String"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRun"},
+	{Owner: "CollectedOutput", Name: "exitCode", Result: "ExitCode", Intrinsic: "CollectedOutputExitCode"},
+	{Owner: "CollectedOutput", Name: "succeeded", Result: "Bool", Intrinsic: "CollectedOutputSucceeded"},
 }
 
 // unit is a code unit of the backend's runtime, or a place an entry lives that has no code of its own.
@@ -337,15 +417,19 @@ var entries = []entry{
 	{"BytesAppendStr", "rt.bytes.appendStr", "Bytes", roleCall, "(ByteArray, text String)"},
 	{"BytesToString", "rt.bytes.toString", "Bytes", roleCall, "(ByteArray) -> String"},
 
-	{"OsCliArgs", "rt.os.cliArgs", "Os", roleCall, "() -> Array with String"},
-	{"OsGetEnv", "rt.os.getEnv", "Os", roleCall, "(name String) -> String or 0"},
-	{"OsReadFile", "rt.os.readFile", "Os", roleCall, "(path String) -> String or 0"},
-	{"OsWriteFile", "rt.os.writeFile", "Os", roleCall, "(path String, text String) -> bool"},
-	{"OsWriteBytes", "rt.os.writeBytes", "Os", roleCall, "(path String, data ByteArray) -> bool"},
-	{"OsRenameFile", "rt.os.renameFile", "Os", roleCall, "(from String, dest String) -> bool"},
-	{"OsRemoveFile", "rt.os.removeFile", "Os", roleCall, "(path String) -> bool"},
-	{"OsIsDir", "rt.os.isDir", "Os", roleCall, "(path String) -> bool"},
-	{"OsMkdir", "rt.os.mkdir", "Os", roleCall, "(path String) -> bool"},
-	{"OsListDir", "rt.os.listDir", "Os", roleCall, "(path String) -> Array with String or 0"},
-	{"OsRunProcess", "rt.os.runProcess", "Os", roleCall, "(commandLine String) -> (exitCode<<1)|1 or 0"},
+	// An OS entry that can fail takes last the address of a word, its error, which it sets to the case plus 1 of the
+	// error its operation throws when it fails and to 0 when it does not; what it returns on a failure is nothing to read.
+	// A path is a String, which lowering takes out of a FilePath and makes one of, so no entry knows a record's layout.
+	{"OsArgs", "rt.os.args", "Os", roleCall, "() -> Array with String"},
+	{"OsEnvironmentVariable", "rt.os.environmentVariable", "Os", roleCall, "(name String, error) -> String"},
+	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
+	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
+	{"OsWriteText", "rt.os.writeText", "Os", roleCall, "(path String, content String, error)"},
+	{"OsWriteBinary", "rt.os.writeBinary", "Os", roleCall, "(path String, content ByteArray, error)"},
+	{"OsRename", "rt.os.rename", "Os", roleCall, "(from String, to String, error): replaces what is at to"},
+	{"OsDelete", "rt.os.delete", "Os", roleCall, "(path String, error)"},
+	{"OsIsDirectory", "rt.os.isDirectory", "Os", roleCall, "(path String) -> bool"},
+	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
+	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
+	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it"},
 }

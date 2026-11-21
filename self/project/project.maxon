@@ -112,19 +112,47 @@ function isReservedTopLevel(name String) returns bool
 	return name == ast.rootQualifier or name == ast.stdlibQualifier or name == "runtime" or name == "scriptlib"
 end 'isReservedTopLevel'
 
-function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes modPath String, isRoot bool, mutates errs diag.ErrorList) returns Option with Count
-	let optEntries = listDir(dir)
-	var entries as ast.StringList
-	match consumes optEntries 'ld'
-		some(xs) then entries = xs
-		none then entries = ast.StringList.create(0)
-	end 'ld'
+typealias FilePathList = Array with FilePath
+
+// isDirectoryPath is whether text names a directory; a text that is no path names none.
+function isDirectoryPath(text String) returns bool
+	let path = try FilePath.from(text) otherwise return false
+	return Directory.isDirectory(path)
+end 'isDirectoryPath'
+
+// readTextFile is the text of the file that text names, or none when it names no file that can be read.
+function readTextFile(text String) returns table.Option with String
+	let path = try FilePath.from(text) otherwise return table.Option.none
+	let content = try File.readText(path) otherwise return table.Option.none
+	return table.Option.some(content)
+end 'readTextFile'
+
+// lastComponent is what follows the last separator of a path that Directory.list gave: the entry's name.
+function lastComponent(path String) returns String
+	var at = path.byteLength()
+	while at > 0 'back'
+		let before = try at - 1 otherwise 0
+		if path.byteAt(before) == 92 'separator'
+			break 'back'
+		end 'separator'
+		at = before
+	end 'back'
+	return path.sliceBytes(at, endPos: path.byteLength())
+end 'lastComponent'
+
+function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes modPath String, isRoot bool, mutates errs diag.ErrorList) returns table.Option with Count
+	let dirPath = try FilePath.from(dir) otherwise return table.Option.none
+	let listed = try Directory.list(dirPath) otherwise FilePathList.create(0)
+	var entries = ast.StringList.create(0)
+	for i in 0 upto listed.count() 'names'
+		entries.push(lastComponent(listed[i].toString()))
+	end 'names'
 	var rawFiles = ast.StringList.create(0)
 	var rawDirs = ast.StringList.create(0)
 	for i in 0 upto entries.count() 'split'
 		let name = entries[i].clone()
 		let full = joinPath(dir, name: name)
-		if isDir(full) 'd'
+		if isDirectoryPath(full) 'd'
 			let startsDot = name.byteLength() > 0 and name.byteAt(0 as Count) == 46
 			if not startsDot and name != "bin" and name != "obj" 'keepDir'
 				rawDirs.push(name)
@@ -156,9 +184,9 @@ function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes 
 	nodes[myIdx].subNames = childNames
 	nodes[myIdx].children = childIdxs
 	if emptyMod 'skip'
-		return Option.none
+		return table.Option.none
 	end 'skip'
-	return Option.some(myIdx)
+	return table.Option.some(myIdx)
 end 'scanDirectory'
 
 function checkChildQualifier(isRoot bool, consumes subName String, consumes childDir String, childIdx Count, mutates childNames ast.StringList, mutates childIdxs CountList, mutates errs diag.ErrorList)
@@ -277,7 +305,7 @@ function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, p
 	diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{dName}' is already declared in {m.display()} at {prevLoc.file}:{prevLoc.line}", module: modID, offset: dOff)
 end 'pushDuplicateDecl'
 
-function parseSingleModule(mutates p ast.Project, modIdx Count, singleSrc Option with String, mutates errs diag.ErrorList)
+function parseSingleModule(mutates p ast.Project, modIdx Count, singleSrc table.Option with String, mutates errs diag.ErrorList)
 	let mPath = p.modules[modIdx].path.clone()
 	var fPaths = ast.StringList.create(0)
 	var fTexts = ast.StringList.create(0)
@@ -309,7 +337,7 @@ function appendCopyStr(mutates fTexts ast.StringList, s String)
 end 'appendCopyStr'
 
 function readOneFile(fp String, mutates fTexts ast.StringList, mutates errs diag.ErrorList)
-	match consumes readFile(fp) 'rf'
+	match consumes readTextFile(fp) 'rf'
 		some(txt) then fTexts.push(txt)
 		none then diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "cannot read '{fp}'", file: fp.clone(), line: 1 as Count, col: 1 as Count)
 	end 'rf'
@@ -323,9 +351,9 @@ function copyParsedIntoModule(mutates p ast.Project, modIdx Count, consumes pars
 	p.modules[modIdx].names = pm.names
 end 'copyParsedIntoModule'
 
-export function loadProject(rootPath String, mutates errs diag.ErrorList) returns Option with ast.Project
+export function loadProject(rootPath String, mutates errs diag.ErrorList) returns table.Option with ast.Project
 	var p = ast.Project.new(rootPath.clone())
-	if isDir(rootPath) 'dir'
+	if isDirectoryPath(rootPath) 'dir'
 		var nodes = DiscDirList.create(0)
 		_ = scanDirectory(nodes, dir: rootPath.clone(), modPath: "", isRoot: true, errs: errs)
 		if nodes.count() > 0 'collect'
@@ -333,11 +361,11 @@ export function loadProject(rootPath String, mutates errs diag.ErrorList) return
 			p.rootModule = rootMid
 		end 'collect'
 		for i in 0 upto p.modules.count() 'parseEach'
-			parseSingleModule(p, modIdx: i, singleSrc: Option.none, errs: errs)
+			parseSingleModule(p, modIdx: i, singleSrc: table.Option.none, errs: errs)
 		end 'parseEach'
 	end 'dir' else 'single'
 		var singleText = ""
-		match consumes readFile(rootPath) 'rf'
+		match consumes readTextFile(rootPath) 'rf'
 			some(txt) then singleText = txt
 			none then return failMissingInput(rootPath, errs: errs)
 		end 'rf'
@@ -346,16 +374,16 @@ export function loadProject(rootPath String, mutates errs diag.ErrorList) return
 		m.filePaths.push(rootPath.clone())
 		let rootMid = ast.addModule(p, m: m)
 		p.rootModule = rootMid
-		parseSingleModule(p, modIdx: 0 as Count, singleSrc: Option.some(singleText), errs: errs)
+		parseSingleModule(p, modIdx: 0 as Count, singleSrc: table.Option.some(singleText), errs: errs)
 	end 'single'
 	for i in 0 upto p.modules.count() 'buildTbl'
 		let mid = p.modules[i].id
 		buildModuleTable(p, modID: mid, errs: errs)
 	end 'buildTbl'
-	return Option.some(p)
+	return table.Option.some(p)
 end 'loadProject'
 
-function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns Option with ast.Project
+function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns table.Option with ast.Project
 	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.clone(), line: 1 as Count, col: 1 as Count)
-	return Option.none
+	return table.Option.none
 end 'failMissingInput'

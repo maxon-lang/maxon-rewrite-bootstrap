@@ -312,8 +312,42 @@ func isOwner(name string) bool {
 			return true
 		}
 	}
+	for _, r := range recordTypes {
+		if r.Key == name {
+			return true
+		}
+	}
 	return false
 }
+
+// field is a field of a built-in record.
+type field struct {
+	name           string
+	ty             *tyExpr
+	isVar, private bool
+}
+
+const (
+	privateField = "private"
+	varField     = "var"
+	letField     = "let"
+)
+
+func parseField(s string) field {
+	words := strings.Fields(s)
+	var f field
+	if len(words) > 0 && words[0] == privateField {
+		f.private, words = true, words[1:]
+	}
+	if len(words) < 3 || (words[0] != varField && words[0] != letField) {
+		fail("field %q is not '[private] var|let name Type'", s)
+	}
+	f.isVar, f.name, f.ty = words[0] == varField, words[1], parseType(strings.Join(words[2:], " "))
+	return f
+}
+
+// fieldConst is the Go constant of the index of a field of a built-in record.
+func fieldConst(r recordType, f field) string { return r.Key + upperFirst(f.name) + "Field" }
 
 func ownerParams(name string) []string {
 	for _, b := range builtinTypes {
@@ -326,6 +360,7 @@ func ownerParams(name string) []string {
 			return u.Params
 		}
 	}
+	// A record of the table is not generic.
 	return nil
 }
 

@@ -22,10 +22,25 @@ export type Builtins
 	export var handleOrigin as TypeID
 	export var frozenOrigin as TypeID
 	export var cownOrigin as TypeID
-	export var optionOrigin as TypeID
+	export var commandLineTy as TypeID
+	export var processTy as TypeID
+	export var filePathTy as TypeID
+	export var fileTy as TypeID
+	export var directoryTy as TypeID
+	export var collectedOutputTy as TypeID
+	export var subprocessTy as TypeID
+	export var executableTy as TypeID
 	export var arithmeticErrorTy as TypeID
 	export var arrayErrorTy as TypeID
 	export var mapErrorTy as TypeID
+	export var filePathErrorTy as TypeID
+	export var fileReadErrorTy as TypeID
+	export var fileWriteErrorTy as TypeID
+	export var fileDeleteErrorTy as TypeID
+	export var fileRenameErrorTy as TypeID
+	export var directoryListErrorTy as TypeID
+	export var processIntrospectionErrorTy as TypeID
+	export var subprocessErrorTy as TypeID
 	export var copyableTy as TypeID
 	export var droppableTy as TypeID
 	export var errorTy as TypeID
@@ -39,7 +54,7 @@ export type Builtins
 		let sm = FuncIDMap.new()
 		let stm = TypeIDMap.new()
 		let sfm = FuncIDMap.new()
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, optionOrigin: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, collectedOutputTy: noType, subprocessTy: noType, executableTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
 	end 'empty'
 
 	export function isCapability(iface TypeID) returns bool
@@ -141,6 +156,23 @@ function oneArgList(a TypeID) returns TypeIDList
 	xs.push(a)
 	return xs
 end 'oneArgList'
+
+function registerRecordType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String) returns TypeID
+	var e = TypeEntry.make(TypeKind.record, name: name.clone())
+	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
+	e.hasDecl = true
+	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
+	let tid = allocType(tt, e: e)
+	let td = TypeDecl.make(0 as NodeID, visibility: "export", name: name.clone(), isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: U32List.create(0), constraints: ConstraintList.create(0), fields: FieldDeclList.create(0), methods: FuncDeclList.create(0), endLabel: 0 as NodeID)
+	_ = std.declare(Decl.typeDecl(td))
+	typeMap.insert(name, value: tid)
+	return tid
+end 'registerRecordType'
+
+function addRecordField(mutates tt TypeTable, owner TypeID, consumes name String, ty TypeID, isVar bool, exported bool)
+	let index = tt.entries[owner as Count].fields.count()
+	tt.entries[owner as Count].fields.push(FieldInfo.make(name, ty: ty, isVar: isVar, exported: exported, hasDefault: false, defaultExpr: 0 as NodeID, index: index))
+end 'addRecordField'
 
 function registerUnionType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, paramNames StringList) returns TypeID
 	var e = TypeEntry.make(TypeKind.unionTy, name: name.clone())

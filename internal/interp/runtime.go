@@ -4,11 +4,8 @@ import (
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/ir"
-	"os"
-	"os/exec"
 	"slices"
 	"strconv"
-	"strings"
 )
 
 const (
@@ -234,107 +231,6 @@ func (vm *vm) entryBytesAppendStr(c *runtimeCall) {
 func (vm *vm) entryBytesToString(c *runtimeCall) {
 	b := vm.collection(c.arg(0), kindBytes, "a toString")
 	c.set(value{ref: vm.newString(string(b.buf))})
-}
-
-func (vm *vm) entryOsCliArgs(c *runtimeCall) {
-	arr := vm.newObject(kindArray)
-	for _, a := range os.Args {
-		s := vm.newString(a)
-		cl := &cell{holder: arr, v: value{ref: s}}
-		s.owner = cl
-		arr.elems = append(arr.elems, cl)
-	}
-	c.set(value{ref: arr})
-}
-
-func (vm *vm) entryOsGetEnv(c *runtimeCall) {
-	name := vm.text(c.arg(0), "a getEnv name")
-	if val, ok := os.LookupEnv(name); ok {
-		c.set(value{n: 1, ref: vm.newString(val)})
-	} else {
-		c.set(value{})
-	}
-}
-
-func (vm *vm) entryOsReadFile(c *runtimeCall) {
-	path := vm.text(c.arg(0), "a readFile path")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		c.set(value{})
-	} else {
-		c.set(value{n: 1, ref: vm.newString(string(data))})
-	}
-}
-
-func (vm *vm) entryOsWriteFile(c *runtimeCall) {
-	path := vm.text(c.arg(0), "a writeFile path")
-	text := vm.text(c.arg(1), "a writeFile text")
-	c.flag(os.WriteFile(path, []byte(text), 0o644) == nil)
-}
-
-func (vm *vm) entryOsWriteBytes(c *runtimeCall) {
-	path := vm.text(c.arg(0), "a writeBytes path")
-	b := vm.collection(c.arg(1), kindBytes, "a writeBytes buffer")
-	c.flag(os.WriteFile(path, b.buf, 0o644) == nil)
-}
-
-func (vm *vm) entryOsRenameFile(c *runtimeCall) {
-	from := vm.text(c.arg(0), "a renameFile source")
-	dest := vm.text(c.arg(1), "a renameFile destination")
-	c.flag(os.Rename(from, dest) == nil)
-}
-
-func (vm *vm) entryOsRemoveFile(c *runtimeCall) {
-	path := vm.text(c.arg(0), "a removeFile path")
-	c.flag(os.Remove(path) == nil)
-}
-
-func (vm *vm) entryOsIsDir(c *runtimeCall) {
-	path := vm.text(c.arg(0), "an isDir path")
-	info, err := os.Stat(path)
-	c.flag(err == nil && info.IsDir())
-}
-
-func (vm *vm) entryOsMkdir(c *runtimeCall) {
-	path := vm.text(c.arg(0), "a mkdir path")
-	c.flag(os.Mkdir(path, 0o755) == nil)
-}
-
-func (vm *vm) entryOsListDir(c *runtimeCall) {
-	path := vm.text(c.arg(0), "a listDir path")
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		c.set(value{})
-	} else {
-		arr := vm.newObject(kindArray)
-		for _, e := range entries {
-			s := vm.newString(e.Name())
-			cl := &cell{holder: arr, v: value{ref: s}}
-			s.owner = cl
-			arr.elems = append(arr.elems, cl)
-		}
-		c.set(value{n: 1, ref: arr})
-	}
-}
-
-func (vm *vm) entryOsRunProcess(c *runtimeCall) {
-	cmdLine := vm.text(c.arg(0), "a runProcess command line")
-	parts := splitCommandLine(cmdLine)
-	if len(parts) == 0 {
-		c.num(0)
-		return
-	}
-	cmd := exec.Command(parts[0], parts[1:]...)
-	err := cmd.Run()
-	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			c.num((int64(ee.ExitCode()) << 1) | 1)
-		} else {
-			c.num(0)
-		}
-	} else {
-		c.num(1)
-	}
 }
 
 func (vm *vm) entryMapNew(c *runtimeCall) {
@@ -718,35 +614,4 @@ func (vm *vm) copyCell(dst *cell, v value) {
 		return
 	}
 	vm.adopt(dst, value{ref: vm.copyObject(v.ref)}, "the copy")
-}
-
-func splitCommandLine(s string) []string {
-	var out []string
-	i := 0
-	for i < len(s) {
-		for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
-			i++
-		}
-		if i >= len(s) {
-			break
-		}
-		var b strings.Builder
-		if s[i] == '"' {
-			i++
-			for i < len(s) && s[i] != '"' {
-				b.WriteByte(s[i])
-				i++
-			}
-			if i < len(s) {
-				i++
-			}
-		} else {
-			for i < len(s) && s[i] != ' ' && s[i] != '\t' {
-				b.WriteByte(s[i])
-				i++
-			}
-		}
-		out = append(out, b.String())
-	}
-	return out
 }

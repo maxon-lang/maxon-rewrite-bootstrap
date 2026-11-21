@@ -20,17 +20,15 @@ function main() returns ExitCode
 	p[a].n = 10
 	bump(p[b])
 	print("{p[a].n} {p[b].n}\n")
-	let gone = p.remove(a)
-	print("{gone.isSome()} {p.contains(a)} {p.count()}\n")
+	let gone = try p.remove(a) otherwise panic("the handle names no element")
+	print("{gone.n} {p.contains(a)} {p.count()}\n")
 	let c = p.insert(Cell.make(3))
 	print("{p.contains(a)} {p.contains(c)} {a == c} {p[c].n} {p.count()}\n")
-	let again = p.remove(a)
-	print("{again.isSome()} {p.count()}\n")
-	let taken = gone.unwrap()
-	print("{taken.n}\n")
-	let first = p.remove(b)
-	let second = p.remove(c)
-	print("{first.isSome()} {second.isSome()} {p.isEmpty()}\n")
+	let again = try p.remove(a) otherwise Cell.make(0)
+	print("{again.n} {p.count()}\n")
+	let first = try p.remove(b) otherwise panic("the handle names no element")
+	let second = try p.remove(c) otherwise panic("the handle names no element")
+	print("{first.n} {second.n} {p.isEmpty()}\n")
 	let late = p.insert(Cell.make(4))
 	print("{p.contains(b)} {p.contains(c)} {p.contains(late)} {p[late].n}\n")
 	let copied = p.clone()
@@ -41,10 +39,9 @@ end 'main'
 
 //> 2 true true false
 //> 10 3
-//> true false 1
+//> 10 false 1
 //> false true false 3 2
-//> false 2
-//> 10
-//> true true true
+//> 0 2
+//> 3 3 true
 //> false false true 4
 //> 5 4 true

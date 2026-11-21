@@ -7,12 +7,8 @@ import (
 )
 
 const (
-	unwrapNoneMessage      = "unwrap of an Option that holds no value"
 	dropEmptyMessage       = "dropEmpty of a collection that still holds an element"
 	interpreterOnlyMessage = "a map, a list, a pool, a frozen value, a cown or a behaviour runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
-
-	// optionPayloadOffset is where an Option's value sits in its box, after the case index.
-	optionPayloadOffset = WordBytes
 )
 
 // entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
@@ -49,36 +45,6 @@ func (l *Lowerer) refuse(site ast.Pos, code, message string) {
 	if n := len(l.f.Refusals); n == 0 || l.f.Refusals[n-1].Site != site {
 		l.f.Refusals = append(l.f.Refusals, Refusal{Site: site, Code: code, Message: message})
 	}
-}
-
-// union is a new box of a union value: the case index, then the payload.
-func (l *Lowerer) union(tag int, payload ...V) V {
-	p := l.reg(KindManaged)
-	l.emit(Alloc(p, BoxBytes(len(payload), true)))
-	t := l.konst(int64(tag))
-	l.emit(StoreField(p, TagOffset, t))
-	for i, v := range payload {
-		l.emit(StoreField(p, WordBytes+WordBytes*i, v))
-	}
-	return p
-}
-
-// optional is an Option value: some of what value computes when present holds, none otherwise. value runs only on the
-// path where it is present, because the entry it calls traps on a miss.
-func (l *Lowerer) optional(present V, value func() V) V {
-	result := l.f.NewSlot(KindManaged)
-	some := l.b.NewBlock()
-	none := l.b.NewBlock()
-	end := l.b.NewBlock()
-	l.b.Terminate(l.cur, Branch(present, some, none))
-	l.cur = some
-	v := value()
-	l.emit(StoreSlot(result, l.union(ast.OptionSome, v), false))
-	l.goTo(end)
-	l.cur = none
-	l.emit(StoreSlot(result, l.union(ast.OptionNone), false))
-	l.goTo(end)
-	return l.fetch(result)
 }
 
 // requireOrTrap continues only when cond holds, and panics with the message otherwise.
@@ -126,15 +92,6 @@ func (l *Lowerer) countedLoop(limit V, body func(index V)) {
 	l.emit(StoreSlot(index, next, false))
 	l.goTo(top)
 	l.cur = exit
-}
-
-// payloadKind is the kind of the value an Option type holds.
-func (l *Lowerer) payloadKind(option ast.Ty) IrKind {
-	u, ok := l.binding.Apply(option).(*ast.UnionTy)
-	if !ok {
-		panic(diag.Internal("lower: %s is not an Option", option.Name()))
-	}
-	return kindOf(u.Payload(ast.OptionSome)[0].Type)
 }
 
 // call is a call being lowered: its node, which is where a refusal is reported, and what the checker found out about it.
@@ -425,17 +382,15 @@ func (l *Lowerer) lowerListLast(c call, recv V, _ []V) V {
 }
 
 func (l *Lowerer) lowerListNext(c call, recv V, args []V) V {
-	return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListNext, KindScalar, recv, args[0]))
+	return l.endHandle(l.entry(c.CallExpr.Position(), RtListNext, KindScalar, recv, args[0]))
 }
 
 func (l *Lowerer) lowerListPrev(c call, recv V, args []V) V {
-	return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListPrev, KindScalar, recv, args[0]))
+	return l.endHandle(l.entry(c.CallExpr.Position(), RtListPrev, KindScalar, recv, args[0]))
 }
 
 func (l *Lowerer) lowerListRemove(c call, recv V, args []V) V {
-	return l.optional(l.entry(c.CallExpr.Position(), RtListContains, KindScalar, recv, args[0]), func() V {
-		return l.entry(c.CallExpr.Position(), RtListRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
-	})
+	return l.removeHandle(c, RtListContains, RtListRemove, recv, args[0])
 }
 
 func (l *Lowerer) lowerListDropEmpty(c call, recv V, _ []V) V {
@@ -472,17 +427,7 @@ func (l *Lowerer) lowerPoolDropEmpty(c call, recv V, _ []V) V {
 }
 
 func (l *Lowerer) lowerPoolRemove(c call, recv V, args []V) V {
-	return l.optional(l.entry(c.CallExpr.Position(), RtPoolContains, KindScalar, recv, args[0]), func() V {
-		return l.entry(c.CallExpr.Position(), RtPoolRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
-	})
-}
-
-func (l *Lowerer) lowerOptionIsSome(c call, recv V, _ []V) V {
-	return l.compare(CmpEq, l.tag(recv), l.konst(ast.OptionSome), false)
-}
-
-func (l *Lowerer) lowerOptionUnwrap(c call, recv V, _ []V) V {
-	return l.unwrap(c, recv)
+	return l.removeHandle(c, RtPoolContains, RtPoolRemove, recv, args[0])
 }
 
 func (l *Lowerer) lowerStringByteLength(c call, recv V, _ []V) V {
@@ -508,75 +453,6 @@ func (l *Lowerer) lowerStringToByteArray(c call, recv V, _ []V) V {
 // lowerStringFrom is a string of a copy of the bytes, which the call only reads.
 func (l *Lowerer) lowerStringFrom(c call, _ V, args []V) V {
 	return l.arrayOf(c.CallExpr.Position(), c.Pass.Specs[0].Type).text(args[0])
-}
-
-func (l *Lowerer) lowerOsCliArgs(c call, _ V, _ []V) V {
-	return l.entry(c.CallExpr.Position(), RtOsCliArgs, KindManaged)
-}
-
-func (l *Lowerer) lowerOsGetEnv(c call, _ V, args []V) V {
-	raw := l.entry(c.CallExpr.Position(), RtOsGetEnv, KindManaged, args[0])
-	return l.optional(l.nonZero(raw), func() V { return raw })
-}
-
-func (l *Lowerer) lowerOsReadFile(c call, _ V, args []V) V {
-	raw := l.entry(c.CallExpr.Position(), RtOsReadFile, KindManaged, args[0])
-	return l.optional(l.nonZero(raw), func() V { return raw })
-}
-
-func (l *Lowerer) lowerOsWriteFile(c call, _ V, args []V) V {
-	return l.entry(c.CallExpr.Position(), RtOsWriteFile, KindScalar, args[0], args[1])
-}
-
-func (l *Lowerer) lowerOsWriteBytes(c call, _ V, args []V) V {
-	return l.entry(c.CallExpr.Position(), RtOsWriteBytes, KindScalar, args[0], args[1])
-}
-
-func (l *Lowerer) lowerOsRenameFile(c call, _ V, args []V) V {
-	return l.entry(c.CallExpr.Position(), RtOsRenameFile, KindScalar, args[0], args[1])
-}
-
-func (l *Lowerer) lowerOsRemoveFile(c call, _ V, args []V) V {
-	return l.entry(c.CallExpr.Position(), RtOsRemoveFile, KindScalar, args[0])
-}
-
-func (l *Lowerer) lowerOsIsDir(c call, _ V, args []V) V {
-	return l.entry(c.CallExpr.Position(), RtOsIsDir, KindScalar, args[0])
-}
-
-func (l *Lowerer) lowerOsMkdir(c call, _ V, args []V) V {
-	return l.entry(c.CallExpr.Position(), RtOsMkdir, KindScalar, args[0])
-}
-
-func (l *Lowerer) lowerOsListDir(c call, _ V, args []V) V {
-	raw := l.entry(c.CallExpr.Position(), RtOsListDir, KindManaged, args[0])
-	return l.optional(l.nonZero(raw), func() V { return raw })
-}
-
-func (l *Lowerer) lowerOsRunProcess(c call, _ V, args []V) V {
-	raw := l.entry(c.CallExpr.Position(), RtOsRunProcess, KindScalar, args[0])
-	return l.optional(l.nonZero(raw), func() V {
-		out := l.reg(KindScalar)
-		l.emit(Bin(out, BinShr, raw, l.konst(1), true, NoBlock))
-		return out
-	})
-}
-
-// unwrap takes the value out of an Option that the call consumes. A payload that is owned leaves the box, which is
-// then dropped empty; the box is the call's to drop either way.
-func (l *Lowerer) unwrap(c call, option V) V {
-	l.requireOrTrap(l.compare(CmpEq, l.tag(option), l.konst(ast.OptionSome), false), unwrapNoneMessage)
-	kind := l.kind(l.ty(c.CallExpr.Expr()))
-	d := l.reg(kind)
-	if kind == KindManaged {
-		addr := l.reg(KindScalar)
-		l.emit(FieldAddr(addr, option, optionPayloadOffset))
-		l.emit(MoveAt(d, addr))
-	} else {
-		l.emit(LoadField(d, option, optionPayloadOffset))
-	}
-	l.dropValue(option, l.ty(c.Receiver))
-	return d
 }
 
 // dropEmpty ends a collection of the given length that the call consumes, and traps if an element is left: dropping it
@@ -613,13 +489,17 @@ func (l *Lowerer) lowerExchange(c call, _ V, _ []V) V {
 }
 
 // mapReplace is Map.upsert that gives back the value the key had: it moves that value out of its entry, and the insert
-// then finds the entry empty, keeps its place and drops nothing.
+// then finds the entry empty, keeps its place and drops nothing. A key the map does not have fails with keyNotFound,
+// dropping the key and the value it was given.
 func (l *Lowerer) mapReplace(c call, m, key, value V) V {
 	elem := ast.Content(l.binding.Apply(l.ty(c.Receiver))).(*ast.BuiltinTy).Element()
-	old := l.optional(l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, m, key), func() V {
-		addr := l.entry(c.CallExpr.Position(), RtMapElem, KindScalar, m, key)
-		return l.moveOutAt(addr, elem)
+	bt := ast.Content(l.binding.Apply(l.ty(c.Receiver))).(*ast.BuiltinTy)
+	l.failUnless(l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, m, key), ast.ErrorKeyNotFound, func() {
+		l.dropValue(key, bt.Index())
+		l.dropValue(value, elem)
 	})
+	addr := l.entry(c.CallExpr.Position(), RtMapElem, KindScalar, m, key)
+	old := l.moveOutAt(addr, elem)
 	l.entryVoid(c.CallExpr.Position(), RtMapInsert, m, key, value)
 	return old
 }
@@ -635,16 +515,18 @@ func (l *Lowerer) removeEnd(c call, pop Rt, list V) V {
 	return l.entry(c.CallExpr.Position(), pop, l.kind(l.ty(c.CallExpr.Expr())), list)
 }
 
-// endHandle is the handle of a list's first or last node, which the entry gives as 0 for an empty list, where the
-// operation fails with indexOutOfBounds.
+// endHandle is the handle of a list's first or last node, or of the node after or before one, which the entry gives
+// as 0 when there is none, where the operation fails with indexOutOfBounds.
 func (l *Lowerer) endHandle(handle V) V {
 	l.failUnless(l.nonZero(handle), ast.ErrorIndexOutOfBounds, nil)
 	return handle
 }
 
-// handleOrNone is some(handle) for a handle that names a node, and none for the 0 that an entry returns for no node.
-func (l *Lowerer) handleOrNone(handle V) V {
-	return l.optional(l.nonZero(handle), func() V { return handle })
+// removeHandle moves the element a handle names out of a list or a pool, and fails with emptySlot for a handle that
+// names none, as maxon's emptied slot does.
+func (l *Lowerer) removeHandle(c call, contains, remove Rt, collection, handle V) V {
+	l.failUnless(l.entry(c.CallExpr.Position(), contains, KindScalar, collection, handle), ast.ErrorEmptySlot, nil)
+	return l.entry(c.CallExpr.Position(), remove, l.kind(l.ty(c.CallExpr.Expr())), collection, handle)
 }
 
 // arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that

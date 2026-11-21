@@ -1,0 +1,45 @@
+//> code=3 succeeded=false stdout=true stderr=true
+//> quoted=true code=0 succeeded=true
+//> path=true
+//> missing=executableNotFound
+
+typealias Arguments = Array with String
+
+function runError(name String) returns String
+	try 'run'
+		let out = Subprocess.run(Executable.name(name.clone()), arguments: Arguments.create(0))
+		return "ran {out.exitCode()}"
+	end 'run' otherwise (e) 'failed'
+		match e 'kind'
+			executableNotFound then return "executableNotFound"
+			spawnFailed then return "spawnFailed"
+			busy then return "busy"
+			ioFailed then return "ioFailed"
+			timeout then return "timeout"
+			treeNotEnded then return "treeNotEnded"
+			detachRefused then return "detachRefused"
+			inputTooLarge then return "inputTooLarge"
+			statusLost then return "statusLost"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'runError'
+
+function main() returns ExitCode
+	var script = Arguments.create(0)
+	script.push("/c")
+	script.push("echo out&& 1>&2 echo err&& exit /b 3")
+	let out = try Subprocess.run(Executable.name("cmd.exe"), arguments: script) otherwise panic("cannot run cmd.exe")
+	print("code={out.exitCode()} succeeded={out.succeeded()} stdout={out.stdout == "out\r\n"} stderr={out.stderr == "err\r\n"}\n")
+	var echo = Arguments.create(0)
+	echo.push("/c")
+	echo.push("echo")
+	echo.push("a b")
+	let quoted = try Subprocess.run(Executable.name("cmd.exe"), arguments: echo) otherwise panic("cannot run cmd.exe")
+	print("quoted={quoted.stdout == "\"a b\"\r\n"} code={quoted.exitCode()} succeeded={quoted.succeeded()}\n")
+	let shell = try FilePath.from(try Process.environmentVariable("ComSpec") otherwise panic("ComSpec is not set")) otherwise panic("not a path")
+	let byPath = try Subprocess.run(Executable.path(shell), arguments: echo) otherwise panic("cannot run the shell")
+	print("path={byPath.stdout == quoted.stdout}\n")
+	print("missing={runError("minimaxon_no_such_exe_98765")}\n")
+	return 0
+end 'main'

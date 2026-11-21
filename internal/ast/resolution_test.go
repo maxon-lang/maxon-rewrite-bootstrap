@@ -23,14 +23,14 @@ func resolutionProject() (proj *Project, f, g *FuncDecl) {
 
 func TestResolutionGivesBackTheDeclarationANodeNames(t *testing.T) {
 	proj, f, g := resolutionProject()
-	option := proj.Stdlib.Names["Option"]
+	filePath := proj.Stdlib.Names["FilePath"]
 	var res Resolution
 	res.Reset(proj.Root.Tree.Count())
 	res.BindDecl(1, f)
 	res.BindDecl(2, g)
-	res.BindDecl(2, option)
-	if res.Decl(proj, 1) != Decl(f) || res.Decl(proj, 2) != option {
-		t.Errorf("a node names %v and %v, want f and the standard library's Option", res.Decl(proj, 1), res.Decl(proj, 2))
+	res.BindDecl(2, filePath)
+	if res.Decl(proj, 1) != Decl(f) || res.Decl(proj, 2) != filePath {
+		t.Errorf("a node names %v and %v, want f and the standard library's FilePath", res.Decl(proj, 1), res.Decl(proj, 2))
 	}
 	if res.TypeParam(1) != nil {
 		t.Error("a declaration is not a type parameter")

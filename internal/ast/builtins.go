@@ -141,8 +141,8 @@ func IsKey(t Ty) bool {
 }
 
 // Builtins are the types and functions that every project has before it declares anything, as the table in
-// internal/builtingen declares them: the runtime primitives, Option, the result of an operation that can miss, the
-// error of arithmetic, and the capabilities. They belong to the stdlib module, so a name resolves to them last.
+// internal/builtingen declares them: the runtime primitives, the records and the union of the OS functions, the
+// errors of the operations that fail, and the capabilities. They belong to the stdlib module, so a name resolves to them last.
 type Builtins struct {
 	builtinDecls
 	// Count is the type of a length and of a position in an array.
@@ -191,6 +191,15 @@ func (b *Builtins) declareAlias(name string, t Ty) {
 	alias.Module = b.stdlib
 	alias.Ty = t
 	b.stdlib.Declare(alias)
+}
+
+// newRecord declares a record whose fields the caller gives.
+func (b *Builtins) newRecord(name string) *RecordTy {
+	d := newBuiltinDecl(b.stdlib, name)
+	r := NewRecordTy(d)
+	d.Ty = r
+	b.stdlib.Declare(d)
+	return r
 }
 
 // newUnion declares a generic union whose cases the caller gives.
@@ -249,8 +258,12 @@ func (b *Builtins) Is(t Ty) bool {
 	switch x := t.(type) {
 	case *BuiltinTy:
 		return true
+	case *RecordTy:
+		return x.Decl.Module == b.stdlib
 	case *UnionTy:
-		return x.Base().Declaration() == b.Option.Base()
+		return x.Decl.Module == b.stdlib
+	case *EnumTy:
+		return x.Decl.Module == b.stdlib
 	}
 	return false
 }
@@ -263,9 +276,6 @@ func (b *Builtins) FrozenOf(t Ty) *BuiltinTy { return instantiateBuiltin(b.Froze
 
 // CownOf is cown with t.
 func (b *Builtins) CownOf(t Ty) *BuiltinTy { return instantiateBuiltin(b.Cown, []Ty{t}) }
-
-// OptionOf is Option with t.
-func (b *Builtins) OptionOf(t Ty) *UnionTy { return instantiateUnion(b.Option, []Ty{t}) }
 
 func (b *Builtins) exitCode() Ty { return b.stdlib.Names["ExitCode"].(*AliasDecl).Ty }
 

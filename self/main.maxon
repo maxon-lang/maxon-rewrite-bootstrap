@@ -154,15 +154,14 @@ end 'endsWithMaxon'
 
 function parseDirTests(dir String) returns Count
 	var count = 0 as Count
-	let entries = listDir(dir).unwrap()
+	let entries = try Directory.list(try FilePath.from(dir) otherwise panic("invalid path")) otherwise panic("cannot list the directory")
 	for i in 0 upto entries.count() 'each'
-		let name = entries[i].clone()
-		let full = "{dir}\\{name}"
-		if isDir(full) 'sub'
+		let full = entries[i].toString()
+		if Directory.isDirectory(entries[i]) 'sub'
 			let sub = parseDirTests(full)
 			count = try count + sub otherwise count
-		end 'sub' else if endsWithMaxon(name) 'src'
-			let text = readFile(full).unwrap()
+		end 'sub' else if endsWithMaxon(full) 'src'
+			let text = try File.readText(entries[i]) otherwise panic("cannot read the file")
 			match syntax.parseSource(0 as diag.ModuleID, path: full.clone(), src: text) 'pr'
 				ok(m) then count = try count + m.decls.count() otherwise count
 				err(e) then panic("parse failed on {full}: {e.offset}: {e.message}")
@@ -261,10 +260,10 @@ function testAstModel()
 	assertEqStr(ast.typeName(proj.types, t: arrCount), expected: "Array with Count", label: "arrCount")
 	var nested = ast.TypeIDList.create(0)
 	nested.push(arrCount)
-	let optArrCount = ast.instantiateType(proj.types, origin: proj.builtins.optionOrigin, args: nested)
-	assertEqStr(ast.typeName(proj.types, t: optArrCount), expected: "Option with (Array with Count)", label: "optArrCount")
-	let optArrCount2 = ast.instantiateType(proj.types, origin: proj.builtins.optionOrigin, args: nested)
-	if optArrCount != optArrCount2 'intern'
+	let listArrCount = ast.instantiateType(proj.types, origin: proj.builtins.listOrigin, args: nested)
+	assertEqStr(ast.typeName(proj.types, t: listArrCount), expected: "List with (Array with Count)", label: "listArrCount")
+	let listArrCount2 = ast.instantiateType(proj.types, origin: proj.builtins.listOrigin, args: nested)
+	if listArrCount != listArrCount2 'intern'
 		panic("type interning failed")
 	end 'intern'
 	let fid = proj.types.entries[proj.builtins.arrayOrigin as Count].findMethod("push").unwrap()

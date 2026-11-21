@@ -18,9 +18,7 @@ func (c *Checker) checkIntrinsicArgs(call ast.CallExpr, target *ast.FuncDecl, or
 		c.checkShareArgs(call, ordered)
 	case ast.IntrinsicThaw:
 		c.checkThawArgs(call, ordered)
-	case ast.IntrinsicOptionIsSome,
-		ast.IntrinsicOptionUnwrap,
-		ast.IntrinsicArrayFilled,
+	case ast.IntrinsicArrayFilled,
 		ast.IntrinsicArrayCount,
 		ast.IntrinsicArrayIsEmpty,
 		ast.IntrinsicArrayGet,
@@ -69,17 +67,21 @@ func (c *Checker) checkIntrinsicArgs(call ast.CallExpr, target *ast.FuncDecl, or
 		ast.IntrinsicStringFrom,
 		ast.IntrinsicCown,
 		ast.IntrinsicExchange,
-		ast.IntrinsicOsCliArgs,
-		ast.IntrinsicOsGetEnv,
-		ast.IntrinsicOsReadFile,
-		ast.IntrinsicOsWriteFile,
-		ast.IntrinsicOsWriteBytes,
-		ast.IntrinsicOsRenameFile,
-		ast.IntrinsicOsRemoveFile,
-		ast.IntrinsicOsIsDir,
-		ast.IntrinsicOsMkdir,
-		ast.IntrinsicOsListDir,
-		ast.IntrinsicOsRunProcess:
+		ast.IntrinsicCommandLineArgs,
+		ast.IntrinsicProcessEnvironmentVariable,
+		ast.IntrinsicFilePathFrom,
+		ast.IntrinsicFilePathToString,
+		ast.IntrinsicFileReadText,
+		ast.IntrinsicFileWriteText,
+		ast.IntrinsicFileWriteBinary,
+		ast.IntrinsicFileRename,
+		ast.IntrinsicFileDelete,
+		ast.IntrinsicDirectoryIsDirectory,
+		ast.IntrinsicDirectoryCreate,
+		ast.IntrinsicDirectoryList,
+		ast.IntrinsicSubprocessRun,
+		ast.IntrinsicCollectedOutputExitCode,
+		ast.IntrinsicCollectedOutputSucceeded:
 		// The signature checks every argument.
 	default:
 		panic(diag.Internal("check: %d is no intrinsic", int(target.Intrinsic)))

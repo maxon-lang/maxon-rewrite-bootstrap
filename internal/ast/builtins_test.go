@@ -9,14 +9,14 @@ func newProject() *Project { return NewProject(NewModule("", ".", false)) }
 
 func TestEveryProjectDeclaresTheBuiltins(t *testing.T) {
 	p := newProject()
-	for _, name := range []string{"Array", "Map", "List", "Pool", "Handle", "Option"} {
+	for _, name := range []string{"Array", "Map", "List", "Pool", "Handle", "FilePath", "File", "Executable"} {
 		d, ok := p.Stdlib.Names[name].(TypeDeclNode)
 		if !ok || d.TypeBase().Ty == nil || d.Base().Module != p.Stdlib || !d.Base().IsExported() {
 			t.Errorf("stdlib does not declare %s as a type: %v", name, p.Stdlib.Names[name])
 		}
 	}
 	other := newProject()
-	if p.Builtins.Array == other.Builtins.Array || p.Builtins.Option == other.Builtins.Option {
+	if p.Builtins.Array == other.Builtins.Array || p.Builtins.FilePath == other.Builtins.FilePath {
 		t.Error("two projects share a declaration, so their instances would share a lock and a table")
 	}
 }
@@ -27,8 +27,8 @@ func TestPrimitiveInstancesAreInterned(t *testing.T) {
 	if a != Instantiate(b.Array, []Ty{StringTy}) || a == Instantiate(b.Array, []Ty{BoolTy}) {
 		t.Fatal("instances are not interned by their arguments")
 	}
-	if a.Name() != "Array with String" || b.HandleOf(BoolTy).Name() != "Handle with bool" || b.OptionOf(StringTy).Name() != "Option with String" {
-		t.Fatalf("names %s %s %s", a.Name(), b.HandleOf(BoolTy).Name(), b.OptionOf(StringTy).Name())
+	if a.Name() != "Array with String" || b.HandleOf(BoolTy).Name() != "Handle with bool" {
+		t.Fatalf("names %s %s", a.Name(), b.HandleOf(BoolTy).Name())
 	}
 	const workers = 16
 	got := make([]NominalTy, workers)
@@ -101,7 +101,7 @@ func TestWhichTypesMayBeMapKeys(t *testing.T) {
 			t.Errorf("%s should be a key", ty.Name())
 		}
 	}
-	for _, ty := range []Ty{Anonymous64, Instantiate(b.Array, []Ty{BoolTy}), b.OptionOf(BoolTy), b.Array.Params[0]} {
+	for _, ty := range []Ty{Anonymous64, Instantiate(b.Array, []Ty{BoolTy}), b.FilePath, b.Executable, b.Array.Params[0]} {
 		if IsKey(ty) {
 			t.Errorf("%s should not be a key", ty.Name())
 		}
@@ -110,7 +110,7 @@ func TestWhichTypesMayBeMapKeys(t *testing.T) {
 
 func TestEveryMethodIsAnIntrinsicOfItsOwner(t *testing.T) {
 	b := newProject().Builtins
-	for _, owner := range []NominalTy{b.Array, b.Map, b.List, b.Pool, b.Option} {
+	for _, owner := range []NominalTy{b.Array, b.Map, b.List, b.Pool, b.FilePath, b.File, b.Directory, b.Subprocess, b.CollectedOutput} {
 		if len(owner.MethodTable()) == 0 {
 			t.Errorf("%s has no methods", owner.Name())
 		}

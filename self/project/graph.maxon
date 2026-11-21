@@ -82,11 +82,11 @@ function edgeOffset(g Graph, fromMod diag.ModuleID, target diag.ModuleID) return
 	panic("graph: missing dependency edge")
 end 'edgeOffset'
 
-export function checkAcyclic(g Graph, p ast.Project) returns Option with diag.CompileError
+export function checkAcyclic(g Graph, p ast.Project) returns table.Option with diag.CompileError
 	let n = g.deps.count()
 	let order = topoOrder(g)
 	if order.count() == n 'acyclic'
-		return Option.none
+		return table.Option.none
 	end 'acyclic'
 	var done = BoolList.create(0)
 	for _ in 0 upto n 'initDone'
@@ -135,10 +135,10 @@ export function checkAcyclic(g Graph, p ast.Project) returns Option with diag.Co
 					secondMod = path[try at + 1 otherwise at]
 				end 'hasSecond'
 				let off = edgeOffset(g, fromMod: firstMod, target: secondMod)
-				return Option.some(diag.CompileError.atSite(diag.errDependsOnItself, message: String.from(msgBuf), site: diag.Site.make(firstMod, offset: off)))
+				return table.Option.some(diag.CompileError.atSite(diag.errDependsOnItself, message: String.from(msgBuf), site: diag.Site.make(firstMod, offset: off)))
 			end 'cycleFound'
 		end 'checkLoop'
 		path.push(nextMod)
 	end 'walk'
-	return Option.none
+	return table.Option.none
 end 'checkAcyclic'

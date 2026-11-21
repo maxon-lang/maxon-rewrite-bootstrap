@@ -69,6 +69,16 @@ func emitAst(t table) string {
 	}
 	sb.WriteString(")\n\n")
 
+	for _, r := range recordTypes {
+		if len(r.Fields) == 0 {
+			continue
+		}
+		fmt.Fprintf(&sb, "// The fields of %s, by index.\nconst (\n", r.Name)
+		for i, f := range r.Fields {
+			fmt.Fprintf(&sb, "\t%s = %d\n", fieldConst(r, parseField(f)), i)
+		}
+		sb.WriteString(")\n\n")
+	}
 	for _, u := range unionTypes {
 		fmt.Fprintf(&sb, "// The cases of %s, by index.\nconst (\n", u.Name)
 		for i, c := range u.Cases {
@@ -87,6 +97,9 @@ func emitAst(t table) string {
 	sb.WriteString("// builtinDecls are the declarations of the table that the rest of the compiler names.\ntype builtinDecls struct {\n")
 	for _, b := range builtinTypes {
 		fmt.Fprintf(&sb, "\t%s *BuiltinTy\n", b.Key)
+	}
+	for _, r := range recordTypes {
+		fmt.Fprintf(&sb, "\t%s *RecordTy\n", r.Key)
 	}
 	for _, u := range unionTypes {
 		fmt.Fprintf(&sb, "\t%s *UnionTy\n", u.Key)
@@ -107,6 +120,25 @@ func emitAst(t table) string {
 	sb.WriteString("// declareTable declares every type and function of the table in the stdlib module.\nfunc (b *Builtins) declareTable() {\n")
 	for _, bt := range builtinTypes {
 		fmt.Fprintf(&sb, "\tb.%s = b.newPrimitive(Builtin%s%s)\n", bt.Key, bt.Key, quotedList(bt.Params))
+	}
+	for _, r := range recordTypes {
+		fmt.Fprintf(&sb, "\tb.%s = b.newRecord(%q)\n", r.Key, r.Name)
+	}
+	for _, r := range recordTypes {
+		if len(r.Fields) == 0 {
+			continue
+		}
+		owner := fn{Owner: r.Key}
+		fmt.Fprintf(&sb, "\tb.%s.Fields = []*FieldInfo{\n", r.Key)
+		for _, s := range r.Fields {
+			f := parseField(s)
+			vis := "Public"
+			if f.private {
+				vis = "Private"
+			}
+			fmt.Fprintf(&sb, "\t\t{Name: %q, Visibility: %s, Type: %s, IsVar: %v, Index: %s},\n", f.name, vis, owner.goType(f.ty), f.isVar, fieldConst(r, f))
+		}
+		sb.WriteString("\t}\n")
 	}
 	for _, u := range unionTypes {
 		fmt.Fprintf(&sb, "\tb.%s = b.newUnion(%q%s)\n", u.Key, u.Name, quotedList(u.Params))

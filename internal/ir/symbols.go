@@ -27,6 +27,10 @@ var RtImports = []string{
 	"CreateProcessA",
 	"WaitForSingleObject",
 	"GetExitCodeProcess",
+	"GetLastError",
+	"CreatePipe",
+	"SetHandleInformation",
+	"PeekNamedPipe",
 }
 
 // IsNativeEntry is whether the backend implements a primitive's runtime entry.
