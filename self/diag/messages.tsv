@@ -14,6 +14,7 @@ varStartsFromBareNumber	ErrExpressionError	A var cannot start from a bare number
 unexpectedEof	ErrUnexpectedEnd	Unexpected end of input
 mismatchedEndLabel	ErrMismatchedEndLabel	Mismatched end label: expected '{expected}', got '{got}'
 expectedToken	ErrExpectedToken	Expected {expected} but got '{got}'
+floatLiteralOverflow	ErrIntegerLiteralRange	Float literal '{literal}' is outside the range of float
 unsignedLiteralWithoutAlias	ErrIntegerLiteralRange	Integer literal '{literal}' is above i64.max, so it needs an alias whose range admits it: write '{literal} as <alias>'
 circularTypealias	ErrDependsOnItself	Circular typealias dependency: {chain}
 circularConstants	ErrDependsOnItself	Circular dependency detected among global constants: {names}
@@ -39,6 +40,10 @@ argTypeMismatch	ErrTypeMismatch	argument type mismatch for {label}: expected '{e
 argTypeMismatchCast	ErrTypeMismatch	argument type mismatch for {label}: expected '{expected}', got '{got}' â€” cast the argument with 'as {expected}'
 returnTypeMismatch	ErrTypeMismatch	Cannot return '{got}' from function declared to return '{expected}'
 returnValueFromVoid	ErrTypeMismatch	type mismatch: '{name}' declares no return type, so it cannot return a value
+builtinArgNamed	ErrBuiltinArgNamed	a builtin's arguments are all positional and cannot be named ('name:' labels a parameter, and a builtin has no declaration to have one)
+floatOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (float({low} to {high}))
+floatToIntCast	ErrUnsafeCast	Cannot cast from float to int
+lossyFloatConversion	ErrUnsafeCast	cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
 literalOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (int({low} to {high}))
 emptyIntegerRange	ErrTypeMismatch	Integer range 'int({low} to {high})' is empty: its upper bound is below its lower bound
 unrepresentableIntegerRange	ErrTypeMismatch	Integer range cannot span both negative values and above i64.max: 'int({low} to {high})' is not representable in 64 bits; use 'i64.min to i64.max' or '0 to u64.max' instead

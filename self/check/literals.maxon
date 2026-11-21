@@ -163,6 +163,9 @@ end 'columnType'
 // bareRange is the range that a bare number spans, which a column of elements holds in place of the number; any other type
 // is its own.
 function bareRange(mutates p ast.Project, t ast.TypeID) returns ast.TypeID
+	if isConstFloat(p, t: t) 'float'
+		return p.builtins.anonFloatTy
+	end 'float'
 	if not isConstInt(p, t: t) 'other'
 		return t
 	end 'other'

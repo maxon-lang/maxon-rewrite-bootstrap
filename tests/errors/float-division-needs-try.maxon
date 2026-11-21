@@ -1,0 +1,11 @@
+// A float division whose divisor may be 0, -0.0 among its values, fails with divisionByZero, so it needs a try.
+
+typealias Real = float(f64.min to f64.max)
+
+function main() returns ExitCode
+	let x = 2.5 as Real
+	let q = x / x
+	return 0
+end 'main'
+
+// expect-error: E3057 at 7:12

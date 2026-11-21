@@ -25,6 +25,7 @@ ErrCallFirstArgNamed	E2052	callFirstArgNamed	A call labels its first argument.
 ErrCallArgMissingLabel	E2053	callArgMissingLabel	A call leaves a later argument without its label.
 ErrShiftCountNegative	E2054	shiftCountNegative	A shift's count is a negative constant.
 ErrTypeArgumentCount	E2056	genericArityMismatch	A generic instance names the wrong number of type arguments.
+ErrBuiltinArgNamed	E2067	builtinArgNamed	A call labels an argument of a built-in function whose arguments are positional.
 ErrUnknownStaticMember	E2073	unknownStaticMember	A qualified name names a member its base does not declare.
 ErrNoMainFunction	E3001	noMainFunction	The program declares no 'main' function.
 ErrMainWrongReturnType	E3002	mainWrongReturnType	'main' returns a type other than ExitCode.
@@ -32,6 +33,7 @@ ErrUnknownFunction	E3004	callUnknownFunction	A call names a function or method t
 ErrTypeMismatch	E3005	typeMismatch	A value's type is not the type required where it stands.
 ErrDuplicateDefinition	E3006	duplicateDefinition	A name is declared twice where only one declaration is allowed.
 ErrNotExported	E3008	symbolNotExported	A declaration is named from a module its visibility does not reach.
+ErrUnsafeCast	E3009	semanticUnsafeCast	A cast or a conversion between number types that loses what the value is: a float to an integer.
 ErrUnknownType	E3011	unknownType	A named type resolves to no declared type.
 ErrMissingReturn	E3013	missingReturn	A function that returns a value can reach its end without returning one.
 ErrFieldNotExported	E3014	unexportedFieldAccess	A field is read or written from a module its visibility does not reach.

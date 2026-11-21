@@ -328,6 +328,9 @@ export function assignable(p ast.Project, src ast.TypeID, dst ast.TypeID) return
 	if dk == ast.TypeKind.funcTy and p.types.entries[src as Count].kind == ast.TypeKind.funcTy 'functions'
 		return funcFits(p, src: src, dst: dst)
 	end 'functions'
+	if dk == ast.TypeKind.floatRange 'dstFloat'
+		return floatFits(p, src: src, dst: dst)
+	end 'dstFloat'
 	return false
 end 'assignable'
 
@@ -385,6 +388,21 @@ export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, at dia
 	end 'ok'
 	let sk = p.types.entries[src as Count].kind
 	let dk = p.types.entries[target as Count].kind
+	if dk == ast.TypeKind.floatRange and (ast.isFloatType(p.types, t: src) or ast.isIntType(p.types, t: src)) 'float'
+		floatMismatch(c, p: p, node: node, at: at, src: src, target: target, wrong: wrong, errs: errs)
+		return false
+	end 'float'
+	if dk == ast.TypeKind.intRange and ast.isFloatType(p.types, t: src) 'lossy'
+		let lossy = diag.lossyFloatConversion(ast.typeName(p.types, t: target))
+		let msg = match wrong 'where'
+			argument(label) gives "argument '{label}': {lossy}"
+			expectedGot gives lossy
+			assignment(_) gives lossy
+			returned gives lossy
+		end 'where'
+		checkFail(c.modID, off: at, code: diag.errUnsafeCast, msg: msg, errs: errs)
+		return false
+	end 'lossy'
 	let tName = ast.typeName(p.types, t: target)
 	if (sk == ast.TypeKind.constInt or typeIsAnonInt(p.types, t: src)) and dk == ast.TypeKind.intRange 'valueFit'
 		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: diag.literalOutOfRange(offendingBound(p, src: src, target: target), alias: tName, low: p.types.entries[target as Count].minVal.toString(), high: p.types.entries[target as Count].maxVal.toString()), errs: errs)
@@ -412,6 +430,9 @@ function gotName(p ast.Project, t ast.TypeID) returns String
 	if p.types.entries[t as Count].kind == ast.TypeKind.constInt 'bare'
 		return "int"
 	end 'bare'
+	if p.types.entries[t as Count].kind == ast.TypeKind.constFloat 'bareFloat'
+		return "float"
+	end 'bareFloat'
 	return ast.typeName(p.types, t: t)
 end 'gotName'
 
@@ -552,6 +573,18 @@ export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, clash 
 		let nHi = ast.maxI128(rangeHi(p.types, t: a), b: rangeHi(p.types, t: b))
 		return ast.internIntRange(p.types, aliasName: "", minVal: nLo, maxVal: nHi, inferred: true)
 	end 'ints'
+	if (ast.isFloatType(p.types, t: a) or ast.isFloatType(p.types, t: b)) and isNumberType(p, t: a) and isNumberType(p, t: b) 'floats'
+		if not requireOneFloatAlias(c, p: p, off: off, l: a, r: b, errs: errs) 'bad'
+			return ast.noType
+		end 'bad'
+		if typeIsNamedFloat(p.types, t: a) and assignable(p, src: b, dst: a) 'aliasA'
+			return a
+		end 'aliasA'
+		if typeIsNamedFloat(p.types, t: b) and assignable(p, src: a, dst: b) 'aliasB'
+			return b
+		end 'aliasB'
+		return p.builtins.anonFloatTy
+	end 'floats'
 	failJoin(c, p: p, off: off, clash: clash, a: a, b: b, errs: errs)
 	return ast.noType
 end 'joinTypes'
@@ -605,6 +638,8 @@ export function typeIsNominal(tt ast.TypeTable, t ast.TypeID) returns bool
 		primNever gives false
 		intRange gives false
 		constInt gives false
+		floatRange gives false
+		constFloat gives false
 		typeParam gives false
 		interfaceTy gives false
 		funcTy gives false
@@ -663,7 +698,7 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 		return LackInfo.ok()
 	end 'err'
 	let k = p.types.entries[t as Count].kind
-	if k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.primBool or k == ast.TypeKind.primString or k == ast.TypeKind.primVoid or k == ast.TypeKind.primNever or k == ast.TypeKind.enumTy 'scalar'
+	if k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.floatRange or k == ast.TypeKind.constFloat or k == ast.TypeKind.primBool or k == ast.TypeKind.primString or k == ast.TypeKind.primVoid or k == ast.TypeKind.primNever or k == ast.TypeKind.enumTy 'scalar'
 		return LackInfo.ok()
 	end 'scalar'
 	if k == ast.TypeKind.typeParam 'tp'

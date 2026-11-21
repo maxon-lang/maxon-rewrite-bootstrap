@@ -1,0 +1,165 @@
+// The lowering of floats. A float is the 64 bits of its double in a scalar register; an integer that meets a float
+// converts to it where it meets it, and the float functions are instructions of their own.
+
+// floatWord is the word that the bits of a double are.
+function floatWord(bits Count) returns Word
+	return wordOf(ast.I128.fromCount(bits))
+end 'floatWord'
+
+// floatOf is the double of the value v of the node e, whose type is an integer or a float: an integer constant is its
+// double, and any other integer converts.
+function floatOf(mutates l Lowerer, mutates p ast.Project, v Reg, e ast.NodeID) returns Reg
+	let t = applyType(l, p: p, t: exprType(p, module: l.module, node: e))
+	let kind = p.types.entries[t as Count].kind
+	if kind == ast.TypeKind.constInt 'constant'
+		return konst(l, value: floatWord(ast.floatFromInt(p.types.entries[t as Count].minVal)))
+	end 'constant'
+	if kind == ast.TypeKind.intRange 'integer'
+		let d = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newIntToFloat(d, src: v, unsigned: ast.isUnsignedInt(p.types, t: t)))
+		return d
+	end 'integer'
+	if kind == ast.TypeKind.constFloat or kind == ast.TypeKind.floatRange 'float'
+		return v
+	end 'float'
+	panic("lower: {ast.typeName(p.types, t: t)} is no number to make a float of")
+end 'floatOf'
+
+function fBinOpOfText(op String) returns FBinOp
+	return match op 'op'
+		"+" gives FBinOp.fBinAdd
+		"-" gives FBinOp.fBinSub
+		"*" gives FBinOp.fBinMul
+		"/" gives FBinOp.fBinDiv
+		default panic("lower: '{op}' is no float operator")
+	end 'op'
+end 'fBinOpOfText'
+
+// floatOperator lowers an arithmetic operator or a comparison on floats, whose operands are left and right. A divisor
+// that may be 0, -0.0 among them, fails the division with divisionByZero.
+function floatOperator(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, op String, left Reg, right Reg, fails Byte) returns Reg
+	let a = floatOf(l, p: p, v: left, e: ast.binaryExprL(p.modules[l.mi].tree, id: e))
+	let b = floatOf(l, p: p, v: right, e: ast.binaryExprR(p.modules[l.mi].tree, id: e))
+	let d = newReg(l, kind: IrKind.kindScalar)
+	if isCmpOpText(op) 'compare'
+		emit(l, i: newFCmp(d, op: cmpOpOfText(op), left: a, right: b))
+		return d
+	end 'compare'
+	if hasFail(fails, flag: ast.failDivZero) 'zero'
+		let fail = failure(l, p: p, errorCase: ast.errorDivisionByZero, err: noReg)
+		let zero = konst(l, value: 0)
+		let isZero = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newFCmp(isZero, op: CmpOp.cmpEq, left: b, right: zero))
+		branchUnless(l, cond: isZero, fail: fail, failWhen: true)
+	end 'zero'
+	emit(l, i: newFBin(d, op: fBinOpOfText(op), left: a, right: b))
+	return d
+end 'floatOperator'
+
+// branchUnless goes on in a new block where cond is not failWhen, and to fail where it is.
+function branchUnless(mutates l Lowerer, cond Reg, fail BlockID, failWhen bool)
+	let next = l.b.newBlock()
+	if failWhen 'onTrue'
+		l.b.terminate(l.cur, t: newBranch(cond, ifTrue: fail, ifFalse: next))
+	end 'onTrue' else 'onFalse'
+		l.b.terminate(l.cur, t: newBranch(cond, ifTrue: next, ifFalse: fail))
+	end 'onFalse'
+	l.cur = next
+end 'branchUnless'
+
+// floatNegation flips the sign of a double, its bit 63, as IEEE-754 negates: -(0.0) is -0.0 and a NaN keeps its payload.
+function floatNegation(mutates l Lowerer, v Reg) returns Reg
+	let sign = konst(l, value: floatWord(ast.floatSignBit))
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(d, op: BinOp.binXor, left: v, right: sign, unsigned: false, fail: noBlock))
+	return d
+end 'floatNegation'
+
+// floatConverted is a value of the node e converted to the float range target: where the range analysis says it may lie
+// outside it, a double below the range, above it, or a NaN, fails with overflow.
+function floatConverted(mutates l Lowerer, mutates p ast.Project, v Reg, e ast.NodeID, target ast.TypeID, fails Byte) returns Reg
+	let d = floatOf(l, p: p, v: v, e: e)
+	if (fails and (ast.failBelow or ast.failAbove)) == 0 'fits'
+		return d
+	end 'fits'
+	let fail = failure(l, p: p, errorCase: ast.errorOverflow, err: noReg)
+	let lo = konst(l, value: floatWord(ast.floatLowBits(p.types, t: target)))
+	let atLeast = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newFCmp(atLeast, op: CmpOp.cmpGe, left: d, right: lo))
+	branchUnless(l, cond: atLeast, fail: fail, failWhen: false)
+	let hi = konst(l, value: floatWord(ast.floatHighBits(p.types, t: target)))
+	let atMost = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newFCmp(atMost, op: CmpOp.cmpLe, left: d, right: hi))
+	branchUnless(l, cond: atMost, fail: fail, failWhen: false)
+	return d
+end 'floatConverted'
+
+// floatArg is the double of the argument of a float function.
+function floatArg(mutates l Lowerer, mutates p ast.Project, c CallSite, args RegList) returns Reg
+	return floatOf(l, p: p, v: args[0], e: c.ordered[0])
+end 'floatArg'
+
+function floatUnary(mutates l Lowerer, mutates p ast.Project, c CallSite, args RegList, op FUnaryOp) returns Reg
+	let a = floatArg(l, p: p, c: c, args: args)
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newFUnary(d, op: op, src: a))
+	return d
+end 'floatUnary'
+
+function lowerFloatTrunc(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = floatArg(l, p: p, c: c, args: args)
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newFloatToInt(d, src: a))
+	return d
+end 'lowerFloatTrunc'
+
+function lowerFloatRound(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return floatUnary(l, p: p, c: c, args: args, op: FUnaryOp.fUnaryRound)
+end 'lowerFloatRound'
+
+function lowerFloatFloor(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return floatUnary(l, p: p, c: c, args: args, op: FUnaryOp.fUnaryFloor)
+end 'lowerFloatFloor'
+
+function lowerFloatCeil(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return floatUnary(l, p: p, c: c, args: args, op: FUnaryOp.fUnaryCeil)
+end 'lowerFloatCeil'
+
+function lowerFloatSqrt(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return floatUnary(l, p: p, c: c, args: args, op: FUnaryOp.fUnarySqrt)
+end 'lowerFloatSqrt'
+
+// lowerFloatAbs clears the sign bit, as IEEE-754's abs does.
+function lowerFloatAbs(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = floatArg(l, p: p, c: c, args: args)
+	let mask = konst(l, value: floatWord(ast.floatMagnitudeMask))
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(d, op: BinOp.binAnd, left: a, right: mask, unsigned: false, fail: noBlock))
+	return d
+end 'lowerFloatAbs'
+
+// floatPick is the first argument where it compares as op to the second, and the second otherwise, a NaN among them.
+function floatPick(mutates l Lowerer, mutates p ast.Project, c CallSite, args RegList, op CmpOp) returns Reg
+	let a = floatOf(l, p: p, v: args[0], e: c.ordered[0])
+	let b = floatOf(l, p: p, v: args[1], e: c.ordered[1])
+	let slot = l.b.f.newSlot(IrKind.kindScalar)
+	emit(l, i: newStoreSlot(slot, src: b, borrow: false))
+	let cond = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newFCmp(cond, op: op, left: a, right: b))
+	let take = l.b.newBlock()
+	let join = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(cond, ifTrue: take, ifFalse: join))
+	l.cur = take
+	emit(l, i: newStoreSlot(slot, src: a, borrow: false))
+	goTo(l, target: join)
+	l.cur = join
+	return load(l, slot: slot)
+end 'floatPick'
+
+function lowerFloatMin(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return floatPick(l, p: p, c: c, args: args, op: CmpOp.cmpLt)
+end 'lowerFloatMin'
+
+function lowerFloatMax(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return floatPick(l, p: p, c: c, args: args, op: CmpOp.cmpGt)
+end 'lowerFloatMax'

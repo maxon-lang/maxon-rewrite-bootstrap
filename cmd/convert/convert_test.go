@@ -364,11 +364,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "typealias declarations in an interface, enum or union",
 		},
 		{
-			name:     "float typealias",
-			in:       "typealias Ratio = float(0.0 to 1.0)\n",
-			wantTodo: "float typealiases",
-		},
-		{
 			name:     "for loop over a string's view",
 			in:       "function f(s String)\n\tfor b in s.bytes() 'each'\n\t\tprint(\"{b}\")\n\tend 'each'\nend 'f'\n",
 			wantTodo: "iterator-based for loops over a string",

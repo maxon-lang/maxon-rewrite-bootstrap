@@ -570,7 +570,7 @@ function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	if t == ast.noType 'badValue'
 		return
 	end 'badValue'
-	if convertsInteger(p, src: t, dst: ret) 'converts'
+	if convertsInteger(p, src: t, dst: ret) or convertsFloat(p, src: t, dst: ret) 'converts'
 		setOperand(c, node: s, operand: t)
 		return
 	end 'converts'

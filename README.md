@@ -579,6 +579,7 @@ what a later pass such as reference counting or an optimization changes.
 |---|---|
 | values | `const`, `str`, `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield`, `fieldaddr`, `loadat`, `storeat`, `global` |
 | arithmetic | `bin` (add, sub, mul, div, mod, and, or, xor, shl, shr; `.u` for unsigned; checked ones have an `else` block), `cmp`, `neg`, `not`, `guard` |
+| floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
 | calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `callvalue` (see "Function values in the IR") |
 | function values | `closure`, `funcvalue` (see "Function values in the IR") |
 | ownership | `drop`, `dropslot`, `dropat`, `move`, `moveat`, `copy` (see "Drops") |
@@ -933,7 +934,7 @@ and nothing else.
 ## The subset
 
 - `function`, `type` (fields, defaults, methods, `static function`), `enum` (integer raw values), `union`
-  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = Box with Count` (also in a type's body), a top-level
+  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = float(a to b)` (see "Floats"), `typealias X = Box with Count` (also in a type's body), a top-level
   `let` constant. A function, a type and a union can be generic (see "Generics"). A `type` or a `union` can say
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
@@ -952,13 +953,13 @@ and nothing else.
   whose every branch returns or panics) is allowed and type-checked, but never compiled (`ast.Live`): its calls make no
   instance of a generic. A `break` or `continue` inside a branch does not end the code after the `if` or `match`,
   since a `break` can leave a `match`.
-- Integer, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
+- Integer, float, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
-- Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the aliases `ExitCode`, `Count`,
-  `ElementIndex` (an index that a `Count` goes where one is taken, and the other way only by `as`), `FullRangeInt`, `Byte`, `ByteArray` (`Array with Byte`), `StringArray` (`Array with String`), the limits of the sized integers as constants (`u64.max`, `i32.min`, ...), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, and maxon's `isEmpty`, `equals`, `append`, `count`, `contains`, `startsWith`, `endsWith`, `findFirst`, `findLast`, `startIndex`, `endIndex`, `slice`, `sliceLength`, `replace`, `replaceFirst`, `trim`, `trimStart`, `trimEnd`, `toLower` and `toUpper` with the type `StringIndex` (`charIndex()`, `bytePos()`) and the error `StringError`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle` (see "Primitives"),
+- Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the float functions (see "Floats"), the aliases `ExitCode`, `Count`,
+  `ElementIndex` (an index that a `Count` goes where one is taken, and the other way only by `as`), `FullRangeInt`, `FullRangeFloat`, `Byte`, `ByteArray` (`Array with Byte`), `StringArray` (`Array with String`), the limits of the sized integers as constants (`u64.max`, `i32.min`, ...), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, and maxon's `isEmpty`, `equals`, `append`, `count`, `contains`, `startsWith`, `endsWith`, `findFirst`, `findLast`, `startIndex`, `endIndex`, `slice`, `sliceLength`, `replace`, `replaceFirst`, `trim`, `trimStart`, `trimEnd`, `toLower` and `toUpper` with the type `StringIndex` (`charIndex()`, `bytePos()`) and the error `StringError`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib, and no `Option`: a
   program that wants one declares a generic union (`union Option uses T`).
 
@@ -998,6 +999,34 @@ not, it is `E3057` ("the value may not fit"), and the fix is `try <value> as T o
 literal that does not fit is `E3005`, and an assignment, an argument and an initialiser still need the cast. Comparisons take any two integers one word holds, an alias against an anonymous range or a constant
 included; only two different aliases are `E3005`. The branches of a conditional, a `match` or a `try` with no type to
 take give their alias when both are of it, or one is and holds the other, and otherwise a range that holds both.
+
+### Floats
+
+`typealias Ratio = float(0.0 to 1.0)` declares a float alias: its bounds are float or integer literals or `f64.min`,
+`f64.max`, `f32.min` and `f32.max`, and it includes both. `FullRangeFloat` (`float(f64.min to f64.max)`) is built in and
+holds every double, the infinities and NaN among them. A float is an IEEE-754 double, maxon's: a literal has a point
+(`1.5`, `2.0`, `1.5e3`; `1e3` is an integer), and one past `f64.max` is `E2011`.
+
+- A float literal is a constant, and constant arithmetic folds as the hardware would compute it; a constant fits any float
+  alias whose range holds it (`E3005` names the value otherwise). An integer constant where a float is expected is its
+  double, and an integer beside a float in `+ - * /` or a comparison converts; two different float aliases are `E3005`.
+- Any other float operation gives `FullRangeFloat`, which fits any alias of the whole range; a narrower alias takes it
+  through `as`, which fails with `overflow` where the value may lie outside (`try x as Ratio otherwise 0.0`), and so does a
+  `return` that converts. A float never becomes an integer implicitly (`E3009`) or by `as` (`E3009`): `trunc` does.
+- `/` fails with `divisionByZero` where the divisor may be 0 (a constant that is not 0, or an alias whose range excludes
+  it, needs no `try`); `inf` and NaN arising any other way are ordinary values, and a comparison with a NaN holds only for
+  `!=`. `-x` flips the sign bit. There is no float `mod`.
+- The built-in functions `trunc(x)` (a `FullRangeInt`, toward zero), `round` (ties to even), `floor`, `ceil`, `sqrt`,
+  `abs`, `min(a, b)` and `max(a, b)` take their arguments by place, as maxon's do (`E2067` for a label).
+- A float prints as maxon prints one: the shortest decimal that reads back as the same double, always with a fraction and
+  never with an exponent (`100.0`, `0.1`, `-0.0`, `inf`, `nan`); a diagnostic writes maxon's notation (`2.5`, `1E+20`).
+
+The compiler has no floats of its own, so `self/ast/floats.maxon` computes on the 64 bits of a double with exact integer
+arithmetic: a value is a ratio of big integers times a power of two, rounded once, ties to even. It reads literals, folds
+constants, runs the interpreter's float operations and writes the text; `runtime/floats.maxon` writes the text natively by
+the same algorithm, maxon's: the exact decimal of the double rounded to 1, 2, ... significant digits, the first that lies
+between the midpoints to its neighbours. Natively a float is a word like any other; an operation moves its operands into
+`xmm0` and `xmm1`, computes with SSE2 (and SSE4.1's `roundsd`) and moves the result back.
 
 ### Errors of the program
 
@@ -1807,7 +1836,15 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   capability rules about closures (`E3207`, `E3210`, `E3064` through a closure). A closure owns what it captures and
   nothing can be stored into a value it captured, so Maxon's cycle check (`E3183`) has nothing to refuse. The
   collections have no methods that take a closure (`map`, `filter`, `sortBy`).
-- No alias subtyping (an alias implementing another), floats, characters, tuples, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
+- Floats (see "Floats") have no interval analysis: an operation over a float that is not a constant gives `FullRangeFloat`,
+  where maxon carries the interval of its operands, so a value maxon proves fits a narrower float alias needs `try ... as`
+  here. A float `as` and a `return` to a narrower float alias that may not fit fail with `ArithmeticError.overflow` (a NaN
+  too), as an integer's do, where maxon traps; a division whose divisor may be 0 fails with `divisionByZero`, as maxon's
+  throws. The float functions take a float or an integer constant, not a value of an integer alias, which is cast first.
+  There is no float `match` pattern, map key or interface conformance, no `float.fromString`, no `Math`, no format
+  specifier for a float, and no `f32` storage. `trunc` of a NaN or of a double past the word gives `i64.min`, as x64's
+  `cvttsd2si` does.
+- No alias subtyping (an alias implementing another), characters, tuples, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
   parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs

@@ -260,6 +260,30 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrCown 'intrCown'
 		return lowerCown(l, p: p, c: c, recv: recv, args: args)
 	end 'intrCown'
+	if op == ast.Intrinsic.intrFloatTrunc 'intrFloatTrunc'
+		return lowerFloatTrunc(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFloatTrunc'
+	if op == ast.Intrinsic.intrFloatRound 'intrFloatRound'
+		return lowerFloatRound(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFloatRound'
+	if op == ast.Intrinsic.intrFloatFloor 'intrFloatFloor'
+		return lowerFloatFloor(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFloatFloor'
+	if op == ast.Intrinsic.intrFloatCeil 'intrFloatCeil'
+		return lowerFloatCeil(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFloatCeil'
+	if op == ast.Intrinsic.intrFloatSqrt 'intrFloatSqrt'
+		return lowerFloatSqrt(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFloatSqrt'
+	if op == ast.Intrinsic.intrFloatAbs 'intrFloatAbs'
+		return lowerFloatAbs(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFloatAbs'
+	if op == ast.Intrinsic.intrFloatMin 'intrFloatMin'
+		return lowerFloatMin(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFloatMin'
+	if op == ast.Intrinsic.intrFloatMax 'intrFloatMax'
+		return lowerFloatMax(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFloatMax'
 	if op == ast.Intrinsic.intrExchange 'intrExchange'
 		return lowerExchange(l, p: p, c: c, recv: recv, args: args)
 	end 'intrExchange'
@@ -640,6 +664,30 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCown 'intrCown'
 		return false
 	end 'intrCown'
+	if op == ast.Intrinsic.intrFloatTrunc 'intrFloatTrunc'
+		return false
+	end 'intrFloatTrunc'
+	if op == ast.Intrinsic.intrFloatRound 'intrFloatRound'
+		return false
+	end 'intrFloatRound'
+	if op == ast.Intrinsic.intrFloatFloor 'intrFloatFloor'
+		return false
+	end 'intrFloatFloor'
+	if op == ast.Intrinsic.intrFloatCeil 'intrFloatCeil'
+		return false
+	end 'intrFloatCeil'
+	if op == ast.Intrinsic.intrFloatSqrt 'intrFloatSqrt'
+		return false
+	end 'intrFloatSqrt'
+	if op == ast.Intrinsic.intrFloatAbs 'intrFloatAbs'
+		return false
+	end 'intrFloatAbs'
+	if op == ast.Intrinsic.intrFloatMin 'intrFloatMin'
+		return false
+	end 'intrFloatMin'
+	if op == ast.Intrinsic.intrFloatMax 'intrFloatMax'
+		return false
+	end 'intrFloatMax'
 	if op == ast.Intrinsic.intrExchange 'intrExchange'
 		return true
 	end 'intrExchange'

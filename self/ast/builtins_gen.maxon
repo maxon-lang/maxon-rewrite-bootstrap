@@ -206,6 +206,14 @@ export enum Intrinsic
 	intrShare
 	intrThaw
 	intrCown
+	intrFloatTrunc
+	intrFloatRound
+	intrFloatFloor
+	intrFloatCeil
+	intrFloatSqrt
+	intrFloatAbs
+	intrFloatMin
+	intrFloatMax
 	intrExchange
 	intrCommandLineArgs
 	intrProcessEnvironmentVariable
@@ -934,12 +942,38 @@ function declareBuiltinFunctions(mutates tt TypeTable, mutates ft FuncTable, mut
 	ps22.push(ParamSpec.make("x", ty: g20, conv: Convention.convConsumes))
 	let f23 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrCown, name: "cown", generics: oneArgList(g20), ret: ty21, params: ps22, declareInStd: false)
 	b.cownNewDropWithFunc = f23
-	var tp24 = TypeEntry.make(TypeKind.typeParam, name: "T")
-	let g25 = allocType(tt, e: tp24)
+	var ps24 = ParamSpecList.create(0)
+	ps24.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFloatTrunc, name: "trunc", generics: TypeIDList.create(0), ret: b.fullRangeIntTy, params: ps24, declareInStd: true)
+	var ps25 = ParamSpecList.create(0)
+	ps25.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFloatRound, name: "round", generics: TypeIDList.create(0), ret: b.anonFloatTy, params: ps25, declareInStd: true)
 	var ps26 = ParamSpecList.create(0)
-	ps26.push(ParamSpec.make("place", ty: g25, conv: Convention.convMutates))
-	ps26.push(ParamSpec.make("value", ty: g25, conv: Convention.convConsumes))
-	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrExchange, name: "exchange", generics: oneArgList(g25), ret: g25, params: ps26, declareInStd: true)
+	ps26.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFloatFloor, name: "floor", generics: TypeIDList.create(0), ret: b.anonFloatTy, params: ps26, declareInStd: true)
+	var ps27 = ParamSpecList.create(0)
+	ps27.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFloatCeil, name: "ceil", generics: TypeIDList.create(0), ret: b.anonFloatTy, params: ps27, declareInStd: true)
+	var ps28 = ParamSpecList.create(0)
+	ps28.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFloatSqrt, name: "sqrt", generics: TypeIDList.create(0), ret: b.anonFloatTy, params: ps28, declareInStd: true)
+	var ps29 = ParamSpecList.create(0)
+	ps29.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFloatAbs, name: "abs", generics: TypeIDList.create(0), ret: b.anonFloatTy, params: ps29, declareInStd: true)
+	var ps30 = ParamSpecList.create(0)
+	ps30.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	ps30.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFloatMin, name: "min", generics: TypeIDList.create(0), ret: b.anonFloatTy, params: ps30, declareInStd: true)
+	var ps31 = ParamSpecList.create(0)
+	ps31.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	ps31.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFloatMax, name: "max", generics: TypeIDList.create(0), ret: b.anonFloatTy, params: ps31, declareInStd: true)
+	var tp32 = TypeEntry.make(TypeKind.typeParam, name: "T")
+	let g33 = allocType(tt, e: tp32)
+	var ps34 = ParamSpecList.create(0)
+	ps34.push(ParamSpec.make("place", ty: g33, conv: Convention.convMutates))
+	ps34.push(ParamSpec.make("value", ty: g33, conv: Convention.convConsumes))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrExchange, name: "exchange", generics: oneArgList(g33), ret: g33, params: ps34, declareInStd: true)
 end 'declareBuiltinFunctions'
 
 function declareCommandLineMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)

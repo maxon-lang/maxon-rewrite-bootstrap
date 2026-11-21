@@ -5,6 +5,9 @@ function hasZero(p ast.Project, t ast.TypeID) returns bool
 	if t == p.builtins.boolTy 'bool'
 		return true
 	end 'bool'
+	if typeHasKind(p, t: t, kind: ast.TypeKind.floatRange) 'float'
+		return ast.floatRangeHolds(p.types, t: t, bits: 0)
+	end 'float'
 	return typeHasKind(p, t: t, kind: ast.TypeKind.intRange) and p.types.entries[t as Count].minVal.le(ast.I128.zero()) and p.types.entries[t as Count].maxVal.ge(ast.I128.zero())
 end 'hasZero'
 

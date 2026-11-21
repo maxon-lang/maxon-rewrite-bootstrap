@@ -282,6 +282,8 @@ export function typeLinkName(p Project, t TypeID) returns String
 		interfaceTy gives p.types.entries[t as Count].name.clone()
 		intRange gives intLinkName(p.types, t: t)
 		constInt gives "integer constant {p.types.entries[t as Count].minVal.toString()}"
+		floatRange gives floatLinkName(p.types, t: t)
+		constFloat gives "float constant {floatLowBits(p.types, t: t)}"
 		record gives nominalLinkName(p, t: t)
 		enumTy gives nominalLinkName(p, t: t)
 		unionTy gives nominalLinkName(p, t: t)
@@ -309,6 +311,14 @@ function funcTypeLinkName(p Project, t TypeID) returns String
 	b.append(") {typeLinkName(p, t: funcResult(p.types, t: t))}".toByteArray())
 	return String.from(b)
 end 'funcTypeLinkName'
+
+function floatLinkName(tt TypeTable, t TypeID) returns String
+	let spelling = "float({floatLowBits(tt, t: t)} to {floatHighBits(tt, t: t)})"
+	if tt.entries[t as Count].name == "" 'anonymous'
+		return spelling
+	end 'anonymous'
+	return "{tt.entries[t as Count].name}{intLinkAliasMark}{spelling}"
+end 'floatLinkName'
 
 function intLinkName(tt TypeTable, t TypeID) returns String
 	let spelling = intSpelling(tt, t: t)

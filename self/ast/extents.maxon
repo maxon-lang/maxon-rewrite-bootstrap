@@ -96,6 +96,16 @@ function dottedEnd(text String, at Count) returns Count
 	return i
 end 'dottedEnd'
 
+// floatEnd is past the float literal that starts at at: its digits and point, and the sign of its exponent.
+function floatEnd(text String, at Count) returns Count
+	let i = dottedEnd(text, at: at)
+	let before = text.byteAt(try i - 1 otherwise panic("ast: a float literal has no digits"))
+	if i < text.byteLength() and (text.byteAt(i) == 43 or text.byteAt(i) == 45) and (before == 101 or before == 69) 'signed'
+		return wordEnd(text, at: stepOn(i))
+	end 'signed'
+	return i
+end 'floatEnd'
+
 // stringEnd is past the string literal whose opening quote is at at, with the interpolations in it.
 function stringEnd(text String, at Count) returns Count
 	var i = stepOn(at)
@@ -264,6 +274,13 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	if k == NodeKind.indexExpr or k == NodeKind.callExpr or k == NodeKind.collectionLitExpr 'bracketed'
 		return table.Option.some(closingEnd(t.text, at: start))
 	end 'bracketed'
+	if k == NodeKind.floatLit 'float'
+		var at = start
+		if t.text.byteAt(at) == minusByte 'negativeFloat'
+			at = skipSpace(t.text, at: stepOn(at))
+		end 'negativeFloat'
+		return table.Option.some(floatEnd(t.text, at: at))
+	end 'float'
 	if k == NodeKind.intLit and t.text.byteAt(start) == minusByte 'negative'
 		return table.Option.some(dottedEnd(t.text, at: skipSpace(t.text, at: stepOn(start))))
 	end 'negative'

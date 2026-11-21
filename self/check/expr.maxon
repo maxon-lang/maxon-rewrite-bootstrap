@@ -46,8 +46,12 @@ end 'checkExpr'
 function checkExpecting(mutates c Checker, mutates p ast.Project, e ast.NodeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let outer = c.expect
 	c.expect = want
-	let t = visitExpr(c, p: p, e: e, errs: errs)
+	var t = visitExpr(c, p: p, e: e, errs: errs)
 	c.expect = outer
+	if isConstInt(p, t: t) and ast.isFloatType(p.types, t: want) 'asFloat'
+		// An integer constant where a float is needed is the double of its value.
+		t = ast.internConstFloat(p.types, bits: constantBits(p, t: t))
+	end 'asFloat'
 	recordType(c, e: e, t: t)
 	return t
 end 'checkExpecting'
@@ -64,6 +68,9 @@ function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if k == ast.NodeKind.intLit 'intLit'
 		return ast.internConstInt(p.types, val: ast.intLitValue(p.modules[c.modIdx].tree, id: e))
 	end 'intLit'
+	if k == ast.NodeKind.floatLit 'floatLit'
+		return ast.internConstFloat(p.types, bits: ast.floatLitBits(p.modules[c.modIdx].tree, id: e))
+	end 'floatLit'
 	if k == ast.NodeKind.boolLit 'boolLit'
 		return p.builtins.boolTy
 	end 'boolLit'
@@ -159,7 +166,7 @@ function checkInterpolation(mutates c Checker, mutates p ast.Project, part ast.N
 		return false
 	end 'wide'
 	let k = kindOfType(p, t: t)
-	if ast.isIntType(p.types, t: t) or t == p.builtins.stringTy or t == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'printable'
+	if isNumberType(p, t: t) or t == p.builtins.stringTy or t == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'printable'
 		return true
 	end 'printable'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a value of {nameOfType(p, t: t)} cannot be interpolated", errs: errs)
@@ -351,6 +358,14 @@ function checkOperator(mutates c Checker, mutates p ast.Project, e ast.NodeID, l
 		return ast.noType
 	end 'badRight'
 	let off = offsetOf(c, p: p, node: e)
+	if ast.isFloatType(p.types, t: l) or ast.isFloatType(p.types, t: r) 'floats'
+		if isComparisonOp(op) 'comparison'
+			return checkFloatComparison(c, p: p, e: e, op: op, l: l, r: r, errs: errs)
+		end 'comparison'
+		if isArithmeticOp(op) or isLogicalOp(op) 'arithmetic'
+			return checkFloatOp(c, p: p, e: e, op: op, l: l, r: r, errs: errs)
+		end 'arithmetic'
+	end 'floats'
 	if isArithmeticOp(op) or (isLogicalOp(op) and ast.isIntType(p.types, t: l)) 'integers'
 		return checkIntegerOp(c, p: p, e: e, op: op, l: l, r: r, want: want, errs: errs)
 	end 'integers'
@@ -496,6 +511,9 @@ function checkUnary(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 	if isConstInt(p, t: t) 'constant'
 		return ast.internConstInt(p.types, val: p.types.entries[t as Count].minVal.neg())
 	end 'constant'
+	if ast.isFloatType(p.types, t: t) 'float'
+		return checkFloatNegation(p, t: t)
+	end 'float'
 	if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'range'
 		return checkNegation(c, p: p, off: off, t: t, want: want, errs: errs)
 	end 'range'
@@ -571,15 +589,23 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if target == ast.noType 'badTarget'
 		return ast.noType
 	end 'badTarget'
-	if not typeHasKind(p, t: target, kind: ast.TypeKind.intRange) 'notInt'
+	let toFloat = typeHasKind(p, t: target, kind: ast.TypeKind.floatRange)
+	if not typeHasKind(p, t: target, kind: ast.TypeKind.intRange) and not toFloat 'notNumber'
 		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
 		return ast.noType
-	end 'notInt'
+	end 'notNumber'
 	let src = checkExpr(c, p: p, e: operand, errs: errs)
 	if src == ast.noType 'badSource'
 		return ast.noType
 	end 'badSource'
 	setOperand(c, node: e, operand: src)
+	if toFloat 'float'
+		return checkFloatCast(c, p: p, off: off, src: src, target: target, errs: errs)
+	end 'float'
+	if ast.isFloatType(p.types, t: src) 'fromFloat'
+		checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: diag.floatToIntCast(), errs: errs)
+		return ast.noType
+	end 'fromFloat'
 	if isConstInt(p, t: src) 'constant'
 		let value = p.types.entries[src as Count].minVal.clone()
 		if not intRangeHolds(p.types, dst: target, v: value) 'doesNotFit'

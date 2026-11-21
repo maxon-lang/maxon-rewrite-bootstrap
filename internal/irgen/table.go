@@ -127,6 +127,12 @@ var enums = []enum{
 	{Name: "CmpOp", Prefix: "Cmp", Doc: "CmpOp is the comparison of a Cmp.", Cases: []enumCase{
 		{"Eq", "eq"}, {"Ne", "ne"}, {"Lt", "lt"}, {"Le", "le"}, {"Gt", "gt"}, {"Ge", "ge"},
 	}},
+	{Name: "FBinOp", Prefix: "FBin", Doc: "FBinOp is the operation of an FBin.", Cases: []enumCase{
+		{"Add", "add"}, {"Sub", "sub"}, {"Mul", "mul"}, {"Div", "div"},
+	}},
+	{Name: "FUnaryOp", Prefix: "FUnary", Doc: "FUnaryOp is the operation of an FUnary: the square root, and the rounding to an integer\n// to the nearest (ties to even), toward negative infinity and toward positive infinity.", Cases: []enumCase{
+		{"Sqrt", "sqrt"}, {"Round", "round"}, {"Floor", "floor"}, {"Ceil", "ceil"},
+	}},
 	{Name: "GuardKind", Prefix: "Guard", Doc: "GuardKind is the range a Guard checks, against its bound.", Cases: []enumCase{
 		{"NonNegative", "NonNegative"}, {"SignedAtLeast", "SignedAtLeast"}, {"SignedAtMost", "SignedAtMost"},
 		{"UnsignedAtLeast", "UnsignedAtLeast"}, {"UnsignedAtMost", "UnsignedAtMost"}, {"NonZero", "NonZero"},
@@ -209,6 +215,20 @@ var ops = []op{
 	{Name: "Cmp", Doc: "Cmp gives 1 when Left Op Right holds and 0 when it does not.", Result: valueResult,
 		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "CmpOp"}, reg("Left", fA), reg("Right", fB), unsignOp},
 		Text:     "cmp.{Op}{Unsigned} {Left}, {Right}"},
+	// A float is the 64 bits of its double in a register like any other word; these operate on the doubles.
+	{Name: "FBin", Doc: "FBin is Left Op Right on two doubles, rounded to the nearest double, ties to even.", Result: valueResult,
+		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "FBinOp"}, reg("Left", fA), reg("Right", fB)},
+		Text:     "f{Op} {Left}, {Right}"},
+	{Name: "FCmp", Doc: "FCmp gives 1 when Left Op Right holds of two doubles and 0 when it does not; every comparison with a\n// NaN but ne does not hold.",
+		Result:   valueResult,
+		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "CmpOp"}, reg("Left", fA), reg("Right", fB)},
+		Text:     "fcmp.{Op} {Left}, {Right}"},
+	{Name: "FUnary", Doc: "FUnary is Op of a double.", Result: valueResult,
+		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "FUnaryOp"}, reg("Src", fA)}, Text: "f{Op} {Src}"},
+	{Name: "IntToFloat", Doc: "IntToFloat is the double nearest the integer Src, read as unsigned when Unsigned is set.", Result: valueResult,
+		Operands: []operand{reg("Src", fA), unsignOp}, Text: "itof{Unsigned} {Src}"},
+	{Name: "FloatToInt", Doc: "FloatToInt is the double Src truncated toward zero, or i64.min for a NaN or a double past the word.",
+		Result: valueResult, Operands: []operand{reg("Src", fA)}, Text: "ftoi {Src}"},
 	{Name: "Neg", Doc: "Neg negates; when Checked, it goes to Fail for i64.min.", Result: valueResult,
 		Operands: []operand{reg("Src", fA), checkedOp}, Text: "neg {Src}{Fail}"},
 	{Name: "Not", Doc: "Not inverts every bit.", Result: valueResult,

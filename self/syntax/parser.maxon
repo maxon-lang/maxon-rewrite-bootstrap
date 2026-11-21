@@ -407,6 +407,26 @@ function boundValue(mutates p Parser, t Token) returns ast.I128 throws SyntaxErr
 	return try integer(p, t: t)
 end 'boundValue'
 
+function boundReal(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
+	return try real(p, t: t)
+end 'boundReal'
+
+function floatLitMagnitude(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
+	return try real(p, t: t)
+end 'floatLitMagnitude'
+
+// real reads the float literal that t is as the bits of the double nearest it.
+function real(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
+	let text = p.src.text.sliceBytes(t.start as Count, endPos: t.endOffset())
+	match ast.floatFromText(text) 'read'
+		bits(value) then return ast.I128.fromCount(value)
+		overflow then _ = 0
+	end 'read'
+	let file = p.fileNumber()
+	p.errors.push(p.src.errorAt(diag.errIntegerLiteralRange, message: diag.floatLiteralOverflow(text), file: file, offset: t.start as Count))
+	throw SyntaxError.refused
+end 'real'
+
 function integer(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
 	let file = p.fileNumber()
 	return try readInteger(p.src, errs: p.errors, file: file, at: t.start as Count, stop: t.endOffset())

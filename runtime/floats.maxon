@@ -1,0 +1,416 @@
+// The text of a float, as maxon prints one: the shortest decimal that reads back as the same double, with a fraction and
+// no exponent. The digits are found as the compiler's own (self/ast/floats.maxon) finds them: the exact decimal of the
+// double rounded to 1, 2, ... significant digits, the first inside the interval of the values that round to it. The
+// runtime has no arrays, so the big integers and the digits are in one scratch box.
+
+typealias FloatLimb = int(0 to 4294967295)
+
+typealias FloatDivisor = int(1 to 4294967295)
+
+typealias FloatShift = int(0 to 31)
+
+let floatSignMask = 0x8000000000000000 as Count
+
+let floatMagnitudeBits = 0x7FFFFFFFFFFFFFFF as Count
+
+let floatInfinity = 0x7FF0000000000000 as Count
+
+let floatFractionMask = 0x000FFFFFFFFFFFFF as Count
+
+let floatLeadingBit = 0x0010000000000000 as Count
+
+let floatFractionBits = 52 as Count
+
+let floatFieldMask = 0x7FF as Count
+
+let floatLimbMask = 0xFFFFFFFF as Count
+
+let floatLimbBase = 0x100000000 as Count
+
+let floatLimbBits = 32 as Count
+
+// floatRoundTripDigits is how many significant digits always read back as the same binary64.
+let floatRoundTripDigits = 17 as Count
+
+// floatPow5Chunk is the largest power of five a limb holds, 5^13, and floatPow5ChunkDigits its exponent.
+let floatPow5Chunk = 1220703125 as FloatLimb
+
+let floatPow5ChunkDigits = 13 as Count
+
+let floatDecimalChunk = 1000000000 as FloatDivisor
+
+let floatDecimalChunkDigits = 9 as Count
+
+// The scratch box: a big integer and the decimal chunks it divides into, 128 limbs of a word each, then the digits of
+// the double and of the two midpoints around it, 1024 bytes each, and the candidate.
+let floatLimbsBytes = 1024 as Count
+
+let floatDigitsBytes = 1024 as Count
+
+let floatChunksOffset = 1024 as Count
+
+let floatExactOffset = 2048 as Count
+
+let floatLowOffset = 3072 as Count
+
+let floatHighOffset = 4096 as Count
+
+let floatCandidateOffset = 5120 as Count
+
+let floatScratchBytes = 5152 as Count
+
+let floatPointByte = 46 as Byte
+
+let floatZeroByte = 48 as Byte
+
+let floatMinusByte = 45 as Byte
+
+function floatWordOffset(i Count) returns Count
+	return try i * wordBytes otherwise panic("runtime: a big integer past its box")
+end 'floatWordOffset'
+
+function floatLimbAt(big Count, i Count) returns FloatLimb
+	return try __Raw.loadWord(big, offset: floatWordOffset(i)) as FloatLimb otherwise panic("runtime: a limb past 32 bits")
+end 'floatLimbAt'
+
+function floatSetLimb(big Count, i Count, v Count)
+	__Raw.storeWord(big, offset: floatWordOffset(i), value: v)
+end 'floatSetLimb'
+
+// floatTrimmed is the length of a big integer of n limbs without the zero limbs on top.
+function floatTrimmed(big Count, n Count) returns Count
+	var k = n
+	while k > 0 and floatLimbAt(big, i: k - 1) == 0 'top'
+		k = k - 1
+	end 'top'
+	return k
+end 'floatTrimmed'
+
+// floatMulSmall sets the big integer of n limbs to itself times m, and gives its length.
+function floatMulSmall(big Count, n Count, m FloatLimb) returns Count
+	let factor = m as Count
+	var carry = 0 as FloatLimb
+	for i in 0 upto n 'each'
+		let t = (floatLimbAt(big, i: i) as Count) * factor + (carry as Count)
+		floatSetLimb(big, i: i, v: t and floatLimbMask)
+		carry = (t / floatLimbBase) as FloatLimb
+	end 'each'
+	if carry == 0 'fits'
+		return n
+	end 'fits'
+	floatSetLimb(big, i: n, v: carry as Count)
+	return __Raw.wrappingAdd(n, right: 1)
+end 'floatMulSmall'
+
+// floatShl sets the big integer of n limbs to itself times 2^bits, and gives its length.
+function floatShl(big Count, n Count, bits Count) returns Count
+	let whole = bits / floatLimbBits
+	let part = (bits mod floatLimbBits) as FloatShift
+	let top = __Raw.wrappingAdd(n, right: whole)
+	floatSetLimb(big, i: top, v: 0)
+	var i = n
+	while i > 0 'down'
+		i = i - 1
+		let shifted = (floatLimbAt(big, i: i) as Count) shl part
+		let at = __Raw.wrappingAdd(i, right: whole)
+		let above = __Raw.wrappingAdd(at, right: 1)
+		floatSetLimb(big, i: above, v: (floatLimbAt(big, i: above) as Count) or (shifted / floatLimbBase))
+		floatSetLimb(big, i: at, v: shifted and floatLimbMask)
+	end 'down'
+	for j in 0 upto whole 'low'
+		floatSetLimb(big, i: j, v: 0)
+	end 'low'
+	return floatTrimmed(big, n: __Raw.wrappingAdd(top, right: 1))
+end 'floatShl'
+
+// floatDivSmall sets the big integer of n limbs to itself over d and gives the remainder.
+function floatDivSmall(big Count, n Count, d FloatDivisor) returns FloatLimb
+	let divisor = d as Count
+	var rem = 0 as FloatLimb
+	var i = n
+	while i > 0 'down'
+		i = i - 1
+		let cur = ((rem as Count) shl floatLimbBits) + (floatLimbAt(big, i: i) as Count)
+		floatSetLimb(big, i: i, v: cur / divisor)
+		rem = try (cur mod divisor) as FloatLimb otherwise panic("runtime: a remainder past its divisor")
+	end 'down'
+	return rem
+end 'floatDivSmall'
+
+// floatExactDigits writes the decimal digits of m * 2^e, for an m that is not 0, the most significant first, to the
+// digits at out, and gives how many there are. The value is 0.digits * 10^floatScaleOf(count, e).
+function floatExactDigits(scratch Count, m Count, e FullRangeInt, out Count) returns Count
+	let big = scratch
+	floatSetLimb(big, i: 0, v: m and floatLimbMask)
+	floatSetLimb(big, i: 1, v: m shr floatLimbBits)
+	var n = floatTrimmed(big, n: 2)
+	if e >= 0 'up'
+		n = floatShl(big, n: n, bits: e as Count)
+	end 'up' else 'down'
+		var left = try (-e) as Count otherwise panic("runtime: an exponent past the word")
+		while left >= floatPow5ChunkDigits 'chunks'
+			n = floatMulSmall(big, n: n, m: floatPow5Chunk)
+			left = left - floatPow5ChunkDigits
+		end 'chunks'
+		while left > 0 'fives'
+			n = floatMulSmall(big, n: n, m: 5)
+			left = left - 1
+		end 'fives'
+	end 'down'
+	let chunks = __Raw.wrappingAdd(scratch, right: floatChunksOffset)
+	var count = 0 as Count
+	while n > 0 'divide'
+		floatSetLimb(chunks, i: count, v: floatDivSmall(big, n: n, d: floatDecimalChunk) as Count)
+		n = floatTrimmed(big, n: n)
+		count = __Raw.wrappingAdd(count, right: 1)
+	end 'divide'
+	var written = 0 as Count
+	var c = count
+	while c > 0 'each'
+		c = c - 1
+		var value = floatLimbAt(chunks, i: c) as Count
+		var width = floatDecimalChunkDigits
+		if __Raw.wrappingAdd(c, right: 1) == count 'leading'
+			width = 1
+			var rest = (value / 10) as Count
+			while rest != 0 'width'
+				width = __Raw.wrappingAdd(width, right: 1)
+				rest = rest / 10
+			end 'width'
+		end 'leading'
+		var at = __Raw.wrappingAdd(written, right: width)
+		for _ in 0 upto width 'digits'
+			at = __Raw.wrappingSub(at, right: 1)
+			__Raw.storeByte(out, offset: at, value: (value mod 10) as Byte)
+			value = value / 10
+		end 'digits'
+		written = __Raw.wrappingAdd(written, right: width)
+	end 'each'
+	return written
+end 'floatExactDigits'
+
+// floatSignificant is how many of the count digits at d are left once the zeros on the end are dropped.
+function floatSignificant(d Count, count Count) returns Count
+	var used = count
+	while used > 1 and __Raw.loadByte(d, offset: used - 1) == 0 'trim'
+		used = used - 1
+	end 'trim'
+	return used
+end 'floatSignificant'
+
+// floatScaleOf is the scale of the exact decimal of count digits of m * 2^e: a negative e is that many places of 10.
+function floatScaleOf(count Count, e FullRangeInt) returns FullRangeInt
+	let digits = try count as FullRangeInt otherwise panic("runtime: a decimal past the word")
+	if e < 0 'fraction'
+		return try digits + e otherwise panic("runtime: a scale past the word")
+	end 'fraction'
+	return digits
+end 'floatScaleOf'
+
+// floatCompareDecimals is -1, 0 or 1 as the decimal of the na digits at a with the scale sa is below, at or above the
+// one of the nb digits at b with the scale sb. Both are positive with no zero leading.
+function floatCompareDecimals(a Count, na Count, sa FullRangeInt, b Count, nb Count, sb FullRangeInt) returns FullRangeInt
+	if sa != sb 'scales'
+		return -1 if sa < sb else 1
+	end 'scales'
+	var i = 0 as Count
+	while i < na or i < nb 'each'
+		var da = 0 as Byte
+		var db = 0 as Byte
+		if i < na 'left'
+			da = __Raw.loadByte(a, offset: i)
+		end 'left'
+		if i < nb 'right'
+			db = __Raw.loadByte(b, offset: i)
+		end 'right'
+		if da != db 'differs'
+			return -1 if da < db else 1
+		end 'differs'
+		i = __Raw.wrappingAdd(i, right: 1)
+	end 'each'
+	return 0
+end 'floatCompareDecimals'
+
+// floatRoundsUp is whether the count digits at d rounded to kept of them round up: half to even.
+function floatRoundsUp(d Count, count Count, kept Count) returns bool
+	let first = __Raw.loadByte(d, offset: kept)
+	if first != 5 'notHalf'
+		return first > 5
+	end 'notHalf'
+	var i = __Raw.wrappingAdd(kept, right: 1)
+	while i < count 'tail'
+		if __Raw.loadByte(d, offset: i) != 0 'above'
+			return true
+		end 'above'
+		i = __Raw.wrappingAdd(i, right: 1)
+	end 'tail'
+	if kept == 0 'nothing'
+		return false
+	end 'nothing'
+	return __Raw.loadByte(d, offset: kept - 1) mod 2 == 1
+end 'floatRoundsUp'
+
+// floatRounded writes the count digits at d rounded to kept of them to cand, and gives how many digits it wrote; a
+// carry out of the first digit leaves the one digit 1, and raises the scale, which carried says.
+function floatRounded(d Count, count Count, kept Count, cand Count, mutates carried bool) returns Count
+	carried = false
+	copyBytes(d, target: cand, count: kept)
+	if kept >= count or not floatRoundsUp(d, count: count, kept: kept) 'down'
+		return floatSignificant(cand, count: kept)
+	end 'down'
+	var at = kept
+	while at > 0 'carry'
+		at = at - 1
+		let digit = __Raw.loadByte(cand, offset: at)
+		if digit != 9 'stops'
+			__Raw.storeByte(cand, offset: at, value: try digit + 1 otherwise panic("runtime: a digit past 9"))
+			return floatSignificant(cand, count: __Raw.wrappingAdd(at, right: 1))
+		end 'stops'
+	end 'carry'
+	__Raw.storeByte(cand, offset: 0, value: 1)
+	carried = true
+	return 1
+end 'floatRounded'
+
+// ftoa is the text of the double of the bits.
+function ftoa(bits Count) returns String
+	let magnitude = bits and floatMagnitudeBits
+	let negative = bits >= floatSignMask and magnitude <= floatInfinity
+	if magnitude > floatInfinity 'nan'
+		return floatTextOf(negative, digits: 0, count: 0, scale: 0, word: "nan")
+	end 'nan'
+	if magnitude == floatInfinity 'inf'
+		return floatTextOf(negative, digits: 0, count: 0, scale: 0, word: "inf")
+	end 'inf'
+	if magnitude == 0 'zero'
+		return floatTextOf(negative, digits: 0, count: 0, scale: 0, word: "0.0")
+	end 'zero'
+	let scratch = alloc(floatScratchBytes)
+	let field = (magnitude shr floatFractionBits) and floatFieldMask
+	var m = magnitude and floatFractionMask
+	var e = -1074 as FullRangeInt
+	if field != 0 'normal'
+		m = m + floatLeadingBit
+		e = (field as FullRangeInt) - 1075
+	end 'normal'
+	let exact = __Raw.wrappingAdd(scratch, right: floatExactOffset)
+	let low = __Raw.wrappingAdd(scratch, right: floatLowOffset)
+	let high = __Raw.wrappingAdd(scratch, right: floatHighOffset)
+	let cand = __Raw.wrappingAdd(scratch, right: floatCandidateOffset)
+	let exactAll = floatExactDigits(scratch, m: m, e: e, out: exact)
+	let exactScale = floatScaleOf(exactAll, e: e)
+	let exactCount = floatSignificant(exact, count: exactAll)
+	// The midpoints to the neighbours are (2m - 1) and (2m + 1) times 2^(e - 1), and (4m - 1) times 2^(e - 2) below a
+	// power of two whose neighbour below is closer.
+	let halfE = (e - 1) as FullRangeInt
+	var lowE = halfE as FullRangeInt
+	var lowM = __Raw.wrappingSub(__Raw.wrappingAdd(m, right: m), right: 1)
+	if (magnitude and floatFractionMask) == 0 and field > 1 'closerBelow'
+		lowM = __Raw.wrappingAdd(lowM, right: __Raw.wrappingAdd(m, right: m))
+		lowE = e - 2
+	end 'closerBelow'
+	let lowAll = floatExactDigits(scratch, m: lowM, e: lowE, out: low)
+	let lowScale = floatScaleOf(lowAll, e: lowE)
+	let lowCount = floatSignificant(low, count: lowAll)
+	let highAll = floatExactDigits(scratch, m: __Raw.wrappingAdd(__Raw.wrappingAdd(m, right: m), right: 1), e: halfE, out: high)
+	let highScale = floatScaleOf(highAll, e: halfE)
+	let highCount = floatSignificant(high, count: highAll)
+	let inclusive = m mod 2 == 0
+	var longest = exactCount
+	if longest > floatRoundTripDigits 'cap'
+		longest = floatRoundTripDigits
+	end 'cap'
+	var count = exactCount
+	var scale = exactScale
+	var digits = exact
+	for kept in 1 to longest 'lengths'
+		var carried = false
+		let n = floatRounded(exact, count: exactCount, kept: kept, cand: cand, carried: carried)
+		var s = exactScale
+		if carried 'raised'
+			s = try s + 1 otherwise panic("runtime: a scale past the word")
+		end 'raised'
+		let lo = floatCompareDecimals(cand, na: n, sa: s, b: low, nb: lowCount, sb: lowScale)
+		let hi = floatCompareDecimals(cand, na: n, sa: s, b: high, nb: highCount, sb: highScale)
+		if (lo > 0 or (inclusive and lo == 0)) and (hi < 0 or (inclusive and hi == 0)) 'inside'
+			count = n
+			scale = s
+			digits = cand
+			break 'lengths'
+		end 'inside'
+	end 'lengths'
+	let text = floatTextOf(negative, digits: digits, count: count, scale: scale, word: "")
+	free(scratch)
+	return text
+end 'ftoa'
+
+// floatTextOf is a new string of the sign and either the word, or the count digits at digits with the scale, written
+// with a point: 0.000ddd, ddd000.0 or dd.ddd.
+function floatTextOf(negative bool, digits Count, count Count, scale FullRangeInt, word String) returns String
+	let sign = 1 as Count if negative else 0
+	let wordLength = stringLength(word)
+	var length = __Raw.wrappingAdd(sign, right: wordLength)
+	var leading = 0 as Count
+	var trailing = 0 as Count
+	var whole = 0 as Count
+	if wordLength == 0 'number'
+		if scale <= 0 'fraction'
+			leading = try (-scale) as Count otherwise panic("runtime: a scale past the word")
+			length = try length + 2 + leading + count otherwise panic("runtime: a float's text past the word")
+		end 'fraction' else 'integral'
+			whole = scale as Count
+			if whole >= count 'zeros'
+				trailing = whole - count
+				length = try length + whole + 2 otherwise panic("runtime: a float's text past the word")
+			end 'zeros' else 'point'
+				length = try length + count + 1 otherwise panic("runtime: a float's text past the word")
+			end 'point'
+		end 'integral'
+	end 'number'
+	let box = newStringBox(length)
+	let out = bytesOf(box)
+	var at = 0 as Count
+	if negative 'minus'
+		__Raw.storeByte(out, offset: 0, value: floatMinusByte)
+		at = 1
+	end 'minus'
+	if wordLength != 0 'word'
+		copyBytes(bytesOf(__Raw.stringAddress(word)), target: __Raw.wrappingAdd(out, right: at), count: wordLength)
+		return __Raw.stringAt(box)
+	end 'word'
+	if scale <= 0 'fraction'
+		at = floatPut(out, at: at, value: floatZeroByte)
+		at = floatPut(out, at: at, value: floatPointByte)
+		for _ in 0 upto leading 'zeros'
+			at = floatPut(out, at: at, value: floatZeroByte)
+		end 'zeros'
+		at = floatPutDigits(out, at: at, digits: digits, from: 0, until: count)
+		return __Raw.stringAt(box)
+	end 'fraction'
+	if whole >= count 'integral'
+		at = floatPutDigits(out, at: at, digits: digits, from: 0, until: count)
+		for _ in 0 upto trailing 'zeros'
+			at = floatPut(out, at: at, value: floatZeroByte)
+		end 'zeros'
+		at = floatPut(out, at: at, value: floatPointByte)
+		at = floatPut(out, at: at, value: floatZeroByte)
+		return __Raw.stringAt(box)
+	end 'integral'
+	at = floatPutDigits(out, at: at, digits: digits, from: 0, until: whole)
+	at = floatPut(out, at: at, value: floatPointByte)
+	at = floatPutDigits(out, at: at, digits: digits, from: whole, until: count)
+	return __Raw.stringAt(box)
+end 'floatTextOf'
+
+function floatPut(out Count, at Count, value Byte) returns Count
+	__Raw.storeByte(out, offset: at, value: value)
+	return __Raw.wrappingAdd(at, right: 1)
+end 'floatPut'
+
+function floatPutDigits(out Count, at Count, digits Count, from Count, until Count) returns Count
+	var next = at
+	for i in from upto until 'each'
+		next = floatPut(out, at: next, value: try floatZeroByte + __Raw.loadByte(digits, offset: i) otherwise panic("runtime: a digit past 9"))
+	end 'each'
+	return next
+end 'floatPutDigits'

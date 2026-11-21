@@ -40,6 +40,11 @@ export function expectedToken(expected String, got String) returns String
 	return "Expected {expected} but got '{got}'"
 end 'expectedToken'
 
+// The text of errIntegerLiteralRange for: Float literal '{literal}' is outside the range of float
+export function floatLiteralOverflow(literal String) returns String
+	return "Float literal '{literal}' is outside the range of float"
+end 'floatLiteralOverflow'
+
 // The text of errIntegerLiteralRange for: Integer literal '{literal}' is above i64.max, so it needs an alias whose range admits it: write '{literal} as <alias>'
 export function unsignedLiteralWithoutAlias(literal String) returns String
 	return "Integer literal '{literal}' is above i64.max, so it needs an alias whose range admits it: write '{literal} as <alias>'"
@@ -164,6 +169,26 @@ end 'returnTypeMismatch'
 export function returnValueFromVoid(name String) returns String
 	return "type mismatch: '{name}' declares no return type, so it cannot return a value"
 end 'returnValueFromVoid'
+
+// The text of errBuiltinArgNamed for: a builtin's arguments are all positional and cannot be named ('name:' labels a parameter, and a builtin has no declaration to have one)
+export function builtinArgNamed() returns String
+	return "a builtin's arguments are all positional and cannot be named ('name:' labels a parameter, and a builtin has no declaration to have one)"
+end 'builtinArgNamed'
+
+// The text of errTypeMismatch for: Value {value} is outside the range of '{alias}' (float({low} to {high}))
+export function floatOutOfRange(value String, alias String, low String, high String) returns String
+	return "Value {value} is outside the range of '{alias}' (float({low} to {high}))"
+end 'floatOutOfRange'
+
+// The text of errUnsafeCast for: Cannot cast from float to int
+export function floatToIntCast() returns String
+	return "Cannot cast from float to int"
+end 'floatToIntCast'
+
+// The text of errUnsafeCast for: cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
+export function lossyFloatConversion(alias String) returns String
+	return "cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit \x97 use trunc(x) to truncate toward zero (or round/floor/ceil)"
+end 'lossyFloatConversion'
 
 // The text of errTypeMismatch for: Value {value} is outside the range of '{alias}' (int({low} to {high}))
 export function literalOutOfRange(value String, alias String, low String, high String) returns String

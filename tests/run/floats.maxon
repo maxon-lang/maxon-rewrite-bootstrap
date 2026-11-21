@@ -1,0 +1,49 @@
+// Float literals, arithmetic, comparison, conversions and text, natively and in the interpreter alike.
+
+typealias Real = float(f64.min to f64.max)
+
+typealias Ratio = float(0.0 to 1.0)
+
+typealias Score = int(0 to 100)
+
+let half = 0.5
+
+function area(radius Real) returns Real
+	return 3.14159 * radius * radius
+end 'area'
+
+function share(part Real, whole Real) returns Real throws ArithmeticError
+	return try part / whole
+end 'share'
+
+function clamp(r Real) returns Ratio
+	return try r as Ratio otherwise 1.0
+end 'clamp'
+
+function main() returns ExitCode
+	print("{area(2)} {1.0 / 3.0} {100.0} {1.5e3} {half}\n")
+	print("{0.1 + 0.2} {-0.0} {2.5e-8} {123456789012345680000.0} {4.9e-324 * 1.0}\n")
+	let x = 5
+	let s = 42 as Score
+	print("{x + 2.0} {s * 0.5} {s as Real / 8.0}\n")
+	let r = 2.0 as Real
+	print("{r > 1.0} {r == 2} {r != 2.0} {r < 2.0} {r <= 2.0} {-r}\n")
+	print("{trunc(-2.7)} {round(2.5)} {round(3.5)} {floor(-2.5)} {ceil(2.1)} {sqrt(2.0)} {abs(-5.5)}\n")
+	print("{clamp(0.25)} {clamp(7.0)}\n")
+	let zero = 0.0 as Real
+	print("{try share(1.0, whole: zero) otherwise -1.0} {try share(1.0, whole: 4.0) otherwise -1.0}\n")
+	let big = 18446744073709551615 as Count
+	let nan = sqrt(-1.0)
+	print("{big as Real} {(r * 1.0e308) * 10.0} {nan} {nan == nan} {nan != nan} {nan < 1.0}\n")
+	return try trunc(area(1.0)) as ExitCode otherwise 0
+end 'main'
+
+//> 12.56636 0.3333333333333333 100.0 1500.0 0.5
+//> 0.30000000000000004 -0.0 0.000000025 123456789012345680000.0 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005
+//> 7.0 21.0 5.25
+//> true true false false true -2.0
+//> -2 2.0 4.0 -3.0 3.0 1.4142135623730951 5.5
+//> 0.25 1.0
+//> -1.0 0.25
+//> 18446744073709552000.0 inf nan false true false
+// expect-exit: 3

@@ -640,6 +640,109 @@ export function encodeJccRel32(mutates code ByteArray, cond X64CondCode, rel Imm
 	writeImm32(code, value: rel)
 end 'encodeJccRel32'
 
+// movq src: 66 REX.W 0F 6E /0.
+export function encodeMovqXmm0Reg(mutates code ByteArray, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: true, regField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x6E)
+	writeModRmReg(code, regBits: 0, rm: src)
+end 'encodeMovqXmm0Reg'
+
+// movq src: 66 REX.W 0F 6E /1.
+export function encodeMovqXmm1Reg(mutates code ByteArray, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: true, regField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x6E)
+	writeModRmReg(code, regBits: 1, rm: src)
+end 'encodeMovqXmm1Reg'
+
+// movq dest: 66 REX.W 0F 7E /0.
+export function encodeMovqRegXmm0(mutates code ByteArray, dest X64Register)
+	code.push(0x66)
+	emitRex(code, wide: true, regField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x0F)
+	code.push(0x7E)
+	writeModRmReg(code, regBits: 0, rm: dest)
+end 'encodeMovqRegXmm0'
+
+// addsd : F2 0F 58 C1.
+export function encodeAddsdXmm0Xmm1(mutates code ByteArray)
+	code.push(0xF2)
+	code.push(0x0F)
+	code.push(0x58)
+	code.push(0xC1)
+end 'encodeAddsdXmm0Xmm1'
+
+// subsd : F2 0F 5C C1.
+export function encodeSubsdXmm0Xmm1(mutates code ByteArray)
+	code.push(0xF2)
+	code.push(0x0F)
+	code.push(0x5C)
+	code.push(0xC1)
+end 'encodeSubsdXmm0Xmm1'
+
+// mulsd : F2 0F 59 C1.
+export function encodeMulsdXmm0Xmm1(mutates code ByteArray)
+	code.push(0xF2)
+	code.push(0x0F)
+	code.push(0x59)
+	code.push(0xC1)
+end 'encodeMulsdXmm0Xmm1'
+
+// divsd : F2 0F 5E C1.
+export function encodeDivsdXmm0Xmm1(mutates code ByteArray)
+	code.push(0xF2)
+	code.push(0x0F)
+	code.push(0x5E)
+	code.push(0xC1)
+end 'encodeDivsdXmm0Xmm1'
+
+// sqrtsd : F2 0F 51 C0.
+export function encodeSqrtsdXmm0Xmm0(mutates code ByteArray)
+	code.push(0xF2)
+	code.push(0x0F)
+	code.push(0x51)
+	code.push(0xC0)
+end 'encodeSqrtsdXmm0Xmm0'
+
+// ucomisd : 66 0F 2E C1.
+export function encodeUcomisdXmm0Xmm1(mutates code ByteArray)
+	code.push(0x66)
+	code.push(0x0F)
+	code.push(0x2E)
+	code.push(0xC1)
+end 'encodeUcomisdXmm0Xmm1'
+
+// roundsd imm: 66 0F 3A 0B C0.
+export function encodeRoundsdXmm0Xmm0Imm8(mutates code ByteArray, imm Imm8)
+	code.push(0x66)
+	code.push(0x0F)
+	code.push(0x3A)
+	code.push(0x0B)
+	code.push(0xC0)
+	writeImm8(code, value: imm)
+end 'encodeRoundsdXmm0Xmm0Imm8'
+
+// cvtsi2sd src: F2 REX.W 0F 2A /0.
+export function encodeCvtsi2sdXmm0Reg(mutates code ByteArray, src X64Register)
+	code.push(0xF2)
+	emitRex(code, wide: true, regField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x2A)
+	writeModRmReg(code, regBits: 0, rm: src)
+end 'encodeCvtsi2sdXmm0Reg'
+
+// cvttsd2si : F2 REX.W 0F 2C C0.
+export function encodeCvttsd2siRaxXmm0(mutates code ByteArray)
+	code.push(0xF2)
+	emitRex(code, wide: true, regField: X64Register.rax, rmField: X64Register.rax, force: false)
+	code.push(0x0F)
+	code.push(0x2C)
+	code.push(0xC0)
+end 'encodeCvttsd2siRaxXmm0'
+
 // encodeAddRegImm is the first of AddRegImm8, AddRegImm32 whose immediate holds the value.
 export function encodeAddRegImm(mutates code ByteArray, dest X64Register, imm Imm32)
 	if imm >= imm8Min and imm <= imm8Max 'addRegImm8'
@@ -752,6 +855,18 @@ export enum X64Form
 	jmpRel32
 	callRel32
 	jccRel32
+	movqXmm0Reg
+	movqXmm1Reg
+	movqRegXmm0
+	addsdXmm0Xmm1
+	subsdXmm0Xmm1
+	mulsdXmm0Xmm1
+	divsdXmm0Xmm1
+	sqrtsdXmm0Xmm0
+	ucomisdXmm0Xmm1
+	roundsdXmm0Xmm0Imm8
+	cvtsi2sdXmm0Reg
+	cvttsd2siRaxXmm0
 end 'X64Form'
 
 export function setsFlags(form X64Form) returns bool
@@ -780,7 +895,8 @@ export function setsFlags(form X64Form) returns bool
 		shrRegCl or
 		sarRegCl or
 		sarRegImm8 or
-		repeCmpsb gives true
+		repeCmpsb or
+		ucomisdXmm0Xmm1 gives true
 		movRegReg or
 		loadRegBaseDisp or
 		storeBaseDispReg or
@@ -812,7 +928,18 @@ export function setsFlags(form X64Form) returns bool
 		callReg or
 		jmpRel32 or
 		callRel32 or
-		jccRel32 gives false
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
 	end 'form'
 end 'setsFlags'
 
@@ -874,7 +1001,19 @@ export function readsFlags(form X64Form) returns bool
 		callRip or
 		callReg or
 		jmpRel32 or
-		callRel32 gives false
+		callRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
 	end 'form'
 end 'readsFlags'
 
@@ -936,7 +1075,19 @@ export function readsMemory(form X64Form) returns bool
 		storeRipReg or
 		jmpRel32 or
 		callRel32 or
-		jccRel32 gives false
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
 	end 'form'
 end 'readsMemory'
 
@@ -998,6 +1149,18 @@ export function writesMemory(form X64Form) returns bool
 		leaRegRip or
 		loadRegRip or
 		jmpRel32 or
-		jccRel32 gives false
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
 	end 'form'
 end 'writesMemory'

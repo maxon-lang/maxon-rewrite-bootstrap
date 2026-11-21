@@ -313,7 +313,7 @@ function visitReturnStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	end 'none' else 'some'
 		v = lowerExpr(l, p: p, e: value)
 		if convertsAtReturn(p, module: l.module, node: s) 'converts'
-			convertReturned(l, p: p, s: s, value: value, v: v)
+			v = convertReturned(l, p: p, s: s, value: value, v: v)
 		end 'converts'
 	end 'some'
 	unwind(l, p: p, depth: 0 as Count)
@@ -321,12 +321,16 @@ function visitReturnStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 end 'visitReturnStmt'
 
 // convertReturned converts the value of a return to the declared type of the function as the cast 'value as T' does.
-function convertReturned(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, value ast.NodeID, v Reg)
+function convertReturned(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, value ast.NodeID, v Reg) returns Reg
 	let fails = arithInfoAt(p, module: l.module, node: s).fails
-	let fail = overflowTo(l, p: p, fails: fails)
 	let target = p.funcs.entries[l.fn as Count].retTy
+	if p.types.entries[target as Count].kind == ast.TypeKind.floatRange 'float'
+		return floatConverted(l, p: p, v: v, e: value, target: target, fails: fails)
+	end 'float'
+	let fail = overflowTo(l, p: p, fails: fails)
 	requireInt(p, t: target)
 	fit(l, p: p, v: v, target: target, source: exprType(p, module: l.module, node: value), fails: fails, fail: fail)
+	return v
 end 'convertReturned'
 
 function visitBreakStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)

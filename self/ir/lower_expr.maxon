@@ -32,6 +32,9 @@ function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	if p.types.entries[ty as Count].kind == ast.TypeKind.constInt 'constant'
 		return konst(l, value: wordOf(p.types.entries[ty as Count].minVal))
 	end 'constant'
+	if p.types.entries[ty as Count].kind == ast.TypeKind.constFloat 'floatConstant'
+		return konst(l, value: floatWord(ast.floatLowBits(p.types, t: ty)))
+	end 'floatConstant'
 	if p.modules[l.mi].tree.kindOf(e) == ast.NodeKind.tryExpr and ast.isTransparent(p.modules[l.mi].tree, e: e) 'transparent'
 		return lowerThrough(l, p: p, t: e)
 	end 'transparent'
@@ -65,6 +68,9 @@ function visitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	if k == ast.NodeKind.intLit 'intLit'
 		return konst(l, value: wordOf(ast.intLitValue(p.modules[l.mi].tree, id: e)))
 	end 'intLit'
+	if k == ast.NodeKind.floatLit 'floatLit'
+		return konst(l, value: floatWord(ast.floatLitBits(p.modules[l.mi].tree, id: e)))
+	end 'floatLit'
 	if k == ast.NodeKind.boolLit 'boolLit'
 		if ast.boolLitValue(p.modules[l.mi].tree, id: e) 'true'
 			return konst(l, value: 1 as Word)
@@ -254,6 +260,9 @@ function visitCastExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 	let fails = arithInfoAt(p, module: l.module, node: e).fails
 	let fail = overflowTo(l, p: p, fails: fails)
 	let target = exprType(p, module: l.module, node: e)
+	if p.types.entries[target as Count].kind == ast.TypeKind.floatRange 'float'
+		return floatConverted(l, p: p, v: v, e: inner, target: target, fails: fails)
+	end 'float'
 	requireInt(p, t: target)
 	fit(l, p: p, v: v, target: target, source: exprType(p, module: l.module, node: inner), fails: fails, fail: fail)
 	return v
@@ -819,6 +828,9 @@ function strPart(mutates l Lowerer, mutates p ast.Project, partsRef diag.U32, in
 		let flagReg = konst(l, value: flag)
 		return TextPart.make(runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(v, b: flagReg)), owner: TextOwner.textFresh)
 	end 'int'
+	if kind == ast.TypeKind.constFloat or kind == ast.TypeKind.floatRange 'float'
+		return TextPart.make(runtime(l, symbol: Rt.rtFtoa, kind: IrKind.kindManaged, args: argsOf1(v)), owner: TextOwner.textFresh)
+	end 'float'
 	if kind == ast.TypeKind.enumTy 'enum'
 		return TextPart.make(names(l, index: v, names: caseNames(p, t: t)), owner: TextOwner.textImmortal)
 	end 'enum'
@@ -936,6 +948,9 @@ function lowerOperator(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, l
 		return eq
 	end 'string'
 	let c = lowerExpr(l, p: p, e: right)
+	if ast.isFloatType(p.types, t: arith.operand) 'float'
+		return floatOperator(l, p: p, e: e, op: op, left: left, right: c, fails: arith.fails)
+	end 'float'
 	let unsigned = ast.isUnsignedInt(p.types, t: arith.operand)
 	if isCmpOpText(op) 'cmp'
 		return compare(l, op: cmpOpOfText(op), a: left, b: c, unsigned: unsigned)
@@ -987,6 +1002,9 @@ function visitUnaryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) 
 	if op == "not" and ty == p.builtins.boolTy 'boolean'
 		return flip(l, boolean: v)
 	end 'boolean'
+	if ast.isFloatType(p.types, t: ty) 'float'
+		return floatNegation(l, v: v)
+	end 'float'
 	let fails = arithInfoAt(p, module: l.module, node: e).fails
 	let overflow = overflowTo(l, p: p, fails: fails)
 	let d = newReg(l, kind: IrKind.kindScalar)

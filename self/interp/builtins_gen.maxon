@@ -19,6 +19,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryItoa(vm, f: f, x: x)
 		return
 	end 'rtItoa'
+	if symbol == ir.Rt.rtFtoa 'rtFtoa'
+		try entryFtoa(vm, f: f, x: x)
+		return
+	end 'rtFtoa'
 	if symbol == ir.Rt.rtStreq 'rtStreq'
 		try entryStreq(vm, f: f, x: x)
 		return

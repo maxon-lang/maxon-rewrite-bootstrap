@@ -104,6 +104,14 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 		diag.pushSiteError(errs, code: diag.errUnsupportedFeature, message: "the ranged typealias '{ad.name}' is declared in a generic type, where each instance would have a type of its own, which this compiler does not implement: declare it outside the type", module: ref.module, offset: off)
 		return
 	end 'perInstance'
+	if ad.number == "float" 'float'
+		declareFloatAlias(p, ref: ref, ad: ad, errs: errs)
+		return
+	end 'float'
+	if ad.number != "" 'otherNumber'
+		diag.pushSiteError(errs, code: diag.errUnknownType, message: "'{ad.number}' is no number type to take a range of; write int(low to high) or float(low to high)", module: ref.module, offset: off)
+		return
+	end 'otherNumber'
 	var lo as I128
 	match consumes boundValue(ref.module, tree: p.modules[modIdx].tree, b: ad.low, errs: errs) 'low'
 		some(v) then lo = v
@@ -132,6 +140,57 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 	e.decl = ref.clone()
 	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
 end 'declareRangeAlias'
+
+// declareFloatAlias gives a typealias of a float range its type, whose bounds are doubles: a float or an integer
+// literal, or the limit of f64 or f32.
+function declareFloatAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
+	let modIdx = modIndex(ref.module)
+	let off = p.modules[modIdx].tree.startOf(ad.id)
+	if not ad.inclusive 'exclusive'
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: "a float range includes its upper bound: write 'to' in place of 'upto'", module: ref.module, offset: off)
+		return
+	end 'exclusive'
+	var lo = 0 as Count
+	match floatBound(ref.module, tree: p.modules[modIdx].tree, b: ad.low, errs: errs) 'low'
+		some(v) then lo = v
+		none then return
+	end 'low'
+	var hi = 0 as Count
+	match floatBound(ref.module, tree: p.modules[modIdx].tree, b: ad.high, errs: errs) 'high'
+		some(v) then hi = v
+		none then return
+	end 'high'
+	if floatCompare(lo, b: hi) == FloatOrder.greater 'empty'
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: "the range float({floatDiagnosticText(lo)} to {floatDiagnosticText(hi)}) is empty: its lower bound is above its upper bound", module: ref.module, offset: off)
+		return
+	end 'empty'
+	var e = TypeEntry.make(TypeKind.floatRange, name: ad.name.clone())
+	e.minVal = I128.fromCount(lo)
+	e.maxVal = I128.fromCount(hi)
+	e.hasDecl = true
+	e.decl = ref.clone()
+	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
+end 'declareFloatAlias'
+
+// floatBound is the double a bound of a float range writes, or none after it reported why it names none. A bound that
+// is no float literal is an integer literal, whose double it is; both read 0 for 0.
+function floatBound(modID diag.ModuleID, tree Tree, b Bound, mutates errs diag.ErrorList) returns table.Option with Count
+	var bits = b.real.lo
+	if b.sized != "" 'sized'
+		let limit = floatMaxBits if b.sized == "f64" else f32MaxBits
+		if (b.sized != "f64" and b.sized != "f32") or (b.limit != "min" and b.limit != "max") 'unknown'
+			diag.pushSiteError(errs, code: diag.errUnknownField, message: "'{b.sized}.{b.limit}' is not a bound of a float range; write f64.min, f64.max, f32.min or f32.max", module: modID, offset: tree.startOf(b.id))
+			return table.Option.none
+		end 'unknown'
+		bits = limit if b.limit == "max" else floatNegate(limit)
+	end 'sized' else if bits == 0 'integer'
+		bits = floatFromInt(b.value)
+	end 'integer'
+	if b.negative 'neg'
+		return table.Option.some(floatNegate(bits))
+	end 'neg'
+	return table.Option.some(bits)
+end 'floatBound'
 
 // nestedOwnerSeparator is the dot that ends the owner's name in the name of a typealias declared in a type's body.
 let nestedOwnerSeparator = 46 as Byte

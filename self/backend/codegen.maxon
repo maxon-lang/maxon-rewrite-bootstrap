@@ -15,6 +15,13 @@ let shiftBitCount = 64
 
 let signBitShift = 63
 
+// The rounding modes of roundsd's immediate: to the nearest (ties to even), down and up.
+let roundNearest = 0 as Imm8
+
+let roundDown = 1 as Imm8
+
+let roundUp = 2 as Imm8
+
 // zeroInlineSlots is how many managed slots a frame clears with one store each; a frame with more clears all its slots
 // with one string instruction, which is shorter from there on.
 let zeroInlineSlots = 6
@@ -484,6 +491,104 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		u.asm.setccRax(self.condition(x))
 		self.put(f, v: x.dst, r: rax)
 	end 'visitCmp'
+
+	// A float operation moves its operands from the frame into xmm0 and xmm1 and its result back into rax: a float is a
+	// word like any other between operations.
+	function visitFBin(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rax, v: ir.fBinLeft(x))
+		self.get(f, r: rcx, v: ir.fBinRight(x))
+		u.asm.toXmm0(rax)
+		u.asm.toXmm1(rcx)
+		match ir.fBinOp(x) 'op'
+			fBinAdd then u.asm.addsd()
+			fBinSub then u.asm.subsd()
+			fBinMul then u.asm.mulsd()
+			fBinDiv then u.asm.divsd()
+		end 'op'
+		u.asm.fromXmm0(rax)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitFBin'
+
+	// visitFCmp compares with ucomisd, which sets the carry, zero and parity flags all for an unordered pair: a test of
+	// below swaps the operands so that a NaN fails it as it fails every test but ne.
+	function visitFCmp(mutates self, f ir.IrFunction, x ir.Instr)
+		let op = ir.fCmpOp(x)
+		let swapped = op == ir.CmpOp.cmpLt or op == ir.CmpOp.cmpLe
+		self.get(f, r: rax, v: ir.fCmpRight(x) if swapped else ir.fCmpLeft(x))
+		self.get(f, r: rcx, v: ir.fCmpLeft(x) if swapped else ir.fCmpRight(x))
+		u.asm.toXmm0(rax)
+		u.asm.toXmm1(rcx)
+		u.asm.ucomisd()
+		match op 'op'
+			cmpEq then self.orderedTest(X64CondCode.equal, ordered: X64CondCode.noParity, both: true)
+			cmpNe then self.orderedTest(X64CondCode.notEqual, ordered: X64CondCode.parity, both: false)
+			cmpLt then u.asm.setccRax(X64CondCode.above)
+			cmpLe then u.asm.setccRax(X64CondCode.aboveEqual)
+			cmpGt then u.asm.setccRax(X64CondCode.above)
+			cmpGe then u.asm.setccRax(X64CondCode.aboveEqual)
+		end 'op'
+		self.put(f, v: x.dst, r: rax)
+	end 'visitFCmp'
+
+	// orderedTest sets rax to cond and, with both, also to the parity test that says the pair is ordered, or else to either.
+	function orderedTest(mutates self, cond X64CondCode, ordered X64CondCode, both bool)
+		u.asm.setccRax(cond)
+		u.asm.setccByte(ordered, reg: rcx)
+		if both 'and'
+			u.asm.bitAnd(rax, src: rcx)
+		end 'and' else 'or'
+			u.asm.bitOr(rax, src: rcx)
+		end 'or'
+	end 'orderedTest'
+
+	function visitFUnary(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rax, v: ir.fUnarySrc(x))
+		u.asm.toXmm0(rax)
+		match ir.fUnaryOp(x) 'op'
+			fUnarySqrt then u.asm.sqrtsd()
+			fUnaryRound then u.asm.roundsd(roundNearest)
+			fUnaryFloor then u.asm.roundsd(roundDown)
+			fUnaryCeil then u.asm.roundsd(roundUp)
+		end 'op'
+		u.asm.fromXmm0(rax)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitFUnary'
+
+	// visitIntToFloat converts with cvtsi2sd, which reads a signed word: an unsigned one past i64.max is halved first,
+	// keeping its low bit so that it rounds as the whole would, and the double doubled.
+	function visitIntToFloat(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rax, v: ir.intToFloatSrc(x))
+		if not ir.intToFloatUnsigned(x) 'signed'
+			u.asm.cvtsi2sd(rax)
+		end 'signed' else 'unsigned'
+			let large = u.asm.newLabel()
+			let done = u.asm.newLabel()
+			u.asm.test(rax, right: rax)
+			u.asm.jcc(X64CondCode.sign, label: large)
+			u.asm.cvtsi2sd(rax)
+			u.asm.jmp(done)
+			u.asm.bind(large)
+			u.asm.mov(rdx, src: rax)
+			u.asm.andImm(rdx, imm: 1)
+			u.asm.movImm(rcx, imm: 1)
+			u.asm.shrCl(rax)
+			u.asm.bitOr(rax, src: rdx)
+			u.asm.cvtsi2sd(rax)
+			u.asm.fromXmm0(rax)
+			u.asm.toXmm1(rax)
+			u.asm.addsd()
+			u.asm.bind(done)
+		end 'unsigned'
+		u.asm.fromXmm0(rax)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitIntToFloat'
+
+	function visitFloatToInt(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rax, v: ir.floatToIntSrc(x))
+		u.asm.toXmm0(rax)
+		u.asm.cvttsd2siRax()
+		self.put(f, v: x.dst, r: rax)
+	end 'visitFloatToInt'
 
 	function visitNeg(mutates self, f ir.IrFunction, x ir.Instr)
 		self.get(f, r: rax, v: ir.negSrc(x))

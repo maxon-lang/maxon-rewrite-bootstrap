@@ -31,6 +31,8 @@ export enum TypeKind
 	primNever
 	intRange
 	constInt
+	floatRange
+	constFloat
 	record
 	enumTy
 	unionTy
@@ -61,6 +63,8 @@ export enum TypeKind
 			primNever gives false
 			intRange gives false
 			constInt gives false
+			floatRange gives false
+			constFloat gives false
 			record gives false
 			enumTy gives false
 			unionTy gives false
@@ -380,6 +384,88 @@ export function internConstInt(mutates tt TypeTable, consumes val I128) returns 
 	return id
 end 'internConstInt'
 
+// internFloatRange is the float type of a range, whose bounds are the bits of the doubles that end it. One that runs from
+// f64.min to f64.max holds every double, the infinities and NaN among them.
+export function internFloatRange(mutates tt TypeTable, consumes aliasName String, lo Count, hi Count) returns TypeID
+	let key = "f|{aliasName}|{lo}|{hi}"
+	match tt.rangeCache.get(key) 'hit'
+		some(id) then return id
+		none then _ = 0
+	end 'hit'
+	var e = TypeEntry.make(TypeKind.floatRange, name: aliasName)
+	e.minVal = I128.fromCount(lo)
+	e.maxVal = I128.fromCount(hi)
+	let id = allocType(tt, e: e)
+	tt.rangeCache.insert(key, value: id)
+	return id
+end 'internFloatRange'
+
+// internConstFloat is the type of a float constant, whose value is the bits of its double.
+export function internConstFloat(mutates tt TypeTable, bits Count) returns TypeID
+	let key = "f{bits}"
+	match tt.constCache.get(key) 'hit'
+		some(id) then return id
+		none then _ = 0
+	end 'hit'
+	var e = TypeEntry.make(TypeKind.constFloat, name: "float")
+	e.minVal = I128.fromCount(bits)
+	e.maxVal = I128.fromCount(bits)
+	let id = allocType(tt, e: e)
+	tt.constCache.insert(key, value: id)
+	return id
+end 'internConstFloat'
+
+export function isFloatType(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	let k = tt.entries[t as Count].kind
+	return k == TypeKind.floatRange or k == TypeKind.constFloat
+end 'isFloatType'
+
+// floatBits is the double of a float constant, or a bound of a float range: minVal for the low one.
+export function floatLowBits(tt TypeTable, t TypeID) returns Count
+	return tt.entries[t as Count].minVal.lo
+end 'floatLowBits'
+
+export function floatHighBits(tt TypeTable, t TypeID) returns Count
+	return tt.entries[t as Count].maxVal.lo
+end 'floatHighBits'
+
+// isFullFloatRange is whether a float range runs from f64.min to f64.max, and so holds every double.
+export function isFullFloatRange(tt TypeTable, t TypeID) returns bool
+	return tt.entries[t as Count].kind == TypeKind.floatRange and floatLowBits(tt, t: t) == floatNegate(floatMaxBits) and floatHighBits(tt, t: t) == floatMaxBits
+end 'isFullFloatRange'
+
+// floatRangeHolds is whether the float range t holds the double of the bits.
+export function floatRangeHolds(tt TypeTable, t TypeID, bits Count) returns bool
+	if isFullFloatRange(tt, t: t) 'all'
+		return true
+	end 'all'
+	let low = floatCompare(bits, b: floatLowBits(tt, t: t))
+	let high = floatCompare(bits, b: floatHighBits(tt, t: t))
+	return (low == FloatOrder.greater or low == FloatOrder.equal) and (high == FloatOrder.less or high == FloatOrder.equal)
+end 'floatRangeHolds'
+
+// floatRangeCovers is whether the float range dst holds every value of the float range src.
+export function floatRangeCovers(tt TypeTable, dst TypeID, src TypeID) returns bool
+	if isFullFloatRange(tt, t: dst) 'all'
+		return true
+	end 'all'
+	if isFullFloatRange(tt, t: src) 'none'
+		return false
+	end 'none'
+	return floatRangeHolds(tt, t: dst, bits: floatLowBits(tt, t: src)) and floatRangeHolds(tt, t: dst, bits: floatHighBits(tt, t: src))
+end 'floatRangeCovers'
+
+// floatSpelling is how a float type's range is written: FullRangeFloat for the whole of it, as maxon names it.
+function floatSpelling(tt TypeTable, t TypeID) returns String
+	if isFullFloatRange(tt, t: t) 'full'
+		return "FullRangeFloat"
+	end 'full'
+	return "float({floatDiagnosticText(floatLowBits(tt, t: t))} to {floatDiagnosticText(floatHighBits(tt, t: t))})"
+end 'floatSpelling'
+
 export function instanceKey(origin TypeID, args TypeIDList) returns String
 	var b = ByteArray.create(0)
 	b.append("{origin}:".toByteArray())
@@ -647,6 +733,8 @@ export function isManagedType(tt TypeTable, t TypeID) returns bool
 		primNever gives false
 		intRange gives false
 		constInt gives false
+		floatRange gives false
+		constFloat gives false
 		enumTy gives false
 		builtinHandle gives false
 		interfaceTy gives false
@@ -715,6 +803,9 @@ export function typeName(tt TypeTable, t TypeID) returns String
 		end 'named'
 		return intSpelling(tt, t: t)
 	end 'rng'
+	if k == TypeKind.floatRange and tt.entries[t as Count].name == "" 'anonFloat'
+		return floatSpelling(tt, t: t)
+	end 'anonFloat'
 	if tt.entries[t as Count].typeArgs.count() > 0 'inst'
 		var argNames = StringList.create(0)
 		for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'

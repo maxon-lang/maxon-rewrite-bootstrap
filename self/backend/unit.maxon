@@ -286,6 +286,61 @@ export type Asm
 		encodeSetccRax(code, cond: cond)
 	end 'setccRax'
 
+	// setccByte sets the low byte of a register to a condition and zero-extends it.
+	export function setccByte(mutates self, cond X64CondCode, reg X64Register)
+		encodeSetccReg(code, cond: cond, dest: reg)
+		encodeMovzxRegReg8(code, dest: reg, src: reg)
+	end 'setccByte'
+
+	// The float operations work on xmm0 and xmm1, which a float reaches from a general register and leaves to one.
+	export function toXmm0(mutates self, src X64Register)
+		encodeMovqXmm0Reg(code, src: src)
+	end 'toXmm0'
+
+	export function toXmm1(mutates self, src X64Register)
+		encodeMovqXmm1Reg(code, src: src)
+	end 'toXmm1'
+
+	export function fromXmm0(mutates self, dest X64Register)
+		encodeMovqRegXmm0(code, dest: dest)
+	end 'fromXmm0'
+
+	export function addsd(mutates self)
+		encodeAddsdXmm0Xmm1(code)
+	end 'addsd'
+
+	export function subsd(mutates self)
+		encodeSubsdXmm0Xmm1(code)
+	end 'subsd'
+
+	export function mulsd(mutates self)
+		encodeMulsdXmm0Xmm1(code)
+	end 'mulsd'
+
+	export function divsd(mutates self)
+		encodeDivsdXmm0Xmm1(code)
+	end 'divsd'
+
+	export function sqrtsd(mutates self)
+		encodeSqrtsdXmm0Xmm0(code)
+	end 'sqrtsd'
+
+	export function ucomisd(mutates self)
+		encodeUcomisdXmm0Xmm1(code)
+	end 'ucomisd'
+
+	export function roundsd(mutates self, mode Imm8)
+		encodeRoundsdXmm0Xmm0Imm8(code, imm: mode)
+	end 'roundsd'
+
+	export function cvtsi2sd(mutates self, src X64Register)
+		encodeCvtsi2sdXmm0Reg(code, src: src)
+	end 'cvtsi2sd'
+
+	export function cvttsd2siRax(mutates self)
+		encodeCvttsd2siRaxXmm0(code)
+	end 'cvttsd2siRax'
+
 	export function ret(mutates self)
 		encodeRet(code)
 	end 'ret'

@@ -773,7 +773,7 @@ function rangeReturnStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 		let v = rangeEval(r, p: p, e: value)
 		if r.typing.arith.get(s as Count).isSome() 'converts'
 			let ret = p.funcs.entries[r.fn as Count].retTy
-			_ = rangeConverted(r, p: p, e: s, v: v, ty: ret, why: Unchecked.returned(ret, value: value))
+			_ = rangeConverted(r, p: p, e: s, v: v, src: typeOf(r, e: value), ty: ret, why: Unchecked.returned(ret, value: value))
 		end 'converts'
 	end 'value'
 	r.st = deadState

@@ -270,7 +270,7 @@ end 'eval'
 
 function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
 	let k = p.modules[o.c.modIdx].tree.kindOf(e)
-	if k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit 'literal'
+	if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit 'literal'
 		return s
 	end 'literal'
 	if k == ast.NodeKind.selfExpr 'self'
@@ -567,7 +567,7 @@ end 'holdAcross'
 // into anything larger: holding is always right, and the walk costs more than the hold it would save.
 function runsNoCode(tree ast.Tree, e ast.NodeID) returns bool
 	let k = tree.kindOf(e)
-	return k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.nameExpr or k == ast.NodeKind.selfExpr
+	return k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.nameExpr or k == ast.NodeKind.selfExpr
 end 'runsNoCode'
 
 // release ends the holds taken since projections had mark entries.

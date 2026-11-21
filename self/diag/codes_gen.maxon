@@ -57,6 +57,9 @@ export let errShiftCountNegative = "E2054"
 // A generic instance names the wrong number of type arguments.
 export let errTypeArgumentCount = "E2056"
 
+// A call labels an argument of a built-in function whose arguments are positional.
+export let errBuiltinArgNamed = "E2067"
+
 // A qualified name names a member its base does not declare.
 export let errUnknownStaticMember = "E2073"
 
@@ -77,6 +80,9 @@ export let errDuplicateDefinition = "E3006"
 
 // A declaration is named from a module its visibility does not reach.
 export let errNotExported = "E3008"
+
+// A cast or a conversion between number types that loses what the value is: a float to an integer.
+export let errUnsafeCast = "E3009"
 
 // A named type resolves to no declared type.
 export let errUnknownType = "E3011"

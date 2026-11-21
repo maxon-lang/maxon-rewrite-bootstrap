@@ -1,0 +1,1018 @@
+// The IEEE-754 binary64 arithmetic of the compiler: the bits of a float literal, the constant folding of float
+// operations, the interpreter's float operations and the text of a float. The compiler's own source has no floats, so a
+// double is its 64 bits in a Count and every operation is exact integer arithmetic: a value is a ratio of two big
+// integers times a power of two, rounded once to the nearest double, ties to even, as the hardware rounds.
+
+export let floatSignBit = 9223372036854775808 as Count
+
+export let floatMagnitudeMask = 9223372036854775807 as Count
+
+export let floatInfinityBits = 9218868437227405312 as Count
+
+// floatDefaultNaN is the NaN an invalid operation gives on x64 (inf - inf, 0 / 0): the sign set and the quiet bit.
+export let floatDefaultNaN = 18444492273895866368 as Count
+
+export let floatMaxBits = 9218868437227405311 as Count
+
+// f32MaxBits is the double that f32.max is, (2 - 2^-23) * 2^127.
+export let f32MaxBits = 5183643170566569984 as Count
+
+let significandBits = 52
+
+let significandMask = 4503599627370495
+
+let implicitBit = 4503599627370496
+
+let exponentFieldMask = 2047
+
+let infiniteExponentField = 2047
+
+let exponentBias = 1023
+
+// unitExponent is the exponent of the unit of a significand read as an integer: a normal double's value is its
+// significand times 2^(field - 1075), and a subnormal's times 2^-1074.
+let unitExponent = 1075
+
+let leastExponent = -1074
+
+let precision = 53
+
+let minNormalExponent = -1022
+
+let maxExponent = 1023
+
+// roundTripDigits is the most significant digits that the text of a double needs: 17 read back as every binary64.
+let roundTripDigits = 17 as Count
+
+// The decimal exponents past which a literal is surely past f64.max, or surely rounds to 0.
+let overflowDecimalExponent = 310
+
+let underflowDecimalExponent = -400
+
+// exponentClamp is where the exponent of a literal stops growing: far past both ends of the range, and short of the
+// word, whatever the digits before it say.
+let exponentClamp = 1000000
+
+// The notation of a diagnostic's float, as maxon's: fixed from scale -3 to 17, scientific past it.
+let fixedMaxScale = 17
+
+let fixedMinScale = -3
+
+let limbMask = 4294967295 as Count
+
+let limbBits = 32 as Count
+
+let limbBase = 4294967296 as Count
+
+let decimalChunk = 1000000000 as NonZeroLimb
+
+let decimalChunkDigits = 9 as Count
+
+let halfwayDigit = 5 as Digit
+
+let digitZeroByte = 48 as Byte
+
+export typealias Limb = int(0 to 4294967295)
+
+typealias NonZeroLimb = int(1 to 4294967295)
+
+typealias LimbShift = int(0 to 31)
+
+// Limbs is a big integer that is not negative, 32 bits to a limb, the least significant first, with no zero limb on top.
+export typealias Limbs = Array with Limb
+
+export typealias Digit = int(0 to 9)
+
+export typealias Digits = Array with Digit
+
+// FloatOrder is how two floats compare: unordered when either is a NaN.
+export enum FloatOrder
+	less
+	equal
+	greater
+	unordered
+end 'FloatOrder'
+
+// FloatParse is the double a literal's text is, or that it is past f64.max.
+export union FloatParse
+	bits(value Count)
+	overflow
+end 'FloatParse'
+
+// A Decimal is a positive number written as its significant digits with no zero on either end, and the place of the
+// point: the value is 0.d1d2d3... times 10^scale.
+export type Decimal
+	export var digits as Digits
+	export var scale as FullRangeInt
+
+	export static function make(consumes digits Digits, scale FullRangeInt) returns Decimal
+		return Decimal{digits: digits, scale: scale}
+	end 'make'
+end 'Decimal'
+
+// --- big integers ---
+
+function bigOf(v Count) returns Limbs
+	var out = Limbs.create(0)
+	var rest = v
+	while rest != 0 'limbs'
+		out.push((rest and limbMask) as Limb)
+		rest = rest shr limbBits
+	end 'limbs'
+	return out
+end 'bigOf'
+
+function bigTrim(mutates a Limbs)
+	var n = a.count()
+	while n > 0 and a[n - 1] == 0 'top'
+		_ = try a.pop() otherwise panic("floats: a limb was just counted")
+		n = n - 1
+	end 'top'
+end 'bigTrim'
+
+// bigMulAdd sets a to a * m + add.
+function bigMulAdd(mutates a Limbs, m Limb, add Limb)
+	let factor = m as Count
+	var carry = add
+	for i in 0 upto a.count() 'each'
+		let t = (a[i] as Count) * factor + (carry as Count)
+		a[i] = (t and limbMask) as Limb
+		carry = (t / limbBase) as Limb
+	end 'each'
+	if carry != 0 'grow'
+		a.push(carry)
+	end 'grow'
+	bigTrim(a)
+end 'bigMulAdd'
+
+// bigMulPow sets a to a * base^n.
+function bigMulPow(mutates a Limbs, base Limb, n Count)
+	for _ in 0 upto n 'each'
+		bigMulAdd(a, m: base, add: 0)
+	end 'each'
+end 'bigMulPow'
+
+function bigMul(a Limbs, b Limbs) returns Limbs
+	var out = Limbs.create(try a.count() + b.count() otherwise panic("floats: a product is past the word"))
+	for i in 0 upto a.count() 'rows'
+		var carry = 0 as Limb
+		let ai = a[i] as Count
+		var at = i
+		for j in 0 upto b.count() 'cols'
+			let t = ai * (b[j] as Count) + (out[at] as Count) + (carry as Count)
+			out[at] = (t and limbMask) as Limb
+			carry = (t / limbBase) as Limb
+			at = try at + 1 otherwise panic("floats: a product is past the word")
+		end 'cols'
+		out[at] = carry
+	end 'rows'
+	bigTrim(out)
+	return out
+end 'bigMul'
+
+// bigShl is a * 2^n.
+function bigShl(a Limbs, n Count) returns Limbs
+	let part = (n mod limbBits) as LimbShift
+	var out = Limbs.create(n / limbBits)
+	var carry = 0 as Limb
+	for i in 0 upto a.count() 'each'
+		let t = ((a[i] as Count) shl part) + (carry as Count)
+		out.push((t and limbMask) as Limb)
+		carry = (t / limbBase) as Limb
+	end 'each'
+	out.push(carry)
+	bigTrim(out)
+	return out
+end 'bigShl'
+
+function bigCmp(a Limbs, b Limbs) returns FloatOrder
+	if a.count() != b.count() 'lengths'
+		return FloatOrder.less if a.count() < b.count() else FloatOrder.greater
+	end 'lengths'
+	var i = a.count()
+	while i > 0 'down'
+		i = i - 1
+		if a[i] != b[i] 'differs'
+			return FloatOrder.less if a[i] < b[i] else FloatOrder.greater
+		end 'differs'
+	end 'down'
+	return FloatOrder.equal
+end 'bigCmp'
+
+// bigSub sets a to a - b, for a b that is not larger.
+function bigSub(mutates a Limbs, b Limbs)
+	var borrow = 0 as Limb
+	for i in 0 upto a.count() 'each'
+		var sub = borrow as Count
+		if i < b.count() 'part'
+			sub = sub + (b[i] as Count)
+		end 'part'
+		let ai = a[i] as Count
+		if ai >= sub 'fits'
+			a[i] = try (ai - sub) as Limb otherwise panic("floats: a difference is past a limb")
+			borrow = 0
+		end 'fits' else 'borrows'
+			a[i] = try (ai + limbMask + 1 - sub) as Limb otherwise panic("floats: a borrow is past a limb")
+			borrow = 1
+		end 'borrows'
+	end 'each'
+	if borrow != 0 'negative'
+		panic("floats: a subtraction went below 0")
+	end 'negative'
+	bigTrim(a)
+end 'bigSub'
+
+function bigAdd(a Limbs, b Limbs) returns Limbs
+	var out = Limbs.create(0)
+	var carry = 0 as Limb
+	var i = 0 as Count
+	while i < a.count() or i < b.count() 'each'
+		var t = carry as Count
+		if i < a.count() 'left'
+			t = t + (a[i] as Count)
+		end 'left'
+		if i < b.count() 'right'
+			t = t + (b[i] as Count)
+		end 'right'
+		out.push((t and limbMask) as Limb)
+		carry = (t / limbBase) as Limb
+		i = try i + 1 otherwise panic("floats: a sum is past the word")
+	end 'each'
+	out.push(carry)
+	bigTrim(out)
+	return out
+end 'bigAdd'
+
+function bigBitLength(a Limbs) returns FullRangeInt
+	let n = a.count()
+	if n == 0 'zero'
+		return 0
+	end 'zero'
+	var top = a[n - 1] as Count
+	var bits = try ((n - 1) * limbBits) as FullRangeInt otherwise panic("floats: a number is past the word")
+	while top != 0 'bits'
+		bits = try bits + 1 otherwise panic("floats: a number is past the word")
+		top = top shr 1
+	end 'bits'
+	return bits
+end 'bigBitLength'
+
+// bigDivSmall sets a to a / d and gives the remainder.
+function bigDivSmall(mutates a Limbs, d NonZeroLimb) returns Limb
+	let divisor = d as Count
+	var rem = 0 as Limb
+	var i = a.count()
+	while i > 0 'down'
+		i = i - 1
+		let cur = ((rem as Count) shl limbBits) + (a[i] as Count)
+		a[i] = try (cur / divisor) as Limb otherwise panic("floats: a quotient is past a limb")
+		rem = try (cur mod divisor) as Limb otherwise panic("floats: a remainder is past a limb")
+	end 'down'
+	bigTrim(a)
+	return rem
+end 'bigDivSmall'
+
+// --- rounding ---
+
+function signedZero(neg bool) returns Count
+	return floatSignBit if neg else 0
+end 'signedZero'
+
+function infinity(neg bool) returns Count
+	return floatInfinityBits or signedZero(neg)
+end 'infinity'
+
+function negatedOf(v FullRangeInt) returns Count
+	return try (-v) as Count otherwise panic("floats: a shift is negative")
+end 'negatedOf'
+
+function unsignedOf(v FullRangeInt) returns Count
+	return try v as Count otherwise panic("floats: a shift is negative")
+end 'unsignedOf'
+
+// roundRatio is the double nearest num / den * 2^exp2, ties to even, with the sign neg; num and den are not 0.
+export function roundRatio(neg bool, num Limbs, den Limbs, exp2 FullRangeInt) returns Count
+	var e0 = 0 as FullRangeInt
+	var e = 0 as FullRangeInt
+	var k = 0 as FullRangeInt
+	var p = precision as FullRangeInt
+	try 'exponents'
+		e0 = bigBitLength(num) - bigBitLength(den)
+		if e0 >= 0 'up'
+			if bigCmp(num, b: bigShl(den, n: unsignedOf(e0))) == FloatOrder.less 'below'
+				e0 = e0 - 1
+			end 'below'
+		end 'up' else 'down'
+			if bigCmp(bigShl(num, n: negatedOf(e0)), b: den) == FloatOrder.less 'below'
+				e0 = e0 - 1
+			end 'below'
+		end 'down'
+		e = e0 + exp2
+		if e < minNormalExponent 'subnormal'
+			p = e + unitExponent
+		end 'subnormal'
+		k = p - 1 - e0
+	end 'exponents' otherwise 'past'
+		panic("floats: an exponent is past the word")
+	end 'past'
+	if e > maxExponent 'over'
+		return infinity(neg)
+	end 'over'
+	if p < 0 'under'
+		return signedZero(neg)
+	end 'under'
+	var n = num.clone()
+	var d = den.clone()
+	if k >= 0 'scaleUp'
+		n = bigShl(num, n: unsignedOf(k))
+	end 'scaleUp' else 'scaleDown'
+		d = bigShl(den, n: negatedOf(k))
+	end 'scaleDown'
+	var q = 0 as Count
+	var i = unsignedOf(p)
+	while i > 0 'bits'
+		i = i - 1
+		let di = bigShl(d, n: i)
+		if bigCmp(n, b: di) != FloatOrder.less 'set'
+			bigSub(n, b: di)
+			q = try q + (1 as Count shl i) otherwise panic("floats: a significand is past 53 bits")
+		end 'set'
+	end 'bits'
+	let half = bigCmp(bigShl(n, n: 1), b: d)
+	if half == FloatOrder.greater or (half == FloatOrder.equal and q mod 2 == 1) 'roundUp'
+		q = try q + 1 otherwise panic("floats: a significand is past 53 bits")
+	end 'roundUp'
+	var bits = q
+	if p == precision 'normal'
+		var biased = e
+		biased = try biased + exponentBias otherwise panic("floats: an exponent is past the word")
+		var sig = q
+		if sig == implicitBit * 2 'carried'
+			sig = implicitBit
+			biased = try biased + 1 otherwise panic("floats: an exponent is past the word")
+		end 'carried'
+		if biased >= infiniteExponentField 'carriedOver'
+			return infinity(neg)
+		end 'carriedOver'
+		let field = unsignedOf(biased)
+		bits = try (field shl significandBits) + (sig - implicitBit) otherwise panic("floats: a significand lost its leading bit")
+	end 'normal'
+	return bits or signedZero(neg)
+end 'roundRatio'
+
+// --- the parts of a double ---
+
+export function floatIsNaN(bits Count) returns bool
+	return (bits and floatMagnitudeMask) > floatInfinityBits
+end 'floatIsNaN'
+
+export function floatIsInfinite(bits Count) returns bool
+	return (bits and floatMagnitudeMask) == floatInfinityBits
+end 'floatIsInfinite'
+
+export function floatIsNegative(bits Count) returns bool
+	return bits >= floatSignBit
+end 'floatIsNegative'
+
+export function floatIsZero(bits Count) returns bool
+	return (bits and floatMagnitudeMask) == 0
+end 'floatIsZero'
+
+export function floatNegate(bits Count) returns Count
+	return bits xor floatSignBit
+end 'floatNegate'
+
+export function floatAbs(bits Count) returns Count
+	return bits and floatMagnitudeMask
+end 'floatAbs'
+
+typealias ExponentField = int(0 to 2047)
+
+typealias BinaryExponent = int(-1074 to 972)
+
+typealias Significand = int(0 to 9007199254740991)
+
+function exponentField(bits Count) returns ExponentField
+	return ((bits shr significandBits) and exponentFieldMask) as ExponentField
+end 'exponentField'
+
+// significandOf and exponentOf take a finite double apart: its magnitude is significandOf(bits) * 2^exponentOf(bits).
+function significandOf(bits Count) returns Significand
+	let fraction = (bits and significandMask) as Significand
+	if exponentField(bits) == 0 'subnormal'
+		return fraction
+	end 'subnormal'
+	return fraction + implicitBit
+end 'significandOf'
+
+function exponentOf(bits Count) returns BinaryExponent
+	let field = exponentField(bits)
+	if field == 0 'subnormal'
+		return leastExponent
+	end 'subnormal'
+	return field - unitExponent
+end 'exponentOf'
+
+// --- arithmetic ---
+
+export function floatFromInt(v I128) returns Count
+	if v.isZero() 'zero'
+		return 0
+	end 'zero'
+	return roundRatio(v.isNeg(), num: bigOf(v.magnitude()), den: bigOf(1), exp2: 0)
+end 'floatFromInt'
+
+export function floatAdd(a Count, b Count) returns Count
+	if floatIsNaN(a) or floatIsNaN(b) 'nan'
+		return quieted(a, b: b)
+	end 'nan'
+	if floatIsInfinite(a) or floatIsInfinite(b) 'inf'
+		if floatIsInfinite(a) and floatIsInfinite(b) and a != b 'opposite'
+			return floatDefaultNaN
+		end 'opposite'
+		return a if floatIsInfinite(a) else b
+	end 'inf'
+	if floatIsZero(a) and floatIsZero(b) 'zeros'
+		return a and b
+	end 'zeros'
+	if floatIsZero(b) 'rightZero'
+		return a
+	end 'rightZero'
+	if floatIsZero(a) 'leftZero'
+		return b
+	end 'leftZero'
+	let ea = exponentOf(a)
+	let eb = exponentOf(b)
+	var e = ea
+	if eb < e 'lower'
+		e = eb
+	end 'lower'
+	let ma = bigShl(bigOf((significandOf(a) as Count)), n: try (ea - e) as Count otherwise panic("floats: e is the least exponent"))
+	let mb = bigShl(bigOf((significandOf(b) as Count)), n: try (eb - e) as Count otherwise panic("floats: e is the least exponent"))
+	let na = floatIsNegative(a)
+	let nb = floatIsNegative(b)
+	if na == nb 'same'
+		return roundRatio(na, num: bigAdd(ma, b: mb), den: bigOf(1), exp2: e as FullRangeInt)
+	end 'same'
+	let order = bigCmp(ma, b: mb)
+	if order == FloatOrder.equal 'cancel'
+		return 0
+	end 'cancel'
+	if order == FloatOrder.greater 'leftLarger'
+		var diff = ma.clone()
+		bigSub(diff, b: mb)
+		return roundRatio(na, num: diff, den: bigOf(1), exp2: e as FullRangeInt)
+	end 'leftLarger'
+	var diff = mb.clone()
+	bigSub(diff, b: ma)
+	return roundRatio(nb, num: diff, den: bigOf(1), exp2: e as FullRangeInt)
+end 'floatAdd'
+
+export function floatSub(a Count, b Count) returns Count
+	if floatIsNaN(b) 'nan'
+		return quieted(a, b: b)
+	end 'nan'
+	return floatAdd(a, b: floatNegate(b))
+end 'floatSub'
+
+export function floatMul(a Count, b Count) returns Count
+	if floatIsNaN(a) or floatIsNaN(b) 'nan'
+		return quieted(a, b: b)
+	end 'nan'
+	let neg = floatIsNegative(a) != floatIsNegative(b)
+	if floatIsInfinite(a) or floatIsInfinite(b) 'inf'
+		if floatIsZero(a) or floatIsZero(b) 'invalid'
+			return floatDefaultNaN
+		end 'invalid'
+		return infinity(neg)
+	end 'inf'
+	if floatIsZero(a) or floatIsZero(b) 'zero'
+		return signedZero(neg)
+	end 'zero'
+	let e = exponentOf(a) + exponentOf(b)
+	return roundRatio(neg, num: bigMul(bigOf((significandOf(a) as Count)), b: bigOf((significandOf(b) as Count))), den: bigOf(1), exp2: e as FullRangeInt)
+end 'floatMul'
+
+export function floatDiv(a Count, b Count) returns Count
+	if floatIsNaN(a) or floatIsNaN(b) 'nan'
+		return quieted(a, b: b)
+	end 'nan'
+	let neg = floatIsNegative(a) != floatIsNegative(b)
+	if floatIsInfinite(a) 'infLeft'
+		if floatIsInfinite(b) 'invalid'
+			return floatDefaultNaN
+		end 'invalid'
+		return infinity(neg)
+	end 'infLeft'
+	if floatIsInfinite(b) 'infRight'
+		return signedZero(neg)
+	end 'infRight'
+	if floatIsZero(b) 'byZero'
+		if floatIsZero(a) 'invalid'
+			return floatDefaultNaN
+		end 'invalid'
+		return infinity(neg)
+	end 'byZero'
+	if floatIsZero(a) 'zero'
+		return signedZero(neg)
+	end 'zero'
+	let e = exponentOf(a) - exponentOf(b)
+	return roundRatio(neg, num: bigOf((significandOf(a) as Count)), den: bigOf((significandOf(b) as Count)), exp2: e as FullRangeInt)
+end 'floatDiv'
+
+// quieted is the NaN an operation on a NaN gives, as x64's: the first operand that is a NaN, with its quiet bit set.
+function quieted(a Count, b Count) returns Count
+	let quietBit = 2251799813685248 as Count
+	if floatIsNaN(a) 'left'
+		return a or quietBit
+	end 'left'
+	return b or quietBit
+end 'quieted'
+
+export function floatSqrt(a Count) returns Count
+	if floatIsNaN(a) 'nan'
+		return quieted(a, b: a)
+	end 'nan'
+	if floatIsZero(a) 'zero'
+		return a
+	end 'zero'
+	if floatIsNegative(a) 'negative'
+		return floatDefaultNaN
+	end 'negative'
+	if floatIsInfinite(a) 'inf'
+		return a
+	end 'inf'
+	var m = bigOf((significandOf(a) as Count))
+	var e = exponentOf(a) as FullRangeInt
+	if e mod 2 != 0 'odd'
+		m = bigShl(m, n: 1)
+		e = e - 1
+	end 'odd'
+	// Scaled by 2^(2s), the root has at least 56 bits, so the bit past it decides the rounding with no tie.
+	let s = 60 as FullRangeInt
+	let scaled = bigShl(m, n: (s * 2) as Count)
+	var rest = scaled.clone()
+	var root = Limbs.create(0)
+	var bit = bigShl(bigOf(1), n: unsignedOf((bigBitLength(scaled) / 2) * 2))
+	while bit.count() > 0 'digits'
+		let trial = bigAdd(root, b: bit)
+		if bigCmp(rest, b: trial) != FloatOrder.less 'take'
+			bigSub(rest, b: trial)
+			root = bigAdd(halved(root), b: bit)
+		end 'take' else 'skip'
+			root = halved(root)
+		end 'skip'
+		bit = halved(halved(bit))
+	end 'digits'
+	var twice = bigShl(root, n: 1)
+	if rest.count() > 0 'inexact'
+		bigMulAdd(twice, m: 1, add: 1)
+	end 'inexact'
+	return roundRatio(false, num: twice, den: bigOf(1), exp2: e / 2 - s - 1)
+end 'floatSqrt'
+
+function halved(a Limbs) returns Limbs
+	var out = a.clone()
+	var carry = 0 as Count
+	var i = out.count()
+	while i > 0 'down'
+		i = i - 1
+		let cur = out[i] as Count
+		out[i] = try ((cur shr 1) + carry) as Limb otherwise panic("floats: a halved limb is past a limb")
+		carry = (cur and 1) shl 31
+	end 'down'
+	bigTrim(out)
+	return out
+end 'halved'
+
+export function floatCompare(a Count, b Count) returns FloatOrder
+	if floatIsNaN(a) or floatIsNaN(b) 'nan'
+		return FloatOrder.unordered
+	end 'nan'
+	let c = floatKey(a).cmp(floatKey(b))
+	if c < 0 'less'
+		return FloatOrder.less
+	end 'less'
+	return FloatOrder.greater if c > 0 else FloatOrder.equal
+end 'floatCompare'
+
+// floatKey is a number that orders as the double does: its magnitude's bits, negated for a negative double, so the two
+// zeros are one key.
+export function floatKey(bits Count) returns I128
+	let magnitude = I128.fromCount(bits and floatMagnitudeMask)
+	if floatIsNegative(bits) 'negative'
+		return magnitude.neg()
+	end 'negative'
+	return magnitude
+end 'floatKey'
+
+// floatTrunc is the integer toward zero, or i64.min, x64's integer indefinite, for a NaN or a double past the word.
+export function floatTrunc(bits Count) returns FullRangeInt
+	let indefinite = -9223372036854775808 as FullRangeInt
+	if floatIsNaN(bits) or floatIsInfinite(bits) or floatIsZero(bits) 'special'
+		return indefinite if not floatIsZero(bits) else 0
+	end 'special'
+	let e = exponentOf(bits)
+	let m = (significandOf(bits) as Count)
+	var magnitude = 0 as Count
+	if e >= 0 'whole'
+		if e > 11 'past'
+			return indefinite
+		end 'past'
+		magnitude = m shl (e as Count)
+	end 'whole' else 'fraction'
+		if e < -63 'tiny'
+			return 0
+		end 'tiny'
+		magnitude = m shr ((-e) as Count)
+	end 'fraction'
+	if floatIsNegative(bits) 'negative'
+		if magnitude > 9223372036854775808 'below'
+			return indefinite
+		end 'below'
+		return (I128.fromCount(magnitude).neg()).toSigned()
+	end 'negative'
+	if magnitude > 9223372036854775807 'above'
+		return indefinite
+	end 'above'
+	return magnitude as FullRangeInt
+end 'floatTrunc'
+
+// FloatRounding is how floatRound picks the integer: ties to even, toward negative infinity, or toward positive infinity.
+export enum FloatRounding
+	nearest
+	down
+	up
+end 'FloatRounding'
+
+export function floatRound(bits Count, mode FloatRounding) returns Count
+	if floatIsNaN(bits) or floatIsInfinite(bits) or floatIsZero(bits) 'special'
+		return bits
+	end 'special'
+	let e = exponentOf(bits)
+	if e >= 0 'whole'
+		return bits
+	end 'whole'
+	let m = (significandOf(bits) as Count)
+	let neg = floatIsNegative(bits)
+	var q = 0 as Count
+	var rem = m
+	var half = 0 as Count
+	var unitMask = m
+	if e >= -63 'shifted'
+		let shift = (-e) as Count
+		q = m shr shift
+		let unit = 1 as Count shl shift
+		unitMask = unit - 1
+		rem = m and unitMask
+		half = unit shr 1
+	end 'shifted' else 'tiny'
+		half = 9223372036854775808
+	end 'tiny'
+	var r = q
+	let up = match mode 'm'
+		nearest gives rem > half or (rem == half and q mod 2 == 1)
+		down gives neg and rem != 0
+		up gives not neg and rem != 0
+	end 'm'
+	if up 'bump'
+		r = try q + 1 otherwise panic("floats: a rounded significand is past the word")
+	end 'bump'
+	if r == 0 'zero'
+		return signedZero(neg)
+	end 'zero'
+	return roundRatio(neg, num: bigOf(r), den: bigOf(1), exp2: 0)
+end 'floatRound'
+
+// --- text to bits ---
+
+// floatFromText reads a literal's text: digits with '_' between them, a point, the fraction, and an exponent
+// [eE][+-]digits.
+export function floatFromText(text String) returns FloatParse
+	var digits = bigOf(0)
+	var significant = 0 as Count
+	var fractionDigits = 0 as FullRangeInt
+	var pastPoint = false
+	var at = 0 as Count
+	let n = text.byteLength()
+	while at < n 'mantissa'
+		let c = text.byteAt(at)
+		if c == 46 'point'
+			pastPoint = true
+		end 'point' else if c >= 48 and c <= 57 'digit'
+			if pastPoint 'fraction'
+				fractionDigits = try fractionDigits + 1 otherwise panic("floats: a literal has too many digits")
+			end 'fraction'
+			let d = (c - 48) as Limb
+			if significant > 0 or d != 0 'counted'
+				significant = try significant + 1 otherwise panic("floats: a literal has too many digits")
+			end 'counted'
+			bigMulAdd(digits, m: 10, add: d)
+		end 'digit' else if c != 95 'other'
+			break 'mantissa'
+		end 'other'
+		at = at + 1
+	end 'mantissa'
+	var exp10 = 0 as FullRangeInt
+	var negativeExponent = false
+	if at < n 'exponent'
+		at = at + 1
+		if at < n and (text.byteAt(at) == 43 or text.byteAt(at) == 45) 'sign'
+			negativeExponent = text.byteAt(at) == 45
+			at = at + 1
+		end 'sign'
+		while at < n 'digits'
+			let c = text.byteAt(at)
+			if exp10 < exponentClamp 'grow'
+				exp10 = try exp10 * 10 + (c - 48) as FullRangeInt otherwise panic("floats: the exponent is clamped")
+			end 'grow'
+			at = at + 1
+		end 'digits'
+	end 'exponent'
+	if negativeExponent 'negate'
+		exp10 = try -exp10 otherwise panic("floats: the exponent is clamped")
+	end 'negate'
+	if digits.count() == 0 'zero'
+		return FloatParse.bits(0)
+	end 'zero'
+	let scale = try exp10 - fractionDigits otherwise panic("floats: the exponent is clamped")
+	let magnitude = try scale + (significant as FullRangeInt) otherwise panic("floats: a literal has too many digits")
+	if magnitude > overflowDecimalExponent 'over'
+		return FloatParse.overflow
+	end 'over'
+	if magnitude < underflowDecimalExponent 'under'
+		return FloatParse.bits(0)
+	end 'under'
+	var bits = 0 as Count
+	if scale >= 0 'whole'
+		var num = digits.clone()
+		bigMulPow(num, base: 10, n: scale as Count)
+		bits = roundRatio(false, num: num, den: bigOf(1), exp2: 0)
+	end 'whole' else 'fraction'
+		var den = bigOf(1)
+		bigMulPow(den, base: 10, n: negatedOf(scale))
+		bits = roundRatio(false, num: digits, den: den, exp2: 0)
+	end 'fraction'
+	if floatIsInfinite(bits) 'rounded'
+		return FloatParse.overflow
+	end 'rounded'
+	return FloatParse.bits(bits)
+end 'floatFromText'
+
+// --- bits to text ---
+
+// decimalDigits are the decimal digits of a big integer that is not 0, the most significant first.
+function decimalDigits(a Limbs) returns Digits
+	var rest = a.clone()
+	var chunks = Limbs.create(0)
+	while rest.count() > 0 'chunks'
+		chunks.push(bigDivSmall(rest, d: decimalChunk))
+	end 'chunks'
+	var out = Digits.create(0)
+	var i = chunks.count()
+	var first = true
+	while i > 0 'each'
+		i = i - 1
+		let chunk = chunks[i]
+		var group = Digits.create(decimalChunkDigits)
+		var value = chunk as Count
+		var at = decimalChunkDigits
+		while at > 0 'digits'
+			at = at - 1
+			group[at] = (value mod 10) as Digit
+			value = value / 10
+		end 'digits'
+		var start = 0 as Count
+		if first 'leading'
+			while start < decimalChunkDigits - 1 and group[start] == 0 'zeros'
+				start = start + 1
+			end 'zeros'
+			first = false
+		end 'leading'
+		for j in start upto decimalChunkDigits 'copy'
+			out.push(group[j])
+		end 'copy'
+	end 'each'
+	return out
+end 'decimalDigits'
+
+function withoutTrailingZeros(digits Digits) returns Digits
+	var used = digits.count()
+	while used > 1 and digits[used - 1] == 0 'trim'
+		used = used - 1
+	end 'trim'
+	var out = Digits.create(0)
+	for i in 0 upto used 'copy'
+		out.push(digits[i])
+	end 'copy'
+	return out
+end 'withoutTrailingZeros'
+
+// exactDecimal is the decimal m * 2^e, for an m that is not 0.
+function exactDecimal(m Limbs, e FullRangeInt) returns Decimal
+	var big = m.clone()
+	var point = 0 as FullRangeInt
+	if e >= 0 'up'
+		big = bigShl(m, n: e as Count)
+	end 'up' else 'down'
+		bigMulPow(big, base: 5, n: negatedOf(e))
+		point = e
+	end 'down'
+	let digits = decimalDigits(big)
+	let scale = try (digits.count() as FullRangeInt) + point otherwise panic("floats: a decimal is past the word")
+	return Decimal.make(withoutTrailingZeros(digits), scale: scale)
+end 'exactDecimal'
+
+function decimalCmp(a Decimal, b Decimal) returns FloatOrder
+	if a.scale != b.scale 'scales'
+		return FloatOrder.less if a.scale < b.scale else FloatOrder.greater
+	end 'scales'
+	var i = 0 as Count
+	while i < a.digits.count() or i < b.digits.count() 'each'
+		var da = 0 as Digit
+		var db = 0 as Digit
+		if i < a.digits.count() 'left'
+			da = a.digits[i]
+		end 'left'
+		if i < b.digits.count() 'right'
+			db = b.digits[i]
+		end 'right'
+		if da != db 'differs'
+			return FloatOrder.less if da < db else FloatOrder.greater
+		end 'differs'
+		i = try i + 1 otherwise panic("floats: a decimal is past the word")
+	end 'each'
+	return FloatOrder.equal
+end 'decimalCmp'
+
+// roundedToLength is the decimal rounded to kept significant digits, half to even on the digits it drops.
+function roundedToLength(d Decimal, kept Count) returns Decimal
+	if kept >= d.digits.count() 'whole'
+		return d.clone()
+	end 'whole'
+	var prefix = Digits.create(0)
+	for i in 0 upto kept 'copy'
+		prefix.push(d.digits[i])
+	end 'copy'
+	if not roundsUp(d.digits, kept: kept) 'down'
+		return Decimal.make(withoutTrailingZeros(prefix), scale: d.scale)
+	end 'down'
+	var at = kept
+	while at > 0 'carry'
+		at = at - 1
+		let digit = prefix[at]
+		if digit != 9 'stops'
+			prefix[at] = try (digit + 1) as Digit otherwise panic("floats: a digit is past 9")
+			var carried = Digits.create(0)
+			for i in 0 upto at + 1 'copy'
+				carried.push(prefix[i])
+			end 'copy'
+			return Decimal.make(withoutTrailingZeros(carried), scale: d.scale)
+		end 'stops'
+	end 'carry'
+	var one = Digits.create(0)
+	one.push(1)
+	return Decimal.make(one, scale: try d.scale + 1 otherwise panic("floats: a scale is past the word"))
+end 'roundedToLength'
+
+function roundsUp(digits Digits, kept Count) returns bool
+	let first = digits[kept]
+	if first != halfwayDigit 'notHalf'
+		return first > halfwayDigit
+	end 'notHalf'
+	for i in (try kept + 1 otherwise digits.count()) upto digits.count() 'tail'
+		if digits[i] != 0 'above'
+			return true
+		end 'above'
+	end 'tail'
+	if kept == 0 'nothing'
+		return false
+	end 'nothing'
+	return digits[kept - 1] mod 2 == 1
+end 'roundsUp'
+
+// shortestDecimal is the shortest decimal that reads back as the finite, positive double magnitude, as maxon finds
+// it: the exact digits rounded to 1, 2, ... significant digits, the first that falls inside the interval of the values
+// that round to the double. That interval runs between the midpoints to its neighbours, and holds them when the
+// significand is even, since a tie rounds to the even one.
+export function shortestDecimal(magnitude Count) returns Decimal
+	let m = (significandOf(magnitude) as Count)
+	let e = exponentOf(magnitude)
+	let exact = exactDecimal(bigOf(m), e: e as FullRangeInt)
+	let high = exactDecimal(bigOf(m * 2 + 1), e: e - 1)
+	var low = exactDecimal(bigOf(try m * 2 - 1 otherwise panic("floats: a finite double that is not 0 has a significand")), e: e - 1)
+	if (magnitude and significandMask) == 0 and exponentField(magnitude) > 1 'closerBelow'
+		low = exactDecimal(bigOf(try m * 4 - 1 otherwise panic("floats: a power of two has a significand")), e: e - 2)
+	end 'closerBelow'
+	let inclusive = m mod 2 == 0
+	var longest = exact.digits.count()
+	if longest > roundTripDigits 'cap'
+		longest = roundTripDigits
+	end 'cap'
+	for kept in 1 to longest 'lengths'
+		let candidate = roundedToLength(exact, kept: kept)
+		let lo = decimalCmp(candidate, b: low)
+		let hi = decimalCmp(candidate, b: high)
+		let aboveLow = lo == FloatOrder.greater or (inclusive and lo == FloatOrder.equal)
+		let belowHigh = hi == FloatOrder.less or (inclusive and hi == FloatOrder.equal)
+		if aboveLow and belowHigh 'inside'
+			return candidate
+		end 'inside'
+	end 'lengths'
+	return exact
+end 'shortestDecimal'
+
+function digitText(digits Digits, start Count, stop Count) returns String
+	var b = ByteArray.create(0)
+	for i in start upto stop 'each'
+		b.push(digitZeroByte + (digits[i] as Byte))
+	end 'each'
+	return String.from(b)
+end 'digitText'
+
+function zeros(n Count) returns String
+	var b = ByteArray.create(0)
+	for _ in 0 upto n 'each'
+		b.push(digitZeroByte)
+	end 'each'
+	return String.from(b)
+end 'zeros'
+
+// fixedDisplay is the decimal written with its point and no exponent.
+function fixedDisplay(d Decimal) returns String
+	let n = d.digits.count()
+	if d.scale <= 0 'leading'
+		return "0.{zeros(negatedOf(d.scale))}{digitText(d.digits, start: 0, stop: n)}"
+	end 'leading'
+	let scale = d.scale as Count
+	if scale >= n 'trailing'
+		return "{digitText(d.digits, start: 0, stop: n)}{zeros(scale - n)}"
+	end 'trailing'
+	return "{digitText(d.digits, start: 0, stop: scale)}.{digitText(d.digits, start: scale, stop: n)}"
+end 'fixedDisplay'
+
+// floatText is the text of a double in a program, as maxon's: the shortest decimal that reads back as it, always with a
+// fraction and never with an exponent, "inf", "-inf" and "nan".
+export function floatText(bits Count) returns String
+	let magnitude = bits and floatMagnitudeMask
+	var sign = ""
+	if floatIsNegative(bits) and not floatIsNaN(bits) 'negative'
+		sign = "-"
+	end 'negative'
+	if floatIsNaN(bits) 'nan'
+		return "nan"
+	end 'nan'
+	if floatIsInfinite(bits) 'inf'
+		return "{sign}inf"
+	end 'inf'
+	if magnitude == 0 'zero'
+		return "{sign}0.0"
+	end 'zero'
+	let d = shortestDecimal(magnitude)
+	if d.scale >= (try d.digits.count() as FullRangeInt otherwise panic("floats: a decimal is past the word")) 'whole'
+		return "{sign}{fixedDisplay(d)}.0"
+	end 'whole'
+	return "{sign}{fixedDisplay(d)}"
+end 'floatText'
+
+// floatDiagnosticText is the text of a double in a diagnostic, as maxon's: no fraction on a whole number, scientific
+// notation past the scales from -3 to 17, and the bits of a double that is not finite.
+export function floatDiagnosticText(bits Count) returns String
+	let magnitude = bits and floatMagnitudeMask
+	if exponentField(bits) == infiniteExponentField 'notFinite'
+		return "0x{hexText(bits)}"
+	end 'notFinite'
+	let sign = "-" if floatIsNegative(bits) else ""
+	if magnitude == 0 'zero'
+		return "{sign}0"
+	end 'zero'
+	let d = shortestDecimal(magnitude)
+	if d.scale > fixedMaxScale or d.scale < fixedMinScale 'scientific'
+		let rest = "" if d.digits.count() == 1 else ".{digitText(d.digits, start: 1, stop: d.digits.count())}"
+		let exponent = try d.scale - 1 otherwise panic("floats: a scale is past the word")
+		let exponentSign = "-" if exponent < 0 else "+"
+		var digits = "{exponent if exponent >= 0 else (try -exponent otherwise 0)}"
+		if digits.byteLength() < 2 'pad'
+			digits = "0{digits}"
+		end 'pad'
+		return "{sign}{digitText(d.digits, start: 0, stop: 1)}{rest}E{exponentSign}{digits}"
+	end 'scientific'
+	return "{sign}{fixedDisplay(d)}"
+end 'floatDiagnosticText'
+
+function hexText(bits Count) returns String
+	var b = ByteArray.create(0)
+	var rest = bits
+	while rest != 0 'digits'
+		let d = (rest and 15) as Byte
+		b.push(d + 48 if d < 10 else d + 87)
+		rest = rest shr 4
+	end 'digits'
+	var out = ByteArray.create(0)
+	var i = b.count()
+	while i > 0 'reverse'
+		i = i - 1
+		out.push(b[i])
+	end 'reverse'
+	return String.from(out)
+end 'hexText'

@@ -84,6 +84,26 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		execCmp(vm, x: x)
 	end 'visitCmp'
 
+	function visitFBin(mutates self, f ir.IrFunction, x ir.Instr)
+		execFBin(vm, x: x)
+	end 'visitFBin'
+
+	function visitFCmp(mutates self, f ir.IrFunction, x ir.Instr)
+		execFCmp(vm, x: x)
+	end 'visitFCmp'
+
+	function visitFUnary(mutates self, f ir.IrFunction, x ir.Instr)
+		execFUnary(vm, x: x)
+	end 'visitFUnary'
+
+	function visitIntToFloat(mutates self, f ir.IrFunction, x ir.Instr)
+		execIntToFloat(vm, x: x)
+	end 'visitIntToFloat'
+
+	function visitFloatToInt(mutates self, f ir.IrFunction, x ir.Instr)
+		vm.setNum(x.dst, n: ast.floatTrunc(bitsOf(vm.num(ir.floatToIntSrc(x)))) as ir.Word)
+	end 'visitFloatToInt'
+
 	function visitNeg(mutates self, f ir.IrFunction, x ir.Instr)
 		execNeg(vm, x: x)
 	end 'visitNeg'

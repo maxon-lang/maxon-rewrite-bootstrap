@@ -49,6 +49,7 @@ export enum NodeKind
 	condExpr
 	tryExpr
 	intLit
+	floatLit
 	strLit
 	byteStrLit
 	boolLit
@@ -375,6 +376,7 @@ export type AliasDecl
 	export var id as NodeID
 	export var name as String
 	export var visibility as String
+	export var number as String
 	export var low as Bound
 	export var inclusive as bool
 	export var high as Bound
@@ -382,7 +384,7 @@ export type AliasDecl
 	export var instance as NodeID
 
 	export static function make(id NodeID) returns AliasDecl
-		return AliasDecl{id: id, name: "", visibility: "", low: Bound.make(0 as NodeID), inclusive: false, high: Bound.make(0 as NodeID), fn: 0 as NodeID, instance: 0 as NodeID}
+		return AliasDecl{id: id, name: "", visibility: "", number: "", low: Bound.make(0 as NodeID), inclusive: false, high: Bound.make(0 as NodeID), fn: 0 as NodeID, instance: 0 as NodeID}
 	end 'make'
 end 'AliasDecl'
 
@@ -450,11 +452,12 @@ export type Bound
 	export var id as NodeID
 	export var negative as bool
 	export var value as I128
+	export var real as I128
 	export var sized as String
 	export var limit as String
 
 	export static function make(id NodeID) returns Bound
-		return Bound{id: id, negative: false, value: I128.fromCount(0 as Count), sized: "", limit: ""}
+		return Bound{id: id, negative: false, value: I128.fromCount(0 as Count), real: I128.fromCount(0 as Count), sized: "", limit: ""}
 	end 'make'
 end 'Bound'
 
@@ -1717,6 +1720,30 @@ export function setIntLitMagnitude(mutates t Tree, id NodeID, value I128)
 	t.records[id as Count].a = (value.lo and (4294967295 as Count)) as diag.U32
 	t.records[id as Count].b = ((value.lo shr 32) and (4294967295 as Count)) as diag.U32
 end 'setIntLitMagnitude'
+
+export function newFloatLit(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.floatLit, start: start)
+	return id
+end 'newFloatLit'
+
+export function floatLitNegative(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'floatLitNegative'
+
+export function setFloatLitNegative(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setFloatLitNegative'
+
+export function floatLitMagnitude(t Tree, id NodeID) returns I128
+	let lo = t.records[id as Count].a as Count
+	let hi = t.records[id as Count].b as Count
+	return I128.fromCount(lo or (try hi shl 32 otherwise 0 as Count))
+end 'floatLitMagnitude'
+
+export function setFloatLitMagnitude(mutates t Tree, id NodeID, value I128)
+	t.records[id as Count].a = (value.lo and (4294967295 as Count)) as diag.U32
+	t.records[id as Count].b = ((value.lo shr 32) and (4294967295 as Count)) as diag.U32
+end 'setFloatLitMagnitude'
 
 export function newStrLit(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.strLit, start: start)

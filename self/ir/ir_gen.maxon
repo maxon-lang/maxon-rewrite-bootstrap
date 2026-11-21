@@ -42,6 +42,11 @@ export enum Opcode
 	opCallImport
 	opBin
 	opCmp
+	opFBin
+	opFCmp
+	opFUnary
+	opIntToFloat
+	opFloatToInt
 	opNeg
 	opNot
 	opGuard
@@ -240,6 +245,113 @@ export function cmpOpOf(code Byte) returns CmpOp
 		default panic("ir: a number that is no CmpOp")
 	end 'code'
 end 'cmpOpOf'
+
+// FBinOp is the operation of an FBin.
+export enum FBinOp
+	fBinAdd
+	fBinSub
+	fBinMul
+	fBinDiv
+end 'FBinOp'
+
+// fBinOpText is how the printer writes a FBinOp.
+export function fBinOpText(v FBinOp) returns String
+	if v == FBinOp.fBinAdd 'fBinAdd'
+		return "add"
+	end 'fBinAdd'
+	if v == FBinOp.fBinSub 'fBinSub'
+		return "sub"
+	end 'fBinSub'
+	if v == FBinOp.fBinMul 'fBinMul'
+		return "mul"
+	end 'fBinMul'
+	if v == FBinOp.fBinDiv 'fBinDiv'
+		return "div"
+	end 'fBinDiv'
+	panic("ir: a FBinOp with no text")
+end 'fBinOpText'
+
+// fBinOpCode is the number an instruction holds a FBinOp as, the one Go's FBinOp has.
+export function fBinOpCode(v FBinOp) returns Byte
+	if v == FBinOp.fBinAdd 'fBinAdd'
+		return 0 as Byte
+	end 'fBinAdd'
+	if v == FBinOp.fBinSub 'fBinSub'
+		return 1 as Byte
+	end 'fBinSub'
+	if v == FBinOp.fBinMul 'fBinMul'
+		return 2 as Byte
+	end 'fBinMul'
+	if v == FBinOp.fBinDiv 'fBinDiv'
+		return 3 as Byte
+	end 'fBinDiv'
+	panic("ir: a FBinOp with no number")
+end 'fBinOpCode'
+
+// fBinOpOf is the FBinOp an instruction holds as a number.
+export function fBinOpOf(code Byte) returns FBinOp
+	return match code 'code'
+		0 gives FBinOp.fBinAdd
+		1 gives FBinOp.fBinSub
+		2 gives FBinOp.fBinMul
+		3 gives FBinOp.fBinDiv
+		default panic("ir: a number that is no FBinOp")
+	end 'code'
+end 'fBinOpOf'
+
+// FUnaryOp is the operation of an FUnary: the square root, and the rounding to an integer
+// to the nearest (ties to even), toward negative infinity and toward positive infinity.
+export enum FUnaryOp
+	fUnarySqrt
+	fUnaryRound
+	fUnaryFloor
+	fUnaryCeil
+end 'FUnaryOp'
+
+// fUnaryOpText is how the printer writes a FUnaryOp.
+export function fUnaryOpText(v FUnaryOp) returns String
+	if v == FUnaryOp.fUnarySqrt 'fUnarySqrt'
+		return "sqrt"
+	end 'fUnarySqrt'
+	if v == FUnaryOp.fUnaryRound 'fUnaryRound'
+		return "round"
+	end 'fUnaryRound'
+	if v == FUnaryOp.fUnaryFloor 'fUnaryFloor'
+		return "floor"
+	end 'fUnaryFloor'
+	if v == FUnaryOp.fUnaryCeil 'fUnaryCeil'
+		return "ceil"
+	end 'fUnaryCeil'
+	panic("ir: a FUnaryOp with no text")
+end 'fUnaryOpText'
+
+// fUnaryOpCode is the number an instruction holds a FUnaryOp as, the one Go's FUnaryOp has.
+export function fUnaryOpCode(v FUnaryOp) returns Byte
+	if v == FUnaryOp.fUnarySqrt 'fUnarySqrt'
+		return 0 as Byte
+	end 'fUnarySqrt'
+	if v == FUnaryOp.fUnaryRound 'fUnaryRound'
+		return 1 as Byte
+	end 'fUnaryRound'
+	if v == FUnaryOp.fUnaryFloor 'fUnaryFloor'
+		return 2 as Byte
+	end 'fUnaryFloor'
+	if v == FUnaryOp.fUnaryCeil 'fUnaryCeil'
+		return 3 as Byte
+	end 'fUnaryCeil'
+	panic("ir: a FUnaryOp with no number")
+end 'fUnaryOpCode'
+
+// fUnaryOpOf is the FUnaryOp an instruction holds as a number.
+export function fUnaryOpOf(code Byte) returns FUnaryOp
+	return match code 'code'
+		0 gives FUnaryOp.fUnarySqrt
+		1 gives FUnaryOp.fUnaryRound
+		2 gives FUnaryOp.fUnaryFloor
+		3 gives FUnaryOp.fUnaryCeil
+		default panic("ir: a number that is no FUnaryOp")
+	end 'code'
+end 'fUnaryOpOf'
 
 // GuardKind is the range a Guard checks, against its bound.
 export enum GuardKind
@@ -447,6 +559,21 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opCmp 'opCmp'
 		return 0
 	end 'opCmp'
+	if op == Opcode.opFBin 'opFBin'
+		return 0
+	end 'opFBin'
+	if op == Opcode.opFCmp 'opFCmp'
+		return 0
+	end 'opFCmp'
+	if op == Opcode.opFUnary 'opFUnary'
+		return 0
+	end 'opFUnary'
+	if op == Opcode.opIntToFloat 'opIntToFloat'
+		return 0
+	end 'opIntToFloat'
+	if op == Opcode.opFloatToInt 'opFloatToInt'
+		return 0
+	end 'opFloatToInt'
 	if op == Opcode.opNeg 'opNeg'
 		return 64
 	end 'opNeg'
@@ -725,6 +852,55 @@ export function newCmp(dst Reg, op CmpOp, left Reg, right Reg, unsigned bool) re
 	end 'unsigned'
 	return r
 end 'newCmp'
+
+// FBin is Left Op Right on two doubles, rounded to the nearest double, ties to even.
+export function newFBin(dst Reg, op FBinOp, left Reg, right Reg) returns Instr
+	var r = Instr.make(Opcode.opFBin)
+	r.dst = dst
+	r.sub = fBinOpCode(op)
+	r.a = left
+	r.b = right
+	return r
+end 'newFBin'
+
+// FCmp gives 1 when Left Op Right holds of two doubles and 0 when it does not; every comparison with a
+// NaN but ne does not hold.
+export function newFCmp(dst Reg, op CmpOp, left Reg, right Reg) returns Instr
+	var r = Instr.make(Opcode.opFCmp)
+	r.dst = dst
+	r.sub = cmpOpCode(op)
+	r.a = left
+	r.b = right
+	return r
+end 'newFCmp'
+
+// FUnary is Op of a double.
+export function newFUnary(dst Reg, op FUnaryOp, src Reg) returns Instr
+	var r = Instr.make(Opcode.opFUnary)
+	r.dst = dst
+	r.sub = fUnaryOpCode(op)
+	r.a = src
+	return r
+end 'newFUnary'
+
+// IntToFloat is the double nearest the integer Src, read as unsigned when Unsigned is set.
+export function newIntToFloat(dst Reg, src Reg, unsigned bool) returns Instr
+	var r = Instr.make(Opcode.opIntToFloat)
+	r.dst = dst
+	r.a = src
+	if unsigned 'unsigned'
+		r.flags = r.flags or flagUnsigned
+	end 'unsigned'
+	return r
+end 'newIntToFloat'
+
+// FloatToInt is the double Src truncated toward zero, or i64.min for a NaN or a double past the word.
+export function newFloatToInt(dst Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opFloatToInt)
+	r.dst = dst
+	r.a = src
+	return r
+end 'newFloatToInt'
 
 // Neg negates; when Checked, it goes to Fail for i64.min.
 export function newNeg(dst Reg, src Reg, fail BlockID) returns Instr
@@ -1082,6 +1258,50 @@ export function cmpUnsigned(x Instr) returns bool
 	return (x.flags and flagUnsigned) != 0
 end 'cmpUnsigned'
 
+export function fBinOp(x Instr) returns FBinOp
+	return fBinOpOf(x.sub)
+end 'fBinOp'
+
+export function fBinLeft(x Instr) returns Reg
+	return x.a
+end 'fBinLeft'
+
+export function fBinRight(x Instr) returns Reg
+	return x.b
+end 'fBinRight'
+
+export function fCmpOp(x Instr) returns CmpOp
+	return cmpOpOf(x.sub)
+end 'fCmpOp'
+
+export function fCmpLeft(x Instr) returns Reg
+	return x.a
+end 'fCmpLeft'
+
+export function fCmpRight(x Instr) returns Reg
+	return x.b
+end 'fCmpRight'
+
+export function fUnaryOp(x Instr) returns FUnaryOp
+	return fUnaryOpOf(x.sub)
+end 'fUnaryOp'
+
+export function fUnarySrc(x Instr) returns Reg
+	return x.a
+end 'fUnarySrc'
+
+export function intToFloatSrc(x Instr) returns Reg
+	return x.a
+end 'intToFloatSrc'
+
+export function intToFloatUnsigned(x Instr) returns bool
+	return (x.flags and flagUnsigned) != 0
+end 'intToFloatUnsigned'
+
+export function floatToIntSrc(x Instr) returns Reg
+	return x.a
+end 'floatToIntSrc'
+
 export function negSrc(x Instr) returns Reg
 	return x.a
 end 'negSrc'
@@ -1361,6 +1581,21 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opCmp 'opCmp'
 		return table.Option.some(x.dst)
 	end 'opCmp'
+	if x.op == Opcode.opFBin 'opFBin'
+		return table.Option.some(x.dst)
+	end 'opFBin'
+	if x.op == Opcode.opFCmp 'opFCmp'
+		return table.Option.some(x.dst)
+	end 'opFCmp'
+	if x.op == Opcode.opFUnary 'opFUnary'
+		return table.Option.some(x.dst)
+	end 'opFUnary'
+	if x.op == Opcode.opIntToFloat 'opIntToFloat'
+		return table.Option.some(x.dst)
+	end 'opIntToFloat'
+	if x.op == Opcode.opFloatToInt 'opFloatToInt'
+		return table.Option.some(x.dst)
+	end 'opFloatToInt'
 	if x.op == Opcode.opNeg 'opNeg'
 		return table.Option.some(x.dst)
 	end 'opNeg'
@@ -1477,6 +1712,21 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opCmp 'opCmp'
 		return table.Option.none
 	end 'opCmp'
+	if x.op == Opcode.opFBin 'opFBin'
+		return table.Option.none
+	end 'opFBin'
+	if x.op == Opcode.opFCmp 'opFCmp'
+		return table.Option.none
+	end 'opFCmp'
+	if x.op == Opcode.opFUnary 'opFUnary'
+		return table.Option.none
+	end 'opFUnary'
+	if x.op == Opcode.opIntToFloat 'opIntToFloat'
+		return table.Option.none
+	end 'opIntToFloat'
+	if x.op == Opcode.opFloatToInt 'opFloatToInt'
+		return table.Option.none
+	end 'opFloatToInt'
 	if x.op == Opcode.opNeg 'opNeg'
 		return negFail(x)
 	end 'opNeg'
@@ -1548,6 +1798,11 @@ export interface InstrVisitor
 	function visitCallImport(mutates self, f IrFunction, x Instr)
 	function visitBin(mutates self, f IrFunction, x Instr)
 	function visitCmp(mutates self, f IrFunction, x Instr)
+	function visitFBin(mutates self, f IrFunction, x Instr)
+	function visitFCmp(mutates self, f IrFunction, x Instr)
+	function visitFUnary(mutates self, f IrFunction, x Instr)
+	function visitIntToFloat(mutates self, f IrFunction, x Instr)
+	function visitFloatToInt(mutates self, f IrFunction, x Instr)
 	function visitNeg(mutates self, f IrFunction, x Instr)
 	function visitNot(mutates self, f IrFunction, x Instr)
 	function visitGuard(mutates self, f IrFunction, x Instr)
@@ -1640,6 +1895,26 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitCmp(f, x: x)
 		return
 	end 'opCmp'
+	if x.op == Opcode.opFBin 'opFBin'
+		visitor.visitFBin(f, x: x)
+		return
+	end 'opFBin'
+	if x.op == Opcode.opFCmp 'opFCmp'
+		visitor.visitFCmp(f, x: x)
+		return
+	end 'opFCmp'
+	if x.op == Opcode.opFUnary 'opFUnary'
+		visitor.visitFUnary(f, x: x)
+		return
+	end 'opFUnary'
+	if x.op == Opcode.opIntToFloat 'opIntToFloat'
+		visitor.visitIntToFloat(f, x: x)
+		return
+	end 'opIntToFloat'
+	if x.op == Opcode.opFloatToInt 'opFloatToInt'
+		visitor.visitFloatToInt(f, x: x)
+		return
+	end 'opFloatToInt'
 	if x.op == Opcode.opNeg 'opNeg'
 		visitor.visitNeg(f, x: x)
 		return
@@ -1819,6 +2094,26 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		text = "{text} %{cmpLeft(x)}, %{cmpRight(x)}"
 		return text
 	end 'opCmp'
+	if x.op == Opcode.opFBin 'opFBin'
+		return "{resultText(x.dst)}f{fBinOpText(fBinOp(x))} %{fBinLeft(x)}, %{fBinRight(x)}"
+	end 'opFBin'
+	if x.op == Opcode.opFCmp 'opFCmp'
+		return "{resultText(x.dst)}fcmp.{cmpOpText(fCmpOp(x))} %{fCmpLeft(x)}, %{fCmpRight(x)}"
+	end 'opFCmp'
+	if x.op == Opcode.opFUnary 'opFUnary'
+		return "{resultText(x.dst)}f{fUnaryOpText(fUnaryOp(x))} %{fUnarySrc(x)}"
+	end 'opFUnary'
+	if x.op == Opcode.opIntToFloat 'opIntToFloat'
+		var text = "{resultText(x.dst)}itof"
+		if intToFloatUnsigned(x) 'unsigned'
+			text = "{text}.u"
+		end 'unsigned'
+		text = "{text} %{intToFloatSrc(x)}"
+		return text
+	end 'opIntToFloat'
+	if x.op == Opcode.opFloatToInt 'opFloatToInt'
+		return "{resultText(x.dst)}ftoi %{floatToIntSrc(x)}"
+	end 'opFloatToInt'
 	if x.op == Opcode.opNeg 'opNeg'
 		var text = "{resultText(x.dst)}neg %{negSrc(x)}"
 		if negHasFail(x) 'fail'

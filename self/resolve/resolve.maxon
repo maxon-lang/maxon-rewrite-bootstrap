@@ -763,7 +763,7 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 	if k == ast.NodeKind.selfExpr and r.inClosure and isNameBound(r, name: ast.receiverName) 'capturedSelf'
 		r.tree.becomeSelfName(id)
 		resolveNameExpr(r, p: p, id: id, errs: errs)
-	end 'capturedSelf' else if k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'leaf'
+	end 'capturedSelf' else if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'leaf'
 		return
 	end 'leaf' else if k == ast.NodeKind.nameExpr 'nm'
 		resolveNameExpr(r, p: p, id: id, errs: errs)

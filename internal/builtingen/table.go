@@ -28,6 +28,9 @@ var primTypes = []primType{
 	{"Byte", "b.byteTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	{"ExitCode", "b.exitCodeTy"},
+	{"FullRangeInt", "b.fullRangeIntTy"},
+	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
+	{"Float", "b.anonFloatTy"},
 }
 
 // builtinType is a runtime primitive: an ast.BuiltinTy of its own BuiltinKind.
@@ -408,6 +411,16 @@ var tableFunctions = []function{
 	{Name: "thaw", Generic: "T Copyable", Params: []string{"x Frozen with T"}, Result: "T", Intrinsic: "Thaw", Checked: true},
 	{Name: "cown", Generic: "T Droppable", Params: []string{"consumes x T"}, Result: "Cown with T", Intrinsic: "Cown", Field: "CownNew"},
 	{Name: "cown", Generic: "T", Params: []string{"consumes x T"}, Result: "Cown with T", Intrinsic: "Cown", Field: "CownNewDropWith"},
+	// The float functions of maxon: trunc gives the integer toward zero and the others a float. Each takes a float of any
+	// range, and an integer constant, which converts. A parameter named _ is positional, as a maxon builtin's are.
+	{Name: "trunc", Params: []string{"_ Float"}, Result: "FullRangeInt", Intrinsic: "FloatTrunc"},
+	{Name: "round", Params: []string{"_ Float"}, Result: "Float", Intrinsic: "FloatRound"},
+	{Name: "floor", Params: []string{"_ Float"}, Result: "Float", Intrinsic: "FloatFloor"},
+	{Name: "ceil", Params: []string{"_ Float"}, Result: "Float", Intrinsic: "FloatCeil"},
+	{Name: "sqrt", Params: []string{"_ Float"}, Result: "Float", Intrinsic: "FloatSqrt"},
+	{Name: "abs", Params: []string{"_ Float"}, Result: "Float", Intrinsic: "FloatAbs"},
+	{Name: "min", Params: []string{"_ Float", "_ Float"}, Result: "Float", Intrinsic: "FloatMin"},
+	{Name: "max", Params: []string{"_ Float", "_ Float"}, Result: "Float", Intrinsic: "FloatMax"},
 	// exchange moves a value into a place and gives back the one that was there, so the place is never dropped.
 	{Name: "exchange", Generic: "T", Params: []string{"mutates place T", "consumes value T"}, Result: "T", Intrinsic: "Exchange", OwnsOperands: true},
 
@@ -487,6 +500,7 @@ var entries = []entry{
 	{"Panic", "rt.panic", "Runtime", roleCall, "(message String): exits"},
 	{"Concat", "rt.concat", "Runtime", roleCall, "(String, String) -> String"},
 	{"Itoa", "rt.itoa", "Runtime", roleCall, "(n, unsigned) -> String"},
+	{"Ftoa", "rt.ftoa", "Runtime", roleCall, "(bits) -> String: the text of the double of the bits"},
 	{"Streq", "rt.streq", "Runtime", roleCall, "(String, String) -> bool"},
 	{"StrLen", "rt.str.len", "Runtime", roleCall, "(String) -> count of bytes"},
 	{"StrByteAt", "rt.str.byteAt", "Runtime", roleCall, "(String, index) -> byte"},
@@ -598,6 +612,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"Panic", "panicWith(message String)"},
 	{"Concat", "concat(left String, right String) String"},
 	{"Itoa", "itoa(n Count, unsigned Bool) String"},
+	{"Ftoa", "ftoa(bits Count) String"},
 	{"Streq", "streq(left String, right String) Bool"},
 	{"StrLen", "stringLength(text String) Count"},
 	{"StrByteAt", "stringByteAt(text String, index Count) Byte"},

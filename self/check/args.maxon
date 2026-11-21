@@ -50,6 +50,9 @@ function argumentCount(c Checker, p ast.Project, call ast.NodeID) returns Count
 	return p.modules[c.modIdx].tree.listLen(ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call))
 end 'argumentCount'
 
+// positionalName is the name of a parameter of a built-in function that its argument fills by its place, never by a label.
+let positionalName = "_"
+
 // orderArgs puts a call's arguments in the order of the parameters, which labels name after the first.
 function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.NodeIDList
 	var ordered = ast.NodeIDList.create(0)
@@ -74,8 +77,13 @@ function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, spe
 		end 'left'
 		let arg = p.modules[c.modIdx].tree.listAt(argsRef, index: ai) as ast.NodeID
 		let label = ast.argLabel(p.modules[c.modIdx].tree, id: arg)
-		var slot = 0 as Count
-		if seen == 0 'first'
+		var slot = seen
+		if seen < specs.count() and specs[seen].name == positionalName 'positional'
+			if label != "" 'labelled'
+				failAt(c, p: p, node: arg, code: diag.errBuiltinArgNamed, msg: diag.builtinArgNamed(), errs: errs)
+				return ordered
+			end 'labelled'
+		end 'positional' else if seen == 0 'first'
 			if label != "" 'labelled'
 				failAt(c, p: p, node: arg, code: diag.errCallFirstArgNamed, msg: diag.firstArgNamed(), errs: errs)
 				return ordered

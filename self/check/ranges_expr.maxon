@@ -217,7 +217,7 @@ function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 	if k == ast.NodeKind.intLit 'intLit'
 		return Span.exactly(ast.intLitValue(p.modules[r.modIdx].tree, id: e))
 	end 'intLit'
-	if k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'nothing'
+	if k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'nothing'
 		return noSpan()
 	end 'nothing'
 	if k == ast.NodeKind.strLit 'strLit'
@@ -510,6 +510,13 @@ end 'rangeOperator'
 // one, is one the code cannot reach.
 function rangeOperate(mutates r Ranges, p ast.Project, e ast.NodeID, l Span, rs Span, bound table.Option with Span) returns Span
 	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: e)
+	if op == "/" and ast.isFloatType(p.types, t: typeOf(r, e: e)) 'floatQuotient'
+		let divisor = typeOf(r, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: e))
+		if floatMayBeZero(p, t: divisor) 'mayBeZero'
+			rangeFail(r, p: p, e: e, fails: ast.failDivZero, why: Unchecked.operation(op.clone(), fails: ast.failDivZero, node: e, ty: typeOf(r, e: e)))
+		end 'mayBeZero'
+		return noSpan()
+	end 'floatQuotient'
 	if isComparisonOp(op) or not ast.isIntType(p.types, t: typeOf(r, e: e)) 'noSpan'
 		return noSpan()
 	end 'noSpan'
@@ -593,11 +600,11 @@ end 'rangeResult'
 
 // failureText says how an operation can fail, for the error that it is not caught.
 function failureText(p ast.Project, op String, fails Byte, ty ast.TypeID) returns String
-	let t = typeSpan(p.types, t: ty)
-	let name = nameOfType(p, t: ty)
 	if (fails and ast.failDivZero) != 0 'zero'
 		return "the divisor of '{op}' may be 0"
 	end 'zero'
+	let t = typeSpan(p.types, t: ty)
+	let name = nameOfType(p, t: ty)
 	if (fails and ast.failShift) != 0 'shift'
 		return "the count of '{op}' may be negative"
 	end 'shift'
@@ -640,6 +647,9 @@ end 'operandFix'
 
 // castText is the error for a conversion to ty that can fail where no try covers it.
 function castText(p ast.Project, ty ast.TypeID) returns String
+	if ast.isFloatType(p.types, t: ty) 'float'
+		return "the value may not fit {nameOfType(p, t: ty)} ({floatRangeText(p, t: ty)}){operandFix("")}"
+	end 'float'
 	return "the value may not fit {nameOfType(p, t: ty)} ({typeSpan(p.types, t: ty).lo.toString()} to {typeSpan(p.types, t: ty).hi.toString()}){operandFix("")}"
 end 'castText'
 
@@ -756,13 +766,18 @@ end 'rangeUnaryExpr'
 
 // rangeCastExpr fails where the value may lie outside the target's range.
 function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
-	let v = rangeEval(r, p: p, e: ast.castExprE(p.modules[r.modIdx].tree, id: e))
+	let operand = ast.castExprE(p.modules[r.modIdx].tree, id: e)
+	let v = rangeEval(r, p: p, e: operand)
 	let ty = typeOf(r, e: e)
-	return rangeConverted(r, p: p, e: e, v: v, ty: ty, why: Unchecked.cast(ty))
+	return rangeConverted(r, p: p, e: e, v: v, src: typeOf(r, e: operand), ty: ty, why: Unchecked.cast(ty))
 end 'rangeCastExpr'
 
 // rangeConverted is the conversion of the value of the span v to ty, at the node e that records how it can fail.
-function rangeConverted(mutates r Ranges, p ast.Project, e ast.NodeID, v Span, ty ast.TypeID, why Unchecked) returns Span
+function rangeConverted(mutates r Ranges, p ast.Project, e ast.NodeID, v Span, src ast.TypeID, ty ast.TypeID, why Unchecked) returns Span
+	if ast.isFloatType(p.types, t: ty) 'float'
+		rangeFail(r, p: p, e: e, fails: floatConversionFails(p, src: src, dst: ty), why: why)
+		return noSpan()
+	end 'float'
 	let t = typeSpan(p.types, t: ty)
 	var fails = ast.failNone
 	if v.lo.lt(t.lo) 'below'

@@ -33,8 +33,14 @@ const (
 	imm64Bytes     = 8
 	rel32Bytes     = 4
 	opcodeHigh     = 0x0F
-	// operandSizePrefix makes an instruction's operand 16 bits wide.
+	// operandSizePrefix makes an instruction's operand 16 bits wide, and is the mandatory prefix of the packed-double
+	// forms of SSE2 (movq, ucomisd, roundsd).
 	operandSizePrefix = 0x66
+	// scalarDoublePrefix is the mandatory prefix of the scalar-double forms of SSE2 (addsd, cvtsi2sd).
+	scalarDoublePrefix = 0xF2
+	// The ModRM bytes of the forms that name xmm registers only: xmm0 with xmm1, and xmm0 with itself, register to register.
+	modrmXmm0Xmm1 = 0xC1
+	modrmXmm0Xmm0 = 0xC0
 )
 
 // constant is a name and the value that the generated Maxon gives it.
@@ -391,7 +397,49 @@ func buildForms() []form {
 			opcode: []byte{opcodeHigh, 0x80}, effects: readsFlag,
 		},
 	)
-	return fs
+	return append(fs, sseForms()...)
+}
+
+// sseForms are the SSE2 forms a float operation is made of. A float is a word in a general register, so an operation
+// moves its operands into xmm0 and xmm1 and its result back: the xmm register is fixed, the reg field of a form that
+// also names a general register (a /digit), or a ModRM byte of its own after the opcode for one that names only xmm
+// registers.
+func sseForms() []form {
+	toXmm := func(name string, xmm int) form {
+		return form{
+			name: name, mnemonic: "movq", operands: []operand{reg("src", fieldRM)}, prefix: []byte{operandSizePrefix},
+			rexW: true, opcode: []byte{opcodeHigh, 0x6E}, modrm: modDigit, digit: xmm, effects: noEffects,
+		}
+	}
+	xmmOnly := func(name, mnemonic string, prefix byte, op byte, rm byte, e effects) form {
+		return form{name: name, mnemonic: mnemonic, prefix: []byte{prefix}, opcode: []byte{opcodeHigh, op, rm}, effects: e}
+	}
+	return []form{
+		toXmm("MovqXmm0Reg", 0),
+		toXmm("MovqXmm1Reg", 1),
+		{
+			name: "MovqRegXmm0", mnemonic: "movq", operands: []operand{reg("dest", fieldRM)}, prefix: []byte{operandSizePrefix},
+			rexW: true, opcode: []byte{opcodeHigh, 0x7E}, modrm: modDigit, digit: 0, effects: noEffects,
+		},
+		xmmOnly("AddsdXmm0Xmm1", "addsd", scalarDoublePrefix, 0x58, modrmXmm0Xmm1, noEffects),
+		xmmOnly("SubsdXmm0Xmm1", "subsd", scalarDoublePrefix, 0x5C, modrmXmm0Xmm1, noEffects),
+		xmmOnly("MulsdXmm0Xmm1", "mulsd", scalarDoublePrefix, 0x59, modrmXmm0Xmm1, noEffects),
+		xmmOnly("DivsdXmm0Xmm1", "divsd", scalarDoublePrefix, 0x5E, modrmXmm0Xmm1, noEffects),
+		xmmOnly("SqrtsdXmm0Xmm0", "sqrtsd", scalarDoublePrefix, 0x51, modrmXmm0Xmm0, noEffects),
+		xmmOnly("UcomisdXmm0Xmm1", "ucomisd", operandSizePrefix, 0x2E, modrmXmm0Xmm1, flags),
+		{
+			name: "RoundsdXmm0Xmm0Imm8", mnemonic: "roundsd", operands: []operand{imm8()}, prefix: []byte{operandSizePrefix},
+			opcode: []byte{opcodeHigh, 0x3A, 0x0B, modrmXmm0Xmm0}, effects: noEffects,
+		},
+		{
+			name: "Cvtsi2sdXmm0Reg", mnemonic: "cvtsi2sd", operands: []operand{reg("src", fieldRM)}, prefix: []byte{scalarDoublePrefix},
+			rexW: true, opcode: []byte{opcodeHigh, 0x2A}, modrm: modDigit, digit: 0, effects: noEffects,
+		},
+		{
+			name: "Cvttsd2siRaxXmm0", mnemonic: "cvttsd2si", prefix: []byte{scalarDoublePrefix}, rexW: true,
+			opcode: []byte{opcodeHigh, 0x2C, modrmXmm0Xmm0}, effects: noEffects,
+		},
+	}
 }
 
 // choices are what the backend asks for by the value of an immediate: the shortest form that holds it.

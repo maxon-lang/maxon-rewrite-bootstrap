@@ -173,7 +173,7 @@ unionCaseDecl
 
 aliasDecl
     : visibility=('export' | 'public')? 'typealias' name=Name '='
-      ( 'int' ^'(' low=bound (inclusive='to' | 'upto') high=bound ')'
+      ( ('int' | number=Name) ^'(' low=bound (inclusive='to' | 'upto') high=bound ')'
       | fn=funcType
       | instance=aliasInstance
       )
@@ -201,11 +201,12 @@ aliasTypeArgs returns [[]*TypeRef args]
 
 /** a range bound */
 bound
-    : negative='-'^? (value=Integer | sized=Name '.' limit=Name)
+    : negative='-'^? (value=Integer | real=FloatNumber | sized=Name '.' limit=Name)
     ;
 
 @ast::Bound {
 	Value I128
+	Real I128
 }
 
 /** a type */
@@ -467,6 +468,7 @@ patternValue returns [Expr value]
 /** an expression */
 expr
     : intLit
+    | floatLit
     | strLit
     | byteStrLit
     | boolLit
@@ -522,6 +524,15 @@ intLit
     ;
 
 @ast::IntLit {
+	Magnitude I128
+}
+
+/** a float */
+floatLit
+    : negative='-'^? magnitude=FloatNumber
+    ;
+
+@ast::FloatLit {
 	Magnitude I128
 }
 
@@ -621,6 +632,9 @@ Integer
     | '0b' [01] [01_]*
     | '0o' [0-7] [0-7_]*
     ;
+
+/** a float */
+FloatNumber : [0-9] [0-9_]* '.' [0-9_]* ([eE] [+\-]? [0-9]+)? ;
 
 /** a string */
 String : '"' (~["\\{}\n] | '\\' . | '{' ~[}\n]* '}')* '"' -> scan ;

@@ -1,0 +1,19 @@
+// A float never converts to an integer, and a constant must fit its float alias.
+
+typealias Ratio = float(0.0 to 1.0)
+
+typealias Real = float(f64.min to f64.max)
+
+function ratio(r Ratio) returns Ratio
+	return r
+end 'ratio'
+
+function main() returns ExitCode
+	let x = 2.5 as Real
+	let n = x as Count
+	let r = ratio(1.5)
+	return 0
+end 'main'
+
+// expect-error: E3009 at 13:12
+// expect-error: E3005 at 14:10

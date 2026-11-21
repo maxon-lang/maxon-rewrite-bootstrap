@@ -859,9 +859,6 @@ func transformFunctionHeader(line *sourceLine, fnIdx int, inInterface bool, warn
 			if i+1 < len(line.code) && line.code[i+1].text == "(" {
 				warn(line, "tuple return types are not supported in minimaxon")
 			}
-			if i+1 < len(line.code) && line.code[i+1].text == "float" {
-				warn(line, "float types are not supported in minimaxon")
-			}
 		}
 	}
 }
@@ -909,7 +906,7 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 			g = rewritten
 		}
 
-		// Check for capability qualifiers or float/tuple in parameter type.
+		// Check for capability qualifiers or a tuple in parameter type.
 		nameIdx := 0
 		if len(g) >= 3 && (g[0].text == "mutates" || g[0].text == "consumes" || g[0].text == "sets") {
 			nameIdx = 1
@@ -917,9 +914,6 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 		for k := nameIdx + 1; k < len(g); k++ {
 			if g[k].kind == tokIdent && isCapabilityWord(g[k].text) {
 				warn(line, fmt.Sprintf("parameter capability '%s' is not supported in minimaxon", g[k].text))
-			}
-			if g[k].kind == tokIdent && g[k].text == "float" {
-				warn(line, "float types are not supported in minimaxon")
 			}
 		}
 		if nameIdx+1 < len(g) && g[nameIdx+1].text == "(" {
@@ -943,8 +937,6 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 
 	// Check unsupported typealias RHS forms.
 	switch rhs[0].text {
-	case "float":
-		warn(line, "float typealiases are not supported in minimaxon")
 	case "bits":
 		if len(rhs) > 1 && rhs[1].text == "(" {
 			warn(line, "bits(...) typealiases are not supported in minimaxon")
@@ -1087,8 +1079,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	// Token-level checks across the line.
 	for i, t := range toks {
 		switch t.kind {
-		case tokFloat:
-			warn(line, "float literals are not supported in minimaxon")
 		case tokByteString:
 			if !strings.HasSuffix(t.text, "\"") || len(t.text) < 3 {
 				warn(line, "a byte string literal that spans lines is not supported in minimaxon")
@@ -1164,10 +1154,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			case "max":
 				if i > 0 && toks[i-1].text == "to" {
 					warn(line, "open-ended 'to max' match range patterns are not supported in minimaxon")
-				}
-			case "float":
-				if i > 0 && toks[i-1].text == "as" {
-					warn(line, "float types are not supported in minimaxon")
 				}
 			}
 		}
