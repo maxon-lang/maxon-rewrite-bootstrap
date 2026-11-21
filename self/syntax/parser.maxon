@@ -29,10 +29,11 @@ type Parser
 	var errOffset as Count
 	var errCode as String
 	var errMessage as String
+	var errAtFileEnd as bool
 
 	static function new(module diag.ModuleID, consumes src String, consumes tokens Tokens) returns Parser
 		let srcCopy = src.clone()
-		return Parser{src: src, tokens: tokens, pos: 0 as Count, tree: ast.Tree.new(module, text: srcCopy), hasError: false, errOffset: 0 as Count, errCode: "", errMessage: ""}
+		return Parser{src: src, tokens: tokens, pos: 0 as Count, tree: ast.Tree.new(module, text: srcCopy), hasError: false, errOffset: 0 as Count, errCode: "", errMessage: "", errAtFileEnd: false}
 	end 'new'
 
 	function curKind() returns TokenKind
@@ -82,13 +83,28 @@ type Parser
 	end 'curTextRef'
 
 	function fail(mutates self, consumes code String, consumes message String)
+		self.failAt(self.curStart() as Count, code: code, message: message)
+	end 'fail'
+
+	// failExpected is the error for a token the grammar does not allow here; at the end of a file the construct that is
+	// still open is what is wrong, and the position is the end of that file.
+	function failExpected(mutates self, consumes code String, consumes message String)
+		if self.curKind() == TokenKind.fileEnd or self.curKind() == TokenKind.eof 'atEnd'
+			self.errAtFileEnd = true
+			self.failAt(self.curStart() as Count, code: diag.errUnexpectedEnd, message: diag.unexpectedEof())
+			return
+		end 'atEnd'
+		self.fail(code, message: message)
+	end 'failExpected'
+
+	function failAt(mutates self, offset Count, consumes code String, consumes message String)
 		if not hasError 'first'
 			hasError = true
-			errOffset = self.curStart() as Count
+			errOffset = offset
 			errCode = code
 			errMessage = message
 		end 'first'
-	end 'fail'
+	end 'failAt'
 
 	function advance(mutates self) returns Token
 		if pos >= tokens.count() 'eof'
@@ -111,7 +127,7 @@ type Parser
 		if self.curKind() == kind 'ok'
 			return self.advance()
 		end 'ok'
-		self.fail(diag.errExpectedToken, message: diag.expectedToken(what, got: self.curText()))
+		self.failExpected(diag.errExpectedToken, message: diag.expectedToken(what, got: self.curText()))
 		return Token.make(kind, start: self.curStart() as Count, length: 0 as Count)
 	end 'expect'
 
@@ -807,7 +823,10 @@ function parseTokensIntoModule(module diag.ModuleID, consumes path String, consu
 	end 'top'
 	if p.hasError 'failed'
 		let off32 = try p.errOffset as diag.U32 otherwise 0 as diag.U32
-		let loc = ast.locateTextOffset(p.tree.text, files: files, offset: off32)
+		var loc = ast.locateTextOffset(p.tree.text, files: files, offset: off32)
+		if p.errAtFileEnd 'fileEnd'
+			loc = ast.locateFileEnd(p.tree.text, files: files, offset: off32)
+		end 'fileEnd'
 		return ParseResult.err(ParseError.makeLocated(p.errOffset, code: p.errCode.clone(), message: p.errMessage.clone(), file: loc.file, line: loc.line, col: loc.col))
 	end 'failed'
 	var m = ast.Module.new(module, path: path, text: "", files: files)
@@ -825,15 +844,15 @@ export function parseSource(module diag.ModuleID, path String, consumes src Stri
 	var toks as Tokens
 	match consumes lexRes 'lr'
 		ok(t) then toks = t
-		err(e) then return makeLexErr(src, files: files, offset: e.offset, message: e.message.clone())
+		err(e) then return makeLexErr(src, files: files, offset: e.offset, code: e.code.clone(), message: e.message.clone())
 	end 'lr'
 	return parseTokensIntoModule(module, path: path.clone(), text: src, files: files, toks: toks)
 end 'parseSource'
 
-function makeLexErr(src String, files ast.FileSpanList, offset Count, consumes message String) returns ParseResult
+function makeLexErr(src String, files ast.FileSpanList, offset Count, consumes code String, consumes message String) returns ParseResult
 	let off32 = try offset as diag.U32 otherwise 0 as diag.U32
 	let loc = ast.locateTextOffset(src, files: files, offset: off32)
-	return ParseResult.err(ParseError.makeLocated(offset, code: diag.errUnexpectedToken, message: message, file: loc.file, line: loc.line, col: loc.col))
+	return ParseResult.err(ParseError.makeLocated(offset, code: code, message: message, file: loc.file, line: loc.line, col: loc.col))
 end 'makeLexErr'
 
 export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList) returns ParseResult
@@ -856,7 +875,7 @@ export function parseModuleFiles(module diag.ModuleID, consumes path String, con
 	var toks as Tokens
 	match consumes lexRes 'lr'
 		ok(t) then toks = t
-		err(e) then return makeLexErr(fullText, files: files, offset: e.offset, message: e.message.clone())
+		err(e) then return makeLexErr(fullText, files: files, offset: e.offset, code: e.code.clone(), message: e.message.clone())
 	end 'lr'
 	return parseTokensIntoModule(module, path: path, text: fullText, files: files, toks: toks)
 end 'parseModuleFiles'

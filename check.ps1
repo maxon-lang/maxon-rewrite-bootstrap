@@ -7,7 +7,9 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 Set-Location $PSScriptRoot
 
 $steps = @(
-	@('format', { gofmt -w . }),
+	# Only this checkout's Go: gofmt walks dot directories too, and .claude/worktrees holds other checkouts that
+	# agents are editing.
+	@('format', { gofmt -w (Get-ChildItem -Name -Filter *.go) cmd internal }),
 	@('go fix', { go fix ./... }),
 	@('vet', { go vet ./... }),
 	@('unit tests', { go test ./... }),

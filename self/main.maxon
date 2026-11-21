@@ -321,7 +321,7 @@ function testResolve()
 	end 'ord'
 end 'testResolve'
 
-function main() returns ExitCode
+function selfTest()
 	testProgram()
 	testNumbersAndOperators()
 	testStringsAndInterpolation()
@@ -334,5 +334,15 @@ function main() returns ExitCode
 	testProject()
 	testResolve()
 	print("self: all checks passed\n")
-	return 0
+end 'selfTest'
+
+// selftest is the one command the driver does not have: the tests are this module's, and a module imports only the ones
+// below it.
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() >= 2 and args[1] == "selftest" 'selftest'
+		selfTest()
+		return 0
+	end 'selftest'
+	return driver.run(args)
 end 'main'

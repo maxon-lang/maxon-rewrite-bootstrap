@@ -30,7 +30,7 @@ const usage = `usage:
   minimaxon build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable
   minimaxon run <file.maxon|dir>                  compile and run
   minimaxon check <file.maxon|dir>                report diagnostics only
-  minimaxon test [dir]                            run the test corpus (default: tests/)
+  minimaxon test [--with=<exe>] [dir]             run the test corpus (default: tests/), with this compiler or with <exe>
   minimaxon interp <file.maxon|dir>               run under the tracking interpreter (development only)
   minimaxon rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths
   minimaxon fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files under the paths in the one layout
@@ -97,6 +97,8 @@ var (
 	// somewhere else, as it is after a change that only moves code, such as renaming a keyword.
 	updatePositions bool
 	seed            int64
+	// externalCompiler is the compiler that test runs the corpus with, when --with names one.
+	externalCompiler string
 )
 
 // compileWithFlags compiles with the options the flags set, and reads and writes store (which may be nil) if it makes an
@@ -195,6 +197,18 @@ func runMain(args []string) (code int) {
 			tracePath = a[len(traceFlagPrefix):]
 			if tracePath == "" {
 				fmt.Fprintln(os.Stderr, "--trace takes a file name")
+				return usageExitCode
+			}
+			args = filterArgs(args, func(other string) bool { return other != a })
+			break
+		}
+	}
+
+	for _, a := range args {
+		if strings.HasPrefix(a, withFlagPrefix) {
+			externalCompiler = a[len(withFlagPrefix):]
+			if externalCompiler == "" {
+				fmt.Fprintln(os.Stderr, "--with takes the path of a compiler")
 				return usageExitCode
 			}
 			args = filterArgs(args, func(other string) bool { return other != a })
@@ -443,6 +457,7 @@ func readExpectation(program string) expectation {
 func runTests(dir string) int {
 	// Every native run of the corpus must end with no live heap box, so the executables count them.
 	countAllocations = true
+	compiler := testCompiler{external: externalCompiler}
 	dir, err := filepath.Abs(dir)
 	if err != nil {
 		panic(diag.Internal("cannot resolve %s: %v", dir, err))
@@ -471,16 +486,21 @@ func runTests(dir string) int {
 	sort.Strings(files)
 
 	var failures []string
+	unsupported := 0
 	for _, file := range files {
 		name, err := filepath.Rel(dir, file)
 		if err != nil {
 			panic(diag.Internal("cannot relativize %s: %v", file, err))
 		}
-		failure, failed := runTest(file, readExpectation(file))
+		failure, outcome := runTest(file, readExpectation(file), compiler)
 		status := "PASS"
-		if failed {
+		switch outcome {
+		case testFailed:
 			status = "FAIL"
 			failures = append(failures, name+": "+failure)
+		case testUnsupported:
+			status = "SKIP"
+			unsupported++
 		}
 		fmt.Printf("%s  %s\n", status, name)
 	}
@@ -489,7 +509,11 @@ func runTests(dir string) int {
 	for _, f := range failures {
 		fmt.Println(f)
 	}
-	fmt.Printf("%d/%d passed\n", len(files)-len(failures), len(files))
+	if compiler.external != "" {
+		fmt.Printf("%d passed, %d failed, %d not yet supported\n", len(files)-len(failures)-unsupported, len(failures), unsupported)
+	} else {
+		fmt.Printf("%d/%d passed\n", len(files)-len(failures), len(files))
+	}
 	if len(failures) == 0 {
 		return 0
 	}
@@ -516,46 +540,67 @@ func joinErrors(errs []*diag.CompileError) string {
 	return strings.Join(parts, "; ")
 }
 
-func runTest(file string, expect expectation) (string, bool) {
-	exe := tempExe(file)
-	errs, internal := compileForTest(file, exe)
-	if internal != "" {
-		return internal, true
+// testOutcome is how a test of the corpus ended. A test that the compiler under test cannot attempt yet is unsupported,
+// which is neither a pass nor a failure.
+type testOutcome int
+
+const (
+	testPassed testOutcome = iota
+	testFailed
+	testUnsupported
+)
+
+func failedIf(failure string, failed bool) (string, testOutcome) {
+	if failed {
+		return failure, testFailed
 	}
+	return "", testPassed
+}
+
+func runTest(file string, expect expectation, compiler testCompiler) (string, testOutcome) {
+	exe := tempExe(file)
+	compiled := compiler.compile(file, exe, expect.HasError)
+	if compiled.unsupported {
+		return "", testUnsupported
+	}
+	if compiled.internal != "" {
+		return compiled.internal, testFailed
+	}
+	errs := compiled.errs
 	if expect.HasError {
 		code, at, hasAt := strings.Cut(expect.Error, errorLocationSplit)
 		for _, e := range errs {
 			if e.Code == code && (!hasAt || at == positionText(e)) {
-				return "", false
+				return "", testPassed
 			}
 		}
 		if updatePositions && hasAt {
 			for _, e := range errs {
 				if e.Code == code {
 					moveExpectedError(file, expect.Error, code+errorLocationSplit+positionText(e))
-					return "", false
+					return "", testPassed
 				}
 			}
 		}
 		if len(errs) == 0 {
-			return "expected " + expect.Error + ", but it compiled", true
+			return "expected " + expect.Error + ", but it compiled", testFailed
 		}
-		return "expected " + expect.Error + ", got: " + joinErrors(errs), true
+		return "expected " + expect.Error + ", got: " + joinErrors(errs), testFailed
 	}
 	interpreterOnly := onlyInterpreterErrors(errs)
 	if len(errs) > 0 && !interpreterOnly {
-		return joinErrors(errs), true
+		return joinErrors(errs), testFailed
 	}
 	if interpreterOnly {
-		return runInterpreted(file, expect)
+		return failedIf(runInterpreted(file, expect))
 	}
 	if failure, failed := runNative(exe, expect); failed {
-		return failure, true
+		return failure, testFailed
 	}
-	if expect.NativeOnly {
-		return "", false
+	if expect.NativeOnly || !compiler.interprets() {
+		return "", testPassed
 	}
-	return runInterpreted(file, expect)
+	return failedIf(runInterpreted(file, expect))
 }
 
 // onlyInterpreterErrors is whether a program failed to compile only because it uses a map, a list, a pool, a frozen value,

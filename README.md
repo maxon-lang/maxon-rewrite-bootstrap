@@ -7,7 +7,7 @@ PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it, but it
 replaces it. It implements the subset of Maxon needed to compile `self/`, its own port to Maxon; once `self/`
-compiles itself, `self/` grows into the full compiler. It is compatible with current Maxon except for the language
+compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the front end `self/` has so far, with the diagnostics of `minimaxon check`, exit code 1 when there are any) and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
 changes developed here ("Where it differs from Maxon"). Its code stays plain enough to port: structs, interfaces,
 slices, and no runtime-specific tricks the design depends on.
 
@@ -32,7 +32,7 @@ go test ./...
 | `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory; modules that did not change come from the build cache (see "Build cache") |
 | `minimaxon run <file\|dir>` | compile to `%TEMP%\minimaxon\` and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only |
-| `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
+| `minimaxon test [--with=<exe>] [dir]` | run the corpus (default: `tests` beside the executable); with `--with`, with another compiler (see "Tests") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `rename.go`) |
@@ -80,6 +80,14 @@ executable yet: it fails to compile with `E9900`, and the runner then runs it un
 that. A program that schedules behaviours runs under 20 schedules (seeds 0 to 19), and every one must give the same
 stdout and exit code and no violation, so the directives of such a program must say an output that does not depend on the
 schedule: print only from behaviours that the cowns put in order, such as one chain, or behaviours on one cown.
+`minimaxon test --with=<exe>` runs the same corpus against another compiler, the one that `self/` makes, with the same
+expectations. Each compile is a subprocess: `<exe> check <path>` for a test that expects an error, `<exe> build <path> -o
+<out>` for one that runs, and the diagnostics are read from its stderr lines `error CODE: path:L:C: message` (exit code 1
+with no such line is a failure). A run test then runs the executable, and the interpreter has no part in it. A compiler
+that exits 6 (`notImplementedExitCode`: it does not have the command yet) does not fail the test: the test is counted
+as not yet supported. The summary is `N passed, M failed, K not yet supported`, the failures are listed, and the exit code is 0
+when nothing failed.
+
 Directives in comments say what the program must do:
 
 | Directive | Meaning |

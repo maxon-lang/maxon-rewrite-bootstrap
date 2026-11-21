@@ -132,10 +132,14 @@ type Lexer
 	end 'hasError'
 
 	function fail(mutates self, offset Count, consumes message String)
-		if not self.error.isSome() 'firstError'
-			self.error = table.Option.some(LexError.make(offset, message: message))
-		end 'firstError'
+		self.failWith(offset, code: diag.errUnexpectedToken, message: message)
 	end 'fail'
+
+	function failWith(mutates self, offset Count, consumes code String, consumes message String)
+		if not self.error.isSome() 'firstError'
+			self.error = table.Option.some(LexError.make(offset, code: code, message: message))
+		end 'firstError'
+	end 'failWith'
 
 	function emit(mutates self, kind TokenKind, start Count, stop Count)
 		let length = try stop - start otherwise panic("lexer emit negative length")
@@ -543,7 +547,7 @@ type Lexer
 					parens = parens - 1
 				end 'decParen'
 			end 'closeParen' else if c == byteColon and parens == 0 and nest == 0 'formatSpec'
-				self.fail(i, message: "format specifiers are not supported by minimaxon")
+				self.failWith(i, code: diag.errUnsupported, message: "format specifiers are not supported by minimaxon")
 				return i
 			end 'formatSpec' else if c == byteQuote 'nestedStr'
 				i = i + 1

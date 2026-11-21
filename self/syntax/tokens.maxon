@@ -108,10 +108,11 @@ export typealias Tokens = Array with Token
 
 export type LexError
 	export let offset as Count
+	export let code as String
 	export let message as String
 
-	export static function make(offset Count, consumes message String) returns LexError
-		return LexError{offset: offset, message: message}
+	export static function make(offset Count, consumes code String, consumes message String) returns LexError
+		return LexError{offset: offset, code: code, message: message}
 	end 'make'
 end 'LexError'
 

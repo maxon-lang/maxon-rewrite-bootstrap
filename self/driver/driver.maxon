@@ -1,0 +1,104 @@
+export let usageExitCode = 2 as ExitCode
+
+export let notImplementedExitCode = 6 as ExitCode
+
+let diagnosticsExitCode = 1 as ExitCode
+
+typealias CommandNames = Array with String
+
+// goOnlyCommands are the commands of the Go compiler that this one does not have yet. They are told apart from an
+// unknown command so that the corpus runner counts a test that needs one as not yet supported instead of failed.
+function goOnlyCommands() returns CommandNames
+	var names = CommandNames.create(0)
+	names.push("build")
+	names.push("run")
+	names.push("test")
+	names.push("interp")
+	names.push("rewrite")
+	names.push("fmt")
+	names.push("qualify")
+	names.push("rename")
+	names.push("cache")
+	return names
+end 'goOnlyCommands'
+
+export function usage() returns String
+	return "usage:\n  check <file.maxon|dir>   report diagnostics only\n  selftest                 run the compiler's own tests\n"
+end 'usage'
+
+function isGoOnlyCommand(name String) returns bool
+	let names = goOnlyCommands()
+	for i in 0 upto names.count() 'each'
+		if names[i] == name 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'isGoOnlyCommand'
+
+// run is the compiler's command line; args holds the program's own name first, as CommandLine.args() gives it.
+export function run(args Array with String) returns ExitCode
+	if args.count() < 2 'bare'
+		printError(usage())
+		return usageExitCode
+	end 'bare'
+	let command = args[1].clone()
+	if command == "check" 'check'
+		if args.count() < 3 'noPath'
+			printError(usage())
+			return usageExitCode
+		end 'noPath'
+		return checkPath(args[2].clone())
+	end 'check'
+	if isGoOnlyCommand(command) 'later'
+		printError("the command '{command}' is not implemented yet\n")
+		return notImplementedExitCode
+	end 'later'
+	printError(usage())
+	return usageExitCode
+end 'run'
+
+// check runs the front end over the project at path and prints its diagnostics.
+export function checkPath(path String) returns ExitCode
+	var errs = diag.ErrorList.create(0)
+	let loaded = project.loadProject(path, errs: errs)
+	match consumes loaded 'load'
+		some(p) then return checkLoaded(p, errs: errs)
+		none then return report(errs)
+	end 'load'
+end 'checkPath'
+
+function checkLoaded(consumes loadedProject ast.Project, mutates errs diag.ErrorList) returns ExitCode
+	var p = loadedProject
+	frontEnd(p, errs: errs)
+	ast.locateAllErrors(p.modules, errs: errs)
+	return report(errs)
+end 'checkLoaded'
+
+// frontEnd is the pipeline: each stage runs only when the stages before it found nothing, so the errors are those of the
+// first stage that has any, as the Go compiler reports them. A later step adds its stage after the last one.
+function frontEnd(mutates p ast.Project, mutates errs diag.ErrorList)
+	if errs.count() > 0 'discovered'
+		return
+	end 'discovered'
+	resolve.resolveProject(p, errs: errs)
+	if errs.count() > 0 'resolved'
+		return
+	end 'resolved'
+	let graph = project.newGraph(p)
+	match project.checkAcyclic(graph, p: p) 'cycle'
+		some(cycleError) then errs.push(cycleError.clone())
+		none then _ = 0
+	end 'cycle'
+end 'frontEnd'
+
+function report(mutates errs diag.ErrorList) returns ExitCode
+	diag.sortErrors(errs)
+	for i in 0 upto errs.count() 'each'
+		printError("{errs[i].format()}\n")
+	end 'each'
+	if errs.count() == 0 'clean'
+		return 0
+	end 'clean'
+	return diagnosticsExitCode
+end 'report'
