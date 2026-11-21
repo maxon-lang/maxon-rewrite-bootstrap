@@ -108,3 +108,26 @@ func TestSpecsOutWritesLFFilesAndTheSummary(t *testing.T) {
 		t.Fatalf("stdout=%q", stdout.String())
 	}
 }
+
+func TestConvertSpecMarksAnErrorTestWhoseBlockWasLaidOutDifferently(t *testing.T) {
+	const kept = "<!-- test: kept -->\n```maxon\nfunction main() returns ExitCode\n\treturn 1\nend 'main'\n```\n```maxoncstderr\nerror E3005: <fragment>:3:9: oops\n```\n\n"
+	const moved = "<!-- test: moved -->\n```maxon\nfunction main() returns ExitCode\n\t\tlet x = 1\n\n\t\treturn x\nend 'main'\n```\n```maxoncstderr\nerror E3005: <fragment>:5:10: oops\n```\n\n"
+	const runs = "<!-- test: runs -->\n```maxon\nfunction main() returns ExitCode\n\t\tlet x = 1\n\n\t\treturn x\nend 'main'\n```\n```exitcode\n1\n```\n"
+	res := ConvertSpec("demo.md", "## Tests\n\n"+kept+moved+runs)
+	if got := strings.Count(res.Text, specPositionsMarker); got != 1 || !strings.Contains(res.Text, "<!-- test: moved -->\n"+specPositionsMarker+"\n```maxon") {
+		t.Fatalf("only the error test whose layout changed is marked, got %d marks:\n%s", got, res.Text)
+	}
+	again := ConvertSpec("demo.md", res.Text)
+	if again.Text != res.Text {
+		t.Fatalf("converting the converted text changes it:\n%s", again.Text)
+	}
+}
+
+func TestConvertSpecSkipsAProjectWhoseMainIsBelowTheRoot(t *testing.T) {
+	const below = "<!-- test: below -->\n```maxon\n// --- file: app/main.maxon\nfunction main() returns ExitCode\n\treturn 0\nend 'main'\n```\n"
+	const root = "<!-- test: root -->\n```maxon\n// --- file: app/lib.maxon\nexport function f() returns ExitCode\n\treturn 0\nend 'f'\n\n// --- file: main.maxon\nfunction main() returns ExitCode\n\treturn 0\nend 'main'\n```\n"
+	res := ConvertSpec("demo.md", "## Tests\n\n"+below+root)
+	if len(res.Tests) != 2 || len(res.Tests[0].Skips) != 1 || res.Tests[0].Skips[0] != mainInSubdirectoryKind || len(res.Tests[1].Skips) != 0 {
+		t.Fatalf("tests = %+v", res.Tests)
+	}
+}

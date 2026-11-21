@@ -1,9 +1,9 @@
 // checkRuntimeFunctions holds the runtime's source to the functions the compiler calls in it (ir.rtFunctions): each is
 // declared, with the table's signature, and is a plain function that throws nothing, so that a call the compiler emits,
 // which passes words on the stack and takes a word back as a call of any function does, means what the function says.
-// A project with no runtime module has nothing to hold.
-function checkRuntimeFunctions(p ast.Project, mutates errs diag.ErrorList)
-	for m in 0 upto p.modules.count() 'modules'
+// A project with no runtime module has nothing to hold, and the modules before index first are held already.
+function checkRuntimeFunctions(p ast.Project, first Count, mutates errs diag.ErrorList)
+	for m in first upto p.modules.count() 'modules'
 		if p.modules[m].isRuntime 'runtime'
 			let wants = ir.rtFunctions(p.builtins)
 			for i in 0 upto wants.count() 'each'

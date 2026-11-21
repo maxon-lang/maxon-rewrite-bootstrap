@@ -22,6 +22,16 @@ const (
 	// message holds any punctuation a separator could be.
 	specSkipMarker = "<!-- skip: "
 
+	// A test that expects a compiler error (its expectation names positions of the source as maxon laid it out) and
+	// whose converted block is laid out differently carries this line after its test marker, so that the runner compares
+	// the codes and messages of the errors and not their positions.
+	specPositionsMarker = "<!-- positions: moved -->"
+
+	// The kind of a multi-file test whose main is declared in a subdirectory only: maxon finds it there, and minimaxon's
+	// root module is the project's directory, so such a program has no main.
+	mainInSubdirectoryKind = "language difference: main is not declared in the project's root directory, which minimaxon requires"
+	mainDeclaration        = "function main("
+
 	// A ```maxon block of several files is split by these lines; each section is its own source file, and a runtime
 	// file or a stdlib overlay is source too.
 	specFileMarker    = "// --- file:"
@@ -77,6 +87,7 @@ func ConvertSpec(file, src string) SpecResult {
 				}
 			} else {
 				if c.open && isErrorExpectation(line) {
+					c.expectsError = true
 					c.expectsSyntaxError = c.expectsSyntaxError || hasSyntaxError(lines[i+1:end])
 				}
 				c.out = append(c.out, lines[i:min(end+1, len(lines))]...)
@@ -87,6 +98,9 @@ func ConvertSpec(file, src string) SpecResult {
 		switch {
 		case c.open && strings.HasPrefix(line, specSkipMarker):
 			// Regenerated from this conversion's own warnings.
+		case c.open && line == specPositionsMarker:
+			// The original's layout is gone from converted text, so the mark it carries stays.
+			c.moved = true
 		case strings.HasPrefix(line, specTestMarker):
 			c.closeTest()
 			c.startTest(line)
@@ -123,6 +137,11 @@ type specConverter struct {
 	markerAt int
 	kinds    []string
 
+	// moved is whether a block of the case is laid out differently from the original, so that a position in the
+	// expectation no longer names the same text; expectsError is whether the case has a compiler-error expectation.
+	moved        bool
+	expectsError bool
+
 	// rejected holds the kinds of the case's blocks that minimaxon does not parse; expectsSyntaxError is whether the
 	// case expects such an error, which makes them the point of the case and no reason to skip it.
 	rejected           []string
@@ -139,6 +158,8 @@ func (c *specConverter) startTest(marker string) {
 	c.markerAt = len(c.out)
 	c.kinds = nil
 	c.rejected = nil
+	c.moved = false
+	c.expectsError = false
 	c.expectsSyntaxError = false
 	c.out = append(c.out, marker)
 }
@@ -151,17 +172,17 @@ func (c *specConverter) closeTest() {
 	if !c.expectsSyntaxError {
 		c.kinds = append(c.kinds, c.rejected...)
 	}
-	if len(c.kinds) == 0 {
-		return
-	}
 	slices.Sort(c.kinds)
 	c.kinds = slices.Compact(c.kinds)
 	c.tests[len(c.tests)-1].Skips = c.kinds
-	skips := make([]string, len(c.kinds))
-	for i, kind := range c.kinds {
-		skips[i] = specSkipMarker + kind + " " + specCommentClose
+	var marks []string
+	for _, kind := range c.kinds {
+		marks = append(marks, specSkipMarker+kind+" "+specCommentClose)
 	}
-	c.out = slices.Insert(c.out, c.markerAt+1, skips...)
+	if c.moved && c.expectsError {
+		marks = append(marks, specPositionsMarker)
+	}
+	c.out = slices.Insert(c.out, c.markerAt+1, marks...)
 }
 
 // convertBlock converts the lines of one ```maxon block into c.block. firstLine is the 1-based line of the file that
@@ -180,6 +201,42 @@ func (c *specConverter) convertBlock(body []string, firstLine int) {
 		}
 	}
 	section(len(body))
+	if declaresMainOnlyBelowTheRoot(body) {
+		c.kinds = append(c.kinds, mainInSubdirectoryKind)
+	}
+	if !sameLayout(body, c.block) {
+		c.moved = true
+	}
+}
+
+// declaresMainOnlyBelowTheRoot reports whether the files of a multi-file block declare main, and none of the ones that do is
+// in the root directory.
+func declaresMainOnlyBelowTheRoot(body []string) bool {
+	var file string
+	inRoot, below := false, false
+	for _, line := range body {
+		if after, ok := strings.CutPrefix(line, specFileMarker); ok {
+			file = strings.TrimSpace(after)
+			continue
+		}
+		if file == "" || !strings.HasPrefix(line, mainDeclaration) && !strings.HasPrefix(line, "export "+mainDeclaration) {
+			continue
+		}
+		if strings.Contains(file, "/") {
+			below = true
+		} else {
+			inRoot = true
+		}
+	}
+	return below && !inRoot
+}
+
+// sameLayout reports whether the converted lines are the original's, line for line, so that a position of the original
+// names the same text in the converted block. Trailing whitespace carries no position.
+func sameLayout(original, converted []string) bool {
+	return slices.EqualFunc(original, converted, func(a, b string) bool {
+		return strings.TrimRight(a, " 	") == strings.TrimRight(b, " 	")
+	})
 }
 
 // convertSection converts one source file's lines, keeping the blank lines around it: maxon trims a section, so they

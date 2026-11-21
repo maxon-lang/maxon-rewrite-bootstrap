@@ -66,20 +66,21 @@ enum TestOutcome
 	testUnsupported
 end 'TestOutcome'
 
+// TestResult is the outcome of a test with what to say of it: what failed, or why an unsupported test is.
 type TestResult
 	var outcome as TestOutcome
-	var failure as String
+	var detail as String
 
 	static function passed() returns TestResult
-		return TestResult{outcome: TestOutcome.testPassed, failure: ""}
+		return TestResult{outcome: TestOutcome.testPassed, detail: ""}
 	end 'passed'
 
-	static function failed(consumes failure String) returns TestResult
-		return TestResult{outcome: TestOutcome.testFailed, failure: failure}
+	static function failed(consumes detail String) returns TestResult
+		return TestResult{outcome: TestOutcome.testFailed, detail: detail}
 	end 'failed'
 
-	static function unsupported() returns TestResult
-		return TestResult{outcome: TestOutcome.testUnsupported, failure: ""}
+	static function unsupported(consumes reason String) returns TestResult
+		return TestResult{outcome: TestOutcome.testUnsupported, detail: reason}
 	end 'unsupported'
 end 'TestResult'
 
@@ -189,7 +190,11 @@ function readLines(path String) returns ast.StringList
 	if hasByteOrderMark(text) 'bom'
 		text = text.sliceBytes(byteOrderMarkBytes, endPos: text.byteLength())
 	end 'bom'
-	text = withoutCarriageReturns(text, loneToo: true)
+	return splitLines(withoutCarriageReturns(text, loneToo: true))
+end 'readLines'
+
+// splitLines is the lines of a text, which end at each newline; a text that ends in one has an empty last line.
+function splitLines(text String) returns ast.StringList
 	var lines = ast.StringList.create(0)
 	var start = 0 as Count
 	let n = text.byteLength()
@@ -201,7 +206,7 @@ function readLines(path String) returns ast.StringList
 	end 'scan'
 	lines.push(text.sliceBytes(start, endPos: n))
 	return lines
-end 'readLines'
+end 'splitLines'
 
 // directiveNumber is the number a directive's text holds, for the directive that file has on one of its lines.
 function directiveNumber(text String, file String, directive String) returns Count
@@ -305,11 +310,25 @@ function collectProjects(modulesRoot String, mutates files ast.StringList)
 	end 'entries'
 end 'collectProjects'
 
-// testCommand is `test [dir]`: the corpus is the given directory, or else the nearest tests directory from the
-// executable's upward.
+// testCommand is `test [dir|file.md] [--verbose]`: the corpus is the given directory of programs, or the spec files at the
+// given path, or else the nearest tests directory from the executable's upward.
 function testCommand(rest CommandNames) returns ExitCode
-	if rest.count() >= 2 'given'
-		return runTests(rest[1])
+	var verbose = false
+	var path = ""
+	var hasPath = false
+	for i in 1 upto rest.count() 'arguments'
+		if rest[i] == verboseFlag 'verbose'
+			verbose = true
+		end 'verbose' else if not hasPath 'path'
+			path = rest[i].clone()
+			hasPath = true
+		end 'path'
+	end 'arguments'
+	if hasPath and isSpecPath(path) 'specs'
+		return runSpecs(path, verbose: verbose)
+	end 'specs'
+	if hasPath 'given'
+		return runTests(path)
 	end 'given'
 	return match consumes project.nearestDirectory(testsDirName) 'nearest'
 		some(dir) gives runTests(dir)
@@ -336,15 +355,16 @@ function runTests(dir String) returns ExitCode
 	project.sortStrings(files)
 	var failures = ast.StringList.create(0)
 	var unsupported = 0 as Count
+	var shared = prepareSharedRuntime()
 	for i in 0 upto files.count() 'tests'
 		let file = files[i].clone()
 		let nameStart = try root.byteLength() + 1 otherwise panic("test: {root} is too long")
 		let name = file.sliceBytes(nameStart, endPos: file.byteLength())
-		let result = runTest(file, expect: readExpectation(file))
+		let result = runTest(shared, file: file, expect: readExpectation(file))
 		var status = "PASS"
 		if result.outcome == TestOutcome.testFailed 'failed'
 			status = "FAIL"
-			failures.push("{name}: {result.failure}")
+			failures.push("{name}: {result.detail}")
 		end 'failed' else if result.outcome == TestOutcome.testUnsupported 'unsupported'
 			status = "SKIP"
 			unsupported = unsupported + 1
@@ -363,13 +383,30 @@ function runTests(dir String) returns ExitCode
 	return diagnosticsExitCode
 end 'runTests'
 
-// compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
-// an error the generate stage raises gets it. The executables count their live heap boxes.
-function compileForTest(file String, output String) returns diag.ErrorList
+// prepareSharedRuntime is the runtime that every compile of a run of tests links with, checked and compiled once. It
+// panics when the runtime does not compile, since no test could then say anything about the program it compiles.
+function prepareSharedRuntime() returns SharedRuntime
+	var errs = diag.ErrorList.create(0)
+	let shared = SharedRuntime.prepare(errs)
+	if errs.count() > 0 'broken'
+		panic("test: the runtime does not compile: {joinErrors(errs)}")
+	end 'broken'
+	return shared
+end 'prepareSharedRuntime'
+
+// testOptions are the options every test is compiled with: the executables count their live heap boxes, so that a test
+// that leaks fails.
+function testOptions() returns Options
 	var options = Options.new()
 	options.countAllocations = true
+	return options
+end 'testOptions'
+
+// compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
+// an error the generate stage raises gets it.
+function compileForTest(mutates shared SharedRuntime, file String, output String) returns diag.ErrorList
 	var errs = diag.ErrorList.create(0)
-	compileProject(file, output: output, options: options, errs: errs)
+	compileProjectWith(shared, path: file, output: output, options: testOptions(), errs: errs)
 	diag.sortErrors(errs)
 	return errs
 end 'compileForTest'
@@ -389,6 +426,8 @@ function positionText(e diag.CompileError) returns String
 	return "{e.line}:{e.col}"
 end 'positionText'
 
+let interpreterOnlyReason = "needs the interpreter: a map, list, pool, frozen value, cown or behaviour"
+
 // onlyInterpreterErrors is whether a program failed to compile only because it uses a map, a list, a pool, a frozen value,
 // a cown or a behaviour, which the compiler has no code for yet.
 function onlyInterpreterErrors(errs diag.ErrorList) returns bool
@@ -402,13 +441,12 @@ end 'onlyInterpreterErrors'
 
 // runTest compiles a test program and checks the result against what its directives say. The executable lives only as
 // long as the test.
-function runTest(file String, expect Expectation) returns TestResult
+function runTest(mutates shared SharedRuntime, file String, expect Expectation) returns TestResult
 	let exe = temporaryExecutable(file)
-	let errs = compileForTest(file, output: exe)
+	let errs = compileForTest(shared, file: file, output: exe)
 	let result = checkTest(expect, errs: errs, exe: exe)
 	if errs.count() == 0 'built'
-		let exePath = try FilePath.from(exe) otherwise panic("test: {exe} is not a path")
-		try File.delete(exePath) otherwise panic("test: cannot delete {exe}")
+		deleteExecutable(exe)
 	end 'built'
 	return result
 end 'runTest'
@@ -424,7 +462,7 @@ function checkTest(expect Expectation, errs diag.ErrorList, exe String) returns 
 		return TestResult.failed(joinErrors(errs))
 	end 'failed'
 	if interpreterOnly 'unsupported'
-		return TestResult.unsupported()
+		return TestResult.unsupported(interpreterOnlyReason)
 	end 'unsupported'
 	return runNative(exe, expect: expect)
 end 'checkTest'
@@ -461,11 +499,28 @@ function exitCodeText(code ExitCode) returns String
 	return "{code}"
 end 'exitCodeText'
 
+// deleteExecutable removes the executable that a test was compiled to.
+function deleteExecutable(exe String)
+	let exePath = try FilePath.from(exe) otherwise panic("test: {exe} is not a path")
+	try File.delete(exePath) otherwise panic("test: cannot delete {exe}")
+end 'deleteExecutable'
+
+// runExecutable runs the executable at exe with no arguments, and gives what it wrote and its exit code, or nothing when it
+// cannot be started.
+function runExecutable(exe String) returns table.Option with CollectedOutput
+	let exePath = try FilePath.from(exe) otherwise return table.Option.none
+	let out = try Subprocess.run(Executable.path(exePath.clone()), arguments: CommandNames.create(0)) otherwise return table.Option.none
+	return table.Option.some(out)
+end 'runExecutable'
+
 // runNative runs the executable and checks its output and exit code against what the program expects. The memory limit
 // of the directive is not enforced, and nothing ends a program that never exits.
 function runNative(exe String, expect Expectation) returns TestResult
-	let exePath = try FilePath.from(exe) otherwise return TestResult.failed("cannot run {exe}")
-	let out = try Subprocess.run(Executable.path(exePath.clone()), arguments: CommandNames.create(0)) otherwise return TestResult.failed("cannot run {exe}")
+	let ran = runExecutable(exe)
+	if not ran.isSome() 'cannot'
+		return TestResult.failed("cannot run {exe}")
+	end 'cannot'
+	let out = ran.unwrap()
 	let actual = withoutCarriageReturns(out.stdout, loneToo: false)
 	let code = out.exitCode()
 	if code != expect.exit 'exit'

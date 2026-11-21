@@ -6,13 +6,13 @@ export typealias FunctionLists = Array with ir.IrFunctionList
 
 // buildProgram is the executable image of the functions of every module, in module order, with entry as the function
 // that main is. The units are in the order the link lays them out in: the entry stub, the ready-made units (the ones that
-// the build cache has, and any that are not made from IR), the modules, and the routines.
-export function buildProgram(mutates p ast.Project, modules FunctionLists, consumes ready UnitList, entry ast.FuncID, options RuntimeOptions) returns PeImage
+// the build cache has, and any that are not made from IR), the modules, and the routines. The ready units are lent to the
+// build and are in ready again when it returns, so that many programs can be linked with the same ones.
+export function buildProgram(mutates p ast.Project, modules FunctionLists, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions) returns PeImage
 	var units = UnitList.create(0)
 	units.push(emitRuntime(ast.funcLinkName(p, fid: entry), options: options))
-	var held = ready
-	for i in 0 upto held.count() 'ready'
-		units.push(exchange(held[i], value: CodeUnit.new()))
+	for i in 0 upto ready.count() 'ready'
+		units.push(exchange(ready[i], value: CodeUnit.new()))
 	end 'ready'
 	for i in 0 upto modules.count() 'modules'
 		units.push(emitModule(p, fns: modules[i]))
@@ -21,11 +21,15 @@ export function buildProgram(mutates p ast.Project, modules FunctionLists, consu
 	for i in 0 upto routines.count() 'routines'
 		units.push(exchange(routines[i], value: CodeUnit.new()))
 	end 'routines'
-	return link(units, entry: ir.rtSymbol(ir.Rt.rtEntry))
+	let image = link(units, entry: ir.rtSymbol(ir.Rt.rtEntry))
+	for i in 0 upto ready.count() 'lent'
+		ready[i] = exchange(units[try i + 1 otherwise panic("backend: more units than memory")], value: CodeUnit.new())
+	end 'lent'
+	return image
 end 'buildProgram'
 
 // compileProgram writes the executable of the functions of every module to out.
-export function compileProgram(mutates p ast.Project, modules FunctionLists, consumes ready UnitList, entry ast.FuncID, options RuntimeOptions, out FilePath) throws FileWriteError
+export function compileProgram(mutates p ast.Project, modules FunctionLists, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions, out FilePath) throws FileWriteError
 	let image = buildProgram(p, modules: modules, ready: ready, entry: entry, options: options)
 	try writePeImage(image, path: out)
 end 'compileProgram'

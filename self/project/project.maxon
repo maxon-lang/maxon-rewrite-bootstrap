@@ -151,7 +151,7 @@ end 'nearestDirectory'
 
 // isRuntimeDirectory is whether a project's directory is the runtime's source, which is then checked as the runtime: it
 // may call the __Raw intrinsics, and it is a library with no main.
-function isRuntimeDirectory(path String) returns bool
+export function isRuntimeDirectory(path String) returns bool
 	return match consumes runtimeDirectory() 'found'
 		some(dir) gives sameText(absolutePath(path), b: absolutePath(dir))
 		none gives false
@@ -269,7 +269,11 @@ end 'lastComponent'
 
 // listDirectory sorts what a directory holds into the paths of its source files and the names of the directories that may be
 // modules, each in order.
-function listDirectory(dir String, mutates files ast.StringList, mutates dirs ast.StringList)
+function listDirectory(dir String, memory SourceFiles, mutates files ast.StringList, mutates dirs ast.StringList)
+	if memory.count() > 0 'inMemory'
+		listMemory(dir, memory: memory, files: files, dirs: dirs)
+		return
+	end 'inMemory'
 	let dirPath = try FilePath.from(dir) otherwise return
 	let listed = try Directory.list(dirPath) otherwise FilePathList.create(0)
 	for i in 0 upto listed.count() 'split'
@@ -288,13 +292,78 @@ function listDirectory(dir String, mutates files ast.StringList, mutates dirs as
 	sortStrings(dirs)
 end 'listDirectory'
 
-function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes modPath String, isRoot bool, mutates errs diag.ErrorList) returns table.Option with Count
-	if not isDirectoryPath(dir) 'missing'
+// SourceFile is a file of a program that is held in memory, named by the path it would have.
+export type SourceFile
+	export var path as String
+	export var text as String
+
+	export static function make(consumes path String, consumes text String) returns SourceFile
+		return SourceFile{path: path, text: text}
+	end 'make'
+end 'SourceFile'
+
+export typealias SourceFiles = Array with SourceFile
+
+// belowDirectory is whether a path begins with a directory's path and a separator, so that it is below the directory.
+function belowDirectory(path String, dir String) returns bool
+	let n = dir.byteLength()
+	if path.byteLength() <= n or path.byteAt(n) != backslashByte 'short'
+		return false
+	end 'short'
+	return path.sliceBytes(0, endPos: n) == dir
+end 'belowDirectory'
+
+// listMemory is listDirectory for the files that are held in memory: the paths of the source files in dir, and the names of
+// the directories below it that hold a file, each in order.
+function listMemory(dir String, memory SourceFiles, mutates files ast.StringList, mutates dirs ast.StringList)
+	for i in 0 upto memory.count() 'each'
+		let path = memory[i].path.clone()
+		if parentDir(path) == dir 'file'
+			if endsWithMaxon(path) 'source'
+				files.push(path)
+			end 'source'
+		end 'file' else if belowDirectory(path, dir: dir) 'below'
+			let rest = path.sliceBytes(try dir.byteLength() + 1 otherwise panic("project: a path longer than memory"), endPos: path.byteLength())
+			var cut = 0 as Count
+			while rest.byteAt(cut) != backslashByte 'name'
+				cut = try cut + 1 otherwise panic("project: a path longer than memory")
+			end 'name'
+			let name = rest.sliceBytes(0, endPos: cut)
+			if not containsString(dirs, text: name) 'new'
+				dirs.push(name)
+			end 'new'
+		end 'below'
+	end 'each'
+	sortStrings(files)
+	sortStrings(dirs)
+end 'listMemory'
+
+function containsString(list ast.StringList, text String) returns bool
+	for i in 0 upto list.count() 'each'
+		if list[i] == text 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'containsString'
+
+// memoryText is the text of the file at path when it is held in memory.
+function memoryText(memory SourceFiles, path String) returns table.Option with String
+	for i in 0 upto memory.count() 'each'
+		if memory[i].path == path 'found'
+			return table.Option.some(memory[i].text.clone())
+		end 'found'
+	end 'each'
+	return table.Option.none
+end 'memoryText'
+
+function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes modPath String, isRoot bool, memory SourceFiles, mutates errs diag.ErrorList) returns table.Option with Count
+	if memory.count() == 0 and not isDirectoryPath(dir) 'missing'
 		return table.Option.none
 	end 'missing'
 	var rawFiles = ast.StringList.create(0)
 	var rawDirs = ast.StringList.create(0)
-	listDirectory(dir, files: rawFiles, dirs: rawDirs)
+	listDirectory(dir, memory: memory, files: rawFiles, dirs: rawDirs)
 	let myIdx = nodes.count()
 	nodes.push(DiscoveredDir.make(modPath.clone(), dir: dir.clone()))
 	nodes[myIdx].filePaths = rawFiles
@@ -307,7 +376,7 @@ function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes 
 			childModPath = "{modPath}.{subName}"
 		end 'sub'
 		let childDir = joinPath(dir, name: subName)
-		match scanDirectory(nodes, dir: childDir.clone(), modPath: childModPath, isRoot: false, errs: errs) 'res'
+		match scanDirectory(nodes, dir: childDir.clone(), modPath: childModPath, isRoot: false, memory: memory, errs: errs) 'res'
 			some(childIdx) then checkChildQualifier(isRoot, subName: subName, childDir: childDir, childIdx: childIdx, childNames: childNames, childIdxs: childIdxs, errs: errs)
 			none then _ = 0
 		end 'res'
@@ -437,21 +506,14 @@ function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, p
 	diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{dName}' is already declared in {m.display()} at {prevLoc.file}:{prevLoc.line}", module: modID, offset: dOff)
 end 'pushDuplicateDecl'
 
-function parseSingleModule(mutates p ast.Project, modIdx Count, singleSrc table.Option with String, mutates errs diag.ErrorList)
+function parseSingleModule(mutates p ast.Project, modIdx Count, memory SourceFiles, mutates errs diag.ErrorList)
 	let mPath = p.modules[modIdx].path.clone()
 	var fPaths = ast.StringList.create(0)
 	var fTexts = ast.StringList.create(0)
 	for i in 0 upto p.modules[modIdx].filePaths.count() 'readF'
 		let fp = p.modules[modIdx].filePaths[i].clone()
 		fPaths.push(fp.clone())
-		if i == 0 'chkSingle'
-			match singleSrc 'ss'
-				some(txt) then appendCopyStr(fTexts, s: txt)
-				none then readOneFile(fp, fTexts: fTexts, errs: errs)
-			end 'ss'
-		end 'chkSingle' else 'readNext'
-			readOneFile(fp, fTexts: fTexts, errs: errs)
-		end 'readNext'
+		readFileText(fp, memory: memory, fTexts: fTexts, errs: errs)
 	end 'readF'
 	if fTexts.count() != fPaths.count() 'ioFail'
 		return
@@ -474,6 +536,14 @@ function appendCopyStr(mutates fTexts ast.StringList, s String)
 	fTexts.push(s.clone())
 end 'appendCopyStr'
 
+// readFileText adds the text of the file at fp, from memory when the file is held there and from disk otherwise.
+function readFileText(fp String, memory SourceFiles, mutates fTexts ast.StringList, mutates errs diag.ErrorList)
+	match consumes memoryText(memory, path: fp) 'held'
+		some(txt) then fTexts.push(txt)
+		none then readOneFile(fp, fTexts: fTexts, errs: errs)
+	end 'held'
+end 'readFileText'
+
 function readOneFile(fp String, mutates fTexts ast.StringList, mutates errs diag.ErrorList)
 	match consumes readTextFile(fp) 'rf'
 		some(txt) then fTexts.push(txt)
@@ -489,46 +559,88 @@ function copyParsedIntoModule(mutates p ast.Project, modIdx Count, consumes pars
 	p.modules[modIdx].names = pm.names
 end 'copyParsedIntoModule'
 
+// loadProject is the project at rootPath: a directory of modules, or a single source file.
 export function loadProject(rootPath String, mutates errs diag.ErrorList) returns table.Option with ast.Project
 	var p = ast.Project.new(rootPath.clone())
-	if isDirectoryPath(rootPath) 'dir'
-		var nodes = DiscDirList.create(0)
-		_ = scanDirectory(nodes, dir: rootPath.clone(), modPath: "", isRoot: true, errs: errs)
-		if nodes.count() > 0 'collect'
-			let rootMid = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
-			p.rootModule = rootMid
-			p.modules[ast.modIndex(rootMid)].isRuntime = isRuntimeDirectory(rootPath)
-		end 'collect'
-		for i in 0 upto p.modules.count() 'parseEach'
-			parseSingleModule(p, modIdx: i, singleSrc: table.Option.none, errs: errs)
-		end 'parseEach'
-	end 'dir' else 'single'
-		var singleText = ""
-		match consumes readTextFile(rootPath) 'rf'
-			some(txt) then singleText = txt
-			none then return failMissingInput(rootPath, errs: errs)
-		end 'rf'
-		var m = ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0))
-		m.dir = parentDir(rootPath)
-		m.filePaths.push(rootPath.clone())
-		let rootMid = ast.addModule(p, m: m)
-		p.rootModule = rootMid
-		parseSingleModule(p, modIdx: 0 as Count, singleSrc: table.Option.some(singleText), errs: errs)
-	end 'single'
-	for i in 0 upto p.modules.count() 'buildTbl'
-		let mid = p.modules[i].id
-		buildModuleTable(p, modID: mid, errs: errs)
-	end 'buildTbl'
+	if not loadProjectInto(p, rootPath: rootPath, errs: errs) 'missing'
+		return table.Option.none
+	end 'missing'
 	return table.Option.some(p)
 end 'loadProject'
 
-// addRuntime loads the runtime's source as a module of the program, after the program's own, so that it is checked,
-// lowered and linked with the program. No module of a program can name it, since none is its parent. A project that is the
-// runtime itself has it already.
+// loadProjectInto adds the project at rootPath to p, whose modules stay as they are: the new modules come after them, so
+// that p can start as what many programs share, such as the runtime already checked. The root of the project becomes the
+// root module of p. It is false when the path names no file or directory.
+export function loadProjectInto(mutates p ast.Project, rootPath String, mutates errs diag.ErrorList) returns bool
+	p.root = rootPath.clone()
+	let first = p.modules.count()
+	if isDirectoryPath(rootPath) 'dir'
+		loadDirectory(p, rootPath: rootPath, memory: SourceFiles.create(0), errs: errs)
+	end 'dir' else 'single'
+		match consumes readTextFile(rootPath) 'rf'
+			some(text) then addSingleFile(p, path: rootPath, text: text, errs: errs)
+			none then return failMissingInput(rootPath, errs: errs)
+		end 'rf'
+	end 'single'
+	buildModuleTables(p, first: first, errs: errs)
+	return true
+end 'loadProjectInto'
+
+// loadFilesInto is loadProjectInto for a project whose files are held in memory, as a directory rootPath that holds them
+// at the paths they name.
+export function loadFilesInto(mutates p ast.Project, rootPath String, files SourceFiles, mutates errs diag.ErrorList)
+	p.root = rootPath.clone()
+	let first = p.modules.count()
+	loadDirectory(p, rootPath: rootPath, memory: files, errs: errs)
+	buildModuleTables(p, first: first, errs: errs)
+end 'loadFilesInto'
+
+// loadDirectory adds the modules of the directory at rootPath, the files of which are the ones in memory when there are any.
+function loadDirectory(mutates p ast.Project, rootPath String, memory SourceFiles, mutates errs diag.ErrorList)
+	let first = p.modules.count()
+	var nodes = DiscDirList.create(0)
+	_ = scanDirectory(nodes, dir: rootPath.clone(), modPath: "", isRoot: true, memory: memory, errs: errs)
+	if nodes.count() > 0 'collect'
+		let rootMid = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
+		p.rootModule = rootMid
+		p.modules[ast.modIndex(rootMid)].isRuntime = isRuntimeDirectory(rootPath)
+	end 'collect'
+	for i in first upto p.modules.count() 'parseEach'
+		parseSingleModule(p, modIdx: i, memory: memory, errs: errs)
+	end 'parseEach'
+end 'loadDirectory'
+
+// loadSourceInto adds a program that is the one file text, named path in diagnostics, to p, as loadProjectInto adds a
+// project. It is how a test of the corpus compiles a program it holds in memory.
+export function loadSourceInto(mutates p ast.Project, path String, text String, mutates errs diag.ErrorList)
+	p.root = path.clone()
+	let first = p.modules.count()
+	addSingleFile(p, path: path, text: text, errs: errs)
+	buildModuleTables(p, first: first, errs: errs)
+end 'loadSourceInto'
+
+// addSingleFile adds a module that is the one file at path, whose text is given, and makes it the root.
+function addSingleFile(mutates p ast.Project, path String, text String, mutates errs diag.ErrorList)
+	var m = ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0))
+	m.dir = parentDir(path)
+	m.filePaths.push(path.clone())
+	let rootMid = ast.addModule(p, m: m)
+	p.rootModule = rootMid
+	var memory = SourceFiles.create(0)
+	memory.push(SourceFile.make(path.clone(), text: text.clone()))
+	parseSingleModule(p, modIdx: ast.modIndex(rootMid), memory: memory, errs: errs)
+end 'addSingleFile'
+
+function buildModuleTables(mutates p ast.Project, first Count, mutates errs diag.ErrorList)
+	for i in first upto p.modules.count() 'buildTbl'
+		let mid = p.modules[i].id
+		buildModuleTable(p, modID: mid, errs: errs)
+	end 'buildTbl'
+end 'buildModuleTables'
+
+// addRuntime loads the runtime's source as a module of p, so that it is checked, lowered and linked with the programs
+// compiled after it.
 export function addRuntime(mutates p ast.Project, mutates errs diag.ErrorList)
-	if p.modules[ast.modIndex(p.rootModule)].isRuntime 'itself'
-		return
-	end 'itself'
 	let dir = match consumes runtimeDirectory() 'found'
 		some(found) gives found
 		none panic("there is no runtime directory in the compiler's directory or above it")
@@ -537,13 +649,14 @@ export function addRuntime(mutates p ast.Project, mutates errs diag.ErrorList)
 	m.dir = dir.clone()
 	m.isRuntime = true
 	var subdirectories = ast.StringList.create(0)
-	listDirectory(dir, files: m.filePaths, dirs: subdirectories)
+	listDirectory(dir, memory: SourceFiles.create(0), files: m.filePaths, dirs: subdirectories)
 	let mid = ast.addModule(p, m: m)
-	parseSingleModule(p, modIdx: ast.modIndex(mid), singleSrc: table.Option.none, errs: errs)
+	p.rootModule = mid
+	parseSingleModule(p, modIdx: ast.modIndex(mid), memory: SourceFiles.create(0), errs: errs)
 	buildModuleTable(p, modID: mid, errs: errs)
 end 'addRuntime'
 
-function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns table.Option with ast.Project
+function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns bool
 	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.clone(), line: 1 as Count, col: 1 as Count)
-	return table.Option.none
+	return false
 end 'failMissingInput'

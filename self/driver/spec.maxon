@@ -1,0 +1,967 @@
+// The spec runner: `test` over maxon's spec files (specs/), in the format of maxon's docs/SPECS.md. A test is a
+// `<!-- test: name -->` line, directive comments, a ```maxon block and the blocks that say what it does. Each test is
+// compiled in this process, on the runtime that the whole run shares, and run once.
+
+let specExtension = ".md"
+
+let testsHeading = "## Tests"
+
+let headingPrefix = "## "
+
+let testMarkerPrefix = "<!-- test:"
+
+let commentPrefix = "<!-- "
+
+let commentSuffix = "-->"
+
+let skipKey = "skip"
+
+let positionsKey = "positions"
+
+let positionsMoved = "moved"
+
+let fenceMark = "```"
+
+let sourceFence = "maxon"
+
+let exitFence = "exitcode"
+
+let stdoutFence = "stdout"
+
+let stderrFence = "stderr"
+
+let compilerErrorFence = "maxoncstderr"
+
+let proseFences = "text"
+
+let traceFences = "-trace"
+
+// A fence qualified for a target is written name:target, as Stdout:x64-windows.
+let targetSeparator = ":"
+
+let hostTarget = "x64-windows"
+
+// What a fragment is called in diagnostics, and the line that maxon puts above a fragment's source, which the positions of
+// the expectations count.
+let fragmentToken = "<fragment>"
+
+let fragmentHeader = "// Test: "
+
+let fileSectionPrefix = "// --- file:"
+
+let overlaySectionPrefix = "// --- stdlib-overlay:"
+
+let runtimeSectionPrefix = "// --- runtime-file:"
+
+let directiveSeparator = ":"
+
+let targetsDirective = "unsupported-targets"
+
+let verboseFlag = "--verbose"
+
+let backtickByte = 96 as Byte
+
+let hashByte = 35 as Byte
+
+let angleByte = 60 as Byte
+
+let colonByte = 58 as Byte
+
+let upperA = 65 as Byte
+
+let upperZ = 90 as Byte
+
+let letterCase = 32 as Byte
+
+// How many skip reasons the summary lists before it counts the rest together.
+let listedSkipReasons = 20
+
+// The longest a failure's line is, in bytes of its detail.
+let detailLimit = 220
+
+// A line of a failure, as many as the detail shows of the first line that differs.
+let shownLineLimit = 100
+
+typealias CountList = Array with Count
+
+typealias ReasonIndex = table.StringMap with Count
+
+// SpecFence is a fenced block of a test that is not its source: what the block is called, and where its text is in the file.
+type SpecFence
+	var name as String
+	var start as Count
+	var finish as Count
+
+	static function make(consumes name String, start Count, finish Count) returns SpecFence
+		return SpecFence{name: name, start: start, finish: finish}
+	end 'make'
+end 'SpecFence'
+
+typealias SpecFenceList = Array with SpecFence
+
+// SpecTest is one test of a spec file. The source and the fences are ranges of the file's text, which is cut only for a
+// test that runs.
+type SpecTest
+	var name as String
+	// skips are the kinds of skip line that the conversion wrote, and directives the other comment lines.
+	var skips as ast.StringList
+	var directives as ast.StringList
+	var positionsMoved as bool
+	var hasSource as bool
+	var sourceStart as Count
+	var sourceFinish as Count
+	var fences as SpecFenceList
+
+	static function make(consumes name String) returns SpecTest
+		return SpecTest{name: name, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0)}
+	end 'make'
+end 'SpecTest'
+
+typealias SpecTests = Array with SpecTest
+
+// offsetBy is the position that lies by bytes after at.
+function offsetBy(at Count, by Count) returns Count
+	return try at + by otherwise panic("test: a text longer than memory")
+end 'offsetBy'
+
+function isTrailingSpace(c Byte) returns bool
+	return c == spaceByte or c == tabByte or c == carriageReturnByte
+end 'isTrailingSpace'
+
+// lowerText is text with its ASCII capitals made small.
+function lowerText(text String) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto text.byteLength() 'bytes'
+		let c = text.byteAt(i)
+		if c >= upperA and c <= upperZ 'capital'
+			out.push(try c + letterCase otherwise c)
+		end 'capital' else 'plain'
+			out.push(c)
+		end 'plain'
+	end 'bytes'
+	return String.from(out)
+end 'lowerText'
+
+// parseSpec is the tests of a spec file. Only what follows the `## Tests` heading holds tests; a bare or text fence is
+// prose, so a marker quoted in one starts nothing.
+function parseSpec(text String) returns SpecTests
+	var tests = SpecTests.create(0)
+	var current = SpecTest.make("")
+	var reading = false
+	var inTests = false
+	var inFence = false
+	var fenceName = ""
+	var bodyStart = 0 as Count
+	let n = text.byteLength()
+	var lineStart = 0 as Count
+	while lineStart <= n 'lines'
+		var lineEnd = lineStart
+		while lineEnd < n and text.byteAt(lineEnd) != newlineByte 'scan'
+			lineEnd = offsetBy(lineEnd, by: 1)
+		end 'scan'
+		var contentEnd = lineEnd
+		while contentEnd > lineStart and isTrailingSpace(text.byteAt(try contentEnd - 1 otherwise 0)) 'trim'
+			contentEnd = try contentEnd - 1 otherwise 0
+		end 'trim'
+		let isEmpty = contentEnd == lineStart
+		var first = 0 as Byte
+		if not isEmpty 'firstByte'
+			first = text.byteAt(lineStart)
+		end 'firstByte'
+		if inFence 'fence'
+			if contentEnd == offsetBy(lineStart, by: fenceMark.byteLength()) and matchesAt(text, at: lineStart, needle: fenceMark) 'close'
+				inFence = false
+				if inTests and reading 'keep'
+					var bodyFinish = bodyStart
+					if lineStart > bodyStart 'body'
+						bodyFinish = try lineStart - 1 otherwise bodyStart
+					end 'body'
+					addFence(current, name: fenceName, start: bodyStart, finish: bodyFinish)
+				end 'keep'
+			end 'close'
+		end 'fence' else if first == backtickByte and matchesAt(text, at: lineStart, needle: fenceMark) 'open'
+			inFence = true
+			fenceName = trimSpace(text.sliceBytes(offsetBy(lineStart, by: fenceMark.byteLength()), endPos: contentEnd))
+			bodyStart = offsetBy(lineEnd, by: 1)
+		end 'open' else if first == hashByte and matchesAt(text, at: lineStart, needle: headingPrefix) 'heading'
+			if reading 'ends'
+				tests.push(exchange(current, value: SpecTest.make("")))
+				reading = false
+			end 'ends'
+			if text.sliceBytes(lineStart, endPos: contentEnd) == testsHeading 'tests'
+				inTests = true
+			end 'tests'
+		end 'heading' else if inTests and first == angleByte and matchesAt(text, at: lineStart, needle: commentPrefix) 'comment'
+			if matchesAt(text, at: lineStart, needle: testMarkerPrefix) 'marker'
+				if reading 'previous'
+					tests.push(exchange(current, value: SpecTest.make("")))
+				end 'previous'
+				current = SpecTest.make(commentText(text.sliceBytes(offsetBy(lineStart, by: testMarkerPrefix.byteLength()), endPos: contentEnd)))
+				reading = true
+			end 'marker' else if reading 'directive'
+				addComment(current, line: text.sliceBytes(offsetBy(lineStart, by: commentPrefix.byteLength()), endPos: contentEnd))
+			end 'directive'
+		end 'comment'
+		lineStart = offsetBy(lineEnd, by: 1)
+	end 'lines'
+	if reading 'last'
+		tests.push(current)
+	end 'last'
+	return tests
+end 'parseSpec'
+
+// commentText is what a comment line holds after its key: the text up to the closing `-->`, trimmed.
+function commentText(rest String) returns String
+	var finish = rest.byteLength()
+	let suffix = commentSuffix.byteLength()
+	if finish >= suffix and rest.sliceBytes(try finish - suffix otherwise 0, endPos: finish) == commentSuffix 'closed'
+		finish = try finish - suffix otherwise 0
+	end 'closed'
+	return trimSpace(rest.sliceBytes(0, endPos: finish))
+end 'commentText'
+
+// addFence adds a fenced block that follows a test marker. The source is the one block called maxon; prose fences hold
+// nothing of the test.
+function addFence(mutates test SpecTest, name String, start Count, finish Count)
+	if name == sourceFence 'source'
+		test.hasSource = true
+		test.sourceStart = start
+		test.sourceFinish = finish
+	end 'source' else if name != "" and name != proseFences 'result'
+		test.fences.push(SpecFence.make(name.clone(), start: start, finish: finish))
+	end 'result'
+end 'addFence'
+
+// addComment adds a comment line between a test marker and its blocks: a skip of the conversion, the mark that the
+// positions of its expectation moved, or a directive.
+function addComment(mutates test SpecTest, line String)
+	let text = commentText(line)
+	let split = findText(text, needle: directiveSeparator)
+	if not split.isSome() 'bare'
+		test.directives.push(text)
+		return
+	end 'bare'
+	let at = split.unwrap()
+	let key = trimSpace(text.sliceBytes(0, endPos: at))
+	let value = trimSpace(text.sliceBytes(offsetBy(at, by: 1), endPos: text.byteLength()))
+	if key == skipKey 'skip'
+		test.skips.push(value)
+	end 'skip' else if key == positionsKey and value == positionsMoved 'positions'
+		test.positionsMoved = true
+	end 'positions' else 'directive'
+		test.directives.push(text)
+	end 'directive'
+end 'addComment'
+
+// directiveKey is the name a directive comment starts with.
+function directiveKey(directive String) returns String
+	let split = findText(directive, needle: directiveSeparator)
+	if not split.isSome() 'bare'
+		return directive.clone()
+	end 'bare'
+	return trimSpace(directive.sliceBytes(0, endPos: split.unwrap()))
+end 'directiveKey'
+
+function directiveValue(directive String) returns String
+	let split = findText(directive, needle: directiveSeparator)
+	if not split.isSome() 'bare'
+		return ""
+	end 'bare'
+	return trimSpace(directive.sliceBytes(offsetBy(split.unwrap(), by: 1), endPos: directive.byteLength()))
+end 'directiveValue'
+
+// listsTarget is whether a comma separated list of targets names target.
+function listsTarget(list String, target String) returns bool
+	var start = 0 as Count
+	let n = list.byteLength()
+	for i in 0 upto offsetBy(n, by: 1) 'scan'
+		if i == n or list.byteAt(i) == commaByte 'cut'
+			if trimSpace(list.sliceBytes(start, endPos: i)) == target 'found'
+				return true
+			end 'found'
+			start = i + 1
+		end 'cut'
+	end 'scan'
+	return false
+end 'listsTarget'
+
+let commaByte = 44 as Byte
+
+// directiveSkip is why a directive keeps this runner from running the test, or nothing when the runner can honour it. Each
+// names a feature of maxon's runtime or of its runner that this compiler does not have yet.
+function directiveSkip(directive String) returns table.Option with String
+	let key = directiveKey(directive)
+	if key == targetsDirective 'targets'
+		if listsTarget(directiveValue(directive), target: hostTarget) 'excluded'
+			return table.Option.some("unsupported on {hostTarget}")
+		end 'excluded'
+		return table.Option.none
+	end 'targets'
+	if key == "tier" 'tier'
+		return table.Option.some("needs maxon's stdlib, which is not ported (tier)")
+	end 'tier'
+	if key == "procs" or key == "preempt" or key == "runs" or key == "process" 'scheduler'
+		return table.Option.some("needs maxon's scheduler or process isolation ({key})")
+	end 'scheduler'
+	if key == "network" or key == "stdin" or key == "Args" or key == "env" 'environment'
+		return table.Option.some("needs a runner feature that is not written yet ({key})")
+	end 'environment'
+	if key == "MmTrace" or key == "LogTrace" or key == "AsyncTrace" or key == "DebugInfo" 'trace'
+		return table.Option.some("needs maxon's memory trace or debug info ({key})")
+	end 'trace'
+	return table.Option.some("unknown directive {key}")
+end 'directiveSkip'
+
+// fenceBase is the name of a result fence without its target, in small letters; fenceTarget is the target or nothing.
+function fenceBase(name String) returns String
+	let split = findText(name, needle: targetSeparator)
+	if not split.isSome() 'plain'
+		return lowerText(name)
+	end 'plain'
+	return lowerText(name.sliceBytes(0, endPos: split.unwrap()))
+end 'fenceBase'
+
+function fenceTarget(name String) returns String
+	let split = findText(name, needle: targetSeparator)
+	if not split.isSome() 'plain'
+		return ""
+	end 'plain'
+	return name.sliceBytes(offsetBy(split.unwrap(), by: 1), endPos: name.byteLength())
+end 'fenceTarget'
+
+function isKnownFence(base String) returns bool
+	return base == exitFence or base == stdoutFence or base == stderrFence or base == compilerErrorFence
+end 'isKnownFence'
+
+// fenceSkip is why a block of the test keeps this runner from running it, or nothing.
+function fenceSkip(fence SpecFence) returns table.Option with String
+	let base = fenceBase(fence.name)
+	if endsWith(base, suffix: traceFences) 'trace'
+		return table.Option.some("needs maxon's memory trace ({base})")
+	end 'trace'
+	if not isKnownFence(base) 'unknown'
+		return table.Option.some("unknown result block {fence.name}")
+	end 'unknown'
+	let target = fenceTarget(fence.name)
+	if target != "" and target != hostTarget 'other'
+		return table.Option.some("a result block for the target {target}")
+	end 'other'
+	return table.Option.none
+end 'fenceSkip'
+
+// skipReason is why the runner does not run a test, or nothing when it runs it: the conversion's skip, a directive or a
+// block that needs more than this compiler has yet, or a source that stages maxon's own library.
+function skipReason(test SpecTest, text String) returns table.Option with String
+	if test.skips.count() > 0 'converted'
+		return table.Option.some(test.skips[0].clone())
+	end 'converted'
+	for i in 0 upto test.directives.count() 'directives'
+		let reason = directiveSkip(test.directives[i])
+		if reason.isSome() 'skipped'
+			return reason
+		end 'skipped'
+	end 'directives'
+	for i in 0 upto test.fences.count() 'fences'
+		let reason = fenceSkip(test.fences[i])
+		if reason.isSome() 'skipped'
+			return reason
+		end 'skipped'
+	end 'fences'
+	if test.hasSource and sourceHasOverlay(text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)) 'overlay'
+		return table.Option.some("stages a stdlib or runtime overlay")
+	end 'overlay'
+	return table.Option.none
+end 'skipReason'
+
+// sourceHasOverlay is whether a block has a line that stages a private copy of maxon's stdlib or runtime.
+function sourceHasOverlay(source String) returns bool
+	var at = 0 as Count
+	let n = source.byteLength()
+	while at < n 'lines'
+		if matchesAt(source, at: at, needle: overlaySectionPrefix) or matchesAt(source, at: at, needle: runtimeSectionPrefix) 'overlay'
+			return true
+		end 'overlay'
+		while at < n and source.byteAt(at) != newlineByte 'skip'
+			at = offsetBy(at, by: 1)
+		end 'skip'
+		at = offsetBy(at, by: 1)
+	end 'lines'
+	return false
+end 'sourceHasOverlay'
+
+// resultFence is the block of the test with that name, the one qualified for this target when there is one and the
+// unqualified one otherwise.
+function resultFence(test SpecTest, base String) returns table.Option with SpecFence
+	var best = 0 as Count
+	var found = false
+	for i in 0 upto test.fences.count() 'fences'
+		if fenceBase(test.fences[i].name) == base 'named'
+			if fenceTarget(test.fences[i].name) == hostTarget 'qualified'
+				return table.Option.some(test.fences[i].clone())
+			end 'qualified'
+			if not found 'first'
+				best = i
+				found = true
+			end 'first'
+		end 'named'
+	end 'fences'
+	if not found 'none'
+		return table.Option.none
+	end 'none'
+	return table.Option.some(test.fences[best].clone())
+end 'resultFence'
+
+// fenceText is the text of the test's result block with that name, or nothing when it has none.
+function fenceText(test SpecTest, text String, base String) returns table.Option with String
+	let fence = resultFence(test, base: base)
+	if not fence.isSome() 'none'
+		return table.Option.none
+	end 'none'
+	let found = fence.unwrap()
+	return table.Option.some(text.sliceBytes(found.start, endPos: found.finish))
+end 'fenceText'
+
+// SourceSection is one file of a multi-file block: its name, its text and the number that its lines are counted from in the
+// merged block that the expectations were written against.
+type SourceSection
+	var name as String
+	var text as String
+	var lineOffset as Count
+
+	static function make(consumes name String, consumes text String, lineOffset Count) returns SourceSection
+		return SourceSection{name: name, text: text, lineOffset: lineOffset}
+	end 'make'
+end 'SourceSection'
+
+typealias SourceSections = Array with SourceSection
+
+// splitSections is the files of a block that has `// --- file:` lines; it has none for a block of one file. The text above
+// the first marker belongs to no file, and a section is trimmed. The offset of a file is the line of its marker, counted from
+// 1, and the line of the header that maxon's fragment has.
+function splitSections(source String) returns SourceSections
+	var sections = SourceSections.create(0)
+	var haveMarker = false
+	var name = ""
+	var bodyStart = 0 as Count
+	var offset = 0 as Count
+	var line = 0 as Count
+	var at = 0 as Count
+	let n = source.byteLength()
+	while at <= n 'lines'
+		var lineEnd = at
+		while lineEnd < n and source.byteAt(lineEnd) != newlineByte 'scan'
+			lineEnd = offsetBy(lineEnd, by: 1)
+		end 'scan'
+		if matchesAt(source, at: at, needle: fileSectionPrefix) 'marker'
+			if haveMarker 'flush'
+				sections.push(SourceSection.make(name.clone(), text: trimSpace(source.sliceBytes(bodyStart, endPos: at)), lineOffset: offset))
+			end 'flush'
+			haveMarker = true
+			name = trimSpace(source.sliceBytes(offsetBy(at, by: fileSectionPrefix.byteLength()), endPos: lineEnd))
+			bodyStart = offsetBy(lineEnd, by: 1)
+			offset = offsetBy(line, by: 2)
+		end 'marker'
+		line = offsetBy(line, by: 1)
+		at = offsetBy(lineEnd, by: 1)
+	end 'lines'
+	if haveMarker 'last'
+		sections.push(SourceSection.make(name.clone(), text: trimSpace(source.sliceBytes(bodyStart, endPos: n)), lineOffset: offset))
+	end 'last'
+	return sections
+end 'splitSections'
+
+// SpecWork is the scratch place of a run: the executable that each test is compiled to. It lives in the temporary
+// directory, under a name of the compiler's own location, so that runs of compilers from different checkouts do not meet.
+type SpecWork
+	var exe as String
+
+	static function make() returns SpecWork
+		let temp = try Process.environmentVariable("TEMP") otherwise panic("test: TEMP is not set")
+		let me = try Process.executablePath() otherwise panic("test: the compiler has no path")
+		let dir = "{temp}\\minimaxon-spec-{pathHash(me.toString())}"
+		if not Directory.create(try FilePath.from(dir) otherwise panic("test: {dir} is not a path")) 'made'
+			panic("test: cannot make {dir}")
+		end 'made'
+		return SpecWork{exe: "{dir}\\test.exe"}
+	end 'make'
+end 'SpecWork'
+
+// pathHash is a number of a path, in decimal, that tells paths apart well enough to name a directory.
+function pathHash(path String) returns Count
+	var hash = 5381 as Count
+	for i in 0 upto path.byteLength() 'bytes'
+		hash = try (hash * hashMultiplier + (path.byteAt(i) as Count)) mod hashModulus otherwise 0
+	end 'bytes'
+	return hash
+end 'pathHash'
+
+let hashModulus = 4294967296 as Count
+
+let hashMultiplier = 33 as Count
+
+// sectionFiles is the files of a multi-file test as the compiler loads them from memory, at the paths they would have in a
+// directory called projectRoot.
+function sectionFiles(sections SourceSections) returns project.SourceFiles
+	var files = project.SourceFiles.create(0)
+	for i in 0 upto sections.count() 'files'
+		files.push(project.SourceFile.make(project.joinPath(projectRoot, name: nativePath(sections[i].name)), text: "{sections[i].text}\n"))
+	end 'files'
+	return files
+end 'sectionFiles'
+
+// projectRoot is the directory that the files of a multi-file test are in, which is no directory of the system.
+let projectRoot = "<project>"
+
+// nativePath is a path of a section with the separators of the system.
+function nativePath(name String) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto name.byteLength() 'bytes'
+		var c = name.byteAt(i)
+		if c == slashByte 'slash'
+			c = backslashByte
+		end 'slash'
+		out.push(c)
+	end 'bytes'
+	return String.from(out)
+end 'nativePath'
+
+// diagnosticText is the line of a diagnostic as the expectations write it: the file becomes `<fragment>` behind its
+// directory in the block, and a line of a file of a multi-file test becomes the line of the merged block.
+function diagnosticText(e diag.CompileError, sections SourceSections) returns String
+	if not e.located or sections.count() == 0 'unchanged'
+		return e.format()
+	end 'unchanged'
+	let prefix = "{projectRoot}\\"
+	if not hasPrefix(e.file, prefix: prefix) 'outside'
+		return e.format()
+	end 'outside'
+	let relative = portablePath(e.file.sliceBytes(prefix.byteLength(), endPos: e.file.byteLength()))
+	for i in 0 upto sections.count() 'sections'
+		if sections[i].name == relative 'found'
+			let directory = relative.sliceBytes(0, endPos: directoryEnd(relative))
+			return "error {e.code}: {directory}{fragmentToken}:{offsetBy(e.line, by: sections[i].lineOffset)}:{e.col}: {withoutProject(e.message)}"
+		end 'found'
+	end 'sections'
+	return e.format()
+end 'diagnosticText'
+
+// withoutProject is a message with the directory of the files of the test taken out of the paths it names.
+function withoutProject(message String) returns String
+	return replaceText(message, needle: "{projectRoot}\\", replacement: "")
+end 'withoutProject'
+
+// portablePath is a path with the separators that the corpus writes.
+function portablePath(path String) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto path.byteLength() 'bytes'
+		var c = path.byteAt(i)
+		if c == backslashByte 'separator'
+			c = slashByte
+		end 'separator'
+		out.push(c)
+	end 'bytes'
+	return String.from(out)
+end 'portablePath'
+
+// directoryEnd is where the directory part of a portable path ends, past its last separator.
+function directoryEnd(path String) returns Count
+	var at = path.byteLength()
+	while at > 0 and path.byteAt(try at - 1 otherwise 0) != slashByte 'back'
+		at = try at - 1 otherwise 0
+	end 'back'
+	return at
+end 'directoryEnd'
+
+// replaceText is text with each place that needle stands replaced by replacement.
+function replaceText(text String, needle String, replacement String) returns String
+	var out = ByteArray.create(0)
+	var at = 0 as Count
+	let n = text.byteLength()
+	while at < n 'scan'
+		if matchesAt(text, at: at, needle: needle) 'found'
+			out.append(replacement.toByteArray())
+			at = offsetBy(at, by: needle.byteLength())
+		end 'found' else 'kept'
+			out.push(text.byteAt(at))
+			at = offsetBy(at, by: 1)
+		end 'kept'
+	end 'scan'
+	return String.from(out)
+end 'replaceText'
+
+// withoutPositions is the diagnostics with the line and column taken out of each `<fragment>:line:column:`, for a test whose
+// expectation counts lines that the conversion moved.
+function withoutPositions(text String) returns String
+	var out = ByteArray.create(0)
+	let token = "{fragmentToken}:"
+	var at = 0 as Count
+	let n = text.byteLength()
+	while at < n 'scan'
+		if matchesAt(text, at: at, needle: token) 'token'
+			let lineAt = offsetBy(at, by: token.byteLength())
+			let lineEnd = digitsEnd(text, start: lineAt)
+			if lineEnd > lineAt and lineEnd < n and text.byteAt(lineEnd) == colonByte 'column'
+				let columnAt = offsetBy(lineEnd, by: 1)
+				let columnEnd = digitsEnd(text, start: columnAt)
+				if columnEnd > columnAt and columnEnd < n and text.byteAt(columnEnd) == colonByte 'positioned'
+					out.append(fragmentToken.toByteArray())
+					at = columnEnd
+					continue 'scan'
+				end 'positioned'
+			end 'column'
+		end 'token'
+		out.push(text.byteAt(at))
+		at = offsetBy(at, by: 1)
+	end 'scan'
+	return String.from(out)
+end 'withoutPositions'
+
+// digitsEnd is where the run of decimal digits that starts at start ends.
+function digitsEnd(text String, start Count) returns Count
+	var at = start
+	while at < text.byteLength() and text.byteAt(at) >= zeroByte and text.byteAt(at) <= nineByte 'digits'
+		at = offsetBy(at, by: 1)
+	end 'digits'
+	return at
+end 'digitsEnd'
+
+// isContinuationByte is whether c continues a character of UTF-8, so that a cut before it would split the character.
+function isContinuationByte(c Byte) returns bool
+	return c >= continuationFirst and c <= continuationLast
+end 'isContinuationByte'
+
+let continuationFirst = 128 as Byte
+
+let continuationLast = 191 as Byte
+
+// oneLine is text on one line, cut to the longest a failure shows, at a character.
+function oneLine(text String, limit Count) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto text.byteLength() 'bytes'
+		let c = text.byteAt(i)
+		if out.count() >= limit and not isContinuationByte(c) 'cut'
+			out.append("...".toByteArray())
+			break 'bytes'
+		end 'cut'
+		if c == newlineByte 'newline'
+			out.append("\\n".toByteArray())
+		end 'newline' else if c != carriageReturnByte 'kept'
+			out.push(c)
+		end 'kept'
+	end 'bytes'
+	return String.from(out)
+end 'oneLine'
+
+// firstDifference says in a line where two texts first differ, by their lines.
+function firstDifference(expected String, actual String) returns String
+	let wanted = splitLines(expected)
+	let got = splitLines(actual)
+	let shared = minCount(wanted.count(), b: got.count())
+	for i in 0 upto shared 'lines'
+		if wanted[i] != got[i] 'differs'
+			return "line {i + 1}: expected `{oneLine(wanted[i], limit: shownLineLimit)}`, got `{oneLine(got[i], limit: shownLineLimit)}`"
+		end 'differs'
+	end 'lines'
+	if wanted.count() > got.count() 'missing'
+		return "expected more: `{oneLine(wanted[got.count()], limit: shownLineLimit)}` is missing"
+	end 'missing'
+	return "unexpected extra: `{oneLine(got[wanted.count()], limit: shownLineLimit)}`"
+end 'firstDifference'
+
+function minCount(a Count, b Count) returns Count
+	if a < b 'less'
+		return a
+	end 'less'
+	return b
+end 'minCount'
+
+// SpecRun is the tally of a run over spec files.
+type SpecRun
+	var verbose as bool
+	var passed as Count
+	var failed as Count
+	var skipped as Count
+	var reasons as ast.StringList
+	var counts as CountList
+	var indexes as ReasonIndex
+
+	static function make(verbose bool) returns SpecRun
+		return SpecRun{verbose: verbose, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new()}
+	end 'make'
+
+	// countSkip counts a skipped test under its reason.
+	function countSkip(mutates self, reason String)
+		skipped = offsetBy(skipped, by: 1)
+		match consumes indexes.get(reason) 'known'
+			some(at) then counts[at] = offsetBy(counts[at], by: 1)
+			none then self.addReason(reason)
+		end 'known'
+	end 'countSkip'
+
+	function addReason(mutates self, reason String)
+		indexes.insert(reason.clone(), value: reasons.count())
+		reasons.push(reason.clone())
+		counts.push(1)
+	end 'addReason'
+end 'SpecRun'
+
+// printSummary prints the counts, and the skipped tests by reason, the most first; the reasons past the first ones are
+// counted together unless the run is verbose.
+function printSummary(tally SpecRun)
+	print("{tally.passed} passed, {tally.failed} failed, {tally.skipped} skipped\n")
+	if tally.skipped == 0 'none'
+		return
+	end 'none'
+	var order = CountList.create(0)
+	for i in 0 upto tally.reasons.count() 'each'
+		var at = order.count()
+		order.push(i)
+		while at > 0 'sift'
+			let before = try at - 1 otherwise 0
+			if not skipsBefore(tally, a: order[at], b: order[before]) 'ordered'
+				break 'sift'
+			end 'ordered'
+			let moved = order[at]
+			order[at] = order[before]
+			order[before] = moved
+			at = before
+		end 'sift'
+	end 'each'
+	print("skipped by reason:\n")
+	var rest = 0 as Count
+	var restReasons = 0 as Count
+	for i in 0 upto order.count() 'reasons'
+		if i < listedSkipReasons or tally.verbose 'listed'
+			print("{tally.counts[order[i]]}  {tally.reasons[order[i]]}\n")
+		end 'listed' else 'rest'
+			rest = offsetBy(rest, by: tally.counts[order[i]])
+			restReasons = restReasons + 1
+		end 'rest'
+	end 'reasons'
+	if restReasons > 0 'others'
+		print("{rest}  {restReasons} other reasons (--verbose lists them)\n")
+	end 'others'
+end 'printSummary'
+
+// skipsBefore is whether the reason a stands before the reason b: it has more tests, or as many and the lesser name.
+function skipsBefore(tally SpecRun, a Count, b Count) returns bool
+	if tally.counts[a] != tally.counts[b] 'counts'
+		return tally.counts[a] > tally.counts[b]
+	end 'counts'
+	return diag.stringLess(tally.reasons[a], b: tally.reasons[b])
+end 'skipsBefore'
+
+// isSpecPath is whether a path given to test names spec files: one file of the format, or a directory of them.
+function isSpecPath(path String) returns bool
+	if project.isDirectoryPath(path) 'directory'
+		let listed = try Directory.list(try FilePath.from(path) otherwise return false) otherwise return false
+		for i in 0 upto listed.count() 'entries'
+			if endsWith(listed[i].toString(), suffix: specExtension) 'spec'
+				return true
+			end 'spec'
+		end 'entries'
+		return false
+	end 'directory'
+	return endsWith(path, suffix: specExtension)
+end 'isSpecPath'
+
+function endsWith(text String, suffix String) returns bool
+	let n = text.byteLength()
+	return n >= suffix.byteLength() and text.sliceBytes(try n - suffix.byteLength() otherwise 0, endPos: n) == suffix
+end 'endsWith'
+
+// specFiles is the spec files at path in order: the file, or the .md files of the directory.
+function specFiles(path String) returns ast.StringList
+	var files = ast.StringList.create(0)
+	if not project.isDirectoryPath(path) 'file'
+		files.push(path.clone())
+		return files
+	end 'file'
+	let listed = try Directory.list(try FilePath.from(path) otherwise panic("test: {path} is not a path")) otherwise panic("test: cannot read {path}")
+	for i in 0 upto listed.count() 'entries'
+		let name = project.lastComponent(listed[i].toString())
+		if endsWith(name, suffix: specExtension) 'spec'
+			files.push(project.joinPath(path, name: name))
+		end 'spec'
+	end 'entries'
+	project.sortStrings(files)
+	return files
+end 'specFiles'
+
+// runSpecs runs every test of the spec files at path, one after another, and reports the failures as it goes and the counts
+// at the end.
+function runSpecs(path String, verbose bool) returns ExitCode
+	let root = project.absolutePath(path)
+	var shared = prepareSharedRuntime()
+	let work = SpecWork.make()
+	var tally = SpecRun.make(verbose)
+	let files = specFiles(root)
+	for i in 0 upto files.count() 'files'
+		runSpecFile(shared, work: work, tally: tally, file: files[i])
+	end 'files'
+	print("\n")
+	printSummary(tally)
+	if tally.failed == 0 'clean'
+		return 0
+	end 'clean'
+	return diagnosticsExitCode
+end 'runSpecs'
+
+// runSpecFile runs the tests of one spec file.
+function runSpecFile(mutates shared SharedRuntime, work SpecWork, mutates tally SpecRun, file String)
+	let text = readText(file)
+	let stem = fileStem(file)
+	let display = project.lastComponent(file)
+	let tests = parseSpec(text)
+	for i in 0 upto tests.count() 'tests'
+		let result = runSpecTest(shared, work: work, text: text, stem: stem, test: tests[i])
+		if result.outcome == TestOutcome.testFailed 'failed'
+			tally.failed = offsetBy(tally.failed, by: 1)
+			print("FAIL {display}: {tests[i].name}: {result.detail}\n")
+		end 'failed' else if result.outcome == TestOutcome.testUnsupported 'unsupported'
+			tally.countSkip(result.detail)
+			if tally.verbose 'say'
+				print("SKIP {display}: {tests[i].name}: {result.detail}\n")
+			end 'say'
+		end 'unsupported' else 'passed'
+			tally.passed = offsetBy(tally.passed, by: 1)
+			if tally.verbose 'say'
+				print("PASS {display}: {tests[i].name}\n")
+			end 'say'
+		end 'passed'
+	end 'tests'
+end 'runSpecFile'
+
+function readText(file String) returns String
+	let path = try FilePath.from(file) otherwise panic("test: {file} is not a path")
+	return try File.readText(path) otherwise panic("test: cannot read {file}")
+end 'readText'
+
+// fileStem is the name of a file without its directory and its extension.
+function fileStem(file String) returns String
+	let name = project.lastComponent(file)
+	if endsWith(name, suffix: specExtension) 'extension'
+		return name.sliceBytes(0, endPos: try name.byteLength() - specExtension.byteLength() otherwise 0)
+	end 'extension'
+	return name
+end 'fileStem'
+
+// runSpecTest runs one test: it is skipped for a reason of the runner, or compiled and then checked against its result
+// blocks.
+function runSpecTest(mutates shared SharedRuntime, work SpecWork, text String, stem String, test SpecTest) returns TestResult
+	let reason = skipReason(test, text: text)
+	if reason.isSome() 'skipped'
+		return TestResult.unsupported(reason.unwrap())
+	end 'skipped'
+	if not test.hasSource 'noSource'
+		return TestResult.failed("the test has no maxon block")
+	end 'noSource'
+	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
+	let sections = splitSections(source)
+	var errs = diag.ErrorList.create(0)
+	if sections.count() == 0 'single'
+		let fragment = "{fragmentHeader}{test.name}\n{source}\n"
+		compileSourceWith(shared, path: fragmentToken, text: fragment, output: work.exe, options: testOptions(), errs: errs)
+	end 'single' else 'project'
+		compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: work.exe, options: testOptions(), errs: errs)
+	end 'project'
+	let result = checkSpecTest(test, text: text, stem: stem, errs: errs, work: work, sections: sections)
+	if errs.count() == 0 and result.outcome != TestOutcome.testUnsupported 'built'
+		deleteExecutable(work.exe)
+	end 'built'
+	return result
+end 'runSpecTest'
+
+// checkSpecTest is whether a compile that gave errs, and the executable at the work's when it gave none, is what the
+// result blocks of the test say.
+function checkSpecTest(test SpecTest, text String, stem String, errs diag.ErrorList, work SpecWork, sections SourceSections) returns TestResult
+	let expected = fenceText(test, text: text, base: compilerErrorFence)
+	if expected.isSome() 'expectsError'
+		return checkSpecError(test, expected: expected.unwrap(), stem: stem, errs: errs, sections: sections)
+	end 'expectsError'
+	if errs.count() > 0 'failed'
+		if onlyInterpreterErrors(errs) 'interpreter'
+			return TestResult.unsupported("needs the interpreter: a map, list, pool, frozen value, cown or behaviour")
+		end 'interpreter'
+		return TestResult.failed("unexpected compile error: {oneLine(errs[0].code, limit: detailLimit)} {oneLine(errs[0].message, limit: detailLimit)}")
+	end 'failed'
+	return checkSpecRun(test, text: text, exe: work.exe)
+end 'checkSpecTest'
+
+// checkSpecError is whether the diagnostics are what the maxoncstderr block says, as text, with the positions left out when
+// the conversion moved them.
+function checkSpecError(test SpecTest, expected String, stem String, errs diag.ErrorList, sections SourceSections) returns TestResult
+	if errs.count() == 0 'compiled'
+		return TestResult.failed("compiled, but expected {oneLine(trimSpace(expected), limit: detailLimit)}")
+	end 'compiled'
+	var lines = ast.StringList.create(0)
+	for i in 0 upto errs.count() 'errors'
+		lines.push(diagnosticText(errs[i], sections: sections))
+	end 'errors'
+	var actual = trimSpace(joinLines(lines))
+	var wanted = trimSpace(replaceText(expected, needle: "specs/{stem}/{test.name}.maxon", replacement: fragmentToken))
+	if test.positionsMoved 'moved'
+		actual = withoutPositions(actual)
+		wanted = withoutPositions(wanted)
+	end 'moved'
+	if actual == wanted 'same'
+		return TestResult.passed()
+	end 'same'
+	return TestResult.failed("wrong compile error: {firstDifference(wanted, actual: actual)}")
+end 'checkSpecError'
+
+function joinLines(lines ast.StringList) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto lines.count() 'each'
+		if i > 0 'separator'
+			out.push(newlineByte)
+		end 'separator'
+		out.append(lines[i].toByteArray())
+	end 'each'
+	return String.from(out)
+end 'joinLines'
+
+// checkSpecRun runs the compiled program and checks its exit code, when the test gives one, and its output, which must be
+// what the blocks say or else nothing.
+function checkSpecRun(test SpecTest, text String, exe String) returns TestResult
+	let ran = runExecutable(exe)
+	if not ran.isSome() 'cannot'
+		return TestResult.failed("cannot run the executable")
+	end 'cannot'
+	let out = ran.unwrap()
+	let code = out.exitCode()
+	let exitText = fenceText(test, text: text, base: exitFence)
+	if exitText.isSome() 'pinned'
+		let parsed = parseCount(trimSpace(exitText.unwrap()))
+		if not parsed.isSome() 'malformed'
+			return TestResult.failed("the exitcode block is not a number")
+		end 'malformed'
+		let want = parsed.unwrap()
+		if want != (code as Count) 'differs'
+			if code >= signBit 'crash'
+				return TestResult.failed("crash: exit {exitCodeText(code)}, expected {want}; stderr: {oneLine(trimSpace(out.stderr), limit: detailLimit)}")
+			end 'crash'
+			return TestResult.failed("wrong exit code: {exitCodeText(code)}, expected {want}; stderr: {oneLine(trimSpace(out.stderr), limit: detailLimit)}")
+		end 'differs'
+	end 'pinned'
+	let stdoutResult = checkStream(test, text: text, base: stdoutFence, actual: withoutCarriageReturns(out.stdout, loneToo: false))
+	if stdoutResult.outcome == TestOutcome.testFailed 'stdout'
+		return stdoutResult
+	end 'stdout'
+	return checkStream(test, text: text, base: stderrFence, actual: withoutCarriageReturns(out.stderr, loneToo: false))
+end 'checkSpecRun'
+
+// checkStream is whether the output of a run is the text of the block with that name, trimmed on both sides, or empty when
+// the test has no such block.
+function checkStream(test SpecTest, text String, base String, actual String) returns TestResult
+	let block = fenceText(test, text: text, base: base)
+	var wanted = ""
+	if block.isSome() 'pinned'
+		wanted = trimSpace(block.unwrap())
+	end 'pinned'
+	let got = trimSpace(actual)
+	if got == wanted 'same'
+		return TestResult.passed()
+	end 'same'
+	return TestResult.failed("wrong {base}: {firstDifference(wanted, actual: got)}")
+end 'checkStream'

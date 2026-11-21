@@ -121,6 +121,39 @@ export function addModule(mutates p Project, consumes m Module) returns diag.Mod
 	return id
 end 'addModule'
 
+// ModuleBody is what a module holds of its source and of its check: the parts that only a compile of the module itself
+// reads, and that a compile of another module never does.
+export type ModuleBody
+	export var files as FileSpanList
+	export var tree as Tree
+	export var decls as DeclList
+	export var names as DeclIndex
+	export var resolution as Resolution
+	export var typing as Typing
+
+	export static function make(consumes files FileSpanList, consumes tree Tree, consumes decls DeclList, consumes names DeclIndex, consumes resolution Resolution, consumes typing Typing) returns ModuleBody
+		return ModuleBody{files: files, tree: tree, decls: decls, names: names, resolution: resolution, typing: typing}
+	end 'make'
+end 'ModuleBody'
+
+// takeBody takes the body of a module out of the project, which keeps the module with an empty one.
+export function takeBody(mutates p Project, module diag.ModuleID) returns ModuleBody
+	let m = modIndex(module)
+	return ModuleBody.make(exchange(p.modules[m].files, value: FileSpanList.create(0)), tree: exchange(p.modules[m].tree, value: Tree.new(module, text: "")), decls: exchange(p.modules[m].decls, value: DeclList.create(0)), names: exchange(p.modules[m].names, value: DeclIndex.new()), resolution: exchange(p.resolutions[m], value: Resolution.new(module)), typing: exchange(p.typings[m], value: Typing.new(module)))
+end 'takeBody'
+
+// putBody gives a module the body that takeBody took.
+export function putBody(mutates p Project, module diag.ModuleID, consumes body ModuleBody)
+	let m = modIndex(module)
+	var held = body
+	p.modules[m].files = exchange(held.files, value: FileSpanList.create(0))
+	p.modules[m].tree = exchange(held.tree, value: Tree.new(module, text: ""))
+	p.modules[m].decls = exchange(held.decls, value: DeclList.create(0))
+	p.modules[m].names = exchange(held.names, value: DeclIndex.new())
+	p.resolutions[m] = exchange(held.resolution, value: Resolution.new(module))
+	p.typings[m] = exchange(held.typing, value: Typing.new(module))
+end 'putBody'
+
 // rootQualifier and stdlibQualifier start a qualified name of the root module's and of the standard library's
 // declarations; every other module is qualified by its path.
 export let rootQualifier = "export"
