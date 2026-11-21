@@ -54,10 +54,17 @@ type Formatter
 	var depth as Count
 	// tokenStart is where the last token's text begins in out.
 	var tokenStart as Count
+	// regions is the number of `#if` regions around the line being written; a line is indented a tab for each.
+	var regions as Count
 
 	static function new() returns Formatter
-		return Formatter{out: ByteArray.create(0), depth: 0 as Count, tokenStart: 0 as Count}
+		return Formatter{out: ByteArray.create(0), depth: 0 as Count, tokenStart: 0 as Count, regions: 0 as Count}
 	end 'new'
+
+	// tabsAt is the indentation of a line at the level, which the `#if` regions around it add to.
+	function tabsAt(level Count) returns Count
+		return try level + regions otherwise panic("the indentation overflows")
+	end 'tabsAt'
 
 	function indent(mutates self, tabs Count)
 		for _ in 0 upto tabs 'each'
@@ -150,14 +157,24 @@ export function formatSource(file String, text String) returns FormatResult
 	if failed 'lexError'
 		return FormatResult.refused(errs)
 	end 'lexError'
-	var p = Parser.new(sourceOf(normal.clone(), path: file), toks: toks.clone(), module: 0 as diag.ModuleID)
+	let src = sourceOf(normal.clone(), path: file)
+	var resolved = Resolved.make(Tokens.create(0), lines: ast.StringList.create(0))
+	try 'directives'
+		resolved = resolveDirectives(src, toks: toks.clone(), target: ast.Target.windowsX64(), formatting: true, errs: errs)
+	end 'directives' otherwise 'refused'
+		return FormatResult.refused(errs)
+	end 'refused'
+	let laidOut = resolved.toks.clone()
+	var p = Parser.new(src, toks: exchange(resolved.toks, value: Tokens.create(0)), module: 0 as diag.ModuleID)
+	p.directives = exchange(resolved.lines, value: ast.StringList.create(0))
 	p.formatting = true
+	p.layoutOnly = true
 	_ = parseProgram(p)
 	if p.errors.count() > 0 'syntaxErrors'
 		return FormatResult.refused(exchange(p.errors, value: diag.ErrorList.create(0)))
 	end 'syntaxErrors'
 	let out = String.from(p.format.out)
-	verifyFormat(file, input: normal, toks: toks, out: out)
+	verifyFormat(file, input: normal, toks: laidOut, out: out)
 	return FormatResult.formatted(out)
 end 'formatSource'
 
@@ -206,7 +223,9 @@ function sameTokenText(source String, t Token, other String, u Token) returns bo
 end 'sameTokenText'
 
 // verifyFormat checks the formatter's work, which a bug must never put in a file: the output has to pass the strict
-// parser, and hold the tokens of the input, apart from the layout inside the interpolations of a string.
+// parser, and hold the tokens of the input, apart from the layout inside the interpolations of a string. The tokens
+// compared are those of the program once its directives are resolved, as the branch of a directive is indented in the
+// output whatever it was in the input.
 function verifyFormat(file String, input String, toks Tokens, out String)
 	var errs = diag.ErrorList.create(0)
 	var again = Tokens.create(0)
@@ -217,11 +236,22 @@ function verifyFormat(file String, input String, toks Tokens, out String)
 		failed = true
 	end 'refused'
 	if not failed 'parse'
-		var p = Parser.new(sourceOf(out.clone(), path: file), toks: again.clone(), module: 0 as diag.ModuleID)
-		_ = parseProgram(p)
-		if p.errors.count() > 0 'refused'
-			errs.push(try p.errors.pop() otherwise panic("a parser failed with no error"))
-		end 'refused'
+		let src = sourceOf(out.clone(), path: file)
+		var resolved = Resolved.make(Tokens.create(0), lines: ast.StringList.create(0))
+		try 'directives'
+			resolved = resolveDirectives(src, toks: again.clone(), target: ast.Target.windowsX64(), formatting: true, errs: errs)
+		end 'directives' otherwise 'unresolved'
+			failed = true
+		end 'unresolved'
+		if not failed 'check'
+			again = resolved.toks.clone()
+			var p = Parser.new(src, toks: exchange(resolved.toks, value: Tokens.create(0)), module: 0 as diag.ModuleID)
+			p.layoutOnly = true
+			_ = parseProgram(p)
+			if p.errors.count() > 0 'refused'
+				errs.push(try p.errors.pop() otherwise panic("a parser failed with no error"))
+			end 'refused'
+		end 'check'
 	end 'parse'
 	if errs.count() > 0 'unparsed'
 		panic("the formatted {file} does not parse: {errs[0].format()}")

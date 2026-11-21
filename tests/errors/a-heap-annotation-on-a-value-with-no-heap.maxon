@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	@heap let n = 5
+	return 0
+end 'main'
+
+// expect-error: E2001 at 2:12

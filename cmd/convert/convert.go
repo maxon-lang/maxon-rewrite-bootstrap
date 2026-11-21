@@ -638,10 +638,12 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			warn(line, "shebang lines are not supported in minimaxon")
 			continue
 		case tokHashDirective:
-			warn(line, "conditional compilation directives (#if/#else/#endif) are not supported in minimaxon")
+			// minimaxon reads the directives as maxon does; the code of a branch converts as the code around it.
 			continue
 		case tokAnnot:
-			warn(line, fmt.Sprintf("%s annotations are not supported in minimaxon", first.text))
+			if first.text != "@heap" {
+				warn(line, fmt.Sprintf("%s annotations are not supported in minimaxon", first.text))
+			}
 		}
 
 		// Determine declaration keyword (skipping optional visibility / static / @annot).
@@ -700,7 +702,6 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			continue
 		case "test":
 			if len(line.code) >= 2 && line.code[1].kind == tokLabel {
-				warn(line, "test declarations are not supported in minimaxon")
 				stack = append(stack, openBlock{indent: line.indent, kind: blockOther})
 				continue
 			}

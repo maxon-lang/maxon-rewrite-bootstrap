@@ -2,6 +2,8 @@ let checkFlag = "--check"
 
 let markdownExtension = ".md"
 
+let testExtension = ".maxtest"
+
 // layoutErrorCodes are the errors of the layout rules. A test that expects one is a program laid out wrongly on purpose,
 // so fmt over a directory leaves it alone: it would put the layout right and the test would no longer test the rule.
 function layoutErrorCodes() returns CommandNames
@@ -46,7 +48,7 @@ function expectsLayoutError(text String) returns bool
 end 'expectsLayoutError'
 
 function isSourcePath(path String) returns bool
-	return endsWithText(path, suffix: sourceExtension) or endsWithText(path, suffix: markdownExtension)
+	return endsWithText(path, suffix: sourceExtension) or endsWithText(path, suffix: testExtension) or endsWithText(path, suffix: markdownExtension)
 end 'isSourcePath'
 
 // withoutCurrentDirectory is a path that a listing of the current directory gave, without the leading

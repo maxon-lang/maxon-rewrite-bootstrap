@@ -491,7 +491,54 @@ function forVariableType(mutates c Checker, mutates p ast.Project, s ast.NodeID,
 	return ast.internIntRange(p.types, aliasName: "", minVal: lo.clone(), maxVal: ast.maxI128(lo, b: hi), inferred: true)
 end 'forVariableType'
 
+// heapAnnotationWord is the one annotation of a binding.
+let heapAnnotationWord = "heap"
+
+// scalarTag is what a value that owns no heap is called where `@heap` refuses it, and empty for a value that does.
+function scalarTag(p ast.Project, t ast.TypeID) returns String
+	return match kindOfType(p, t: t) 'k'
+		primBool gives "bool"
+		intRange gives "int"
+		constInt gives "int"
+		floatRange gives "float"
+		constFloat gives "float"
+		enumTy gives "enum"
+		funcTy gives "function"
+		invalid gives ""
+		primString gives ""
+		primVoid gives ""
+		primNever gives ""
+		record gives ""
+		unionTy gives ""
+		builtinArray gives ""
+		builtinMap gives ""
+		builtinList gives ""
+		builtinPool gives ""
+		builtinHandle gives ""
+		builtinFrozen gives ""
+		builtinCown gives ""
+		typeParam gives ""
+		interfaceTy gives ""
+	end 'k'
+end 'scalarTag'
+
+// checkHeapAnnotation holds `@heap let x = value` to what Maxon holds it to: no other word after the `@`, and a value that owns a heap
+// record. A record is a box here whatever the annotation says, so it changes nothing else. It gives whether the binding is
+// well annotated.
+function checkHeapAnnotation(mutates c Checker, p ast.Project, s ast.NodeID, name String, t ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let tag = scalarTag(p, t: t)
+	if tag == "" 'owns'
+		return true
+	end 'owns'
+	checkFail(c.modID, off: try ast.letStmtNameRef(p.modules[c.modIdx].tree, id: s) - 1 otherwise panic("a name starts at no offset"), code: diag.errUnexpectedToken, msg: diag.heapAnnotationOnNonRecord(name, tag: tag), errs: errs)
+	return false
+end 'checkHeapAnnotation'
+
 function checkLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	if ast.letStmtIsHeap(p.modules[c.modIdx].tree, id: s) and ast.letStmtAnnotation(p.modules[c.modIdx].tree, id: s) != heapAnnotationWord 'unknownAnnotation'
+		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: diag.unknownAnnotation(ast.letStmtAnnotation(p.modules[c.modIdx].tree, id: s)), errs: errs)
+		return
+	end 'unknownAnnotation'
 	let name = ast.letStmtName(p.modules[c.modIdx].tree, id: s)
 	if name == "_" 'discard'
 		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "write '_ = call()' to discard a result", errs: errs)
@@ -532,6 +579,10 @@ function checkLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutate
 		bindLet(c, p: p, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'bareNumber'
+	if ast.letStmtIsHeap(p.modules[c.modIdx].tree, id: s) and not checkHeapAnnotation(c, p: p, s: s, name: name, t: t, errs: errs) 'badHeap'
+		bindLet(c, p: p, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
+		return
+	end 'badHeap'
 	bindLet(c, p: p, s: s, name: name, t: t, isVar: isVar, off: off, errs: errs)
 end 'checkLet'
 

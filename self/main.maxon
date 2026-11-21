@@ -223,7 +223,7 @@ function testPositionsAndDiag()
 	var texts = ast.StringList.create(0)
 	texts.push("function one()\n\treturn\nend 'one'\n")
 	texts.push("function two()\n\tlet x = 1\n\treturn\nend 'two'\n")
-	let pr = syntax.parseModuleFiles(0 as diag.ModuleID, path: "m", filePaths: paths, fileTexts: texts)
+	let pr = syntax.parseModuleFiles(0 as diag.ModuleID, path: "m", filePaths: paths, fileTexts: texts, target: ast.Target.windowsX64())
 	var m as ast.Module
 	match consumes pr 'r'
 		ok(modVal) then m = modVal
@@ -570,6 +570,7 @@ function selfTest()
 	testCodegen()
 	testIr()
 	testBodies()
+	testFilesOfTests()
 	testInterp()
 	testFormat()
 	print("self: all checks passed\n")

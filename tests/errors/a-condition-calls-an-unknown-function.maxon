@@ -1,0 +1,8 @@
+function main() returns ExitCode
+	#if wibble(true)
+		return 1
+	#endif
+	return 0
+end 'main'
+
+// expect-error: E2064 at 2:6

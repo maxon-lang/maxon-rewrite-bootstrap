@@ -188,7 +188,7 @@ func (m *model) planOf(n *node) *plan {
 				fp.st, fp.lane, fp.lits = stEnum, lanes, literals
 				lanes++
 				words = 0
-			case len(tokens) == 1 && tokens[0] == "Label" && len(literals) == 0:
+			case len(tokens) > 0 && allLabels(tokens) && len(literals) == 0:
 				fp.st = stLabel
 			default:
 				for _, t := range tokens {
@@ -256,4 +256,14 @@ func (p *plan) word(i int) string {
 		return "n.T.Records[n.ID].A"
 	}
 	return fmt.Sprintf("n.T.Lists[n.T.Records[n.ID].B+%d]", i-1)
+}
+
+// allLabels is whether every token is one that spells a quoted label: a label, or the prose name of a test.
+func allLabels(tokens []string) bool {
+	for _, t := range tokens {
+		if t != "Label" && t != "TestName" {
+			return false
+		}
+	}
+	return true
 }

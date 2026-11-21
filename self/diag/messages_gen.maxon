@@ -734,3 +734,58 @@ end 'constantCallNotConstant'
 export function nestedProjectFile(nested String, outer String) returns String
 	return "'{nested}' is a project file below the project '{outer}', and projects do not nest: move the nested project out of that project's directory"
 end 'nestedProjectFile'
+
+// The text of errDirectiveUnbalanced for: Unterminated '#if' -- the region is still open at end of file. Every '#if' needs a matching '#endif'
+export function directiveUnterminated() returns String
+	return "Unterminated '#if' -- the region is still open at end of file. Every '#if' needs a matching '#endif'"
+end 'directiveUnterminated'
+
+// The text of errDirectiveUnbalanced for: '{directive}' has no matching '#if'
+export function directiveUnmatched(directive String) returns String
+	return "'{directive}' has no matching '#if'"
+end 'directiveUnmatched'
+
+// The text of errDirectiveUnknownPredicate for: Unknown conditional compilation function '{name}'. Expected 'os', 'arch', 'testing', 'rcSanitize', 'leakReport', or 'debugstream'.
+export function directiveUnknownPredicate(name String) returns String
+	return "Unknown conditional compilation function '{name}'. Expected 'os', 'arch', 'testing', 'rcSanitize', 'leakReport', or 'debugstream'."
+end 'directiveUnknownPredicate'
+
+// The text of errDirectiveMalformedCondition for: Malformed '#if' condition. Expected a predicate call -- 'os', 'arch', 'testing', 'rcSanitize', 'leakReport', or 'debugstream' -- optionally combined with 'and', 'or', 'not' and parentheses
+export function directiveMalformedCondition() returns String
+	return "Malformed '#if' condition. Expected a predicate call -- 'os', 'arch', 'testing', 'rcSanitize', 'leakReport', or 'debugstream' -- optionally combined with 'and', 'or', 'not' and parentheses"
+end 'directiveMalformedCondition'
+
+// The text of errDirectiveMalformedCondition for: Unexpected text after the '#if' condition -- a condition ends at the end of its own line
+export function directiveTrailingText() returns String
+	return "Unexpected text after the '#if' condition -- a condition ends at the end of its own line"
+end 'directiveTrailingText'
+
+// The text of errTestOutsideTestFile for: a 'test' declaration is only allowed in a file whose name ends in '.maxtest'; rename '{file}' to '{renamed}', or move this declaration into one
+export function testOutsideTestFile(file String, renamed String) returns String
+	return "a 'test' declaration is only allowed in a file whose name ends in '.maxtest'; rename '{file}' to '{renamed}', or move this declaration into one"
+end 'testOutsideTestFile'
+
+// The text of errTestEmptyName for: a 'test' declaration's name cannot be empty
+export function testEmptyName() returns String
+	return "a 'test' declaration's name cannot be empty"
+end 'testEmptyName'
+
+// The text of errDuplicateTestName for: duplicate test name: '{first}' and '{second}' both compile to '{symbol}'
+export function duplicateTestName(first String, second String, symbol String) returns String
+	return "duplicate test name: '{first}' and '{second}' both compile to '{symbol}'"
+end 'duplicateTestName'
+
+// The text of errUnexpectedToken for: @heap can only annotate a binding whose value is a heap record; '{name}' binds a '{tag}'
+export function heapAnnotationOnNonRecord(name String, tag String) returns String
+	return "@heap can only annotate a binding whose value is a heap record; '{name}' binds a '{tag}'"
+end 'heapAnnotationOnNonRecord'
+
+// The text of errUnexpectedToken for: Unknown annotation '@{got}' (expected '@heap')
+export function unknownAnnotation(got String) returns String
+	return "Unknown annotation '@{got}' (expected '@heap')"
+end 'unknownAnnotation'
+
+// The text of errUnexpectedToken for: @heap must be followed by 'var' or 'let'
+export function heapAnnotationWithoutBinding() returns String
+	return "@heap must be followed by 'var' or 'let'"
+end 'heapAnnotationWithoutBinding'

@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	return 0
+#else
+end 'main'
+
+// expect-error: E2063 at 3:1

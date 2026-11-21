@@ -75,6 +75,7 @@ end 'NodeKind'
 
 export function isReserved(word String) returns bool
 	return match word 'kw'
+		"end" or
 		"export" or
 		"public" or
 		"static" or
@@ -86,7 +87,6 @@ export function isReserved(word String) returns bool
 		"self" or
 		"returns" or
 		"throws" or
-		"end" or
 		"sets" or
 		"_" or
 		"let" or
@@ -221,9 +221,10 @@ export type FuncDecl
 	export var whereList as ConstraintList
 	export var body as diag.U32
 	export var endRef as NodeID
+	export var testName as String
 
 	export static function make(id NodeID) returns FuncDecl
-		return FuncDecl{id: id, name: "", visibility: "", isStatic: false, receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, whereList: ConstraintList.create(0), body: 0 as diag.U32, endRef: 0 as NodeID}
+		return FuncDecl{id: id, name: "", visibility: "", isStatic: false, receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, whereList: ConstraintList.create(0), body: 0 as diag.U32, endRef: 0 as NodeID, testName: ""}
 	end 'make'
 end 'FuncDecl'
 
@@ -691,45 +692,65 @@ end 'setEndLabelNameRef'
 
 export function newLetStmt(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.letStmt, start: start)
-	let blk = t.reserve(2 as Count)
+	let blk = t.reserve(3 as Count)
 	t.records[id as Count].b = blk
 	return id
 end 'newLetStmt'
 
-export function letStmtName(t Tree, id NodeID) returns String
+export function letStmtIsHeap(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'letStmtIsHeap'
+
+export function setLetStmtIsHeap(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setLetStmtIsHeap'
+
+export function letStmtAnnotation(t Tree, id NodeID) returns String
 	return t.nameAt(t.records[id as Count].a)
+end 'letStmtAnnotation'
+
+export function letStmtAnnotationRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'letStmtAnnotationRef'
+
+export function setLetStmtAnnotationRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setLetStmtAnnotationRef'
+
+export function letStmtName(t Tree, id NodeID) returns String
+	return t.nameAt(t.blockWordAt(id, offset: 0 as Count))
 end 'letStmtName'
 
 export function letStmtNameRef(t Tree, id NodeID) returns diag.U32
-	return t.records[id as Count].a
+	return t.blockWordAt(id, offset: 0 as Count)
 end 'letStmtNameRef'
 
 export function setLetStmtNameRef(mutates t Tree, id NodeID, ref diag.U32)
-	t.records[id as Count].a = ref
+	t.setBlockWordAt(id, offset: 0 as Count, value: ref)
 end 'setLetStmtNameRef'
 
 export function letStmtInit(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 0 as Count) as NodeID
+	return t.blockWordAt(id, offset: 1 as Count) as NodeID
 end 'letStmtInit'
 
 export function setLetStmtInit(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
 end 'setLetStmtInit'
 
 export function letStmtIsVar(t Tree, id NodeID) returns bool
-	return (t.records[id as Count].flags and (1 as Byte)) != 0
+	return (t.records[id as Count].flags and (2 as Byte)) != 0
 end 'letStmtIsVar'
 
 export function setLetStmtIsVar(mutates t Tree, id NodeID)
-	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+	t.records[id as Count].flags = t.records[id as Count].flags or (2 as Byte)
 end 'setLetStmtIsVar'
 
 export function letStmtType(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+	return t.blockWordAt(id, offset: 2 as Count) as NodeID
 end 'letStmtType'
 
 export function setLetStmtType(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 2 as Count, value: value as diag.U32)
 end 'setLetStmtType'
 
 export function newDestructStmt(mutates t Tree, start diag.U32) returns NodeID

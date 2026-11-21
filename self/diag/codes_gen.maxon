@@ -63,6 +63,21 @@ export let errShiftCountNegative = "E2054"
 // A generic instance names the wrong number of type arguments.
 export let errTypeArgumentCount = "E2056"
 
+// A 'test' declaration is in a file whose name does not end in '.maxtest'.
+export let errTestOutsideTestFile = "E2058"
+
+// A 'test' declaration has an empty name.
+export let errTestEmptyName = "E2059"
+
+// A '#if' has no '#endif', or an '#else' or '#endif' has no '#if'.
+export let errDirectiveUnbalanced = "E2063"
+
+// A '#if' condition calls a function that is not 'os', 'arch', 'testing', 'rcSanitize', 'leakReport' or 'debugstream'.
+export let errDirectiveUnknownPredicate = "E2064"
+
+// A '#if' condition is not a combination of predicate calls, or text follows it on its line.
+export let errDirectiveMalformedCondition = "E2065"
+
 // A call labels an argument of a built-in function whose arguments are positional.
 export let errBuiltinArgNamed = "E2067"
 
@@ -188,6 +203,9 @@ export let errDivisionByZero = "E3103"
 
 // An array is created with zeroed elements of a type that has no zero value.
 export let errZeroOutsideElement = "E3106"
+
+// Two tests of a module have names that compile to one symbol.
+export let errDuplicateTestName = "E3107"
 
 // A 'throws' clause names something other than an enum or a union.
 export let errThrowsNotAnErrorEnum = "E3113"

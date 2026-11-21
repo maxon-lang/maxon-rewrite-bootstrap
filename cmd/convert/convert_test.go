@@ -536,11 +536,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "extensions of 'Set'",
 		},
 		{
-			name:     "hash if",
-			in:       "#if os(Windows)\nlet x = 1\n#endif\n",
-			wantTodo: "conditional compilation",
-		},
-		{
 			name:     "typealias in an extension",
 			in:       "extension Array\n\ttypealias Level = int(0 to 64)\nend 'Array'\n",
 			wantTodo: "typealias declarations in an extension",
@@ -602,13 +597,13 @@ func TestCheckSummarizesWarningsByKind(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("a.maxon", "#if os(Windows)\nlet a = 1\n#else\nlet a = 2\n#endif\n")
-	write("b.maxon", "#if os(Windows)\nlet b = 1\n#endif\n")
+	write("a.maxon", "#!/usr/bin/env maxon\nlet a = 1\n")
+	write("b.maxon", "#!/usr/bin/env maxon\nlet b = 1\n")
 	write("c.maxon", "let c = 3\n")
 
 	var stdout, stderr bytes.Buffer
 	code := runMain([]string{"--check", dir}, strings.NewReader(""), &stdout, &stderr)
-	want := "     5    2 files  conditional compilation directives (#if/#else/#endif) are not supported in minimaxon\n2 of 3 files would change\n"
+	want := "     2    2 files  shebang lines are not supported in minimaxon\n2 of 3 files would change\n"
 	if code != 1 || stdout.String() != want {
 		t.Fatalf("code=%d stdout=%q want %q", code, stdout.String(), want)
 	}

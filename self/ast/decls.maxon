@@ -70,6 +70,20 @@ export union Decl
 		end 'd'
 	end 'keyword'
 
+	// testName is the prose name of a test, and empty for any other declaration.
+	export function testName() returns String
+		return match self 'd'
+			funcDecl(f) gives f.testName.clone()
+			constDecl(_) gives ""
+			typeDecl(_) gives ""
+			enumDecl(_) gives ""
+			unionDecl(_) gives ""
+			aliasDecl(_) gives ""
+			interfaceDecl(_) gives ""
+			extensionDecl(_) gives ""
+		end 'd'
+	end 'testName'
+
 	export function nodeID() returns NodeID
 		return match self 'd'
 			funcDecl(v) gives v.id

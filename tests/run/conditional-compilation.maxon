@@ -1,0 +1,89 @@
+// A program with the directives in every position.
+#if os(Windows)
+	let separator = "\\"
+#else
+	let separator = "/"
+#endif
+
+#if arch(arm64) or (os(Linux) and arch(x64))
+	function pick() returns ExitCode
+		return 1
+	end 'pick'
+
+	function other() returns ExitCode
+		return 2
+	end 'other'
+#else
+	// the windows one
+	function pick() returns ExitCode
+		return 20
+	end 'pick'
+
+	function other() returns ExitCode
+		return 2
+	end 'other'
+#endif
+
+type Box
+	// the first field
+	#if testing(true)
+		let ghost as Missing
+	#endif
+	export let first as ExitCode
+
+	#if debugstream(false)
+		static function make() returns Box
+			return Box{first: 3}
+		end 'make'
+	#endif
+
+	export function value() returns ExitCode
+		#if testing(true)
+			return no_such()
+		#endif
+		return self.first
+	end 'value'
+end 'Box'
+
+enum Color
+	red
+	#if os(Windows)
+		green
+	#endif
+end 'Color'
+
+type OnlyOnLinux
+	#if os(Linux)
+		let x as ExitCode
+	#endif
+end 'OnlyOnLinux'
+
+function empty()
+	#if os(Linux)
+		let x = 1
+	#endif
+end 'empty'
+
+function main() returns ExitCode
+	empty()
+	var total = pick()
+	#if os(Windows)
+		total = try total + 100 otherwise panic("overflow")
+		#if arch(x64)
+			total = try total + 1000 otherwise panic("overflow")
+		#else
+			total = try total + 5000 otherwise panic("overflow")
+		#endif
+	#endif
+	// before else
+	#if os(Linux)
+		total = 0
+	// the else
+	#else
+		total = try total + Box.make().value() otherwise panic("overflow")
+	#endif
+	print("{total}\n")
+	return 0
+end 'main'
+
+//> 1123

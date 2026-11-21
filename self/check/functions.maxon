@@ -36,6 +36,7 @@ function newFuncEntry(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, 
 	fn.isDestructor = f.receiver == ast.Convention.convDestructs.keyword()
 	fn.hasReceiver = ownerTy != ast.noType and not f.isStatic
 	fn.bodyRef = f.body
+	fn.isTest = f.testName != ""
 	if ownerTy == ast.noType 'free'
 		fn.hasDecl = true
 		fn.decl = ref.clone()

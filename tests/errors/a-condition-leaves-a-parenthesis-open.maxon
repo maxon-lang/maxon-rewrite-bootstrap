@@ -1,0 +1,8 @@
+function main() returns ExitCode
+	#if os(Windows
+		return 1
+	#endif
+	return 0
+end 'main'
+
+// expect-error: E2065 at 2:16

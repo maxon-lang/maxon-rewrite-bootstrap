@@ -58,6 +58,17 @@ export function startChecks(mutates p ast.Project, consumes order Array with dia
 	return ch
 end 'startChecks'
 
+// withoutTests is the functions that are not tests: a test is checked, and no program is made of it.
+function withoutTests(p ast.Project, consumes functions ast.FuncIDList) returns ast.FuncIDList
+	var kept = ast.FuncIDList.create(0)
+	for i in 0 upto functions.count() 'each'
+		if not p.funcs.entries[functions[i] as Count].isTest 'program'
+			kept.push(functions[i])
+		end 'program'
+	end 'each'
+	return kept
+end 'withoutTests'
+
 // endChecks gives each module's typing back to the project, and what the generate stage needs of the check.
 export function endChecks(mutates p ast.Project, consumes ch Checks) returns Checked
 	var rest = ch
@@ -65,8 +76,8 @@ export function endChecks(mutates p ast.Project, consumes ch Checks) returns Che
 	var callers = FuncIDLists.create(0)
 	for i in 0 upto rest.modules.count() 'each'
 		let modID = rest.modules[i].checker.modID
-		functions.push(exchange(rest.modules[i].functions, value: ast.FuncIDList.create(0)))
-		callers.push(exchange(rest.modules[i].checker.callers, value: ast.FuncIDList.create(0)))
+		functions.push(withoutTests(p, functions: exchange(rest.modules[i].functions, value: ast.FuncIDList.create(0))))
+		callers.push(withoutTests(p, functions: exchange(rest.modules[i].checker.callers, value: ast.FuncIDList.create(0))))
 		let finished = exchange(rest.modules[i].checker, value: Checker.make(modID, typing: ast.Typing.new(modID)))
 		checkerEndMod(p, c: finished)
 	end 'each'

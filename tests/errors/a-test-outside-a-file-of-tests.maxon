@@ -1,0 +1,9 @@
+test 'adds two numbers'
+	let sum = 2 + 2
+end 'adds two numbers'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2058 at 1:1

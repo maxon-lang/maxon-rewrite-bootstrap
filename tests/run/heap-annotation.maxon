@@ -1,0 +1,17 @@
+type Point
+	export let x as ExitCode
+
+	static function create(x ExitCode) returns Point
+		return Point{x: x}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	@heap let p = Point.create(3)
+	@heap var q = Point.create(4)
+	@heap let name = "heap"
+	print("{p.x} {q.x} {name}\n")
+	return 0
+end 'main'
+
+//> 3 4 heap

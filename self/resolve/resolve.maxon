@@ -1148,7 +1148,7 @@ end 'resolveInterfaceList'
 // captures 'self' by that name.
 function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, hasReceiver bool, mutates errs diag.ErrorList)
 	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.whereList, errs: errs)
-	checkEnd(r, label: f.name, endNode: f.endRef, errs: errs)
+	checkEnd(r, label: ast.sourceName(f), endNode: f.endRef, errs: errs)
 	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
 	resolveParamDefaults(r, p: p, params: f.params, errs: errs)
 	r.scopes = ScopeStack.create(0)

@@ -1,0 +1,11 @@
+#if os(Windows) os(Linux)
+	function other() returns ExitCode
+		return 1
+	end 'other'
+#endif
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2065 at 1:17

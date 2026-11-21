@@ -33,6 +33,11 @@ export function endsWithText(text String, suffix String) returns bool
 	return length >= tail and text.sliceBytes(try length - tail otherwise 0 as Count, endPos: length) == suffix
 end 'endsWithText'
 
+// endsWithMaxtest is whether a file name ends in `.maxtest`, the extension of the files that hold tests.
+export function endsWithMaxtest(name String) returns bool
+	return endsWithText(name, suffix: ".maxtest")
+end 'endsWithMaxtest'
+
 export function sortStrings(mutates xs ast.StringList)
 	let n = xs.count()
 	for i in 1 upto n 'ins'
@@ -334,7 +339,8 @@ function belowDirectory(path String, dir String) returns bool
 	return path.sliceBytes(0, endPos: n) == dir
 end 'belowDirectory'
 
-// listMemory is listDirectory for the files that are held in memory: the paths of the source files in dir, and the names of
+// listMemory is listDirectory for the files that are held in memory, which a program names itself, and so a file of
+// tests too: the paths of the source files in dir, and the names of
 // the directories below it that hold a file, each in order. It is whether dir holds an ignore marker. A project held in
 // memory is the one project, so it has no project files.
 function listMemory(dir String, memory SourceFiles, mutates files ast.StringList, mutates dirs ast.StringList) returns bool
@@ -342,7 +348,7 @@ function listMemory(dir String, memory SourceFiles, mutates files ast.StringList
 	for i in 0 upto memory.count() 'each'
 		let path = memory[i].path.clone()
 		if parentDir(path) == dir 'file'
-			if endsWithMaxon(path) 'source'
+			if endsWithMaxon(path) or endsWithMaxtest(path) 'source'
 				files.push(path)
 			end 'source' else if lastComponent(path) == ignoreMarkerName 'marker'
 				ignored = true
@@ -654,6 +660,13 @@ function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates er
 end 'buildModuleTable'
 
 function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
+	let testName = m.decls[ord as Count].testName()
+	if testName != "" 'tests'
+		// Two tests that compile to one symbol are two names that differ only where a character is no letter, digit or underscore.
+		let at = try ((dOff as Count) + ast.testKeywordLength) as diag.U32 otherwise dOff
+		diag.pushSiteError(errs, code: diag.errDuplicateTestName, message: diag.duplicateTestName(m.decls[prevOrd as Count].testName(), second: testName, symbol: dName), module: modID, offset: at)
+		return
+	end 'tests'
 	if ast.isNestedAlias(dName) 'nested'
 		pushDuplicateNestedAlias(dName, dOff: dOff, modID: modID, errs: errs)
 		return
@@ -687,7 +700,7 @@ function parseSingleModule(mutates p ast.Project, modIdx Count, memory SourceFil
 		return
 	end 'ioFail'
 	let modID = p.modules[modIdx].id
-	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts)
+	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target)
 	match consumes res 'pr'
 		ok(parsedMod) then copyParsedIntoModule(p, modIdx: modIdx, parsedMod: parsedMod)
 		err(found) then appendErrors(errs, found: found)

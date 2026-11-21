@@ -30,6 +30,53 @@ enum Gap
 	oneSpace
 end 'Gap'
 
+// GapLine is what a line between two tokens is: a blank line, a comment line, or a directive line, which opens an `#if`, goes
+// on to its `#else` or closes it.
+enum GapLine
+	blank
+	comment
+	opens
+	alternates
+	closes
+end 'GapLine'
+
+typealias GapLines = Array with GapLine
+
+// isDirectiveLine is whether the line of a gap is a directive.
+function isDirectiveLine(kind GapLine) returns bool
+	return kind != GapLine.blank and kind != GapLine.comment
+end 'isDirectiveLine'
+
+// firstDirective is the index of the first directive line of the lines of a gap that holds one.
+function firstDirective(kinds GapLines) returns Count
+	for i in 0 upto kinds.count() 'each'
+		if isDirectiveLine(kinds[i]) 'directive'
+			return i
+		end 'directive'
+	end 'each'
+	panic("a gap that holds a directive line holds none")
+end 'firstDirective'
+
+// nextDirectiveOpens is whether the first directive line after the line at line opens an `#if`; hasDirectiveAfter is whether
+// there is one.
+function nextDirectiveOpens(kinds GapLines, line Count) returns bool
+	for i in (try line + 1 otherwise panic("a gap has too many lines")) upto kinds.count() 'each'
+		if isDirectiveLine(kinds[i]) 'directive'
+			return kinds[i] == GapLine.opens
+		end 'directive'
+	end 'each'
+	return false
+end 'nextDirectiveOpens'
+
+function hasDirectiveAfter(kinds GapLines, line Count) returns bool
+	for i in (try line + 1 otherwise panic("a gap has too many lines")) upto kinds.count() 'each'
+		if isDirectiveLine(kinds[i]) 'directive'
+			return true
+		end 'directive'
+	end 'each'
+	return false
+end 'hasDirectiveAfter'
+
 // BlankFault is how the blank lines before a line break the rule: a blank line that is not allowed, or one that is
 // missing.
 enum BlankFault
@@ -46,6 +93,12 @@ type Fault
 		return Fault{kind: kind, message: message}
 	end 'make'
 end 'Fault'
+
+// testWord is the word that starts a test, where a quoted name follows it; it is a name everywhere else.
+let testWord = "test"
+
+// testFileExtension ends the name of a file of tests, the only file that may hold a test.
+let testFileExtension = ".maxtest"
 
 // capturesWord is the word after `mutates` that ends a function type which mutates its captures.
 let capturesWord = "captures"
@@ -85,6 +138,13 @@ type Parser
 	// format is what a formatting parser writes: where it would refuse a layout, it writes the layout the rules require.
 	var format as Formatter
 	var formatting as bool
+	// layoutOnly is set where only the layout of a program is wanted, which the formatter and its check read: what the name of
+	// the file says about the declarations in it is then not asked.
+	var layoutOnly as bool
+	// directives is the text of each directive line of the source, in order, which a formatting parser writes where the line
+	// stands; directiveNext is the next one it writes.
+	var directives as ast.StringList
+	var directiveNext as Count
 
 	static function new(consumes src Source, consumes toks Tokens, module diag.ModuleID) returns Parser
 		let text = src.text.clone()
@@ -92,7 +152,7 @@ type Parser
 		if src.files.count() > 0 'first'
 			prevEnd = src.files[0].start as Count
 		end 'first'
-		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false}
+		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count}
 	end 'new'
 
 	function fileNumber() returns Count
@@ -115,6 +175,15 @@ type Parser
 	function curStart() returns diag.U32
 		return toks[pos].start
 	end 'curStart'
+
+	// at2 is the token two after the current one: the one after a test's name.
+	function at2() returns Token throws SyntaxError
+		let at = try pos + 2 otherwise panic("the tokens are too many")
+		if at >= toks.count() 'past'
+			return toks[before(toks.count())].clone()
+		end 'past'
+		return toks[at].clone()
+	end 'at2'
 
 	function peekTok() returns Token
 		let last = try toks.count() - 1 otherwise 0 as Count
@@ -154,7 +223,7 @@ type Parser
 			end 'indent' else if t.kind == TokenKind.dedent 'dedent'
 				format.depth = try depth - 1 otherwise panic("the formatter dedents past the margin")
 			end 'dedent' else if t.kind != TokenKind.fileEnd and t.kind != TokenKind.eof 'code'
-				format.indent(depth)
+				format.indent(format.tabsAt(depth))
 			end 'code'
 		end 'lines' else if gap == Gap.endOfLine 'endOfLine'
 			format.trailingComment(src.text, begin: prevEnd, until: start)
@@ -172,6 +241,11 @@ type Parser
 	// depthAfterIndentTokens is the indentation of the code line that starts at the current token, which is the first of
 	// the indent or dedent tokens that open it, or the line's first token.
 	function depthAfterIndentTokens() returns Count
+		return format.tabsAt(self.logicalDepthAfterIndentTokens())
+	end 'depthAfterIndentTokens'
+
+	// logicalDepthAfterIndentTokens is that indentation before the tabs of the `#if` regions that hold the line.
+	function logicalDepthAfterIndentTokens() returns Count
 		var depth = format.depth
 		var i = pos
 		while i < toks.count() 'scan'
@@ -186,7 +260,7 @@ type Parser
 			i = after(i)
 		end 'scan'
 		return depth
-	end 'depthAfterIndentTokens'
+	end 'logicalDepthAfterIndentTokens'
 
 	// skip consumes the current token without checking its layout, as error recovery does.
 	function skip(mutates self) returns Token
@@ -259,6 +333,11 @@ type Parser
 	function notFallthrough() returns bool
 		return not self.peekIs(TokenKind.kw_fallthrough)
 	end 'notFallthrough'
+
+	// atTestDecl is whether the declaration that starts here is a test: `test` and a quoted name.
+	function atTestDecl() returns bool
+		return self.at(TokenKind.name) and self.text(toks[pos]) == testWord and (self.peekIs(TokenKind.label) or self.peekIs(TokenKind.testName))
+	end 'atTestDecl'
 
 	// atStaticLet is whether the member that starts at the current token is a `static let`, which `static function` starts as
 	// well, after the same modifier.
@@ -341,6 +420,12 @@ type Parser
 		if rule == BlankRule.noBlanks and prevKind == TokenKind.newline and self.startsFunction() 'function'
 			rule = BlankRule.beforeFunction
 		end 'function'
+		if self.gapHoldsDirective(lineStart) 'directives'
+			if formatting 'format'
+				try self.formatDirectiveGap(rule, lineStart: lineStart)
+			end 'format'
+			return
+		end 'directives'
 		var depth = 0 as Count
 		if formatting 'depth'
 			depth = self.depthAfterIndentTokens()
@@ -389,6 +474,159 @@ type Parser
 			format.blankLine()
 		end 'missing'
 	end 'blankLines'
+
+	// lineEndWithin is where the line that starts at begin ends, or lineStart when the gap ends before the line does.
+	function lineEndWithin(begin Count, lineStart Count) returns Count
+		var stop = begin
+		while stop < lineStart and src.text.byteAt(stop) != byteNewline 'scan'
+			stop = after(stop)
+		end 'scan'
+		return stop
+	end 'lineEndWithin'
+
+	// gapHoldsDirective is whether a line of the gap before the line that starts at lineStart is a directive line. Such a
+	// gap holds the directive lines, and the code of the branches that are left out, between two tokens of the program.
+	function gapHoldsDirective(lineStart Count) returns bool
+		var at = prevEnd
+		while at < lineStart 'lines'
+			let stop = self.lineEndWithin(at, lineStart: lineStart)
+			if stop == lineStart 'unended'
+				return false
+			end 'unended'
+			let first = skipSourceWhitespace(src.text, begin: at, until: stop)
+			if first < stop and src.text.byteAt(first) == byteHash 'directive'
+				return true
+			end 'directive'
+			at = after(stop)
+		end 'lines'
+		return false
+	end 'gapHoldsDirective'
+
+	// directiveKindAt is what the line of the gap from begin until stop is: a blank line, a comment line, or the directive
+	// line it holds.
+	function directiveKindAt(begin Count, stop Count) returns GapLine
+		if isBlankLine(src.text, from: begin, until: stop) 'blank'
+			return GapLine.blank
+		end 'blank'
+		let first = skipSourceWhitespace(src.text, begin: begin, until: stop)
+		if src.text.byteAt(first) != byteHash 'comment'
+			return GapLine.comment
+		end 'comment'
+		if self.startsWithWord(first, until: stop, word: hashEndifText) 'closes'
+			return GapLine.closes
+		end 'closes'
+		if self.startsWithWord(first, until: stop, word: hashElseText) 'alternates'
+			return GapLine.alternates
+		end 'alternates'
+		return GapLine.opens
+	end 'directiveKindAt'
+
+	function startsWithWord(at Count, until Count, word String) returns bool
+		let stop = try at + word.byteLength() otherwise panic("a directive ends past the text")
+		return stop <= until and src.text.sliceBytes(at, endPos: stop) == word
+	end 'startsWithWord'
+
+	// formatDirectiveGap writes a gap that holds directive lines. A directive line stands at the indentation of the code
+	// around the `#if`, its branch one tab deeper; no blank line comes before an `#else` or an `#endif` or after an `#if` or an
+	// `#else`, and the blank lines before an `#if` and after an `#endif` are those the line the `#if` stands for would have,
+	// which is the line the gap ends with: its rule.
+	function formatDirectiveGap(mutates self, rule BlankRule, lineStart Count) throws SyntaxError
+		var begins = Offsets.create(0)
+		var stops = Offsets.create(0)
+		var kinds = GapLines.create(0)
+		var at = prevEnd
+		while at < lineStart 'gather'
+			let stop = self.lineEndWithin(at, lineStart: lineStart)
+			if stop == lineStart 'unended'
+				break 'gather'
+			end 'unended'
+			begins.push(at)
+			stops.push(stop)
+			kinds.push(self.directiveKindAt(at, stop: stop))
+			at = after(stop)
+		end 'gather'
+		let base = format.depth
+		var regions = format.regions
+		var tabs = Offsets.create(0)
+		for j in 0 upto kinds.count() 'tabs'
+			var lineTabs = 0 as Count
+			if kinds[j] == GapLine.opens 'opens'
+				lineTabs = try base + regions otherwise panic("the indentation overflows")
+				regions = after(regions)
+			end 'opens' else if kinds[j] == GapLine.alternates 'alternates'
+				regions = try regions - 1 otherwise panic("an #else closes no #if")
+				lineTabs = try base + regions otherwise panic("the indentation overflows")
+				regions = after(regions)
+			end 'alternates' else if kinds[j] == GapLine.closes 'closes'
+				regions = try regions - 1 otherwise panic("an #endif closes no #if")
+				lineTabs = try base + regions otherwise panic("the indentation overflows")
+			end 'closes'
+			tabs.push(lineTabs)
+		end 'tabs'
+		var following = 0 as Count
+		following = try self.logicalDepthAfterIndentTokens() + regions otherwise panic("the indentation overflows")
+		var back = kinds.count()
+		while back > 0 'comments'
+			back = before(back)
+			if kinds[back] == GapLine.comment 'comment'
+				tabs[back] = following
+			end 'comment' else if kinds[back] != GapLine.blank 'directive'
+				following = tabs[back]
+			end 'directive'
+		end 'comments'
+		var segment = rule
+		if kinds.count() > 0 and kinds[firstDirective(kinds)] != GapLine.opens 'closing'
+			segment = BlankRule.noBlanks
+		end 'closing'
+		var kept = 0 as Count
+		var lastBlank = false
+		for j in 0 upto kinds.count() 'lines'
+			let kind = kinds[j]
+			if kind == GapLine.blank or kind == GapLine.comment 'plain'
+				let blank = kind == GapLine.blank
+				let fault = lineFault(segment, kept: kept, blank: blank, lastBlank: lastBlank)
+				if fault.kind == BlankFault.extraBlank 'extra'
+					continue 'lines'
+				end 'extra'
+				if fault.kind == BlankFault.missingBlank 'missing'
+					format.blankLine()
+					kept = after(kept)
+				end 'missing'
+				format.gapLine(src.text, begin: begins[j], until: stops[j], blank: blank, tabs: tabs[j])
+				kept = after(kept)
+				lastBlank = blank
+				continue 'lines'
+			end 'plain'
+			self.endSegment(segment, kept: kept, lastBlank: lastBlank, atFileEnd: false)
+			format.indent(tabs[j])
+			let text = directives[directiveNext].clone()
+			format.out.append(text.toByteArray())
+			format.out.push(byteNewline)
+			directiveNext = after(directiveNext)
+			if kind == GapLine.closes and nextDirectiveOpens(kinds, line: j) 'afterClose'
+				segment = rule
+			end 'afterClose' else if kind == GapLine.closes and not hasDirectiveAfter(kinds, line: j) 'last'
+				segment = rule
+			end 'last' else 'branch'
+				segment = BlankRule.noBlanks
+			end 'branch'
+			kept = 0 as Count
+			lastBlank = false
+		end 'lines'
+		format.regions = regions
+		self.endSegment(segment, kept: kept, lastBlank: lastBlank, atFileEnd: self.at(TokenKind.fileEnd))
+	end 'formatDirectiveGap'
+
+	// endSegment writes the blank line that the end of a run of gap lines under rule lacks, or takes back the one it has too
+	// many.
+	function endSegment(mutates self, rule BlankRule, kept Count, lastBlank bool, atFileEnd bool)
+		let fault = endFault(rule, kept: kept, lastBlank: lastBlank, atFileEnd: atFileEnd)
+		if fault.kind == BlankFault.extraBlank 'extra'
+			format.dropBlankLine()
+		end 'extra' else if fault.kind == BlankFault.missingBlank 'missing'
+			format.blankLine()
+		end 'missing'
+	end 'endSegment'
 
 	// refuse is the syntax error for a gap that breaks the layout.
 	function refuse(mutates self, consumes message String, at Count) returns SyntaxError
@@ -448,6 +686,11 @@ type Parser
 
 	// expected is the syntax error at the current token, naming what the grammar allows there.
 	function expected(mutates self, what String) returns SyntaxError
+		if pos >= 2 and toks[before(before(pos))].kind == TokenKind.at and toks[before(pos)].kind == TokenKind.name 'annotation'
+			// An annotation stands before a binding, which is what the word after the '@' leaves out.
+			errors.push(src.errorAt(diag.errUnexpectedToken, message: diag.heapAnnotationWithoutBinding(), file: self.fileNumber(), offset: toks[before(before(pos))].start as Count))
+			return SyntaxError.refused
+		end 'annotation'
 		let t = self.cur()
 		let file = self.fileNumber()
 		if self.atEndOfInput() 'end'
@@ -582,14 +825,14 @@ end 'byteStrLitParts'
 
 // lexemeStart and lexemeEnd are where a token's source text begins and ends: a label's token leaves out its quotes.
 function lexemeStart(t Token) returns Count
-	if t.kind == TokenKind.label 'label'
+	if t.kind == TokenKind.label or t.kind == TokenKind.testName 'label'
 		return before(t.start as Count)
 	end 'label'
 	return t.start as Count
 end 'lexemeStart'
 
 function lexemeEnd(t Token) returns Count
-	if t.kind == TokenKind.label 'label'
+	if t.kind == TokenKind.label or t.kind == TokenKind.testName 'label'
 		return after(t.endOffset())
 	end 'label'
 	return t.endOffset()
@@ -742,6 +985,65 @@ function nestedMemberDecls(td ast.TypeDecl, mutates out ast.DeclList)
 	end 'statics'
 end 'nestedMemberDecls'
 
+// parseDeclaration parses the declaration at the parser: a test, or one that Maxon.g4 names.
+function parseDeclaration(mutates p Parser) returns ast.Decl throws SyntaxError
+	if p.atTestDecl() 'test'
+		let test = try parseTest(p)
+		return ast.Decl.funcDecl(test)
+	end 'test'
+	return try parseDecl(p)
+end 'parseDeclaration'
+
+// baseName is the last part of a path.
+function baseName(path String) returns String
+	var start = 0 as Count
+	for i in 0 upto path.byteLength() 'each'
+		let c = path.byteAt(i)
+		if c == byteSlash or c == byteBackslash 'separator'
+			start = after(i)
+		end 'separator'
+	end 'each'
+	return path.sliceBytes(start, endPos: path.byteLength())
+end 'baseName'
+
+// testFileName is the name of the file of tests that a file is renamed to, which has the name of the file with its extension
+// made `.maxtest`.
+function testFileName(file String) returns String
+	let suffix = ".maxon"
+	if file.endsWith(suffix) 'maxon'
+		return "{file.sliceBytes(0 as Count, endPos: (try file.byteLength() - suffix.byteLength() otherwise 0 as Count))}{testFileExtension}"
+	end 'maxon'
+	return "{file}{testFileExtension}"
+end 'testFileName'
+
+// refuseAt records an error at the offset of the file that the parser is in, and abandons the declaration.
+function refuseAt(mutates p Parser, consumes code String, consumes message String, at Count) returns SyntaxError
+	let file = p.fileNumber()
+	p.errors.push(p.src.errorAt(code, message: message, file: file, offset: at))
+	return SyntaxError.refused
+end 'refuseAt'
+
+// parseTest parses a test, which is a function that no program calls: it has a name that is prose, no parameters and no
+// result, and only a file of tests may hold one. Its function is named by the name it compiles to; the prose name is kept.
+function parseTest(mutates p Parser) returns ast.FuncDecl throws SyntaxError
+	let keyword = p.cur()
+	let named = p.peekTok()
+	let file = baseName(p.src.files[p.fileNumber()].path)
+	if not p.layoutOnly and not file.endsWith(testFileExtension) 'outside'
+		throw refuseAt(p, code: diag.errTestOutsideTestFile, message: diag.testOutsideTestFile(file, renamed: testFileName(file)), at: keyword.start as Count)
+	end 'outside'
+	if named.length == 0 'empty'
+		throw refuseAt(p, code: diag.errTestEmptyName, message: diag.testEmptyName(), at: lexemeStart(named))
+	end 'empty'
+	let following = try p.at2()
+	if following.kind != TokenKind.newline 'header'
+		throw refuseAt(p, code: diag.errExpectedToken, message: "Expected newline after block label, got '{p.describe(following)}'", at: following.start as Count)
+	end 'header'
+	var test = try parseTestDecl(p)
+	test.name = ast.testSymbol(test.testName)
+	return test
+end 'parseTest'
+
 // parseProgram parses every declaration of a module's files. A syntax error abandons the rest of its file, so each
 // file reports its own first error.
 function parseProgram(mutates p Parser) returns ast.DeclList
@@ -768,7 +1070,7 @@ function parseProgram(mutates p Parser) returns ast.DeclList
 		var abandoned = false
 		try 'decl'
 			p.blanks = blanksBefore(count)
-			let d = parseDecl(p)
+			let d = parseDeclaration(p)
 			pushDecl(decls, d: d)
 			_ = p.expect(TokenKind.newline, what: "the end of the line")
 		end 'decl' otherwise 'refused'
@@ -795,7 +1097,7 @@ function blanksBefore(count Count) returns BlankRule
 end 'blanksBefore'
 
 // parseSourceInto parses the module of the handle from its source.
-function parseSourceInto(module diag.ModuleID, consumes path String, consumes src Source) returns ParseResult
+function parseSourceInto(module diag.ModuleID, consumes path String, consumes src Source, target ast.Target) returns ParseResult
 	var errs = diag.ErrorList.create(0)
 	var toks = Tokens.create(0)
 	var failed = false
@@ -807,8 +1109,17 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 	if failed 'lexError'
 		return ParseResult.err(errs)
 	end 'lexError'
+	var resolved = Resolved.make(Tokens.create(0), lines: ast.StringList.create(0))
+	try 'directives'
+		resolved = resolveDirectives(src, toks: toks, target: target, formatting: false, errs: errs)
+	end 'directives' otherwise 'unresolved'
+		failed = true
+	end 'unresolved'
+	if failed 'directiveError'
+		return ParseResult.err(errs)
+	end 'directiveError'
 	let files = src.files.clone()
-	var p = Parser.new(src, toks: toks, module: module)
+	var p = Parser.new(src, toks: exchange(resolved.toks, value: Tokens.create(0)), module: module)
 	let decls = parseProgram(p)
 	if p.errors.count() > 0 'syntaxErrors'
 		return ParseResult.err(exchange(p.errors, value: diag.ErrorList.create(0)))
@@ -820,10 +1131,10 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 end 'parseSourceInto'
 
 export function parseSource(module diag.ModuleID, path String, consumes src String) returns ParseResult
-	return parseSourceInto(module, path: path.clone(), src: sourceOf(src, path: path))
+	return parseSourceInto(module, path: path.clone(), src: sourceOf(src, path: path), target: ast.Target.windowsX64())
 end 'parseSource'
 
-export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList) returns ParseResult
+export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList, target ast.Target) returns ParseResult
 	var buf = ByteArray.create(0)
 	var files = ast.FileSpanList.create(0)
 	for i in 0 upto filePaths.count() 'concat'
@@ -832,5 +1143,5 @@ export function parseModuleFiles(module diag.ModuleID, consumes path String, con
 		let endOff = try buf.count() as diag.U32 otherwise panic("the module's text is larger than 4 GB; split the module")
 		files.push(ast.FileSpan.make(filePaths[i].clone(), start: startOff, endOff: endOff))
 	end 'concat'
-	return parseSourceInto(module, path: path, src: Source.make(String.from(buf), files: files))
+	return parseSourceInto(module, path: path, src: Source.make(String.from(buf), files: files), target: target)
 end 'parseModuleFiles'

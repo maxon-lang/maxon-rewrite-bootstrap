@@ -191,6 +191,10 @@ function rangeFunction(mutates r Ranges, p ast.Project, fid ast.FuncID, behaviou
 			r.states.list[st].spans[slot] = typeSpan(p.types, t: ty)
 		end 'int'
 	end 'locals'
+	if p.funcs.entries[fid as Count].isTest 'test'
+		// A test handles every error its body raises: the failure of any call, of any error type, ends the test.
+		r.handlers.push(RangeHandler.make(false, takes: ast.noType))
+	end 'test'
 	rangeBlock(r, p: p, body: p.funcs.entries[fid as Count].bodyRef)
 	r.states.release(m)
 	r.fn = outerFn

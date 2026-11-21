@@ -1,0 +1,391 @@
+// Conditional compilation: the lines `#if condition`, `#else` and `#endif` include or leave out the code between them,
+// by the target the program is compiled for. A branch is indented one tab deeper than its directives, so that the lexer's
+// indent and dedent tokens stay balanced inside it; resolveDirectives takes the directive lines and the indentation of
+// their branches out of the tokens, and a branch that is left out with them. What the parser reads is the tokens of the
+// program as if the directives had never been written.
+
+// The names a condition may call, which the message of E2064 lists.
+let predicateOs = "os"
+
+let predicateArch = "arch"
+
+let predicateTesting = "testing"
+
+let predicateRcSanitize = "rcSanitize"
+
+let predicateLeakReport = "leakReport"
+
+let predicateDebugstream = "debugstream"
+
+// The flags this compiler does not have are off, and a condition holds for a flag only when it asks for it to be off.
+let flagOff = "false"
+
+// caseDistance is how far a lower case letter is above its upper case letter.
+let caseDistance = 32 as Count
+
+let hashElseText = "#else"
+
+let hashEndifText = "#endif"
+
+// Resolved is the tokens of a module once its directives are resolved, and the text of each directive line in the order of
+// the source, which a formatting parser writes back.
+export type Resolved
+	export var toks as Tokens
+	export var lines as ast.StringList
+
+	export static function make(consumes toks Tokens, consumes lines ast.StringList) returns Resolved
+		return Resolved{toks: toks, lines: lines}
+	end 'make'
+end 'Resolved'
+
+// DirectiveFrame is a `#if` that is open: whether the branch being read is part of the program, which includes every `#if`
+// around it, and whether a branch of it has been taken.
+type DirectiveFrame
+	var live as bool
+	var taken as bool
+	var parentLive as bool
+	var at as Count
+
+	static function make(live bool, taken bool, parentLive bool, at Count) returns DirectiveFrame
+		return DirectiveFrame{live: live, taken: taken, parentLive: parentLive, at: at}
+	end 'make'
+end 'DirectiveFrame'
+
+typealias DirectiveFrames = Array with DirectiveFrame
+
+// isDirective is whether a token of kind is a directive.
+function isDirective(kind TokenKind) returns bool
+	return kind == TokenKind.hashIf or kind == TokenKind.hashElse or kind == TokenKind.hashEndif
+end 'isDirective'
+
+function holdsDirective(toks Tokens) returns bool
+	for i in 0 upto toks.count() 'each'
+		if isDirective(toks[i].kind) 'directive'
+			return true
+		end 'directive'
+	end 'each'
+	return false
+end 'holdsDirective'
+
+// asciiLower is a letter in lower case, and any other byte as it is.
+function asciiLower(c Byte) returns Byte
+	if c >= byteUpperA and c <= byteUpperZ 'upper'
+		return try ((c as Count) + caseDistance) as Byte otherwise panic("a lower case letter exceeds a byte")
+	end 'upper'
+	return c
+end 'asciiLower'
+
+// equalsIgnoringCase is whether two words read alike apart from the case of their letters.
+function equalsIgnoringCase(a String, b String) returns bool
+	if a.byteLength() != b.byteLength() 'length'
+		return false
+	end 'length'
+	for i in 0 upto a.byteLength() 'each'
+		if asciiLower(a.byteAt(i)) != asciiLower(b.byteAt(i)) 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'equalsIgnoringCase'
+
+type DirectiveWalker
+	var src as Source
+	var raw as Tokens
+	var out as Tokens
+	var lines as ast.StringList
+	var frames as DirectiveFrames
+	var pos as Count
+	var file as Count
+	var target as ast.Target
+	var formatting as bool
+	var errors as diag.ErrorList
+
+	static function make(src Source, consumes raw Tokens, target ast.Target, formatting bool) returns DirectiveWalker
+		return DirectiveWalker{src: src.clone(), raw: raw, out: Tokens.create(0), lines: ast.StringList.create(0), frames: DirectiveFrames.create(0), pos: 0 as Count, file: 0 as Count, target: target.clone(), formatting: formatting, errors: diag.ErrorList.create(0)}
+	end 'make'
+
+	function kindAt(at Count) returns TokenKind
+		return raw[at].kind
+	end 'kindAt'
+
+	function textOf(at Count) returns String
+		return raw[at].text(src.text)
+	end 'textOf'
+
+	// refuse records the error at the token and abandons the module.
+	function refuse(mutates self, code String, message String, at Count) returns SyntaxError
+		errors.push(src.errorAt(code.clone(), message: message.clone(), file: file, offset: raw[at].start as Count))
+		return SyntaxError.refused
+	end 'refuse'
+
+	// live is whether the token being read is part of the program. A formatting walk keeps every branch, since it only
+	// lays the code out.
+	function live() returns bool
+		if formatting or frames.count() == 0 'all'
+			return true
+		end 'all'
+		return frames[before(frames.count())].live
+	end 'live'
+
+	// keep passes the token on, unless it ends the indentation that the tokens before it began and nothing was left in: a
+	// body whose every line was in a branch that is left out has no body.
+	function keep(mutates self, at Count)
+		let kind = self.kindAt(at)
+		if kind == TokenKind.dedent and out.count() > 0 and out[before(out.count())].kind == TokenKind.indent 'empty'
+			_ = try out.pop() otherwise panic("the tokens ran out while an empty body was left out")
+			return
+		end 'empty'
+		out.push(raw[at].clone())
+	end 'keep'
+
+	// atLineStart is whether the directive at a starts its line.
+	function atLineStart(a Count) returns bool
+		if a == 0 'first'
+			return true
+		end 'first'
+		return startsLine(self.kindAt(before(a)))
+	end 'atLineStart'
+
+	// endLine leaves the directive line that starts at the token first and ends at the newline at pos, and records its
+	// text for the formatter. After a line that opens a branch, its code is one tab deeper, which the indent token says; a
+	// formatting walk takes code that is not, as the formatter puts the tab there.
+	function endLine(mutates self, first Count, opens bool) throws SyntaxError
+		let newline = pos
+		if self.kindAt(newline) != TokenKind.newline 'text'
+			throw self.refuse(diag.errExpectedToken, message: diag.expectedToken("the end of the line", got: self.describeAt(newline)), at: newline)
+		end 'text'
+		if formatting 'record'
+			lines.push(self.lineText(first, until: newline))
+		end 'record'
+		pos = after(newline)
+		if not opens 'closing'
+			return
+		end 'closing'
+		if self.kindAt(pos) == TokenKind.indent 'branch'
+			pos = after(pos)
+			return
+		end 'branch'
+		let here = pos
+		if not formatting and not self.endsBranch(here) 'flat'
+			throw self.refuse(diag.errExpectedToken, message: diag.expectedToken("an indented line, one tab deeper than the directive", got: self.describeAt(here)), at: here)
+		end 'flat'
+	end 'endLine'
+
+	// endsBranch is whether the token at at ends a branch that holds no code, which an opening directive line is followed by.
+	function endsBranch(at Count) returns bool
+		let kind = self.kindAt(at)
+		return kind == TokenKind.hashElse or kind == TokenKind.hashEndif or kind == TokenKind.dedent or kind == TokenKind.fileEnd or kind == TokenKind.eof
+	end 'endsBranch'
+
+	function describeAt(at Count) returns String
+		let kind = self.kindAt(at)
+		if kind == TokenKind.newline 'newline'
+			return newlineText
+		end 'newline'
+		if kind == TokenKind.fileEnd 'fileEnd'
+			return fileEndText
+		end 'fileEnd'
+		if kind == TokenKind.eof 'eof'
+			return eofText
+		end 'eof'
+		return self.textOf(at)
+	end 'describeAt'
+
+	// lineText is the directive line from the token at first until the one at until, with one space between its tokens
+	// where the layout puts one, and the comment after it.
+	function lineText(first Count, until Count) returns String
+		var text = ByteArray.create(0)
+		var prev = TokenKind.newline
+		for i in first upto until 'each'
+			let kind = self.kindAt(i)
+			if i > first and not (inTokenSet(tokenNoSpaceAfter, kind: prev) or inTokenSet(tokenNoSpaceBefore, kind: kind) or (kind == TokenKind.lParen and prev == TokenKind.name)) 'space'
+				text.push(byteSpace)
+			end 'space'
+			text.append(self.textOf(i).toByteArray())
+			prev = kind
+		end 'each'
+		var f = Formatter.new()
+		f.trailingComment(src.text, begin: raw[before(until)].endOffset(), until: raw[until].start as Count)
+		text.append(f.out)
+		return String.from(text)
+	end 'lineText'
+
+	function walk(mutates self) throws SyntaxError
+		while pos < raw.count() 'tokens'
+			let kind = self.kindAt(pos)
+			if kind == TokenKind.hashIf 'open'
+				try self.open()
+			end 'open' else if kind == TokenKind.hashElse 'alternate'
+				try self.alternate()
+			end 'alternate' else if kind == TokenKind.hashEndif 'close'
+				try self.close()
+			end 'close' else if kind == TokenKind.dedent and after(pos) < raw.count() and (self.kindAt(after(pos)) == TokenKind.hashElse or self.kindAt(after(pos)) == TokenKind.hashEndif) 'branchEnd'
+				pos = after(pos)
+			end 'branchEnd' else 'token'
+				if self.live() 'kept'
+					let here = pos
+					self.keep(here)
+				end 'kept'
+				if kind == TokenKind.fileEnd 'file'
+					if frames.count() > 0 'unterminated'
+						let openAt = frames[before(frames.count())].at
+						throw self.refuse(diag.errDirectiveUnbalanced, message: diag.directiveUnterminated(), at: openAt)
+					end 'unterminated'
+					file = after(file)
+				end 'file'
+				pos = after(pos)
+			end 'token'
+		end 'tokens'
+	end 'walk'
+
+	function open(mutates self) throws SyntaxError
+		let at = pos
+		if not self.atLineStart(at) 'inLine'
+			throw self.refuse(diag.errExpectedToken, message: diag.expectedToken("a directive at the start of a line", got: "#if"), at: at)
+		end 'inLine'
+		let parentLive = self.live()
+		pos = after(pos)
+		var holds = false
+		if parentLive and not formatting 'evaluate'
+			holds = try self.condition()
+			if self.kindAt(pos) != TokenKind.newline 'trailing'
+				let here = pos
+				throw self.refuse(diag.errDirectiveMalformedCondition, message: diag.directiveTrailingText(), at: here)
+			end 'trailing'
+		end 'evaluate' else 'skip'
+			while self.kindAt(pos) != TokenKind.newline and self.kindAt(pos) != TokenKind.fileEnd and self.kindAt(pos) != TokenKind.eof 'line'
+				pos = after(pos)
+			end 'line'
+		end 'skip'
+		frames.push(DirectiveFrame.make(holds, taken: holds, parentLive: parentLive, at: at))
+		try self.endLine(at, opens: true)
+	end 'open'
+
+	function alternate(mutates self) throws SyntaxError
+		let at = pos
+		if frames.count() == 0 'orphan'
+			throw self.refuse(diag.errDirectiveUnbalanced, message: diag.directiveUnmatched(hashElseText), at: at)
+		end 'orphan'
+		if not self.atLineStart(at) 'inLine'
+			throw self.refuse(diag.errExpectedToken, message: diag.expectedToken("a directive at the start of a line", got: hashElseText), at: at)
+		end 'inLine'
+		let top = before(frames.count())
+		let branchLive = frames[top].parentLive and not frames[top].taken
+		frames[top].live = branchLive
+		frames[top].taken = frames[top].taken or branchLive
+		pos = after(pos)
+		try self.endLine(at, opens: true)
+	end 'alternate'
+
+	function close(mutates self) throws SyntaxError
+		let at = pos
+		if frames.count() == 0 'orphan'
+			throw self.refuse(diag.errDirectiveUnbalanced, message: diag.directiveUnmatched(hashEndifText), at: at)
+		end 'orphan'
+		if not self.atLineStart(at) 'inLine'
+			throw self.refuse(diag.errExpectedToken, message: diag.expectedToken("a directive at the start of a line", got: hashEndifText), at: at)
+		end 'inLine'
+		_ = try frames.pop() otherwise panic("the directive frames ran out at an #endif")
+		pos = after(pos)
+		try self.endLine(at, opens: false)
+	end 'close'
+
+	// condition is the value of a condition, which reads from the token at pos on: or binds looser than and, and and looser
+	// than not. Both sides of and and or are read, so the end of the condition is the same whatever it holds.
+	function condition(mutates self) returns bool throws SyntaxError
+		var result = try self.conjunction()
+		while self.kindAt(pos) == TokenKind.kw_or 'or'
+			pos = after(pos)
+			let right = try self.conjunction()
+			result = result or right
+		end 'or'
+		return result
+	end 'condition'
+
+	function conjunction(mutates self) returns bool throws SyntaxError
+		var result = try self.negation()
+		while self.kindAt(pos) == TokenKind.kw_and 'and'
+			pos = after(pos)
+			let right = try self.negation()
+			result = result and right
+		end 'and'
+		return result
+	end 'conjunction'
+
+	function negation(mutates self) returns bool throws SyntaxError
+		if self.kindAt(pos) == TokenKind.kw_not 'not'
+			pos = after(pos)
+			let inner = try self.negation()
+			return not inner
+		end 'not'
+		return try self.predicate()
+	end 'negation'
+
+	function malformed(mutates self) returns SyntaxError
+		let here = pos
+		return self.refuse(diag.errDirectiveMalformedCondition, message: diag.directiveMalformedCondition(), at: here)
+	end 'malformed'
+
+	function predicate(mutates self) returns bool throws SyntaxError
+		if self.kindAt(pos) == TokenKind.lParen 'group'
+			pos = after(pos)
+			let inner = try self.condition()
+			if self.kindAt(pos) != TokenKind.rParen 'unclosed'
+				throw self.malformed()
+			end 'unclosed'
+			pos = after(pos)
+			return inner
+		end 'group'
+		if self.kindAt(pos) != TokenKind.name 'noName'
+			throw self.malformed()
+		end 'noName'
+		let nameAt = pos
+		pos = after(pos)
+		if self.kindAt(pos) != TokenKind.lParen 'noArgument'
+			throw self.malformed()
+		end 'noArgument'
+		pos = after(pos)
+		let argKind = self.kindAt(pos)
+		if argKind != TokenKind.name and argKind != TokenKind.kw_true and argKind != TokenKind.kw_false 'badArgument'
+			throw self.malformed()
+		end 'badArgument'
+		let argument = self.textOf(pos)
+		pos = after(pos)
+		if self.kindAt(pos) != TokenKind.rParen 'unclosedCall'
+			throw self.malformed()
+		end 'unclosedCall'
+		pos = after(pos)
+		let name = self.textOf(nameAt)
+		if name == predicateOs 'os'
+			return equalsIgnoringCase(argument, b: target.os)
+		end 'os' else if name == predicateArch 'arch'
+			return equalsIgnoringCase(argument, b: target.arch)
+		end 'arch' else if name == predicateTesting or name == predicateRcSanitize or name == predicateLeakReport or name == predicateDebugstream 'flag'
+			return equalsIgnoringCase(argument, b: flagOff)
+		end 'flag'
+		throw self.refuse(diag.errDirectiveUnknownPredicate, message: diag.directiveUnknownPredicate(name), at: nameAt)
+	end 'predicate'
+end 'DirectiveWalker'
+
+// resolveDirectives is the tokens of a module with its directives taken out and the branches that the target leaves out
+// with them. A formatting walk leaves every branch in, as the formatter lays the code of all of them out, and gives the text
+// of each directive line.
+export function resolveDirectives(src Source, consumes toks Tokens, target ast.Target, formatting bool, mutates errs diag.ErrorList) returns Resolved throws SyntaxError
+	if not holdsDirective(toks) 'none'
+		return Resolved.make(toks, lines: ast.StringList.create(0))
+	end 'none'
+	var w = DirectiveWalker.make(src, raw: toks, target: target, formatting: formatting)
+	var failed = false
+	try 'walk'
+		w.walk()
+	end 'walk' otherwise 'refused'
+		failed = true
+	end 'refused'
+	while w.errors.count() > 0 'errors'
+		errs.push(try w.errors.pop() otherwise panic("the directives failed with no error"))
+	end 'errors'
+	if failed 'failed'
+		throw SyntaxError.refused
+	end 'failed'
+	return Resolved.make(exchange(w.out, value: Tokens.create(0)), lines: exchange(w.lines, value: ast.StringList.create(0)))
+end 'resolveDirectives'

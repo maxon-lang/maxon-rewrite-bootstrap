@@ -2131,8 +2131,62 @@ parser makes it a constant of the module named `Type.name`, as it does a `typeal
 its value is inlined at each use, and a call in its initializer is `E3220`. `static var`, and a `static let` of an enum or a union,
 are not supported.
 
+### Conditional compilation, tests and annotations
+
+`#if condition`, `#else` and `#endif` include or leave out code by the target, as Maxon's do (`docs/LANGUAGE_REFERENCE.md`,
+"Conditional Compilation"). A directive stands on a line of its own, between declarations, between the statements of a
+function or between the members of a `type`, `enum`, `union`, `interface` or `extension`, and the regions nest. A condition
+combines `os(Windows)`, `os(Linux)`, `os(Macos)`, `os(Wasi)`, `arch(x64)`, `arch(arm64)` and `arch(wasm32)` (an argument of
+another name is false, and the case of the argument does not matter) with `not`, `and`, `or` and parentheses (`or` binds
+loosest). The target is `ast.Target` (`self/ast/target.maxon`), the one place that names it, which a project holds as its
+`target`: x64 Windows, until another target is added there. `testing(...)`, `rcSanitize(...)` and `leakReport(...)` are flags
+this compiler does not have, so each holds for `false` only, and so does `debugstream(...)`, since there is no
+`--debugstream`. Any other function in a condition is `E2064`; a condition that does not read, or that text follows on its
+line, is `E2065`; an `#if` with no `#endif`, or an `#else` or an `#endif` with no `#if`, is `E2063`. The directives are
+resolved over the tokens of a module before anything reads them (`resolveDirectives`, `self/syntax/directives.maxon`), so a
+branch that the target leaves out is lexed, and so still has to be lexed cleanly, but is not parsed or resolved, and
+nothing of it exists. A condition inside such a branch is not read at all. The lexer gives the three directives a token
+each, and the branch's own indent and dedent tokens go with them; a body whose every line was in a branch that is left out
+has no body.
+
+The layout of a directive is part of the language, as the rest of the layout is (`fmt --check`): the lines of a directive
+stand at the indentation of the code around the `#if`, and the code of a branch one tab deeper; no blank line comes after
+an `#if` or an `#else` or before an `#else` or an `#endif`; and the blank lines before an `#if` and after an `#endif` are
+those the line the `#if` stands for would have (one between top-level declarations, one before a function of a type).
+The formatter lays out every branch, as it only moves whitespace: a branch that the target leaves out has to parse too
+for `fmt`, and `fmt --check` over a program says the same on every target. A branch holds whole declarations, members or
+statements, never part of one.
+
+A `test 'prose name'` declaration (`end 'prose name'` repeats the name) is a function that no program calls, in a file of
+tests, whose name ends in `.maxtest`; anywhere else it is `E2058`, and an empty name is `E2059`. `test` is a word of the
+language only at the start of a declaration and before a quoted name. A test takes no parameters and returns nothing (the
+parser asks for the end of the line after its name), and compiles to a function named `__test_` and its name with every
+character that is no letter, digit or underscore made an underscore: two tests of a module that compile to one name are
+`E3107`. A test is parsed, resolved and checked, and its body is held to Maxon's rule that it handles every error it raises:
+a call that throws needs no `try` in a test body (a closure written in it is an ordinary function), and a bare `try` takes
+an error of any type. No program is made of a test: lowering leaves it out. `build`, `run` and `check` read the `.maxon` files
+of a directory only, so a `.maxtest` file is no part of a build, and `fmt` lays out `.maxtest` files as it does `.maxon` ones;
+a project held in memory, as a spec test's files, names its files itself and its `.maxtest` files are checked with the rest.
+There is no `maxon test` runner in minimaxon: `test` runs the corpus (see "Tests"), since running a test needs the library's
+`Expect` and `TestFailure`, which are not ported.
+
+`@heap` before a `let` or a `var` (`@heap let p = Point.create(1)`) asks for the binding's record on the heap; every record
+is a box here already, so it changes nothing in a program. It is held to Maxon's rules: another word after the `@` is
+`E2001` (`Unknown annotation '@stack' (expected '@heap')`), a `@heap` that no `let` or `var` follows is `E2001` at the
+`@`, and a value that owns no heap (an integer, a float, a `bool`, an enum, a function value) is `E2001` at the name, which
+the checker reports where Maxon's parser does, as it needs the type of the value.
+
 ### Where it differs from Maxon
 
+- Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
+  directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch
+  be any run of tokens); the target is x64 Windows only, so `os(Windows)` and `arch(x64)` are the conditions that hold, and
+  `debugstream` is never on. A `test` runs nowhere: there is no `maxon test` and no `Expect` or `TestFailure`, a test is
+  checked and left out of the program, and a `.maxtest` file is read only where a project names its files itself (a spec
+  test). `@heap` on a value that owns no heap is reported
+  by the checker and not the parser, and its message names the kind of the value (`int`, `float`, `bool`, `enum`, `function`).
+  There is no top-level `default` (`default Key = value`, which Maxon reads with `Key.current()` and `Key.register(value)`): it
+  needs a global that the program initialises before `main` and replaces, and the read-only values of Maxon's regions.
 - Default parameter values (see "Default parameter values, static fields, default throws and fallthrough"): the caller-location defaults `__line__` and `__file__`
   and a default on a discard parameter `_` (which maxon's calls name with a synthesized label) are not supported, a default that
   trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. A `static let` is only a
@@ -2239,7 +2293,7 @@ are not supported.
   specifier for a float, and no `f32` storage. `trunc` of a NaN or of a double past the word gives `i64.min`, as x64's
   `cvttsd2si` does.
 - No alias subtyping (an alias implementing another), characters, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
-  parameters, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
+  parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
   only the array. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,

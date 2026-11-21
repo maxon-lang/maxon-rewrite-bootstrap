@@ -27,6 +27,11 @@ ErrCallFirstArgNamed	E2052	callFirstArgNamed	A call labels its first argument.
 ErrCallArgMissingLabel	E2053	callArgMissingLabel	A call leaves a later argument without its label.
 ErrShiftCountNegative	E2054	shiftCountNegative	A shift's count is a negative constant.
 ErrTypeArgumentCount	E2056	genericArityMismatch	A generic instance names the wrong number of type arguments.
+ErrTestOutsideTestFile	E2058	parserTestOutsideTestFile	A 'test' declaration is in a file whose name does not end in '.maxtest'.
+ErrTestEmptyName	E2059	parserTestEmptyName	A 'test' declaration has an empty name.
+ErrDirectiveUnbalanced	E2063	directiveUnbalanced	A '#if' has no '#endif', or an '#else' or '#endif' has no '#if'.
+ErrDirectiveUnknownPredicate	E2064	directiveUnknownPredicate	A '#if' condition calls a function that is not 'os', 'arch', 'testing', 'rcSanitize', 'leakReport' or 'debugstream'.
+ErrDirectiveMalformedCondition	E2065	directiveMalformedCondition	A '#if' condition is not a combination of predicate calls, or text follows it on its line.
 ErrBuiltinArgNamed	E2067	builtinArgNamed	A call labels an argument of a built-in function whose arguments are positional.
 ErrFixedArrayCount	E2069	fixedArraySizeMalformed	The count of a fixed array is not an integer literal from 1 to 4294967295.
 ErrUnknownStaticMember	E2073	unknownStaticMember	A qualified name names a member its base does not declare.
@@ -69,6 +74,7 @@ ErrFunctionValueThrows	E3101	throwingFunctionAsValue	A function that throws is u
 ErrUseAfterMove	E3102	useAfterMove	A name is read after its value was moved out of it.
 ErrDivisionByZero	E3103	semanticDivisionByZero	A division or 'mod' has a constant zero divisor.
 ErrZeroOutsideElement	E3106	semanticArrayResizeManagedElement	An array is created with zeroed elements of a type that has no zero value.
+ErrDuplicateTestName	E3107	semanticDuplicateTestName	Two tests of a module have names that compile to one symbol.
 ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names something other than an enum or a union.
 ErrAmbiguousBound	E3114	semanticAmbiguousWitnessDispatch	A method call on a type parameter names a method that more than one of its bounds declares.
 ErrStaticRequirementNotDispatchable	E3116	semanticStaticRequirementNotDispatchable	A static requirement of an interface is called through a type parameter, which has no receiver to dispatch on.

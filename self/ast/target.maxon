@@ -1,0 +1,11 @@
+// Target is the platform a program is compiled for, as a `#if` condition names it: `os(Windows)` and `arch(x64)`. This is
+// the one place that spells the target; the driver hands a project the target it compiles for, and a later target is
+// another function here.
+export type Target
+	export let os as String
+	export let arch as String
+
+	export static function windowsX64() returns Target
+		return Target{os: "Windows", arch: "x64"}
+	end 'windowsX64'
+end 'Target'

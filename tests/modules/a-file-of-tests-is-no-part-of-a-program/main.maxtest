@@ -1,0 +1,3 @@
+test 'is left out of the build'
+	no_such_function()
+end 'is left out of the build'

@@ -153,3 +153,14 @@ argTypeMismatchOpaque	ErrTypeMismatch	argument type mismatch for {label}: expect
 patternTypeMismatch	ErrMatchTypeMismatch	pattern type '{pattern}' does not match scrutinee type '{scrutinee}'
 constantCallNotConstant	ErrNonConstantInitializer	Function calls are not allowed in global variable initializers; '{callee}()' is not a constant expression
 nestedProjectFile	ErrNestedProjectFile	'{nested}' is a project file below the project '{outer}', and projects do not nest: move the nested project out of that project's directory
+directiveUnterminated	ErrDirectiveUnbalanced	Unterminated '#if' -- the region is still open at end of file. Every '#if' needs a matching '#endif'
+directiveUnmatched	ErrDirectiveUnbalanced	'{directive}' has no matching '#if'
+directiveUnknownPredicate	ErrDirectiveUnknownPredicate	Unknown conditional compilation function '{name}'. Expected 'os', 'arch', 'testing', 'rcSanitize', 'leakReport', or 'debugstream'.
+directiveMalformedCondition	ErrDirectiveMalformedCondition	Malformed '#if' condition. Expected a predicate call -- 'os', 'arch', 'testing', 'rcSanitize', 'leakReport', or 'debugstream' -- optionally combined with 'and', 'or', 'not' and parentheses
+directiveTrailingText	ErrDirectiveMalformedCondition	Unexpected text after the '#if' condition -- a condition ends at the end of its own line
+testOutsideTestFile	ErrTestOutsideTestFile	a 'test' declaration is only allowed in a file whose name ends in '.maxtest'; rename '{file}' to '{renamed}', or move this declaration into one
+testEmptyName	ErrTestEmptyName	a 'test' declaration's name cannot be empty
+duplicateTestName	ErrDuplicateTestName	duplicate test name: '{first}' and '{second}' both compile to '{symbol}'
+heapAnnotationOnNonRecord	ErrUnexpectedToken	@heap can only annotate a binding whose value is a heap record; '{name}' binds a '{tag}'
+unknownAnnotation	ErrUnexpectedToken	Unknown annotation '@{got}' (expected '@heap')
+heapAnnotationWithoutBinding	ErrUnexpectedToken	@heap must be followed by 'var' or 'let'

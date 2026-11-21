@@ -1,0 +1,39 @@
+// A test is named with prose, and compiles to a function whose name is made of it.
+
+let testSymbolPrefix = "__test_"
+
+// testKeywordLength is how far the quoted name of a test is from the start of its declaration: the word and its space.
+export let testKeywordLength = 5 as Count
+
+let continuationFirst = 128 as Byte
+
+let continuationLast = 191 as Byte
+
+// isSymbolByte is whether a byte may stand in the name of a symbol: a letter, a digit or an underscore.
+function isSymbolByte(b Byte) returns bool
+	return (b >= 48 as Byte and b <= 57 as Byte) or (b >= 65 as Byte and b <= 90 as Byte) or (b >= 97 as Byte and b <= 122 as Byte) or b == underscoreByte
+end 'isSymbolByte'
+
+// testSymbol is the name a test of the prose name compiles to: `__test_` and the name with each character that is no letter,
+// digit or underscore made an underscore, so that two names that differ only in such characters compile to one symbol.
+export function testSymbol(name String) returns String
+	var out = ByteArray.create(0)
+	out.append(testSymbolPrefix.toByteArray())
+	for i in 0 upto name.byteLength() 'bytes'
+		let b = name.byteAt(i)
+		if isSymbolByte(b) 'kept'
+			out.push(b)
+		end 'kept' else if b < continuationFirst or b > continuationLast 'replaced'
+			out.push(underscoreByte)
+		end 'replaced'
+	end 'bytes'
+	return String.from(out)
+end 'testSymbol'
+
+// sourceName is the name a function is written with: the prose of a test, and the name of any other function.
+export function sourceName(f FuncDecl) returns String
+	if f.testName != "" 'test'
+		return f.testName.clone()
+	end 'test'
+	return f.name.clone()
+end 'sourceName'

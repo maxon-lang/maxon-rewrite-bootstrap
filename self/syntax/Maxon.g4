@@ -102,6 +102,12 @@ typeDeclNode
 	Ty Ty
 }
 
+// A test is a declaration of a file of tests: its name is a prose phrase in quotes, which the end label repeats. `test` is a word of
+// the language only where a declaration starts and a quoted name follows.
+testDecl builds FuncDecl
+    : Name testName=(Label | TestName) body=funcBody 'end' end=endLabel?
+    ;
+
 funcDecl
     : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | 'from')
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
@@ -312,7 +318,7 @@ funcSig
 }
 
 endLabel
-    : name=Label
+    : name=(Label | TestName)
     ;
 
 // Statements
@@ -348,9 +354,13 @@ stmt
     | exprStmt
     ;
 
+// A binding may start with `@heap`, which asks for its record on the heap: every record is a box here, so it asks for nothing more.
+// The checker refuses another word after the `@`, and a value that owns no heap.
 letStmt
-    : 'let' name=(Name | 'from') '=' init=expr
-    | isVar='var' name=(Name | 'from') ('=' init=expr | 'as' type=typeRef)
+    : (isHeap='@' annotation=Name)?
+      ( 'let' name=(Name | 'from') '=' init=expr
+      | isVar='var' name=(Name | 'from') ('=' init=expr | 'as' type=typeRef)
+      )
     ;
 
 @ast::LetStmt {
@@ -747,6 +757,18 @@ ByteString : 'b"' (~["\\] | '\\' .)* '"' -> scan ;
 /** a label */
 Label : '\'' [A-Za-z_] [A-Za-z0-9_]* '\'' ;
 
+/** a test name */
+TestName : '\'' ~['\n]* '\'' ;
+
+/** a directive */
+HashIf : '#if' ;
+
+/** a directive */
+HashElse : '#else' ;
+
+/** a directive */
+HashEndif : '#endif' ;
+
 /** the end of the line */
 Newline : '\n' ;
 
@@ -758,6 +780,7 @@ LineComment : '//' ~[\n]* -> skip ;
 /** a block comment */
 BlockComment : '/*' (~'*' | '*'+ ~[*/])* '*'+ '/' -> skip ;
 
+At : '@' -> noSpaceAfter ;
 LParen : '(' -> noSpaceAfter ;
 RParen : ')' -> noSpaceBefore ;
 LBrace : '{' -> noSpace ;

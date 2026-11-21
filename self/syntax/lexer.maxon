@@ -10,6 +10,8 @@ let byteQuote = 34 as Byte
 
 let byteApostrophe = 39 as Byte
 
+let byteHash = 35 as Byte
+
 let byteLParen = 40 as Byte
 
 let byteRParen = 41 as Byte
@@ -27,6 +29,8 @@ let byteColon = 58 as Byte
 let byteUpperA = 65 as Byte
 
 let byteUpperF = 70 as Byte
+
+let byteUpperZ = 90 as Byte
 
 let byteLBracket = 91 as Byte
 
@@ -479,6 +483,7 @@ type Lexer
 	// of the line. It never backs off: a match that stops in a state accepting no token is an error naming the
 	// unfinished token.
 	function lexLine(mutates self, src Source) throws SyntaxError
+		let lineFirst = tokens.count()
 		while pos < limit 'tokens'
 			var start = pos
 			// Most tokens follow one space; step over it here rather than in a round of the DFA. Any other
@@ -523,6 +528,10 @@ type Lexer
 			end 'scanned'
 			pos = i
 			if kind == TokenKind.newline 'newline'
+				if depth > 0 and self.opensDirective(lineFirst) 'directive'
+					// A condition with a parenthesis left open is the directive's to refuse, at the token that closes none.
+					depth = 0 as Count
+				end 'directive'
 				if depth > 0 'inParens'
 					throw self.fail(src, message: "a line breaks inside parentheses; keep what they hold on one line", at: start)
 				end 'inParens'
@@ -534,14 +543,19 @@ type Lexer
 				if depth > 0 'nested'
 					depth = before(depth)
 				end 'nested'
-			end 'close' else if kind == TokenKind.label 'label'
-				// A label's token is the text between its quotes.
+			end 'close' else if kind == TokenKind.label or kind == TokenKind.testName 'label'
+				// A label's or a test name's token is the text between its quotes.
 				start = after(start)
 				i = before(i)
 			end 'label'
 			try self.emit(src, kind: kind, start: start, stop: i)
 		end 'tokens'
 	end 'lexLine'
+
+	// opensDirective is whether the line whose first token is the one at first is a `#if`.
+	function opensDirective(first Count) returns bool
+		return tokens.count() > first and tokens[first].kind == TokenKind.hashIf
+	end 'opensDirective'
 
 	// isIntegerBeforePoint is whether the DFA, which reads the longest token and never backs off, took a `.` after the
 	// digits from start for the point of a float when the number is an integer. That is so where a number follows a `.`,
