@@ -215,6 +215,16 @@ export function patternLiteralOutOfRange(value String, alias String, width Strin
 	return "Value {value} is outside the range of '{alias}' (bits({width}))"
 end 'patternLiteralOutOfRange'
 
+// The text of errTypeMismatch for: otherwise value {value} is outside the range of '{alias}' (int({low} to {high}))
+export function otherwiseOutOfRange(value String, alias String, low String, high String) returns String
+	return "otherwise value {value} is outside the range of '{alias}' (int({low} to {high}))"
+end 'otherwiseOutOfRange'
+
+// The text of errTypeMismatch for: otherwise value {value} is outside the range of '{alias}' (bits({width}))
+export function otherwisePatternOutOfRange(value String, alias String, width String) returns String
+	return "otherwise value {value} is outside the range of '{alias}' (bits({width}))"
+end 'otherwisePatternOutOfRange'
+
 // The text of errIllegalBitWidth for: 'bits({width})' is not a legal width: bits(n) takes 1, 2, 4, 8, 16, 32 or 64 — the widths a slot or a sub-byte packed field can hold
 export function illegalBitWidth(width String) returns String
 	return "'bits({width})' is not a legal width: bits(n) takes 1, 2, 4, 8, 16, 32 or 64 — the widths a slot or a sub-byte packed field can hold"

@@ -1,0 +1,12 @@
+typealias Score = int(0 to 100)
+
+function score() returns Score throws ArrayError
+	throw ArrayError.indexOutOfBounds
+end 'score'
+
+function main() returns ExitCode
+	let v = try score() otherwise 101
+	return v
+end 'main'
+
+// expect-error: E3005 at 8:10

@@ -49,6 +49,8 @@ floatOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' 
 lossyFloatConversion	ErrUnsafeCast	cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
 literalOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (int({low} to {high}))
 patternLiteralOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (bits({width}))
+otherwiseOutOfRange	ErrTypeMismatch	otherwise value {value} is outside the range of '{alias}' (int({low} to {high}))
+otherwisePatternOutOfRange	ErrTypeMismatch	otherwise value {value} is outside the range of '{alias}' (bits({width}))
 illegalBitWidth	ErrIllegalBitWidth	'bits({width})' is not a legal width: bits(n) takes 1, 2, 4, 8, 16, 32 or 64 — the widths a slot or a sub-byte packed field can hold
 emptyIntegerRange	ErrTypeMismatch	Integer range 'int({low} to {high})' is empty: its upper bound is below its lower bound
 unrepresentableIntegerRange	ErrTypeMismatch	Integer range cannot span both negative values and above i64.max: 'int({low} to {high})' is not representable in 64 bits; use 'i64.min to i64.max' or '0 to u64.max' instead

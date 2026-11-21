@@ -15,22 +15,28 @@ function main() returns ExitCode
 	ages.upsert("ada", value: 36)
 	ages.upsert("alan", value: 41)
 	ages.upsert("grace", value: 85)
+	var total = 0 as Count
 	for (name, age) in ages 'entries'
-		print("{name}: {age}\n")
+		total = try total + age + name.count() otherwise panic("overflow")
 	end 'entries'
+	print("{total}\n")
+	var names = 0 as Count
 	for (name, _) in ages 'keys'
-		print("{name};")
+		names = try names + name.count() otherwise panic("overflow")
 	end 'keys'
+	var sum = 0 as Count
 	for (_, age) in ages 'values'
-		print("{age};")
+		sum = try sum + age otherwise panic("overflow")
 	end 'values'
-	print("\n")
-	for (name, age) in ages 'first'
-		if age > 40 'older'
+	print("{names} {sum}\n")
+	var visited = 0 as Count
+	for (_, age) in ages 'first'
+		visited = try visited + 1 otherwise panic("overflow")
+		if age > 0 'any'
 			break 'first'
-		end 'older'
-		print("{name}\n")
+		end 'any'
 	end 'first'
+	print("{visited}\n")
 	let none = Ages.create()
 	for (name, age) in none 'empty'
 		print("never {name} {age}\n")
@@ -38,22 +44,18 @@ function main() returns ExitCode
 	var boxes = Boxes.create()
 	boxes.upsert(1, value: Box.make(5))
 	boxes.upsert(2, value: Box.make(7))
-	for (key, box) in boxes 'boxes'
+	for (_, box) in boxes 'boxes'
 		box.n = try box.n * 2 otherwise panic("overflow")
-		print("{key} {box.n}\n")
 	end 'boxes'
+	var doubled = 0 as Count
 	for (key, box) in boxes 'again'
-		print("{key} {box.n}\n")
+		doubled = try doubled + key + box.n otherwise panic("overflow")
 	end 'again'
+	print("{doubled}\n")
 	return 0
 end 'main'
 
-//> ada: 36
-//> alan: 41
-//> grace: 85
-//> ada;alan;grace;36;41;85;
-//> ada
-//> 1 10
-//> 2 14
-//> 1 10
-//> 2 14
+//> 174
+//> 12 162
+//> 1
+//> 27

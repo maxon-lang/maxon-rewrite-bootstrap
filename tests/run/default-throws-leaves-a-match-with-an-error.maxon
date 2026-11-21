@@ -27,12 +27,12 @@ end 'describe'
 
 function main() returns ExitCode
 	let a = try area(Shape.square(4)) otherwise 0
-	let b = try area(Shape.triangle(1, height: 2)) otherwise -1
+	let b = try area(Shape.triangle(1, height: 2)) otherwise 99
 	print("{a} {b}\n")
 	try describe(Shape.circle(1)) otherwise ignore
 	try describe(Shape.square(1)) otherwise ignore
 	return 0
 end 'main'
 
-//> 4 -1
+//> 4 99
 //> circle

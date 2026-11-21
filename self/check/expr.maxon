@@ -933,7 +933,7 @@ function checkTry(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutate
 	end 'ignore'
 	let fallback = ast.tryFallback(p.modules[c.modIdx].tree, e: e)
 	if fallback != 0 'value'
-		return checkFallback(c, p: p, fallback: fallback, result: result, want: want, errs: errs)
+		return checkFallback(c, p: p, e: e, fallback: fallback, result: result, want: want, errs: errs)
 	end 'value'
 	checkTryJump(c, p: p, e: e, errs: errs)
 	return result
@@ -997,8 +997,9 @@ function checkTryJump(mutates c Checker, mutates p ast.Project, e ast.NodeID, mu
 	end 'throw'
 end 'checkTryJump'
 
-function checkFallback(mutates c Checker, mutates p ast.Project, fallback ast.NodeID, result ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	// An integer fallback with no type to take is joined with the result as a conditional's branches are, rather than
+function checkFallback(mutates c Checker, mutates p ast.Project, e ast.NodeID, fallback ast.NodeID, result ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	// A literal fallback is a value of the alias the call returns, as in maxon, so one outside its range is refused. Any
+	// other integer fallback with no type to take is joined with the result as a conditional's branches are, rather than
 	// computed in the result's alias, which it need not fit.
 	var expected = want
 	if expected == ast.noType and not typeHasKind(p, t: result, kind: ast.TypeKind.intRange) 'noExpectation'
@@ -1008,5 +1009,22 @@ function checkFallback(mutates c Checker, mutates p ast.Project, fallback ast.No
 	if other == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
+	if typeIsNamedInt(p.types, t: result) and isConstInt(p, t: other) and fallbackIsPlainLiteral(p, c: c, fallback: fallback) 'literal'
+		let value = p.types.entries[other as Count].minVal.clone()
+		if not intRangeHolds(p.types, dst: result, v: value) 'doesNotFit'
+			failAt(c, p: p, node: e, code: diag.errTypeMismatch, msg: otherwiseValueOutOfRange(p, value: value.toString(), target: result), errs: errs)
+			return ast.noType
+		end 'doesNotFit'
+	end 'literal'
 	return joinTypes(c, p: p, off: offsetOf(c, p: p, node: fallback), clash: Clash.other, a: result, b: other, errs: errs)
 end 'checkFallback'
+
+// fallbackIsPlainLiteral is whether a fallback is an integer literal, negated or not: the only fallback that maxon holds to
+// the alias of the call's result.
+function fallbackIsPlainLiteral(p ast.Project, c Checker, fallback ast.NodeID) returns bool
+	var literal = fallback
+	if p.modules[c.modIdx].tree.kindOf(fallback) == ast.NodeKind.unaryExpr and ast.unaryExprOp(p.modules[c.modIdx].tree, id: fallback) == "-" 'negated'
+		literal = ast.unaryExprE(p.modules[c.modIdx].tree, id: fallback)
+	end 'negated'
+	return p.modules[c.modIdx].tree.kindOf(literal) == ast.NodeKind.intLit
+end 'fallbackIsPlainLiteral'

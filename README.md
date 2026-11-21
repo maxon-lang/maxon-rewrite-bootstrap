@@ -1062,8 +1062,11 @@ type with no cast, as `value as T` does, where the range analysis proves that it
 `if count >= 0 and count <= 255` for `return count` in a function that returns an alias of 0 to 255; where it does
 not, it is `E3057` ("the value may not fit"), and the fix is `try <value> as T otherwise panic("out of range")`. A
 literal that does not fit is `E3005`, and an assignment, an argument and an initialiser still need the cast. Comparisons take any two integers one word holds, an alias against an anonymous range or a constant
-included; only two different aliases are `E3005`. The branches of a conditional, a `match` or a `try` with no type to
-take give their alias when both are of it, or one is and holds the other, and otherwise a range that holds both.
+included; only two different aliases are `E3005`. The branches of a conditional or a `match` with no type to
+take give their alias when both are of it, or one is and holds the other, and otherwise a range that holds both. A
+`try` is that of the call when its fallback is a literal, as in maxon, where a literal outside the alias of the call's
+result is `E3005` (`try score() otherwise 101` of an `int(0 to 100)`); any other fallback of an integer joins with the
+result as a conditional's branch does.
 
 **Subtypes.** A ranged typealias may name a parent after its range, `typealias BlockId = int(0 to u64.max) implements
 ElementIndex`, as maxon's does: it is then a subtype of the parent and of every alias the parent implements, and goes
@@ -1992,9 +1995,9 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   `x` until the pass ends. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
   throws another error is `E2015`, as is a loop over anything else: a string, a list, a pool. A string's `bytes()`,
   `codepoints()` and `utf16()` views are such collections; a loop over the string itself waits for `Character`.
-  A map is walked in the order its keys were inserted (maxon's order is that of its hash table, which no program can
-  rely on): `for (key, value) in m` binds the key and the value of each entry, `_` for the one the body does not use,
-  and each is lent as an array's element is, a scalar copied and anything else a borrow (`E3900` to move it, `.clone()`
+  The order in which a map is walked is not specified, and the implementation walks it as is most efficient (two
+  loops over a map that is not changed see the same order). `for (key, value) in m` binds the key and the value of each
+  entry, `_` for the one the body does not use, and each is lent as an array's element is, a scalar copied and anything else a borrow (`E3900` to move it, `.clone()`
   is the fix). Both are `let`s (`E2013`), the key is read-only, and the value's fields are as writable as the map's. The
   map is held while the body runs as an array is (`E3186`). A map holds no pair of a key and a value, so a loop that
   names one variable, `for entry in m`, is `E2015`. The lowering is a loop over the entries' positions, reading the key
@@ -2347,8 +2350,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   that declares neither the type nor the interface gives its conformance to no other module (Hylo's orphan rule). A method
   that an extension declares under the name of a method in the body of a type of another module is `E3006` at the
   extension's method, reported when the modules are verified.
-- `for` loops (see "Primitives"): a `Map` is walked as `for (key, value) in m`, in the order its keys were inserted where maxon's is
-  that of its hash table, and a loop that names one variable for the pair (maxon binds a tuple) is `E2015`; the key and the value are
+- `for` loops (see "Primitives"): a `Map` is walked as `for (key, value) in m`, in an order that neither language specifies (the two differ in practice), and a loop that names one variable for the pair
+  (maxon binds a tuple) is `E2015`; the key and the value are
   lent, not copied, and the map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it. `E.allCases`
   and `E.allCaseNames` are a new array each time they are read, since an array has one owner, and `Shape.unionCases` is not
   supported. Not supported, and skipped by the converter: a loop over the characters of a `String` (there is no `Character`),

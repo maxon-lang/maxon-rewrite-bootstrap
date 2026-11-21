@@ -287,6 +287,16 @@ export function valueOutOfRange(p ast.Project, value String, target ast.TypeID) 
 	return diag.literalOutOfRange(value, alias: alias, low: p.types.entries[target as Count].minVal.toString(), high: p.types.entries[target as Count].maxVal.toString())
 end 'valueOutOfRange'
 
+// otherwiseValueOutOfRange is valueOutOfRange for the literal that a try gives in place of a failed call whose result is
+// the alias target.
+export function otherwiseValueOutOfRange(p ast.Project, value String, target ast.TypeID) returns String
+	let alias = ast.typeName(p.types, t: target)
+	if ast.isBitPattern(p.types, t: target) 'pattern'
+		return diag.otherwisePatternOutOfRange(value, alias: alias, width: "{p.types.entries[target as Count].bitsWidth}")
+	end 'pattern'
+	return diag.otherwiseOutOfRange(value, alias: alias, low: p.types.entries[target as Count].minVal.toString(), high: p.types.entries[target as Count].maxVal.toString())
+end 'otherwiseValueOutOfRange'
+
 export function intRangeHolds(tt ast.TypeTable, dst ast.TypeID, v ast.I128) returns bool
 	return v.ge(tt.entries[dst as Count].minVal) and v.le(tt.entries[dst as Count].maxVal)
 end 'intRangeHolds'
