@@ -6,11 +6,13 @@ type DiscoveredDir
 	export var modPath as String
 	export var dir as String
 	export var filePaths as ast.StringList
+	// projectFiles are the project files the directory holds, which mark it as the root of a project.
+	export var projectFiles as ast.StringList
 	export var subNames as ast.StringList
 	export var children as CountList
 
 	static function make(consumes modPath String, consumes dir String) returns DiscoveredDir
-		return DiscoveredDir{modPath: modPath, dir: dir, filePaths: ast.StringList.create(0), subNames: ast.StringList.create(0), children: CountList.create(0)}
+		return DiscoveredDir{modPath: modPath, dir: dir, filePaths: ast.StringList.create(0), projectFiles: ast.StringList.create(0), subNames: ast.StringList.create(0), children: CountList.create(0)}
 	end 'make'
 end 'DiscoveredDir'
 
@@ -23,6 +25,13 @@ export function endsWithMaxon(name String) returns bool
 	let start = n - sn
 	return name.sliceBytes(start, endPos: n) == ".maxon"
 end 'endsWithMaxon'
+
+// endsWithText is whether text ends with suffix.
+export function endsWithText(text String, suffix String) returns bool
+	let length = text.byteLength()
+	let tail = suffix.byteLength()
+	return length >= tail and text.sliceBytes(try length - tail otherwise 0 as Count, endPos: length) == suffix
+end 'endsWithText'
 
 export function sortStrings(mutates xs ast.StringList)
 	let n = xs.count()
@@ -111,6 +120,12 @@ end 'isQualifier'
 function isReservedTopLevel(name String) returns bool
 	return name == ast.rootQualifier or name == ast.stdlibQualifier or name == ast.runtimeQualifier or name == "scriptlib"
 end 'isReservedTopLevel'
+
+// projectFileExtension ends the name of the file that marks the root of a project, as maxon's does.
+let projectFileExtension = ".maxproj"
+
+// ignoreMarkerName is the name of the file that keeps a directory, and what is below it, out of the program that discovers it.
+let ignoreMarkerName = ".maxonignore"
 
 // runtimeDirName is the directory of the runtime's source (README, "The runtime").
 let runtimeDirName = "runtime"
@@ -267,14 +282,14 @@ export function lastComponent(path String) returns String
 	return path.sliceBytes(at, endPos: path.byteLength())
 end 'lastComponent'
 
-// listDirectory sorts what a directory holds into the paths of its source files and the names of the directories that may be
-// modules, each in order.
-function listDirectory(dir String, memory SourceFiles, mutates files ast.StringList, mutates dirs ast.StringList)
+// listDirectory sorts what a directory holds into the paths of its source files, the paths of its project files and the names
+// of the directories that may be modules, each in order. It is whether the directory holds an ignore marker.
+function listDirectory(dir String, memory SourceFiles, mutates files ast.StringList, mutates projectFiles ast.StringList, mutates dirs ast.StringList) returns bool
 	if memory.count() > 0 'inMemory'
-		listMemory(dir, memory: memory, files: files, dirs: dirs)
-		return
+		return listMemory(dir, memory: memory, files: files, dirs: dirs)
 	end 'inMemory'
-	let dirPath = try FilePath.from(dir) otherwise return
+	var ignored = false
+	let dirPath = try FilePath.from(dir) otherwise return false
 	let listed = try Directory.list(dirPath) otherwise FilePathList.create(0)
 	for i in 0 upto listed.count() 'split'
 		let name = lastComponent(listed[i].toString())
@@ -286,10 +301,16 @@ function listDirectory(dir String, memory SourceFiles, mutates files ast.StringL
 			end 'keepDir'
 		end 'd' else if endsWithMaxon(name) 'f'
 			files.push(full)
-		end 'f'
+		end 'f' else if endsWithText(name, suffix: projectFileExtension) 'p'
+			projectFiles.push(full)
+		end 'p' else if name == ignoreMarkerName 'i'
+			ignored = true
+		end 'i'
 	end 'split'
 	sortStrings(files)
+	sortStrings(projectFiles)
 	sortStrings(dirs)
+	return ignored
 end 'listDirectory'
 
 // SourceFile is a file of a program that is held in memory, named by the path it would have.
@@ -314,14 +335,18 @@ function belowDirectory(path String, dir String) returns bool
 end 'belowDirectory'
 
 // listMemory is listDirectory for the files that are held in memory: the paths of the source files in dir, and the names of
-// the directories below it that hold a file, each in order.
-function listMemory(dir String, memory SourceFiles, mutates files ast.StringList, mutates dirs ast.StringList)
+// the directories below it that hold a file, each in order. It is whether dir holds an ignore marker. A project held in
+// memory is the one project, so it has no project files.
+function listMemory(dir String, memory SourceFiles, mutates files ast.StringList, mutates dirs ast.StringList) returns bool
+	var ignored = false
 	for i in 0 upto memory.count() 'each'
 		let path = memory[i].path.clone()
 		if parentDir(path) == dir 'file'
 			if endsWithMaxon(path) 'source'
 				files.push(path)
-			end 'source'
+			end 'source' else if lastComponent(path) == ignoreMarkerName 'marker'
+				ignored = true
+			end 'marker'
 		end 'file' else if belowDirectory(path, dir: dir) 'below'
 			let rest = path.sliceBytes(try dir.byteLength() + 1 otherwise panic("project: a path longer than memory"), endPos: path.byteLength())
 			var cut = 0 as Count
@@ -336,6 +361,7 @@ function listMemory(dir String, memory SourceFiles, mutates files ast.StringList
 	end 'each'
 	sortStrings(files)
 	sortStrings(dirs)
+	return ignored
 end 'listMemory'
 
 function containsString(list ast.StringList, text String) returns bool
@@ -362,11 +388,16 @@ function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes 
 		return table.Option.none
 	end 'missing'
 	var rawFiles = ast.StringList.create(0)
+	var rawProjects = ast.StringList.create(0)
 	var rawDirs = ast.StringList.create(0)
-	listDirectory(dir, memory: memory, files: rawFiles, dirs: rawDirs)
+	let ignored = listDirectory(dir, memory: memory, files: rawFiles, projectFiles: rawProjects, dirs: rawDirs)
+	if ignored and not isRoot 'ignored'
+		return table.Option.none
+	end 'ignored'
 	let myIdx = nodes.count()
 	nodes.push(DiscoveredDir.make(modPath.clone(), dir: dir.clone()))
 	nodes[myIdx].filePaths = rawFiles
+	nodes[myIdx].projectFiles = rawProjects
 	var childNames = ast.StringList.create(0)
 	var childIdxs = CountList.create(0)
 	for i in 0 upto rawDirs.count() 'eachSub'
@@ -398,6 +429,126 @@ function checkChildQualifier(isRoot bool, consumes subName String, consumes chil
 	childNames.push(subName)
 	childIdxs.push(childIdx)
 end 'checkChildQualifier'
+
+// projectFileIn is the project file that the directory holds, the first by name when it holds several, or none.
+function projectFileIn(dir String) returns table.Option with String
+	let dirPath = try FilePath.from(dir) otherwise return table.Option.none
+	let listed = try Directory.list(dirPath) otherwise return table.Option.none
+	var found = false
+	var first = ""
+	for i in 0 upto listed.count() 'each'
+		let name = lastComponent(listed[i].toString())
+		let full = joinPath(dir, name: name)
+		if endsWithText(name, suffix: projectFileExtension) and not isDirectoryPath(full) and (not found or diag.stringLess(full, b: first)) 'earlier'
+			first = full
+			found = true
+		end 'earlier'
+	end 'each'
+	if found 'some'
+		return table.Option.some(first)
+	end 'some'
+	return table.Option.none
+end 'projectFileIn'
+
+// enclosingDirectory is the directory that holds the absolute path dir, or none for the root of a drive.
+function enclosingDirectory(dir String) returns table.Option with String
+	var parent = parentDir(dir)
+	if isDriveName(parent) 'drive'
+		parent = "{parent}\\"
+	end 'drive'
+	if parent == "." or parent == dir 'top'
+		return table.Option.none
+	end 'top'
+	return table.Option.some(parent)
+end 'enclosingDirectory'
+
+// isDriveName is whether a path is a drive's name alone, without the separator that makes it the drive's root.
+function isDriveName(path String) returns bool
+	return path.byteLength() == 2 and path.byteAt(1 as Count) == colonByte
+end 'isDriveName'
+
+// nearestProjectFile is the project file of the nearest directory, from the absolute path dir upward, that holds one.
+function nearestProjectFile(dir String) returns table.Option with String
+	var at = dir.clone()
+	while true 'up'
+		match consumes projectFileIn(at) 'here'
+			some(file) then return table.Option.some(file)
+			none then _ = 0
+		end 'here'
+		match consumes enclosingDirectory(at) 'above'
+			some(parent) then at = parent.clone()
+			none then return table.Option.none
+		end 'above'
+	end 'up'
+	return table.Option.none
+end 'nearestProjectFile'
+
+// pushNestedProject reports the project file nested, which lies below the project of the project file outer.
+function pushNestedProject(mutates errs diag.ErrorList, consumes nested String, outer String)
+	diag.pushLocatedError(errs, code: diag.errNestedProjectFile, message: diag.nestedProjectFile(lastComponent(nested), outer: outer), file: nested, line: 1 as Count, col: 1 as Count)
+end 'pushNestedProject'
+
+// reportEnclosed reports the project file nested when the directory above, or one above it, holds another project file.
+function reportEnclosed(nested String, above String, mutates errs diag.ErrorList) returns bool
+	match consumes nearestProjectFile(above) 'outer'
+		some(outer) then pushNestedProject(errs, nested: nested.clone(), outer: outer)
+		none then return false
+	end 'outer'
+	return true
+end 'reportEnclosed'
+
+// reportNestedBelow reports the project file nested when the directory of the project file's directory, or one above it, holds
+// another one.
+function reportNestedBelow(nested String, dir String, mutates errs diag.ErrorList) returns bool
+	match consumes enclosingDirectory(absolutePath(dir)) 'above'
+		some(above) then return reportEnclosed(nested, above: above, errs: errs)
+		none then return false
+	end 'above'
+end 'reportNestedBelow'
+
+// reportNestedProject reports the first directory of the walk, in order, that holds a project file below the project of
+// another project file: projects do not nest, whichever of the two is built.
+function reportNestedProject(nodes DiscDirList, mutates errs diag.ErrorList)
+	for i in 1 upto nodes.count() 'each'
+		if nodes[i].projectFiles.count() > 0 and reportNestedBelow(nodes[i].projectFiles[0], dir: nodes[i].dir, errs: errs) 'reported'
+			return
+		end 'reported'
+	end 'each'
+end 'reportNestedProject'
+
+// projectRootOf is the directory that the project holding path is rooted at: the nearest directory, from path's upward, that
+// holds a project file, and path itself when none does, or when path names no file or directory. A project file below another
+// one is reported.
+export function projectRootOf(path String, mutates errs diag.ErrorList) returns String
+	let absolute = absolutePath(path)
+	var start = absolute.clone()
+	if not isDirectoryPath(absolute) 'file'
+		if not readTextFile(absolute).isSome() 'missing'
+			return path.clone()
+		end 'missing'
+		start = parentDir(absolute)
+	end 'file'
+	if isDriveName(start) 'drive'
+		start = "{start}\\"
+	end 'drive'
+	match consumes nearestProjectFile(start) 'marked'
+		some(file) then return markedRoot(file, path: path, errs: errs)
+		none then return path.clone()
+	end 'marked'
+end 'projectRootOf'
+
+// markedRoot is the directory of the project file, spelled as path when that is the directory.
+function markedRoot(file String, path String, mutates errs diag.ErrorList) returns String
+	let root = parentDir(file)
+	match consumes enclosingDirectory(root) 'above'
+		some(above) then _ = reportEnclosed(file, above: above, errs: errs)
+		none then _ = 0
+	end 'above'
+	if isDirectoryPath(path) and sameText(absolutePath(path), b: root) 'same'
+		return path.clone()
+	end 'same'
+	return root
+end 'markedRoot'
 
 function collectModuleTree(nodes DiscDirList, nodeIdx Count, mutates p ast.Project) returns diag.ModuleID
 	var m = ast.Module.new(0 as diag.ModuleID, path: nodes[nodeIdx].modPath.clone(), text: "", files: ast.FileSpanList.create(0))
@@ -576,6 +727,21 @@ function copyParsedIntoModule(mutates p ast.Project, modIdx Count, consumes pars
 	p.modules[modIdx].names = pm.names
 end 'copyParsedIntoModule'
 
+// sourceFiles are the paths of the source files of the project at dir, directory by directory in the order of the walk, as the
+// project loads them.
+export function sourceFiles(dir String) returns ast.StringList
+	var nodes = DiscDirList.create(0)
+	var errs = diag.ErrorList.create(0)
+	_ = scanDirectory(nodes, dir: dir.clone(), modPath: "", isRoot: true, memory: SourceFiles.create(0), errs: errs)
+	var files = ast.StringList.create(0)
+	for i in 0 upto nodes.count() 'directories'
+		for f in 0 upto nodes[i].filePaths.count() 'files'
+			files.push(nodes[i].filePaths[f].clone())
+		end 'files'
+	end 'directories'
+	return files
+end 'sourceFiles'
+
 // loadProject is the project at rootPath: a directory of modules, or a single source file.
 export function loadProject(rootPath String, mutates errs diag.ErrorList) returns table.Option with ast.Project
 	var p = ast.Project.new(rootPath.clone())
@@ -617,6 +783,9 @@ function loadDirectory(mutates p ast.Project, rootPath String, memory SourceFile
 	let first = p.modules.count()
 	var nodes = DiscDirList.create(0)
 	_ = scanDirectory(nodes, dir: rootPath.clone(), modPath: "", isRoot: true, memory: memory, errs: errs)
+	if memory.count() == 0 'onDisk'
+		reportNestedProject(nodes, errs: errs)
+	end 'onDisk'
 	if nodes.count() > 0 'collect'
 		let rootMid = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
 		p.rootModule = rootMid
@@ -666,7 +835,8 @@ export function addRuntime(mutates p ast.Project, mutates errs diag.ErrorList)
 	m.dir = dir.clone()
 	m.isRuntime = true
 	var subdirectories = ast.StringList.create(0)
-	listDirectory(dir, memory: SourceFiles.create(0), files: m.filePaths, dirs: subdirectories)
+	var projectFiles = ast.StringList.create(0)
+	_ = listDirectory(dir, memory: SourceFiles.create(0), files: m.filePaths, projectFiles: projectFiles, dirs: subdirectories)
 	let mid = ast.addModule(p, m: m)
 	p.rootModule = mid
 	parseSingleModule(p, modIdx: ast.modIndex(mid), memory: SourceFiles.create(0), errs: errs)

@@ -19,6 +19,10 @@ let expectStdoutPrefix = "//>"
 
 let expectMemoryPrefix = "// memory-limit:"
 
+// A project of tests/modules with this directive is compiled by naming the path after it, below the project's directory, so that
+// the compiler finds the project by its project file.
+let compilePathPrefix = "// compile-path:"
+
 let nativeOnlyDirective = "// native-only"
 
 // A file of this extension is a case of the fix command: a program that, fixed, must check clean and be the text of the
@@ -64,9 +68,11 @@ type Expectation
 	// frees is the order in which the interpreter must free the values of the program, when the program says it.
 	var frees as ast.StringList
 	var checkOnly as bool
+	// compilePath is the path below the project's directory that the compile names in place of the directory, or empty.
+	var compilePath as String
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, compilePath: ""}
 	end 'new'
 end 'Expectation'
 
@@ -256,7 +262,9 @@ function applyDirective(mutates expect Expectation, mutates stdout ByteArray, li
 			panic("test: {file}: malformed memory-limit: write a number of megabytes")
 		end 'zero'
 		expect.memoryLimitMB = n
-	end 'memory' else if line == nativeOnlyDirective 'native'
+	end 'memory' else if hasPrefix(line, prefix: compilePathPrefix) 'path'
+		expect.compilePath = trimSpace(afterPrefix(line, prefix: compilePathPrefix))
+	end 'path' else if line == nativeOnlyDirective 'native'
 		expect.nativeOnly = true
 	end 'native' else if hasPrefix(line, prefix: expectStdoutPrefix) 'stdout'
 		var skip = stdoutMarkerBytes
@@ -268,26 +276,13 @@ function applyDirective(mutates expect Expectation, mutates stdout ByteArray, li
 	end 'stdout'
 end 'applyDirective'
 
-// projectSources is the source files of a project's directory, in order.
-function projectSources(dir String, mutates files ast.StringList)
-	let dirPath = try FilePath.from(dir) otherwise panic("test: {dir} is not a path")
-	let listed = try Directory.list(dirPath) otherwise panic("test: cannot read {dir}")
-	for i in 0 upto listed.count() 'entries'
-		let name = project.lastComponent(listed[i].toString())
-		if project.endsWithMaxon(name) 'source'
-			files.push(project.joinPath(dir, name: name))
-		end 'source'
-	end 'entries'
-	project.sortStrings(files)
-end 'projectSources'
-
 // readExpectation reads the directives of a program, a file or a project's directory, whose files are read in order.
 function readExpectation(program String) returns Expectation
 	var expect = Expectation.new()
 	var stdout = ByteArray.create(0)
 	var files = ast.StringList.create(0)
 	if project.isDirectoryPath(program) 'project'
-		projectSources(program, files: files)
+		files = project.sourceFiles(program)
 	end 'project' else 'single'
 		files.push(program.clone())
 	end 'single'
@@ -496,13 +491,21 @@ function runTest(mutates shared SharedRuntime, mutates scratch Scratch, file Str
 	end 'fix'
 	let exe = scratch.nextExecutable()
 	var errs = diag.ErrorList.create(0)
-	let compiled = compileForTest(shared, file: file, output: exe, errs: errs)
+	let compiled = compileForTest(shared, file: compiledPath(file, expect: expect), output: exe, errs: errs)
 	let result = checkTest(expect, file: file, compiled: compiled, errs: errs, exe: exe, updatePositions: updatePositions)
 	if errs.count() == 0 'built'
 		scratch.discard(exe)
 	end 'built'
 	return result
 end 'runTest'
+
+// compiledPath is the path a test compiles: the program or the project's directory, or the path below it that the test names.
+function compiledPath(file String, expect Expectation) returns String
+	if expect.compilePath == "" 'whole'
+		return file.clone()
+	end 'whole'
+	return project.joinPath(file, name: expect.compilePath)
+end 'compiledPath'
 
 // checkTest is whether a compile that gave errs, and the executable at exe when it gave none, is what expect says. A program
 // that only the interpreter runs is run under it alone; any other is run natively and then under it too, unless it says it

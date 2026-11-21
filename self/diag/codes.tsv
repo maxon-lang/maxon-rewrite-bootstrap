@@ -29,6 +29,7 @@ ErrShiftCountNegative	E2054	shiftCountNegative	A shift's count is a negative con
 ErrTypeArgumentCount	E2056	genericArityMismatch	A generic instance names the wrong number of type arguments.
 ErrBuiltinArgNamed	E2067	builtinArgNamed	A call labels an argument of a built-in function whose arguments are positional.
 ErrUnknownStaticMember	E2073	unknownStaticMember	A qualified name names a member its base does not declare.
+ErrNestedProjectFile	E2074	nestedProjectFile	A project file lies below another project's directory, and projects do not nest.
 ErrMethodAsFunctionValue	E2078	methodAsFunctionValue	A method or a requirement is named where a function value is needed.
 ErrNoMainFunction	E3001	noMainFunction	The program declares no 'main' function.
 ErrMainWrongReturnType	E3002	mainWrongReturnType	'main' returns a type other than ExitCode.

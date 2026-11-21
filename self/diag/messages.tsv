@@ -152,3 +152,4 @@ opaqueTypeParameterReason	ErrTypeMismatch	a generic body is compiled ONCE, again
 argTypeMismatchOpaque	ErrTypeMismatch	argument type mismatch for {label}: expected '{expected}', got 'type parameter': {reason}
 patternTypeMismatch	ErrMatchTypeMismatch	pattern type '{pattern}' does not match scrutinee type '{scrutinee}'
 constantCallNotConstant	ErrNonConstantInitializer	Function calls are not allowed in global variable initializers; '{callee}()' is not a constant expression
+nestedProjectFile	ErrNestedProjectFile	'{nested}' is a project file below the project '{outer}', and projects do not nest: move the nested project out of that project's directory

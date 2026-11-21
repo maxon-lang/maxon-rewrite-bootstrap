@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("answer {lib.answer()}\n")
+	return 0
+end 'main'
+
+//> answer 42

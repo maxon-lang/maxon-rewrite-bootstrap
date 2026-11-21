@@ -2,7 +2,7 @@
 function moveExpectedError(program String, old String, replacement String)
 	var files = ast.StringList.create(0)
 	if project.isDirectoryPath(program) 'project'
-		projectSources(program, files: files)
+		files = project.sourceFiles(program)
 	end 'project' else 'single'
 		files.push(program.clone())
 	end 'single'

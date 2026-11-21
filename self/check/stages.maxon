@@ -82,17 +82,73 @@ export function stageAliases(mutates ch Checks, mutates p ast.Project, mutates e
 	end 'each'
 end 'stageAliases'
 
-// stageDeclare declares each module's members and signatures, and finds the entry function in the root.
+// stageDeclare declares each module's members and signatures, and finds the entry function: the one that comes first in the
+// order of the program's files, whatever directory it is in. Another module that declares one has a duplicate.
 export function stageDeclare(mutates ch Checks, mutates p ast.Project, mutates errs diag.ErrorList)
+	let entryModule = firstEntryModule(ch, p: p)
 	for i in 0 upto ch.order.count() 'each'
 		let m = ast.modIndex(ch.order[i])
 		let paramsOk = ch.modules[m].paramsOk.clone()
 		ch.modules[m].functions = declareModule(ch.modules[m].checker, p: p, paramsOk: paramsOk, errs: errs)
-		if m == ast.modIndex(p.rootModule) and (not p.modules[m].isRuntime or ch.makesProgram) 'root'
+		if not mayHoldEntry(ch, p: p, modIdx: m) or not declaresEntry(p, modIdx: m) 'noEntry'
+			continue 'each'
+		end 'noEntry'
+		if isModule(entryModule, modIdx: m) 'entry'
 			ch.entry = checkMain(ch.modules[m].checker, p: p, errs: errs)
-		end 'root'
+		end 'entry' else 'second'
+			reportSecondEntry(ch.modules[m].checker, p: p, errs: errs)
+		end 'second'
 	end 'each'
+	if not entryModule.isSome() and holdsAnEntryModule(ch, p: p) 'missing'
+		reportNoEntry(errs)
+	end 'missing'
 end 'stageDeclare'
+
+// firstEntryModule is the module whose entry function comes first in the order of the program's files, or none where no module
+// declares one.
+function firstEntryModule(ch Checks, p ast.Project) returns table.Option with Count
+	var found = false
+	var first = 0 as Count
+	var firstOrder = ""
+	for i in 0 upto ch.order.count() 'each'
+		let m = ast.modIndex(ch.order[i])
+		if not mayHoldEntry(ch, p: p, modIdx: m) or not declaresEntry(p, modIdx: m) 'noEntry'
+			continue 'each'
+		end 'noEntry'
+		let order = entryOrder(p, modIdx: m)
+		if not found or diag.stringLess(order, b: firstOrder) 'earlier'
+			first = m
+			firstOrder = order
+			found = true
+		end 'earlier'
+	end 'each'
+	if found 'some'
+		return table.Option.some(first)
+	end 'some'
+	return table.Option.none
+end 'firstEntryModule'
+
+function isModule(found table.Option with Count, modIdx Count) returns bool
+	return match found 'o'
+		some(m) gives m == modIdx
+		none gives false
+	end 'o'
+end 'isModule'
+
+// mayHoldEntry is whether the module is where the program's entry function is looked for: every module of the program, and
+// the runtime's own project only when the compile makes an executable.
+function mayHoldEntry(ch Checks, p ast.Project, modIdx Count) returns bool
+	return not p.modules[modIdx].isRuntime or ch.makesProgram
+end 'mayHoldEntry'
+
+function holdsAnEntryModule(ch Checks, p ast.Project) returns bool
+	for i in 0 upto ch.order.count() 'each'
+		if mayHoldEntry(ch, p: p, modIdx: ast.modIndex(ch.order[i])) 'may'
+			return true
+		end 'may'
+	end 'each'
+	return false
+end 'holdsAnEntryModule'
 
 // stageConstantOrder orders each module's constants, each after the ones its value names.
 export function stageConstantOrder(mutates ch Checks, p ast.Project, mutates errs diag.ErrorList)

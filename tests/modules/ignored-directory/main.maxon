@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("only\n")
+	return 0
+end 'main'
+
+//> only

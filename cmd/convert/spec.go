@@ -27,11 +27,6 @@ const (
 	// the codes and messages of the errors and not their positions.
 	specPositionsMarker = "<!-- positions: moved -->"
 
-	// The kind of a multi-file test whose main is declared in a subdirectory only: maxon finds it there, and minimaxon's
-	// root module is the project's directory, so such a program has no main.
-	mainInSubdirectoryKind = "language difference: main is not declared in the project's root directory, which minimaxon requires"
-	mainDeclaration        = "function main("
-
 	// A ```maxon block of several files is split by these lines; each section is its own source file, and a runtime
 	// file or a stdlib overlay is source too.
 	specFileMarker    = "// --- file:"
@@ -201,34 +196,9 @@ func (c *specConverter) convertBlock(body []string, firstLine int) {
 		}
 	}
 	section(len(body))
-	if declaresMainOnlyBelowTheRoot(body) {
-		c.kinds = append(c.kinds, mainInSubdirectoryKind)
-	}
 	if !sameLayout(body, c.block) {
 		c.moved = true
 	}
-}
-
-// declaresMainOnlyBelowTheRoot reports whether the files of a multi-file block declare main, and none of the ones that do is
-// in the root directory.
-func declaresMainOnlyBelowTheRoot(body []string) bool {
-	var file string
-	inRoot, below := false, false
-	for _, line := range body {
-		if after, ok := strings.CutPrefix(line, specFileMarker); ok {
-			file = strings.TrimSpace(after)
-			continue
-		}
-		if file == "" || !strings.HasPrefix(line, mainDeclaration) && !strings.HasPrefix(line, "export "+mainDeclaration) {
-			continue
-		}
-		if strings.Contains(file, "/") {
-			below = true
-		} else {
-			inRoot = true
-		}
-	}
-	return below && !inRoot
 }
 
 // sameLayout reports whether the converted lines are the original's, line for line, so that a position of the original

@@ -729,3 +729,8 @@ end 'patternTypeMismatch'
 export function constantCallNotConstant(callee String) returns String
 	return "Function calls are not allowed in global variable initializers; '{callee}()' is not a constant expression"
 end 'constantCallNotConstant'
+
+// The text of errNestedProjectFile for: '{nested}' is a project file below the project '{outer}', and projects do not nest: move the nested project out of that project's directory
+export function nestedProjectFile(nested String, outer String) returns String
+	return "'{nested}' is a project file below the project '{outer}', and projects do not nest: move the nested project out of that project's directory"
+end 'nestedProjectFile'

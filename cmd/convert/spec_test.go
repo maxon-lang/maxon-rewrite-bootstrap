@@ -122,12 +122,3 @@ func TestConvertSpecMarksAnErrorTestWhoseBlockWasLaidOutDifferently(t *testing.T
 		t.Fatalf("converting the converted text changes it:\n%s", again.Text)
 	}
 }
-
-func TestConvertSpecSkipsAProjectWhoseMainIsBelowTheRoot(t *testing.T) {
-	const below = "<!-- test: below -->\n```maxon\n// --- file: app/main.maxon\nfunction main() returns ExitCode\n\treturn 0\nend 'main'\n```\n"
-	const root = "<!-- test: root -->\n```maxon\n// --- file: app/lib.maxon\nexport function f() returns ExitCode\n\treturn 0\nend 'f'\n\n// --- file: main.maxon\nfunction main() returns ExitCode\n\treturn 0\nend 'main'\n```\n"
-	res := ConvertSpec("demo.md", "## Tests\n\n"+below+root)
-	if len(res.Tests) != 2 || len(res.Tests[0].Skips) != 1 || res.Tests[0].Skips[0] != mainInSubdirectoryKind || len(res.Tests[1].Skips) != 0 {
-		t.Fatalf("tests = %+v", res.Tests)
-	}
-}

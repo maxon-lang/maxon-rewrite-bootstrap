@@ -35,7 +35,7 @@ generator.
 
 | Command | What it does |
 |---|---|
-| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory |
+| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory, and a path in a project that a `.maxproj` file marks compiles that whole project (see "Modules") |
 | `minimaxon run <file\|dir>` | compile to the temporary directory, as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
 | `minimaxon test [--update-positions] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
@@ -100,8 +100,8 @@ tests** (`self/*_test.maxon`, run by `minimaxon selftest`) test its parts on pro
 test the generators (each regenerates its outputs and fails if the checked-in ones differ; `internal/x64gen` proves the
 instruction table against the bytes in its `testdata`) and `cmd/convert`.
 
-Each `tests/**/*.maxon` is one program, except under `tests/modules/`, where each directory is a project and its files
-carry the directives. The runner (`self/driver/test.maxon`) compiles every program to an executable, a program that
+Each `tests/**/*.maxon` is one program, except under `tests/modules/`, where each directory is a project and its files,
+at any depth, carry the directives. The runner (`self/driver/test.maxon`) compiles every program to an executable, a program that
 must fail included, because some errors come after type checking (lowering refuses what has no native code yet), in
 the same process, one after another; the runtime is loaded, checked and compiled once per run, and each test is added
 to a copy of that project (`SharedRuntime` in `self/driver/compile.maxon`). A program under `tests/check/` is only
@@ -129,6 +129,7 @@ Directives in comments say what the program must do:
 | `// expect-error: E3102` | compiling must fail with this code; `E3102 at 7:5` also pins the line and column. A program may have several, and each must be reported (`E9900`, a program that needs something that has no native code yet, is the one error that is not a failure in a program that expects none) |
 | `// expect-free: label` | the interpreter must free the program's values in the order of these lines, one value each, as `minimaxon interp --frees` prints them (`string "a1"`, `array`, `record`, `pool`) |
 | `// memory-limit: N` | the native run may use at most N megabytes; the runner does not enforce it yet |
+| `// compile-path: app` | in a project of `tests/modules`: compile the path `app` below the project's directory in place of the directory, so that the compiler finds the project by its `.maxproj` file |
 | `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly |
 
 ### Errors
@@ -157,8 +158,21 @@ soon as the modules it names have finished theirs.
 
 ## Modules
 
-A module is a directory. The project root is the root module, which holds `main`, and every directory
-under it that holds source, at any depth, is a module of its own.
+A module is a directory. The project root is the root module, and every directory under it that holds source, at any
+depth, is a module of its own. `main` may be declared in any module: a project has one, in whatever directory, and a
+second `main` anywhere is `E3006`, reported at the later one in the byte order of the files' paths, as maxon reports two. The program's link name for it
+is that of its module (`app::main`), and a project with no `main` in any module is `E3001`.
+
+- **A project is marked by a `<name>.maxproj` file at its root**, as maxon's. `build`, `run` and `check` given a directory
+  or a file look from that directory (the file's own directory, for a file) upward for the nearest directory that holds
+  a file ending in `.maxproj`: when there is one, it is the project's root, every module is named from it, and the
+  whole project is compiled whatever path inside it was named; when there is none, the path given is the project, as
+  before. A `.maxproj` file is only the marker for now: minimaxon does not compile or run it as a program, and it has no
+  `Build` library or targets, so `build` with no path is still a usage error. A `.maxproj` file in a directory below another
+  project's `.maxproj` file, found either way (a root inside a project, or a directory met in the walk of a project), is `E2074`,
+  reported at the nested file with maxon's message. A directory that holds a `.maxonignore` file is left out of the walk, with
+  everything below it, unless it is the root of the compile. A project held in memory (the spec runner) has no `.maxproj`: its
+  files are the project. The compiler finds `runtime/` from its own executable, so none of this changes where it is looked for.
 
 - **Another module's names are always qualified**, by the module's path read from the root: `geometry.area()`,
   `7 as geometry.Length`, `net.http.parse()`, `geometry.Shape.circle(2)`. The root module's own declarations are
@@ -338,7 +352,7 @@ has any, from every module. A `check` stops short of code generation but runs th
 | resolve | `resolve` | `resolveFrom` binds every name, struct literal and type reference to its declaration, and each `where` constraint to the type parameter it names (`E3916`), into the module's `Resolution`; it records the modules the module depends on, checks visibility (`E3008`) and that no signature names a less visible type (`E3167`), and rewrites a qualified name in place (see "The AST"). It reads only the module's own declarations, the standard library and the declarations of the modules the module names |
 | module graph | `project` | `newGraph` turns each module's recorded dependencies into edges; `checkAcyclic` sorts the graph (Kahn's algorithm, linear in the edges) and reports `E2012` where the first module of a cycle names the second; `topoOrder` is the order every later stage visits the modules in |
 | aliases | `check` | `stageAliases`: the bounds of each type's type parameters, then each typealias of an instance, after the typealiases it names (a cycle is `E2012`) |
-| declare | `check` | `stageDeclare`: the module's fields, cases, function signatures, type parameters and the interfaces its types implement, into the project's `TypeTable` and `FuncTable`; the root module's declare finds `main` (`E3001`) |
+| declare | `check` | `stageDeclare`: the module's fields, cases, function signatures, type parameters and the interfaces its types implement, into the project's `TypeTable` and `FuncTable`; the declare finds `main`, in the first module that declares it (`E3001` when none does, `E3006` for a second) |
 | constants | `check` | `stageConstantOrder`, `stageConstants`: top-level `let` types, each after the constants of its module that it names (a cycle is `E2012`) |
 | bodies | `check` | `stageBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
 | verify | `check` | `stageVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
@@ -506,7 +520,7 @@ other:
 
 | Names | Link name |
 |---|---|
-| a function | `geometry::area`, `export::main` |
+| a function | `geometry::area`, `export::helper`, `app::main` |
 | a method | `export::Counter.inc`, `(export::Box with stdlib::Count).make` |
 | an instance of a generic function | `export::swap[stdlib::Count, export::Counter]` |
 | an instance given a conformance outside its type argument's module | `lib::describe[shapes::Meter] using app`, the module of each conformance after `using` |

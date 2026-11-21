@@ -16,9 +16,7 @@ function increment(count Count) returns Count
 end 'increment'
 
 function endsWithText(text String, suffix String) returns bool
-	let length = text.byteLength()
-	let tail = suffix.byteLength()
-	return length >= tail and text.sliceBytes(try length - tail otherwise 0 as Count, endPos: length) == suffix
+	return project.endsWithText(text, suffix: suffix)
 end 'endsWithText'
 
 // holdsText is whether text holds needle.
