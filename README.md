@@ -943,7 +943,7 @@ and nothing else.
 ## The subset
 
 - `function` (a body may have no statement; every other block with none is `E3082`), `type` (fields, defaults, methods, `static function`, `static let`; a function parameter may have a default, see "Default parameter values, static fields, default throws and fallthrough"), `enum` (integer raw values), `union`
-  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = float(a to b)` (see "Floats"), `typealias X = Box with Count` (also in a type's body), a top-level
+  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = float(a to b)` (see "Floats"), either with `implements Parent` (see "Integers"), `typealias X = Box with Count` (also in a type's body), a top-level
   `let` constant. A function, a type and a union can be generic (see "Generics"). A `type` or a `union` can say
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
@@ -1013,6 +1013,17 @@ not, it is `E3057` ("the value may not fit"), and the fix is `try <value> as T o
 literal that does not fit is `E3005`, and an assignment, an argument and an initialiser still need the cast. Comparisons take any two integers one word holds, an alias against an anonymous range or a constant
 included; only two different aliases are `E3005`. The branches of a conditional, a `match` or a `try` with no type to
 take give their alias when both are of it, or one is and holds the other, and otherwise a range that holds both.
+
+**Subtypes.** A ranged typealias may name a parent after its range, `typealias BlockId = int(0 to u64.max) implements
+ElementIndex`, as maxon's does: it is then a subtype of the parent and of every alias the parent implements, and goes
+wherever one of them is declared with no cast; `as` converts the other way, with its check. Two subtypes of one parent
+are two types, but they meet in an operator and in the branches of a conditional at their nearest common ancestor
+rather than being `E3005`, and an operation whose context expects one of them is that one, as any operation is. A
+`mutates` or `sets` parameter takes exactly its type, so a subtype's variable is refused there: the callee could write
+any value of the parent. The parent is a ranged typealias, `int` or `float` (`E2003`), possibly of another module
+(`implements shapes.Index`); the subtype's range lies inside the parent's and is over the same primitive, a signed range
+(one that holds a negative value) only under a signed one (`E3178`); a chain that comes back to the alias is `E3091`. The
+built-in `Count` is a subtype of `ElementIndex`.
 
 ### Floats
 
@@ -1383,10 +1394,28 @@ end 'wrap'
   for a method those of its type (`E3916` for any other), each once (`E3006`). A type, an enum or a union says which interfaces it implements with `implements`
   too: `type Square implements Shape, Named`. An interface lists method signatures, each
   with its receiver convention (`mutates self`, `consumes self`, `destructs self`, or none for a `let` receiver), and may name `Self`. It
-  is a bound and nothing else: it is not the type of a value (`E3905`), has no type parameters, no static function and
-  no parent interface, and an alias, `String` or `bool` cannot implement one. A method uses its type's parameters and
-  takes none of its own (`E3907`). `Self` inside a generic type is the type at its own parameters, and a literal of it
-  is `Self{...}`.
+  is a bound and nothing else: it is not the type of a value (`E3905`), and an alias, `String` or `bool` cannot
+  implement one. A requirement may be `static function`, which the type provides as a static function (a method in its
+  place is `E3016`, as is the other way round); as in maxon it has no receiver to dispatch on, so a call of it through a
+  type parameter, `T.make()` or `x.make()`, is `E3116`, and `T.make` as a value is `E2078`: it is called on a concrete
+  type. A type parameter's name stands for the parameter in an expression, over a declaration of that name. A method
+  uses its type's parameters and takes none of its own (`E3907`). `Self` inside a generic type is the type at its own
+  parameters, and a literal of it is `Self{...}`.
+- **Inheritance.** `interface Derived extends Base, Other` (before or after its `uses`) has the requirements of the
+  interfaces it extends besides its own: a type that implements `Derived` provides them all (a missing one is listed
+  `(from Base)` in `E3016`), and meets a bound of `Base`, as does a type parameter bounded by `Derived`, whose calls
+  reach `Base`'s methods. An interface that requires again a method of one it extends makes a call of it through a
+  bound `E3114`. A chain that comes back to the interface is `E3091`.
+- **Associated types.** An interface declares associated types with `uses` after its name (`interface Cursor uses
+  Element`), which its signatures name. A type binds them where it implements it, one type bare and several in
+  parentheses, as any type arguments: `type IntCur implements Cursor with Integer`, `type Both implements Duo with
+  (Score, Weight)`, `type Holder uses E implements Cursor with E`. A conformance that binds none is `E3016` (`Type
+  'Broken' does not define required associated type 'Element' ...`), any other count `E2056`, and each method is
+  checked against the requirement with the bound types in place of the associated ones. A bound binds them all
+  (`where S implements Cursor with E`, `E2056` otherwise), so a call through it is typed in the generic body once:
+  `s.current()` is an `E`. A call infers a type parameter that a bound binds from what the argument's declaration binds
+  (`first(IntCur.create(5))` with `where S implements Cursor with E` takes `E` as `Integer`), and an argument whose
+  declaration binds the interface otherwise than the bound says is `E3133`.
 - **Instances.** A type names an instance with `with`: `Box with Count`, `Map with (String, Count)`, `lib.Option
   with Count`. One argument is written bare, several in parentheses, and an argument that is an instance itself is
   parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E2056`). A `typealias` names an
@@ -2087,8 +2116,17 @@ are not supported.
   would call the runtime) and may declare `export` names (maxon's `E3154`), since the runtime is a module of its own whose
   names are always qualified; names need no `__` prefix for the same reason.
 - Generics are checked once against their bounds, never per instantiation; maxon checks a generic function per inferred
-  type. Interfaces are bounds only: no generic interface, no static requirement, no default method, no existential
+  type. Interfaces are bounds only: no default method, no existential
   value; a type implements one by saying so, and `int` aliases, `String` and `bool` implement none.
+- A generic interface's associated types are bound as type arguments are: one bare, several in parentheses (`implements
+  Duo with (Score, Weight)`), where maxon also takes a bare list as long as the interface's arity and ignores a surplus
+  in it; a parenthesized list against an interface with one associated type is that many arguments (`E2056`), not a
+  tuple, which is written in its own parentheses (`with ((A, B))`). A bound binds every associated type (`where S
+  implements Cursor with E`): maxon also takes a bare bound and types a call through it for each instance, but a
+  generic body here is checked once, so its calls need the types. `cmd/convert` parenthesizes the lists of an
+  interface that the file declares.
+- An interface extends only interfaces without associated types (`E2015`), since maxon does not inherit their bindings
+  either; a type lists such an interface in its own `implements`.
 - Generics are written as in Maxon (`uses`, `with`, `where`), with four differences: an instance is written wherever a
   type is (`returns Option with (Box with T)`), not only through a typealias; a bound is `where T implements Shape`,
   the word a type declares conformance with, rather than `where T is Shape`; a union can be generic; and a call whose

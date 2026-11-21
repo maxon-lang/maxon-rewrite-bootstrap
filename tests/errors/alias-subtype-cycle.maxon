@@ -1,0 +1,8 @@
+typealias A = int(0 to 5) implements B
+
+// expect-error: E3091 at 4:11
+typealias B = int(0 to 5) implements A
+
+function main() returns ExitCode
+	return 0
+end 'main'

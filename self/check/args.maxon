@@ -175,7 +175,15 @@ function coerceArg(mutates c Checker, mutates p ast.Project, call ast.NodeID, va
 	let t = ast.nodeType(c.typing, node: value)
 	if ast.isByAddress(spec.conv) 'byAddress'
 		if t != spec.ty 'different'
-			failAt(c, p: p, node: call, code: diag.errTypeMismatch, msg: diag.argTypeMismatch("'{spec.name}'", expected: nameOfType(p, t: spec.ty), got: nameOfType(p, t: t)), errs: errs)
+			let expected = nameOfType(p, t: spec.ty)
+			let got = nameOfType(p, t: t)
+			var msg = diag.argTypeMismatch("'{spec.name}'", expected: expected, got: got)
+			if t != ast.noType and ast.isSubtypeOf(p.types, sub: t, sup: spec.ty) 'subtype'
+				msg = "{msg}: the callee may write any '{expected}' through a by-reference parameter, which a '{got}' variable cannot hold. Declare the variable or field it names as {expected}, or pass a {expected} local"
+			end 'subtype' else if ast.isIntType(p.types, t: t) and ast.isIntType(p.types, t: spec.ty) 'integers'
+				msg = diag.argTypeMismatchCast("'{spec.name}'", expected: expected, got: got)
+			end 'integers'
+			failAt(c, p: p, node: call, code: diag.errTypeMismatch, msg: msg, errs: errs)
 			return false
 		end 'different'
 		return true
@@ -245,6 +253,28 @@ function unifyAll(p ast.Project, param ast.TypeIDList, arg ast.TypeIDList, param
 	end 'each'
 end 'unifyAll'
 
+// unifyBounds fixes the type parameters that a bound binds an associated type to, from what the fixed argument's
+// declaration binds it to: 'where S implements Cursor with E' takes E from the 'implements Cursor with ...' of S.
+function unifyBounds(mutates p ast.Project, params ast.TypeIDList, mutates args ast.TypeIDList)
+	for i in 0 upto params.count() 'each'
+		let arg = args[i]
+		if arg == ast.noType or not typeIsNominal(p.types, t: arg) 'open'
+			continue 'each'
+		end 'open'
+		let bounds = p.types.entries[params[i] as Count].bounds.clone()
+		for bi in 0 upto bounds.count() 'bounds'
+			let bound = bounds[bi].ifaceTy
+			if p.types.entries[bound as Count].typeArgs.count() == 0 'plain'
+				continue 'bounds'
+			end 'plain'
+			let declared = conformanceTo(p, t: arg, iface: ast.originOf(p.types, t: bound))
+			if declared != ast.noType 'found'
+				unifyAll(p, param: p.types.entries[bound as Count].typeArgs.clone(), arg: p.types.entries[declared as Count].typeArgs.clone(), params: params, args: args)
+			end 'found'
+		end 'bounds'
+	end 'each'
+end 'unifyBounds'
+
 function openArgs(count Count) returns ast.TypeIDList
 	var args = ast.TypeIDList.create(0)
 	for _ in 0 upto count 'each'
@@ -255,7 +285,7 @@ end 'openArgs'
 
 // infer chooses the type arguments of a call from its arguments' types, and the ones they leave open from the type the
 // context expects of result, the type the call gives before its type arguments are known.
-function infer(c Checker, p ast.Project, node ast.NodeID, callee String, params ast.TypeIDList, specs ast.ParamSpecList, ordered ast.NodeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
+function infer(c Checker, mutates p ast.Project, node ast.NodeID, callee String, params ast.TypeIDList, specs ast.ParamSpecList, ordered ast.NodeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var args = openArgs(params.count())
 	for i in 0 upto specs.count() 'each'
 		if ordered[i] == 0 'defaulted'
@@ -263,6 +293,7 @@ function infer(c Checker, p ast.Project, node ast.NodeID, callee String, params 
 		end 'defaulted'
 		unifyType(p, param: specs[i].ty, arg: ast.nodeType(c.typing, node: ordered[i]), params: params, args: args)
 	end 'each'
+	unifyBounds(p, params: params, args: args)
 	return inferRest(c, p: p, node: node, callee: callee, params: params, args: args, result: result, errs: errs)
 end 'infer'
 

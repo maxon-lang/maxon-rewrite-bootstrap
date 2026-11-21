@@ -178,6 +178,53 @@ typealias Counts = Map with String, Count
 `,
 		},
 		{
+			name: "the associated types of an interface with several are parenthesized",
+			in: `interface Duo uses A, B
+	function first() returns A
+end 'Duo'
+
+interface One uses A
+	function first() returns A
+end 'One'
+
+type Both implements Duo with Count, String, One with (Count, String), Named where T is Duo with Count, T
+	var side as Count
+end 'Both'
+`,
+			want: `interface Duo uses A, B
+	function first() returns A
+end 'Duo'
+
+interface One uses A
+	function first() returns A
+end 'One'
+
+type Both implements Duo with (Count, String), One with ((Count, String)), Named where T implements Duo with (Count, T)
+	var side as Count
+end 'Both'
+`,
+		},
+		{
+			name: "an interface that extends others, with a static requirement, is left as Maxon writes it",
+			in: `interface Derived extends Base, Other uses Element
+	static function make() returns Self
+	function get() returns Element
+end 'Derived'
+`,
+			want: `interface Derived extends Base, Other uses Element
+	static function make() returns Self
+	function get() returns Element
+end 'Derived'
+`,
+		},
+		{
+			name: "a typealias that implements another is left as Maxon writes it",
+			in: `typealias NodeIndex = int(0 to 100) implements ElementIndex
+`,
+			want: `typealias NodeIndex = int(0 to 100) implements ElementIndex
+`,
+		},
+		{
 			name: "a typealias in a type's body is left as Maxon writes it",
 			in: `type Pool uses Element
 	typealias Items = Array with Element
@@ -361,11 +408,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "caller-location default",
 			in:       "function check(ok bool, from String = __file__)\n\tprint(from)\nend 'check'\n",
 			wantTodo: "the caller-location default '__file__'",
-		},
-		{
-			name:     "alias subtyping",
-			in:       "typealias NodeIndex = int(0 to 100) implements ElementIndex\n",
-			wantTodo: "alias subtyping",
 		},
 		{
 			name:     "ranged typealias in a generic type",

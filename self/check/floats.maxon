@@ -66,9 +66,9 @@ function floatMismatch(c Checker, mutates p ast.Project, node ast.NodeID, at dia
 	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, t: src), castable: castable), fix: fix, errs: errs)
 end 'floatMismatch'
 
-// requireOneFloatAlias refuses two operands of different float aliases, as two integer aliases are.
+// requireOneFloatAlias refuses two operands of float aliases with no common ancestor, as two integer aliases are.
 function requireOneFloatAlias(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns bool
-	if typeIsNamedFloat(p.types, t: l) and typeIsNamedFloat(p.types, t: r) and l != r 'diff'
+	if typeIsNamedFloat(p.types, t: l) and typeIsNamedFloat(p.types, t: r) and ast.commonSupertype(p.types, a: l, b: r) == ast.noType 'diff'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the operands are {ast.typeName(p.types, t: l)} and {ast.typeName(p.types, t: r)}; cast one so both are the same type", errs: errs)
 		return false
 	end 'diff'

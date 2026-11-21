@@ -202,6 +202,10 @@ function checkMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, mut
 		return ast.nodeType(c.typing, node: e)
 	end 'typed'
 	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: e)
+	let param = typeParamNamed(c, p: p, e: obj)
+	if param != ast.noType 'parameter'
+		return memberOfTypeParam(c, p: p, e: e, param: param, errs: errs)
+	end 'parameter'
 	var named = ast.noType
 	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
 		let mark = errs.count()
@@ -225,6 +229,21 @@ function checkMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, mut
 	end 'badObj'
 	return checkValueMember(c, p: p, e: e, t: typed, errs: errs)
 end 'checkMember'
+
+// memberOfTypeParam refuses a member written on a type parameter's name: a requirement of its bounds is reached only on
+// a concrete type, and is no function value.
+function memberOfTypeParam(mutates c Checker, mutates p ast.Project, e ast.NodeID, param ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
+	let paramName = nameOfType(p, t: param)
+	let req = boundRequirement(p, boundedFn: c.boundedFn, param: param, name: member)
+	if req.sig != ast.noFunc 'requirement'
+		let ifaceName = p.types.entries[req.iface as Count].name.clone()
+		checkFail(c.modID, off: p.modules[c.modIdx].tree.memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: diag.requirementAsFunctionValue("{paramName}.{member}", interfaceName: ifaceName), errs: errs)
+		return ast.noType
+	end 'requirement'
+	checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnknownStaticMember, msg: "'{paramName}' is a type parameter, which has no member '{member}': a type parameter has only the methods of its bounds, called on a value", errs: errs)
+	return ast.noType
+end 'memberOfTypeParam'
 
 // checkLimitMember types `u64.max` and its like, the constant that a sized integer's limit is.
 function checkLimitMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, consumes value ast.I128) returns ast.TypeID

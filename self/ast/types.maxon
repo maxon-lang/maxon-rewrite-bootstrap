@@ -256,10 +256,12 @@ export type TypeEntry
 	// whether a typealias named it as a brand of its own (see FuncBrand).
 	export var mutatesCaptures as bool
 	export var isBrand as bool
+	// supertype is the ranged alias that a ranged alias implements, whose places take its values with no cast.
+	export var supertype as TypeID
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, supertype: noType}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID
@@ -509,6 +511,46 @@ function floatSpelling(tt TypeTable, t TypeID) returns String
 	end 'full'
 	return "float({floatDiagnosticText(floatLowBits(tt, t: t))} to {floatDiagnosticText(floatHighBits(tt, t: t))})"
 end 'floatSpelling'
+
+// extendsInterface is whether an implementation of the interface have is one of want: have is want, or extends it,
+// directly or through the interfaces it extends. The interfaces an interface extends are held in its conforms, and take
+// no type arguments.
+export function extendsInterface(tt TypeTable, have TypeID, want TypeID) returns bool
+	if have == want 'same'
+		return true
+	end 'same'
+	let orig = tt.entries[have as Count].effectiveOrigin()
+	for i in 0 upto tt.entries[orig as Count].conforms.count() 'parents'
+		if extendsInterface(tt, have: tt.entries[orig as Count].conforms[i], want: want) 'hit'
+			return true
+		end 'hit'
+	end 'parents'
+	return false
+end 'extendsInterface'
+
+// isSubtypeOf is whether the ranged alias sub implements sup, directly or through the aliases it implements.
+export function isSubtypeOf(tt TypeTable, sub TypeID, sup TypeID) returns bool
+	var t = tt.entries[sub as Count].supertype
+	while t != noType 'up'
+		if t == sup 'hit'
+			return true
+		end 'hit'
+		t = tt.entries[t as Count].supertype
+	end 'up'
+	return false
+end 'isSubtypeOf'
+
+// commonSupertype is the nearest alias that both ranged aliases a and b are or implement, or none.
+export function commonSupertype(tt TypeTable, a TypeID, b TypeID) returns TypeID
+	var t = a
+	while t != noType 'up'
+		if t == b or isSubtypeOf(tt, sub: b, sup: t) 'hit'
+			return t
+		end 'hit'
+		t = tt.entries[t as Count].supertype
+	end 'up'
+	return noType
+end 'commonSupertype'
 
 export function instanceKey(origin TypeID, args TypeIDList) returns String
 	var b = ByteArray.create(0)

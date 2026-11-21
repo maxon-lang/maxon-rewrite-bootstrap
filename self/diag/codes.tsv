@@ -8,6 +8,7 @@
 # A code of minimaxon's own takes a number from E3900 (semantic) or E9900 (internal), which maxon does not use.
 ErrInvalidEscape	E1004	lexerInvalidEscape	An escape in a literal is malformed, or a byte string holds a character that is no byte.
 ErrUnexpectedToken	E2001	parserUnexpectedToken	The parser met a token that cannot appear at this point.
+ErrExpectedType	E2003	parserExpectedType	A type is needed of a kind the name does not have: a typealias implements a ranged typealias.
 ErrExpressionError	E2004	parserExpressionError	An expression is not well formed or not usable where it stands.
 ErrUnexpectedEnd	E2007	parserUnexpectedEof	The parser reached the end of the file with a construct still open.
 ErrMismatchedEndLabel	E2008	parserMismatchedEndLabel	A block's 'end' label does not match the label its header opened.
@@ -28,6 +29,7 @@ ErrShiftCountNegative	E2054	shiftCountNegative	A shift's count is a negative con
 ErrTypeArgumentCount	E2056	genericArityMismatch	A generic instance names the wrong number of type arguments.
 ErrBuiltinArgNamed	E2067	builtinArgNamed	A call labels an argument of a built-in function whose arguments are positional.
 ErrUnknownStaticMember	E2073	unknownStaticMember	A qualified name names a member its base does not declare.
+ErrMethodAsFunctionValue	E2078	methodAsFunctionValue	A method or a requirement is named where a function value is needed.
 ErrNoMainFunction	E3001	noMainFunction	The program declares no 'main' function.
 ErrMainWrongReturnType	E3002	mainWrongReturnType	'main' returns a type other than ExitCode.
 ErrUnknownFunction	E3004	callUnknownFunction	A call names a function or method that does not exist.
@@ -57,15 +59,19 @@ ErrConstructorRestriction	E3076	semanticConstructorRestriction	A struct literal 
 ErrEmptyBlock	E3082	semanticEmptyBlock	A block other than a function body holds no statement.
 ErrTryBlockBindingNotMatched	E3084	tryBlockBindingNotMatched	The handler of a try block names the error but never matches on it.
 ErrFieldNotInitialized	E3086	semanticFieldNotInitialized	A struct literal omits a field that has no default.
+ErrResolutionCycle	E3091	semanticTypeResolutionCycle	A typealias refers back to itself through the aliases it implements, or an interface through the interfaces it extends.
 ErrFunctionValueThrows	E3101	throwingFunctionAsValue	A function that throws is used as a value, which no function type can hold.
 ErrUseAfterMove	E3102	useAfterMove	A name is read after its value was moved out of it.
 ErrDivisionByZero	E3103	semanticDivisionByZero	A division or 'mod' has a constant zero divisor.
 ErrZeroOutsideElement	E3106	semanticArrayResizeManagedElement	An array is created with zeroed elements of a type that has no zero value.
 ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names something other than an enum.
 ErrAmbiguousBound	E3114	semanticAmbiguousWitnessDispatch	A method call on a type parameter names a method that more than one of its bounds declares.
+ErrStaticRequirementNotDispatchable	E3116	semanticStaticRequirementNotDispatchable	A static requirement of an interface is called through a type parameter, which has no receiver to dispatch on.
 ErrIfTryDiscardsResult	E3124	ifTryDiscardsResult	An 'if try' with no binding tests a call that returns a value, which it discards.
+ErrBoundBindingDisagrees	E3133	semanticWhereConstraintBindingDisagreement	A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
 ErrRawIntrinsicOutsideRuntime	E3152	rawIntrinsicOutsideRuntimeTier	A source file outside the runtime calls a __Raw intrinsic.
 ErrExposesHiddenType	E3167	semanticSignatureTypeLessVisibleThanDeclaration	A declaration's signature names a type less visible than the declaration.
+ErrAliasRangeDoesNotFit	E3178	aliasImplementsRangeDoesNotFit	A typealias implements one whose range does not hold its own, or that is over another primitive or signedness.
 ErrCannotInfer	E3179	genericTypeParameterNotInferable	A type parameter of a generic function is fixed by no argument.
 ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program cannot be spelled as a module name.
 ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.

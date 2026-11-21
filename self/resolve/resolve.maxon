@@ -705,6 +705,13 @@ function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 		return
 	end 'root'
 	if not isNameBound(r, name: n) 'free'
+		if r.typeParams.has(n) 'parameter'
+			match r.typeParams.get(n) 'slot'
+				some(slot) then r.res.bindTypeParam(id, slot: slot)
+				none then panic("the type parameter '{n}' has no slot")
+			end 'slot'
+			return
+		end 'parameter'
 		let off = r.tree.startOf(id)
 		let lr = bareLookupAt(r, p: p, name: n, off: off)
 		match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
@@ -767,7 +774,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 		return
 	end 'notName'
 	let headName = ast.nameExprName(r.tree, id: cur)
-	if isNameBound(r, name: headName) or headName == "Self" 'bound'
+	if isNameBound(r, name: headName) or headName == "Self" or r.typeParams.has(headName) 'bound'
 		resolveExpr(r, p: p, id: ast.memberExprObj(r.tree, id: id), errs: errs)
 		return
 	end 'bound'
@@ -1100,9 +1107,7 @@ function signature(mutates r Resolver, p ast.Project, s Surface, params ast.Para
 end 'signature'
 
 function resolveConforms(mutates r Resolver, p ast.Project, s Surface, conforms diag.U32, mutates errs diag.ErrorList)
-	for i in 0 upto r.tree.listLen(conforms) 'each'
-		signatureType(r, p: p, s: s, position: "in its implements clause", tr: r.tree.listAt(conforms, index: i) as ast.NodeID, errs: errs)
-	end 'each'
+	resolveInterfaceList(r, p: p, s: s, interfaces: conforms, position: "in its implements clause", errs: errs)
 end 'resolveConforms'
 
 // resolveParamDefaults resolves the default of each parameter in the scope of the declaration alone: it sees no parameter, no field and no
@@ -1129,6 +1134,13 @@ function refuseParamDefaults(mutates r Resolver, params ast.ParamList, noun Stri
 		end 'default'
 	end 'each'
 end 'refuseParamDefaults'
+
+// resolveInterfaceList resolves the interfaces of an 'implements' or an 'extends' clause.
+function resolveInterfaceList(mutates r Resolver, p ast.Project, s Surface, interfaces diag.U32, position String, mutates errs diag.ErrorList)
+	for i in 0 upto r.tree.listLen(interfaces) 'each'
+		signatureType(r, p: p, s: s, position: position, tr: r.tree.listAt(interfaces, index: i) as ast.NodeID, errs: errs)
+	end 'each'
+end 'resolveInterfaceList'
 
 // resolveFuncDecl resolves a function, or a method, which has a receiver when hasReceiver is set: a closure in its body
 // captures 'self' by that name.
@@ -1385,6 +1397,9 @@ function resolveAliasDecl(mutates r Resolver, p ast.Project, ad ast.AliasDecl, s
 	if ad.instance != 0 'inst'
 		signatureType(r, p: p, s: s, position: "in its target", tr: ad.instance, errs: errs)
 	end 'inst'
+	if ad.parent != 0 'parent'
+		signatureType(r, p: p, s: s, position: "in its implements clause", tr: ad.parent, errs: errs)
+	end 'parent'
 	if ad.fn != 0 'fn'
 		let paramsRef = ast.funcTypeParamsRef(r.tree, id: ad.fn)
 		for i in 0 upto r.tree.listLen(paramsRef) 'params'
@@ -1403,11 +1418,15 @@ end 'resolveAliasDecl'
 function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
 	checkEnd(r, label: ifd.name, endNode: ifd.endRef, errs: errs)
 	let tier = ast.visibilityOf(ifd.visibility)
+	let ifs = Surface.make(tier, noun: "interface", name: ifd.name.clone(), at: r.tree.startOf(ifd.id))
+	let outer = enterTypeParams(r, p: p, owner: ifd.name, s: ifs, params: ifd.typeParams, constraints: ast.ConstraintList.create(0), errs: errs)
+	resolveInterfaceList(r, p: p, s: ifs, interfaces: ifd.parents, position: "in its extends clause", errs: errs)
 	for i in 0 upto ifd.methods.count() 'sigs'
 		let s = Surface.make(tier, noun: "function", name: "{ifd.name}.{ifd.methods[i].name}", at: r.tree.startOf(ifd.methods[i].id))
 		signature(r, p: p, s: s, params: ifd.methods[i].params, returnsRef: ifd.methods[i].returnsRef, throwsRef: ifd.methods[i].throwsRef, errs: errs)
 		refuseParamDefaults(r, params: ifd.methods[i].params, noun: "interface requirement", errs: errs)
 	end 'sigs'
+	r.typeParams = outer
 end 'resolveInterfaceDecl'
 
 export function resolveModule(mutates p ast.Project, modIdx Count, mutates errs diag.ErrorList)

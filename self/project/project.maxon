@@ -442,7 +442,7 @@ function createShellType(mutates p ast.Project, modID diag.ModuleID, ord ast.Dec
 		typeDecl(td) then allocRecordShell(p, ref: ref, td: td, errs: errs)
 		enumDecl(ed) then allocEnumShell(p, ref: ref, ed: ed)
 		unionDecl(ud) then allocUnionShell(p, ref: ref, ud: ud, errs: errs)
-		interfaceDecl(ifd) then allocIfaceShell(p, ref: ref, ifd: ifd)
+		interfaceDecl(ifd) then allocIfaceShell(p, ref: ref, ifd: ifd, errs: errs)
 		extensionDecl(_) then _ = 0
 		aliasDecl(ad) then ast.declareRangeAlias(p, ref: ref, ad: ad, errs: errs)
 		funcDecl(_) then _ = 0
@@ -478,11 +478,12 @@ function allocUnionShell(mutates p ast.Project, ref ast.DeclRef, ud ast.UnionDec
 	p.declTypes.insert(ast.declKey(ref), value: tid)
 end 'allocUnionShell'
 
-function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.InterfaceDecl)
+function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
 	var e = ast.TypeEntry.make(ast.TypeKind.interfaceTy, name: ifd.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
 	let tid = ast.allocType(p.types, e: e)
+	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ifd.typeParams, errs: errs)
 	p.declTypes.insert(ast.declKey(ref), value: tid)
 end 'allocIfaceShell'
 

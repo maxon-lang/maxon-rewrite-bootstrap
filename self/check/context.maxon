@@ -312,9 +312,9 @@ export function assignable(p ast.Project, src ast.TypeID, dst ast.TypeID) return
 	if sameType(p.types, a: src, b: dst) or src == p.builtins.neverTy 'sameOrNever'
 		return true
 	end 'sameOrNever'
-	if src == p.builtins.countTy and dst == p.builtins.elementIndexTy 'countIsAnIndex'
+	if ast.isSubtypeOf(p.types, sub: src, sup: dst) 'subtype'
 		return true
-	end 'countIsAnIndex'
+	end 'subtype'
 	let dk = p.types.entries[dst as Count].kind
 	if dk == ast.TypeKind.intRange 'dstInt'
 		let sk = p.types.entries[src as Count].kind
@@ -471,7 +471,7 @@ export function requireOneAlias(c Checker, p ast.Project, off diag.U32, clash Cl
 	if l == ast.noType or r == ast.noType 'e'
 		return false
 	end 'e'
-	if typeIsNamedInt(p.types, t: l) and typeIsNamedInt(p.types, t: r) and l != r 'diff'
+	if typeIsNamedInt(p.types, t: l) and typeIsNamedInt(p.types, t: r) and ast.commonSupertype(p.types, a: l, b: r) == ast.noType 'diff'
 		failAlias(c, p: p, off: off, clash: clash, l: l, r: r, errs: errs)
 		return false
 	end 'diff'
@@ -531,6 +531,9 @@ export function unifyInts(c Checker, p ast.Project, off diag.U32, clash Clash, l
 	if alias == ast.noType 'noAlias'
 		return wordOf(c, p: p, off: off, l: l, r: r, errs: errs)
 	end 'noAlias'
+	if typeIsNamedInt(p.types, t: other) 'related'
+		return ast.commonSupertype(p.types, a: l, b: r)
+	end 'related'
 	if not assignable(p, src: other, dst: alias) 'notFit'
 		let oName = ast.typeName(p.types, t: other)
 		let aName = ast.typeName(p.types, t: alias)
@@ -550,6 +553,10 @@ export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, clash 
 	if b == p.builtins.neverTy or sameType(p.types, a: a, b: b) 'nbOrEq'
 		return a
 	end 'nbOrEq'
+	let common = ast.commonSupertype(p.types, a: a, b: b)
+	if common != ast.noType 'ancestor'
+		return common
+	end 'ancestor'
 	if ast.isIntType(p.types, t: a) and ast.isIntType(p.types, t: b) 'ints'
 		if not requireOneAlias(c, p: p, off: off, clash: clash, l: a, r: b, errs: errs) 'bad'
 			return ast.noType
@@ -841,7 +848,9 @@ export function copyAdviceText(mutates c Checker, mutates p ast.Project, t ast.T
 	return "'{ast.typeName(p.types, t: t)}' cannot be copied ({why}), so {ow}"
 end 'copyAdviceText'
 
-export function queueBounds(mutates c Checker, p ast.Project, off diag.U32, params ast.TypeIDList, args ast.TypeIDList)
+// queueBounds queues the check of each type argument against its parameter's bounds, which are read at the arguments: a
+// bound may bind an interface's associated type to another of the parameters.
+export function queueBounds(mutates c Checker, mutates p ast.Project, off diag.U32, params ast.TypeIDList, args ast.TypeIDList)
 	for i in 0 upto params.count() 'each'
 		let pid = params[i]
 		let bCount = p.types.entries[pid as Count].bounds.count()
@@ -850,13 +859,14 @@ export function queueBounds(mutates c Checker, p ast.Project, off diag.U32, para
 			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: stdB, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
 		end 'hasStd'
 		for bi in 0 upto bCount 'eachB'
-			let iface = p.types.entries[pid as Count].bounds[bi].ifaceTy
+			let declared = p.types.entries[pid as Count].bounds[bi].ifaceTy
+			let iface = ast.substituteType(p.types, t: declared, params: params, args: args)
 			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
 		end 'eachB'
 	end 'each'
 end 'queueBounds'
 
-export function queueMethodBounds(mutates c Checker, p ast.Project, off diag.U32, method ast.FuncID, args ast.TypeIDList)
+export function queueMethodBounds(mutates c Checker, mutates p ast.Project, off diag.U32, method ast.FuncID, args ast.TypeIDList)
 	if p.funcs.entries[method as Count].bounds.count() == 0 'none'
 		return
 	end 'none'
@@ -864,7 +874,8 @@ export function queueMethodBounds(mutates c Checker, p ast.Project, off diag.U32
 	let generics = ast.cloneTypeArgs(p.funcs.entries[method as Count].generics)
 	for bi in 0 upto bCount 'eachB'
 		let pTy = p.funcs.entries[method as Count].bounds[bi].paramTy
-		let iface = p.funcs.entries[method as Count].bounds[bi].ifaceTy
+		let declared = p.funcs.entries[method as Count].bounds[bi].ifaceTy
+		let iface = ast.substituteType(p.types, t: declared, params: generics, args: args)
 		for gi in 0 upto generics.count() 'findG'
 			if generics[gi] == pTy and gi < args.count() 'hit'
 				c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: true, methodFn: method))
@@ -898,12 +909,14 @@ export function instantiateGeneric(mutates c Checker, mutates p ast.Project, off
 	return ast.instantiateType(p.types, origin: base, args: args)
 end 'instantiateGeneric'
 
-export function resolveBoundTypeRef(c Checker, p ast.Project, tr ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+// resolveBoundTypeRef is the interface that a bound or an 'implements' names, the instance of a generic one at the types
+// its 'with' binds. A bound binds every associated type, since a call through it is typed by them; a conformance that
+// binds none is refused where its declaration is checked, which names what it lacks.
+export function resolveBoundTypeRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = p.modules[c.modIdx].tree.startOf(tr)
 	let tName = ast.typeRefName(p.modules[c.modIdx].tree, id: tr)
-	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)
 	match p.resolutions[c.modIdx].decls.get(tr as Count) 'hit'
-		some(ref) then return checkInterfaceRef(c, p: p, tr: tr, off: off, tName: tName, ref: ref, hasArgs: p.modules[c.modIdx].tree.listLen(argsRef) > 0, errs: errs)
+		some(ref) then return checkInterfaceRef(c, p: p, tr: tr, off: off, tName: tName, ref: ref, isBound: isBound, errs: errs)
 		none then _ = 0
 	end 'hit'
 	if p.resolutions[c.modIdx].typeParamSlots.has(tr as Count) 'typeParameter'
@@ -926,25 +939,50 @@ function failUnknownType(c Checker, p ast.Project, tr ast.NodeID, mutates errs d
 	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
 end 'failUnknownType'
 
-function checkInterfaceRef(c Checker, p ast.Project, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, hasArgs bool, mutates errs diag.ErrorList) returns ast.TypeID
+function checkInterfaceRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
 	match p.declTypes.get(ast.declKey(ref)) 'dt'
-		some(tid) then return verifyInterfaceTarget(c, p: p, off: off, tName: tName, tid: tid, hasArgs: hasArgs, errs: errs)
+		some(tid) then return verifyInterfaceTarget(c, p: p, tr: tr, off: off, tName: tName, tid: tid, isBound: isBound, errs: errs)
 		none then _ = 0
 	end 'dt'
 	checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
 	return ast.noType
 end 'checkInterfaceRef'
 
-function verifyInterfaceTarget(c Checker, p ast.Project, off diag.U32, tName String, tid ast.TypeID, hasArgs bool, mutates errs diag.ErrorList) returns ast.TypeID
+function verifyInterfaceTarget(mutates c Checker, mutates p ast.Project, tr ast.NodeID, off diag.U32, tName String, tid ast.TypeID, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
 	if p.types.entries[tid as Count].kind != ast.TypeKind.interfaceTy 'notIface'
 		checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
 		return ast.noType
 	end 'notIface'
-	if hasArgs 'hasArgs'
-		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "the interface '{tName}' is not generic and takes no type arguments", errs: errs)
+	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)
+	let argCount = p.modules[c.modIdx].tree.listLen(argsRef)
+	let params = ast.cloneTypeArgs(p.types.entries[tid as Count].typeParams)
+	if params.count() == 0 'plain'
+		if argCount > 0 'hasArgs'
+			checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "the interface '{tName}' is not generic and takes no type arguments", errs: errs)
+			return ast.noType
+		end 'hasArgs'
+		return tid
+	end 'plain'
+	if argCount == 0 and not isBound 'unbound'
+		return tid
+	end 'unbound'
+	if argCount != params.count() 'badCount'
+		var names = ast.StringList.create(0)
+		for i in 0 upto params.count() 'names'
+			names.push(p.types.entries[params[i] as Count].name.clone())
+		end 'names'
+		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "the interface '{tName}' binds {params.count()} associated type(s) and {argCount} were given: write '{ast.instanceSpelling(tName, args: names)}' with the type of each", errs: errs)
 		return ast.noType
-	end 'hasArgs'
-	return tid
+	end 'badCount'
+	var args = ast.TypeIDList.create(0)
+	for i in 0 upto argCount 'args'
+		let at = resolveTypeRef(c, p: p, tr: p.modules[c.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID, selfTy: ast.noType, errs: errs)
+		if at == ast.noType 'failed'
+			return ast.noType
+		end 'failed'
+		args.push(at)
+	end 'args'
+	return ast.instantiateType(p.types, origin: tid, args: args)
 end 'verifyInterfaceTarget'
 
 export function resolveTypeRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID

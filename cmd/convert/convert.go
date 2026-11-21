@@ -552,6 +552,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 	}
 	var stack []openBlock
 	interfaces := declaredInterfaces(lines)
+	arities := interfaceArities(lines)
 
 	currentBlock := func() blockKind {
 		if len(stack) == 0 {
@@ -596,6 +597,10 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		}
 
 		switch declWord {
+		case "type", "union", "enum", "extension", "function":
+			line.code = parenthesizeAssociatedTypes(line.code, arities)
+		}
+		switch declWord {
 		case "type":
 			transformTypeOrUnionHeader(line, declIdx, warn)
 			stack = append(stack, openBlock{indent: line.indent, kind: blockType, generic: hasUsesClause(line.code[declIdx:])})
@@ -609,12 +614,11 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			stack = append(stack, openBlock{indent: line.indent, kind: blockEnum})
 			continue
 		case "interface":
-			transformInterfaceHeader(line, declIdx, warn)
 			stack = append(stack, openBlock{indent: line.indent, kind: blockInterface})
 			continue
 		case "function":
 			if !isClosureLine(line.code, declIdx) {
-				transformFunctionHeader(line, declIdx, currentBlock() == blockInterface, warn)
+				transformFunctionHeader(line, declIdx, warn)
 				if currentBlock() != blockInterface {
 					stack = append(stack, openBlock{indent: line.indent, kind: blockOther})
 				}
@@ -684,6 +688,97 @@ func declaredInterfaces(lines []sourceLine) []string {
 		}
 	}
 	return names
+}
+
+// interfaceArities are the number of associated types of each generic interface the lines declare.
+func interfaceArities(lines []sourceLine) map[string]int {
+	arities := map[string]int{}
+	for i := range lines {
+		line := &lines[i]
+		if line.removed || len(line.code) == 0 {
+			continue
+		}
+		idx := skipModifiers(line.code)
+		if idx+1 >= len(line.code) || line.code[idx].kind != tokIdent || line.code[idx].text != "interface" {
+			continue
+		}
+		usesIdx := findToken(line.code, idx+2, "uses")
+		if usesIdx < 0 {
+			continue
+		}
+		count := 0
+		for _, t := range line.code[usesIdx+1:] {
+			if t.kind == tokIdent && t.text == "extends" {
+				break
+			}
+			if t.kind == tokIdent {
+				count++
+			}
+		}
+		if count > 0 {
+			arities[line.code[idx+1].text] = count
+		}
+	}
+	return arities
+}
+
+// parenthesizeAssociatedTypes writes the associated types that an 'implements' or a bound binds of an interface with several
+// in parentheses, where maxon also takes them as a bare list as long as the interface's arity, and parenthesizes a tuple that
+// is the one associated type of an interface, which maxon writes as a parenthesized list: minimaxon's type arguments are one
+// type or a parenthesized list.
+func parenthesizeAssociatedTypes(toks []token, arities map[string]int) []token {
+	var out []token
+	for i := 0; i < len(toks); i++ {
+		out = append(out, toks[i])
+		if toks[i].text != "with" || i == 0 || i+1 >= len(toks) {
+			continue
+		}
+		arity, ok := arities[toks[i-1].text]
+		if !ok {
+			continue
+		}
+		if toks[i+1].text == "(" {
+			closing := findMatchingParen(toks, i+1)
+			if arity == 1 && closing > 0 && len(splitTopLevel(toks[i+2:closing])) > 1 {
+				out = append(out, token{kind: tokPunct, text: "("})
+				out = append(out, toks[i+1:closing+1]...)
+				out = append(out, token{kind: tokPunct, text: ")"})
+				i = closing
+			}
+			continue
+		}
+		if arity == 1 {
+			continue
+		}
+		end, items := i+1, 0
+		for depth := 0; end < len(toks); end++ {
+			t := toks[end]
+			if depth == 0 && t.kind == tokIdent && (t.text == "where" || t.text == "and" || t.text == "returns" || t.text == "throws") {
+				break
+			}
+			if t.text == "(" {
+				depth++
+			} else if t.text == ")" {
+				if depth == 0 {
+					break
+				}
+				depth--
+			} else if t.text == "," && depth == 0 {
+				items++
+				if items == arity {
+					break
+				}
+			}
+		}
+		if items+1 < arity {
+			continue
+		}
+		out = append(out, token{kind: tokPunct, text: "("})
+		out = append(out, toks[i+1:end]...)
+		out = append(out, token{kind: tokPunct, text: ")"})
+		i = end - 1
+	}
+	return out
 }
 
 // warnUnsupportedExtension warns about the parts of an extension header that minimaxon does not have: a conditional
@@ -821,17 +916,6 @@ func transformEnumHeader(line *sourceLine, kwIdx int, warn func(*sourceLine, str
 	transformWhereInSlice(line.code, kwIdx+2, line, warn)
 }
 
-func transformInterfaceHeader(line *sourceLine, kwIdx int, warn func(*sourceLine, string)) {
-	for i := kwIdx + 2; i < len(line.code); i++ {
-		if line.code[i].kind == tokIdent && line.code[i].text == "extends" {
-			warn(line, "interface inheritance (extends) is not supported in minimaxon")
-		}
-		if line.code[i].kind == tokIdent && line.code[i].text == "uses" {
-			warn(line, "generic interfaces (uses on interface) are not supported in minimaxon")
-		}
-	}
-}
-
 // transformWhereInSlice rewrites `where T is Bound` into `where T implements Bound`.
 func transformWhereInSlice(toks []token, from int, line *sourceLine, warn func(*sourceLine, string)) {
 	whereIdx := -1
@@ -865,11 +949,7 @@ func transformWhereInSlice(toks []token, from int, line *sourceLine, warn func(*
 	}
 }
 
-func transformFunctionHeader(line *sourceLine, fnIdx int, inInterface bool, warn func(*sourceLine, string)) {
-	if inInterface && hasStaticModifier(line.code, fnIdx) {
-		warn(line, "static functions in interfaces are not supported in minimaxon")
-	}
-
+func transformFunctionHeader(line *sourceLine, fnIdx int, warn func(*sourceLine, string)) {
 	toks := line.code
 	if fnIdx+1 < len(toks) && isKeywordName(toks[fnIdx+1].text) {
 		warn(line, keywordNameMessage(toks[fnIdx+1].text))
@@ -998,12 +1078,10 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 		warn(line, fmt.Sprintf("capability typealias '%s' is not supported in minimaxon", rhs[0].text))
 	}
 
-	// Check alias subtyping `implements`.
 	implIdx := -1
 	for i := eqIdx + 1; i < len(toks); i++ {
 		if toks[i].kind == tokIdent && toks[i].text == "implements" {
 			implIdx = i
-			warn(line, "alias subtyping (implements on typealias) is not supported in minimaxon")
 			break
 		}
 	}

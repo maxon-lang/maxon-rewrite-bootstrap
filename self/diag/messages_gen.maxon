@@ -495,6 +495,46 @@ export function wrongSignatureMethods(typeName String, count String) returns Str
 	return "Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:"
 end 'wrongSignatureMethods'
 
+// The text of errBoundBindingDisagrees for: '{baseName}' constrains type parameter '{param}' to '{claimed}', but '{argName}' binds '{interfaceName}'s associated type '{associated}' to '{supplied}' — a `where` constraint's binding is what types every dispatch through that parameter inside the shared body, which is compiled ONCE, so a conformer binding it otherwise would have its bits read as the claimed type. Bind the constraint to what the conformer declares, or supply an argument whose conformance binds what the constraint states
+export function boundBindingDisagrees(baseName String, param String, claimed String, argName String, interfaceName String, associated String, supplied String) returns String
+	return "'{baseName}' constrains type parameter '{param}' to '{claimed}', but '{argName}' binds '{interfaceName}'s associated type '{associated}' to '{supplied}' — a `where` constraint's binding is what types every dispatch through that parameter inside the shared body, which is compiled ONCE, so a conformer binding it otherwise would have its bits read as the claimed type. Bind the constraint to what the conformer declares, or supply an argument whose conformance binds what the constraint states"
+end 'boundBindingDisagrees'
+
+// The text of errResolutionCycle for: typealias '{aliasName}' forms a type cycle: the alias it implements refers back to '{aliasName}'
+export function aliasCycle(aliasName String) returns String
+	return "typealias '{aliasName}' forms a type cycle: the alias it implements refers back to '{aliasName}'"
+end 'aliasCycle'
+
+// The text of errExpectedType for: '{parentName}' is not a ranged typealias: a typealias implements one declared over `int(low to high)` or `float(low to high)`
+export function notARangedAlias(parentName String) returns String
+	return "'{parentName}' is not a ranged typealias: a typealias implements one declared over `int(low to high)` or `float(low to high)`"
+end 'notARangedAlias'
+
+// The text of errAliasRangeDoesNotFit for: typealias '{aliasName}' does not fit the alias it implements: its range is not inside the range of '{parentName}'
+export function implementsRangeDoesNotFit(aliasName String, parentName String) returns String
+	return "typealias '{aliasName}' does not fit the alias it implements: its range is not inside the range of '{parentName}'"
+end 'implementsRangeDoesNotFit'
+
+// The text of errAliasRangeDoesNotFit for: typealias '{aliasName}' does not fit the alias it implements: it is {own} and '{parentName}' is {parents}
+export function implementsPrimitiveDiffers(aliasName String, own String, parentName String, parents String) returns String
+	return "typealias '{aliasName}' does not fit the alias it implements: it is {own} and '{parentName}' is {parents}"
+end 'implementsPrimitiveDiffers'
+
+// The text of errStaticRequirementNotDispatchable for: '{requirement}' is a `static` requirement, and a `static` member has no receiver to dispatch on — so {reacher} cannot reach it. Call a `static` member on a concrete type
+export function staticRequirementNotDispatchable(requirement String, reacher String) returns String
+	return "'{requirement}' is a `static` requirement, and a `static` member has no receiver to dispatch on — so {reacher} cannot reach it. Call a `static` member on a concrete type"
+end 'staticRequirementNotDispatchable'
+
+// The text of errMethodAsFunctionValue for: '{requirement}' is a requirement of '{interfaceName}', and a requirement is not a function value: it is reached on a concrete type that implements '{interfaceName}'
+export function requirementAsFunctionValue(requirement String, interfaceName String) returns String
+	return "'{requirement}' is a requirement of '{interfaceName}', and a requirement is not a function value: it is reached on a concrete type that implements '{interfaceName}'"
+end 'requirementAsFunctionValue'
+
+// The text of errConformance for: Type '{typeName}' does not define required associated type '{associated}' from interface '{interfaceName}'
+export function unboundAssociatedType(typeName String, associated String, interfaceName String) returns String
+	return "Type '{typeName}' does not define required associated type '{associated}' from interface '{interfaceName}'"
+end 'unboundAssociatedType'
+
 // The text of errUnknownFunction for: call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
 export function undefinedReservedFunction(name String) returns String
 	return "call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists"

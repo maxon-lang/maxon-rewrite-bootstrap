@@ -105,6 +105,14 @@ moduleLetCallsFunction	ErrModuleLetCallsFunction	the initializer of '{name}' cal
 letFieldReassigned	ErrAssignToImmutable	'{name}' is a let field and cannot be reassigned
 missingMethods	ErrConformance	Partial interface implementation: type '{typeName}' is missing {count} method(s):
 wrongSignatureMethods	ErrConformance	Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:
+boundBindingDisagrees	ErrBoundBindingDisagrees	'{baseName}' constrains type parameter '{param}' to '{claimed}', but '{argName}' binds '{interfaceName}'s associated type '{associated}' to '{supplied}' — a `where` constraint's binding is what types every dispatch through that parameter inside the shared body, which is compiled ONCE, so a conformer binding it otherwise would have its bits read as the claimed type. Bind the constraint to what the conformer declares, or supply an argument whose conformance binds what the constraint states
+aliasCycle	ErrResolutionCycle	typealias '{aliasName}' forms a type cycle: the alias it implements refers back to '{aliasName}'
+notARangedAlias	ErrExpectedType	'{parentName}' is not a ranged typealias: a typealias implements one declared over `int(low to high)` or `float(low to high)`
+implementsRangeDoesNotFit	ErrAliasRangeDoesNotFit	typealias '{aliasName}' does not fit the alias it implements: its range is not inside the range of '{parentName}'
+implementsPrimitiveDiffers	ErrAliasRangeDoesNotFit	typealias '{aliasName}' does not fit the alias it implements: it is {own} and '{parentName}' is {parents}
+staticRequirementNotDispatchable	ErrStaticRequirementNotDispatchable	'{requirement}' is a `static` requirement, and a `static` member has no receiver to dispatch on — so {reacher} cannot reach it. Call a `static` member on a concrete type
+requirementAsFunctionValue	ErrMethodAsFunctionValue	'{requirement}' is a requirement of '{interfaceName}', and a requirement is not a function value: it is reached on a concrete type that implements '{interfaceName}'
+unboundAssociatedType	ErrConformance	Type '{typeName}' does not define required associated type '{associated}' from interface '{interfaceName}'
 undefinedReservedFunction	ErrUnknownFunction	call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
 typeDoesNotConform	ErrTypeMismatch	Type '{typeName}' does not conform to {interfaceName}
 throwingFunctionAsValue	ErrFunctionValueThrows	Cannot use throwing function '{name}' as a value: it throws '{errorType}', and a function type cannot express 'throws'. Wrap the call in a non-throwing function that handles the error with 'try'.

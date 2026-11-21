@@ -102,7 +102,7 @@ function declareBounds(mutates c Checker, mutates p ast.Project, constraints ast
 		let cs = constraints[i].clone()
 		let constrained = boundedParamOf(c, p: p, cs: cs)
 		for bi in 0 upto p.modules[c.modIdx].tree.listLen(cs.bounds) 'bounds'
-			let iface = resolveBoundTypeRef(c, p: p, tr: p.modules[c.modIdx].tree.listAt(cs.bounds, index: bi) as ast.NodeID, errs: errs)
+			let iface = resolveBoundTypeRef(c, p: p, tr: p.modules[c.modIdx].tree.listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
 			if failedSince(errs, mark: mark) 'failed'
 				return
 			end 'failed'
@@ -165,7 +165,7 @@ function conformedInterfaces(mutates c Checker, mutates p ast.Project, interface
 	let mark = errs.count()
 	for i in 0 upto p.modules[c.modIdx].tree.listLen(interfaces) 'each'
 		let tr = p.modules[c.modIdx].tree.listAt(interfaces, index: i) as ast.NodeID
-		let iface = resolveBoundTypeRef(c, p: p, tr: tr, errs: errs)
+		let iface = resolveBoundTypeRef(c, p: p, tr: tr, isBound: false, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return named
 		end 'failed'
@@ -260,7 +260,8 @@ function declareSignature(mutates c Checker, mutates p ast.Project, it ast.TypeI
 	end 'each'
 	var fn = ast.FuncEntry.make(m.name.clone(), visibility: "", module: c.modID, nodeID: m.id)
 	fn.selfConv = ast.parseConvention(m.receiver)
-	fn.hasReceiver = true
+	fn.isStatic = m.isStatic
+	fn.hasReceiver = not m.isStatic
 	fn.ownerTy = it
 	let selfTy = p.types.entries[it as Count].selfParam
 	let mark = errs.count()
@@ -404,7 +405,7 @@ function declareDeclTypeParams(mutates c Checker, mutates p ast.Project, ord ast
 		constDecl(_) then _ = 0
 		enumDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
-		interfaceDecl(_) then _ = 0
+		interfaceDecl(ifd) then declareNominalTypeParams(c, p: p, owner: declTypeOf(p, ref: ref), params: ifd.typeParams, constraints: ast.ConstraintList.create(0), errs: errs)
 		extensionDecl(_) then _ = 0
 	end 'k'
 	return not failedSince(errs, mark: mark)

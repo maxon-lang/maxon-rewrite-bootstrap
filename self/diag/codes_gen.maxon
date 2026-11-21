@@ -6,6 +6,9 @@ export let errInvalidEscape = "E1004"
 // The parser met a token that cannot appear at this point.
 export let errUnexpectedToken = "E2001"
 
+// A type is needed of a kind the name does not have: a typealias implements a ranged typealias.
+export let errExpectedType = "E2003"
+
 // An expression is not well formed or not usable where it stands.
 export let errExpressionError = "E2004"
 
@@ -65,6 +68,9 @@ export let errBuiltinArgNamed = "E2067"
 
 // A qualified name names a member its base does not declare.
 export let errUnknownStaticMember = "E2073"
+
+// A method or a requirement is named where a function value is needed.
+export let errMethodAsFunctionValue = "E2078"
 
 // The program declares no 'main' function.
 export let errNoMainFunction = "E3001"
@@ -153,6 +159,9 @@ export let errTryBlockBindingNotMatched = "E3084"
 // A struct literal omits a field that has no default.
 export let errFieldNotInitialized = "E3086"
 
+// A typealias refers back to itself through the aliases it implements, or an interface through the interfaces it extends.
+export let errResolutionCycle = "E3091"
+
 // A function that throws is used as a value, which no function type can hold.
 export let errFunctionValueThrows = "E3101"
 
@@ -171,14 +180,23 @@ export let errThrowsNotAnErrorEnum = "E3113"
 // A method call on a type parameter names a method that more than one of its bounds declares.
 export let errAmbiguousBound = "E3114"
 
+// A static requirement of an interface is called through a type parameter, which has no receiver to dispatch on.
+export let errStaticRequirementNotDispatchable = "E3116"
+
 // An 'if try' with no binding tests a call that returns a value, which it discards.
 export let errIfTryDiscardsResult = "E3124"
+
+// A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
+export let errBoundBindingDisagrees = "E3133"
 
 // A source file outside the runtime calls a __Raw intrinsic.
 export let errRawIntrinsicOutsideRuntime = "E3152"
 
 // A declaration's signature names a type less visible than the declaration.
 export let errExposesHiddenType = "E3167"
+
+// A typealias implements one whose range does not hold its own, or that is over another primitive or signedness.
+export let errAliasRangeDoesNotFit = "E3178"
 
 // A type parameter of a generic function is fixed by no argument.
 export let errCannotInfer = "E3179"

@@ -100,12 +100,13 @@ export function isReserved(word String) returns bool
 		"typealias" or
 		"to" or
 		"upto" or
+		"implements" or
 		"Self" or
 		"with" or
 		"uses" or
 		"where" or
-		"implements" or
 		"and" or
+		"extends" or
 		"interface" or
 		"if" or
 		"else" or
@@ -410,11 +411,12 @@ export type AliasDecl
 	export var low as Bound
 	export var inclusive as bool
 	export var high as Bound
+	export var parent as NodeID
 	export var fn as NodeID
 	export var instance as NodeID
 
 	export static function make(id NodeID) returns AliasDecl
-		return AliasDecl{id: id, name: "", visibility: "", number: "", low: Bound.make(0 as NodeID), inclusive: false, high: Bound.make(0 as NodeID), fn: 0 as NodeID, instance: 0 as NodeID}
+		return AliasDecl{id: id, name: "", visibility: "", number: "", low: Bound.make(0 as NodeID), inclusive: false, high: Bound.make(0 as NodeID), parent: 0 as NodeID, fn: 0 as NodeID, instance: 0 as NodeID}
 	end 'make'
 end 'AliasDecl'
 
@@ -597,11 +599,13 @@ export type InterfaceDecl
 	export var id as NodeID
 	export var name as String
 	export var visibility as String
+	export var typeParams as TypeParamList
+	export var parents as diag.U32
 	export var methods as FuncSigList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns InterfaceDecl
-		return InterfaceDecl{id: id, name: "", visibility: "", methods: FuncSigList.create(0), endRef: 0 as NodeID}
+		return InterfaceDecl{id: id, name: "", visibility: "", typeParams: TypeParamList.create(0), parents: 0 as diag.U32, methods: FuncSigList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'InterfaceDecl'
 
@@ -613,6 +617,7 @@ end 'newInterfaceDecl'
 
 export type FuncSig
 	export var id as NodeID
+	export var isStatic as bool
 	export var name as String
 	export var receiver as String
 	export var params as ParamList
@@ -620,7 +625,7 @@ export type FuncSig
 	export var throwsRef as NodeID
 
 	export static function make(id NodeID) returns FuncSig
-		return FuncSig{id: id, name: "", receiver: "", params: ParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID}
+		return FuncSig{id: id, isStatic: false, name: "", receiver: "", params: ParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID}
 	end 'make'
 end 'FuncSig'
 

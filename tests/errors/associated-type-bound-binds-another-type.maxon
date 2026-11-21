@@ -1,0 +1,33 @@
+typealias Integer = int(i64.min to i64.max)
+
+interface Cursor uses Element
+	function current() returns Element
+end 'Cursor'
+
+type TextCur implements Cursor with String
+	var v as String
+
+	static function create(v String) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function current() returns String
+		return self.v.clone()
+	end 'current'
+end 'TextCur'
+
+type Wrap uses S, E where S implements Cursor with E
+	var s as S
+
+	static function create(consumes s S) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Wrap'
+
+// expect-error: E3133 at 28:21
+typealias BadWrap = Wrap with (TextCur, Integer)
+
+function main() returns ExitCode
+	let w = BadWrap.create(TextCur.create("no"))
+	return 0
+end 'main'

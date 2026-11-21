@@ -118,11 +118,32 @@ function declareUnionMembers(mutates c Checker, mutates p ast.Project, ud ast.Un
 	end 'each'
 end 'declareUnionMembers'
 
+// declareParentInterfaces records the interfaces that an interface extends in its conforms. A parent binds no associated
+// types, which its requirements would have to take from the child's, and one that extends the interface again is a cycle.
+function declareParentInterfaces(mutates c Checker, mutates p ast.Project, ifd ast.InterfaceDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, node: ifd.id)
+	let parents = conformedInterfaces(c, p: p, interfaces: ifd.parents, errs: errs)
+	for i in 0 upto parents.count() 'each'
+		let parent = parents[i]
+		let parentName = p.types.entries[parent as Count].name.clone()
+		if p.types.entries[ast.originOf(p.types, t: parent) as Count].typeParams.count() > 0 'generic'
+			checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "the interface '{ifd.name}' extends '{parentName}', which has associated types; an interface extends only interfaces without them, so list '{parentName}' in the 'implements' of each type instead", errs: errs)
+			return
+		end 'generic'
+		if ast.extendsInterface(p.types, have: parent, want: tid) 'cycle'
+			checkFail(c.modID, off: off, code: diag.errResolutionCycle, msg: "interface '{ifd.name}' forms a type cycle: the interface it extends, '{parentName}', extends '{ifd.name}'", errs: errs)
+			return
+		end 'cycle'
+		p.types.entries[tid as Count].conforms.push(parent)
+	end 'each'
+end 'declareParentInterfaces'
+
 // declareInterfaceMembers declares the methods an interface requires, each a signature in which 'Self' is the type that
 // implements the interface.
 function declareInterfaceMembers(mutates c Checker, mutates p ast.Project, ifd ast.InterfaceDecl, tid ast.TypeID, mutates errs diag.ErrorList)
 	let selfParam = ast.allocType(p.types, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: "Self"))
 	p.types.entries[tid as Count].selfParam = selfParam
+	declareParentInterfaces(c, p: p, ifd: ifd, tid: tid, errs: errs)
 	for i in 0 upto ifd.methods.count() 'each'
 		declareSignature(c, p: p, it: tid, m: ifd.methods[i].clone(), errs: errs)
 	end 'each'

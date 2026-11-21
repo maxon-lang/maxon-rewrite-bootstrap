@@ -1,0 +1,65 @@
+typealias Score = int(0 to 1000)
+
+interface Root
+	function id() returns Score
+end 'Root'
+
+interface Left extends Root
+	function left() returns Score
+end 'Left'
+
+interface Right extends Root
+	function right() returns Score
+end 'Right'
+
+interface Both extends Left, Right
+	function both() returns Score
+end 'Both'
+
+interface Holder uses Element extends Root
+	function get() returns Element
+end 'Holder'
+
+type Thing implements Both, Holder with String
+	var n as Score
+
+	static function create(n Score) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function id() returns Score
+		return n
+	end 'id'
+
+	function left() returns Score
+		return 1
+	end 'left'
+
+	function right() returns Score
+		return 2
+	end 'right'
+
+	function both() returns Score
+		return 3
+	end 'both'
+
+	function get() returns String
+		return "thing"
+	end 'get'
+end 'Thing'
+
+function rootId(x T) uses T returns Score where T implements Root
+	return x.id()
+end 'rootId'
+
+function sum(x T) uses T returns Score where T implements Both
+	return try x.id() + x.left() + x.right() + x.both() + rootId(x) otherwise 0
+end 'sum'
+
+function main() returns ExitCode
+	let t = Thing.create(10)
+	print("{rootId(t)} {sum(t)} {t.get()}\n")
+	return 0
+end 'main'
+
+//> 10 26 thing

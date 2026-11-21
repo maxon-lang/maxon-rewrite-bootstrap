@@ -1,0 +1,72 @@
+typealias Integer = int(i64.min to i64.max)
+
+interface Cursor uses Element
+	function current() returns Element
+	function add(item Element) returns Self
+end 'Cursor'
+
+type IntCur implements Cursor with Integer
+	var v as Integer
+
+	static function create(v Integer) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function current() returns Integer
+		return self.v
+	end 'current'
+
+	function add(item Integer) returns IntCur
+		return IntCur{v: try v + item otherwise 0}
+	end 'add'
+end 'IntCur'
+
+type Holder uses E implements Cursor with E where E implements Copyable
+	var e as E
+
+	static function create(e E) returns Self
+		return Self{e: e.clone()}
+	end 'create'
+
+	function current() returns E
+		return e.clone()
+	end 'current'
+
+	function add(item E) returns Holder with E
+		return Self{e: item.clone()}
+	end 'add'
+end 'Holder'
+
+type Wrap uses S, E where S implements Cursor with E
+	var s as S
+
+	static function create(consumes s S) returns Self
+		return Self{s: s}
+	end 'create'
+
+	function value() returns E
+		return self.s.current()
+	end 'value'
+end 'Wrap'
+
+typealias IntWrap = Wrap with (IntCur, Integer)
+
+function first(c S) uses S, E returns E where S implements Cursor with E
+	return c.current()
+end 'first'
+
+function main() returns ExitCode
+	let w = IntWrap.create(IntCur.create(7))
+	let x = first(IntCur.create(5).add(3))
+	print("{w.value()} {x} {second()}\n")
+	return 0
+end 'main'
+
+typealias IntHolder = Holder with Integer
+
+function second() returns Integer
+	let w = Wrap.create(IntHolder.create(4))
+	return w.value()
+end 'second'
+
+//> 7 8 4

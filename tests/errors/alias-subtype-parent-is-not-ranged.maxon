@@ -1,0 +1,10 @@
+typealias Small = int(0 to 5)
+
+typealias Smalls = Array with Small
+
+// expect-error: E2003 at 6:38
+typealias C = int(0 to 5) implements Smalls
+
+function main() returns ExitCode
+	return 0
+end 'main'

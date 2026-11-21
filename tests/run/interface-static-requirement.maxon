@@ -1,0 +1,34 @@
+typealias Code = int(0 to u32.max)
+
+interface Wide
+	static function tag() returns Code
+	static function make(x Code) returns Self
+	function digest() returns Code
+end 'Wide'
+
+type Point implements Wide
+	export var x as Code
+
+	static function tag() returns Code
+		return 7
+	end 'tag'
+
+	static function make(x Code) returns Self
+		return Self{x: x}
+	end 'make'
+
+	function digest() returns Code
+		return self.x
+	end 'digest'
+end 'Point'
+
+function run(item T) uses T returns Code where T implements Wide
+	return item.digest()
+end 'run'
+
+function main() returns ExitCode
+	print("{Point.tag()} {run(Point.make(42))}\n")
+	return 0
+end 'main'
+
+//> 7 42

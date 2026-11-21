@@ -1,0 +1,12 @@
+typealias BlockId = int(0 to u64.max) implements ElementIndex
+
+function takesBlock(b BlockId) returns BlockId
+	return b
+end 'takesBlock'
+
+function main() returns ExitCode
+	let i = 3 as ElementIndex
+	// expect-error: E3005 at 10:10
+	let b = takesBlock(i)
+	return 0
+end 'main'

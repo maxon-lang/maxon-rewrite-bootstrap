@@ -1,0 +1,14 @@
+typealias Score = int(0 to 1000)
+
+interface A extends B
+	function a() returns Score
+end 'A'
+
+// expect-error: E3091 at 8:11
+interface B extends A
+	function b() returns Score
+end 'B'
+
+function main() returns ExitCode
+	return 0
+end 'main'

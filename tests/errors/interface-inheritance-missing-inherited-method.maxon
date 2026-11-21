@@ -1,0 +1,20 @@
+typealias Score = int(0 to 1000)
+
+interface Root
+	function id() returns Score
+end 'Root'
+
+interface Sub extends Root
+	function sub() returns Score
+end 'Sub'
+
+// expect-error: E3016 at 12:6
+type Partial implements Sub
+	function sub() returns Score
+		return 1
+	end 'sub'
+end 'Partial'
+
+function main() returns ExitCode
+	return 0
+end 'main'

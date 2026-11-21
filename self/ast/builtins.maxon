@@ -294,6 +294,7 @@ export function initBuiltins(mutates tt TypeTable, mutates ft FuncTable, mutates
 	b.exitCodeTy = exitTy
 	b.countTy = countTy
 	b.elementIndexTy = elementIndexTy
+	tt.entries[countTy as Count].supertype = elementIndexTy
 	b.fullRangeIntTy = fullTy
 	b.byteTy = byteTy
 	declareBuiltinTable(tt, ft: ft, std: std, b: b, typeMap: typeMap, funcMap: funcMap)

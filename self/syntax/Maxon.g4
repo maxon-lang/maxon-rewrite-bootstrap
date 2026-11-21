@@ -192,7 +192,7 @@ unionCaseDecl
 
 aliasDecl
     : visibility=('export' | 'public')? 'typealias' name=Name '='
-      ( ('int' | number=Name) ^'(' low=bound (inclusive='to' | 'upto') high=bound ')'
+      ( ('int' | number=Name) ^'(' low=bound (inclusive='to' | 'upto') high=bound ')' ('implements' parent=typeRef)?
       | fn=funcType
       | instance=aliasInstance
       )
@@ -268,14 +268,19 @@ conformsClause returns [[]*TypeRef interfaces]
     : 'implements' interfaces+=typeRef (',' interfaces+=typeRef)*
     ;
 
+// The interfaces an interface extends, whose requirements it has too.
+extendsClause returns [[]*TypeRef interfaces]
+    : 'extends' interfaces+=typeRef (',' interfaces+=typeRef)*
+    ;
+
 interfaceDecl
-    : visibility=('export' | 'public')? 'interface' name=Name Newline
+    : visibility=('export' | 'public')? 'interface' name=Name (typeParams=usesClause parents=extendsClause? | parents=extendsClause typeParams=usesClause?)? Newline
       (Indent (methods+=funcSig Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
 funcSig
-    : 'function' name=(Name | 'from')
+    : isStatic='static'? 'function' name=(Name | 'from')
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?

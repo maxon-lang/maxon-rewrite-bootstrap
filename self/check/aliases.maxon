@@ -241,4 +241,88 @@ export function declareAliases(mutates c Checker, mutates p ast.Project, mutates
 			visitAlias(w, c: c, p: p, ord: ord, errs: errs)
 		end 'alias'
 	end 'each'
+	for i in 0 upto p.modules[c.modIdx].decls.count() 'supertypes'
+		match p.modules[c.modIdx].decls[i].clone() 'k'
+			aliasDecl(ad) then declareSupertype(c, p: p, a: ad, ref: ast.DeclRef.make(c.modID, ordinal: try i as ast.DeclOrdinal otherwise panic("too many declarations")), errs: errs)
+			funcDecl(_) then _ = 0
+			constDecl(_) then _ = 0
+			typeDecl(_) then _ = 0
+			enumDecl(_) then _ = 0
+			unionDecl(_) then _ = 0
+			interfaceDecl(_) then _ = 0
+			extensionDecl(_) then _ = 0
+		end 'k'
+	end 'supertypes'
 end 'declareAliases'
+
+// declareSupertype links a ranged typealias to the one it implements, which holds its range over the same primitive and
+// signedness. The typealiases of the modules it names have their links already, so a chain that comes back to the
+// typealias is found within its module.
+function declareSupertype(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+	if a.parent == 0 'none'
+		return
+	end 'none'
+	var own = ast.noType
+	match p.declTypes.get(ast.declKey(ref)) 'own'
+		some(t) then own = t
+		none then return
+	end 'own'
+	let off = p.modules[c.modIdx].tree.startOf(a.parent)
+	let parentName = ast.typeRefName(p.modules[c.modIdx].tree, id: a.parent)
+	var parent = ast.noType
+	match p.resolutions[c.modIdx].decls.get(a.parent as Count) 'named'
+		some(pref) then parent = declTypeOrNone(p, ref: pref)
+		none then return
+	end 'named'
+	if parent == ast.noType or not isRangedAlias(p, t: parent) 'notRanged'
+		checkFail(c.modID, off: off, code: diag.errExpectedType, msg: diag.notARangedAlias(parentName), errs: errs)
+		return
+	end 'notRanged'
+	let ownKind = rangePrimitiveName(p, t: own)
+	let parentKind = rangePrimitiveName(p, t: parent)
+	if ownKind != parentKind 'primitive'
+		checkFail(c.modID, off: off, code: diag.errAliasRangeDoesNotFit, msg: diag.implementsPrimitiveDiffers(a.name, parentName: parentName, own: ownKind, parents: parentKind), errs: errs)
+		return
+	end 'primitive'
+	if not rangeInside(p, inner: own, outer: parent) 'outside'
+		checkFail(c.modID, off: off, code: diag.errAliasRangeDoesNotFit, msg: diag.implementsRangeDoesNotFit(a.name, parentName: parentName), errs: errs)
+		return
+	end 'outside'
+	if parent == own or ast.isSubtypeOf(p.types, sub: parent, sup: own) 'cycle'
+		checkFail(c.modID, off: p.modules[c.modIdx].tree.reportStartOf(a.id), code: diag.errResolutionCycle, msg: diag.aliasCycle(a.name), errs: errs)
+		return
+	end 'cycle'
+	p.types.entries[own as Count].supertype = parent
+end 'declareSupertype'
+
+function declTypeOrNone(p ast.Project, ref ast.DeclRef) returns ast.TypeID
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(t) then return t
+		none then return ast.noType
+	end 'dt'
+end 'declTypeOrNone'
+
+// isRangedAlias is whether t is a typealias of an int or a float range.
+function isRangedAlias(p ast.Project, t ast.TypeID) returns bool
+	let kind = p.types.entries[t as Count].kind
+	return (kind == ast.TypeKind.intRange or kind == ast.TypeKind.floatRange) and p.types.entries[t as Count].name != ""
+end 'isRangedAlias'
+
+// rangePrimitiveName is the primitive a ranged alias is over, as maxon words it: an int range is unsigned when it holds
+// no negative value.
+function rangePrimitiveName(p ast.Project, t ast.TypeID) returns String
+	if p.types.entries[t as Count].kind == ast.TypeKind.floatRange 'float'
+		return "a `float` range"
+	end 'float'
+	if p.types.entries[t as Count].minVal.isNeg() 'signed'
+		return "a signed `int` range"
+	end 'signed'
+	return "an unsigned `int` range"
+end 'rangePrimitiveName'
+
+function rangeInside(p ast.Project, inner ast.TypeID, outer ast.TypeID) returns bool
+	if p.types.entries[inner as Count].kind == ast.TypeKind.floatRange 'float'
+		return ast.floatRangeCovers(p.types, dst: outer, src: inner)
+	end 'float'
+	return intRangeCovers(p.types, dst: outer, src: inner)
+end 'rangeInside'

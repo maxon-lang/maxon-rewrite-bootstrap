@@ -1,0 +1,26 @@
+typealias Code = int(0 to u32.max)
+
+interface Maker
+	static function make() returns Code
+	function id() returns Code
+end 'Maker'
+
+function build(x T) uses T returns Code where T implements Maker
+	// expect-error: E3116 at 10:15
+	return try T.make() + x.id() otherwise 0
+end 'build'
+
+function viaValue(x T) uses T returns Code where T implements Maker
+	// expect-error: E3116 at 15:11
+	return x.make()
+end 'viaValue'
+
+function asValue(x T) uses T returns Code where T implements Maker
+	// expect-error: E2078 at 20:12
+	let f = T.make
+	return 0
+end 'asValue'
+
+function main() returns ExitCode
+	return 0
+end 'main'

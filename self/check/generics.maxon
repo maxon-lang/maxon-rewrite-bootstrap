@@ -107,21 +107,27 @@ end 'bulletLines'
 function checkInterface(mutates c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, iface ast.TypeID, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
 	let own = ast.selfType(p.types, declTy: nt)
 	let orig = ast.originOf(p.types, t: nt)
-	let sigs = p.types.entries[iface as Count].sigs.clone()
-	for j in 0 upto sigs.count() 'sigs'
+	let ifaceOrig = ast.originOf(p.types, t: iface)
+	if p.types.entries[ifaceOrig as Count].typeParams.count() > 0 and p.types.entries[iface as Count].typeArgs.count() == 0 'unbound'
+		let associated = p.types.entries[p.types.entries[ifaceOrig as Count].typeParams[0] as Count].name.clone()
+		failAt(c, p: p, node: site, code: diag.errConformance, msg: diag.unboundAssociatedType(p.types.entries[orig as Count].name, associated: associated, interfaceName: p.types.entries[ifaceOrig as Count].name), errs: errs)
+		return
+	end 'unbound'
+	let reqs = requirementsOf(p, iface: iface)
+	for j in 0 upto reqs.count() 'sigs'
 		let mark = errs.count()
-		requireImplements(c, p: p, site: site, nt: orig, own: own, iface: iface, sig: sigs[j], missing: missing, wrong: wrong, errs: errs)
+		requireImplements(c, p: p, site: site, nt: orig, own: own, iface: reqs[j].iface, sig: reqs[j].sig, inherited: reqs[j].iface != iface, missing: missing, wrong: wrong, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return
 		end 'failed'
 	end 'sigs'
 end 'checkInterface'
 
-// requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing, and
-// the method beside the requirement when its signature differs.
-function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, own ast.TypeID, iface ast.TypeID, sig ast.FuncID, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
-	let selfParams = oneType(p.types.entries[iface as Count].selfParam)
-	let bound = oneType(own)
+// requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing,
+// with the interface it comes from when it is inherited, and the method beside the requirement when its signature differs.
+function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, own ast.TypeID, iface ast.TypeID, sig ast.FuncID, inherited bool, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
+	let selfParams = requirementParams(p, iface: iface)
+	let bound = requirementArgs(p, iface: iface, own: own)
 	let wantSpecs = applySpecs(p, specs: p.funcs.entries[sig as Count].params.clone(), params: selfParams, args: bound)
 	let wantReturn = ast.substituteType(p.types, t: p.funcs.entries[sig as Count].retTy, params: selfParams, args: bound)
 	let sigName = p.funcs.entries[sig as Count].name.clone()
@@ -134,16 +140,129 @@ function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt
 	end 'ownBounds'
 	let sigConv = p.funcs.entries[sig as Count].selfConv
 	let sigError = p.funcs.entries[sig as Count].errTy
-	if m != ast.noFunc and not p.funcs.entries[m as Count].isStatic and p.funcs.entries[m as Count].selfConv == sigConv and sameSpecs(p.funcs.entries[m as Count].params, b: wantSpecs) and p.funcs.entries[m as Count].retTy == wantReturn and p.funcs.entries[m as Count].errTy == sigError 'matches'
+	let sigStatic = p.funcs.entries[sig as Count].isStatic
+	if m != ast.noFunc and p.funcs.entries[m as Count].isStatic == sigStatic and (sigStatic or p.funcs.entries[m as Count].selfConv == sigConv) and sameSpecs(p.funcs.entries[m as Count].params, b: wantSpecs) and p.funcs.entries[m as Count].retTy == wantReturn and p.funcs.entries[m as Count].errTy == sigError 'matches'
 		return
 	end 'matches'
 	let wanted = signatureText(p, name: sigName, isStatic: p.funcs.entries[sig as Count].isStatic, specs: wantSpecs, ret: wantReturn, err: sigError)
+	if m == ast.noFunc and inherited 'absentInherited'
+		missing.push("{wanted} (from {ifaceName})")
+		return
+	end 'absentInherited'
 	if m == ast.noFunc 'absent'
 		missing.push(wanted)
 		return
 	end 'absent'
 	wrong.push("{signatureText(p, name: p.funcs.entries[m as Count].name, isStatic: p.funcs.entries[m as Count].isStatic, specs: p.funcs.entries[m as Count].params, ret: p.funcs.entries[m as Count].retTy, err: p.funcs.entries[m as Count].errTy)} (expected {wanted})")
 end 'requireImplements'
+
+// A Requirement is a method that an interface requires, with the interface that declares it, which is the interface
+// itself or one it extends: its signature is read over that interface's 'Self' and associated types.
+type Requirement
+	var iface as ast.TypeID
+	var sig as ast.FuncID
+
+	static function make(iface ast.TypeID, sig ast.FuncID) returns Requirement
+		return Requirement{iface: iface, sig: sig}
+	end 'make'
+end 'Requirement'
+
+typealias RequirementList = Array with Requirement
+
+// requirementsOf are the methods an interface requires, its own and then those of the interfaces it extends, each once.
+// An instance of a generic interface reads them from its declaration.
+function requirementsOf(p ast.Project, iface ast.TypeID) returns RequirementList
+	var out = RequirementList.create(0)
+	collectRequirements(p, iface: iface, out: out)
+	return out
+end 'requirementsOf'
+
+function collectRequirements(p ast.Project, iface ast.TypeID, mutates out RequirementList)
+	let orig = ast.originOf(p.types, t: iface)
+	for i in 0 upto p.types.entries[orig as Count].sigs.count() 'own'
+		let sig = p.types.entries[orig as Count].sigs[i]
+		if not hasRequirement(out, sig: sig) 'new'
+			out.push(Requirement.make(iface, sig: sig))
+		end 'new'
+	end 'own'
+	for i in 0 upto p.types.entries[orig as Count].conforms.count() 'parents'
+		collectRequirements(p, iface: p.types.entries[orig as Count].conforms[i], out: out)
+	end 'parents'
+end 'collectRequirements'
+
+function hasRequirement(reqs RequirementList, sig ast.FuncID) returns bool
+	for i in 0 upto reqs.count() 'each'
+		if reqs[i].sig == sig 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'hasRequirement'
+
+// requirementsNamed are the requirements of that name that an interface has: one, or none, or two where an interface
+// declares again a requirement of one it extends.
+function requirementsNamed(p ast.Project, iface ast.TypeID, name String) returns RequirementList
+	let reqs = requirementsOf(p, iface: iface)
+	var out = RequirementList.create(0)
+	for i in 0 upto reqs.count() 'each'
+		if p.funcs.entries[reqs[i].sig as Count].name == name 'hit'
+			out.push(reqs[i].clone())
+		end 'hit'
+	end 'each'
+	return out
+end 'requirementsNamed'
+
+// requirementText is a requirement as maxon names it beside another: its interface and its signature.
+function requirementText(p ast.Project, req Requirement) returns String
+	let f = req.sig as Count
+	return "{p.types.entries[req.iface as Count].name}.{signatureText(p, name: p.funcs.entries[f].name, isStatic: p.funcs.entries[f].isStatic, specs: p.funcs.entries[f].params, ret: p.funcs.entries[f].retTy, err: p.funcs.entries[f].errTy)}"
+end 'requirementText'
+
+// requirementParams are the types a requirement of iface is written over: 'Self', then the interface's associated types.
+function requirementParams(p ast.Project, iface ast.TypeID) returns ast.TypeIDList
+	let orig = ast.originOf(p.types, t: iface)
+	var params = oneType(p.types.entries[orig as Count].selfParam)
+	params.append(p.types.entries[orig as Count].typeParams)
+	return params
+end 'requirementParams'
+
+// requirementArgs are what requirementParams stand for where the type own implements iface: own, then the types that iface
+// binds.
+function requirementArgs(p ast.Project, iface ast.TypeID, own ast.TypeID) returns ast.TypeIDList
+	var args = oneType(own)
+	args.append(p.types.entries[iface as Count].typeArgs)
+	return args
+end 'requirementArgs'
+
+// declaresConformance is whether the declaration of t says it implements iface, with t's type arguments in what it binds.
+function declaresConformance(mutates p ast.Project, t ast.TypeID, iface ast.TypeID) returns bool
+	let orig = ast.originOf(p.types, t: t)
+	let conforms = ast.cloneTypeArgs(p.types.entries[orig as Count].conforms)
+	let params = ast.cloneTypeArgs(p.types.entries[orig as Count].typeParams)
+	let args = ast.typeArgsOf(p.types, t: t)
+	for i in 0 upto conforms.count() 'each'
+		let have = ast.substituteType(p.types, t: conforms[i], params: params, args: args)
+		if ast.extendsInterface(p.types, have: have, want: iface) 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'declaresConformance'
+
+// conformanceTo is the instance of the interface origin that the declaration of t says it implements, at t's type
+// arguments, or none.
+function conformanceTo(mutates p ast.Project, t ast.TypeID, iface ast.TypeID) returns ast.TypeID
+	let orig = ast.originOf(p.types, t: t)
+	let conforms = ast.cloneTypeArgs(p.types.entries[orig as Count].conforms)
+	let params = ast.cloneTypeArgs(p.types.entries[orig as Count].typeParams)
+	let args = ast.typeArgsOf(p.types, t: t)
+	for i in 0 upto conforms.count() 'each'
+		if ast.originOf(p.types, t: conforms[i]) == iface 'hit'
+			return ast.substituteType(p.types, t: conforms[i], params: params, args: args)
+		end 'hit'
+	end 'each'
+	return ast.noType
+end 'conformanceTo'
 
 function sameSpecs(a ast.ParamSpecList, b ast.ParamSpecList) returns bool
 	if a.count() != b.count() 'count'
@@ -161,7 +280,11 @@ end 'sameSpecs'
 function signatureText(p ast.Project, name String, isStatic bool, specs ast.ParamSpecList, ret ast.TypeID, err ast.TypeID) returns String
 	var parts = ast.StringList.create(0)
 	for i in 0 upto specs.count() 'each'
-		parts.push("{specs[i].name} {nameOfType(p, t: specs[i].ty)}")
+		if specs[i].conv == ast.Convention.convMutates 'written'
+			parts.push("{specs[i].name} mutable {nameOfType(p, t: specs[i].ty)}")
+		end 'written' else 'read'
+			parts.push("{specs[i].name} {nameOfType(p, t: specs[i].ty)}")
+		end 'read'
 	end 'each'
 	var text = "{name}({ast.joinNames(parts, sep: ", ")}) returns {nameOfType(p, t: ret)}"
 	if isStatic 'static'
@@ -207,7 +330,7 @@ function requireConforms(mutates c Checker, mutates p ast.Project, off diag.U32,
 		return
 	end 'structural'
 	if typeHasKind(p, t: arg, kind: ast.TypeKind.typeParam) 'parameter'
-		if not typeIn(boundsOfParam(p, boundedFn: c.boundedFn, paramTy: arg), t: iface) 'unbounded'
+		if not boundsExtend(p, bounds: boundsOfParam(p, boundedFn: c.boundedFn, paramTy: arg), iface: iface) 'unbounded'
 			checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "the type parameter '{argName}' is not known to be {ifaceName}, which the type argument for '{paramName}' must be: add the bound, '{argName} implements {ifaceName}'", errs: errs)
 		end 'unbounded'
 		return
@@ -219,6 +342,16 @@ function requireConforms(mutates c Checker, mutates p ast.Project, off diag.U32,
 	checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}', but only a type, enum or union implements an interface", errs: errs)
 end 'requireConforms'
 
+// boundsExtend is whether one of the bounds is the interface iface or extends it.
+function boundsExtend(p ast.Project, bounds ast.TypeIDList, iface ast.TypeID) returns bool
+	for i in 0 upto bounds.count() 'each'
+		if ast.extendsInterface(p.types, have: bounds[i], want: iface) 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'boundsExtend'
+
 function typeIn(types ast.TypeIDList, t ast.TypeID) returns bool
 	return indexOfType(types, t: t).isSome()
 end 'typeIn'
@@ -226,18 +359,55 @@ end 'typeIn'
 // requireDeclared refuses a nominal type argument whose declaration does not say it implements the interface.
 function requireDeclared(c Checker, mutates p ast.Project, off diag.U32, arg ast.TypeID, iface ast.TypeID, param ast.TypeID, mutates errs diag.ErrorList)
 	let orig = ast.originOf(p.types, t: arg)
-	if typeIn(p.types.entries[orig as Count].conforms, t: iface) or implementsByExtension(c, p: p, arg: arg, iface: iface) 'declared'
+	if declaresConformance(p, t: arg, iface: iface) or implementsByExtension(c, p: p, arg: arg, iface: iface) 'declared'
 		return
 	end 'declared'
 	let argName = nameOfType(p, t: arg)
 	let paramName = nameOfType(p, t: param)
 	let ifaceName = p.types.entries[iface as Count].name.clone()
+	let declared = conformanceTo(p, t: arg, iface: ast.originOf(p.types, t: iface))
+	if declared != ast.noType 'disagrees'
+		failBindingDisagrees(c, p: p, off: off, arg: arg, declared: declared, iface: iface, param: param, errs: errs)
+		return
+	end 'disagrees'
 	if not typeIsNominal(p.types, t: arg) or (p.types.entries[orig as Count].hasDecl and p.types.entries[orig as Count].decl.module == diag.stdlibID) 'builtIn'
 		checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' is built in and implements no interface, so it cannot be {ifaceName} for '{paramName}'; declare 'extension {extensionTargetName(p, t: arg)} implements {spelled(c, p: p, iface: iface)}', or wrap it in a type of your own that declares 'implements {spelled(c, p: p, iface: iface)}'", errs: errs)
 		return
 	end 'builtIn'
 	checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}': declare '{declarationWord(p, t: arg)} {p.types.entries[orig as Count].name} implements {spelled(c, p: p, iface: iface)}'{missingMethods(c, p: p, t: arg, iface: iface)}", errs: errs)
 end 'requireDeclared'
+
+// failBindingDisagrees refuses a type argument whose declaration implements the bound's interface, but binds one of its
+// associated types otherwise than the bound says.
+function failBindingDisagrees(c Checker, mutates p ast.Project, off diag.U32, arg ast.TypeID, declared ast.TypeID, iface ast.TypeID, param ast.TypeID, mutates errs diag.ErrorList)
+	let orig = ast.originOf(p.types, t: iface)
+	for i in 0 upto p.types.entries[iface as Count].typeArgs.count() 'each'
+		let claimed = p.types.entries[iface as Count].typeArgs[i]
+		let supplied = p.types.entries[declared as Count].typeArgs[i]
+		if claimed != supplied 'differs'
+			let associated = p.types.entries[p.types.entries[orig as Count].typeParams[i] as Count].name.clone()
+			let msg = diag.boundBindingDisagrees(paramOwnerName(p, param: param), param: nameOfType(p, t: param), claimed: nameOfType(p, t: iface), argName: nameOfType(p, t: arg), interfaceName: p.types.entries[orig as Count].name, associated: associated, supplied: nameOfType(p, t: supplied))
+			checkFail(c.modID, off: off, code: diag.errBoundBindingDisagrees, msg: msg, errs: errs)
+			return
+		end 'differs'
+	end 'each'
+	panic("'{nameOfType(p, t: arg)}' binds what '{nameOfType(p, t: iface)}' does, yet does not implement it")
+end 'failBindingDisagrees'
+
+// paramOwnerName is the name of the generic type or function that declares the type parameter param, for a message.
+function paramOwnerName(p ast.Project, param ast.TypeID) returns String
+	for i in 0 upto p.types.entries.count() 'types'
+		if p.types.entries[i].origin == ast.noType and typeIn(p.types.entries[i].typeParams, t: param) 'type'
+			return p.types.entries[i].name.clone()
+		end 'type'
+	end 'types'
+	for i in 0 upto p.funcs.entries.count() 'funcs'
+		if typeIn(p.funcs.entries[i].generics, t: param) 'func'
+			return p.funcs.entries[i].name.clone()
+		end 'func'
+	end 'funcs'
+	panic("the type parameter '{nameOfType(p, t: param)}' is declared by no type or function")
+end 'paramOwnerName'
 
 // extensionTargetName is how an extension names the type t: an integer is `int`.
 function extensionTargetName(p ast.Project, t ast.TypeID) returns String
@@ -285,11 +455,12 @@ end 'declarationWord'
 // missingMethods names the methods of the interface that the type lacks, for the error that asks it to declare one.
 function missingMethods(c Checker, p ast.Project, t ast.TypeID, iface ast.TypeID) returns String
 	var missing = ast.StringList.create(0)
-	for i in 0 upto p.types.entries[iface as Count].sigs.count() 'each'
-		let sig = p.types.entries[iface as Count].sigs[i]
+	let reqs = requirementsOf(p, iface: iface)
+	for i in 0 upto reqs.count() 'each'
+		let sig = reqs[i].sig
 		let name = p.funcs.entries[sig as Count].name.clone()
 		let m = methodOf(c, p: p, t: t, name: name)
-		if m == ast.noFunc or p.funcs.entries[m as Count].isStatic 'lacking'
+		if m == ast.noFunc or p.funcs.entries[m as Count].isStatic != p.funcs.entries[sig as Count].isStatic 'lacking'
 			missing.push(name)
 		end 'lacking'
 	end 'each'
