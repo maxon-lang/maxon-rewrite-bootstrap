@@ -57,7 +57,8 @@ builds the day-to-day compiler, `minimaxon.exe` in the root: the seed builds C1 
 
 is the gate: it formats and vets the Go, runs the generators and fails if a generated file changed, builds C1 from the
 seed and C2 from C1, runs the Go tests, and then has C2 run `selftest`, `check runtime`, `fmt --check`, the corpus,
-the spec tests (held to `specs/baseline.txt`), `fuzz`, and build `self/` into a C3 identical to it.
+the spec tests not yet passing (`specs/passed.txt` lists the rest, which are not run again), `fuzz`, and build `self/`
+into a C3 identical to it.
 
 - **Before a commit, `.\check.ps1` passes.** Nothing else is required: no test written first, no test per change, no
   timing.
@@ -68,7 +69,9 @@ the spec tests (held to `specs/baseline.txt`), `fuzz`, and build `self/` into a 
 - **Corpus tests** under `tests/` run whole programs (`tests/run/`), diagnostics (`tests/errors/`, with
   `// expect-error: CODE [at L:C]`), programs that must only compile clean (`tests/check/`) and multi-module projects
   (`tests/modules/<case>/`). Maxon's spec tests (`specs/`) are the corpus that measures progress: the count that passes
-  may only go up.
+  may only go up. Until Phase 3 makes the full run fast, a test that has passed (`specs/passed.txt`) is not run again, by
+  the gate or by `specs.ps1` (`test specs --skip-passed`, which `--record-passed` extends), so a regression in one shows
+  only when Phase 3 brings the full run back; plain `test specs` stays a full run that nothing in the scripts uses.
 - **Determinism.** Never let the iteration order of a map, in the compiler or a generator, reach output, diagnostics,
   or the order in which registers, slots, blocks, strings or symbols are allocated: iterate lists or sorted keys, and
   merge parallel results in source order.

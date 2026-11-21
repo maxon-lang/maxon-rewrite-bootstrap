@@ -334,12 +334,15 @@ end 'collectProjects'
 
 let updatePositionsFlag = "--update-positions"
 
-// testCommand is `test [dir|file.md] [--verbose] [--update-positions]`: the corpus is the given directory of programs, or the
-// spec files at the given path, or else the nearest tests directory from the executable's upward. With --update-positions a
-// test whose expect-error got its code at another place has the directive rewritten to that place, as after a change that
-// only moves code, such as renaming a keyword.
+// testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--skip-passed] [--record-passed]`: the corpus is the
+// given directory of programs, or the spec files at the given path, or else the nearest tests directory from the
+// executable's upward. With --update-positions a test whose expect-error got its code at another place has the directive
+// rewritten to that place, as after a change that only moves code, such as renaming a keyword. The last two flags are for the
+// spec files: one writes the list of the tests that pass, the other leaves out the tests that the list has.
 function testCommand(rest CommandNames) returns ExitCode
 	var verbose = false
+	var record = false
+	var skipPassed = false
 	var updatePositions = false
 	var path = ""
 	var hasPath = false
@@ -348,13 +351,22 @@ function testCommand(rest CommandNames) returns ExitCode
 			verbose = true
 		end 'verbose' else if rest[i] == updatePositionsFlag 'positions'
 			updatePositions = true
-		end 'positions' else if not hasPath 'path'
+		end 'positions' else if rest[i] == recordPassedFlag 'record'
+			record = true
+		end 'record' else if rest[i] == skipPassedFlag 'skip'
+			skipPassed = true
+		end 'skip' else if not hasPath 'path'
 			path = rest[i].clone()
 			hasPath = true
 		end 'path'
 	end 'arguments'
+	let options = SpecOptions.make(verbose, record: record, skipPassed: skipPassed)
+	if options.needsList() and not (hasPath and isSpecPath(path)) 'listFlags'
+		printError("test: {recordPassedFlag} and {skipPassedFlag} are for the spec files: name the specs directory\n")
+		return usageExitCode
+	end 'listFlags'
 	if hasPath and isSpecPath(path) 'specs'
-		return runSpecs(path, verbose: verbose)
+		return runSpecs(path, options: options)
 	end 'specs'
 	if hasPath 'given'
 		return runTests(path, verbose: verbose, updatePositions: updatePositions)

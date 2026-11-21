@@ -1,13 +1,14 @@
 # specs
 
-maxon's spec tests, converted and then fixed. Never edit a file here but `baseline.txt`: regenerate the directory from
+maxon's spec tests, converted and then fixed. Never edit a file here, and the runner alone writes `passed.txt`: regenerate the directory from
 the maxon repository, from the root of this one, once `.\check.ps1` has built `bin\c2.exe`.
 
 ```powershell
 .\specs.ps1 C:\Users\Eric\Dev\maxon\specs
 ```
 
-`specs.ps1` runs `go run ./cmd/convert --specs --out=specs` and then `bin\c2.exe fix specs`.
+`specs.ps1` runs `go run ./cmd/convert --specs --out=specs`, then `bin\c2.exe fix specs`, and then `bin\c2.exe test specs
+--skip-passed --record-passed`, which runs the tests that `passed.txt` does not list and adds those that pass to it.
 
 The files keep maxon's format (`docs/SPECS.md` in the maxon repository): front matter, prose, and under `## Tests` each
 test as `<!-- test: name -->`, optional directives, a ```` ```maxon ```` block and the expectation blocks
@@ -46,11 +47,19 @@ code: operand types` (E2004 expected, E3005 reported). Prose and expectation blo
 `go run ./cmd/convert --specs --check C:\Users\Eric\Dev\maxon\specs` prints the tests converted cleanly and skipped, and
 the kinds of warning by the number of tests they block, most blocking first.
 
-## Baseline
+## The list of passed tests
 
-`minimaxon test specs` runs the specs. The count of passed tests is the measure of Phases 2 to 4: each feature that
-lands unskips or fixes tests, so the numbers below only go up. `baseline.txt` holds the count `.\check.ps1` holds the
-specs to; raise it when more pass.
+`minimaxon test specs` runs every spec test. The count of passed tests is the measure of Phases 2 to 4: each feature that
+lands unskips or fixes tests, so the numbers below only go up.
+
+`passed.txt` lists the tests that pass, one `file.md: test name` per line, sorted. Only the runner writes it. Until the
+parallel driver of Phase 3 makes the full run fast, a test that has passed is not run again: `.\check.ps1` runs
+`test specs --skip-passed`, which skips the listed tests without compiling them (the one reason `passed before
+(specs/passed.txt)`), runs the rest and prints `NEW file.md: test` for each of those that passes now. `--record-passed` with
+`--skip-passed` then writes the list again as the old one plus those tests (`specs.ps1` does this after a regeneration);
+alone it is the full run that writes the list for the first time, and a usage error when the list exists. A regression in a
+listed test therefore shows only once Phase 3 brings the full run back, and plain `test specs` (a full run, which reads
+and writes nothing) is the way to see it before. The table below is the history of full runs; the gate's runs are shorter.
 
 | date | commit | passed | failed | skipped | wall time |
 |---|---|---:|---:|---:|---|

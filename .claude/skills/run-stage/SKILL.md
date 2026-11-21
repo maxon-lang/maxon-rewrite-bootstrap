@@ -160,8 +160,9 @@ git worktree add --detach .claude/worktrees/<task> HEAD
   written relative runs the main tree's script on the main tree (`specs.ps1` deletes `specs/*.md` first). The brief
   gives each script by its absolute path in the worktree (`pwsh -NoProfile -File <worktree>\check.ps1`).
 - A feature task does not regenerate `specs/` in its worktree: parallel regenerations conflict over hundreds of
-  files. It measures by converting into a scratch directory; the main session runs `specs.ps1` after merging and
-  raises `specs/baseline.txt`.
+  files. It measures by converting into a scratch directory and running only the spec files its feature unskips
+  (the user wants no full spec run until Phase 3); the main session runs `specs.ps1` after merging, which adds
+  the new passes to `specs/passed.txt`.
 - `.claude/worktrees/` is in `.git/info/exclude`, so the main tree's `git status` and Grep do not see it.
 - After merging: `git worktree remove --force .claude/worktrees/<task>` (`git worktree unlock` first for one the
   harness created).

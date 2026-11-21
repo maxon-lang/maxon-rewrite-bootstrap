@@ -1,7 +1,8 @@
 # Regenerates specs/ from maxon's spec tests: cmd/convert converts their syntax, then the compiler's fix command applies
 # the fix of each diagnostic that minimaxon's language differences raise (README, "Where it differs from Maxon"). The
 # compiler is bin\c2.exe, the one the self-built compiler builds, so the result does not depend on the seed that built c1.
-# Run .\check.ps1 first to build it. The argument is maxon's specs directory.
+# Run .\check.ps1 first to build it. The run at the end leaves out the tests of specs/passed.txt, which have passed, and adds
+# the new passes to it. The argument is maxon's specs directory.
 $ErrorActionPreference = 'Stop'
 if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 	$env:PATH += ';C:\Program Files\Go\bin'
@@ -21,6 +22,10 @@ if ($LASTEXITCODE -ne 0) {
 	exit 1
 }
 $null | bin\c2.exe fix specs
+if ($LASTEXITCODE -ne 0) {
+	exit 1
+}
+bin\c2.exe test specs --skip-passed --record-passed
 if ($LASTEXITCODE -ne 0) {
 	exit 1
 }

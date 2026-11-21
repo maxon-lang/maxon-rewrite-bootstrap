@@ -65,6 +65,21 @@ let targetsDirective = "unsupported-targets"
 
 let verboseFlag = "--verbose"
 
+let recordPassedFlag = "--record-passed"
+
+let skipPassedFlag = "--skip-passed"
+
+// The list of the tests that pass, in the specs directory: one `file.md: test name` per line, written only by the run that
+// records it.
+let passedListName = "passed.txt"
+
+let passedBeforeReason = "passed before (specs/passed.txt)"
+
+let newPrefix = "NEW"
+
+// The value that a member of a set has in the map that holds the set.
+let setMember = 1 as Count
+
 let backtickByte = 96 as Byte
 
 let hashByte = 35 as Byte
@@ -91,6 +106,25 @@ let shownLineLimit = 100
 typealias CountList = Array with Count
 
 typealias ReasonIndex = table.StringMap with Count
+
+typealias TestSet = table.StringMap with Count
+
+// SpecOptions are the flags of a run over spec files: whether it renews the list of the tests that pass, and whether it
+// leaves out the tests that the list has. A run that does neither is a full run that reads and writes nothing.
+type SpecOptions
+	var verbose as bool
+	var record as bool
+	var skipPassed as bool
+
+	static function make(verbose bool, record bool, skipPassed bool) returns SpecOptions
+		return SpecOptions{verbose: verbose, record: record, skipPassed: skipPassed}
+	end 'make'
+
+	// needsList is whether the run reads the list of the tests that passed.
+	function needsList() returns bool
+		return record or skipPassed
+	end 'needsList'
+end 'SpecOptions'
 
 // SpecFence is a fenced block of a test that is not its source: what the block is called, and where its text is in the file.
 type SpecFence
@@ -663,18 +697,27 @@ function minCount(a Count, b Count) returns Count
 	return b
 end 'minCount'
 
-// SpecRun is the tally of a run over spec files.
+// SpecRun is the tally of a run over spec files, and what it knows of the list of the tests that passed before.
 type SpecRun
-	var verbose as bool
+	var options as SpecOptions
 	var passed as Count
 	var failed as Count
 	var skipped as Count
 	var reasons as ast.StringList
 	var counts as CountList
 	var indexes as ReasonIndex
+	// before is the list that was read, and listed the same keys for lookup.
+	var before as ast.StringList
+	var listed as TestSet
+	// passedKeys are the tests that this run found passing.
+	var passedKeys as ast.StringList
 
-	static function make(verbose bool) returns SpecRun
-		return SpecRun{verbose: verbose, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new()}
+	static function make(consumes options SpecOptions, consumes before ast.StringList) returns SpecRun
+		var listed = TestSet.new()
+		for i in 0 upto before.count() 'keys'
+			listed.insert(before[i].clone(), value: setMember)
+		end 'keys'
+		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), before: before, listed: listed, passedKeys: ast.StringList.create(0)}
 	end 'make'
 
 	// countSkip counts a skipped test under its reason.
@@ -691,7 +734,45 @@ type SpecRun
 		reasons.push(reason.clone())
 		counts.push(1)
 	end 'addReason'
+
+	// skipsPassed is whether the test with this key is left out because it passed before.
+	function skipsPassed(key String) returns bool
+		return options.skipPassed and listed.has(key)
+	end 'skipsPassed'
+
+	// notePass counts a test that passed, and says so when a run that skips the passed tests finds one that is not listed.
+	function notePass(mutates self, key String)
+		passed = offsetBy(passed, by: 1)
+		passedKeys.push(key.clone())
+		if options.skipPassed 'fresh'
+			print("{newPrefix} {key}\n")
+		end 'fresh'
+		if options.verbose 'say'
+			print("PASS {key}\n")
+		end 'say'
+	end 'notePass'
 end 'SpecRun'
+
+// passedKeysOf is the tests that the text of a list names, one for each line.
+function passedKeysOf(text String) returns ast.StringList
+	var keys = ast.StringList.create(0)
+	let lines = splitLines(withoutCarriageReturns(text, loneToo: false))
+	for i in 0 upto lines.count() 'lines'
+		if lines[i] != "" 'named'
+			keys.push(lines[i].clone())
+		end 'named'
+	end 'lines'
+	return keys
+end 'passedKeysOf'
+
+// writePassedList writes the list of the next run: the tests that were listed and the tests this run found passing, sorted.
+function writePassedList(path String, tally SpecRun)
+	var keys = tally.before.clone()
+	keys.append(tally.passedKeys.clone())
+	project.sortStrings(keys)
+	let text = "{joinLines(keys)}\n"
+	try File.writeText(try FilePath.from(path) otherwise panic("test: {path} is not a path"), content: text) otherwise panic("test: cannot write {path}")
+end 'writePassedList'
 
 // printSummary prints the counts, and the skipped tests by reason, the most first; the reasons past the first ones are
 // counted together unless the run is verbose.
@@ -719,7 +800,7 @@ function printSummary(tally SpecRun)
 	var rest = 0 as Count
 	var restReasons = 0 as Count
 	for i in 0 upto order.count() 'reasons'
-		if i < listedSkipReasons or tally.verbose 'listed'
+		if i < listedSkipReasons or tally.options.verbose 'listed'
 			print("{tally.counts[order[i]]}  {tally.reasons[order[i]]}\n")
 		end 'listed' else 'rest'
 			rest = offsetBy(rest, by: tally.counts[order[i]])
@@ -776,13 +857,33 @@ function specFiles(path String) returns ast.StringList
 	return files
 end 'specFiles'
 
-// runSpecs runs every test of the spec files at path, one after another, and reports the failures as it goes and the counts
-// at the end.
-function runSpecs(path String, verbose bool) returns ExitCode
+// runSpecs runs the tests of the spec files at path, one after another, and reports the failures as it goes and the counts
+// at the end. A run that skips the passed tests leaves out those the list has; one that records writes the list again, with
+// the tests that passed in this run, and starts it when there is none.
+function runSpecs(path String, options SpecOptions) returns ExitCode
 	let root = project.absolutePath(path)
+	let listPath = project.joinPath(root, name: passedListName)
+	var before = ast.StringList.create(0)
+	if options.needsList() 'list'
+		if not project.isDirectoryPath(root) 'file'
+			printError("test: {recordPassedFlag} and {skipPassedFlag} take the directory of the specs, which holds {passedListName}\n")
+			return usageExitCode
+		end 'file'
+		let text = project.readTextFile(listPath)
+		if text.isSome() 'read'
+			if not options.skipPassed 'full'
+				printError("test: {listPath} exists, so {recordPassedFlag} runs only with {skipPassedFlag}, which leaves out the tests it lists\n")
+				return usageExitCode
+			end 'full'
+			before = passedKeysOf(text.unwrap())
+		end 'read' else if options.skipPassed and not options.record 'missing'
+			printError("test: {listPath} does not exist: run `test {path} {recordPassedFlag}` to write it\n")
+			return diagnosticsExitCode
+		end 'missing'
+	end 'list'
 	var shared = prepareSharedRuntime()
 	var scratch = Scratch.make("spec")
-	var tally = SpecRun.make(verbose)
+	var tally = SpecRun.make(options.clone(), before: before)
 	let files = specFiles(root)
 	for i in 0 upto files.count() 'files'
 		runSpecFile(shared, scratch: scratch, tally: tally, file: files[i])
@@ -790,7 +891,10 @@ function runSpecs(path String, verbose bool) returns ExitCode
 	print("\n")
 	printSummary(tally)
 	scratch.finish()
-	if tally.failed == 0 'clean'
+	if options.record 'record'
+		writePassedList(listPath, tally: tally)
+	end 'record'
+	if tally.failed == 0 or options.record 'clean'
 		return 0
 	end 'clean'
 	return diagnosticsExitCode
@@ -803,24 +907,26 @@ function runSpecFile(mutates shared SharedRuntime, mutates scratch Scratch, muta
 	let display = project.lastComponent(file)
 	let tests = parseSpec(text)
 	for i in 0 upto tests.count() 'tests'
+		let key = "{display}: {tests[i].name}"
 		// A compile runs in this process, so a crash in it ends the run: the line before it names the test.
-		if tally.verbose 'start'
-			print("RUN  {display}: {tests[i].name}\n")
+		if tally.options.verbose 'start'
+			print("RUN  {key}\n")
 		end 'start'
+		if tally.skipsPassed(key) 'known'
+			tally.countSkip(passedBeforeReason)
+			continue 'tests'
+		end 'known'
 		let result = runSpecTest(shared, scratch: scratch, text: text, stem: stem, test: tests[i])
 		if result.outcome == TestOutcome.testFailed 'failed'
 			tally.failed = offsetBy(tally.failed, by: 1)
-			print("FAIL {display}: {tests[i].name}: {result.detail}\n")
+			print("FAIL {key}: {result.detail}\n")
 		end 'failed' else if result.outcome == TestOutcome.testUnsupported 'unsupported'
 			tally.countSkip(result.detail)
-			if tally.verbose 'say'
-				print("SKIP {display}: {tests[i].name}: {result.detail}\n")
+			if tally.options.verbose 'say'
+				print("SKIP {key}: {result.detail}\n")
 			end 'say'
 		end 'unsupported' else 'passed'
-			tally.passed = offsetBy(tally.passed, by: 1)
-			if tally.verbose 'say'
-				print("PASS {display}: {tests[i].name}\n")
-			end 'say'
+			tally.notePass(key)
 		end 'passed'
 	end 'tests'
 end 'runSpecFile'

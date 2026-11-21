@@ -109,8 +109,8 @@ go run ./cmd/convert --specs --check C:\Users\Eric\Dev\maxon\specs   # what bloc
   counts under each of its kinds), the files, the kind, most blocking first, then `N tests: C converted cleanly, S skipped`.
 - Triage as for any file: a feature minimaxon lacks is left (its tests stay skipped until it lands); a construct with
   an equivalent is rewritten by the tool, which regenerates `specs/`.
-- `minimaxon.exe test specs` runs them (README "Tests"); `.\check.ps1` holds the count that passes to
-  `specs/baseline.txt`, which a change that makes more pass raises. The positions in a `maxoncstderr` block are
+- `minimaxon.exe test specs` runs them (README "Tests"). Until Phase 3 no script runs them all: `.\check.ps1` runs
+  only the tests not in `specs/passed.txt`, and `specs.ps1` adds the new passes to that list. The positions in a `maxoncstderr` block are
   authored against maxon's layout of the block, which the conversion changes (blank lines, indentation), so such a
   test carries `<!-- positions: moved -->` and the runner compares codes and messages only.
 
