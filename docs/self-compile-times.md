@@ -18,3 +18,4 @@ One uncached `minimaxon build self --timings` with the Go compiler, one row per 
 | 2026-11-21 | 64a224d | 1.2a OS built-ins | 9602 | 17.1 | 10.9 | 13.2 |
 | 2026-11-21 | 8a4afe2 | 1.4 self command line | 9740 | 17.8 | 12.6 | 14.2 |
 | 2026-11-21 | e8db56c | 1.4 PE writer | 10099 | 20.9 | 16.9 | 16.1 |
+| 2026-11-21 | 3423b29 | 1.4 x64 encoder generator | 11044 | 28.8 | 20.5 | 19.8 |
