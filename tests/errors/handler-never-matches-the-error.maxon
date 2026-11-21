@@ -1,0 +1,21 @@
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+function parse(n Count) returns Count throws ParseError
+	if n == 0 'zero'
+		throw ParseError.empty
+	end 'zero'
+	return n
+end 'parse'
+
+function main() returns ExitCode
+	try 'reading'
+		print("{parse(0)}\n")
+	end 'reading' otherwise (e) 'failed'
+		print("{e}\n")
+	end 'failed'
+	return 0
+end 'main'
+
+// expect-error: E3084 at 13:2

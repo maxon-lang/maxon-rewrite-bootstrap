@@ -26,6 +26,7 @@ export enum NodeKind
 	whileStmt
 	forStmt
 	tryStmt
+	throwStmt
 	returnStmt
 	breakStmt
 	continueStmt
@@ -95,6 +96,7 @@ export function isReserved(word String) returns bool
 		"in" or
 		"try" or
 		"otherwise" or
+		"throw" or
 		"return" or
 		"break" or
 		"continue" or
@@ -109,6 +111,7 @@ export function isReserved(word String) returns bool
 		"shl" or
 		"shr" or
 		"xor" or
+		"ignore" or
 		"true" or
 		"false" or
 		"panic" gives true
@@ -593,6 +596,19 @@ end 'tryStmtHandlerEnd'
 export function setTryStmtHandlerEnd(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 5 as Count, value: value as diag.U32)
 end 'setTryStmtHandlerEnd'
+
+export function newThrowStmt(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.throwStmt, start: start)
+	return id
+end 'newThrowStmt'
+
+export function throwStmtValue(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].a as NodeID
+end 'throwStmtValue'
+
+export function setThrowStmtValue(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].a = value as diag.U32
+end 'setThrowStmtValue'
 
 export function newReturnStmt(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.returnStmt, start: start)
@@ -1081,7 +1097,7 @@ end 'setCondExprElse'
 
 export function newTryExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.tryExpr, start: start)
-	let blk = t.reserve(4 as Count)
+	let blk = t.reserve(5 as Count)
 	t.records[id as Count].b = blk
 	return id
 end 'newTryExpr'
@@ -1093,6 +1109,14 @@ end 'tryExprE'
 export function setTryExprE(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setTryExprE'
+
+export function tryExprIgnore(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'tryExprIgnore'
+
+export function setTryExprIgnore(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setTryExprIgnore'
 
 export function tryExprValue(t Tree, id NodeID) returns NodeID
 	return t.blockWordAt(id, offset: 0 as Count) as NodeID
@@ -1125,6 +1149,14 @@ end 'tryExprCont'
 export function setTryExprCont(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 3 as Count, value: value as diag.U32)
 end 'setTryExprCont'
+
+export function tryExprThr(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 4 as Count) as NodeID
+end 'tryExprThr'
+
+export function setTryExprThr(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 4 as Count, value: value as diag.U32)
+end 'setTryExprThr'
 
 export function newIntLit(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.intLit, start: start)

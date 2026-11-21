@@ -80,6 +80,24 @@ type Checker struct {
 	bounded *ast.FuncDecl
 	// caps remembers which types have which capabilities.
 	caps capabilities
+	// tries are the tries around the code being checked that catch its failures, innermost last.
+	tries []checkerTry
+	// bindings are the errors that the handlers being checked name, innermost last.
+	bindings []tryBinding
+	// statement is the try that stands alone as the statement being checked, which alone may ignore a failure.
+	statement ast.NodeID
+}
+
+// checkerTry is a try whose covered code is being checked, which collects the errors of what can fail in it: the handler of
+// a try block names that error.
+type checkerTry struct {
+	errors []ast.Ty
+}
+
+// tryBinding is the error that a try block's handler names, which the handler must match on to tell the failures apart.
+type tryBinding struct {
+	local   *ast.Local
+	matched bool
 }
 
 func NewChecker(p *ast.Project, m *ast.Module, resolution *ast.Resolution, typing *ast.Typing, errs *[]*diag.CompileError) *Checker {
@@ -533,15 +551,15 @@ func (c *Checker) returnOf(returns ast.TypeRef, self ast.Ty) ast.Ty {
 	return c.resolve(returns, self)
 }
 
-// errorOf is the error a function's 'throws' names, or nil for a function that throws nothing. ArithmeticError is the one
-// error there is.
+// errorOf is the error a function's 'throws' names, or nil for a function that throws nothing. An error is an enum: its
+// value is a case, which comes back from a call in a register.
 func (c *Checker) errorOf(throws ast.TypeRef, specs []ast.ParamSpec) ast.Ty {
 	if throws.IsNil() {
 		return nil
 	}
 	t := c.resolve(throws, nil)
-	if t != ast.Ty(c.project.Builtins.ArithmeticError) {
-		panic(throws.Error(diag.ErrThrows, fmt.Sprintf("a function throws ArithmeticError, the error of an integer operation, not %s: write 'throws ArithmeticError'", t.Name())))
+	if _, isEnum := t.(*ast.EnumTy); !isEnum {
+		panic(throws.Error(diag.ErrThrowsNotAnErrorEnum, fmt.Sprintf("'throws %s' names no enum, and an error is a case of one: name an 'enum ... implements Error' with a case for each failure", t.Name())))
 	}
 	for _, spec := range specs {
 		if spec.Conv == ast.ConvSets {
@@ -732,6 +750,8 @@ func (c *Checker) enterContext(f *ast.FuncDecl, nt ast.NominalTy, calls bool) {
 	c.nextSlot = 0
 	c.uses = nil
 	c.dead = false
+	c.tries = nil
+	c.bindings = nil
 }
 
 func (c *Checker) selfRecord() *ast.RecordTy {
@@ -1247,9 +1267,20 @@ func (c *Checker) VisitCondExpr(cd ast.CondExpr) ast.Ty {
 }
 
 // VisitTryExpr types a try: the value of its expression, or on a failure the value 'otherwise' gives or the jump it makes.
+// One that ignores a failure has no value, so it stands alone as a statement.
 func (c *Checker) VisitTryExpr(t ast.TryExpr) ast.Ty {
-	result := c.checkExpecting(t.E(), c.expect)
+	var result ast.Ty
+	if t.Propagates() {
+		result = c.checkExpecting(t.E(), c.expect)
+	} else {
+		c.catching(func() { result = c.checkExpecting(t.E(), c.expect) })
+	}
 	switch {
+	case t.Ignore():
+		if c.statement != t.ID {
+			panic(t.Error(diag.ErrErrorTypeMismatch, "a 'try' used for its value needs a value on a failure, and 'otherwise ignore' gives none: give 'otherwise' the value to use, or make the 'try' a statement of its own"))
+		}
+		return ast.VoidTy
 	case !t.Value().IsNil():
 		want := c.expect
 		if want == nil {
@@ -1266,8 +1297,39 @@ func (c *Checker) VisitTryExpr(t ast.TryExpr) ast.Ty {
 		c.VisitBreakStmt(t.Brk())
 	case !t.Cont().IsNil():
 		c.VisitContinueStmt(t.Cont())
+	case !t.Thr().IsNil():
+		c.VisitThrowStmt(t.Thr())
 	}
 	return result
+}
+
+// catching checks code whose failures a try catches, and gives the errors they fail with.
+func (c *Checker) catching(check func()) []ast.Ty {
+	c.tries = append(c.tries, checkerTry{})
+	check()
+	errors := c.tries[len(c.tries)-1].errors
+	c.tries = c.tries[:len(c.tries)-1]
+	return errors
+}
+
+// fails records that the code being checked can fail with the error e, for the try that catches it.
+func (c *Checker) fails(e ast.Ty) {
+	if len(c.tries) == 0 {
+		return
+	}
+	t := &c.tries[len(c.tries)-1]
+	if !slices.Contains(t.errors, e) {
+		t.errors = append(t.errors, e)
+	}
+}
+
+// VisitThrowStmt types a throw, which fails with a case of an error enum.
+func (c *Checker) VisitThrowStmt(t ast.ThrowStmt) {
+	e := c.checkExpr(t.Value())
+	if _, ok := e.(*ast.EnumTy); !ok {
+		panic(t.Value().Position().Error(diag.ErrTypeMismatch, fmt.Sprintf("throw requires an error enum value, found %s: throw a case of the enum that the function throws", e.Name())))
+	}
+	c.fails(e)
 }
 
 func (c *Checker) VisitPanicExpr(p ast.PanicExpr) ast.Ty {
@@ -1600,7 +1662,16 @@ func (c *Checker) requireInstance(site ast.Pos, nt ast.NominalTy) ast.NominalTy 
 	return nt
 }
 
+// VisitCallExpr types a call, whose failure, if the function it runs throws, goes to the try around it.
 func (c *Checker) VisitCallExpr(call ast.CallExpr) ast.Ty {
+	t := c.call(call)
+	if e := c.typing.Call(call).ErrorType(); e != nil {
+		c.fails(e)
+	}
+	return t
+}
+
+func (c *Checker) call(call ast.CallExpr) ast.Ty {
 	if !c.allowCalls {
 		panic(call.Error(diag.ErrModuleLetCallsFunction, "a constant calls nothing"))
 	}
@@ -2040,6 +2111,7 @@ func (c *Checker) VisitDiscardStmt(t ast.DiscardStmt) { c.checkExpr(t.Value()) }
 func (c *Checker) VisitExprStmt(t ast.ExprStmt) {
 	e := t.E()
 	if try, ok := e.AsTryExpr(); ok {
+		c.statement = try.ID
 		e = try.E()
 	}
 	switch e.Kind() {
@@ -2069,16 +2141,53 @@ func (c *Checker) VisitMatchStmt(t ast.MatchStmt) { c.checkMatch(t.Match(), fals
 
 // VisitTryStmt types the body of a try block and its handler, which may name the error that failed.
 func (c *Checker) VisitTryStmt(t ast.TryStmt) {
-	c.checkBlock(t.Body())
 	if !t.HasOtherwise() {
+		c.checkBlock(t.Body())
 		return
 	}
+	errors := c.catching(func() { c.checkBlock(t.Body()) })
 	c.pushScope()
-	if t.Binding() != "" {
-		c.typing.SetTryLocal(t, c.declareLocal(t.Binding(), c.project.Builtins.ArithmeticError, false, t.Position()))
+	if t.Binding() == "" {
+		c.checkStmts(t.Handler())
+		c.popScope()
+		return
 	}
+	local := c.declareLocal(t.Binding(), c.handlerError(t, errors), false, t.Position())
+	c.typing.SetTryLocal(t, local)
+	c.bindings = append(c.bindings, tryBinding{local: local})
 	c.checkStmts(t.Handler())
+	matched := c.bindings[len(c.bindings)-1].matched
+	c.bindings = c.bindings[:len(c.bindings)-1]
 	c.popScope()
+	if !matched {
+		panic(t.Error(diag.ErrTryBlockBindingNotMatched, fmt.Sprintf("the handler names the error '%s' but never matches on it: tell the failures apart with 'match %s', or drop '(%s)'", t.Binding(), t.Binding(), t.Binding())))
+	}
+}
+
+// handlerError is the error that a try block's handler names: the one error its body's calls and throws fail with, or
+// with none of those ArithmeticError, the error of an integer operation, which is all that is left to fail.
+func (c *Checker) handlerError(t ast.TryStmt, errors []ast.Ty) ast.Ty {
+	switch len(errors) {
+	case 0:
+		return c.project.Builtins.ArithmeticError
+	case 1:
+		return errors[0]
+	}
+	panic(t.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("the block fails with '%s' and with '%s', and '(%s)' names one error: give the calls of one of them a 'try ... otherwise' of their own, or drop '(%s)'", errors[0].Name(), errors[1].Name(), t.Binding(), t.Binding())))
+}
+
+// matchedBinding notes a match on the error that a handler names.
+func (c *Checker) matchedBinding(subject ast.Expr) {
+	n, ok := subject.AsNameExpr()
+	if !ok {
+		return
+	}
+	local := c.lookupLocal(n.Name())
+	for i := range c.bindings {
+		if c.bindings[i].local == local {
+			c.bindings[i].matched = true
+		}
+	}
 }
 
 func (c *Checker) VisitBreakStmt(t ast.BreakStmt) {
@@ -2221,6 +2330,7 @@ func (c *Checker) resolveJump(s ast.Stmt, label string, isBreak bool) ast.NodeID
 
 func (c *Checker) checkMatch(m ast.MatchCore, isExpr bool) ast.Ty {
 	subjectTy := c.checkExpr(m.Subject())
+	c.matchedBinding(m.Subject())
 	st := ast.Content(subjectTy)
 	if m.Consumes() && ast.IsFrozen(subjectTy) {
 		panic(m.Subject().Position().Error(diag.ErrMoveOutOfField, "the contents of a frozen value are shared with its other owners, so 'match consumes' cannot take them apart; match without 'consumes', or use 'thaw(...)' for an owned copy"))

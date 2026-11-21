@@ -1,0 +1,26 @@
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+function parse(n Count) returns Count throws ParseError
+	if n == 0 'zero'
+		throw ParseError.empty
+	end 'zero'
+	return n
+end 'parse'
+
+function ratio(a Count, b Count) returns Count
+	try 'both'
+		return parse(a) / b
+	end 'both' otherwise (e) 'failed'
+		match e 'kind'
+			empty then return 0
+		end 'kind'
+	end 'failed'
+end 'ratio'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3059 at 14:19

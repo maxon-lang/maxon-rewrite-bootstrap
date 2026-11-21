@@ -180,6 +180,17 @@ type CallInfo struct {
 	Drop *CallInfo
 }
 
+// ErrorType is the error that the function a call runs throws, or nil for a call that cannot fail.
+func (c *CallInfo) ErrorType() Ty {
+	switch c.Kind {
+	case CallFunction, CallStatic, CallMethod:
+		return c.Target.ErrorType
+	case CallBound:
+		return c.Generic.Method.ErrorType
+	}
+	return nil
+}
+
 // ReceiverFor is the object a call of the kind is made on, or nil for a call that has none. A method call, a call through
 // a bound and a copy are written 'object.name(...)', so it is the object of the member the call names.
 func (c CallExpr) ReceiverFor(kind CallKind) Expr {
@@ -467,12 +478,22 @@ func (t *Typing) IsStorage(e Expr) bool {
 	return false
 }
 
-// Through is the expression whose value e gives: e itself, or for a try with no 'otherwise' value the expression it
-// covers, whose value is the try's own.
+// Propagates is whether a try has no 'otherwise', so it passes its failures to the try around it, or to the caller.
+func (t TryExpr) Propagates() bool {
+	return t.Transparent() && t.Ret().IsNil() && t.Brk().IsNil() && t.Cont().IsNil() && t.Thr().IsNil()
+}
+
+// Transparent is whether a try's value is its expression's, with no other on a failure: it passes the failure on, or
+// leaves with a return, a break, a continue or a throw. A try that gives a value, or ignores the failure and has none,
+// is not.
+func (t TryExpr) Transparent() bool { return t.Value().IsNil() && !t.Ignore() }
+
+// Through is the expression whose value e gives: e itself, or for a transparent try the expression it covers, whose value
+// is the try's own.
 func Through(e Expr) Expr {
 	for e.Kind() == KindTryExpr {
 		t := e.ToTryExpr()
-		if !t.Value().IsNil() {
+		if !t.Transparent() {
 			break
 		}
 		e = t.E()

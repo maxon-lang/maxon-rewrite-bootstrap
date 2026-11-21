@@ -42,11 +42,14 @@ const (
 	ErrCallDuplicateArg          = "E3038" // Two arguments of one call are for the same parameter.
 	ErrMainCannotThrow           = "E3054" // 'main' is declared 'throws', with no caller to handle the error.
 	ErrUncheckedFailure          = "E3057" // A call that can fail is made without 'try' where nothing catches the failure.
+	ErrErrorTypeMismatch         = "E3059" // An error goes where nothing takes an error of its type: a 'try' or 'throw' with no caller to pass it to, or one that throws another.
 	ErrEnumNotComparable         = "E3066" // A union is compared with '==' or '!='.
 	ErrConstructorRestriction    = "E3076" // A struct literal is written outside the methods of its type.
+	ErrTryBlockBindingNotMatched = "E3084" // The handler of a try block names the error but never matches on it.
 	ErrFieldNotInitialized       = "E3086" // A struct literal omits a field that has no default.
 	ErrUseAfterMove              = "E3102" // A name is read after its value was moved out of it.
 	ErrDivisionByZero            = "E3103" // A division or 'mod' has a constant zero divisor.
+	ErrThrowsNotAnErrorEnum      = "E3113" // A 'throws' clause names something other than an enum.
 	ErrAmbiguousBound            = "E3114" // A method call on a type parameter names a method that more than one of its bounds declares.
 	ErrExposesHiddenType         = "E3167" // A declaration's signature names a type less visible than the declaration.
 	ErrCannotInfer               = "E3179" // A type parameter of a generic function is fixed by no argument.
@@ -79,8 +82,7 @@ const (
 	ErrDestructorMisuse          = "E3920" // A destructor is declared on a type that has nothing to end, or is passed 'self' where only another destructor may take it.
 	ErrCapabilityMisuse          = "E3921" // An argument naming a type's capability is wrong for the type it is given.
 	ErrTakeApartDestructible     = "E3922" // A value of a type with destructors is taken apart outside them.
-	ErrNothingToPropagate        = "E3923" // A 'try' without 'otherwise' has no caller to pass the failure to.
-	ErrThrows                    = "E3924" // A 'throws' clause names an error the function cannot throw or cannot declare.
+	ErrThrows                    = "E3924" // A function that takes a 'sets' parameter declares 'throws'.
 	ErrTypeCycle                 = "E4014" // A type contains itself.
 	ErrUnsupported               = "E9000" // A construct the compiler does not support yet.
 	ErrInterpreterOnly           = "E9900" // A construct only the interpreter runs, so no native code is made for it.

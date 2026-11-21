@@ -205,9 +205,9 @@ func (b *Builtins) newEnum(name string, cases ...string) *EnumTy {
 	return t
 }
 
-// declareCapability declares an interface that a bound can name and no declaration implements: the checker answers
-// whether a type has it from the type's own parts.
-func (b *Builtins) declareCapability(name string) *InterfaceTy {
+// declareInterface declares an interface with no methods: a capability, which no declaration implements and the checker
+// answers from a type's own parts, or a marker such as Error, which a declaration says it implements.
+func (b *Builtins) declareInterface(name string) *InterfaceTy {
 	d := b.stdlib.Tree.NewInterfaceDecl(0)
 	d.Name = name
 	d.Visibility = "public"

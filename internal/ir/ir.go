@@ -300,7 +300,7 @@ type SwitchCase struct {
 //	TermSwitch  to the target of the case of Cases[First : First+Count] that Value equals, else to Then
 //	TermRet     returns Value
 //	TermTrap    stops the program
-//	TermThrow   returns the error Value, a case of ArithmeticError plus 1, from a function that throws
+//	TermThrow   returns the error Value, a case of the function's error plus 1, from a function that throws
 type Term struct {
 	Kind  TermKind
 	Value V

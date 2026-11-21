@@ -92,9 +92,9 @@ function main() returns ExitCode
 end 'main'
 
 // case: a type parameter with the bound dies freely
-function ignore(consumes x T) uses T where T implements Droppable
+function forget(consumes x T) uses T where T implements Droppable
 	print("x")
-end 'ignore'
+end 'forget'
 
 function main() returns ExitCode
 	return 0

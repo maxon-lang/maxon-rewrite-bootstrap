@@ -409,6 +409,8 @@ func (r *Resolver) VisitReturnStmt(s ast.ReturnStmt) {
 	}
 }
 
+func (r *Resolver) VisitThrowStmt(s ast.ThrowStmt) { r.expr(s.Value()) }
+
 func (r *Resolver) VisitBreakStmt(ast.BreakStmt) {}
 
 func (r *Resolver) VisitContinueStmt(ast.ContinueStmt) {}
@@ -498,6 +500,8 @@ func (r *Resolver) VisitTryExpr(e ast.TryExpr) {
 		r.expr(e.Value())
 	case !e.Ret().IsNil():
 		r.VisitReturnStmt(e.Ret())
+	case !e.Thr().IsNil():
+		r.VisitThrowStmt(e.Thr())
 	}
 }
 

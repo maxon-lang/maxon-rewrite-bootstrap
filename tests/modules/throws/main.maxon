@@ -4,7 +4,11 @@ function main() returns ExitCode
 		print("{numbers.mean(10, n: 2)}\n")
 		print("{numbers.mean(10, n: 0)}\n")
 	end 'means' otherwise (e) 'failed'
-		print("{e}\n")
+		match e 'why'
+			overflow then print("overflow\n")
+			divisionByZero then print("divisionByZero\n")
+			negativeShift then print("negativeShift\n")
+		end 'why'
 	end 'failed'
 	return 0
 end 'main'

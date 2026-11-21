@@ -272,6 +272,7 @@ stmt
     | matchStmt
     | whenStmt
     | tryStmt
+    | throwStmt
     | returnStmt
     | breakStmt
     | continueStmt
@@ -344,6 +345,10 @@ tryStmt
 @ast::TryStmt {
 	Local Slot[Local]
 }
+
+throwStmt
+    : 'throw' value=expr
+    ;
 
 returnStmt
     : 'return' value=expr?
@@ -445,7 +450,7 @@ expr
     | l=expr op='xor' r=expr                                         # BinaryExpr
     | l=expr op='or' r=expr                                          # BinaryExpr
     | <assoc=right> then=expr 'if' cond=expr 'else' else=expr        # CondExpr
-    | 'try' e=expr ('otherwise' (value=expr | ret=returnStmt | brk=breakStmt | cont=continueStmt))? # TryExpr
+    | 'try' e=expr ('otherwise' (ignore='ignore' | value=expr | ret=returnStmt | brk=breakStmt | cont=continueStmt | thr=throwStmt))? # TryExpr
     ;
 
 @ast::MemberExpr {

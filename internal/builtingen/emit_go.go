@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -93,7 +94,7 @@ func emitAst(t table) string {
 	for _, e := range enumTypes {
 		fmt.Fprintf(&sb, "\t%s *EnumTy\n", e.Key)
 	}
-	for _, c := range capabilities {
+	for _, c := range slices.Concat(capabilities, markers) {
 		fmt.Fprintf(&sb, "\t%s *InterfaceTy\n", c)
 	}
 	for _, f := range t.fns {
@@ -135,8 +136,8 @@ func emitAst(t table) string {
 		}
 		fmt.Fprintf(&sb, "\tb.%s = b.newEnum(%q%s)\n", e.Key, e.Name, quotedList(cases))
 	}
-	for _, c := range capabilities {
-		fmt.Fprintf(&sb, "\tb.%s = b.declareCapability(%q)\n", c, c)
+	for _, c := range slices.Concat(capabilities, markers) {
+		fmt.Fprintf(&sb, "\tb.%s = b.declareInterface(%q)\n", c, c)
 	}
 	for _, f := range t.fns {
 		emitGoFunction(&sb, f)

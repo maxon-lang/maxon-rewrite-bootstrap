@@ -88,6 +88,9 @@ var enumTypes = []enumType{
 // capabilities are the interfaces a bound can name and no declaration implements: a type has one by its parts.
 var capabilities = []string{"Copyable", "Droppable"}
 
+// markers are the interfaces with no methods that a declaration says it implements: Error, which an error enum does.
+var markers = []string{"Error"}
+
 // function is a built-in function or method.
 type function struct {
 	// Owner is the Key of the type it is a method of, "String" for a method of String, or "" for a free function.

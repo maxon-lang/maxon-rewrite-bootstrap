@@ -81,7 +81,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a try with no handler in a function that does not throw
-// expect-error: E3923
+// expect-error: E3059
 function f(a Count, b Count) returns Count
 	return try a / b
 end 'f'

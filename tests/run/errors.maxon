@@ -1,0 +1,167 @@
+typealias Amount = int(i64.min to i64.max)
+
+typealias Strings = array with String
+
+enum ParseError implements Error
+	empty
+	invalidSyntax
+end 'ParseError'
+
+enum AppError implements Error
+	badInput
+	tooLarge
+end 'AppError'
+
+interface Source
+	function next(mutates self) returns Amount throws ParseError
+end 'Source'
+
+type Digits implements Source
+	var text as String
+	var at as Count
+
+	static function over(consumes text String) returns Digits
+		return Digits{text: text, at: 0}
+	end 'over'
+
+	function next(mutates self) returns Amount throws ParseError
+		if self.at >= self.text.byteCount() 'done'
+			throw ParseError.empty
+		end 'done'
+		let d = try strict(self.text.slice(self.at, until: self.at + 1)) otherwise throw ParseError.invalidSyntax
+		self.at = self.at + 1
+		return d
+	end 'next'
+end 'Digits'
+
+function parseDigit(s String) returns Amount throws ParseError
+	if s.byteCount() == 0 'empty'
+		throw ParseError.empty
+	end 'empty'
+	return match s 'digit'
+		"0" gives 0
+		"1" gives 1
+		"2" gives 2
+		"3" gives 3
+		default gives -1
+	end 'digit'
+end 'parseDigit'
+
+function strict(s String) returns Amount throws ParseError
+	let d = try parseDigit(s)
+	if d < 0 'bad'
+		throw ParseError.invalidSyntax
+	end 'bad'
+	return d
+end 'strict'
+
+function doubled(s String) returns Amount throws AppError
+	let d = try strict(s) otherwise throw AppError.badInput
+	return try d * 2 otherwise throw AppError.tooLarge
+end 'doubled'
+
+function named(s String) returns String throws ParseError
+	let label = "digit {s}"
+	_ = try strict(s)
+	return label
+end 'named'
+
+function sum(mutates source T) uses T returns Amount where T implements Source
+	var total = 0 as Amount
+	while true 'each'
+		let d = try source.next() otherwise break
+		total = try total + d otherwise 0
+	end 'each'
+	return total
+end 'sum'
+
+function firstBad(parts Strings) returns Count
+	for i in 0 upto parts.count() 'each'
+		_ = try strict(parts[i]) otherwise return i
+	end 'each'
+	return parts.count()
+end 'firstBad'
+
+function goodOnes(parts Strings) returns Amount
+	var total = 0 as Amount
+	for i in 0 upto parts.count() 'each'
+		let d = try strict(parts[i]) otherwise continue
+		total = try total + d otherwise 0
+	end 'each'
+	return total
+end 'goodOnes'
+
+function check(s String)
+	try strict(s) otherwise ignore
+	try named(s) otherwise ignore
+end 'check'
+
+function report(s String)
+	try 'reading'
+		let d = strict(s)
+		let n = named(s)
+		print("{n} is {d}\n")
+	end 'reading' otherwise (e) 'failed'
+		match e 'kind'
+			empty then print("no input\n")
+			invalidSyntax then print("not a digit: {s}\n")
+		end 'kind'
+	end 'failed'
+end 'report'
+
+function ratio(s String, n Amount) returns Amount
+	try 'both'
+		let d = strict(s)
+		if d == 3 'three'
+			throw ParseError.invalidSyntax
+		end 'three'
+		return d / n
+	end 'both' otherwise 'failed'
+		return -1
+	end 'failed'
+end 'ratio'
+
+function main() returns ExitCode
+	print("ratio {ratio("2", n: 2)} {ratio("2", n: 0)} {ratio("q", n: 1)} {ratio("3", n: 1)}\n")
+	print("{try strict("2") otherwise -1} {try strict("7") otherwise -1} {try strict("") otherwise -9}\n")
+	print("{try doubled("3") otherwise 0}\n")
+	try 'app'
+		print("{doubled("x")}\n")
+	end 'app' otherwise (e) 'failed'
+		match e 'kind'
+			badInput then print("bad input\n")
+			tooLarge then print("too large\n")
+		end 'kind'
+	end 'failed'
+	print("{try named("1") otherwise "none"} {try named("q") otherwise "none"}\n")
+	var digits = Digits.over("1230")
+	print("sum {sum(digits)}\n")
+	var bad = Digits.over("12x3")
+	print("sum {sum(bad)}\n")
+	var parts = Strings.new()
+	parts.append("1")
+	parts.append("3")
+	parts.append("q")
+	parts.append("2")
+	print("first bad {firstBad(parts)} good {goodOnes(parts)}\n")
+	check("q")
+	check("1")
+	report("3")
+	report("")
+	report("q")
+	print("{try strict("0") otherwise panic("0 is a digit")}\n")
+	return 0
+end 'main'
+
+//> ratio 1 -1 -1 -1
+//> 2 -1 -9
+//> 6
+//> bad input
+//> digit 1 none
+//> sum 6
+//> sum 3
+//> first bad 2 good 6
+//> digit 3 is 3
+//> no input
+//> not a digit: q
+//> 0

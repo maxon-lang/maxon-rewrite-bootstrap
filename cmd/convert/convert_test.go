@@ -199,6 +199,11 @@ end 'make'
 `,
 		},
 		{
+			name: "errors of the program's own",
+			in:   "function f() returns Count throws ParseError\n\ttry work() otherwise ignore\n\tthrow ParseError.bad\nend 'f'\n",
+			want: "function f() returns Count throws ParseError\n\ttry work() otherwise ignore\n\tthrow ParseError.bad\nend 'f'\n",
+		},
+		{
 			name: "CRLF, BOM, trailing spaces, and extra blank lines",
 			in:   "\xef\xbb\xbflet a = 1  \r\n\r\n\r\nlet b = 2\t\r\n",
 			want: "let a = 1\n\nlet b = 2\n",
@@ -233,11 +238,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "alias subtyping",
 		},
 		{
-			name:     "custom throws",
-			in:       "function f() returns Count throws ParseError\n\tthrow ParseError.bad\nend 'f'\n",
-			wantTodo: "custom error type",
-		},
-		{
 			name:     "float typealias",
 			in:       "typealias Ratio = float(0.0 to 1.0)\n",
 			wantTodo: "float typealiases",
@@ -251,11 +251,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "if try",
 			in:       "function f()\n\tif try work() 'ok'\n\t\tprint(\"ok\")\n\tend 'ok'\nend 'f'\n",
 			wantTodo: "if try",
-		},
-		{
-			name:     "otherwise ignore",
-			in:       "function f()\n\ttry work() otherwise ignore\nend 'f'\n",
-			wantTodo: "otherwise ignore",
 		},
 		{
 			name:     "block otherwise on try expr",

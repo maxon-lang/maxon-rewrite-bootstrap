@@ -131,6 +131,7 @@ type builtinDecls struct {
 	ArithmeticError *EnumTy
 	Copyable        *InterfaceTy
 	Droppable       *InterfaceTy
+	Error           *InterfaceTy
 	CownNew         *FuncDecl
 	CownNewDropWith *FuncDecl
 }
@@ -151,8 +152,9 @@ func (b *Builtins) declareTable() {
 		{Name: "none"},
 	}
 	b.ArithmeticError = b.newEnum("ArithmeticError", "overflow", "divisionByZero", "negativeShift")
-	b.Copyable = b.declareCapability("Copyable")
-	b.Droppable = b.declareCapability("Droppable")
+	b.Copyable = b.declareInterface("Copyable")
+	b.Droppable = b.declareInterface("Droppable")
+	b.Error = b.declareInterface("Error")
 	b.method(b.Option, IntrinsicOptionIsSome, "isSome", false, ConvLet, BoolTy)
 	b.method(b.Option, IntrinsicOptionUnwrap, "unwrap", false, ConvConsumes, b.Option.Params[0])
 	b.method(b.Array, IntrinsicArrayNew, "new", true, ConvLet, SelfType(b.Array))

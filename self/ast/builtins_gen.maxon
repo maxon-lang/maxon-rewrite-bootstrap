@@ -134,6 +134,7 @@ function declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b
 	b.arithmeticErrorTy = registerEnumType(tt, std: std, typeMap: typeMap, name: "ArithmeticError", cases: names11)
 	b.copyableTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Droppable")
+	b.errorTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Error")
 end 'declareBuiltinTypes'
 
 function declareOptionMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)

@@ -117,11 +117,17 @@ export let errMainCannotThrow = "E3054"
 // A call that can fail is made without 'try' where nothing catches the failure.
 export let errUncheckedFailure = "E3057"
 
+// An error goes where nothing takes an error of its type: a 'try' or 'throw' with no caller to pass it to, or one that throws another.
+export let errErrorTypeMismatch = "E3059"
+
 // A union is compared with '==' or '!='.
 export let errEnumNotComparable = "E3066"
 
 // A struct literal is written outside the methods of its type.
 export let errConstructorRestriction = "E3076"
+
+// The handler of a try block names the error but never matches on it.
+export let errTryBlockBindingNotMatched = "E3084"
 
 // A struct literal omits a field that has no default.
 export let errFieldNotInitialized = "E3086"
@@ -131,6 +137,9 @@ export let errUseAfterMove = "E3102"
 
 // A division or 'mod' has a constant zero divisor.
 export let errDivisionByZero = "E3103"
+
+// A 'throws' clause names something other than an enum.
+export let errThrowsNotAnErrorEnum = "E3113"
 
 // A method call on a type parameter names a method that more than one of its bounds declares.
 export let errAmbiguousBound = "E3114"
@@ -228,10 +237,7 @@ export let errCapabilityMisuse = "E3921"
 // A value of a type with destructors is taken apart outside them.
 export let errTakeApartDestructible = "E3922"
 
-// A 'try' without 'otherwise' has no caller to pass the failure to.
-export let errNothingToPropagate = "E3923"
-
-// A 'throws' clause names an error the function cannot throw or cannot declare.
+// A function that takes a 'sets' parameter declares 'throws'.
 export let errThrows = "E3924"
 
 // A type contains itself.

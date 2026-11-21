@@ -8,7 +8,7 @@ var lookahead0 = [numTokens]bool{TKw_function: true, TKw_static: true}
 var lookahead1 = [numTokens]bool{TKw_enum: true, TKw_export: true, TKw_interface: true, TKw_public: true, TKw_type: true, TKw_typealias: true, TKw_union: true}
 var lookahead2 = [numTokens]bool{TKw_export: true, TKw_interface: true, TKw_public: true}
 var lookahead3 = [numTokens]bool{TKw_export: true, TKw_public: true}
-var lookahead4 = [numTokens]bool{TKw_Self: true, TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_export: true, TKw_false: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_match: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_not: true, TKw_or: true, TKw_otherwise: true, TKw_panic: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_self: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throws: true, TKw_to: true, TKw_true: true, TKw_try: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true, TName: true}
+var lookahead4 = [numTokens]bool{TKw_Self: true, TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_export: true, TKw_false: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_ignore: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_match: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_not: true, TKw_or: true, TKw_otherwise: true, TKw_panic: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_self: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throw: true, TKw_throws: true, TKw_to: true, TKw_true: true, TKw_try: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true, TName: true}
 var lookahead5 = [numTokens]bool{TKw_consumes: true, TKw_destructs: true, TKw_mutates: true}
 var lookahead6 = [numTokens]bool{TKw_consumes: true, TKw_mutates: true, TKw_sets: true}
 var lookahead7 = [numTokens]bool{TKw_let: true, TKw_var: true}
@@ -17,7 +17,7 @@ var lookahead9 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_let: 
 var lookahead10 = [numTokens]bool{TKw_export: true, TKw_function: true, TKw_public: true, TKw_static: true, TName: true}
 var lookahead11 = [numTokens]bool{TKw_export: true, TName: true}
 var lookahead12 = [numTokens]bool{TKw_Self: true, TName: true}
-var lookahead13 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_break: true, TKw_continue: true, TKw_export: true, TKw_false: true, TKw_for: true, TKw_if: true, TKw_let: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_try: true, TKw_var: true, TKw_when: true, TKw_while: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead13 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_break: true, TKw_continue: true, TKw_export: true, TKw_false: true, TKw_for: true, TKw_if: true, TKw_let: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_throw: true, TKw_true: true, TKw_try: true, TKw_var: true, TKw_when: true, TKw_while: true, TLParen: true, TMinus: true, TName: true, TString: true}
 var lookahead14 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_consumes: true, TKw_export: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
 var lookahead15 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_export: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
 var lookahead16 = [numTokens]bool{TKw__: true, TName: true}
@@ -28,13 +28,13 @@ var lookahead20 = [numTokens]bool{TKw_to: true, TKw_upto: true}
 var lookahead21 = [numTokens]bool{TKw_false: true, TKw_true: true}
 var lookahead22 = [numTokens]bool{TKw_Self: true, TKw_export: true, TName: true}
 var lookahead23 = [numTokens]bool{TKw_not: true, TMinus: true}
-var lookahead24 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_break: true, TKw_continue: true, TKw_export: true, TKw_false: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
-var lookahead25 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_export: true, TKw_false: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_match: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_not: true, TKw_or: true, TKw_otherwise: true, TKw_panic: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_self: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throws: true, TKw_to: true, TKw_true: true, TKw_try: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead24 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw_break: true, TKw_continue: true, TKw_export: true, TKw_false: true, TKw_ignore: true, TKw_match: true, TKw_not: true, TKw_panic: true, TKw_return: true, TKw_self: true, TKw_throw: true, TKw_true: true, TKw_try: true, TLParen: true, TMinus: true, TName: true, TString: true}
+var lookahead25 = [numTokens]bool{TInteger: true, TKw_Self: true, TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_export: true, TKw_false: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_ignore: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_match: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_not: true, TKw_or: true, TKw_otherwise: true, TKw_panic: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_self: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throw: true, TKw_throws: true, TKw_to: true, TKw_true: true, TKw_try: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true, TLParen: true, TMinus: true, TName: true, TString: true}
 var lookahead26 = [numTokens]bool{TKw_mod: true, TSlash: true, TStar: true}
 var lookahead27 = [numTokens]bool{TMinus: true, TPlus: true}
 var lookahead28 = [numTokens]bool{TKw_shl: true, TKw_shr: true}
 var lookahead29 = [numTokens]bool{TEqEq: true, TGe: true, TGt: true, TLe: true, TLt: true, TNotEq: true}
-var lookahead30 = [numTokens]bool{TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_or: true, TKw_otherwise: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throws: true, TKw_to: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true}
+var lookahead30 = [numTokens]bool{TKw__: true, TKw_and: true, TKw_as: true, TKw_break: true, TKw_consumes: true, TKw_continue: true, TKw_default: true, TKw_destructs: true, TKw_else: true, TKw_end: true, TKw_enum: true, TKw_for: true, TKw_function: true, TKw_gives: true, TKw_if: true, TKw_ignore: true, TKw_implements: true, TKw_in: true, TKw_int: true, TKw_interface: true, TKw_is: true, TKw_let: true, TKw_mod: true, TKw_mutates: true, TKw_noncopyable: true, TKw_or: true, TKw_otherwise: true, TKw_public: true, TKw_return: true, TKw_returns: true, TKw_sets: true, TKw_shl: true, TKw_shr: true, TKw_static: true, TKw_then: true, TKw_throw: true, TKw_throws: true, TKw_to: true, TKw_type: true, TKw_typealias: true, TKw_union: true, TKw_upto: true, TKw_uses: true, TKw_var: true, TKw_when: true, TKw_where: true, TKw_while: true, TKw_with: true, TKw_xor: true}
 
 // listStacks has a stack for each type of element that a list of structs in the grammar holds, and one for the
 // numbers of the records and texts that each list of the tree holds.
@@ -154,7 +154,7 @@ func (p *Parser) parseFuncDecl() *ast.FuncDecl {
 				p.lists.ptr_Param.push(p.parseParam())
 			}
 		} else {
-			panic(p.expected("'Self', '_', 'and', 'as', 'break', 'consumes', 'continue', 'default', 'destructs', 'else', 'end', 'enum', 'export', 'false', 'for', 'function', 'gives', 'if', 'implements', 'in', 'int', 'interface', 'is', 'let', 'match', 'mod', 'mutates', 'noncopyable', 'not', 'or', 'otherwise', 'panic', 'public', 'return', 'returns', 'self', 'sets', 'shl', 'shr', 'static', 'then', 'throws', 'to', 'true', 'try', 'type', 'typealias', 'union', 'upto', 'uses', 'var', 'when', 'where', 'while', 'with', 'xor' or a name"))
+			panic(p.expected("'Self', '_', 'and', 'as', 'break', 'consumes', 'continue', 'default', 'destructs', 'else', 'end', 'enum', 'export', 'false', 'for', 'function', 'gives', 'if', 'ignore', 'implements', 'in', 'int', 'interface', 'is', 'let', 'match', 'mod', 'mutates', 'noncopyable', 'not', 'or', 'otherwise', 'panic', 'public', 'return', 'returns', 'self', 'sets', 'shl', 'shr', 'static', 'then', 'throw', 'throws', 'to', 'true', 'try', 'type', 'typealias', 'union', 'upto', 'uses', 'var', 'when', 'where', 'while', 'with', 'xor' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")
@@ -730,7 +730,7 @@ func (p *Parser) parseFuncSig() *ast.FuncSig {
 				p.lists.ptr_Param.push(p.parseParam())
 			}
 		} else {
-			panic(p.expected("'Self', '_', 'and', 'as', 'break', 'consumes', 'continue', 'default', 'destructs', 'else', 'end', 'enum', 'export', 'false', 'for', 'function', 'gives', 'if', 'implements', 'in', 'int', 'interface', 'is', 'let', 'match', 'mod', 'mutates', 'noncopyable', 'not', 'or', 'otherwise', 'panic', 'public', 'return', 'returns', 'self', 'sets', 'shl', 'shr', 'static', 'then', 'throws', 'to', 'true', 'try', 'type', 'typealias', 'union', 'upto', 'uses', 'var', 'when', 'where', 'while', 'with', 'xor' or a name"))
+			panic(p.expected("'Self', '_', 'and', 'as', 'break', 'consumes', 'continue', 'default', 'destructs', 'else', 'end', 'enum', 'export', 'false', 'for', 'function', 'gives', 'if', 'ignore', 'implements', 'in', 'int', 'interface', 'is', 'let', 'match', 'mod', 'mutates', 'noncopyable', 'not', 'or', 'otherwise', 'panic', 'public', 'return', 'returns', 'self', 'sets', 'shl', 'shr', 'static', 'then', 'throw', 'throws', 'to', 'true', 'try', 'type', 'typealias', 'union', 'upto', 'uses', 'var', 'when', 'where', 'while', 'with', 'xor' or a name"))
 		}
 	}
 	p.expect(TRParen, "')'")
@@ -788,6 +788,8 @@ func (p *Parser) parseStmt() ast.Stmt {
 		return p.parseWhenStmt().Stmt()
 	} else if p.at(TKw_try) && p.peekIs(TLabel) {
 		return p.parseTryStmt().Stmt()
+	} else if p.at(TKw_throw) {
+		return p.parseThrowStmt().Stmt()
 	} else if p.at(TKw_return) {
 		return p.parseReturnStmt().Stmt()
 	} else if p.at(TKw_break) {
@@ -974,6 +976,14 @@ func (p *Parser) parseTryStmt() ast.TryStmt {
 			n.SetHandlerEnd(p.parseEndLabel())
 		}
 	}
+	return n
+}
+
+func (p *Parser) parseThrowStmt() ast.ThrowStmt {
+	t := p.cur()
+	n := p.tree.NewThrowStmt(t.Start)
+	p.expect(TKw_throw, "'throw'")
+	n.SetValue(p.parseExpr())
 	return n
 }
 
@@ -1215,6 +1225,9 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 		if p.at(TKw_otherwise) && p.peekIn(&lookahead24) {
 			p.expect(TKw_otherwise, "'otherwise'")
 			switch p.cur().Kind() {
+			case TKw_ignore:
+				p.expect(TKw_ignore, "'ignore'")
+				n.SetIgnore()
 			case TInteger, TKw_Self, TKw_export, TKw_false, TKw_match, TKw_not, TKw_panic, TKw_self, TKw_true, TKw_try, TLParen, TMinus, TName, TString:
 				n.SetValue(p.parseExpr())
 			case TKw_return:
@@ -1223,8 +1236,10 @@ func (p *Parser) parseExprPrec(minPrec int) ast.Expr {
 				n.SetBrk(p.parseBreakStmt())
 			case TKw_continue:
 				n.SetCont(p.parseContinueStmt())
+			case TKw_throw:
+				n.SetThr(p.parseThrowStmt())
 			default:
-				panic(p.expected("an integer, 'Self', 'break', 'continue', 'export', 'false', 'match', 'not', 'panic', 'return', 'self', 'true', 'try', '(', '-', a name or a string"))
+				panic(p.expected("an integer, 'Self', 'break', 'continue', 'export', 'false', 'ignore', 'match', 'not', 'panic', 'return', 'self', 'throw', 'true', 'try', '(', '-', a name or a string"))
 			}
 		}
 		left = n.Expr()

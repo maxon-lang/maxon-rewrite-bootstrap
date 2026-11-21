@@ -787,13 +787,6 @@ func transformFunctionHeader(line *sourceLine, fnIdx int, inInterface bool, warn
 			if i+1 < len(line.code) && line.code[i+1].text == "float" {
 				warn(line, "float types are not supported in minimaxon")
 			}
-		case "throws":
-			if i+1 < len(line.code) {
-				errName := line.code[i+1].text
-				if errName != "ArithmeticError" || (i+2 < len(line.code) && line.code[i+2].text == ".") {
-					warn(line, fmt.Sprintf("custom error type in 'throws %s' is not supported in minimaxon (only ArithmeticError)", errName))
-				}
-			}
 		}
 	}
 }
@@ -989,8 +982,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	// Statement-head checks.
 	if len(toks) > 0 {
 		switch toks[0].text {
-		case "throw":
-			warn(line, "throw statements are not supported in minimaxon")
 		case "if":
 			if len(toks) > 1 && (toks[1].text == "try" || ((toks[1].text == "let" || toks[1].text == "var") && hasTokenBeforeLabel(toks, "try"))) {
 				warn(line, "if try is not supported in minimaxon")
@@ -1080,9 +1071,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			case "throws":
 				warn(line, "'throws' in match arms or otherwise clauses is not supported in minimaxon")
 			case "otherwise":
-				if i+1 < len(toks) && toks[i+1].text == "ignore" {
-					warn(line, "'otherwise ignore' is not supported in minimaxon")
-				}
 				// Check for block-form `otherwise 'label'` on a `try <expr>` expression (not a `try 'label'` block).
 				if toks[0].text != "end" && toks[len(toks)-1].kind == tokLabel {
 					warn(line, "block-form 'otherwise' on a try expression is not supported in minimaxon; use a try block")

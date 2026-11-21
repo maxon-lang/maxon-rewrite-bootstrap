@@ -252,7 +252,7 @@ merged in source order, which keeps the output deterministic.
 | aliases | `check` | serial and cheap: each typealias of an instance gets its type, after the typealiases it names, in source order (a cycle is `E2012`) |
 | declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass. It also numbers the module's nodes that have a slot, now that resolve has changed the kind of some, and sizes the tables of the `Typing` that only some nodes have |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
-| check | `check` | the first task of the modules phase: two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3017`), then the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3923`; see "Checked arithmetic"), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) A module's verify stage runs only if its bodies had no errors and no module's bodies have had errors yet, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
+| check | `check` | the first task of the modules phase: two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3017`), then the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) A module's verify stage runs only if its bodies had no errors and no module's bodies have had errors yet, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
 | generate | `ir`, `backend` | the last task of the modules phase: two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3906` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9900`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules. A module whose entry the build cache holds is not lowered or emitted at all (see "Build cache") |
 | routines | `backend` | serial to start, then parallel: the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), made in waves of units of 256 routines; the order of the routines comes from the modules in source order, so it does not depend on `--jobs` |
 | link | `backend` | each function and routine is a section, each string and reserved value a piece of data, and only those the entry reaches through symbol and data references are kept (the runtime units are one section each). Every function is still compiled; what nothing calls is dropped here, as Go's linker does. Every step runs on all jobs: each unit enters its definitions into one table (a hash table of ids whose slots are claimed with a compare and swap, so it needs no lock; the ids count over the units in order, each definition having one; a symbol is its text, a link name, see "Build cache"). An instance is defined by every module that needs it, so the symbol of an instance may be defined more than once, and the table keeps the lowest id, which is the definition of the first unit, whichever job entered its own first: a definition that finds a lower id gives way and one that finds a higher id takes the slot. The other copies are never looked up, so the mark never reaches them and they are dropped like any dead section, as a C++ linker does with COMDAT "any". Any other symbol defined twice is an internal error; the mark follows the calls a round at a time, resolving a fixup only where live code uses it, with each round's sections shared out in chunks and the next round gathered in chunk order; each unit places its live parts from its own aligned start, and a running sum over the units in order gives each unit its base; each unit copies and patches its code into the image, which is the file in memory, while the file is created in the background and written in chunks as the code in front becomes final. The units go in module-path order after a runtime unit, then the routines, and the array runtime comes last. The layout depends only on which sections are live, so it is the same for any `--jobs` |
@@ -1004,12 +1004,12 @@ test runner. It has no types; it works from the shape of the values and from the
   instance of a generic. A `break` or `continue` inside a branch does not end the code after the `if` or `match`,
   since a `break` can leave a `match`.
 - Integer, bool and string literals, interpolation, arithmetic and bitwise operators, `shl`/`shr`,
-  comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, `try e` and `try e otherwise ...`, a function that
-  `throws ArithmeticError`, calls with Maxon's
+  comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
+  `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.copy()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
 - Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS/CLI functions `cliArgs`, `getEnv`, `readFile`, `writeFile`, `writeBytes`, `renameFile`, `removeFile`, `isDir`, `mkdir`, `listDir`, `runProcess`, the aliases `ExitCode`, `Count`,
-  `FullRangeInt`, `Byte`, the `String` methods `byteCount()`, `byteAt(index)` and `slice(from, until: to)`, the enum `ArithmeticError`, the byte buffer `Bytes`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
+  `FullRangeInt`, `Byte`, the `String` methods `byteCount()`, `byteAt(index)` and `slice(from, until: to)`, the enum `ArithmeticError`, the interface `Error`, the byte buffer `Bytes`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib.
 
 ### Integers
@@ -1044,9 +1044,71 @@ An anonymous range goes into an alias only if the alias holds all of it, else it
 included; only two different aliases are `E3005`. The branches of a conditional, a `match` or a `try` with no type to
 take give their alias when both are of it, or one is and holds the other, and otherwise a range that holds both.
 
+### Errors of the program
+
+A failure that a caller should handle is an error: a case of an enum that implements the built-in interface `Error`.
+A function or an interface's method declares the one error it throws after its `returns`, and fails with `throw`:
+
+```maxon
+typealias Amount = int(i64.min to i64.max)
+
+enum ParseError implements Error
+	empty
+	invalidSyntax
+end 'ParseError'
+
+enum AppError implements Error
+	badInput
+end 'AppError'
+
+function parseDigit(s String) returns Amount throws ParseError
+	if s.byteCount() == 0 'empty'
+		throw ParseError.empty
+	end 'empty'
+	return match s 'digit'
+		"0" gives 0
+		"1" gives 1
+		default gives -1
+	end 'digit'
+end 'parseDigit'
+
+function forms(text String) throws AppError
+	let a = try parseDigit(text) otherwise 0 // the value on a failure
+	let b = try parseDigit(text) otherwise return // or a return, a break, a continue
+	let c = try parseDigit(text) otherwise throw AppError.badInput // or a throw of another error
+	let d = try parseDigit(text) otherwise panic("not a digit")
+	try parseDigit(text) otherwise ignore // a statement drops the error and the value
+	try 'both'
+		let n = parseDigit(text) // no try in the block
+		print("{n}\n")
+	end 'both' otherwise (e) 'failed'
+		match e 'kind' // the handler matches on the error it names
+			empty then print("no input\n")
+			invalidSyntax then print("not a digit\n")
+		end 'kind'
+	end 'failed'
+	print("{a} {b} {c} {d}\n")
+end 'forms'
+```
+
+- A call of a function that throws, and of an interface's method that does, is covered by a `try` (`E3057`). A `try`
+  covers its whole expression, and a `try` block its whole body, except what a `try` inside covers with an `otherwise`
+  of its own. A `throw` needs no `try`: it goes to the handler of the `try` block around it, or out of the function.
+- What leaves the function, through a `try` without `otherwise` or a `throw`, must be the error the function throws:
+  `E3059` otherwise, also where the function throws nothing; convert another error with `otherwise throw`. A handler
+  that names the error (`(e)`) takes the one error its block's calls and throws fail with, must `match` on it (`E3084`),
+  and refuses anything else that fails in the block (`E3059`), which a `try ... otherwise` of its own handles instead. A
+  handler without a name catches every error.
+- `throws` names an enum (`E3113`); a value that is not one cannot be thrown (`E3005`). `otherwise ignore` gives no
+  value, so its `try` is a statement of its own (`E3059`).
+- An error comes back from the call as a value: the function returns it beside its result, its case plus 1 in a
+  register and 0 for none (`rdx` in the executable), and the call is followed by one branch on it. There are no unwind
+  tables and nothing is allocated for an error; a failure drops what it leaves as any other exit does.
+
 ### Checked arithmetic
 
-An integer operation that can fail says so. The failures are the cases of the built-in enum `ArithmeticError`:
+An integer operation that can fail says so. Its failures are the cases of the built-in error enum `ArithmeticError`, which
+is an error like any other (see "Errors of the program"):
 
 | Case | Of |
 |---|---|
@@ -1068,18 +1130,25 @@ function sums(a Count, b Count, c Count) returns Count throws ArithmeticError
 		let p = a * b // no try in the block
 		total = total + p / c
 	end 'calc' otherwise (e) 'failed'
-		print("{e}\n") // e is the ArithmeticError
+		match e 'why' // e is the ArithmeticError
+			overflow then print("overflow\n")
+			divisionByZero then print("division by zero\n")
+			negativeShift then print("negative shift\n")
+		end 'why'
 	end 'failed'
 	return total
 end 'sums'
 ```
 
 - A `try` covers every operation in its expression, and a `try` block every operation in its body, except what a `try`
-  inside covers with an `otherwise` of its own. A call of a function that `throws ArithmeticError` can fail too.
+  inside covers with an `otherwise` of its own. A call of a function that throws can fail too.
 - A `try` with no `otherwise`, and a `try` block with no handler, pass a failure to the `try` around them, or with none
-  to the caller: only a function that `throws ArithmeticError` has one (`E3923` otherwise, and in a constant, a field's
-  default and a behaviour's body). `main` cannot throw, and neither can a function with a `sets` parameter, which a
-  failure would leave set or not (`E3924`); a method throws exactly when the interface's signature does (`E3016`).
+  to the caller: only a function that throws the failure's error has one (`E3059` otherwise, and in a constant, a field's
+  default and a behaviour's body), so an operation that can fail in a function that throws another error is covered by a
+  `try ... otherwise`, as `try a / b otherwise throw AppError.badInput`. A handler that names a program's error refuses an
+  operation that can fail with `ArithmeticError` (`E3059`); the handler of a `try` block whose body fails only by its
+  operations names the `ArithmeticError`. `main` cannot throw, and neither can a function with a `sets` parameter, which
+  a failure would leave set or not (`E3924`); a method throws exactly when the interface's signature does (`E3016`).
 - A `try` that covers nothing that can fail is allowed, so a sharper analysis never breaks a program.
 - A failure leaves what it interrupts, as a jump out of it would: the temporaries of the statement and the locals of
   the blocks it leaves are dropped, and so are the values computed for a call, a record or a union that never runs
@@ -1585,10 +1654,13 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   a frozen value, a cown and a behaviour have no native code: the interpreter counts a frozen value and a cown, schedules
   behaviours, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.
-- `try` covers integer operations and calls of functions that throw `ArithmeticError`, the only error: there are no
-  error types of the program's own, no `throw`, no `if try`, no `otherwise ignore` and no `otherwise (e)` on an
-  expression. A `try` covers every operation of its expression, not one call, and a condition that rules a failure out
-  is a proof the compiler checks (see "Checked arithmetic").
+- Errors (see "Errors of the program"): an error is an enum, not a union with payloads; a `try` block's handler names
+  one error, not the combined error of several (refused with `E3059`), and has no terminal `otherwise panic(...)` or
+  `otherwise throws ...` form; there is no `if try`, no block handler `otherwise (e) 'label'` on a `try` expression and
+  no `default throws` in a match. Maxon's `E3168` (a `throws` that nothing throws) and `E3083` (a `try` block with
+  nothing that throws) are not raised, so a sharper range analysis never breaks a program. A `try` covers every
+  operation of its expression, not one call, and a condition that rules a failure out is a proof the compiler checks
+  (see "Checked arithmetic").
 - No alias subtyping (an alias implementing another), floats, characters, tuples, closures, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
   parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and

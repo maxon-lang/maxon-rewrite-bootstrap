@@ -545,7 +545,7 @@ func (l *Lowerer) expr(e ast.Expr) V {
 	if c, ok := typing.Type(e).(*ast.ConstIntTy); ok {
 		return l.konst(c.Value.Bits())
 	}
-	if t, ok := e.AsTryExpr(); ok && t.Value().IsNil() {
+	if t, ok := e.AsTryExpr(); ok && t.Transparent() {
 		return l.through(t)
 	}
 	mark := len(l.pending)

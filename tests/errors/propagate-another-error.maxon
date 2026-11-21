@@ -1,0 +1,24 @@
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+enum AppError implements Error
+	badInput
+end 'AppError'
+
+function parse(n Count) returns Count throws ParseError
+	if n == 0 'zero'
+		throw ParseError.empty
+	end 'zero'
+	return n
+end 'parse'
+
+function load(n Count) returns Count throws AppError
+	return try parse(n)
+end 'load'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3059 at 17:18

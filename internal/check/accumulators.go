@@ -257,6 +257,7 @@ func (*accumulatorScan) VisitLetStmt(ast.LetStmt)           {}
 func (*accumulatorScan) VisitDiscardStmt(ast.DiscardStmt)   {}
 func (*accumulatorScan) VisitWhenStmt(ast.WhenStmt)         {}
 func (*accumulatorScan) VisitReturnStmt(ast.ReturnStmt)     {}
+func (*accumulatorScan) VisitThrowStmt(ast.ThrowStmt)       {}
 func (*accumulatorScan) VisitBreakStmt(ast.BreakStmt)       {}
 func (*accumulatorScan) VisitContinueStmt(ast.ContinueStmt) {}
 func (*accumulatorScan) VisitExprStmt(ast.ExprStmt)         {}

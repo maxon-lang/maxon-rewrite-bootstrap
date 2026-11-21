@@ -63,7 +63,11 @@ function main() returns ExitCode
 		_ = weigh(other.weight, b: zero)
 		print("not reached\n")
 	end 'blocks' otherwise (e) 'failed'
-		print("blocks: {e}\n")
+		match e 'why'
+			overflow then print("blocks: overflow\n")
+			divisionByZero then print("blocks: divisionByZero\n")
+			negativeShift then print("blocks: negativeShift\n")
+		end 'why'
 	end 'failed'
 	for i in 0 upto 3 'loop'
 		let name = label(i)

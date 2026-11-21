@@ -27,6 +27,7 @@ export type Builtins
 	export var arithmeticErrorTy as TypeID
 	export var copyableTy as TypeID
 	export var droppableTy as TypeID
+	export var errorTy as TypeID
 	export var cownNewFunc as FuncID
 	export var cownNewDropWithFunc as FuncID
 	export var stringMethods as FuncIDMap
@@ -37,7 +38,7 @@ export type Builtins
 		let sm = FuncIDMap.new()
 		let stm = TypeIDMap.new()
 		let sfm = FuncIDMap.new()
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, bytesTy: noType, optionOrigin: noType, arithmeticErrorTy: noType, copyableTy: noType, droppableTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, bytesTy: noType, optionOrigin: noType, arithmeticErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
 	end 'empty'
 
 	export function isCapability(iface TypeID) returns bool

@@ -1,0 +1,16 @@
+enum Problem implements Error
+	broken
+end 'Problem'
+
+function work(n Count) returns Count throws Problem
+	if n == 0 'zero'
+		throw n
+	end 'zero'
+	return n
+end 'work'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3005 at 7:9

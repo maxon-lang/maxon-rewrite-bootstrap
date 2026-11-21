@@ -62,48 +62,84 @@ function main() returns ExitCode
 	try 'cases'
 		print("{big + 1}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("add: {describe(e)}\n")
+		match e 'why'
+			overflow then print("add: overflow\n")
+			divisionByZero then print("add: division by zero\n")
+			negativeShift then print("add: negative shift\n")
+		end 'why'
 	end 'failed'
 	try 'cases'
 		print("{lowest - 1}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("subtract: {describe(e)}\n")
+		match e 'why'
+			overflow then print("subtract: overflow\n")
+			divisionByZero then print("subtract: division by zero\n")
+			negativeShift then print("subtract: negative shift\n")
+		end 'why'
 	end 'failed'
 	try 'cases'
 		print("{big * 2}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("multiply: {describe(e)}\n")
+		match e 'why'
+			overflow then print("multiply: overflow\n")
+			divisionByZero then print("multiply: division by zero\n")
+			negativeShift then print("multiply: negative shift\n")
+		end 'why'
 	end 'failed'
 	try 'cases'
 		print("{-lowest}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("negate: {describe(e)}\n")
+		match e 'why'
+			overflow then print("negate: overflow\n")
+			divisionByZero then print("negate: division by zero\n")
+			negativeShift then print("negate: negative shift\n")
+		end 'why'
 	end 'failed'
 	try 'cases'
 		print("{big / zero}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("divide: {describe(e)}\n")
+		match e 'why'
+			overflow then print("divide: overflow\n")
+			divisionByZero then print("divide: division by zero\n")
+			negativeShift then print("divide: negative shift\n")
+		end 'why'
 	end 'failed'
 	try 'cases'
 		print("{big mod zero}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("mod: {describe(e)}\n")
+		match e 'why'
+			overflow then print("mod: overflow\n")
+			divisionByZero then print("mod: division by zero\n")
+			negativeShift then print("mod: negative shift\n")
+		end 'why'
 	end 'failed'
 	try 'cases'
 		print("{lowest / shift}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("i64.min / -1: {describe(e)}\n")
+		match e 'why'
+			overflow then print("i64.min / -1: overflow\n")
+			divisionByZero then print("i64.min / -1: division by zero\n")
+			negativeShift then print("i64.min / -1: negative shift\n")
+		end 'why'
 	end 'failed'
 	print("i64.min mod -1: {lowest mod shift}\n")
 	try 'cases'
 		print("{big shl shift}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("shift: {describe(e)}\n")
+		match e 'why'
+			overflow then print("shift: overflow\n")
+			divisionByZero then print("shift: division by zero\n")
+			negativeShift then print("shift: negative shift\n")
+		end 'why'
 	end 'failed'
 	try 'cases'
 		print("{big as Count as Small}\n")
 	end 'cases' otherwise (e) 'failed'
-		print("cast: {describe(e)}\n")
+		match e 'why'
+			overflow then print("cast: overflow\n")
+			divisionByZero then print("cast: division by zero\n")
+			negativeShift then print("cast: negative shift\n")
+		end 'why'
 	end 'failed'
 	try 'cases'
 		small = small + 1

@@ -697,27 +697,22 @@ func (o *Ownership) land(mark int) { o.inFlight = o.inFlight[:mark] }
 // try checks a try expression, whose expression check runs with the failures going to the try, and gives the state after
 // it and the state where its handler starts.
 func (o *Ownership) try(e ast.TryExpr, s *ownState, check func(*ownState) *ownState) (*ownState, *ownState) {
-	if !o.enterTry(!isPropagating(e)) {
+	if !o.enterTry(!e.Propagates()) {
 		return check(s), ownUnreachable
 	}
 	s = check(s)
 	return s, o.leaveTry().entry
 }
 
-// isPropagating is whether a try has no 'otherwise', so it passes its failures to the caller.
-func isPropagating(e ast.TryExpr) bool {
-	return e.Value().IsNil() && e.Ret().IsNil() && e.Brk().IsNil() && e.Cont().IsNil()
-}
-
 // isTransparent is whether a try gives the value of its expression itself, with no other value on a failure: its
 // expression is then read or moved as the try is.
 func isTransparent(e ast.Expr) (ast.TryExpr, bool) {
 	t, ok := e.AsTryExpr()
-	return t, ok && t.Value().IsNil()
+	return t, ok && t.Transparent()
 }
 
-// handled checks what a transparent try does on a failure: return, break or continue, or nothing for a try that passes
-// it to the caller.
+// handled checks what a transparent try does on a failure: return, break, continue or throw, or nothing for a try that
+// passes it to the caller.
 func (o *Ownership) handled(e ast.TryExpr, entry *ownState) {
 	mark := len(o.inFlight)
 	switch {
@@ -727,6 +722,8 @@ func (o *Ownership) handled(e ast.TryExpr, entry *ownState) {
 		o.VisitBreakStmt(e.Brk(), entry)
 	case !e.Cont().IsNil():
 		o.VisitContinueStmt(e.Cont(), entry)
+	case !e.Thr().IsNil():
+		o.VisitThrowStmt(e.Thr(), entry)
 	}
 	o.land(mark)
 }
@@ -738,6 +735,10 @@ func (o *Ownership) VisitTryExpr(e ast.TryExpr, s *ownState) *ownState {
 		end, entry := o.try(e, s, func(s *ownState) *ownState { return o.eval(e.E(), s) })
 		o.handled(e, entry)
 		return end
+	}
+	if e.Ignore() {
+		end, entry := o.try(e, s, func(s *ownState) *ownState { return o.eval(e.E(), s) })
+		return o.join(end, entry)
 	}
 	dest := ownDest{kind: destResult}
 	mark := len(o.inFlight)
@@ -752,6 +753,18 @@ func (o *Ownership) VisitReturnStmt(st ast.ReturnStmt, s *ownState) *ownState {
 	}
 	o.requireSetsInitialised(s, st.Position())
 	o.requireEnded(0, s, st.Position(), dropReturn)
+	return ownUnreachable
+}
+
+// VisitThrowStmt is a failure that always happens: it goes to the innermost try's handler, or with none out of the
+// function.
+func (o *Ownership) VisitThrowStmt(st ast.ThrowStmt, s *ownState) *ownState {
+	s = o.eval(st.Value(), s)
+	added := o.enterTry(false)
+	o.failure(st.Position(), s)
+	if added {
+		o.leaveTry()
+	}
 	return ownUnreachable
 }
 
@@ -1249,7 +1262,7 @@ func (o *Ownership) userCall(site ast.Pos, e *ast.CallInfo, receiver ast.Expr, s
 		}
 	}
 	o.release(held)
-	if callThrows(e) {
+	if e.ErrorType() != nil {
 		// The callee has its arguments by now, and ends them itself when it fails.
 		o.land(arguments)
 		o.failure(site, s)

@@ -93,9 +93,9 @@ end 'main'
 
 // case: a type parameter without the bound cannot die
 // expect-error: E3919
-function ignore(consumes x T) uses T
+function forget(consumes x T) uses T
 	print("x")
-end 'ignore'
+end 'forget'
 
 function main() returns ExitCode
 	return 0

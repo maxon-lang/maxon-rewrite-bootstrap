@@ -92,6 +92,18 @@ func (l *Lowerer) unwindTo(depth, mark int) {
 	}
 }
 
+// VisitThrowStmt lowers a throw: a failure with the error its value is a case of, which goes to the innermost try's
+// handler, or with none out of the function.
+func (l *Lowerer) VisitThrowStmt(s ast.ThrowStmt) {
+	err := l.reg(KindScalar)
+	l.emit(Bin(err, BinAdd, l.expr(s.Value()), l.konst(1), false, NoBlock))
+	added := l.enterPropagating()
+	l.seal(Jump(l.failure(0, err)))
+	if added {
+		l.leaveTry()
+	}
+}
+
 // VisitTryStmt lowers a try block: the body with its failures going to the handler, or, with no handler, onwards.
 func (l *Lowerer) VisitTryStmt(s ast.TryStmt) {
 	if !s.HasOtherwise() {
@@ -119,8 +131,16 @@ func (l *Lowerer) VisitTryStmt(s ast.TryStmt) {
 }
 
 // VisitTryExpr lowers a try that gives a value on a failure: its expression and the value 'otherwise' gives are the two
-// branches of a value, as a conditional's are.
+// branches of a value, as a conditional's are. One that ignores a failure has no value, and its failure goes on after it.
 func (l *Lowerer) VisitTryExpr(e ast.TryExpr) V {
+	if e.Ignore() {
+		end := l.b.NewBlock()
+		l.enterTry(end, -1)
+		l.scoped(func() { l.expr(e.E()) })
+		l.leaveTry()
+		l.goTo(end)
+		return l.konst(0)
+	}
 	typ := l.ty(e.Expr())
 	result := l.f.NewSlot(l.kind(typ))
 	other := l.b.NewBlock()
@@ -136,9 +156,9 @@ func (l *Lowerer) VisitTryExpr(e ast.TryExpr) V {
 }
 
 // through lowers a try whose value is its expression's, which passes a failure on or leaves the statement with a return,
-// a break or a continue.
+// a break, a continue or a throw.
 func (l *Lowerer) through(t ast.TryExpr) V {
-	if isPropagating(t) {
+	if t.Propagates() {
 		added := l.enterPropagating()
 		v := l.expr(t.E())
 		if added {
@@ -160,6 +180,8 @@ func (l *Lowerer) through(t ast.TryExpr) V {
 			l.VisitBreakStmt(t.Brk())
 		case !t.Cont().IsNil():
 			l.VisitContinueStmt(t.Cont())
+		case !t.Thr().IsNil():
+			l.VisitThrowStmt(t.Thr())
 		default:
 			panic(diag.Internal("lower: a try with no handler is lowered as one that passes its failures on"))
 		}
@@ -182,9 +204,4 @@ func (l *Lowerer) atTryStart(h tryHandler, lower func()) {
 	lower()
 	l.scopes[below].drops = append(l.scopes[below].drops[:h.mark], made...)
 	l.pending = append(l.pending[:0], inFlight...)
-}
-
-// isPropagating is whether a try has no 'otherwise', so it passes its failures on.
-func isPropagating(t ast.TryExpr) bool {
-	return t.Value().IsNil() && t.Ret().IsNil() && t.Brk().IsNil() && t.Cont().IsNil()
 }

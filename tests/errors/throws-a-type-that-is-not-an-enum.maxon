@@ -1,5 +1,5 @@
-enum Problem
-	broken
+type Problem
+	var code as Count
 end 'Problem'
 
 function work() returns Count throws Problem
@@ -10,4 +10,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3924 at 5:38
+// expect-error: E3113 at 5:38

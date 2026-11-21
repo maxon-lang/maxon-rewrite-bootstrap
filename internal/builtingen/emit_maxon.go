@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -172,7 +173,7 @@ func emitMaxon(t table) string {
 		names := types.strings(cases)
 		types.line("b.%s = registerEnumType(tt, std: std, typeMap: typeMap, name: %q, cases: %s)", maxonField(e.Key, false), e.Name, names)
 	}
-	for _, c := range capabilities {
+	for _, c := range slices.Concat(capabilities, markers) {
 		types.line("b.%s = registerInterfaceType(tt, std: std, typeMap: typeMap, name: %q)", maxonField(c, false), c)
 	}
 	sb.WriteString("\nfunction declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap)\n")

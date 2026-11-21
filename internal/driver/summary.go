@@ -243,11 +243,19 @@ func (s *shape) function(f *ast.FuncDecl) {
 	s.int(int(f.Pass.SelfConv))
 	s.specs(f.Pass.Specs)
 	s.ty(f.ReturnType)
-	s.bool(f.ErrorType != nil)
+	s.errorType(f.ErrorType)
 	generic := len(f.Generics) > 0
 	s.bool(generic)
 	if generic {
 		s.source(f.Head)
+	}
+}
+
+// errorType is the error a function throws, nil for none.
+func (s *shape) errorType(t ast.Ty) {
+	s.bool(t != nil)
+	if t != nil {
+		s.ty(t)
 	}
 }
 
@@ -347,6 +355,6 @@ func (s *shape) VisitInterfaceDecl(t *ast.InterfaceDecl) {
 		s.int(int(m.Pass.SelfConv))
 		s.specs(m.Pass.Specs)
 		s.ty(m.ReturnType)
-		s.bool(m.ErrorType != nil)
+		s.errorType(m.ErrorType)
 	}
 }

@@ -28,6 +28,10 @@ type termination struct{}
 
 func (termination) VisitReturnStmt(ReturnStmt) bool { return true }
 
+// VisitThrowStmt: an error leaves the function, or goes to the handler of a try block around it, which decides for that
+// block whether it terminates.
+func (termination) VisitThrowStmt(ThrowStmt) bool { return true }
+
 func (termination) VisitExprStmt(t ExprStmt) bool {
 	return t.E().Kind() == KindPanicExpr
 }

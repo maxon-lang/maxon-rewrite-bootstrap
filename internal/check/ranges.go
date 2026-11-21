@@ -13,6 +13,9 @@ import (
 type rangeHandler struct {
 	propagates bool
 	entry      *rangeState
+	// takes is the one error the handler names, which every failure it catches must be, or nil for a handler that names
+	// none and so catches any.
+	takes ast.Ty
 }
 
 // rangeFrame is a loop or a match being walked, which a break leaves for the state after it.
@@ -335,16 +338,17 @@ func (r *Ranges) VisitWhenStmt(s ast.WhenStmt) {
 	r.function(r.typing.When(s).Fn, true)
 }
 
-// enterTry starts a try. One with a handler catches what it covers; one without passes it to the try around it, and with
-// none around it to the caller, which only a function that throws has. It gives whether the try added a handler.
-func (r *Ranges) enterTry(site ast.Pos, handles bool) bool {
+// enterTry starts a try. One with a handler catches what it covers, and takes only the error takes if that is not nil;
+// one without passes it to the try around it, and with none around it to the caller, which only a function that throws
+// has. It gives whether the try added a handler.
+func (r *Ranges) enterTry(site ast.Pos, handles bool, takes ast.Ty) bool {
 	if !handles && len(r.handlers) > 0 {
 		return false
 	}
 	if !handles {
 		r.requirePropagates(site)
 	}
-	r.handlers = append(r.handlers, rangeHandler{propagates: !handles})
+	r.handlers = append(r.handlers, rangeHandler{propagates: !handles, takes: takes})
 	return true
 }
 
@@ -360,16 +364,20 @@ func (r *Ranges) requirePropagates(site ast.Pos) {
 	switch {
 	case r.probe != nil:
 	case r.fn == nil:
-		panic(site.Error(diag.ErrNothingToPropagate, "a 'try' without 'otherwise' passes a failure to the caller, and a constant or a default has none: give 'otherwise' the value to use"))
+		panic(site.Error(diag.ErrErrorTypeMismatch, "a 'try' without 'otherwise' passes a failure to the caller, and a constant or a default has none: give 'otherwise' the value to use"))
 	case r.behaviour:
-		panic(site.Error(diag.ErrNothingToPropagate, "a 'try' without 'otherwise' passes a failure to the caller, and nothing waits for a behaviour: give 'otherwise' what to do"))
+		panic(site.Error(diag.ErrErrorTypeMismatch, "a 'try' without 'otherwise' passes a failure to the caller, and nothing waits for a behaviour: give 'otherwise' what to do"))
 	case r.fn.ErrorType == nil:
-		panic(site.Error(diag.ErrNothingToPropagate, fmt.Sprintf("a 'try' without 'otherwise' passes a failure to the caller, but '%s' does not throw: give 'otherwise' what to do, or declare '%s' 'throws ArithmeticError'", r.fn.Name, r.fn.Name)))
+		panic(site.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("a 'try' without 'otherwise' passes a failure to the caller, but '%s' does not throw: give 'otherwise' what to do, or declare '%s' 'throws' the error", r.fn.Name, r.fn.Name)))
 	}
 }
 
 func (r *Ranges) VisitTryStmt(s ast.TryStmt) {
-	added := r.enterTry(s.Position(), s.HasOtherwise())
+	var takes ast.Ty
+	if local := r.fn.LocalAt(r.typing.TryLocal(s)); local != nil {
+		takes = local.Type
+	}
+	added := r.enterTry(s.Position(), s.HasOtherwise(), takes)
 	r.block(s.Body())
 	if !added {
 		return
@@ -384,6 +392,31 @@ func (r *Ranges) VisitTryStmt(s ast.TryStmt) {
 		entry = deadState
 	}
 	r.st = r.states.joined(end, r.branch(entry, func() { r.block(s.Handler()) }))
+}
+
+// VisitThrowStmt is a failure that always happens: a throw needs no 'try', and passes its error to the caller when no try
+// around it catches it.
+func (r *Ranges) VisitThrowStmt(s ast.ThrowStmt) {
+	r.eval(s.Value())
+	if r.st.dead {
+		return
+	}
+	e := r.typing.Type(s.Value())
+	if len(r.handlers) == 0 {
+		switch {
+		case r.probe != nil:
+		case r.behaviour:
+			panic(s.Error(diag.ErrErrorTypeMismatch, "a throw passes its error to the caller, and nothing waits for a behaviour: handle the failure in the behaviour"))
+		case r.fn.ErrorType == nil:
+			panic(s.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("a throw passes its error to the caller, but '%s' does not throw: declare '%s' 'throws %s', or handle the failure where it happens", r.fn.Name, r.fn.Name, e.Name())))
+		case r.fn.ErrorType != e:
+			panic(s.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("throw of '%s', but '%s' throws '%s': throw a case of '%s', or declare 'throws %s'", e.Name(), r.fn.Name, r.fn.ErrorType.Name(), r.fn.ErrorType.Name(), e.Name())))
+		}
+		r.st = deadState
+		return
+	}
+	r.fallible(s.Position(), e, nil)
+	r.st = deadState
 }
 
 func (r *Ranges) VisitReturnStmt(s ast.ReturnStmt) {
@@ -727,27 +760,16 @@ func (r *Ranges) VisitCallExpr(e ast.CallExpr) span {
 			}
 		}
 	}
-	if callThrows(call) {
-		r.fallible(e.Position(), func() string {
+	if err := call.ErrorType(); err != nil {
+		r.fallible(e.Position(), err, func() string {
 			name := call.Target.Name
 			if call.Kind == ast.CallBound {
 				name = call.Generic.Method.Name
 			}
-			return fmt.Sprintf("'%s' throws ArithmeticError, so the call can fail; handle the failure with 'try'", name)
+			return fmt.Sprintf("'%s' throws %s, so the call can fail; handle the failure with 'try'", name, err.Name())
 		})
 	}
 	return r.typed(e.Expr())
-}
-
-// callThrows is whether a call runs a function that throws.
-func callThrows(call *ast.CallInfo) bool {
-	switch call.Kind {
-	case ast.CallFunction, ast.CallStatic, ast.CallMethod:
-		return call.Target.ErrorType != nil
-	case ast.CallBound:
-		return call.Generic.Method.ErrorType != nil
-	}
-	return false
 }
 
 func (r *Ranges) VisitCondExpr(e ast.CondExpr) span {
@@ -769,7 +791,7 @@ func (r *Ranges) VisitCondExpr(e ast.CondExpr) span {
 // VisitTryExpr covers the failures of its expression: a try with 'otherwise' catches them, and one without passes them to
 // the caller.
 func (r *Ranges) VisitTryExpr(e ast.TryExpr) span {
-	added := r.enterTry(e.Position(), !isPropagating(e))
+	added := r.enterTry(e.Position(), !e.Propagates(), nil)
 	v := r.eval(e.E())
 	if !added {
 		return v
@@ -794,6 +816,8 @@ func (r *Ranges) VisitTryExpr(e ast.TryExpr) span {
 			r.VisitBreakStmt(e.Brk())
 		case !e.Cont().IsNil():
 			r.VisitContinueStmt(e.Cont())
+		case !e.Thr().IsNil():
+			r.VisitThrowStmt(e.Thr())
 		}
 	})
 	r.st = r.states.joined(end, failed)
@@ -921,12 +945,12 @@ func (r *Ranges) fail(e ast.Expr, fails ast.Fails, message func() string) {
 	if r.probe == nil {
 		r.typing.SetFails(e, fails)
 	}
-	r.fallible(e.Position(), message)
+	r.fallible(e.Position(), r.project.Builtins.ArithmeticError, message)
 }
 
-// fallible is an operation that can fail: the innermost try covers it, and its handler can start in the state here. No
-// try is an error, which message says.
-func (r *Ranges) fallible(site ast.Pos, message func() string) {
+// fallible is an operation that can fail with the error err: the innermost try covers it, and its handler can start in the
+// state here. No try is an error, which message says, and so is a try whose handler or caller takes another error.
+func (r *Ranges) fallible(site ast.Pos, err ast.Ty, message func() string) {
 	if r.st.dead {
 		return
 	}
@@ -937,6 +961,14 @@ func (r *Ranges) fallible(site ast.Pos, message func() string) {
 		panic(site.Error(diag.ErrUncheckedFailure, message()))
 	}
 	h := &r.handlers[len(r.handlers)-1]
+	if r.probe == nil {
+		switch {
+		case h.propagates && r.fn.ErrorType != err:
+			panic(site.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("'try' passes on '%s', but '%s' throws '%s': convert it with 'otherwise throw', or handle it with 'otherwise'", err.Name(), r.fn.Name, r.fn.ErrorType.Name())))
+		case h.takes != nil && h.takes != err:
+			panic(site.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("this fails with '%s', but the handler of the try around it names a '%s': give it a 'try ... otherwise' of its own", err.Name(), h.takes.Name())))
+		}
+	}
 	if !h.propagates {
 		h.entry = r.states.joined(h.entry, r.keep())
 	}

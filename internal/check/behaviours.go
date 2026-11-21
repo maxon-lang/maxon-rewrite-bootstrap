@@ -18,6 +18,7 @@ type fnLevel struct {
 	nextSlot  int
 	whens     int
 	behaviour *behaviourBuild
+	tries     []checkerTry
 }
 
 // behaviourBuild is a behaviour body being checked: the parameters it has taken so far.
@@ -171,10 +172,10 @@ func (c *Checker) enterBehaviour(w ast.WhenStmt, values []ast.Ty) {
 	fn.Module = c.module
 	fn.Body = w.Body()
 	c.whens++
-	c.outers = append(c.outers, fnLevel{fn: c.fn, scopes: c.scopes, blocks: c.blocks, nextSlot: c.nextSlot, whens: c.whens, behaviour: c.behaviour})
+	c.outers = append(c.outers, fnLevel{fn: c.fn, scopes: c.scopes, blocks: c.blocks, nextSlot: c.nextSlot, whens: c.whens, behaviour: c.behaviour, tries: c.tries})
 	b := &behaviourBuild{fn: fn, captured: map[*ast.Local]*ast.Local{}}
 	c.behaviour = b
-	c.fn, c.scopes, c.blocks, c.nextSlot, c.whens = fn, []map[string]*ast.Local{{}}, nil, 0, 0
+	c.fn, c.scopes, c.blocks, c.nextSlot, c.whens, c.tries = fn, []map[string]*ast.Local{{}}, nil, 0, 0, nil
 	for i := range w.Names().Len() {
 		name := w.Names().At(i)
 		access := ast.NewLocal(name, values[i], false)
@@ -210,7 +211,7 @@ func (c *Checker) leaveBehaviour(w ast.WhenStmt) {
 	info.Fn, info.Captures = fn, b.captures
 	outer := c.outers[len(c.outers)-1]
 	c.outers = c.outers[:len(c.outers)-1]
-	c.fn, c.scopes, c.blocks, c.nextSlot, c.whens, c.behaviour = outer.fn, outer.scopes, outer.blocks, outer.nextSlot, outer.whens, outer.behaviour
+	c.fn, c.scopes, c.blocks, c.nextSlot, c.whens, c.behaviour, c.tries = outer.fn, outer.scopes, outer.blocks, outer.nextSlot, outer.whens, outer.behaviour, outer.tries
 }
 
 // VisitWhenStmt types a behaviour: it names cowns, and its body runs once it has exclusive access to all of them, with
