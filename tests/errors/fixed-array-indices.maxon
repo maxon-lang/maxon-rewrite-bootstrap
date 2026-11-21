@@ -1,0 +1,15 @@
+// expect-error: E3057 at 8:14
+// expect-error: E3005 at 13:16
+typealias Int = int(i64.min to i64.max)
+
+typealias Vec3 = FixedArray with 3 Int
+
+function unproven(c Vec3) returns Int
+	return c.get(c.count())
+end 'unproven'
+
+function main() returns ExitCode
+	let c = Vec3.create()
+	let m = c.get(3)
+	return 0
+end 'main'

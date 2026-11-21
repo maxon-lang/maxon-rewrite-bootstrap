@@ -1,0 +1,11 @@
+// expect-error: E2069 at 5:35
+// expect-error: E2069 at 7:35
+typealias Int = int(i64.min to i64.max)
+
+typealias Empty = FixedArray with 0 Int
+
+typealias Minus = FixedArray with -3 Int
+
+function main() returns ExitCode
+	return 0
+end 'main'

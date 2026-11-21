@@ -28,6 +28,7 @@ ErrCallArgMissingLabel	E2053	callArgMissingLabel	A call leaves a later argument 
 ErrShiftCountNegative	E2054	shiftCountNegative	A shift's count is a negative constant.
 ErrTypeArgumentCount	E2056	genericArityMismatch	A generic instance names the wrong number of type arguments.
 ErrBuiltinArgNamed	E2067	builtinArgNamed	A call labels an argument of a built-in function whose arguments are positional.
+ErrFixedArrayCount	E2069	fixedArraySizeMalformed	The count of a fixed array is not an integer literal from 1 to 4294967295.
 ErrUnknownStaticMember	E2073	unknownStaticMember	A qualified name names a member its base does not declare.
 ErrNestedProjectFile	E2074	nestedProjectFile	A project file lies below another project's directory, and projects do not nest.
 ErrMethodAsFunctionValue	E2078	methodAsFunctionValue	A method or a requirement is named where a function value is needed.
@@ -82,6 +83,7 @@ ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program 
 ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
 ErrExclusivity	E3186	argumentOverlapsWrittenParameter	An argument handed to a written parameter overlaps another operand of the call.
 ErrInstanceMethodWithoutReceiver	E3193	semanticInstanceMethodCalledWithoutReceiver	An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.
+ErrFixedArrayCreateForm	E3194	fixedArrayCreateLengthForm	A fixed array's create takes a length its type does not need, or lacks one it does.
 ErrFrozenChange	E3197	semanticWriteThroughReadOnly	A write or a consuming call goes through the contents of a frozen value.
 ErrCapabilityConversion	E3210	semanticCapabilityConversionRefused	A function value writes what it captured, which its function type does not allow.
 ErrUnsignedNegation	E3218	semanticUnsignedNegation	An unsigned value is negated.

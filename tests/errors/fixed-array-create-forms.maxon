@@ -1,0 +1,17 @@
+// expect-error: E3194 at 12:15
+// expect-error: E3194 at 13:14
+// expect-error: E2015 at 14:10
+// expect-error: E2069 at 15:21
+typealias Int = int(i64.min to i64.max)
+
+typealias Vec3 = FixedArray with 3 Int
+
+typealias Buf = FixedArray with Int
+
+function main() returns ExitCode
+	let a = Vec3.create(3)
+	let b = Buf.create()
+	let f = countof(Buf)
+	let g = Buf.create(0)
+	return 0
+end 'main'

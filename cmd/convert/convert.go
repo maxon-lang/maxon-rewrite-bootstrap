@@ -802,7 +802,7 @@ func opensBlockInBrackets(toks []token) bool {
 
 // unsupportedExtensionTargets are the names an extension cannot extend in minimaxon although it may name them: library
 // types and interfaces that it has no counterpart of, or that it does not extend.
-var unsupportedExtensionTargets = []string{"FixedArray", "Set", "Iterable", "Iterator", "Log", "Logger", "CivilDate", "ParseError", "byte", "float", "Character", "Equatable", "Comparable", "Hashable", "Error"}
+var unsupportedExtensionTargets = []string{"Set", "Iterable", "Iterator", "Log", "Logger", "CivilDate", "ParseError", "byte", "float", "Character", "Equatable", "Comparable", "Hashable", "Error"}
 
 // declaredInterfaces are the interfaces the lines declare, which an extension of cannot be converted.
 func declaredInterfaces(lines []sourceLine) []string {
@@ -1204,9 +1204,6 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 		}
 	}
 	if withIdx >= 0 && withIdx+1 < limit {
-		if toks[withIdx+1].kind == tokInt {
-			warn(line, "fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon")
-		}
 		for i := withIdx + 1; i < limit; i++ {
 			if toks[i].kind == tokIdent && isCapabilityWord(toks[i].text) {
 				warn(line, fmt.Sprintf("type argument capability '%s' is not supported in minimaxon", toks[i].text))
@@ -1335,15 +1332,11 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if i+2 < len(toks) && toks[i+1].text == "." && toks[i+2].text == "fromString" {
 					warn(line, "'int.fromString' is not supported in minimaxon")
 				}
-			case "sizeof", "countof":
-				if i+1 < len(toks) && toks[i+1].text == "(" {
-					warn(line, fmt.Sprintf("%s(...) is not supported in minimaxon", t.text))
-				}
 			case "from":
 				if isTypeFromValue(toks, i) {
 					warn(line, "'Type from value' takes an array literal or a string literal in minimaxon, not another value")
 				}
-				if i > 0 && (toks[i-1].text == "Set" || toks[i-1].text == "FixedArray") {
+				if i > 0 && toks[i-1].text == "Set" {
 					warn(line, fmt.Sprintf("'%s' is not supported in minimaxon", toks[i-1].text))
 				}
 			case "otherwise":

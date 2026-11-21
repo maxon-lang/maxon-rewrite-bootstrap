@@ -51,6 +51,9 @@ function checkFromCollection(mutates c Checker, mutates p ast.Project, e ast.Nod
 		failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal, and this one gives keys: '{name} from [a, b]'", errs: errs)
 		return ast.noType
 	end 'map'
+	if ast.originOf(p.types, t: ty) == p.builtins.fixedArrayOrigin 'fixed'
+		return checkFromFixedArray(c, p: p, e: e, ty: ty, value: value, errs: errs)
+	end 'fixed'
 	let bare = p.types.entries[ty as Count].typeParams.count() > 0
 	var want = ast.noType
 	if not bare 'stated'
@@ -73,6 +76,42 @@ function checkFromCollection(mutates c Checker, mutates p ast.Project, e ast.Nod
 	args.push(ast.typeArgAt(p.types, t: literal, index: 0))
 	return instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: ty, args: args, errs: errs)
 end 'checkFromCollection'
+
+// checkFromFixedArray types a fixed array written from an array literal: an array of the element its head states, or of
+// the one the elements give, whose count is the literal's. A head that states a count takes a literal of as many elements.
+function checkFromFixedArray(mutates c Checker, mutates p ast.Project, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let bare = p.types.entries[ty as Count].typeParams.count() > 0
+	var want = ast.noType
+	if not bare 'stated'
+		var args = ast.TypeIDList.create(0)
+		args.push(ast.typeArgAt(p.types, t: ty, index: 0))
+		let arrayOrigin = p.builtins.arrayOrigin
+		want = instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: arrayOrigin, args: args, errs: errs)
+	end 'stated'
+	let literal = checkExpecting(c, p: p, e: value, want: want, errs: errs)
+	if literal == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	let written = p.modules[c.modIdx].tree.listLen(ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: value)) as Count
+	if ast.statesCount(p.types, t: ty) 'counted'
+		let count = ast.statedCount(p.types, t: ty)
+		if written != count 'otherCount'
+			failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{nameOfType(p, t: ty)}' holds {count} elements, and the literal writes {written}: write exactly {count}", errs: errs)
+			return ast.noType
+		end 'otherCount'
+		return ty
+	end 'counted'
+	var unsized = ty
+	if bare 'bare'
+		var args = ast.TypeIDList.create(0)
+		args.push(ast.typeArgAt(p.types, t: literal, index: 0))
+		unsized = instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: ty, args: args, errs: errs)
+		if unsized == ast.noType 'badElement'
+			return ast.noType
+		end 'badElement'
+	end 'bare'
+	return ast.countedType(p.types, unsized: unsized, count: written)
+end 'checkFromFixedArray'
 
 // implementsNamed is whether the declaration of t says it implements an interface of that name, whichever declaration of
 // the name that is: Maxon finds a type's conformance to the literal interfaces by their names.

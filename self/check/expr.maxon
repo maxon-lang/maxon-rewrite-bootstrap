@@ -132,6 +132,9 @@ function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if k == ast.NodeKind.closureExpr 'closureExpr'
 		return checkClosure(c, p: p, e: e, errs: errs)
 	end 'closureExpr'
+	if k == ast.NodeKind.typeQueryExpr 'typeQueryExpr'
+		return checkTypeQuery(c, p: p, e: e, errs: errs)
+	end 'typeQueryExpr'
 	panic("the node {e} of kind {k.name} is no expression")
 end 'visitExpr'
 

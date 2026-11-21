@@ -524,7 +524,7 @@ other:
 | a method | `export::Counter.inc`, `(export::Box with stdlib::Count).make` |
 | an instance of a generic function | `export::swap[stdlib::Count, export::Counter]` |
 | an instance given a conformance outside its type argument's module | `lib::describe[shapes::Meter] using app`, the module of each conformance after `using` |
-| a type | `export::Counter`, `export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))` |
+| a type | `export::Counter`, `export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))`, `stdlib::FixedArray with 3 Int=int(...)` |
 | a drop or copy routine | `drop export::Counter`, `copy stdlib::Array with export::Tree` |
 | a runtime entry or global | `runtime::alloc` (the link name of the runtime function that defines the entry), `rt.entry` and `g.heap` (what the entry stub and the linker define) |
 
@@ -989,7 +989,7 @@ and nothing else.
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
 - Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the float functions (see "Floats"), the aliases `ExitCode`, `Count`,
-  `ElementIndex` (an index that a `Count` goes where one is taken, and the other way only by `as`), `FullRangeInt`, `FullRangeFloat`, `Byte`, `ByteArray` (`Array with Byte`), `StringArray` (`Array with String`), the limits of the sized integers as constants (`u64.max`, `i32.min`, ...), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, and maxon's `isEmpty`, `equals`, `append`, `count`, `contains`, `startsWith`, `endsWith`, `findFirst`, `findLast`, `startIndex`, `endIndex`, `slice`, `sliceLength`, `replace`, `replaceFirst`, `trim`, `trimStart`, `trimEnd`, `toLower` and `toUpper` with the type `StringIndex` (`charIndex()`, `bytePos()`) and the error `StringError`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle` (see "Primitives"),
+  `ElementIndex` (an index that a `Count` goes where one is taken, and the other way only by `as`), `FullRangeInt`, `FullRangeFloat`, `Byte`, `ByteArray` (`Array with Byte`), `StringArray` (`Array with String`), the limits of the sized integers as constants (`u64.max`, `i32.min`, ...), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, and maxon's `isEmpty`, `equals`, `append`, `count`, `contains`, `startsWith`, `endsWith`, `findFirst`, `findLast`, `startIndex`, `endIndex`, `slice`, `sliceLength`, `replace`, `replaceFirst`, `trim`, `trimStart`, `trimEnd`, `toLower` and `toUpper` with the type `StringIndex` (`charIndex()`, `bytePos()`) and the error `StringError`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `FixedArray`, `Map`, `List`, `Pool`, `Handle` (see "Primitives") with `sizeof(T)` and `countof(T)`,
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib, and no `Option`: a
   program that wants one declares a generic union (`union Option uses T`).
 
@@ -1474,7 +1474,7 @@ end 'wrap'
   (`first(IntCur.create(5))` with `where S implements Cursor with E` takes `E` as `Integer`), and an argument whose
   declaration binds the interface otherwise than the bound says is `E3133`.
 - **Instances.** A type names an instance with `with`: `Box with Count`, `Map with (String, Count)`, `lib.Option
-  with Count`. One argument is written bare, several in parentheses, and an argument that is an instance itself is
+  with Count`, and a `FixedArray` its count before the element, `FixedArray with 3 Int`, which only it takes (`E2056`). One argument is written bare, several in parentheses, and an argument that is an instance itself is
   parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E2056`). A `typealias` names an
   instance, `typealias Counts = Array with Count`, or, with several arguments, `typealias Counts = Map with String, Count` (a bare list, which only a typealias takes), and is that instance, not a type of its own: `Counts` and `array
   with Count` are one type. Its right-hand side is an instance (`E3917`), it may name other typealiases in any module,
@@ -1752,6 +1752,7 @@ one anywhere.
 
 | Type | Operations |
 |---|---|
+| `FixedArray with N T`, `FixedArray with T` | maxon's fixed-size array (`stdlib/FixedArray.maxon`): an array whose count never changes, which its type states (`with 3 Int`, a literal from 1 to 4294967295, `E2069`) or, runtime-sized, its value. `create()` and `create(value: x)` where the type states the count, `create(n)` and `create(n, value: x)` where it does not (`E3194` for the other form), each zeroed where no `value:` is given and `T` has a zero value (`E3106`), and a constant `n` gives the type that states it; `Alias from [a, b]`, of exactly the count a counted alias states, or stating the literal's; `count()`; `get(i)` where `T` is `Copyable` and `set(i, value: v)` where `T` is `Droppable`; `refill(x)`, copies of `x` over every element. A get or a set of a type that states its count at an index the range analysis proves inside it cannot fail and compiles to the access with no check; a constant index outside it is `E3005`, and any other index throws `ArrayError.indexOutOfBounds` as an array's does, so it needs a `try` (`E3057`, naming the ranged type that would prove it). A `FixedArray with N T` is a subtype of `FixedArray with T`, so it goes where one is taken and a join of the two is the runtime-sized type. `for x in xs` walks it as an array; inside an `extension FixedArray` its `Self` states no count, and `countof(Self)` in a method is the receiver's |
 | `Array with T` | `create(n)`, `n` zero elements, where `T` has a zero value or `n` is the literal `0` (`E3106`); `filled(n, value: x)` where `T` is `Copyable`; `count()`, `isEmpty()`; `get(i)`, a copy of the element, where `T` is `Copyable`, and `set(i, value: v)`, where `T` is `Droppable`, both throwing `ArrayError.indexOutOfBounds` past the end; `push(value)`; `append(other)`, a copy of each element of `other`, where `T` is `Copyable`; `insert(at, value: v)`, which clamps `at` to the count; `remove(at)` and `pop()` return `T` and throw `ArrayError`; `dropEmpty()` |
 | `Map with (K, V)` | `create()`; `count()`, `isEmpty()`, `contains(k)`; `insert(k, value: v)`, which throws `MapError.keyAlreadyExists` for a key that is there, and `upsert(k, value: v)`, which replaces its value, both where `V` is `Droppable`; `replace(k, value: v)` returns the old value and throws `MapError.keyNotFound` for a key that is not there; `remove(k)` drops the value and returns whether the key was there, where `V` is `Droppable`; `dropEmpty()` |
 | `List with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `first()`, `last()`, `next(h)` and `prev(h)` return `Handle with T` and throw `ArrayError.indexOutOfBounds` where there is no such node; `prepend(value)` and `append(value)` return `Handle with T`; `removeFirst()` and `removeLast()` return `T` and throw `ArrayError`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `moveToFront(h)`; `dropEmpty()` |
@@ -1759,6 +1760,16 @@ one anywhere.
 | `Handle with T` | no operations; `==` and `!=` |
 | `ArrayError`, `MapError`, `IterationError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists`; `exhausted` and `atStart`, which the iteration protocol throws |
 | `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
+
+A fixed array is an array's box with its count of elements: the instance states the count as one more type argument after the
+element, the integer constant (`ast.countedType`, `ast.statedCount`), spelled before the element in a type's name and its link
+name (`FixedArray with 3 Int`), and a count the type states is a constant wherever the lowering reads it.
+
+**`sizeof(T)` and `countof(T)`.** Both take a type. `countof` of a fixed array that states its count is that count, an integer
+constant, and of any other type `E2015`. `sizeof` is the bytes of a value as minimaxon lays it out: 1 for a `bool`, a word (8)
+for an integer, a float, an enum, a handle and a function, a word to each field for a record or a tuple (its box), and a word for
+any other value, which a place holds as the address of its box. Of a concrete type it is an integer constant; of a type that a
+generic's parameters build it is a `Count` that each instance computes from its arguments.
 
 An array of an integer type whose range fits in a `Byte` holds one byte to an element, natively and under the
 interpreter, and any other array a word; the program cannot tell, except by how much memory it takes.
@@ -2127,7 +2138,7 @@ are not supported.
   trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. A `static let` is only a
   `type`'s, and a call in its initializer that names a sibling by its bare name is not resolved to the sibling.
 - `extension`: there is no extension of an interface (no default method for every conformer, no associated types), no
-  conditional extension (`where` on an extension), no nested `typealias` in an extension, and none of `FixedArray`, `Set`,
+  conditional extension (`where` on an extension), no nested `typealias` in an extension, and none of `Set`,
   `Iterable`, `Iterator` or other library types the compiler does not have. Extensions and the conformances they
   declare are scoped as Hylo scopes them, where maxon sees every extension from every directory of the program: an
   extension is seen only from its own module and the modules that name it, a bound is met by the conformance seen from
@@ -2149,6 +2160,22 @@ are not supported.
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.
+- `FixedArray` (see "Primitives"): it is a built-in array's box, not `stdlib/FixedArray.maxon`'s record over a raw
+  buffer, so it has no `managed` field, no `init(managed)`, no member called through the type's name (`FixedArray.set(v, ...)`)
+  and no `__ManagedMemory` refusals. `set` and `refill` take `mutates self`, as an array's writes do, where maxon writes
+  through a `let`: a borrowed element would otherwise be dropped under its borrower. A `try` around a get or a set that the
+  range analysis proves is allowed, as any `try` that covers nothing that can fail is, where maxon refuses it (`E3055`). A
+  generic body is checked once, so `create()` or `create(n)` of a fixed array of a type parameter is `E3106` whatever the
+  instances are, and an enum's first case is no zero value, as for `Array.create(n)`. The count of a type is an integer
+  literal, so `with K Int` and `with 3.5 Int` are the parser's generic `E2010` rather than `E2069`. `countof(Self)` is only a
+  method's (its receiver's count) in an `extension FixedArray`; a static of one has no count to read, and a fixed array is
+  not built with `Self{}`. Two typealiases of one fixed array are one type, as every typealias of an instance is.
+- `sizeof` and `countof` of a concrete type are integer constants, as a literal is, where maxon types them `Count`, so they
+  fold and fit any integer type that holds them. `sizeof` gives minimaxon's layout, which boxes every record and every
+  array: it agrees with maxon for a `bool`, an integer, a float, an enum and a record of word fields, and differs where maxon's
+  value is its inline layout: a `String` is a word here and 56 bytes there, an array a word and not maxon's 48-byte record,
+  and an inline packed record (all `let` fields fitting 64 bits) a word to each field rather than one word. `sizeof(byte)`
+  has no meaning, since there is no `byte` type.
 - Tuples (see "Tuples"): a tuple is owned by one variable like a `type`'s record and not shared by reference counting, so
   assigning it moves it and `.clone()` copies it, and a two-element tuple of integers is a heap record like any other (no pair
   in two registers). Destructuring a managed element out of a borrowed tuple, which Maxon shares, is `E3900` and takes

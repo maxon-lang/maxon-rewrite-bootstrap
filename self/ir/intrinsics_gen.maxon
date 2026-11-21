@@ -74,6 +74,27 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrArrayLast 'intrArrayLast'
 		return lowerArrayLast(l, p: p, c: c, recv: recv, args: args)
 	end 'intrArrayLast'
+	if op == ast.Intrinsic.intrFixedArrayCreate 'intrFixedArrayCreate'
+		return lowerFixedArrayCreate(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFixedArrayCreate'
+	if op == ast.Intrinsic.intrFixedArrayFilled 'intrFixedArrayFilled'
+		return lowerFixedArrayFilled(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFixedArrayFilled'
+	if op == ast.Intrinsic.intrFixedArrayCreateCounted 'intrFixedArrayCreateCounted'
+		return lowerFixedArrayCreateCounted(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFixedArrayCreateCounted'
+	if op == ast.Intrinsic.intrFixedArrayCount 'intrFixedArrayCount'
+		return lowerFixedArrayCount(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFixedArrayCount'
+	if op == ast.Intrinsic.intrFixedArrayGetProven 'intrFixedArrayGetProven'
+		return lowerFixedArrayGetProven(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFixedArrayGetProven'
+	if op == ast.Intrinsic.intrFixedArraySetProven 'intrFixedArraySetProven'
+		return lowerFixedArraySetProven(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFixedArraySetProven'
+	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
+		return lowerFixedArrayRefill(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFixedArrayRefill'
 	if op == ast.Intrinsic.intrMapCreate 'intrMapCreate'
 		return lowerMapCreate(l, p: p, c: c, recv: recv, args: args)
 	end 'intrMapCreate'
@@ -523,6 +544,27 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayLast 'intrArrayLast'
 		return false
 	end 'intrArrayLast'
+	if op == ast.Intrinsic.intrFixedArrayCreate 'intrFixedArrayCreate'
+		return false
+	end 'intrFixedArrayCreate'
+	if op == ast.Intrinsic.intrFixedArrayFilled 'intrFixedArrayFilled'
+		return false
+	end 'intrFixedArrayFilled'
+	if op == ast.Intrinsic.intrFixedArrayCreateCounted 'intrFixedArrayCreateCounted'
+		return false
+	end 'intrFixedArrayCreateCounted'
+	if op == ast.Intrinsic.intrFixedArrayCount 'intrFixedArrayCount'
+		return false
+	end 'intrFixedArrayCount'
+	if op == ast.Intrinsic.intrFixedArrayGetProven 'intrFixedArrayGetProven'
+		return false
+	end 'intrFixedArrayGetProven'
+	if op == ast.Intrinsic.intrFixedArraySetProven 'intrFixedArraySetProven'
+		return false
+	end 'intrFixedArraySetProven'
+	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
+		return false
+	end 'intrFixedArrayRefill'
 	if op == ast.Intrinsic.intrMapCreate 'intrMapCreate'
 		return false
 	end 'intrMapCreate'

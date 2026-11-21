@@ -218,7 +218,7 @@ funcTypeParam
 // A typealias takes its type arguments as a bare list, which a type elsewhere cannot because the comma would end the
 // list that holds it.
 aliasInstance builds TypeRef
-    : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self') ('with' typeArgs=aliasTypeArgs)?
+    : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self') ('with' count=typeCount? typeArgs=aliasTypeArgs)?
     | isTuple='(' elems+=typeRef (',' elems+=typeRef)+ ')'
     ;
 
@@ -240,9 +240,20 @@ bound
 
 /** a type */
 typeRef
-    : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self' | 'int') ('with' typeArgs=typeArgs)?
+    : (qualifier+=(Name | 'export') '.')* name=(Name | 'Self' | 'int') ('with' count=typeCount? typeArgs=typeArgs)?
     | isTuple='(' elems+=typeRef (',' elems+=typeRef)+ ')'
     ;
+
+// The count of a fixed-size type, `FixedArray with 3 Int`: an integer literal, which the checker holds to; a negative one
+// parses so that the checker can say why it is not a count.
+/** a count */
+typeCount
+    : negative='-'^? value=Integer
+    ;
+
+@ast::TypeCount {
+	Value I128
+}
 
 /** type arguments */
 typeArgs returns [[]*TypeRef args]
@@ -555,6 +566,7 @@ expr
     | panicExpr
     | matchExpr
     | closureExpr
+    | typeQueryExpr
     | {atTuple}? tupleExpr
     | '(' expr ')'
     | obj=expr '.' name=(Name | 'from' | Integer)                    # MemberExpr
@@ -684,6 +696,12 @@ panicExpr
 
 matchExpr
     : match=matchCore
+    ;
+
+// sizeof(T) is the size of a value of a type in bytes and countof(T) the count of elements a fixed-size type holds, both
+// constants of the type.
+typeQueryExpr
+    : op=('sizeof' | 'countof') ^'(' type=typeRef ')'
     ;
 
 // A closure: an anonymous function whose body is one expression, which its call returns.

@@ -97,7 +97,11 @@ func (m *maxonBody) params(f fn, generic string) string {
 	v := m.fresh("ps")
 	m.line("var %s = ParamSpecList.create(0)", v)
 	for i, p := range f.params {
-		m.line("%s.push(ParamSpec.make(%q, ty: %s, conv: %s))", v, p.name, types[i], maxonConv(p.conv))
+		maker := "make"
+		if p.labelled {
+			maker = "labelledFirst"
+		}
+		m.line("%s.push(ParamSpec.%s(%q, ty: %s, conv: %s))", v, maker, p.name, types[i], maxonConv(p.conv))
 	}
 	return v
 }
@@ -160,7 +164,11 @@ func emitMaxon(t table) string {
 	types := &maxonBody{}
 	for _, bt := range builtinTypes {
 		names := types.strings(bt.Params)
-		types.line("%s = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtin%s, name: %q, paramNames: %s)", maxonOwner(bt.Key), bt.Key, bt.Name, names)
+		kind := bt.Kind
+		if kind == "" {
+			kind = bt.Key
+		}
+		types.line("%s = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtin%s, name: %q, paramNames: %s)", maxonOwner(bt.Key), kind, bt.Name, names)
 	}
 	for _, r := range recordTypes {
 		types.line("%s = registerRecordType(tt, std: std, typeMap: typeMap, name: %q)", maxonOwner(r.Key), r.Name)
@@ -245,9 +253,9 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	if f.Owner != "" && f.Owner != stringOwner {
 		ret := m.ty(f, "", f.result)
 		ps := m.params(f, "")
-		call := fmt.Sprintf("registerMethodOn(tt, ft: ft, std: std, owner: %s, op: %s, name: %q, isStatic: %v, selfConv: %s, ret: %s, params: %s)",
-			maxonOwner(f.Owner), op, f.Name, f.Static, maxonConv(f.Self), ret, ps)
-		if len(f.bounds) == 0 && f.Throws == "" {
+		call := fmt.Sprintf("registerMethodOn(tt, ft: ft, std: std, owner: %s, op: %s, name: %q, isStatic: %v, selfConv: %s, ret: %s, params: %s, listed: %v)",
+			maxonOwner(f.Owner), op, f.Name, f.Static, maxonConv(f.Self), ret, ps, f.Field == "")
+		if len(f.bounds) == 0 && f.Throws == "" && f.Field == "" {
 			m.line("_ = %s", call)
 			return
 		}
@@ -258,6 +266,9 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 			m.line("ft.entries[%s as Count].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
 		}
 		m.errorType(f, id)
+		if f.Field != "" {
+			m.line("b.%sFunc = %s", lowerFirst(f.Field), id)
+		}
 		return
 	}
 	generics, generic := "TypeIDList.create(0)", ""

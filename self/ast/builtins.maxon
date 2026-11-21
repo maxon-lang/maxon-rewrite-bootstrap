@@ -19,6 +19,7 @@ export type Builtins
 	export var anonFloatTy as TypeID
 	export var byteTy as TypeID
 	export var arrayOrigin as TypeID
+	export var fixedArrayOrigin as TypeID
 	export var mapOrigin as TypeID
 	export var listOrigin as TypeID
 	export var poolOrigin as TypeID
@@ -63,6 +64,11 @@ export type Builtins
 	export var initableFromStringLiteralTy as TypeID
 	export var cownNewFunc as FuncID
 	export var cownNewDropWithFunc as FuncID
+	export var fixedArrayCreateFilledFunc as FuncID
+	export var fixedArrayCreateCountedFunc as FuncID
+	export var fixedArrayCreateCountedFilledFunc as FuncID
+	export var fixedArrayGetProvenFunc as FuncID
+	export var fixedArraySetProvenFunc as FuncID
 	export var stringMethods as FuncIDMap
 	export var stdlibTypeMap as TypeIDMap
 	export var stdlibFuncMap as FuncIDMap
@@ -71,7 +77,7 @@ export type Builtins
 		let sm = FuncIDMap.new()
 		let stm = TypeIDMap.new()
 		let sfm = FuncIDMap.new()
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, elementIndexTy: noType, fullRangeIntTy: noType, fullRangeFloatTy: noType, anonFloatTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, collectedOutputTy: noType, subprocessTy: noType, rawTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, iterationErrorTy: noType, stringErrorTy: noType, stringIndexTy: noType, byteViewTy: noType, byteIteratorTy: noType, codepointViewTy: noType, codepointIteratorTy: noType, utf16ViewTy: noType, utf16IteratorTy: noType, codepointTy: noType, codeUnit16Ty: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, elementIndexTy: noType, fullRangeIntTy: noType, fullRangeFloatTy: noType, anonFloatTy: noType, byteTy: noType, arrayOrigin: noType, fixedArrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, collectedOutputTy: noType, subprocessTy: noType, rawTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, iterationErrorTy: noType, stringErrorTy: noType, stringIndexTy: noType, byteViewTy: noType, byteIteratorTy: noType, codepointViewTy: noType, codepointIteratorTy: noType, utf16ViewTy: noType, utf16IteratorTy: noType, codepointTy: noType, codeUnit16Ty: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, fixedArrayCreateFilledFunc: noFunc, fixedArrayCreateCountedFunc: noFunc, fixedArrayCreateCountedFilledFunc: noFunc, fixedArrayGetProvenFunc: noFunc, fixedArraySetProvenFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
 	end 'empty'
 
 	export function isCapability(iface TypeID) returns bool
@@ -146,7 +152,9 @@ function registerPrimType(mutates tt TypeTable, mutates std Module, mutates type
 	return tid
 end 'registerPrimType'
 
-function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, owner TypeID, op Intrinsic, consumes name String, isStatic bool, selfConv Convention, ret TypeID, consumes params ParamSpecList) returns FuncID
+// registerMethodOn declares a method of a built-in type. One that is not listed is no method of the name: the checker
+// chooses it in place of the listed one for the form of a call's arguments.
+function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, owner TypeID, op Intrinsic, consumes name String, isStatic bool, selfConv Convention, ret TypeID, consumes params ParamSpecList, listed bool) returns FuncID
 	var fn = FuncEntry.make(name.clone(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
 	fn.isStatic = isStatic
 	fn.ownerTy = selfType(tt, declTy: owner)
@@ -156,14 +164,13 @@ function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates st
 	fn.retTy = ret
 	fn.intrinsic = op
 	for i in 0 upto params.count() 'eachP'
-		let pName = params[i].name.clone()
-		let pTy = params[i].ty
-		let pConv = params[i].conv
-		fn.params.push(ParamSpec.make(pName, ty: pTy, conv: pConv))
-		fn.paramTypes.push(pTy)
+		fn.params.push(params[i].clone())
+		fn.paramTypes.push(params[i].ty)
 	end 'eachP'
 	let fid = allocFunc(ft, f: fn)
-	tt.entries[owner as Count].methods.push(MethodRef.make(name, func: fid))
+	if listed 'listed'
+		tt.entries[owner as Count].methods.push(MethodRef.make(name, func: fid))
+	end 'listed'
 	return fid
 end 'registerMethodOn'
 

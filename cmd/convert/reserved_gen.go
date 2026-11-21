@@ -66,4 +66,6 @@ var reservedWords = map[string]bool{
 	"true":        true,
 	"false":       true,
 	"panic":       true,
+	"sizeof":      true,
+	"countof":     true,
 }

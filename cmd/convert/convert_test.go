@@ -532,8 +532,8 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		},
 		{
 			name:     "extension of a library type with no counterpart",
-			in:       "extension FixedArray\n\tfunction x() returns Count\n\t\treturn 0\n\tend 'x'\nend 'FixedArray'\n",
-			wantTodo: "extensions of 'FixedArray'",
+			in:       "extension Set\n\tfunction x() returns Count\n\t\treturn 0\n\tend 'x'\nend 'Set'\n",
+			wantTodo: "extensions of 'Set'",
 		},
 		{
 			name:     "hash if",

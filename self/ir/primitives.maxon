@@ -329,17 +329,78 @@ end 'arrayOfCall'
 // lowerArrayCreate is an array of count zero elements. An element with no zero value is refused unless count is 0, so
 // only an array of one with a zero value has slots to fill.
 export function lowerArrayCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return arrayZeroed(l, p: p, c: c, count: args[0])
+end 'lowerArrayCreate'
+
+// arrayZeroed is the array of count zero elements that a call makes.
+function arrayZeroed(mutates l Lowerer, mutates p ast.Project, c CallSite, count Reg) returns Reg
 	let a = arrayOfCall(l, p: p, c: c)
 	let out = arrayNew(l, p: p, box: a)
 	if hasZero(p, t: arrayElem(p, box: a)) 'zero'
-		let loop = countedLoopBegin(l, limit: args[0])
+		let loop = countedLoopBegin(l, limit: count)
 		let i = countedLoopIndex(l, loop: loop)
 		let zero = konst(l, value: 0 as Word)
 		arrayInsert(l, p: p, box: a, arr: out, index: i, v: zero)
 		countedLoopEnd(l, loop: loop)
 	end 'zero'
 	return out
-end 'lowerArrayCreate'
+end 'arrayZeroed'
+
+// statedCountOfCall is the count that the type of the fixed array a call makes states.
+function statedCountOfCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let n = try ast.statedCount(p.types, t: a.ty) as Word otherwise panic("lower: a fixed array's count is a word")
+	return konst(l, value: n)
+end 'statedCountOfCall'
+
+// lowerFixedArrayCreate is a fixed array of the count its type states, of zero elements.
+function lowerFixedArrayCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let n = statedCountOfCall(l, p: p, c: c)
+	return arrayZeroed(l, p: p, c: c, count: n)
+end 'lowerFixedArrayCreate'
+
+// lowerFixedArrayFilled is a fixed array of the count its type states, of copies of the value.
+function lowerFixedArrayFilled(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let n = statedCountOfCall(l, p: p, c: c)
+	return arrayFilled(l, p: p, c: c, count: n, value: args[0])
+end 'lowerFixedArrayFilled'
+
+function lowerFixedArrayCreateCounted(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return arrayZeroed(l, p: p, c: c, count: args[0])
+end 'lowerFixedArrayCreateCounted'
+
+// lowerFixedArrayCount is the count the type states, or the box's length for a runtime-sized fixed array.
+function lowerFixedArrayCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	if ast.statesCount(p.types, t: a.ty) 'stated'
+		let n = try ast.statedCount(p.types, t: a.ty) as Word otherwise panic("lower: a fixed array's count is a word")
+		return konst(l, value: n)
+	end 'stated'
+	return arrayLength(l, p: p, box: a, arr: recv)
+end 'lowerFixedArrayCount'
+
+// lowerFixedArrayGetProven is a copy of the element at an index that the checker proved inside the count, which cannot
+// fail.
+function lowerFixedArrayGetProven(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let element = arrayLoad(l, p: p, box: a, arr: recv, index: args[0])
+	return copyValue(l, p: p, site: a.site, v: element, t: arrayElem(p, box: a))
+end 'lowerFixedArrayGetProven'
+
+// lowerFixedArraySetProven replaces the element at an index that the checker proved inside the count.
+function lowerFixedArraySetProven(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayStore(l, p: p, box: a, arr: recv, index: args[0], v: args[1])
+	return konst(l, value: 0 as Word)
+end 'lowerFixedArraySetProven'
+
+// lowerFixedArrayRefill writes copies of the value over every element, which keeps the count.
+function lowerFixedArrayRefill(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let n = arrayLength(l, p: p, box: a, arr: recv)
+	arrayRefill(l, p: p, box: a, arr: recv, newLength: n, value: args[0])
+	return konst(l, value: 0 as Word)
+end 'lowerFixedArrayRefill'
 
 // hasZero is whether the word 0 is a value of t, so that a slot nothing wrote holds one: an integer whose range takes 0,
 // or a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type

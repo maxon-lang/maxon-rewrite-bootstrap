@@ -416,6 +416,9 @@ function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, n
 	if p.types.entries[nt as Count].kind == ast.TypeKind.unionTy and p.types.entries[ast.originOf(p.types, t: nt) as Count].findCase(name).isSome() 'union'
 		return unionConstructor(c, p: p, call: call, ut: nt, caseName: name, errs: errs)
 	end 'union'
+	if name == "create" and ast.originOf(p.types, t: nt) == p.builtins.fixedArrayOrigin 'fixedArray'
+		return callFixedArrayCreate(c, p: p, call: call, named: nt, errs: errs)
+	end 'fixedArray'
 	let mark = errs.count()
 	let sm = methodOf(c, p: p, t: nt, name: name, node: call, errs: errs)
 	if failedSince(errs, mark: mark) 'ambiguous'

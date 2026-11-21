@@ -500,6 +500,10 @@ function boundReal(mutates p Parser, t Token) returns ast.I128 throws SyntaxErro
 	return try real(p, t: t)
 end 'boundReal'
 
+function typeCountValue(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
+	return try integer(p, t: t)
+end 'typeCountValue'
+
 function floatLitMagnitude(mutates p Parser, t Token) returns ast.I128 throws SyntaxError
 	return try real(p, t: t)
 end 'floatLitMagnitude'

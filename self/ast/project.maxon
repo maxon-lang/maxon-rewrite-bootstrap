@@ -290,6 +290,9 @@ function nominalLinkName(p Project, t TypeID) returns String
 	if p.types.entries[t as Count].typeArgs.count() == 0 'plain'
 		return base
 	end 'plain'
+	if statesCount(p.types, t: t) 'counted'
+		return countedSpelling(base, count: "{statedCount(p.types, t: t)}", element: typeLinkName(p, t: p.types.entries[t as Count].typeArgs[0]))
+	end 'counted'
 	return instanceSpelling(base, args: typeLinkNames(p, args: p.types.entries[t as Count].typeArgs))
 end 'nominalLinkName'
 

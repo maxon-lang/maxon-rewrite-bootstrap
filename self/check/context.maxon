@@ -1189,5 +1189,37 @@ function applyTypeArgs(mutates c Checker, mutates p ast.Project, tr ast.NodeID, 
 		end 'fail'
 		resolvedArgs.push(at)
 	end 'eachA'
-	return instantiateGeneric(c, p: p, off: off, orig: target, args: resolvedArgs, errs: errs)
+	let count = ast.typeRefCount(p.modules[c.modIdx].tree, id: tr)
+	if count == 0 'uncounted'
+		return instantiateGeneric(c, p: p, off: off, orig: target, args: resolvedArgs, errs: errs)
+	end 'uncounted'
+	let unsized = instantiateGeneric(c, p: p, off: off, orig: target, args: resolvedArgs, errs: errs)
+	if unsized == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	return countedInstance(c, p: p, unsized: unsized, tName: tName, count: count, errs: errs)
 end 'applyTypeArgs'
+
+// fixedArrayCountLimit is the largest count a fixed array's type states, maxon's.
+let fixedArrayCountLimit = 4294967295 as Count
+
+// countedInstance is the instance of a fixed array that states the count a type reference writes after 'with', which is
+// an integer literal from 1 to fixedArrayCountLimit.
+function countedInstance(mutates c Checker, mutates p ast.Project, unsized ast.TypeID, tName String, count ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = p.modules[c.modIdx].tree.startOf(count)
+	if ast.originOf(p.types, t: unsized) != p.builtins.fixedArrayOrigin 'notFixed'
+		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' states no count: only a 'FixedArray' takes one before its element, as in 'FixedArray with 3 Int'", errs: errs)
+		return ast.noType
+	end 'notFixed'
+	let value = ast.typeCountValue(p.modules[c.modIdx].tree, id: count)
+	let negative = ast.typeCountNegative(p.modules[c.modIdx].tree, id: count)
+	if negative or value.isZero() or value.gt(ast.I128.fromCount(fixedArrayCountLimit)) 'outside'
+		var written = value.toString()
+		if negative 'minus'
+			written = "-{written}"
+		end 'minus'
+		checkFail(c.modID, off: off, code: diag.errFixedArrayCount, msg: "A `FixedArray` element count runs from 1 to {fixedArrayCountLimit}, and the element count of a `FixedArray` type is an integer literal, not `{written}`", errs: errs)
+		return ast.noType
+	end 'outside'
+	return ast.countedType(p.types, unsized: unsized, count: value.lo)
+end 'countedInstance'

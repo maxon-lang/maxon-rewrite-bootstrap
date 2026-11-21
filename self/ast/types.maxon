@@ -182,14 +182,21 @@ export type ParamSpec
 	export var conv as Convention
 	// defaultExpr is the node of the parameter's default in the tree of the module that declares the function, or 0.
 	export var defaultExpr as NodeID
+	// labelled is whether a call names the argument with its label even where it is the first, as a built-in's whose
+	// first parameter the form of the call leaves out does: `Vec3.create(value: 0)`.
+	export var labelled as bool
 
 	export static function make(consumes name String, ty TypeID, conv Convention) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false}
 	end 'make'
 
 	export static function withDefault(consumes name String, ty TypeID, conv Convention, defaultExpr NodeID) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: defaultExpr}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: defaultExpr, labelled: false}
 	end 'withDefault'
+
+	export static function labelledFirst(consumes name String, ty TypeID, conv Convention) returns ParamSpec
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: true}
+	end 'labelledFirst'
 end 'ParamSpec'
 
 export typealias ParamSpecList = Array with ParamSpec
@@ -639,8 +646,99 @@ export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeID
 	e.decl = origDecl
 	let id = allocType(tt, e: e)
 	tt.instCache.insert(key, value: id)
+	if statesCount(tt, t: id) 'counted'
+		// A fixed array whose type states its count is one of the runtime-sized type of its element, which a place of that
+		// type takes and a join of the two gives.
+		let elements = tt.entries[baseOrigin as Count].typeParams.count()
+		var unsized = TypeIDList.create(0)
+		for i in 0 upto elements 'elements'
+			unsized.push(args[i])
+		end 'elements'
+		let sup = instantiateType(tt, origin: baseOrigin, args: unsized)
+		tt.entries[id as Count].supertype = sup
+	end 'counted'
 	return id
 end 'instantiateType'
+
+// sizeofWord is what sizeof gives for a value held in one word: an integer, a float, an enum, a handle, a function, and
+// the box of a value the place refers to.
+let sizeofWord = 8 as Count
+
+// sizeofBool is what sizeof gives for a bool, maxon's one byte.
+let sizeofBool = 1 as Count
+
+// byteSize is what sizeof(t) gives: a bool's byte, a record's box of a word to each field (a word for one with none), and
+// a word for any other value, which is a word in every place. t is concrete: a type parameter has its argument's size,
+// which an instance knows.
+export function byteSize(tt TypeTable, t TypeID) returns Count
+	return match tt.entries[t as Count].kind 'k'
+		primBool gives sizeofBool
+		record gives recordByteSize(tt, t: t)
+		typeParam gives panic("the size of a type parameter is its argument's")
+		invalid gives panic("an invalid type has no size")
+		primVoid gives panic("Void has no size")
+		primNever gives panic("Never has no size")
+		interfaceTy gives panic("an interface has no size")
+		primString gives sizeofWord
+		intRange gives sizeofWord
+		constInt gives sizeofWord
+		floatRange gives sizeofWord
+		constFloat gives sizeofWord
+		enumTy gives sizeofWord
+		unionTy gives sizeofWord
+		builtinArray gives sizeofWord
+		builtinMap gives sizeofWord
+		builtinList gives sizeofWord
+		builtinPool gives sizeofWord
+		builtinHandle gives sizeofWord
+		builtinFrozen gives sizeofWord
+		builtinCown gives sizeofWord
+		funcTy gives sizeofWord
+	end 'k'
+end 'byteSize'
+
+function recordByteSize(tt TypeTable, t TypeID) returns Count
+	let origin = tt.entries[t as Count].effectiveOrigin()
+	let fields = tt.entries[origin as Count].fields.count()
+	if fields == 0 'empty'
+		return sizeofWord
+	end 'empty'
+	return try sizeofWord * fields otherwise panic("a record has fewer fields than a word counts bytes")
+end 'recordByteSize'
+
+// countedType is the instance of a fixed array of the element of unsized, a runtime-sized one, that states count.
+export function countedType(mutates tt TypeTable, unsized TypeID, count Count) returns TypeID
+	var args = cloneTypeArgs(tt.entries[unsized as Count].typeArgs)
+	args.push(internConstInt(tt, val: I128.fromCount(count)))
+	return instantiateType(tt, origin: tt.entries[unsized as Count].effectiveOrigin(), args: args)
+end 'countedType'
+
+// statesCount is whether t is an instance of a fixed array that states its count, a type argument after its element.
+export function statesCount(tt TypeTable, t TypeID) returns bool
+	if tt.entries[t as Count].kind != TypeKind.builtinArray 'notArray'
+		return false
+	end 'notArray'
+	let origin = tt.entries[t as Count].effectiveOrigin()
+	return tt.entries[t as Count].typeArgs.count() > tt.entries[origin as Count].typeParams.count()
+end 'statesCount'
+
+// statedCount is the count that the type of a fixed array states (statesCount).
+export function statedCount(tt TypeTable, t TypeID) returns Count
+	if not statesCount(tt, t: t) 'none'
+		panic("the type {typeName(tt, t: t)} states no count")
+	end 'none'
+	let origin = tt.entries[t as Count].effectiveOrigin()
+	let arg = tt.entries[t as Count].typeArgs[tt.entries[origin as Count].typeParams.count()]
+	return tt.entries[arg as Count].minVal.lo
+end 'statedCount'
+
+// countedSpelling is how an instance of a fixed array that states its count is written: the count before the element.
+export function countedSpelling(base String, count String, element String) returns String
+	if element.contains(" with ") 'nested'
+		return "{base} with {count} ({element})"
+	end 'nested'
+	return "{base} with {count} {element}"
+end 'countedSpelling'
 
 // tupleOrigin is the record of which every tuple of arity elements is an instance: its fields are named by their places, 0, 1,
 // and so on, so that an element is read and written as a field is, and it has one type parameter for each, so that a tuple
@@ -720,6 +818,11 @@ export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList
 	if origArgs.count() == 0 'nonInst'
 		return t
 	end 'nonInst'
+	let selfOrigin = tt.entries[t as Count].effectiveOrigin()
+	if args.count() > params.count() and origArgs.equals(params) and tt.entries[selfOrigin as Count].typeParams.equals(params) 'countedSelf'
+		// Self of a fixed array at the arguments of an instance that states its count is that instance.
+		return instantiateType(tt, origin: selfOrigin, args: args)
+	end 'countedSelf'
 	var nextArgs = TypeIDList.create(0)
 	var changed = false
 	for i in 0 upto origArgs.count() 'eachArg'
@@ -1098,6 +1201,9 @@ export function typeName(tt TypeTable, t TypeID) returns String
 		parts.push(41 as Byte)
 		return String.from(parts)
 	end 'tuple'
+	if statesCount(tt, t: t) 'counted'
+		return countedSpelling(tt.entries[t as Count].name, count: "{statedCount(tt, t: t)}", element: typeName(tt, t: tt.entries[t as Count].typeArgs[0]))
+	end 'counted'
 	if tt.entries[t as Count].typeArgs.count() > 0 'inst'
 		var argNames = StringList.create(0)
 		for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
@@ -1160,10 +1266,10 @@ export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, orig
 	end 'own'
 	inst.retTy = substituteType(tt, t: ft.entries[origin as Count].retTy, params: origParams, args: args)
 	for i in 0 upto ft.entries[origin as Count].params.count() 'eachP'
-		let pName = ft.entries[origin as Count].params[i].name.clone()
-		let pConv = ft.entries[origin as Count].params[i].conv
 		let pTy = substituteType(tt, t: ft.entries[origin as Count].params[i].ty, params: origParams, args: args)
-		inst.params.push(ParamSpec.withDefault(pName, ty: pTy, conv: pConv, defaultExpr: ft.entries[origin as Count].params[i].defaultExpr))
+		var spec = ft.entries[origin as Count].params[i].clone()
+		spec.ty = pTy
+		inst.params.push(spec)
 		inst.paramTypes.push(pTy)
 	end 'eachP'
 	let id = allocFunc(ft, f: inst)

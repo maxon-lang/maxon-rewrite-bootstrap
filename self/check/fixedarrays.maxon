@@ -1,0 +1,165 @@
+// A FixedArray is an array whose count never changes, and whose type may state it (`FixedArray with 3 Int`). These are its
+// rules that the signatures of its built-ins cannot say: which create a call means, and the counts sizeof and countof read.
+
+// CreateForm is what the arguments of a call of a fixed array's create are: a length first, a value: and any other label.
+type CreateForm
+	export var hasLength as bool
+	export var length as ast.NodeID
+	export var hasValue as bool
+	export var other as bool
+
+	static function make() returns CreateForm
+		return CreateForm{hasLength: false, length: 0 as ast.NodeID, hasValue: false, other: false}
+	end 'make'
+end 'CreateForm'
+
+function createForm(c Checker, p ast.Project, call ast.NodeID) returns CreateForm
+	var form = CreateForm.make()
+	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
+	for i in 0 upto p.modules[c.modIdx].tree.listLen(argsRef) 'each'
+		let arg = p.modules[c.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID
+		let label = ast.argLabel(p.modules[c.modIdx].tree, id: arg)
+		if label == "" and i == 0 'length'
+			form.hasLength = true
+			form.length = ast.argValue(p.modules[c.modIdx].tree, id: arg)
+		end 'length' else if label == "value" 'value'
+			form.hasValue = true
+		end 'value' else 'other'
+			form.other = true
+		end 'other'
+	end 'each'
+	return form
+end 'createForm'
+
+// writtenTypeOfCall is how the call names the type it calls create on.
+function writtenTypeOfCall(c Checker, p ast.Project, call ast.NodeID, nt ast.TypeID) returns String
+	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: ast.callExprCallee(p.modules[c.modIdx].tree, id: call))
+	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'named'
+		return ast.nameExprName(p.modules[c.modIdx].tree, id: obj)
+	end 'named'
+	return nameOfType(p, t: nt)
+end 'writtenTypeOfCall'
+
+// callFixedArrayCreate types a call of create on a fixed array, which takes the form its type has: no length where the type
+// states one, and a length where it does not, each with an optional value: to fill every element with. A constant length
+// makes the type that states it. The bare name is the fixed array the context expects, where it expects one.
+function callFixedArrayCreate(mutates c Checker, mutates p ast.Project, call ast.NodeID, named ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var nt = named
+	if p.types.entries[named as Count].typeArgs.count() == 0 and c.expect != ast.noType and ast.originOf(p.types, t: c.expect) == p.builtins.fixedArrayOrigin 'expected'
+		nt = c.expect
+	end 'expected'
+	let form = createForm(c, p: p, call: call)
+	let written = writtenTypeOfCall(c, p: p, call: call, nt: nt)
+	let stated = ast.statesCount(p.types, t: nt)
+	var target = methodNamed(p, t: nt, name: "create")
+	if stated 'stated'
+		if form.hasLength 'length'
+			failAt(c, p: p, node: call, code: diag.errFixedArrayCreateForm, msg: "'{written}' states its length in its type ({nameOfType(p, t: nt)}), so 'create' takes no length: write '{written}.create()' or '{written}.create(value: v)'", errs: errs)
+			return ast.noType
+		end 'length'
+		if form.hasValue 'filled'
+			target = p.builtins.fixedArrayCreateFilledFunc
+		end 'filled'
+	end 'stated' else 'runtimeSized'
+		if not form.hasLength 'noLength'
+			failAt(c, p: p, node: call, code: diag.errFixedArrayCreateForm, msg: "'{written}' states no length in its type, so 'create' needs one: write '{written}.create(n)'", errs: errs)
+			return ast.noType
+		end 'noLength'
+		if form.other 'other'
+			failAt(c, p: p, node: call, code: diag.errFixedArrayCreateForm, msg: "'{written}.create' takes a length and an optional 'value:': a fixed array never grows. Use 'Array.create(n, zeroed: false)' for a growable buffer", errs: errs)
+			return ast.noType
+		end 'other'
+		target = p.builtins.fixedArrayCreateCountedFunc
+		if form.hasValue 'filled'
+			target = p.builtins.fixedArrayCreateCountedFilledFunc
+		end 'filled'
+	end 'runtimeSized'
+	let t = callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: target, hasGiven: p.types.entries[nt as Count].typeArgs.count() > 0, given: p.types.entries[nt as Count].typeArgs.clone(), errs: errs)
+	if t == ast.noType or stated 'done'
+		return t
+	end 'done'
+	return constantLengthType(c, p: p, unsized: t, length: form.length, errs: errs)
+end 'callFixedArrayCreate'
+
+// constantLengthType is the type that a runtime-sized create makes: the one that states its length where the length is a
+// constant, which runs from 1 to the most a type states.
+function constantLengthType(mutates c Checker, mutates p ast.Project, unsized ast.TypeID, length ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let lt = ast.nodeType(c.typing, node: length)
+	if not isConstInt(p, t: lt) 'runtime'
+		return unsized
+	end 'runtime'
+	let value = p.types.entries[lt as Count].minVal.clone()
+	if value.isZero() or value.isNeg() or value.gt(ast.I128.fromCount(fixedArrayCountLimit)) 'outside'
+		failAt(c, p: p, node: length, code: diag.errFixedArrayCount, msg: "A `FixedArray` element count runs from 1 to {fixedArrayCountLimit}, and create's length is the constant {value.toString()}", errs: errs)
+		return ast.noType
+	end 'outside'
+	return ast.countedType(p.types, unsized: unsized, count: value.lo)
+end 'constantLengthType'
+
+// refuseZeroedFixedArray refuses a fixed array whose slots start as zero, of an element that has no zero value.
+function refuseZeroedFixedArray(mutates c Checker, mutates p ast.Project, node ast.NodeID, call ast.NodeID, mutates errs diag.ErrorList)
+	let elem = callElement(c, call: call)
+	if hasZero(p, t: elem) 'zero'
+		return
+	end 'zero'
+	let name = nameOfType(p, t: elem)
+	if typeHasKind(p, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
+		failAt(c, p: p, node: node, code: diag.errZeroOutsideElement, msg: "'FixedArray.create' cannot publish slots of a type parameter: '{name}' may be instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), and every slot is zero. Create it with 'create(value: v)', or hold the elements in an 'Array' and append with 'push(value)'", errs: errs)
+		return
+	end 'parameter'
+	failAt(c, p: p, node: node, code: diag.errZeroOutsideElement, msg: "'FixedArray.create' cannot publish slots of '{name}': every slot is zero and zero is not a value of '{name}'", errs: errs)
+end 'refuseZeroedFixedArray'
+
+// checkFixedArrayCreateArgs refuses create() of a fixed array of an element that has no zero value, at the type the call
+// names.
+function checkFixedArrayCreateArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	let named = ast.memberExprObj(p.modules[c.modIdx].tree, id: ast.callExprCallee(p.modules[c.modIdx].tree, id: call))
+	refuseZeroedFixedArray(c, p: p, node: named, call: call, errs: errs)
+end 'checkFixedArrayCreateArgs'
+
+// checkFixedArrayCreateCountedArgs refuses create(n) of a fixed array of an element that has no zero value.
+function checkFixedArrayCreateCountedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	checkFixedArrayCreateArgs(c, p: p, call: call, ordered: ordered, errs: errs)
+end 'checkFixedArrayCreateCountedArgs'
+
+// readsReceiverCount is whether countof(t) is the count of the receiver of a method that an extension of FixedArray adds:
+// t is the extension's Self, whose count each receiver has.
+function readsReceiverCount(c Checker, mutates p ast.Project, t ast.TypeID) returns bool
+	if c.owner == ast.noType or c.fn == ast.noFunc or not p.funcs.entries[c.fn as Count].hasReceiver 'noReceiver'
+		return false
+	end 'noReceiver'
+	if ast.originOf(p.types, t: c.owner) != p.builtins.fixedArrayOrigin 'otherType'
+		return false
+	end 'otherType'
+	return t == ast.selfType(p.types, declTy: c.owner)
+end 'readsReceiverCount'
+
+// checkTypeQuery types sizeof(T) and countof(T). Of a concrete type each is an integer constant; sizeof of a type that a
+// generic's parameters build is a Count that each instance knows.
+function checkTypeQuery(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let tr = ast.typeQueryExprType(p.modules[c.modIdx].tree, id: e)
+	let owner = c.owner
+	let t = resolveTypeRef(c, p: p, tr: tr, selfTy: owner, errs: errs)
+	if t == ast.noType 'unknown'
+		return ast.noType
+	end 'unknown'
+	ast.setNodeType(c.typing, node: tr, ty: t)
+	if ast.typeQueryExprOp(p.modules[c.modIdx].tree, id: e) == "sizeof" 'sizeof'
+		if ast.mentionsTypeParam(p.types, t: t) 'generic'
+			return p.builtins.countTy
+		end 'generic'
+		return ast.internConstInt(p.types, val: ast.I128.fromCount(ast.byteSize(p.types, t: t)))
+	end 'sizeof'
+	if ast.originOf(p.types, t: t) != p.builtins.fixedArrayOrigin 'noCount'
+		failAt(c, p: p, node: e, code: diag.errUnsupportedFeature, msg: "Unsupported: countof of a type that states no element count — only a fixed-size container type has one (`FixedArray with 3 Int`, or `Self` inside the sized container's own body). A growable `Array`'s length is a runtime field of the record, not part of its type, so ask it for its `count()`", errs: errs)
+		return ast.noType
+	end 'noCount'
+	if not ast.statesCount(p.types, t: t) and readsReceiverCount(c, p: p, t: t) 'receiver'
+		return p.builtins.countTy
+	end 'receiver'
+	if not ast.statesCount(p.types, t: t) 'runtimeSized'
+		failAt(c, p: p, node: e, code: diag.errUnsupportedFeature, msg: "Unsupported: countof of a runtime-sized fixed array — its length is part of the value and not of the type, so ask the value for its `count()`, or name a sized alias (`typealias Sized = FixedArray with 4 Int`) and take `countof(Sized)`", errs: errs)
+		return ast.noType
+	end 'runtimeSized'
+	return ast.internConstInt(p.types, val: ast.I128.fromCount(ast.statedCount(p.types, t: t)))
+end 'checkTypeQuery'

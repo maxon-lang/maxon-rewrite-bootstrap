@@ -925,7 +925,9 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		resolveExpr(r, p: p, id: ast.panicExprMessage(r.tree, id: id), errs: errs)
 	end 'pe' else if k == ast.NodeKind.closureExpr 'closure'
 		resolveClosureExpr(r, p: p, id: id, errs: errs)
-	end 'closure' else 'unk'
+	end 'closure' else if k == ast.NodeKind.typeQueryExpr 'query'
+		resolveTypeRef(r, p: p, tr: ast.typeQueryExprType(r.tree, id: id), errs: errs)
+	end 'query' else 'unk'
 		panic("resolveExpr: unexpected node kind")
 	end 'unk'
 end 'resolveExpr'

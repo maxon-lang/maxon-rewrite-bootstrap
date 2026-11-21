@@ -1,6 +1,8 @@
 // Unchecked is an operation that can fail, which says what to write when no try covers it.
 union Unchecked
 	call(name String)
+	// index is a get or a set of a fixed array that states its count, at an index not proven inside it.
+	index(method String, count Count)
 	operation(op String, fails Byte, node ast.NodeID, ty ast.TypeID)
 	cast(ty ast.TypeID)
 	// returned is a return whose value is converted to ty, the declared type of the function.
@@ -271,6 +273,14 @@ function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 		rangeClosure(r, p: p, e: e)
 		return noSpan()
 	end 'closure'
+	if k == ast.NodeKind.typeQueryExpr and ast.typeQueryExprOp(p.modules[r.modIdx].tree, id: e) == "sizeof" 'sizeof'
+		// The size of a value of a type a generic's parameters build, which each instance knows: a value is never larger
+		// than the address space.
+		return Span.make(ast.I128.one(), hi: ast.I128.i64Max())
+	end 'sizeof'
+	if k == ast.NodeKind.typeQueryExpr 'countof'
+		return rangeTyped(r, p: p, e: e)
+	end 'countof'
 	panic("ranges: the node {e} of kind {k.name} is no expression")
 end 'rangeEval'
 
@@ -372,9 +382,13 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	if call.kind == ast.CallKind.callValue 'value'
 		_ = rangeEval(r, p: p, e: ast.callExprCallee(p.modules[r.modIdx].tree, id: e))
 	end 'value'
+	var first = noSpan()
 	for i in 0 upto call.ordered.count() 'args'
 		if call.ordered[i] != 0 'given'
-			_ = rangeEval(r, p: p, e: call.ordered[i])
+			let span = rangeEval(r, p: p, e: call.ordered[i])
+			if i == 0 'first'
+				first = span
+			end 'first'
 		end 'given'
 	end 'args'
 	for i in 0 upto call.ordered.count() 'changes'
@@ -386,12 +400,68 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	if receiver != 0 and call.selfConv != ast.Convention.convLet 'receiverChanges'
 		rangeChangedAt(r, p: p, e: receiver)
 	end 'receiverChanges'
+	if receiver != 0 and isCountedAccess(r, p: p, info: call, receiver: receiver) 'counted'
+		rangeCountedAccess(r, p: p, e: e, info: call, receiver: receiver, index: first)
+		return rangeTyped(r, p: p, e: e)
+	end 'counted'
 	let err = callErrorType(p, info: call)
 	if err != ast.noType 'throws'
 		rangeFallible(r, p: p, site: e, err: err, why: Unchecked.call(callTargetName(p, info: call)))
 	end 'throws'
 	return rangeTyped(r, p: p, e: e)
 end 'rangeCallExpr'
+
+// isCountedAccess is whether a call is a get or a set of a fixed array whose type states its count, which fails only at an
+// index outside it.
+function isCountedAccess(r Ranges, p ast.Project, info ast.CallInfo, receiver ast.NodeID) returns bool
+	let op = info.intrinsic
+	if op != ast.Intrinsic.intrArrayGet and op != ast.Intrinsic.intrArraySet and op != ast.Intrinsic.intrFixedArrayGetProven and op != ast.Intrinsic.intrFixedArraySetProven 'other'
+		return false
+	end 'other'
+	let t = ast.contentType(p.types, t: typeOf(r, e: receiver))
+	return ast.originOf(p.types, t: t) == p.builtins.fixedArrayOrigin and ast.statesCount(p.types, t: t)
+end 'isCountedAccess'
+
+// rangeCountedAccess judges a get or a set of a fixed array that states its count by the span of its index: one inside
+// the count cannot fail, and the call becomes the access with no check; a constant outside it is an error; any other
+// index is checked, so the call fails as an array's does.
+function rangeCountedAccess(mutates r Ranges, p ast.Project, e ast.NodeID, info ast.CallInfo, receiver ast.NodeID, index Span)
+	let t = ast.contentType(p.types, t: typeOf(r, e: receiver))
+	let count = ast.statedCount(p.types, t: t)
+	let last = ast.I128.fromCount(count).sub(ast.I128.one())
+	let isGet = info.intrinsic == ast.Intrinsic.intrArrayGet or info.intrinsic == ast.Intrinsic.intrFixedArrayGetProven
+	var method = "set"
+	if isGet 'get'
+		method = "get"
+	end 'get'
+	let proven = not index.lo.isNeg() and index.hi.le(last)
+	if not r.probing 'record'
+		var chosen = info.clone()
+		chosen.fn = countedAccessFunc(p, isGet: isGet, proven: proven)
+		chosen.intrinsic = p.funcs.entries[chosen.fn as Count].intrinsic
+		r.typing.calls.insert(e as Count, value: chosen)
+	end 'record'
+	if proven 'inside'
+		return
+	end 'inside'
+	if index.lo.eq(index.hi) and index.lo.gt(last) and not r.probing 'constant'
+		rangeRaise(r, p: p, node: info.ordered[0], code: diag.errTypeMismatch, msg: "Value {index.lo.toString()} is outside the range of the indices of 'FixedArray with {count}' (int(0 to {last.toString()}))")
+		return
+	end 'constant'
+	rangeFallible(r, p: p, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.index(method, count: count))
+end 'rangeCountedAccess'
+
+// countedAccessFunc is the get or the set of a fixed array that a call runs: the one that cannot fail at a proven index.
+function countedAccessFunc(p ast.Project, isGet bool, proven bool) returns ast.FuncID
+	if isGet and proven 'provenGet'
+		return p.builtins.fixedArrayGetProvenFunc
+	end 'provenGet'
+	if proven 'provenSet'
+		return p.builtins.fixedArraySetProvenFunc
+	end 'provenSet'
+	let name = "get" if isGet else "set"
+	return p.types.entries[p.builtins.fixedArrayOrigin as Count].findMethod(name).unwrap()
+end 'countedAccessFunc'
 
 // rangeChangedAt is an expression that a call may change, if it names a place.
 function rangeChangedAt(mutates r Ranges, p ast.Project, e ast.NodeID)
@@ -662,6 +732,7 @@ function uncheckedNode(why Unchecked, site ast.NodeID) returns ast.NodeID
 	return match why 'why'
 		returned(_, value) gives value
 		call(_) gives site
+		index(_, _) gives site
 		operation(_, _, _, _) gives site
 		cast(_) gives site
 		thrown gives site
@@ -674,6 +745,7 @@ function uncheckedFix(p ast.Project, t ast.Tree, why Unchecked, site ast.NodeID)
 	return match why 'why'
 		returned(ty, value) gives returnFix(t, e: value, target: nameOfType(p, t: ty))
 		call(_) gives tryFix(t, e: site)
+		index(_, _) gives tryFix(t, e: site)
 		operation(_, _, _, _) gives tryFix(t, e: site)
 		cast(_) gives tryFix(t, e: site)
 		thrown gives tryFix(t, e: site)
@@ -684,6 +756,7 @@ end 'uncheckedFix'
 function uncheckedText(r Ranges, p ast.Project, why Unchecked) returns String
 	return match why 'why'
 		call(name) gives diag.throwingCallRequiresTry(name)
+		index(method, count) gives "{diag.throwingCallRequiresTry(method)} — its index is not proven inside the fixed array's {count} elements; wrap it as `try … otherwise …`, or give the index a ranged type within `int(0 to {ast.I128.fromCount(count).sub(ast.I128.one()).toString()})`"
 		operation(op, fails, node, ty) gives "{failureText(p, op: op, fails: fails, ty: ty)}{operandFix(guardAdvice(p.modules[r.modIdx].tree, fails: fails, e: node))}"
 		cast(ty) gives castText(p, ty: ty)
 		returned(ty, _) gives castText(p, ty: ty)

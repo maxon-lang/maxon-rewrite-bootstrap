@@ -16,6 +16,7 @@ export enum NodeKind
 	funcTypeParam
 	bound
 	typeRef
+	typeCount
 	typeParam
 	constraint
 	interfaceDecl
@@ -67,6 +68,7 @@ export enum NodeKind
 	arg
 	panicExpr
 	matchExpr
+	typeQueryExpr
 	closureExpr
 	closureParam
 end 'NodeKind'
@@ -134,7 +136,9 @@ export function isReserved(word String) returns bool
 		"ignore" or
 		"true" or
 		"false" or
-		"panic" gives true
+		"panic" or
+		"sizeof" or
+		"countof" gives true
 		default gives false
 	end 'kw'
 end 'isReserved'
@@ -516,7 +520,7 @@ end 'newBound'
 
 export function newTypeRef(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.typeRef, start: start)
-	let blk = t.reserve(3 as Count)
+	let blk = t.reserve(4 as Count)
 	t.records[id as Count].b = blk
 	return id
 end 'newTypeRef'
@@ -541,12 +545,20 @@ export function setTypeRefNameRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.setBlockWordAt(id, offset: 0 as Count, value: ref)
 end 'setTypeRefNameRef'
 
+export function typeRefCount(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+end 'typeRefCount'
+
+export function setTypeRefCount(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+end 'setTypeRefCount'
+
 export function typeRefTypeArgsRef(t Tree, id NodeID) returns diag.U32
-	return t.blockWordAt(id, offset: 1 as Count)
+	return t.blockWordAt(id, offset: 2 as Count)
 end 'typeRefTypeArgsRef'
 
 export function setTypeRefTypeArgsRef(mutates t Tree, id NodeID, ref diag.U32)
-	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
+	t.setBlockWordAt(id, offset: 2 as Count, value: ref)
 end 'setTypeRefTypeArgsRef'
 
 export function typeRefIsTuple(t Tree, id NodeID) returns bool
@@ -558,12 +570,36 @@ export function setTypeRefIsTuple(mutates t Tree, id NodeID)
 end 'setTypeRefIsTuple'
 
 export function typeRefElemsRef(t Tree, id NodeID) returns diag.U32
-	return t.blockWordAt(id, offset: 2 as Count)
+	return t.blockWordAt(id, offset: 3 as Count)
 end 'typeRefElemsRef'
 
 export function setTypeRefElemsRef(mutates t Tree, id NodeID, ref diag.U32)
-	t.setBlockWordAt(id, offset: 2 as Count, value: ref)
+	t.setBlockWordAt(id, offset: 3 as Count, value: ref)
 end 'setTypeRefElemsRef'
+
+export function newTypeCount(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.typeCount, start: start)
+	return id
+end 'newTypeCount'
+
+export function typeCountNegative(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'typeCountNegative'
+
+export function setTypeCountNegative(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setTypeCountNegative'
+
+export function typeCountValue(t Tree, id NodeID) returns I128
+	let lo = t.records[id as Count].a as Count
+	let hi = t.records[id as Count].b as Count
+	return I128.fromCount(lo or (try hi shl 32 otherwise 0 as Count))
+end 'typeCountValue'
+
+export function setTypeCountValue(mutates t Tree, id NodeID, value I128)
+	t.records[id as Count].a = (value.lo and (4294967295 as Count)) as diag.U32
+	t.records[id as Count].b = ((value.lo shr 32) and (4294967295 as Count)) as diag.U32
+end 'setTypeCountValue'
 
 export type TypeParam
 	export var id as NodeID
@@ -2144,6 +2180,37 @@ end 'matchExprMatch'
 export function setMatchExprMatch(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setMatchExprMatch'
+
+export function newTypeQueryExpr(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.typeQueryExpr, start: start)
+	return id
+end 'newTypeQueryExpr'
+
+export function typeQueryExprOp(t Tree, id NodeID) returns String
+	let code = (t.records[id as Count].aux and (255 as U16)) as Count
+	return match code 'lit'
+		1 gives "sizeof"
+		2 gives "countof"
+		default gives ""
+	end 'lit'
+end 'typeQueryExprOp'
+
+export function setTypeQueryExprOp(mutates t Tree, id NodeID, text String)
+	let code = match text 'lit'
+		"sizeof" gives 1 as U16
+		"countof" gives 2 as U16
+		default panic("invalid enum text")
+	end 'lit'
+	t.records[id as Count].aux = (t.records[id as Count].aux and (65280 as U16)) or code
+end 'setTypeQueryExprOp'
+
+export function typeQueryExprType(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].a as NodeID
+end 'typeQueryExprType'
+
+export function setTypeQueryExprType(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].a = value as diag.U32
+end 'setTypeQueryExprType'
 
 export function newClosureExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.closureExpr, start: start)

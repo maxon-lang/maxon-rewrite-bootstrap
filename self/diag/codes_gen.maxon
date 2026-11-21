@@ -66,6 +66,9 @@ export let errTypeArgumentCount = "E2056"
 // A call labels an argument of a built-in function whose arguments are positional.
 export let errBuiltinArgNamed = "E2067"
 
+// The count of a fixed array is not an integer literal from 1 to 4294967295.
+export let errFixedArrayCount = "E2069"
+
 // A qualified name names a member its base does not declare.
 export let errUnknownStaticMember = "E2073"
 
@@ -227,6 +230,9 @@ export let errExclusivity = "E3186"
 
 // An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.
 export let errInstanceMethodWithoutReceiver = "E3193"
+
+// A fixed array's create takes a length its type does not need, or lacks one it does.
+export let errFixedArrayCreateForm = "E3194"
 
 // A write or a consuming call goes through the contents of a frozen value.
 export let errFrozenChange = "E3197"

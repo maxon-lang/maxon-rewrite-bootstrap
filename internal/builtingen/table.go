@@ -37,9 +37,12 @@ var primTypes = []primType{
 
 // builtinType is a runtime primitive: an ast.BuiltinTy of its own BuiltinKind.
 type builtinType struct {
-	Key    string // the BuiltinKind is Builtin+Key, the ast.Builtins field Key
+	Key    string // the ast.Builtins field Key
 	Name   string // the name a program writes
 	Params []string
+	// Kind is the TypeKind's builtin+Kind, Key when it is empty: a FixedArray is an array, whose instance may state its
+	// count as a type argument after Params, which the checker reads.
+	Kind string
 	// Managed is whether a value of it owns a box; Subscriptable whether t[i] names an element; Shared whether it is
 	// counted and has many owners.
 	Managed, Subscriptable, Shared bool
@@ -47,6 +50,7 @@ type builtinType struct {
 
 var builtinTypes = []builtinType{
 	{Key: "Array", Name: "Array", Params: []string{"T"}, Managed: true, Subscriptable: true},
+	{Key: "FixedArray", Name: "FixedArray", Params: []string{"T"}, Kind: "Array", Managed: true, Subscriptable: true},
 	{Key: "Map", Name: "Map", Params: []string{"K", "V"}, Managed: true, Subscriptable: true},
 	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "Pool", Name: "Pool", Params: []string{"T"}, Managed: true, Subscriptable: true},
@@ -243,7 +247,8 @@ type function struct {
 	Static bool
 	// Self is how a method takes its receiver: "", "mutates" or "consumes".
 	Self string
-	// Params are "convention name Type", the convention left out when it is let.
+	// Params are "convention name Type", the convention left out when it is let, and "name:" for one that a call labels
+	// even where it is the first argument.
 	Params []string
 	// Result is the type it returns; "" is Void.
 	Result string
@@ -255,7 +260,8 @@ type function struct {
 	Throws string
 	// Intrinsic is what it lowers to: ast.Intrinsic+Intrinsic, ir's lower+Intrinsic.
 	Intrinsic string
-	// Field is the ast.Builtins field that holds a free function which is not declared by its name.
+	// Field is the ast.Builtins field that holds a free function which is not declared by its name, or a method that the
+	// checker chooses for a call of the name in place of the one declared by it: an overload by the arguments' form.
 	Field string
 	// Checked is whether the checker refuses arguments that the signature alone cannot, in check+Intrinsic+Args.
 	Checked bool
@@ -346,6 +352,21 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "containsSequence", Params: []string{"sequence Self"}, Result: "Bool", Intrinsic: "ArrayContainsSequence", Checked: true},
 	{Owner: "Array", Name: "equals", Params: []string{"other Self"}, Result: "Bool", Intrinsic: "ArrayEquals", Checked: true}, {Owner: "Array", Name: "first", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayFirst"},
 	{Owner: "Array", Name: "last", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayLast"},
+
+	// A FixedArray is an array's box of its count of elements, which never grows. create() makes the count its type states,
+	// zeroed, and create(value:) copies of the value; a runtime-sized one takes the count, create(n) and create(n, value:),
+	// which the checker chooses for a call of create by its arguments. get and set at an index the checker proves inside
+	// the count are the rows that cannot fail.
+	{Owner: "FixedArray", Name: "create", Static: true, Result: "Self", Intrinsic: "FixedArrayCreate", Checked: true},
+	{Owner: "FixedArray", Name: "create", Static: true, Params: []string{"consumes value: T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "FixedArrayFilled", Field: "FixedArrayCreateFilled"},
+	{Owner: "FixedArray", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "FixedArrayCreateCounted", Field: "FixedArrayCreateCounted", Checked: true},
+	{Owner: "FixedArray", Name: "create", Static: true, Params: []string{"count ElementIndex", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled", Field: "FixedArrayCreateCountedFilled"},
+	{Owner: "FixedArray", Name: "count", Result: "Count", Intrinsic: "FixedArrayCount"},
+	{Owner: "FixedArray", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
+	{Owner: "FixedArray", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Intrinsic: "FixedArrayGetProven", Field: "FixedArrayGetProven"},
+	{Owner: "FixedArray", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet"},
+	{Owner: "FixedArray", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Intrinsic: "FixedArraySetProven", Field: "FixedArraySetProven"},
+	{Owner: "FixedArray", Name: "refill", Self: "mutates", Params: []string{"value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "FixedArrayRefill"},
 
 	{Owner: "Map", Name: "create", Static: true, Result: "Self", Intrinsic: "MapCreate"},
 	{Owner: "Map", Name: "count", Result: "Count", Intrinsic: "MapCount"},

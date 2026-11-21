@@ -1,0 +1,52 @@
+typealias Int = int(i64.min to i64.max)
+
+typealias Slot = int(0 to 3) implements ElementIndex
+
+typealias Vec4 = FixedArray with 4 Int
+
+typealias Buf = FixedArray with Int
+
+typealias Names = FixedArray with 2 String
+
+type Pair
+	var left as Int
+	var right as Int
+end 'Pair'
+
+extension FixedArray
+	function capacity() returns Count
+		return countof(Self)
+	end 'capacity'
+end 'FixedArray'
+
+function read(v Vec4, at Slot) returns Int
+	return v.get(at)
+end 'read'
+
+function total(values Buf) returns Int
+	var sum = 0 as Int
+	for x in values 'each'
+		sum = try sum + x otherwise 0
+	end 'each'
+	return sum
+end 'total'
+
+function main() returns ExitCode
+	var v = Vec4.create()
+	for i in 0 upto countof(Vec4) 'fill'
+		v.set(i, value: (i * 10) as Int)
+	end 'fill'
+	var b = Buf.create(v.count(), value: 2)
+	try b.set(1, value: 5) otherwise panic("index 1 is inside 3")
+	let missing = try b.get(7) otherwise -1
+	let literal = Buf from [10, 20, 30]
+	var names = Names.create(value: "none")
+	names.set(1, value: "ada")
+	names.refill("x")
+	print("{read(v, at: 2)} {v.get(3)} {v.count()} {total(v)} {total(b)} {missing} {literal.get(2)} {literal.capacity()}\n")
+	print("{names.get(0)}{names.get(1)} {sizeof(Pair)} {sizeof(bool)} {sizeof(Int)} {countof(Names)}\n")
+	return 0
+end 'main'
+
+//> 20 30 4 60 11 -1 30 3
+//> xx 16 1 8 2

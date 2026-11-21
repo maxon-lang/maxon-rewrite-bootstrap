@@ -300,7 +300,7 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	if k == NodeKind.byteStrLit 'byteString'
 		return table.Option.some(byteStringEnd(t.text, at: start))
 	end 'byteString'
-	if k == NodeKind.panicExpr or k == NodeKind.structLitExpr 'opened'
+	if k == NodeKind.panicExpr or k == NodeKind.structLitExpr or k == NodeKind.typeQueryExpr 'opened'
 		return table.Option.some(closingEnd(t.text, at: openingAfter(t.text, at: start)))
 	end 'opened'
 	if k == NodeKind.tryExpr 'try'

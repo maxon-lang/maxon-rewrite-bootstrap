@@ -90,6 +90,8 @@ type param struct {
 	conv string // "let", "mutates" or "consumes"
 	name string
 	ty   *tyExpr
+	// labelled is a parameter that a call names with its label even where it is the first, written "name:".
+	labelled bool
 }
 
 var conventions = []string{"let", "mutates", "consumes"}
@@ -105,7 +107,8 @@ func parseParam(s string) param {
 	if len(fields) != 2 {
 		fail("parameter %q is not 'convention name Type'", s)
 	}
-	return param{conv: conv, name: fields[0], ty: parseType(fields[1])}
+	name, labelled := strings.CutSuffix(fields[0], ":")
+	return param{conv: conv, name: name, ty: parseType(fields[1]), labelled: labelled}
 }
 
 func isConvention(s string) bool {
