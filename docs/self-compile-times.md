@@ -49,3 +49,4 @@ of C2 building it again.
 | 2026-11-21 | c840d38 | formatter selftests | 50743 | 7810 | 7145 | 7422 |
 | 2026-11-21 | 0272a11 | operator chains walked with a loop | 50933 | 7772 | 7497 | 7533 |
 | 2026-11-21 | e056ae6 | inline collection fast paths | 51031 | 8067 | 7717 | 3436 |
+| 2026-11-21 | c38fecb | return converts a proved integer | 51113 | 8140 | 7747 | 3664 |
