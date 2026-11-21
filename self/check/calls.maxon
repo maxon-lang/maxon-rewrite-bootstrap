@@ -175,6 +175,30 @@ function methodNamed(p ast.Project, t ast.TypeID, name String) returns ast.FuncI
 	end 'method'
 end 'methodNamed'
 
+// methodOf is the method of that name that a value of type t has for the code of the module being checked: the one the
+// declaration of the type has, else one that an extension adds, which the module's own extensions and those of the modules
+// it names can. It is none for a type that has none.
+function methodOf(c Checker, p ast.Project, t ast.TypeID, name String) returns ast.FuncID
+	var own = methodNamed(p, t: t, name: name)
+	if t == p.builtins.stringTy 'string'
+		own = stringMethodNamed(p, name: name)
+	end 'string'
+	if own != ast.noFunc 'declared'
+		return own
+	end 'declared'
+	match consumes ast.extensionKey(p, t: t) 'key'
+		some(owner) then return extensionMethodOf(c, p: p, owner: owner, name: name)
+		none then return ast.noFunc
+	end 'key'
+end 'methodOf'
+
+function extensionMethodOf(c Checker, p ast.Project, owner ast.TypeID, name String) returns ast.FuncID
+	match consumes ast.extensionMethod(p, from: c.modID, owner: owner, name: name) 'found'
+		some(fid) then return fid
+		none then return ast.noFunc
+	end 'found'
+end 'extensionMethodOf'
+
 // stringMethodNamed is the method of String of that name, or none.
 function stringMethodNamed(p ast.Project, name String) returns ast.FuncID
 	match p.builtins.stringMethods.get(name) 'method'
@@ -238,7 +262,7 @@ function callMember(mutates c Checker, mutates p ast.Project, call ast.NodeID, c
 end 'callMember'
 
 function callStringStatic(mutates c Checker, mutates p ast.Project, call ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
-	let sf = stringMethodNamed(p, name: name)
+	let sf = methodOf(c, p: p, t: p.builtins.stringTy, name: name)
 	if sf != ast.noFunc and p.funcs.entries[sf as Count].isStatic 'static'
 		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	end 'static'
@@ -250,7 +274,7 @@ function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, n
 	if p.types.entries[nt as Count].kind == ast.TypeKind.unionTy and p.types.entries[ast.originOf(p.types, t: nt) as Count].findCase(name).isSome() 'union'
 		return unionConstructor(c, p: p, call: call, ut: nt, caseName: name, errs: errs)
 	end 'union'
-	let sm = methodNamed(p, t: nt, name: name)
+	let sm = methodOf(c, p: p, t: nt, name: name)
 	if sm != ast.noFunc and p.funcs.entries[sm as Count].isStatic 'static'
 		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: p.types.entries[nt as Count].typeArgs.count() > 0, given: p.types.entries[nt as Count].typeArgs.clone(), errs: errs)
 	end 'static'
@@ -269,18 +293,10 @@ function callOnValue(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	if typeHasKind(p, t: content, kind: ast.TypeKind.typeParam) 'parameter'
 		return boundCall(c, p: p, call: call, param: content, receiver: receiver, name: name, errs: errs)
 	end 'parameter'
-	if typeIsNominal(p.types, t: content) 'nominal'
-		let method = methodNamed(p, t: content, name: name)
-		if method != ast.noFunc and not p.funcs.entries[method as Count].isStatic 'instance'
-			return callMethod(c, p: p, call: call, receiver: receiver, content: content, method: method, name: name, errs: errs)
-		end 'instance'
-	end 'nominal'
-	if content == p.builtins.stringTy 'string'
-		let method = stringMethodNamed(p, name: name)
-		if method != ast.noFunc and not p.funcs.entries[method as Count].isStatic 'instance'
-			return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
-		end 'instance'
-	end 'string'
+	let method = methodOf(c, p: p, t: content, name: name)
+	if method != ast.noFunc and not p.funcs.entries[method as Count].isStatic 'instance'
+		return callMethod(c, p: p, call: call, receiver: receiver, content: content, method: method, name: name, errs: errs)
+	end 'instance'
 	return unknownFunction(c, p: p, call: call, name: "{nameOfType(p, t: receiver)}.{name}", qualifiers: 1 as Count, errs: errs)
 end 'callOnValue'
 

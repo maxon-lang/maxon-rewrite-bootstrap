@@ -1,0 +1,17 @@
+extension shapes.Counter
+	export function twice() returns shapes.Length
+		return try n * 2 otherwise panic("overflow")
+	end 'twice'
+
+	function hidden() returns shapes.Length
+		return n
+	end 'hidden'
+
+	export static function zero() returns Self
+		return Self{n: 0}
+	end 'zero'
+end 'Counter'
+
+export function describe(c shapes.Counter) returns shapes.Length
+	return try c.twice() + c.hidden() otherwise panic("overflow")
+end 'describe'

@@ -8,6 +8,7 @@ export enum DeclKind
 	unionDecl
 	aliasDecl
 	interfaceDecl
+	extensionDecl
 end 'DeclKind'
 
 export type DeclRef
@@ -27,6 +28,7 @@ export union Decl
 	unionDecl(value UnionDecl)
 	aliasDecl(value AliasDecl)
 	interfaceDecl(value InterfaceDecl)
+	extensionDecl(value ExtensionDecl)
 
 	export function name() returns String
 		return match self 'd'
@@ -37,6 +39,7 @@ export union Decl
 			unionDecl(v) gives v.name.clone()
 			aliasDecl(v) gives v.name.clone()
 			interfaceDecl(v) gives v.name.clone()
+			extensionDecl(_) gives extensionName.clone()
 		end 'd'
 	end 'name'
 
@@ -49,6 +52,7 @@ export union Decl
 			unionDecl(v) gives v.visibility.clone()
 			aliasDecl(v) gives v.visibility.clone()
 			interfaceDecl(v) gives v.visibility.clone()
+			extensionDecl(v) gives v.visibility.clone()
 		end 'd'
 	end 'visibility'
 
@@ -62,6 +66,7 @@ export union Decl
 			unionDecl(_) gives "union"
 			aliasDecl(_) gives "typealias"
 			interfaceDecl(_) gives "interface"
+			extensionDecl(_) gives "extension"
 		end 'd'
 	end 'keyword'
 
@@ -74,6 +79,7 @@ export union Decl
 			unionDecl(v) gives v.id
 			aliasDecl(v) gives v.id
 			interfaceDecl(v) gives v.id
+			extensionDecl(v) gives v.id
 		end 'd'
 	end 'nodeID'
 
@@ -94,6 +100,7 @@ export union Decl
 			unionDecl(_) gives true
 			aliasDecl(_) gives true
 			interfaceDecl(_) gives true
+			extensionDecl(_) gives false
 		end 'd'
 	end 'isType'
 
@@ -106,13 +113,44 @@ export union Decl
 			unionDecl(_) gives false
 			aliasDecl(_) gives false
 			interfaceDecl(_) gives false
+			extensionDecl(_) gives false
 		end 'd'
 	end 'isConst'
+
+	export function kind() returns DeclKind
+		return match self 'd'
+			funcDecl(_) gives DeclKind.funcDecl
+			constDecl(_) gives DeclKind.constDecl
+			typeDecl(_) gives DeclKind.typeDecl
+			enumDecl(_) gives DeclKind.enumDecl
+			unionDecl(_) gives DeclKind.unionDecl
+			aliasDecl(_) gives DeclKind.aliasDecl
+			interfaceDecl(_) gives DeclKind.interfaceDecl
+			extensionDecl(_) gives DeclKind.extensionDecl
+		end 'd'
+	end 'kind'
+
+	export function isExtension() returns bool
+		return match self 'd'
+			extensionDecl(_) gives true
+			funcDecl(_) gives false
+			constDecl(_) gives false
+			typeDecl(_) gives false
+			enumDecl(_) gives false
+			unionDecl(_) gives false
+			aliasDecl(_) gives false
+			interfaceDecl(_) gives false
+		end 'd'
+	end 'isExtension'
 
 	export function offset(t Tree) returns diag.U32
 		return t.reportStartOf(self.nodeID())
 	end 'offset'
 end 'Decl'
+
+// extensionName is what an extension is called where a declaration has a name: an extension declares none, so no module's
+// names hold it.
+export let extensionName = "extension"
 
 export typealias DeclList = Array with Decl
 
@@ -214,9 +252,12 @@ export type Module
 	export var tree as Tree
 	export var decls as DeclList
 	export var names as DeclIndex
+	// extMethods and extConforms are what the module's extensions add to types, whichever module declares them.
+	export var extMethods as ExtMethodList
+	export var extConforms as ExtConformList
 
 	export static function new(id diag.ModuleID, consumes path String, consumes text String, consumes files FileSpanList) returns Module
-		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new()}
+		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), extMethods: ExtMethodList.create(0), extConforms: ExtConformList.create(0)}
 	end 'new'
 
 	export function display() returns String
@@ -243,6 +284,9 @@ export type Module
 	end 'appendRawDecl'
 
 	export function indexDecl(mutates self, ord DeclOrdinal) returns table.Option with DeclOrdinal
+		if decls[ord as Count].isExtension() 'extension'
+			return table.Option.none
+		end 'extension'
 		let n = decls[ord as Count].name()
 		let prev = names.get(n)
 		match prev 'dup'

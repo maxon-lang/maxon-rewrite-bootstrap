@@ -608,6 +608,7 @@ function pushDecl(mutates decls ast.DeclList, consumes d ast.Decl)
 		unionDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
 		interfaceDecl(_) then _ = 0
+		extensionDecl(_) then _ = 0
 	end 'k'
 	decls.push(d)
 	for i in 0 upto nested.count() 'each'

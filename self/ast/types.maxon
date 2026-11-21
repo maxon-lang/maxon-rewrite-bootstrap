@@ -190,6 +190,34 @@ end 'MethodRef'
 
 export typealias MethodRefList = Array with MethodRef
 
+// ExtMethod is a method that an extension adds to the type owner, which is the key of the extended type
+// (ast.extensionKey). It belongs to the module that writes the extension, never to the type's own entry.
+export type ExtMethod
+	export var owner as TypeID
+	export var name as String
+	export var func as FuncID
+
+	export static function make(owner TypeID, consumes name String, func FuncID) returns ExtMethod
+		return ExtMethod{owner: owner, name: name, func: func}
+	end 'make'
+end 'ExtMethod'
+
+export typealias ExtMethodList = Array with ExtMethod
+
+// ExtConform is an interface that an extension says the type owner implements.
+export type ExtConform
+	export var owner as TypeID
+	export var iface as TypeID
+	// site is the extension that says it.
+	export var site as NodeID
+
+	export static function make(owner TypeID, iface TypeID, site NodeID) returns ExtConform
+		return ExtConform{owner: owner, iface: iface, site: site}
+	end 'make'
+end 'ExtConform'
+
+export typealias ExtConformList = Array with ExtConform
+
 export type TypeEntry
 	export var id as TypeID
 	export var kind as TypeKind

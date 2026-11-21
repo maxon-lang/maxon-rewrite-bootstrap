@@ -1,0 +1,119 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box uses T
+	export var item as T
+
+	static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+end 'Box'
+
+type Meter
+	var level as Score
+
+	static function make(level Score) returns Self
+		return Self{level: level}
+	end 'make'
+end 'Meter'
+
+enum Suite
+	hearts
+	spades
+end 'Suite'
+
+union Shape
+	dot
+	square(side Score)
+end 'Shape'
+
+interface Sizer
+	function size() returns Score
+end 'Sizer'
+
+extension Box
+	function take() returns T where T implements Copyable
+		return item.clone()
+	end 'take'
+
+	static function twin(consumes item T) returns Self
+		return Self{item: item}
+	end 'twin'
+end 'Box'
+
+extension Meter implements Sizer
+	function size() returns Score
+		return level
+	end 'size'
+
+	function raise(mutates self, by Score)
+		level = try level + by otherwise panic("overflow")
+	end 'raise'
+end 'Meter'
+
+extension Suite
+	function width() returns Score
+		return match self 'which'
+			hearts gives 3
+			spades gives 4
+		end 'which'
+	end 'width'
+end 'Suite'
+
+extension Shape
+	function area() returns Score
+		return match self 'which'
+			dot gives 0
+			square(side) gives try side * side otherwise panic("overflow")
+		end 'which'
+	end 'area'
+end 'Shape'
+
+extension int
+	function doubled() returns Score
+		return try self * 2 otherwise panic("overflow")
+	end 'doubled'
+end 'int'
+
+extension bool
+	function flip() returns bool
+		return not self
+	end 'flip'
+end 'bool'
+
+extension String
+	function shout() returns String
+		return "{self}!"
+	end 'shout'
+end 'String'
+
+extension Array
+	function second() returns T where T implements Copyable
+		return self[1].clone()
+	end 'second'
+end 'Array'
+
+function total(a T) uses T returns Score where T implements Sizer
+	return a.size()
+end 'total'
+
+function main() returns ExitCode
+	let b = Box.make(7 as Score)
+	print("box {b.take()} {Box.twin(5 as Score).take()}\n")
+	var m = Meter.make(4)
+	m.raise(3)
+	print("meter {m.size()} {total(m)}\n")
+	print("suite {Suite.spades.width()}\n")
+	print("shape {Shape.square(5).area()} {Shape.dot.area()}\n")
+	let n = 21
+	print("int {n.doubled()} {true.flip()} {"hi".shout()}\n")
+	let xs = [10 as Score, 20, 30]
+	print("array {xs.second()}\n")
+	return 0
+end 'main'
+
+//> box 7 5
+//> meter 7 7
+//> suite 4
+//> shape 25 0
+//> int 42 false hi!
+//> array 20

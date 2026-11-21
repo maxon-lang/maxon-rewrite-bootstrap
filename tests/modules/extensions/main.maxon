@@ -1,0 +1,9 @@
+function main() returns ExitCode
+	let c = shapes.Counter.make(21)
+	print("suite {shapes.Suite.spades.width()}\n")
+	print("tools {tools.describe(c)} {c.twice()}\n")
+	return 0
+end 'main'
+
+//> suite 4
+//> tools 63 42

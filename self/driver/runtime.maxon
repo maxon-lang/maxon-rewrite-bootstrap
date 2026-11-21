@@ -48,6 +48,7 @@ function runtimeFunctionID(p ast.Project, module diag.ModuleID, ord ast.DeclOrdi
 		enumDecl(_) gives false
 		unionDecl(_) gives false
 		interfaceDecl(_) gives false
+		extensionDecl(_) gives false
 		aliasDecl(_) gives false
 		constDecl(_) gives false
 	end 'kind'

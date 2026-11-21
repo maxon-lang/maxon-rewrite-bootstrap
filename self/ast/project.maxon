@@ -173,6 +173,14 @@ export function moduleDecl(p Project, ref DeclRef) returns Decl
 	return p.modules[ref.module as Count].decls[ref.ordinal as Count].clone()
 end 'moduleDecl'
 
+// declKindOf is what kind of declaration ref is.
+export function declKindOf(p Project, ref DeclRef) returns DeclKind
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].kind()
+	end 'std'
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].kind()
+end 'declKindOf'
+
 export function declName(p Project, ref DeclRef) returns String
 	if ref.module == diag.stdlibID 'std'
 		return p.stdlib.decls[ref.ordinal as Count].name()
@@ -227,6 +235,7 @@ end 'joinNames'
 //	function      geometry::area             export::main
 //	method        export::Counter.inc        (export::Box with stdlib::Count).make
 //	instance      export::swap[stdlib::Count, export::Counter]
+//	extension     geometry::extension export::Counter.reset: a method that a module other than the type's adds to it
 //	type          export::Counter            export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))
 let linkSeparator = "::"
 
@@ -328,6 +337,17 @@ function intLinkName(tt TypeTable, t TypeID) returns String
 	return "{tt.entries[t as Count].name}{intLinkAliasMark}{spelling}"
 end 'intLinkName'
 
+let extensionLinkWord = "extension"
+
+// declaringModule is the module that declares the type t, which is the standard library for one that has no declaration.
+function declaringModule(p Project, t TypeID) returns diag.ModuleID
+	let origin = p.types.entries[t as Count].effectiveOrigin()
+	if p.types.entries[origin as Count].hasDecl 'declared'
+		return p.types.entries[origin as Count].decl.module
+	end 'declared'
+	return diag.stdlibID
+end 'declaringModule'
+
 // funcLinkName is the link name of a function: the module and the name of a free function, with the type arguments of an
 // instance, and the type and the name of a method, in parentheses where the type is an instance.
 export function funcLinkName(p Project, fid FuncID) returns String
@@ -335,10 +355,15 @@ export function funcLinkName(p Project, fid FuncID) returns String
 	let owner = p.funcs.entries[fid as Count].ownerTy
 	if owner != noType 'method'
 		let ownerName = typeLinkName(p, t: owner)
+		var text = "{ownerName}.{name}"
 		if p.types.entries[owner as Count].typeArgs.count() > 0 'instance'
-			return "({ownerName}).{name}"
+			text = "({ownerName}).{name}"
 		end 'instance'
-		return "{ownerName}.{name}"
+		let declaring = p.funcs.entries[fid as Count].module
+		if declaring != declaringModule(p, t: owner) 'extension'
+			return "{moduleLinkPath(p, modID: declaring)}{linkSeparator}{extensionLinkWord} {text}"
+		end 'extension'
+		return text
 	end 'method'
 	let base = "{moduleLinkPath(p, modID: p.funcs.entries[fid as Count].module)}{linkSeparator}{name}"
 	if p.funcs.entries[fid as Count].typeArgs.count() > 0 'instance'

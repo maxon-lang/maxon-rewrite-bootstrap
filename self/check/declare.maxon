@@ -152,21 +152,32 @@ end 'optOutAdvice'
 // declareConforms records the interfaces that a declaration implements. Copyable and Droppable are no interface to
 // implement, since every type has them unless it opts out or holds a part that lacks them.
 function declareConforms(mutates c Checker, mutates p ast.Project, interfaces diag.U32, nt ast.TypeID, mutates errs diag.ErrorList)
+	let named = conformedInterfaces(c, p: p, interfaces: interfaces, errs: errs)
+	for i in 0 upto named.count() 'each'
+		p.types.entries[nt as Count].conforms.push(named[i])
+	end 'each'
+end 'declareConforms'
+
+// conformedInterfaces are the interfaces a declaration or an extension names after 'implements', up to the first that is not
+// one.
+function conformedInterfaces(mutates c Checker, mutates p ast.Project, interfaces diag.U32, mutates errs diag.ErrorList) returns ast.TypeIDList
+	var named = ast.TypeIDList.create(0)
 	let mark = errs.count()
 	for i in 0 upto p.modules[c.modIdx].tree.listLen(interfaces) 'each'
 		let tr = p.modules[c.modIdx].tree.listAt(interfaces, index: i) as ast.NodeID
 		let iface = resolveBoundTypeRef(c, p: p, tr: tr, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
-			return
+			return named
 		end 'failed'
 		if p.builtins.isCapability(iface) 'capability'
 			let name = p.types.entries[iface as Count].name.clone()
 			checkFail(c.modID, off: offsetOf(c, p: p, node: tr), code: diag.errCapabilityMisuse, msg: "'{name}' is not implemented by saying so: every type has it unless it opts out or holds a part that lacks it; remove it from 'implements'{optOutAdvice(p, iface: iface)}", errs: errs)
 			continue 'each'
 		end 'capability'
-		p.types.entries[nt as Count].conforms.push(iface)
+		named.push(iface)
 	end 'each'
-end 'declareConforms'
+	return named
+end 'conformedInterfaces'
 
 // paramSpecs resolves a parameter list, which a function and an interface's method are both written with. It stops at
 // the first error.
@@ -390,6 +401,7 @@ function declareDeclTypeParams(mutates c Checker, mutates p ast.Project, ord ast
 		enumDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
 		interfaceDecl(_) then _ = 0
+		extensionDecl(_) then _ = 0
 	end 'k'
 	return not failedSince(errs, mark: mark)
 end 'declareDeclTypeParams'
@@ -404,6 +416,7 @@ function declareDecl(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdin
 		enumDecl(ed) then declareEnumDecl(c, p: p, ed: ed, tid: declTypeOf(p, ref: ref), declared: declared, errs: errs)
 		unionDecl(ud) then declareUnionDecl(c, p: p, ud: ud, tid: declTypeOf(p, ref: ref), paramsOk: paramsOk, declared: declared, errs: errs)
 		interfaceDecl(ifd) then declareInterfaceMembers(c, p: p, ifd: ifd, tid: declTypeOf(p, ref: ref), errs: errs)
+		extensionDecl(xd) then declareExtension(c, p: p, xd: xd, declared: declared, errs: errs)
 		constDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
 	end 'k'

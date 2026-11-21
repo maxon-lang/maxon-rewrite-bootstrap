@@ -11,6 +11,7 @@ export function checkBodies(mutates c Checker, mutates p ast.Project, declared a
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
 		checkDeclBody(c, p: p, ord: ord, errs: errs)
 	end 'types'
+	checkExtensionConformances(c, p: p, errs: errs)
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'functions'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
 		checkFunctionsOf(c, p: p, ord: ord, isDeclared: isDeclared, errs: errs)
@@ -28,6 +29,7 @@ function checkDeclBody(mutates c Checker, mutates p ast.Project, ord ast.DeclOrd
 		constDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
 		interfaceDecl(_) then _ = 0
+		extensionDecl(_) then _ = 0
 	end 'k'
 end 'checkDeclBody'
 
@@ -54,6 +56,7 @@ function checkFunctionsOf(mutates c Checker, mutates p ast.Project, ord ast.Decl
 		constDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
 		interfaceDecl(_) then _ = 0
+		extensionDecl(xd) then checkMethodBodies(c, p: p, methods: xd.methods, isDeclared: isDeclared, errs: errs)
 	end 'k'
 end 'checkFunctionsOf'
 

@@ -158,12 +158,12 @@ function jumpsOf(l Lowerer, node ast.NodeID) returns JumpFrame
 end 'jumpsOf'
 
 // self is the receiver, borrowed: a consumes self lives in the slot that owns it.
-function selfReg(mutates l Lowerer, p ast.Project) returns Reg
+function selfReg(mutates l Lowerer, mutates p ast.Project) returns Reg
 	if l.selfOwner != noSlot 'owned'
 		return load(l, slot: slotIndex(l.selfOwner))
 	end 'owned'
 	let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[l.origin as Count].selfLocal)
-	return paramReg(l, index: selfLocal.paramIndex, kind: IrKind.kindManaged)
+	return paramReg(l, index: selfLocal.paramIndex, kind: kindOf(l, p: p, t: selfLocal.ty))
 end 'selfReg'
 
 // lowerBlock lowers the live statements of a block, which owns the locals they declare.

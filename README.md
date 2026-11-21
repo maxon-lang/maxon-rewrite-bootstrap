@@ -943,6 +943,8 @@ and nothing else.
   (`typealias Step = function(Count, mutates Box) returns Count`, also in a type's body), a function named without a
   call, a closure `function(n Count) gives n + offset` (its parameters' types and its result may be left to the function
   type it is written for), and a call through a value (`f(x)`, `self.op(x)`, `ops[i](x)`, a module-level `let`).
+- `extension` blocks (see "Extensions"): methods, static functions of a type and conformances added to a type, an enum, a
+  union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
   maxon's iteration protocol (see "Primitives"), `match` as a statement or expression
@@ -1502,6 +1504,41 @@ can say where it comes from and how to get it back. Every copy decision goes thr
 - A message that would have the reader write `.clone()` suggests it only for a type that has `Copyable`; for another it
   names what removes it and says to move the value instead.
 
+### Extensions
+
+```
+extension Meter implements Sizer
+	function raise(mutates self, by Count)
+		level = try level + by otherwise panic("overflow")
+	end 'raise'
+end 'Meter'
+
+extension int
+	function doubled() returns FullRangeInt
+		return try self * 2 otherwise panic("overflow")
+	end 'doubled'
+end 'int'
+```
+
+An `extension` adds the methods it declares, and the interfaces it `implements`, to the type it names: a `type`, an `enum`
+or a `union` of any module (`extension shapes.Counter`), the built-in `Array`, `Map` and `List`, `String`, `bool`, and `int`,
+which stands for every integer type (`self` has the range of `FullRangeInt`). The end label is the extended type's name.
+Inside, `self` and the bare names of the type's fields and type parameters mean what they do in its body, and `Self` is
+the type. A static function is allowed only in an extension of a `type` or of a built-in generic type. An extension
+declares no field, destructor or `typealias`, and takes no `where` clause. A method of an extension is called as one of
+the type's, and is `E3006` if the type's body or another extension of the same module declares the name.
+
+An extension's declarations belong to the module that writes it, never to the extended type's module, so each module's
+stages stay independent. A call `x.m()` finds the type's own method, then the methods that extensions add in the
+module of the call and in the modules it names (the ones its resolve recorded as dependencies); the standard library sees
+none. A method has its own visibility (`export`, `public`, or its module's only); a modifier on the block
+(`export extension`) is accepted and has no meaning. A call through a bound is resolved after the
+check from every module's extensions. A method that an extension adds to a type of another module has a link name of its
+own module (see "Link names"), so two modules may add one name to a type.
+
+An extension of a built-in generic type names its parameters as the built-in table does (`T` for `Array`, not maxon's
+`Element`). An extension of a typealias is `E2015`, one of an unknown name is `E3011`.
+
 ### Primitives
 
 Layer 2 of [docs/regions.md](docs/regions.md), as far as step 3 goes: their signatures and ownership rules. An
@@ -1809,6 +1846,15 @@ compares its tokens with the input's, so a formatter bug is an internal error an
 
 ### Where it differs from Maxon
 
+- `extension`: there is no extension of an interface (no default method for every conformer, no associated types), no
+  conditional extension (`where` on an extension), no nested `typealias` in an extension, and none of `FixedArray`, `Set`,
+  `Iterable`, `Iterator` or other library types the compiler does not have. A call finds the methods that extensions add
+  only from the module that writes the extension and the modules that name it; maxon finds them from every directory of
+  the program, so an extension that no module of the call's dependencies names is not seen, and a conformance an extension
+  declares counts for a bound only where its module is visible in the same way. A method that an extension declares under
+  the name of a method in the body of a type of another module is `E3006` at the extension's method, reported when
+  the modules are verified, and two extensions of different modules adding one name is not an error: the call's own
+  module first, then the modules it names in module order, decide.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
   `HeapFree` and no reference counting; Maxon counts references. There is no green thread, scheduler or atomic count, so
   a frozen value, a cown and a behaviour have no native code: the interpreter counts a frozen value and a cown, schedules

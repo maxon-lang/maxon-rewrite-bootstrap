@@ -1,0 +1,156 @@
+// An extension adds methods, and conformances, to a type that another declaration names. They are declarations of the module
+// that writes the extension, filed under the extended type in that module (ast/extensions.maxon): the declare stage never
+// writes into another module's types.
+
+// declaredExtendedType is the type of the declaration ref names, which an extension may extend when it is a type, an enum or
+// a union.
+function declaredExtendedType(c Checker, p ast.Project, ref ast.DeclRef, name String, off diag.U32, mutates errs diag.ErrorList) returns ast.TypeID
+	match ast.declKindOf(p, ref: ref) 'k'
+		typeDecl then return declTypeOf(p, ref: ref)
+		enumDecl then return declTypeOf(p, ref: ref)
+		unionDecl then return declTypeOf(p, ref: ref)
+		aliasDecl then checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: `extension {name}` — '{name}' is a typealias, which declares no methods of its own; extend the `type`, `enum`, `union`, `interface` or primitive it names", errs: errs)
+		interfaceDecl then checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: `extension {name}` — an extension of an interface is not supported; extend the `type`, `enum` or `union` that implements it", errs: errs)
+		funcDecl then panic("the extension of {name} names a function")
+		constDecl then panic("the extension of {name} names a constant")
+		extensionDecl then panic("the extension of {name} names an extension")
+	end 'k'
+	return ast.noType
+end 'declaredExtendedType'
+
+// extendedType is the type an extension extends, or none after it reported why it extends nothing.
+function extendedType(mutates c Checker, mutates p ast.Project, xd ast.ExtensionDecl, mutates errs diag.ErrorList) returns ast.TypeID
+	if xd.isInt 'integer'
+		return p.builtins.anon64Ty
+	end 'integer'
+	let name = ast.typeRefName(p.modules[c.modIdx].tree, id: xd.target)
+	let off = offsetOf(c, p: p, node: xd.target)
+	match consumes p.resolutions[c.modIdx].decls.get(xd.target as Count) 'bound'
+		some(ref) then return declaredExtendedType(c, p: p, ref: ref, name: name, off: off, errs: errs)
+		none then _ = 0
+	end 'bound'
+	let unqualified = p.modules[c.modIdx].tree.listLen(ast.typeRefQualifierRef(p.modules[c.modIdx].tree, id: xd.target)) == 0
+	if unqualified and name == "bool" 'boolean'
+		return p.builtins.boolTy
+	end 'boolean'
+	if unqualified and name == "String" 'string'
+		return p.builtins.stringTy
+	end 'string'
+	failUnknownType(c, p: p, tr: xd.target, errs: errs)
+	return ast.noType
+end 'extendedType'
+
+// bindExtensionParams makes the type parameters the extension's code names the parameters of the extended type.
+function bindExtensionParams(mutates c Checker, mutates p ast.Project, xd ast.ExtensionDecl, nt ast.TypeID)
+	match p.resolutions[c.modIdx].extParams.get(xd.id as Count) 'first'
+		some(first) then bindParamsFrom(c, p: p, first: first, nt: nt)
+		none then _ = 0
+	end 'first'
+end 'bindExtensionParams'
+
+function bindParamsFrom(mutates c Checker, mutates p ast.Project, first Count, nt ast.TypeID)
+	for i in 0 upto p.types.entries[nt as Count].typeParams.count() 'params'
+		let slot = try first + i otherwise panic("too many type parameters")
+		let node = p.resolutions[c.modIdx].typeParams[slot].id
+		let name = p.resolutions[c.modIdx].typeParams[slot].name.clone()
+		match paramNamed(p, owner: nt, name: name) 'shell'
+			some(tid) then p.declTypes.insert(ast.typeParamKey(c.modID, node: node), value: tid)
+			none then panic("the type parameter '{name}' of an extension is not one of '{p.types.entries[nt as Count].name}'")
+		end 'shell'
+	end 'params'
+end 'bindParamsFrom'
+
+// staticAllowed is whether an extension of the type may add a static function: only a type and a built-in generic type have
+// them.
+function staticAllowed(p ast.Project, nt ast.TypeID) returns bool
+	let kind = p.types.entries[nt as Count].kind
+	return kind == ast.TypeKind.record or kind.isBuiltin()
+end 'staticAllowed'
+
+// staticRefusal is why an extension of the type nt may not add a static function.
+function staticRefusal(p ast.Project, nt ast.TypeID) returns String
+	let kind = p.types.entries[nt as Count].kind
+	if kind == ast.TypeKind.enumTy or kind == ast.TypeKind.unionTy 'cases'
+		var word = unionWord
+		if kind == ast.TypeKind.enumTy 'enum'
+			word = enumWord
+		end 'enum'
+		return "Unsupported: a `static function` on `{word} {p.types.entries[nt as Count].name}` (an INSTANCE method is supported — a static one has no receiver to name the {word} through, and no `enum`/`union` in the corpus declares one)"
+	end 'cases'
+	return "a static function belongs in a 'type'"
+end 'staticRefusal'
+
+function addExtensionMethod(mutates c Checker, mutates p ast.Project, m ast.FuncDecl, nt ast.TypeID, key ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, node: m.id)
+	if m.isStatic and not staticAllowed(p, nt: nt) 'static'
+		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: staticRefusal(p, nt: nt), errs: errs)
+		return
+	end 'static'
+	if m.receiver == ast.Convention.convDestructs.keyword() 'destructor'
+		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "a destructor belongs in the body of its type, not in an extension", errs: errs)
+		return
+	end 'destructor'
+	if m.name == cloneMethod 'clone'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
+		return
+	end 'clone'
+	if ast.methodOfModule(p.modules[c.modIdx], owner: key, name: m.name).isSome() 'dup'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(m.name, typeName: ast.typeName(p.types, t: key)), errs: errs)
+		return
+	end 'dup'
+	let fid = newFuncEntry(c, p: p, f: m, ownerTy: nt, ref: ast.DeclRef.make(c.modID, ordinal: 0 as ast.DeclOrdinal))
+	p.modules[c.modIdx].extMethods.push(ast.ExtMethod.make(key, name: m.name.clone(), func: fid))
+	addFunction(c, p: p, f: m, fid: fid, nt: nt, declared: declared, errs: errs)
+end 'addExtensionMethod'
+
+// declareExtension declares the methods and the conformances an extension adds, under the key of the type it extends.
+function declareExtension(mutates c Checker, mutates p ast.Project, xd ast.ExtensionDecl, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	let nt = extendedType(c, p: p, xd: xd, errs: errs)
+	if failedSince(errs, mark: mark) 'failed'
+		return
+	end 'failed'
+	let key = ast.extensionKey(p, t: nt).unwrap()
+	bindExtensionParams(c, p: p, xd: xd, nt: nt)
+	let interfaces = conformedInterfaces(c, p: p, interfaces: xd.conforms, errs: errs)
+	for i in 0 upto interfaces.count() 'conforms'
+		p.modules[c.modIdx].extConforms.push(ast.ExtConform.make(key, iface: interfaces[i], site: xd.id))
+	end 'conforms'
+	if failedSince(errs, mark: mark) 'badConforms'
+		return
+	end 'badConforms'
+	for i in 0 upto xd.methods.count() 'methods'
+		addExtensionMethod(c, p: p, m: xd.methods[i].clone(), nt: nt, key: key, declared: declared, errs: errs)
+	end 'methods'
+end 'declareExtension'
+
+// checkExtensionConformances checks each interface the module's extensions say a type implements against the type's methods,
+// which are the type's own and those that extensions add.
+export function checkExtensionConformances(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList)
+	for i in 0 upto p.modules[c.modIdx].extConforms.count() 'each'
+		let entry = p.modules[c.modIdx].extConforms[i].clone()
+		var missing = ast.StringList.create(0)
+		var wrong = ast.StringList.create(0)
+		checkInterface(c, p: p, site: entry.site, nt: entry.owner, iface: entry.iface, missing: missing, wrong: wrong, errs: errs)
+		failIncomplete(c, p: p, site: entry.site, typeName: ast.typeName(p.types, t: entry.owner), missing: missing, wrong: wrong, errs: errs)
+	end 'each'
+end 'checkExtensionConformances'
+
+// verifyExtensions refuses a method that an extension adds under the name of one the type's own body declares. The type may
+// be declared in another module, so this waits for the verify stage, when its methods are declared.
+export function verifyExtensions(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList)
+	for i in 0 upto p.modules[c.modIdx].extMethods.count() 'each'
+		let entry = p.modules[c.modIdx].extMethods[i].clone()
+		if bodyDeclares(p, owner: entry.owner, name: entry.name) 'dup'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: p.funcs.entries[entry.func as Count].nodeID), code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(entry.name, typeName: ast.typeName(p.types, t: entry.owner)), errs: errs)
+		end 'dup'
+	end 'each'
+end 'verifyExtensions'
+
+// bodyDeclares is whether the declaration of the type owner has a method of that name of its own.
+function bodyDeclares(p ast.Project, owner ast.TypeID, name String) returns bool
+	if owner == p.builtins.stringTy 'string'
+		return stringMethodNamed(p, name: name) != ast.noFunc
+	end 'string'
+	return p.types.entries[owner as Count].findMethod(name).isSome()
+end 'bodyDeclares'

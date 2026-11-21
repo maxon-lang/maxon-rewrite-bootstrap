@@ -69,8 +69,13 @@ export function resolveTarget(mutates p ast.Project, module diag.ModuleID, recei
 		let name = p.funcs.entries[info.method as Count].name.clone()
 		match consumes p.types.entries[origin as Count].findMethod(name) 'found'
 			some(method) then return instantiateMethod(p, method: method, recv: recv)
-			none then panic("{ast.typeName(p.types, t: recv)} has no method '{name}' for the bound that declares it")
+			none then _ = 0
 		end 'found'
+		match consumes ast.extensionKey(p, t: recv) 'key'
+			some(owner) then return instantiateMethod(p, method: ast.anyExtensionMethod(p, owner: owner, name: name).unwrap(), recv: recv)
+			none then _ = 0
+		end 'key'
+		panic("{ast.typeName(p.types, t: recv)} has no method '{name}' for the bound that declares it")
 	end 'bound'
 	panic("call kind {info.kind.name} has no function to resolve")
 end 'resolveTarget'

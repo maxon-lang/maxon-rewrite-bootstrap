@@ -69,28 +69,29 @@ end 'followEdge'
 // checkConformance checks a declaration against each interface it says it implements: every method is there with the
 // signature the interface gives, so a bound that the declaration meets is never wrong at an instance.
 function checkConformance(mutates c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList)
-	let own = ast.selfType(p.types, declTy: nt)
 	let orig = ast.originOf(p.types, t: nt)
 	let conforms = ast.cloneTypeArgs(p.types.entries[orig as Count].conforms)
 	var missing = ast.StringList.create(0)
 	var wrong = ast.StringList.create(0)
 	for i in 0 upto conforms.count() 'interfaces'
-		let sigs = p.types.entries[conforms[i] as Count].sigs.clone()
-		for j in 0 upto sigs.count() 'sigs'
-			let mark = errs.count()
-			requireImplements(c, p: p, site: site, nt: orig, own: own, iface: conforms[i], sig: sigs[j], missing: missing, wrong: wrong, errs: errs)
-			if failedSince(errs, mark: mark) 'failed'
-				return
-			end 'failed'
-		end 'sigs'
+		let mark = errs.count()
+		checkInterface(c, p: p, site: site, nt: nt, iface: conforms[i], missing: missing, wrong: wrong, errs: errs)
+		if failedSince(errs, mark: mark) 'failed'
+			return
+		end 'failed'
 	end 'interfaces'
-	let typeName = p.types.entries[orig as Count].name.clone()
+	failIncomplete(c, p: p, site: site, typeName: p.types.entries[orig as Count].name.clone(), missing: missing, wrong: wrong, errs: errs)
+end 'checkConformance'
+
+// failIncomplete files the one error for a type that implements an interface incompletely: the methods it lacks, or else the
+// methods whose signature differs.
+function failIncomplete(c Checker, mutates p ast.Project, site ast.NodeID, typeName String, missing ast.StringList, wrong ast.StringList, mutates errs diag.ErrorList)
 	if missing.count() > 0 'missing'
 		failAt(c, p: p, node: site, code: diag.errConformance, msg: "{diag.missingMethods(typeName, count: "{missing.count()}")}\n{bulletLines(missing)}", errs: errs)
 	end 'missing' else if wrong.count() > 0 'wrong'
 		failAt(c, p: p, node: site, code: diag.errConformance, msg: "{diag.wrongSignatureMethods(typeName, count: "{wrong.count()}")}\n{bulletLines(wrong)}", errs: errs)
 	end 'wrong'
-end 'checkConformance'
+end 'failIncomplete'
 
 // bulletLines is the methods of an incomplete implementation, one bulleted line each.
 function bulletLines(items ast.StringList) returns String
@@ -100,6 +101,21 @@ function bulletLines(items ast.StringList) returns String
 	end 'each'
 	return ast.joinNames(lines, sep: "\n")
 end 'bulletLines'
+
+// checkInterface checks a type against one interface it implements, whether its body or an extension says so: each
+// requirement is met, up to the first that is not, and what is lacking is collected into missing and wrong.
+function checkInterface(mutates c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, iface ast.TypeID, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
+	let own = ast.selfType(p.types, declTy: nt)
+	let orig = ast.originOf(p.types, t: nt)
+	let sigs = p.types.entries[iface as Count].sigs.clone()
+	for j in 0 upto sigs.count() 'sigs'
+		let mark = errs.count()
+		requireImplements(c, p: p, site: site, nt: orig, own: own, iface: iface, sig: sigs[j], missing: missing, wrong: wrong, errs: errs)
+		if failedSince(errs, mark: mark) 'failed'
+			return
+		end 'failed'
+	end 'sigs'
+end 'checkInterface'
 
 // requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing, and
 // the method beside the requirement when its signature differs.
@@ -111,7 +127,7 @@ function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt
 	let sigName = p.funcs.entries[sig as Count].name.clone()
 	let typeName = p.types.entries[nt as Count].name.clone()
 	let ifaceName = p.types.entries[iface as Count].name.clone()
-	let m = methodNamed(p, t: nt, name: sigName)
+	let m = methodOf(c, p: p, t: nt, name: sigName)
 	if m != ast.noFunc and p.funcs.entries[m as Count].bounds.count() > 0 'ownBounds'
 		failAt(c, p: p, node: site, code: diag.errConformance, msg: "'{typeName}' says it implements {ifaceName}, but its method '{sigName}' adds a 'where' on the type's parameters, so '{typeName}' would implement {ifaceName} only for some instances: remove the 'where' from the method, or put the bound on the type", errs: errs)
 		return
@@ -196,10 +212,10 @@ function requireConforms(mutates c Checker, mutates p ast.Project, off diag.U32,
 		end 'unbounded'
 		return
 	end 'parameter'
-	if arg != ast.noType and typeIsNominal(p.types, t: arg) 'nominal'
+	if arg != ast.noType and (typeIsNominal(p.types, t: arg) or ast.extensionKey(p, t: arg).isSome()) 'implementable'
 		requireDeclared(c, p: p, off: off, arg: arg, iface: iface, param: param, errs: errs)
 		return
-	end 'nominal'
+	end 'implementable'
 	checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}', but only a type, enum or union implements an interface", errs: errs)
 end 'requireConforms'
 
@@ -210,18 +226,34 @@ end 'typeIn'
 // requireDeclared refuses a nominal type argument whose declaration does not say it implements the interface.
 function requireDeclared(c Checker, mutates p ast.Project, off diag.U32, arg ast.TypeID, iface ast.TypeID, param ast.TypeID, mutates errs diag.ErrorList)
 	let orig = ast.originOf(p.types, t: arg)
-	if typeIn(p.types.entries[orig as Count].conforms, t: iface) 'declared'
+	if typeIn(p.types.entries[orig as Count].conforms, t: iface) or implementsByExtension(c, p: p, arg: arg, iface: iface) 'declared'
 		return
 	end 'declared'
 	let argName = nameOfType(p, t: arg)
 	let paramName = nameOfType(p, t: param)
 	let ifaceName = p.types.entries[iface as Count].name.clone()
-	if p.types.entries[orig as Count].hasDecl and p.types.entries[orig as Count].decl.module == diag.stdlibID 'builtIn'
-		checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' is built in and implements no interface, so it cannot be {ifaceName} for '{paramName}'; wrap it in a type of your own that declares 'implements {spelled(c, p: p, iface: iface)}'", errs: errs)
+	if not typeIsNominal(p.types, t: arg) or (p.types.entries[orig as Count].hasDecl and p.types.entries[orig as Count].decl.module == diag.stdlibID) 'builtIn'
+		checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' is built in and implements no interface, so it cannot be {ifaceName} for '{paramName}'; declare 'extension {extensionTargetName(p, t: arg)} implements {spelled(c, p: p, iface: iface)}', or wrap it in a type of your own that declares 'implements {spelled(c, p: p, iface: iface)}'", errs: errs)
 		return
 	end 'builtIn'
-	checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}': declare '{declarationWord(p, t: arg)} {p.types.entries[orig as Count].name} implements {spelled(c, p: p, iface: iface)}'{missingMethods(p, t: arg, iface: iface)}", errs: errs)
+	checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}': declare '{declarationWord(p, t: arg)} {p.types.entries[orig as Count].name} implements {spelled(c, p: p, iface: iface)}'{missingMethods(c, p: p, t: arg, iface: iface)}", errs: errs)
 end 'requireDeclared'
+
+// extensionTargetName is how an extension names the type t: an integer is `int`.
+function extensionTargetName(p ast.Project, t ast.TypeID) returns String
+	if p.types.entries[t as Count].kind == ast.TypeKind.intRange 'integer'
+		return "int"
+	end 'integer'
+	return p.types.entries[ast.originOf(p.types, t: t) as Count].name.clone()
+end 'extensionTargetName'
+
+// implementsByExtension is whether an extension that the module sees says the type arg implements iface.
+function implementsByExtension(c Checker, p ast.Project, arg ast.TypeID, iface ast.TypeID) returns bool
+	match consumes ast.extensionKey(p, t: arg) 'key'
+		some(owner) then return ast.extensionConforms(p, from: c.modID, owner: owner, iface: iface)
+		none then return false
+	end 'key'
+end 'implementsByExtension'
 
 // spelled is how code in this module names an interface: qualified when another module declares it.
 function spelled(c Checker, p ast.Project, iface ast.TypeID) returns String
@@ -251,12 +283,12 @@ function declarationWord(p ast.Project, t ast.TypeID) returns String
 end 'declarationWord'
 
 // missingMethods names the methods of the interface that the type lacks, for the error that asks it to declare one.
-function missingMethods(p ast.Project, t ast.TypeID, iface ast.TypeID) returns String
+function missingMethods(c Checker, p ast.Project, t ast.TypeID, iface ast.TypeID) returns String
 	var missing = ast.StringList.create(0)
 	for i in 0 upto p.types.entries[iface as Count].sigs.count() 'each'
 		let sig = p.types.entries[iface as Count].sigs[i]
 		let name = p.funcs.entries[sig as Count].name.clone()
-		let m = methodNamed(p, t: t, name: name)
+		let m = methodOf(c, p: p, t: t, name: name)
 		if m == ast.noFunc or p.funcs.entries[m as Count].isStatic 'lacking'
 			missing.push(name)
 		end 'lacking'

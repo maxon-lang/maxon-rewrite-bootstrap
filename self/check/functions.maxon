@@ -180,6 +180,7 @@ function functionOf(consumes d ast.Decl) returns table.Option with ast.FuncDecl
 		unionDecl(_) gives table.Option.none
 		aliasDecl(_) gives table.Option.none
 		interfaceDecl(_) gives table.Option.none
+		extensionDecl(_) gives table.Option.none
 	end 'k'
 end 'functionOf'
 
@@ -203,6 +204,7 @@ function namesExitCode(consumes d ast.Decl) returns bool
 		enumDecl(_) gives false
 		unionDecl(_) gives false
 		interfaceDecl(_) gives false
+		extensionDecl(_) gives false
 	end 'k'
 end 'namesExitCode'
 

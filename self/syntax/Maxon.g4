@@ -65,7 +65,7 @@ tokens { FileEnd, /** an indented line */ Indent, /** the end of the indented li
 // Declarations
 
 @ast::Structs {
-	FuncDecl ConstDecl TypeDecl EnumDecl UnionDecl AliasDecl InterfaceDecl
+	FuncDecl ConstDecl TypeDecl EnumDecl UnionDecl AliasDecl InterfaceDecl ExtensionDecl
 	Param FieldDecl EnumCaseDecl UnionCaseDecl Bound TypeParam Constraint FuncSig
 }
 
@@ -74,6 +74,7 @@ decl
     : funcDecl
     | constDecl
     | typeDeclNode
+    | extensionDecl
     ;
 
 @ast::DeclBase {
@@ -149,6 +150,14 @@ typeDecl
 
 fieldDecl
     : visibility=('export' | 'public')? ('let' | isVar='var') name=(Name | 'from') ('as' type=typeRef | '=' default=expr)
+    ;
+
+// An extension adds methods, and conformances, to a type another declaration names: a type, an enum, a union, a built-in
+// generic type, String, bool or the integers (`extension int`).
+extensionDecl
+    : visibility=('export' | 'public')? 'extension' (target=typeRef | isInt='int') conforms=conformsClause? Newline
+      (Indent (methods+=funcDecl Newline)+ Dedent)?
+      'end' end=endLabel?
     ;
 
 enumDecl

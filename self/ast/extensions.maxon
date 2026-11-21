@@ -1,0 +1,100 @@
+// An extension adds methods, and conformances, to a type that another declaration names. They belong to the module that
+// writes the extension: a module's declare stage never writes into another module's types. A method call on a type finds
+// the type's own methods first, then those of the extensions of the module it is written in and of the modules that module
+// names, which are the ones its check can have waited for.
+
+// extensionKey is the key under which the extensions of the type t are filed, or none for a type no extension can name:
+// the declaration of a type, an enum, a union or a built-in generic type, String, bool, and for every integer the one
+// anonymous integer type that `int` names.
+export function extensionKey(p Project, t TypeID) returns table.Option with TypeID
+	return match p.types.entries[t as Count].kind 'k'
+		record gives table.Option.some(originOf(p.types, t: t))
+		enumTy gives table.Option.some(originOf(p.types, t: t))
+		unionTy gives table.Option.some(originOf(p.types, t: t))
+		builtinArray gives table.Option.some(originOf(p.types, t: t))
+		builtinMap gives table.Option.some(originOf(p.types, t: t))
+		builtinList gives table.Option.some(originOf(p.types, t: t))
+		builtinPool gives table.Option.some(originOf(p.types, t: t))
+		builtinHandle gives table.Option.some(originOf(p.types, t: t))
+		builtinFrozen gives table.Option.some(originOf(p.types, t: t))
+		builtinCown gives table.Option.some(originOf(p.types, t: t))
+		primBool gives table.Option.some(p.builtins.boolTy)
+		primString gives table.Option.some(p.builtins.stringTy)
+		intRange gives table.Option.some(p.builtins.anon64Ty)
+		constInt gives table.Option.some(p.builtins.anon64Ty)
+		invalid gives table.Option.none
+		primVoid gives table.Option.none
+		primNever gives table.Option.none
+		typeParam gives table.Option.none
+		interfaceTy gives table.Option.none
+		floatRange gives table.Option.none
+		constFloat gives table.Option.none
+		funcTy gives table.Option.none
+	end 'k'
+end 'extensionKey'
+
+export function methodOfModule(m Module, owner TypeID, name String) returns table.Option with FuncID
+	for i in 0 upto m.extMethods.count() 'each'
+		if m.extMethods[i].owner == owner and m.extMethods[i].name == name 'hit'
+			return table.Option.some(m.extMethods[i].func)
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'methodOfModule'
+
+function conformsInModule(m Module, owner TypeID, iface TypeID) returns bool
+	for i in 0 upto m.extConforms.count() 'each'
+		if m.extConforms[i].owner == owner and m.extConforms[i].iface == iface 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'conformsInModule'
+
+// extensionMethod is the method of that name that an extension adds to the type owner and that code in the module from
+// sees: its own module's, and the modules it names. The standard library sees none.
+export function extensionMethod(p Project, from diag.ModuleID, owner TypeID, name String) returns table.Option with FuncID
+	if from == diag.stdlibID 'library'
+		return table.Option.none
+	end 'library'
+	let own = methodOfModule(p.modules[modIndex(from)], owner: owner, name: name)
+	if own.isSome() 'own'
+		return own
+	end 'own'
+	for i in 0 upto p.resolutions[modIndex(from)].deps.count() 'deps'
+		let found = methodOfModule(p.modules[modIndex(p.resolutions[modIndex(from)].deps[i].module)], owner: owner, name: name)
+		if found.isSome() 'hit'
+			return found
+		end 'hit'
+	end 'deps'
+	return table.Option.none
+end 'extensionMethod'
+
+// anyExtensionMethod is the method of that name that an extension of any module adds to the type owner, the first in
+// module order. A call through a bound is resolved with it once the program is checked, because the code that declares the
+// bound need not name the module that says its type implements it.
+export function anyExtensionMethod(p Project, owner TypeID, name String) returns table.Option with FuncID
+	for i in 0 upto p.modules.count() 'modules'
+		let found = methodOfModule(p.modules[i], owner: owner, name: name)
+		if found.isSome() 'hit'
+			return found
+		end 'hit'
+	end 'modules'
+	return table.Option.none
+end 'anyExtensionMethod'
+
+// extensionConforms is whether an extension that code in the module from sees says the type owner implements iface.
+export function extensionConforms(p Project, from diag.ModuleID, owner TypeID, iface TypeID) returns bool
+	if from == diag.stdlibID 'library'
+		return false
+	end 'library'
+	if conformsInModule(p.modules[modIndex(from)], owner: owner, iface: iface) 'own'
+		return true
+	end 'own'
+	for i in 0 upto p.resolutions[modIndex(from)].deps.count() 'deps'
+		if conformsInModule(p.modules[modIndex(p.resolutions[modIndex(from)].deps[i].module)], owner: owner, iface: iface) 'hit'
+			return true
+		end 'hit'
+	end 'deps'
+	return false
+end 'extensionConforms'

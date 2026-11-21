@@ -88,6 +88,7 @@ function typeParamCountOfDecl(d Decl) returns Count
 		enumDecl(_) gives 0
 		aliasDecl(_) gives 0
 		interfaceDecl(_) gives 0
+		extensionDecl(_) gives 0
 	end 'k'
 end 'typeParamCountOfDecl'
 

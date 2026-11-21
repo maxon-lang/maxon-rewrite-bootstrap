@@ -127,6 +127,7 @@ export function stageVerify(mutates ch Checks, mutates p ast.Project, mutates er
 	for i in 0 upto ch.order.count() 'each'
 		let m = ast.modIndex(ch.order[i])
 		let mark = errs.count()
+		verifyExtensions(ch.modules[m].checker, p: p, errs: errs)
 		let calls = ch.modules[m].checker.pendingCalls.clone()
 		verifyCalls(ch.modules[m].checker, p: p, calls: calls, errs: errs)
 		let bounds = ch.modules[m].checker.pendingBounds.clone()

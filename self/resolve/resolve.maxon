@@ -447,6 +447,7 @@ function resolvesDeclMember(p ast.Project, ref ast.DeclRef, memberName String) r
 		funcDecl(_) then return false
 		constDecl(_) then return false
 		aliasDecl(_) then return false
+		extensionDecl(_) then return false
 	end 'k'
 end 'resolvesDeclMember'
 
@@ -993,6 +994,7 @@ function typeNoun(d ast.Decl) returns String
 		unionDecl(_) gives "union"
 		aliasDecl(_) gives "typealias"
 		interfaceDecl(_) gives "interface"
+		extensionDecl(_) gives panic("a type reference names an extension")
 		funcDecl(_) gives panic("a type reference names a function")
 		constDecl(_) gives panic("a type reference names a constant")
 	end 'k'
@@ -1047,6 +1049,7 @@ function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates e
 		unionDecl(ud) then resolveUnionDecl(r, p: p, ud: ud, s: declSurface(r, d: d, noun: "union"), errs: errs)
 		aliasDecl(ad) then resolveTopAlias(r, p: p, ad: ad, s: declSurface(r, d: d, noun: "typealias"), errs: errs)
 		interfaceDecl(ifd) then resolveInterfaceDecl(r, p: p, ifd: ifd, errs: errs)
+		extensionDecl(xd) then resolveExtensionDecl(r, p: p, xd: xd, s: declSurface(r, d: d, noun: "extension"), errs: errs)
 	end 'k'
 end 'resolveTopDecl'
 
@@ -1146,6 +1149,103 @@ function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s
 	end 'meths'
 	r.typeParams = outer
 end 'resolveUnionDecl'
+
+// extendedDecl is the declaration an extension extends, when its target names one.
+function extendedDecl(r Resolver, xd ast.ExtensionDecl) returns table.Option with ast.DeclRef
+	if xd.isInt 'integer'
+		return table.Option.none
+	end 'integer'
+	return r.res.decls.get(xd.target as Count)
+end 'extendedDecl'
+
+// extendedName is the name an extension's end label repeats: the extended type's, whether or not it is qualified.
+function extendedName(r Resolver, xd ast.ExtensionDecl) returns String
+	if xd.isInt 'integer'
+		return "int"
+	end 'integer'
+	return ast.typeRefName(r.tree, id: xd.target)
+end 'extendedName'
+
+// extensionTypeParams are the type parameters of the declaration an extension extends, which its code names as that
+// declaration's own code does.
+function extensionTypeParams(p ast.Project, ref ast.DeclRef) returns ast.TypeParamList
+	return match ast.moduleDecl(p, ref: ref) 'k'
+		typeDecl(td) gives td.typeParams.clone()
+		unionDecl(ud) gives ud.typeParams.clone()
+		enumDecl(_) gives ast.TypeParamList.create(0)
+		interfaceDecl(_) gives ast.TypeParamList.create(0)
+		aliasDecl(_) gives ast.TypeParamList.create(0)
+		funcDecl(_) gives ast.TypeParamList.create(0)
+		constDecl(_) gives ast.TypeParamList.create(0)
+		extensionDecl(_) gives ast.TypeParamList.create(0)
+	end 'k'
+end 'extensionTypeParams'
+
+// extensionFieldNames are the fields of the type an extension extends, which a method of the extension names bare.
+function extensionFieldNames(p ast.Project, ref ast.DeclRef) returns BoolStrMap
+	var names = BoolStrMap.new()
+	match ast.moduleDecl(p, ref: ref) 'k'
+		typeDecl(td) then names = declaredFieldNames(td)
+		unionDecl(_) then _ = 0
+		enumDecl(_) then _ = 0
+		interfaceDecl(_) then _ = 0
+		aliasDecl(_) then _ = 0
+		funcDecl(_) then _ = 0
+		constDecl(_) then _ = 0
+		extensionDecl(_) then _ = 0
+	end 'k'
+	return names
+end 'extensionFieldNames'
+
+function declaredFieldNames(td ast.TypeDecl) returns BoolStrMap
+	var names = BoolStrMap.new()
+	for i in 0 upto td.fields.count() 'each'
+		names.insert(td.fields[i].name.clone(), value: true)
+	end 'each'
+	return names
+end 'declaredFieldNames'
+
+// resolveExtensionDecl resolves the type an extension extends and the methods it adds, which see the type parameters and the
+// fields of that type. Each type parameter has a node of the extension's own, since the type's nodes are in its module.
+function resolveExtensionDecl(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl, s Surface, mutates errs diag.ErrorList)
+	let name = extendedName(r, xd: xd)
+	checkEnd(r, label: name, endNode: xd.endRef, errs: errs)
+	if not xd.isInt 'target'
+		resolveTypeRef(r, p: p, tr: xd.target, errs: errs)
+	end 'target'
+	let outer = cloneTypeParamMap(r.typeParams)
+	var fieldNames = BoolStrMap.new()
+	match consumes extendedDecl(r, xd: xd) 'extended'
+		some(ref) then fieldNames = enterExtendedMembers(r, p: p, xd: xd, ref: ref)
+		none then _ = 0
+	end 'extended'
+	resolveConforms(r, p: p, s: s, conforms: xd.conforms, errs: errs)
+	let emptyFields = BoolStrMap.new()
+	for i in 0 upto xd.methods.count() 'meths'
+		let ms = methodSurface(r, owner: name, m: xd.methods[i])
+		if xd.methods[i].isStatic 'st'
+			resolveFuncDecl(r, p: p, f: xd.methods[i].clone(), s: ms, fieldNames: emptyFields, hasReceiver: false, errs: errs)
+		end 'st' else 'inst'
+			resolveFuncDecl(r, p: p, f: xd.methods[i].clone(), s: ms, fieldNames: fieldNames, hasReceiver: true, errs: errs)
+		end 'inst'
+	end 'meths'
+	r.typeParams = outer
+end 'resolveExtensionDecl'
+
+// enterExtendedMembers brings the type parameters of the extended declaration into scope, and gives its field names.
+function enterExtendedMembers(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl, ref ast.DeclRef) returns BoolStrMap
+	let params = extensionTypeParams(p, ref: ref)
+	for i in 0 upto params.count() 'params'
+		var tp = ast.newTypeParam(r.tree, start: r.tree.startOf(xd.target))
+		tp.name = params[i].name.clone()
+		let slot = r.res.addTypeParam(tp.clone())
+		if i == 0 'first'
+			r.res.extParams.insert(xd.id as Count, value: slot)
+		end 'first'
+		r.typeParams.insert(params[i].name.clone(), value: slot)
+	end 'params'
+	return extensionFieldNames(p, ref: ref)
+end 'enterExtendedMembers'
 
 function resolveAliasDecl(mutates r Resolver, p ast.Project, ad ast.AliasDecl, s Surface, mutates errs diag.ErrorList)
 	if ad.instance != 0 'inst'

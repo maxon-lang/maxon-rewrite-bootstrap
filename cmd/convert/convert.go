@@ -551,6 +551,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		generic bool
 	}
 	var stack []openBlock
+	interfaces := declaredInterfaces(lines)
 
 	currentBlock := func() blockKind {
 		if len(stack) == 0 {
@@ -633,7 +634,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			continue
 		case "extension":
 			transformWhereInSlice(line.code, declIdx+1, line, warn)
-			warn(line, "extension blocks are not supported in minimaxon")
+			warnUnsupportedExtension(line, declIdx, interfaces, warn)
 			stack = append(stack, openBlock{indent: line.indent, kind: blockOther})
 			continue
 		case "test":
@@ -662,6 +663,53 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 
 		// Statement and expression transformations.
 		transformStmtAndExpr(line, warn)
+	}
+}
+
+// unsupportedExtensionTargets are the names an extension cannot extend in minimaxon although it may name them: library
+// types and interfaces that it has no counterpart of, or that it does not extend.
+var unsupportedExtensionTargets = []string{"FixedArray", "Set", "Iterable", "Iterator", "Log", "Logger", "CivilDate", "ParseError", "byte", "float", "Character", "Equatable", "Comparable", "Hashable", "Error"}
+
+// declaredInterfaces are the interfaces the lines declare, which an extension of cannot be converted.
+func declaredInterfaces(lines []sourceLine) []string {
+	var names []string
+	for i := range lines {
+		line := &lines[i]
+		if line.removed || len(line.code) == 0 {
+			continue
+		}
+		idx := skipModifiers(line.code)
+		if idx+1 < len(line.code) && line.code[idx].kind == tokIdent && line.code[idx].text == "interface" {
+			names = append(names, line.code[idx+1].text)
+		}
+	}
+	return names
+}
+
+// warnUnsupportedExtension warns about the parts of an extension header that minimaxon does not have: a conditional
+// extension, an extension of an interface or of a library type it has no counterpart of, and a conformance with type
+// arguments.
+func warnUnsupportedExtension(line *sourceLine, declIdx int, interfaces []string, warn func(*sourceLine, string)) {
+	toks := line.code
+	if declIdx+1 >= len(toks) {
+		return
+	}
+	target := toks[declIdx+1].text
+	if slices.Contains(interfaces, target) {
+		warn(line, "extensions of an interface are not supported in minimaxon")
+	}
+	if slices.Contains(unsupportedExtensionTargets, target) {
+		warn(line, fmt.Sprintf("extensions of '%s' are not supported in minimaxon", target))
+	}
+	for _, tok := range toks[declIdx+2:] {
+		switch tok.text {
+		case "where":
+			warn(line, "conditional extensions (extension ... where) are not supported in minimaxon")
+			return
+		case "with":
+			warn(line, "extension headers with type arguments are not supported in minimaxon")
+			return
+		}
 	}
 }
 

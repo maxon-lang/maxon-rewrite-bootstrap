@@ -1,0 +1,23 @@
+type Box
+	var n as Count
+
+	static function make(n Count) returns Self
+		return Self{n: n}
+	end 'make'
+
+	function size() returns Count
+		return n
+	end 'size'
+end 'Box'
+
+extension Box
+	function size() returns Count
+		return 0
+	end 'size'
+end 'Box'
+
+function main() returns ExitCode
+	return Box.make(1).size() as ExitCode
+end 'main'
+
+// expect-error: E3006 at 14:11

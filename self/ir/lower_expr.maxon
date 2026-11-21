@@ -8,6 +8,7 @@ function constantExpr(p ast.Project, name ast.NameInfo) returns ExprRef
 		unionDecl(_) panic("lower: a name of a constant stands for a union")
 		aliasDecl(_) panic("lower: a name of a constant stands for a typealias")
 		interfaceDecl(_) panic("lower: a name of a constant stands for an interface")
+		extensionDecl(_) panic("lower: a name of a constant stands for an extension")
 	end 'decl'
 end 'constantExpr'
 

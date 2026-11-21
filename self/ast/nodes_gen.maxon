@@ -6,6 +6,7 @@ export enum NodeKind
 	constDecl
 	typeDecl
 	fieldDecl
+	extensionDecl
 	enumDecl
 	enumCaseDecl
 	unionDecl
@@ -87,10 +88,11 @@ export function isReserved(word String) returns bool
 		"noncopyable" or
 		"var" or
 		"as" or
+		"extension" or
+		"int" or
 		"enum" or
 		"union" or
 		"typealias" or
-		"int" or
 		"to" or
 		"upto" or
 		"Self" or
@@ -296,6 +298,26 @@ export typealias FieldDeclList = Array with FieldDecl
 export function newFieldDecl(mutates t Tree, start diag.U32) returns FieldDecl
 	return FieldDecl.make(t.alloc(NodeKind.fieldDecl, start: start))
 end 'newFieldDecl'
+
+export type ExtensionDecl
+	export var id as NodeID
+	export var visibility as String
+	export var target as NodeID
+	export var isInt as bool
+	export var conforms as diag.U32
+	export var methods as FuncDeclList
+	export var endRef as NodeID
+
+	export static function make(id NodeID) returns ExtensionDecl
+		return ExtensionDecl{id: id, visibility: "", target: 0 as NodeID, isInt: false, conforms: 0 as diag.U32, methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+	end 'make'
+end 'ExtensionDecl'
+
+export typealias ExtensionDeclList = Array with ExtensionDecl
+
+export function newExtensionDecl(mutates t Tree, start diag.U32) returns ExtensionDecl
+	return ExtensionDecl.make(t.alloc(NodeKind.extensionDecl, start: start))
+end 'newExtensionDecl'
 
 export type EnumDecl
 	export var id as NodeID

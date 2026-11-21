@@ -1,0 +1,13 @@
+typealias Score = int(0 to 100)
+
+extension Score
+	function size() returns Count
+		return 0
+	end 'size'
+end 'Score'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2015 at 3:11

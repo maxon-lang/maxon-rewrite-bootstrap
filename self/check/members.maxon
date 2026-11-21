@@ -48,6 +48,7 @@ function aliasOrTypeName(p ast.Project, ref ast.DeclRef, t ast.TypeID) returns S
 		enumDecl(_) gives ast.typeName(p.types, t: t)
 		unionDecl(_) gives ast.typeName(p.types, t: t)
 		interfaceDecl(_) gives ast.typeName(p.types, t: t)
+		extensionDecl(_) gives ast.typeName(p.types, t: t)
 	end 'd'
 end 'aliasOrTypeName'
 

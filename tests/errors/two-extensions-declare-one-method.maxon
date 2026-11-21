@@ -1,0 +1,21 @@
+enum Direction
+	north
+end 'Direction'
+
+extension Direction
+	function code() returns ExitCode
+		return 1
+	end 'code'
+end 'Direction'
+
+extension Direction
+	function code() returns ExitCode
+		return 2
+	end 'code'
+end 'Direction'
+
+function main() returns ExitCode
+	return Direction.north.code()
+end 'main'
+
+// expect-error: E3006 at 12:11

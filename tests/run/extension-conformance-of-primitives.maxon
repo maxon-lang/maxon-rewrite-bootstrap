@@ -1,0 +1,29 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Sizer
+	function size() returns Score
+end 'Sizer'
+
+extension int implements Sizer
+	function size() returns Score
+		return self
+	end 'size'
+end 'int'
+
+extension bool implements Sizer
+	function size() returns Score
+		return 1 if self else 0
+	end 'size'
+end 'bool'
+
+function total(a T, b T) uses T returns Score where T implements Sizer
+	return try a.size() + b.size() otherwise panic("overflow")
+end 'total'
+
+function main() returns ExitCode
+	let n = 5 as Score
+	print("{total(n, b: 7)} {total(true, b: true)}\n")
+	return 0
+end 'main'
+
+//> 12 2

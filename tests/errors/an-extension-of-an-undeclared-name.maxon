@@ -1,0 +1,11 @@
+extension Nonesuch
+	function size() returns Count
+		return 0
+	end 'size'
+end 'Nonesuch'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3011 at 1:11

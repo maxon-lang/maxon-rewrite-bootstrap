@@ -124,6 +124,7 @@ function isRecordDecl(d ast.Decl) returns bool
 		unionDecl(_) gives false
 		aliasDecl(_) gives false
 		interfaceDecl(_) gives false
+		extensionDecl(_) gives false
 	end 'k'
 end 'isRecordDecl'
 

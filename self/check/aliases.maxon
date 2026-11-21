@@ -62,6 +62,7 @@ function isInstanceAlias(p ast.Project, ref ast.DeclRef) returns bool
 		enumDecl(_) gives false
 		unionDecl(_) gives false
 		interfaceDecl(_) gives false
+		extensionDecl(_) gives false
 	end 'd'
 end 'isInstanceAlias'
 
@@ -196,6 +197,7 @@ function declareVisitedAlias(mutates w AliasWalk, mutates c Checker, mutates p a
 		enumDecl(_) then panic("the aliases stage visited an enum")
 		unionDecl(_) then panic("the aliases stage visited a union")
 		interfaceDecl(_) then panic("the aliases stage visited an interface")
+		extensionDecl(_) then panic("the aliases stage visited an extension")
 	end 'k'
 	var named = DeclRefList.create(0)
 	if a.fn != 0 'function'

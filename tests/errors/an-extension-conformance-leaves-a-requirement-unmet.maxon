@@ -1,0 +1,19 @@
+interface Sizer
+	function size() returns Count
+end 'Sizer'
+
+type Box
+	var n as Count
+end 'Box'
+
+extension Box implements Sizer
+	function weight() returns Count
+		return 0
+	end 'weight'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3016 at 9:1

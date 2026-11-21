@@ -351,6 +351,9 @@ export type Resolution
 	export var becomeNames as NodeBoolMap
 	export var typeParams as TypeParamList
 	export var typeParamSlots as NodeSlotMap
+	// extParams gives for an extension, by its node, the slot of the first of the type parameters it takes from the type it
+	// extends: one for each parameter of that type, in order, each with a node of its own that the extension's code names it by.
+	export var extParams as NodeSlotMap
 	export var deps as ModuleDepList
 	export var depSeen as NodeBoolMap
 	export var captures as NodeStrListMap
@@ -362,9 +365,10 @@ export type Resolution
 		let bm = NodeBoolMap.new()
 		let tps = TypeParamList.create(0)
 		let tpsm = NodeSlotMap.new()
+		let eps = NodeSlotMap.new()
 		let ds = NodeBoolMap.new()
 		let cm = NodeStrListMap.new()
-		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, deps: ModuleDepList.create(0), depSeen: ds, captures: cm, unbound: UnboundNameList.create(0)}
+		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, extParams: eps, deps: ModuleDepList.create(0), depSeen: ds, captures: cm, unbound: UnboundNameList.create(0)}
 	end 'new'
 
 	export function addTypeParam(mutates self, consumes tp TypeParam) returns Count

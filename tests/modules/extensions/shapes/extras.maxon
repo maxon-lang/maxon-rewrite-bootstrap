@@ -1,0 +1,8 @@
+extension Suite
+	export function width() returns Length
+		return match self 'which'
+			hearts gives 3
+			spades gives 4
+		end 'which'
+	end 'width'
+end 'Suite'
