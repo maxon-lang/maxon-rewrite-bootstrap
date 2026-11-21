@@ -69,7 +69,11 @@ name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`)
 that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
 instead, and so does a test that expects a compile error which minimaxon reports first under another code for a known reason
 (the pairs of `codeSkipTable` in `self/driver/fix.maxon`: ownership refused by another rule, the syntax error, operand
-types). `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
+types). A test that expects a compile error and is first refused under another code by a fixable language difference
+(arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`) gets the fixes of the errors that are not the
+expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
+fixes move text; if that is never reached it is left as it was. A test whose program changes the collection that its `for`
+walks gets `<!-- skip: language difference: a loop holds the collection it walks -->`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
 never edited by hand, except that the runner writes `specs/passed.txt` (see "Tests").
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, and `--emit-map` the map of its code,

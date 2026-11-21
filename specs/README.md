@@ -41,8 +41,15 @@ minimaxon's language differences (the repository's README, "Where it differs fro
 the first code its `maxoncstderr` block lists and the first code minimaxon reports are a pair of `codeSkipTable` in
 `self/driver/fix.maxon` it gets one skip line, and nothing else is changed: `language difference: ownership is refused by
 another rule` (E3102, E3223, E3224 or E3197 expected, where minimaxon refuses the move itself or a write through a `let`
-under E3900, E3919 or E2013), `differing error code: syntax error` (E2001 expected, E2010 reported) and `differing error
-code: operand types` (E2004 expected, E3005 reported). Prose and expectation blocks are not touched.
+under E3900, E3919 or E2013; E3207 or E3214 expected, where it refuses the move or the write under E3900 or E2013), `differing error code: syntax error` (E2001 expected, E2010 reported) and `differing error
+code: operand types` (E2004 expected, E3005 reported). Any other test that
+expects a compile error and whose first reported error carries a fix gets the fixes of the errors whose code is not the
+expected one, in rounds as a run test does, until the first reported code is the expected one; it then gets one
+`<!-- positions: moved -->` line, since the fixes moved the text the expected positions name, and the runner compares the
+diagnostics without them. A test whose first error has no fix, or whose fixes never make the expected code first, is left
+as it was. A test that runs a program but whose `for` loop changes the array it walks (minimaxon's loop holds its
+collection, E3186) gets `<!-- skip: language difference: a loop holds the collection it walks -->`. Prose and expectation
+blocks are not touched.
 
 `go run ./cmd/convert --specs --check C:\Users\Eric\Dev\maxon\specs` prints the tests converted cleanly and skipped, and
 the kinds of warning by the number of tests they block, most blocking first.

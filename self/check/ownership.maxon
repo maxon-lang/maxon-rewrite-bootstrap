@@ -745,6 +745,13 @@ function fail(mutates o Ownership, p ast.Project, site diag.U32, code String, co
 	report(o, err: diag.CompileError.atSite(code.clone(), message: msg, site: diag.Site.make(modID, offset: site)))
 end 'fail'
 
+// failCaused is fail for an error that a tool tells apart from the others of its code by its cause.
+function failCaused(mutates o Ownership, p ast.Project, site diag.U32, code String, consumes msg String, cause diag.ErrorCause)
+	var err = diag.CompileError.atSite(code.clone(), message: msg, site: diag.Site.make(o.c.modID, offset: site))
+	err.cause = cause
+	report(o, err: err)
+end 'failCaused'
+
 // failFixed is fail for an error whose message names the change that fix makes.
 function failFixed(mutates o Ownership, p ast.Project, site diag.U32, code String, consumes msg String, consumes fix diag.Fix)
 	var err = diag.CompileError.atSite(code.clone(), message: msg, site: diag.Site.make(o.c.modID, offset: site))

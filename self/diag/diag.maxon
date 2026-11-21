@@ -54,6 +54,12 @@ export type Fix
 	end 'isSome'
 end 'Fix'
 
+// ErrorCause is the reason of an error that a tool acts on, where its code covers several: a code alone is not enough to tell them apart.
+export enum ErrorCause
+	none
+	loopHoldsCollection
+end 'ErrorCause'
+
 export type CompileError
 	export var code as String
 	export var message as String
@@ -65,13 +71,14 @@ export type CompileError
 	// unqualified is a bare name that the error did not find, when the message goes on to name the other modules that declare it.
 	export var unqualified as String
 	export var fix as Fix
+	export var cause as ErrorCause
 
 	export static function at(consumes code String, consumes message String, consumes file String, line Count, col Count) returns CompileError
-		return CompileError{code: code, message: message, file: file, line: line, col: col, site: Site.make(0 as ModuleID, offset: 0 as U32), located: true, unqualified: "", fix: Fix.none()}
+		return CompileError{code: code, message: message, file: file, line: line, col: col, site: Site.make(0 as ModuleID, offset: 0 as U32), located: true, unqualified: "", fix: Fix.none(), cause: ErrorCause.none}
 	end 'at'
 
 	export static function atSite(consumes code String, consumes message String, consumes site Site) returns CompileError
-		return CompileError{code: code, message: message, file: "", line: 0 as Count, col: 0 as Count, site: site, located: false, unqualified: "", fix: Fix.none()}
+		return CompileError{code: code, message: message, file: "", line: 0 as Count, col: 0 as Count, site: site, located: false, unqualified: "", fix: Fix.none(), cause: ErrorCause.none}
 	end 'atSite'
 
 	export function format() returns String

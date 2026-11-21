@@ -261,7 +261,7 @@ function projectionConflict(mutates o Ownership, mutates p ast.Project, pr OwnPr
 	end 'part'
 	if k == OwnProjectionKind.projectLoop 'loop'
 		let advice = copyAdvice(o, p: p, t: pr.ty, ifCopyable: "loop over a copy: 'for x in {held}.clone()'", fallback: "change it after the loop")
-		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the enclosing loop over '{held}', which lends its elements while the body runs; {advice}")
+		failCaused(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the enclosing loop over '{held}', which lends its elements while the body runs; {advice}", cause: diag.ErrorCause.loopHoldsCollection)
 		return
 	end 'loop'
 	if k == OwnProjectionKind.projectCapture 'capture'
