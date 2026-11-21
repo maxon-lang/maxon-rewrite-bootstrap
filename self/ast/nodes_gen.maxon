@@ -319,11 +319,12 @@ export type ExtensionDecl
 	export var isInt as bool
 	export var target as NodeID
 	export var conforms as diag.U32
+	export var whereList as ConstraintList
 	export var methods as FuncDeclList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns ExtensionDecl
-		return ExtensionDecl{id: id, visibility: "", isInt: false, target: 0 as NodeID, conforms: 0 as diag.U32, methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+		return ExtensionDecl{id: id, visibility: "", isInt: false, target: 0 as NodeID, conforms: 0 as diag.U32, whereList: ConstraintList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'ExtensionDecl'
 

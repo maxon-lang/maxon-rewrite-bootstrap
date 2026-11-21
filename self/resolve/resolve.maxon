@@ -279,11 +279,18 @@ function enterTypeParams(mutates r Resolver, p ast.Project, owner String, s Surf
 		let slot = r.res.addTypeParam(tp)
 		r.typeParams.insert(tpName, value: slot)
 	end 'add'
+	enterConstraints(r, p: p, owner: owner, s: s, constraints: constraints, ofExtension: false, errs: errs)
+	return outer
+end 'enterTypeParams'
+
+// enterConstraints binds each constraint of a 'where' to the type parameter in scope that it names, and resolves its
+// bounds. An extension declares no parameters of its own, so one that names another is the refusal maxon gives.
+function enterConstraints(mutates r Resolver, p ast.Project, owner String, s Surface, constraints ast.ConstraintList, ofExtension bool, mutates errs diag.ErrorList)
 	for i in 0 upto constraints.count() 'cons'
 		let c = constraints[i].clone()
 		match r.typeParams.get(c.param) 'hit'
 			some(slot) then bindConstraintSlot(r, p: p, owner: owner, constraints: constraints, curIdx: i, c: c, slot: slot, errs: errs)
-			none then reportUnknownTP(r, c: c, owner: owner, errs: errs)
+			none then reportUnknownTP(r, c: c, owner: owner, ofExtension: ofExtension, errs: errs)
 		end 'hit'
 		let bCount = r.tree.listLen(c.bounds)
 		for bi in 0 upto bCount 'bnd'
@@ -291,8 +298,7 @@ function enterTypeParams(mutates r Resolver, p ast.Project, owner String, s Surf
 			signatureType(r, p: p, s: s, position: "in its where clause", tr: bNode, errs: errs)
 		end 'bnd'
 	end 'cons'
-	return outer
-end 'enterTypeParams'
+end 'enterConstraints'
 
 function bindConstraintSlot(mutates r Resolver, p ast.Project, owner String, constraints ast.ConstraintList, curIdx Count, c ast.Constraint, slot Count, mutates errs diag.ErrorList)
 	var firstDup = false
@@ -310,8 +316,12 @@ function bindConstraintSlot(mutates r Resolver, p ast.Project, owner String, con
 	r.res.bindTypeParam(c.id, slot: slot)
 end 'bindConstraintSlot'
 
-function reportUnknownTP(mutates r Resolver, c ast.Constraint, owner String, mutates errs diag.ErrorList)
+function reportUnknownTP(mutates r Resolver, c ast.Constraint, owner String, ofExtension bool, mutates errs diag.ErrorList)
 	let off = r.tree.startOf(c.id)
+	if ofExtension 'extension'
+		pushErr(errs, modID: r.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: a `where` clause constrains '{c.param}', which is not a type parameter of this type — a constraint must name one of its `uses` parameters")
+		return
+	end 'extension'
 	pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownTypeParam, msg: "'{c.param}' is not a type parameter of '{owner}': declare it with 'uses {c.param}', or constrain one that '{owner}' declares")
 end 'reportUnknownTP'
 
@@ -1314,14 +1324,14 @@ function extendedName(r Resolver, xd ast.ExtensionDecl) returns String
 	return ast.typeRefName(r.tree, id: xd.target)
 end 'extendedName'
 
-// extensionTypeParams are the type parameters of the declaration an extension extends, which its code names as that
-// declaration's own code does.
+// extensionTypeParams are the type parameters of the declaration an extension extends, or the associated types of the
+// interface it extends, which its code names as that declaration's own code does.
 function extensionTypeParams(p ast.Project, ref ast.DeclRef) returns ast.TypeParamList
 	return match ast.moduleDecl(p, ref: ref) 'k'
 		typeDecl(td) gives td.typeParams.clone()
 		unionDecl(ud) gives ud.typeParams.clone()
 		enumDecl(_) gives ast.TypeParamList.create(0)
-		interfaceDecl(_) gives ast.TypeParamList.create(0)
+		interfaceDecl(ifd) gives ifd.typeParams.clone()
 		aliasDecl(_) gives ast.TypeParamList.create(0)
 		funcDecl(_) gives ast.TypeParamList.create(0)
 		constDecl(_) gives ast.TypeParamList.create(0)
@@ -1368,6 +1378,7 @@ function resolveExtensionDecl(mutates r Resolver, p ast.Project, xd ast.Extensio
 		none then _ = 0
 	end 'extended'
 	resolveConforms(r, p: p, s: s, conforms: xd.conforms, errs: errs)
+	enterConstraints(r, p: p, owner: name, s: s, constraints: xd.whereList, ofExtension: true, errs: errs)
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto xd.methods.count() 'meths'
 		let ms = methodSurface(r, owner: name, m: xd.methods[i])

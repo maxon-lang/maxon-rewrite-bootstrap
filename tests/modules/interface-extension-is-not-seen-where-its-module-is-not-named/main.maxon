@@ -1,0 +1,18 @@
+type Point implements ranks.Ranked
+	var value as ranks.Score
+
+	static function make(value ranks.Score) returns Self
+		return Self{value: value}
+	end 'make'
+
+	function rank() returns ranks.Score
+		return value
+	end 'rank'
+end 'Point'
+
+function main() returns ExitCode
+	print("{extra.twiceOf(Point.make(4))} {other.doubled(Point.make(4))}\n")
+	return 0
+end 'main'
+
+// expect-error: E3004 at 2:11

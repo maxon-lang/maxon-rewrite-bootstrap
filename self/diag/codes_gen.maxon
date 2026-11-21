@@ -354,7 +354,7 @@ export let errAmbiguousConformance = "E3941"
 // A call names a method that two extensions the calling module sees add to the type.
 export let errAmbiguousExtension = "E3942"
 
-// A member is used that its type does not have: allCases on a union.
+// A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 
 // A type contains itself.

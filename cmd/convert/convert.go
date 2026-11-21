@@ -590,7 +590,6 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 	var stack []openBlock
 	var matches []openMatch
 	handlerNames := map[string]bool{}
-	interfaces := declaredInterfaces(lines)
 	arities := interfaceArities(lines)
 
 	currentBlock := func() blockKind {
@@ -697,7 +696,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			continue
 		case "extension":
 			transformWhereInSlice(line.code, declIdx+1, line, warn)
-			warnUnsupportedExtension(line, declIdx, interfaces, warn)
+			warnUnsupportedExtension(line, declIdx, warn)
 			stack = append(stack, openBlock{indent: line.indent, kind: blockExtension})
 			continue
 		case "test":
@@ -805,22 +804,6 @@ func opensBlockInBrackets(toks []token) bool {
 // types and interfaces that it has no counterpart of, or that it does not extend.
 var unsupportedExtensionTargets = []string{"Set", "Iterable", "Iterator", "Log", "Logger", "CivilDate", "ParseError", "byte", "float", "Character", "Equatable", "Comparable", "Hashable", "Error"}
 
-// declaredInterfaces are the interfaces the lines declare, which an extension of cannot be converted.
-func declaredInterfaces(lines []sourceLine) []string {
-	var names []string
-	for i := range lines {
-		line := &lines[i]
-		if line.removed || len(line.code) == 0 {
-			continue
-		}
-		idx := skipModifiers(line.code)
-		if idx+1 < len(line.code) && line.code[idx].kind == tokIdent && line.code[idx].text == "interface" {
-			names = append(names, line.code[idx+1].text)
-		}
-	}
-	return names
-}
-
 // interfaceArities are the number of associated types of each generic interface the lines declare.
 func interfaceArities(lines []sourceLine) map[string]int {
 	arities := map[string]int{}
@@ -912,25 +895,21 @@ func parenthesizeAssociatedTypes(toks []token, arities map[string]int) []token {
 	return out
 }
 
-// warnUnsupportedExtension warns about the parts of an extension header that minimaxon does not have: a conditional
-// extension, an extension of an interface or of a library type it has no counterpart of, and a conformance with type
-// arguments.
-func warnUnsupportedExtension(line *sourceLine, declIdx int, interfaces []string, warn func(*sourceLine, string)) {
+// warnUnsupportedExtension warns about the parts of an extension header that minimaxon does not have: an extension of a
+// library type it has no counterpart of, and a conformance with type arguments. A 'with' after the 'where' of a
+// conditional extension binds a bound's associated types, not the header's.
+func warnUnsupportedExtension(line *sourceLine, declIdx int, warn func(*sourceLine, string)) {
 	toks := line.code
 	if declIdx+1 >= len(toks) {
 		return
 	}
 	target := toks[declIdx+1].text
-	if slices.Contains(interfaces, target) {
-		warn(line, "extensions of an interface are not supported in minimaxon")
-	}
 	if slices.Contains(unsupportedExtensionTargets, target) {
 		warn(line, fmt.Sprintf("extensions of '%s' are not supported in minimaxon", target))
 	}
 	for _, tok := range toks[declIdx+2:] {
 		switch tok.text {
 		case "where":
-			warn(line, "conditional extensions (extension ... where) are not supported in minimaxon")
 			return
 		case "with":
 			warn(line, "extension headers with type arguments are not supported in minimaxon")

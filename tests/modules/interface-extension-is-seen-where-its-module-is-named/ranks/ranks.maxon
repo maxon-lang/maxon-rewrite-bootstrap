@@ -1,0 +1,5 @@
+export typealias Score = int(0 to 1000)
+
+export interface Ranked
+	function rank() returns Score
+end 'Ranked'

@@ -26,7 +26,7 @@ let lookahead11 = "0000000000000000000000000000000000000111100000000000000000000
 
 let lookahead12 = "0000000000000000000000000000000000000111100000000010001000001000000000000000000000000000000000000000"
 
-let lookahead13 = "0000000000000100000000000000000000000000000000000000000000000001000000000000000000000000000000000000"
+let lookahead13 = "0000000000000100000000000000000000000000000000000000000000000001000100000000000000000000000000000000"
 
 let lookahead14 = "0001000000000001000000000000000000000100000000000000000001000000100000000000000000000000000000000000"
 
@@ -562,26 +562,30 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 		let v3 = try parseConformsClause(p)
 		n.conforms = v3
 	end 'b6'
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
-	if p.at(TokenKind.indent) 'b7'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
-		let v4 = try parseFuncDecl(p)
-		p.lists.ptr_FuncDecl.push(v4)
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
-		while p.inSet(lookahead11) 'b8'
-			let v5 = try parseFuncDecl(p)
-			p.lists.ptr_FuncDecl.push(v5)
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
-		end 'b8'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+	if p.at(TokenKind.kw_where) 'b7'
+		let v4 = try parseWhereClause(p)
+		n.whereList = v4
 	end 'b7'
+	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	if p.at(TokenKind.indent) 'b8'
+		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		let v5 = try parseFuncDecl(p)
+		p.lists.ptr_FuncDecl.push(v5)
+		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		while p.inSet(lookahead11) 'b9'
+			let v6 = try parseFuncDecl(p)
+			p.lists.ptr_FuncDecl.push(v6)
+			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		end 'b9'
+		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+	end 'b8'
 	_ = try p.expect(TokenKind.kw_end, what: "'end'")
-	if p.inSet(lookahead4) 'b9'
-		let v6 = try parseEndLabel(p)
-		n.endRef = v6
-	end 'b9'
-	let v7 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
-	n.methods = v7
+	if p.inSet(lookahead4) 'b10'
+		let v7 = try parseEndLabel(p)
+		n.endRef = v7
+	end 'b10'
+	let v8 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
+	n.methods = v8
 	return n
 end 'parseExtensionDecl'
 

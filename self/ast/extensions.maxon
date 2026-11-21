@@ -50,14 +50,142 @@ end 'methodIn'
 // it does not own anywhere but in itself.
 function conformsInModule(p Project, m Module, owner TypeID, iface TypeID, outside bool) returns bool
 	for i in 0 upto m.extConforms.count() 'each'
-		if m.extConforms[i].owner == owner and extendsInterface(p.types, have: m.extConforms[i].iface, want: iface) 'hit'
-			if not outside or declaringModule(p, t: owner) == m.id or declaringModule(p, t: m.extConforms[i].iface) == m.id 'given'
-				return true
-			end 'given'
+		if m.extConforms[i].owner == owner and extendsInterface(p.types, have: m.extConforms[i].iface, want: iface) and givesConformance(p, m: m, index: i, outside: outside) 'hit'
+			return true
 		end 'hit'
 	end 'each'
 	return false
 end 'conformsInModule'
+
+// givesConformance is whether the index-th conformance that the extensions of the module m declare holds where code sees
+// it: everywhere in m, and outside it only where m declares the type or the interface.
+function givesConformance(p Project, m Module, index Count, outside bool) returns bool
+	return not outside or declaringModule(p, t: m.extConforms[index].owner) == m.id or declaringModule(p, t: m.extConforms[index].iface) == m.id
+end 'givesConformance'
+
+// seenInterfaces are the interfaces that the declarations code in the module from sees say t implements, as they are
+// written, over the parameters of t's declaration: its own declaration's, then those of the extensions of from and of the
+// modules from names that give it one.
+export function seenInterfaces(p Project, from diag.ModuleID, t TypeID) returns TypeIDList
+	var out = TypeIDList.create(0)
+	if p.types.entries[t as Count].kind == TypeKind.interfaceTy or p.types.entries[t as Count].kind == TypeKind.typeParam 'abstract'
+		return out
+	end 'abstract'
+	out.append(p.types.entries[originOf(p.types, t: t) as Count].conforms)
+	let key = extensionKey(p, t: t)
+	if key.isSome() and from != diag.stdlibID 'extensions'
+		let owner = key.unwrap()
+		appendConformsInModule(p, m: p.modules[modIndex(from)], owner: owner, outside: false, out: out)
+		for i in 0 upto p.resolutions[modIndex(from)].deps.count() 'deps'
+			let dep = p.resolutions[modIndex(from)].deps[i].module
+			if dep != from 'other'
+				appendConformsInModule(p, m: p.modules[modIndex(dep)], owner: owner, outside: true, out: out)
+			end 'other'
+		end 'deps'
+	end 'extensions'
+	return out
+end 'seenInterfaces'
+
+function appendConformsInModule(p Project, m Module, owner TypeID, outside bool, mutates out TypeIDList)
+	for i in 0 upto m.extConforms.count() 'each'
+		if m.extConforms[i].owner == owner and givesConformance(p, m: m, index: i, outside: outside) 'hit'
+			out.push(m.extConforms[i].iface)
+		end 'hit'
+	end 'each'
+end 'appendConformsInModule'
+
+// interfaceExtensionMethod is what the name finds among the methods that extensions of interfaces add, where code in the
+// module from sees them, for a value whose type implements the interfaces have: one of an interface that one of them is or
+// extends. A method of an interface outranks one of an interface it extends, as a type's own method outranks one an
+// extension adds; two that neither outranks are ambiguous. The standard library sees none.
+export function interfaceExtensionMethod(p Project, from diag.ModuleID, have TypeIDList, name String) returns MethodLookup
+	if from == diag.stdlibID or have.count() == 0 'none'
+		return MethodLookup.absent
+	end 'none'
+	var found = FuncIDList.create(0)
+	collectInterfaceMethods(p, m: p.modules[modIndex(from)], have: have, name: name, found: found)
+	for i in 0 upto p.resolutions[modIndex(from)].deps.count() 'deps'
+		collectInterfaceMethods(p, m: p.modules[modIndex(p.resolutions[modIndex(from)].deps[i].module)], have: have, name: name, found: found)
+	end 'deps'
+	var best = FuncIDList.create(0)
+	for i in 0 upto found.count() 'rank'
+		if not outranked(p, found: found, index: i) 'kept'
+			best.push(found[i])
+		end 'kept'
+	end 'rank'
+	if best.count() == 0 'absent'
+		return MethodLookup.absent
+	end 'absent'
+	if best.count() == 1 'one'
+		return MethodLookup.found(best[0])
+	end 'one'
+	return MethodLookup.ambiguous(best[0], second: best[1])
+end 'interfaceExtensionMethod'
+
+function collectInterfaceMethods(p Project, m Module, have TypeIDList, name String, mutates found FuncIDList)
+	for i in 0 upto m.extMethods.count() 'each'
+		let owner = m.extMethods[i].owner
+		if m.extMethods[i].name == name and p.types.entries[owner as Count].kind == TypeKind.interfaceTy and reachedBy(p.types, have: have, want: owner) and not found.contains(m.extMethods[i].func) 'hit'
+			found.push(m.extMethods[i].func)
+		end 'hit'
+	end 'each'
+end 'collectInterfaceMethods'
+
+// reachedBy is whether one of the interfaces have is an instance of the interface declaration want, or extends one.
+function reachedBy(tt TypeTable, have TypeIDList, want TypeID) returns bool
+	for i in 0 upto have.count() 'each'
+		if reachesInterface(tt, have: have[i], want: want) 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'reachedBy'
+
+// outranked is whether another of the methods found is one of an interface that extends the interface of the index-th.
+function outranked(p Project, found FuncIDList, index Count) returns bool
+	let mine = p.funcs.entries[found[index] as Count].extendedIface
+	for j in 0 upto found.count() 'others'
+		let theirs = p.funcs.entries[found[j] as Count].extendedIface
+		if theirs != mine and reachesInterface(p.types, have: theirs, want: mine) 'more'
+			return true
+		end 'more'
+	end 'others'
+	return false
+end 'outranked'
+
+// interfaceExtensionArgs are the type arguments of the method fid that an extension of an interface adds, called on a
+// value of the type recv, which implements the interfaces have: recv, then the associated types that the one of them that
+// is the extended interface binds, at recv's type arguments.
+export function interfaceExtensionArgs(mutates p Project, recv TypeID, have TypeIDList, fid FuncID) returns TypeIDList
+	let origin = p.funcs.entries[fid as Count].extendedIface
+	var args = TypeIDList.create(0)
+	args.push(recv)
+	for i in 0 upto have.count() 'each'
+		if originOf(p.types, t: have[i]) == origin 'direct'
+			let declared = originOf(p.types, t: recv)
+			let params = cloneTypeArgs(p.types.entries[declared as Count].typeParams)
+			let bound = substituteType(p.types, t: have[i], params: params, args: typeArgsOf(p.types, t: recv))
+			args.append(p.types.entries[bound as Count].typeArgs)
+			return args
+		end 'direct'
+	end 'each'
+	// An interface reached through one that extends it has no associated types, as no interface that another extends has.
+	return args
+end 'interfaceExtensionArgs'
+
+// interfaceExtensionSymbol is how a message names a method that an extension of an interface adds: by the interface, and
+// for an instance with the type arguments it was made for.
+export function interfaceExtensionSymbol(p Project, fid FuncID) returns String
+	let name = "{typeName(p.types, t: p.funcs.entries[fid as Count].extendedIface)}.{p.funcs.entries[fid as Count].name}"
+	if p.funcs.entries[fid as Count].typeArgs.count() == 0 'origin'
+		return name
+	end 'origin'
+	var names = StringList.create(0)
+	for i in 0 upto p.funcs.entries[fid as Count].typeArgs.count() 'args'
+		names.push(typeName(p.types, t: p.funcs.entries[fid as Count].typeArgs[i]))
+	end 'args'
+	return "{name}[{joinNames(names, sep: ", ")}]"
+end 'interfaceExtensionSymbol'
 
 // A MethodLookup is what a method's name finds among the methods that extensions add to a type: nothing, one method, or two
 // of different extensions, which is ambiguous.
@@ -65,6 +193,14 @@ export union MethodLookup
 	absent
 	found(fid FuncID)
 	ambiguous(first FuncID, second FuncID)
+
+	export function isAbsent() returns bool
+		return match self 'k'
+			absent gives true
+			found(_) gives false
+			ambiguous(_, _) gives false
+		end 'k'
+	end 'isAbsent'
 end 'MethodLookup'
 
 // extensionMethod is what the name finds among the methods that extensions add to the type owner where code in the module

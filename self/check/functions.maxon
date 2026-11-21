@@ -50,15 +50,21 @@ function newFuncEntry(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, 
 end 'newFuncEntry'
 
 // declareGenerics gives a function its type parameters: its own, or for a method the ones of its type, which its
-// 'where' may bound further.
+// 'where' may bound further. A method that an extension of an interface adds belongs to the extension's parameter 'Self',
+// and takes it and the associated types of the interface that bounds it.
 function declareGenerics(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates errs diag.ErrorList)
 	let isMethod = nt != ast.noType
 	if f.typeParams.count() > 0 and isMethod 'ownParams'
 		checkFail(c.modID, off: offsetOf(c, p: p, node: f.id), code: diag.errGenericDeclaration, msg: "the method '{f.name}' takes no type parameters of its own: use the type's, or write a function", errs: errs)
 		return
 	end 'ownParams'
-	if isMethod and p.types.entries[nt as Count].typeParams.count() > 0 'ofType'
-		let generics = ast.cloneTypeArgs(p.types.entries[nt as Count].typeParams)
+	let ofInterface = isMethod and p.types.entries[nt as Count].kind == ast.TypeKind.typeParam
+	if isMethod and (ofInterface or p.types.entries[nt as Count].typeParams.count() > 0) 'ofType'
+		var generics = ast.cloneTypeArgs(p.types.entries[nt as Count].typeParams)
+		if ofInterface 'interface'
+			generics.push(nt)
+			generics.append(p.types.entries[p.types.entries[nt as Count].bounds[0].ifaceTy as Count].typeArgs)
+		end 'interface'
 		var bounds = ast.ParamBoundList.create(0)
 		let mark = errs.count()
 		for i in 0 upto f.whereList.count() 'cons'

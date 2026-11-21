@@ -170,3 +170,4 @@ duplicateTestName	ErrDuplicateTestName	duplicate test name: '{first}' and '{seco
 heapAnnotationOnNonRecord	ErrUnexpectedToken	@heap can only annotate a binding whose value is a heap record; '{name}' binds a '{tag}'
 unknownAnnotation	ErrUnexpectedToken	Unknown annotation '@{got}' (expected '@heap')
 heapAnnotationWithoutBinding	ErrUnexpectedToken	@heap must be followed by 'var' or 'let'
+conditionalExtensionWithheld	ErrInvalidFieldAccess	Type '{typeName}' has no field named '{methodName}' ('{methodName}' is available as a conditional extension {clause}, but '{bindingName}' does not implement '{interfaceName}')

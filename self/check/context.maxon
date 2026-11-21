@@ -35,9 +35,12 @@ export type PendingBound
 	export var withinFn as ast.FuncID
 	export var hasMethod as bool
 	export var methodFn as ast.FuncID
+	// receiverTy is, for a bound that the 'where' of a conditional extension gives, the type of the value the method is
+	// called on; none for any other bound.
+	export var receiverTy as ast.TypeID
 
 	export static function make(modID diag.ModuleID, off diag.U32, paramTy ast.TypeID, argTy ast.TypeID, ifaceTy ast.TypeID, withinFn ast.FuncID, hasMethod bool, methodFn ast.FuncID) returns PendingBound
-		return PendingBound{modID: modID, off: off, paramTy: paramTy, argTy: argTy, ifaceTy: ifaceTy, withinFn: withinFn, hasMethod: hasMethod, methodFn: methodFn}
+		return PendingBound{modID: modID, off: off, paramTy: paramTy, argTy: argTy, ifaceTy: ifaceTy, withinFn: withinFn, hasMethod: hasMethod, methodFn: methodFn, receiverTy: ast.noType}
 	end 'make'
 end 'PendingBound'
 
@@ -1002,12 +1005,25 @@ export function queueMethodBounds(mutates c Checker, mutates p ast.Project, off 
 		let iface = ast.substituteType(p.types, t: declared, params: generics, args: args)
 		for gi in 0 upto generics.count() 'findG'
 			if generics[gi] == pTy and gi < args.count() 'hit'
-				c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: true, methodFn: method))
+				var bound = PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: true, methodFn: method)
+				if bi < p.funcs.entries[method as Count].conditionalBounds 'conditional'
+					bound.receiverTy = receiverOf(p, method: method, args: args)
+				end 'conditional'
+				c.pendingBounds.push(bound)
 				break 'findG'
 			end 'hit'
 		end 'findG'
 	end 'eachB'
 end 'queueMethodBounds'
+
+// receiverOf is the type of the value that the method is called on at the type arguments args: the type that implements
+// the interface whose extension adds it, or the generic type it is a method of.
+function receiverOf(p ast.Project, method ast.FuncID, args ast.TypeIDList) returns ast.TypeID
+	if p.funcs.entries[method as Count].extendedIface != ast.noType 'ofInterface'
+		return args[0]
+	end 'ofInterface'
+	return ast.originOf(p.types, t: p.funcs.entries[method as Count].ownerTy)
+end 'receiverOf'
 
 export function instantiateGeneric(mutates c Checker, mutates p ast.Project, off diag.U32, orig ast.TypeID, args ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
 	let base = ast.originOf(p.types, t: orig)

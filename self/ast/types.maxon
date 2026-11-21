@@ -380,9 +380,14 @@ export type FuncEntry
 	export var bodyRef as diag.U32
 	// isTest is whether the function is a test, which is checked but never compiled into a program.
 	export var isTest as bool
+	// extendedIface is, for a method that an extension of an interface adds, that interface's declaration: the method is
+	// generic over the type that implements it, which is its first type parameter.
+	export var extendedIface as TypeID
+	// conditionalBounds is how many of its bounds, first among them, the 'where' of the extension that declares it gives.
+	export var conditionalBounds as Count
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), paramLocals: LocalIDList.create(0), selfLocal: noLocal, retTy: noType, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), paramLocals: LocalIDList.create(0), selfLocal: noLocal, retTy: noType, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
 	end 'make'
 end 'FuncEntry'
 
@@ -1280,6 +1285,7 @@ export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, orig
 	inst.intrinsic = ft.entries[origin as Count].intrinsic
 	inst.errTy = ft.entries[origin as Count].errTy
 	inst.genericOrigin = origin
+	inst.extendedIface = ft.entries[origin as Count].extendedIface
 	inst.typeArgs = cloneTypeArgs(args)
 	inst.witnesses = witnesses.clone()
 	let origParams = cloneTypeArgs(ft.entries[origin as Count].generics)

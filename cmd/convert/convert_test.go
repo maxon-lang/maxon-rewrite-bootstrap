@@ -548,16 +548,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "'otherwise' is a keyword in minimaxon",
 		},
 		{
-			name:     "conditional extension",
-			in:       "extension Point where Item is Equatable\n\tfunction x() returns Count\n\t\treturn 0\n\tend 'x'\nend 'Point'\n",
-			wantTodo: "conditional extensions",
-		},
-		{
-			name:     "extension of an interface",
-			in:       "interface Shape\n\tfunction area() returns Count\nend 'Shape'\n\nextension Shape\n\tfunction x() returns Count\n\t\treturn 0\n\tend 'x'\nend 'Shape'\n",
-			wantTodo: "extensions of an interface",
-		},
-		{
 			name:     "extension of a library type with no counterpart",
 			in:       "extension Set\n\tfunction x() returns Count\n\t\treturn 0\n\tend 'x'\nend 'Set'\n",
 			wantTodo: "extensions of 'Set'",

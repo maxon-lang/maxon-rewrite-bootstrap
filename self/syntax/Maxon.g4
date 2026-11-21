@@ -169,9 +169,10 @@ fieldDecl
     ;
 
 // An extension adds methods, and conformances, to a type another declaration names: a type, an enum, a union, a built-in
-// generic type, String, bool or the integers (`extension int`).
+// generic type, String, bool or the integers (`extension int`), or methods to every type that implements an interface. A
+// `where` makes its methods those of the instances whose type arguments meet it.
 extensionDecl
-    : visibility=('export' | 'public')? 'extension' (isInt='int' | target=typeRef) conforms=conformsClause? Newline
+    : visibility=('export' | 'public')? 'extension' (isInt='int' | target=typeRef) conforms=conformsClause? where=whereClause? Newline
       (Indent (methods+=funcDecl Newline)+ Dedent)?
       'end' end=endLabel?
     ;

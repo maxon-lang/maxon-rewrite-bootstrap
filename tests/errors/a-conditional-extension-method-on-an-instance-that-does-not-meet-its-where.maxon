@@ -1,0 +1,31 @@
+interface Sizer
+	function size() returns ExitCode
+end 'Sizer'
+
+type Plain
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'Plain'
+
+type Box uses Item
+	var item as Item
+
+	static function create(consumes item Item) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+extension Box where Item implements Sizer
+	function total() returns ExitCode
+		return item.size()
+	end 'total'
+end 'Box'
+
+typealias PlainBox = Box with Plain
+
+function main() returns ExitCode
+	return PlainBox.create(Plain.create()).total()
+end 'main'
+
+// expect-error: E4006 at 28:41

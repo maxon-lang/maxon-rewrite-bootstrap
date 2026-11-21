@@ -1,0 +1,9 @@
+extension ranks.Ranked
+	export function doubledRank() returns ranks.Score
+		return try self.rank() * 2 otherwise panic("overflow")
+	end 'doubledRank'
+end 'Ranked'
+
+export function twiceOf(a T) uses T returns ranks.Score where T implements ranks.Ranked
+	return a.doubledRank()
+end 'twiceOf'

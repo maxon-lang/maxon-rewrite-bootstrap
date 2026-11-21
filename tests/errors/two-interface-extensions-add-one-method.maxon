@@ -1,0 +1,41 @@
+typealias Score = int(0 to 100)
+
+interface Named
+	function name() returns Score
+end 'Named'
+
+interface Sized
+	function size() returns Score
+end 'Sized'
+
+extension Named
+	function label() returns Score
+		return self.name()
+	end 'label'
+end 'Named'
+
+extension Sized
+	function label() returns Score
+		return self.size()
+	end 'label'
+end 'Sized'
+
+type Both implements Named, Sized
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function name() returns Score
+		return 1
+	end 'name'
+
+	function size() returns Score
+		return 2
+	end 'size'
+end 'Both'
+
+function main() returns ExitCode
+	return Both.create().label()
+end 'main'
+
+// expect-error: E3942 at 38:23

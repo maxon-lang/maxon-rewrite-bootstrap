@@ -1,0 +1,167 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Valued
+	function value() returns Score
+end 'Valued'
+
+// A method of an extension of an interface is every conformer's, dispatched statically: a conformer's own method of the
+// name wins where the type is known, and the extension's body, checked once, calls its own.
+extension Valued
+	function doubled() returns Score
+		return try self.value() * 2 otherwise 0
+	end 'doubled'
+
+	function quadrupled() returns Score
+		return try doubled() * 2 otherwise 0
+	end 'quadrupled'
+end 'Valued'
+
+type Number implements Valued
+	let n as Score
+
+	static function create(n Score) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function value() returns Score
+		return n
+	end 'value'
+end 'Number'
+
+type Fixed implements Valued
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function value() returns Score
+		return 5
+	end 'value'
+
+	function doubled() returns Score
+		return 1000
+	end 'doubled'
+end 'Fixed'
+
+function viaBound(x T) uses T returns Score where T implements Valued
+	return try x.doubled() + x.quadrupled() otherwise 0
+end 'viaBound'
+
+function viaValue(x Valued) returns Score
+	return x.quadrupled()
+end 'viaValue'
+
+// An extension of a base interface meets a requirement of one that extends it, in the table of a value too.
+interface Forward
+	function step() returns Score
+end 'Forward'
+
+interface Both extends Forward
+	function back() returns Score
+end 'Both'
+
+extension Forward
+	function back() returns Score
+		return try 0 - self.step() otherwise 0
+	end 'back'
+end 'Forward'
+
+type Walker implements Both
+	var stride as Score
+
+	static function of(stride Score) returns Self
+		return Self{stride: stride}
+	end 'of'
+
+	function step() returns Score
+		return stride
+	end 'step'
+end 'Walker'
+
+function backOf(x Both) returns Score
+	return x.back()
+end 'backOf'
+
+// The associated types of the interface are the conformer's bindings, and a 'where' makes a method one of the
+// conformers and instances whose type arguments meet it.
+interface Sizer
+	function size() returns ExitCode
+end 'Sizer'
+
+enum Suite
+	hearts
+	spades
+end 'Suite'
+
+extension Suite implements Sizer
+	function size() returns ExitCode
+		return match self 'which'
+			hearts gives 10
+			spades gives 30
+		end 'which'
+	end 'size'
+end 'Suite'
+
+interface Holder uses Element
+	function current() returns Element
+end 'Holder'
+
+extension Holder
+	function again() returns Element
+		return self.current()
+	end 'again'
+end 'Holder'
+
+extension Holder where Element implements Sizer and Droppable
+	function currentSize() returns ExitCode
+		return self.current().size()
+	end 'currentSize'
+end 'Holder'
+
+type SuiteList implements Holder with Suite
+	let first as Suite
+
+	static function create(first Suite) returns Self
+		return Self{first: first}
+	end 'create'
+
+	function current() returns Suite
+		return first
+	end 'current'
+end 'SuiteList'
+
+type Box uses Item
+	var item as Item
+
+	static function create(consumes item Item) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+extension Box where Item implements Sizer
+	function total() returns ExitCode
+		return try item.size() + 2 otherwise 0
+	end 'total'
+end 'Box'
+
+typealias SuiteBox = Box with Suite
+
+function main() returns ExitCode
+	let n = Number.create(21)
+	let f = Fixed.create()
+	print("concrete {n.doubled()} {n.quadrupled()} {f.doubled()} {f.quadrupled()}\n")
+	print("bound {viaBound(n)} {viaBound(f)}\n")
+	print("value {viaValue(Number.create(3))} {viaValue(Fixed.create())}\n")
+	let w = Walker.of(7)
+	print("base {w.back()} {backOf(Walker.of(3))}\n")
+	let list = SuiteList.create(Suite.spades)
+	print("associated {list.again().size()} {list.currentSize()}\n")
+	print("conditional {SuiteBox.create(Suite.hearts).total()}\n")
+	return 0
+end 'main'
+
+//> concrete 42 84 1000 20
+//> bound 126 30
+//> value 12 20
+//> base -7 -3
+//> associated 30 30
+//> conditional 12

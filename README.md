@@ -521,6 +521,7 @@ other:
 | a method | `export::Counter.inc`, `(export::Box with stdlib::Count).make` |
 | an instance of a generic function | `export::swap[stdlib::Count, export::Counter]` |
 | an instance given a conformance outside its type argument's module | `lib::describe[shapes::Meter] using app`, the module of each conformance after `using` |
+| an instance of a method that an extension of an interface adds | `app::extension shapes::Shape.doubled[export::Square]`, by the extension's module and the interface, never the type's name |
 | a type | `export::Counter`, `export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))`, `stdlib::FixedArray with 3 Int=int(...)` |
 | a drop or copy routine | `drop export::Counter`, `copy stdlib::Array with export::Tree` |
 | the table of an interface value | `table export::Square as shapes::Shape by export`, with the module of the conformance after `by` |
@@ -1791,7 +1792,7 @@ or a `union` of any module (`extension shapes.Counter`), the built-in `Array`, `
 which stands for every integer type (`self` has the range of `FullRangeInt`). The end label is the extended type's name.
 Inside, `self` and the bare names of the type's fields and type parameters mean what they do in its body, and `Self` is
 the type. A static function is allowed only in an extension of a `type` or of a built-in generic type. An extension
-declares no field, destructor or `typealias`, and takes no `where` clause. A method of an extension is called as one of
+declares no field, destructor or `typealias`. A method of an extension is called as one of
 the type's, and is `E3006` if the type's body or another extension of the same module declares the name.
 
 An extension's declarations belong to the module that writes it, never to the extended type's module, so each module's
@@ -1831,6 +1832,43 @@ method does not see the method.
 
 An extension of a built-in generic type names its parameters as the built-in table does (`T` for `Array`, not maxon's
 `Element`). An extension of a typealias is `E2015`, one of an unknown name is `E3011`.
+
+```
+extension Valued
+	function doubled() returns Score
+		return try self.value() * 2 otherwise 0
+	end 'doubled'
+end 'Valued'
+
+extension Box where Item implements Sizer
+	function total() returns ExitCode
+		return item.size()
+	end 'total'
+end 'Box'
+```
+
+An extension of an interface (`extension Valued`) adds its methods to every type that implements the interface where the
+extension is seen, to a type parameter bounded by it and to a value of it. As in Hylo and Swift, each method is generic over
+the type that implements the interface, which is `Self` inside, and over the interface's associated types, which are the
+conformer's bindings (`Element` in `extension Holder` of `interface Holder uses Element`). Its body is checked once,
+against the interface: it calls what the interface requires and what extensions of it add, on `self` or bare, and names
+no field of a conformer (`E2004`). It is no requirement, and a call of it is resolved where it is written: on a value whose
+type is known the type's own method comes first, then those its extensions add, then those that extensions of the
+interfaces it implements add, so a conformer's own method of the name wins there, while a call through a bound, on an
+interface value or inside the extension runs the extension's. A method of an extension of an interface outranks one of an
+interface it extends; two that neither outranks are `E3942`, as two extensions of a type are. On an interface value the
+method is lent the box: its instance at the interface's type reaches the requirements through the table. A type that has
+no method of a requirement's name meets the requirement with a method that an extension of an interface it implements
+adds (`extension Forward` adds `back`, which `interface Both extends Forward` requires), in a table too. Its instances are
+named by the extension's module and the interface (see "Link names"). An extension of an interface declares no
+conformance and no static function (`E2015`).
+
+A `where` on an extension is the `where` of each method it declares, before the method's own: the methods are those of the
+instances, or of the conformers, whose type arguments meet it, and the bound holds in their bodies. A call on a value
+that does not meet it is maxon's `E4006`, in the verify stage: `Type 'Box' has no field named 'total' ('total' is
+available as a conditional extension where Item implements Sizer, but 'Plain' does not implement 'Sizer')`. A `where` that
+names no type parameter of the extended declaration is `E2015`. A method with such a bound does not meet a requirement
+(`E3016`), so an extension that says `implements` and has a `where` gives no conditional conformance.
 
 ### Primitives
 
@@ -2292,9 +2330,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and a default on a discard parameter `_` (which maxon's calls name with a synthesized label) are not supported, a default that
   trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. A `static let` is only a
   `type`'s, and a call in its initializer that names a sibling by its bare name is not resolved to the sibling.
-- `extension`: there is no extension of an interface (no default method for every conformer, no associated types), no
-  conditional extension (`where` on an extension), no nested `typealias` in an extension, and none of `Set`,
-  `Iterable`, `Iterator` or other library types the compiler does not have. Extensions and the conformances they
+- `extension`: there is no nested `typealias` in an extension, and none of `Set`, `Iterable`, `Iterator` or other library
+  types the compiler does not have. An extension of an interface is Hylo's: its body is checked once, generic over the
+  conformer, where maxon parses it again for each conformer with the conformer's names in scope, so there it may use what
+  one conformer has (a field, a method the interface does not require, an operator or a value of another type for an
+  associated type) and its errors name the conformer (`type 'Square1' has no field named 'spare'`, here `'Self'`). Its
+  methods are dispatched statically: where maxon's copy for a conformer calls the conformer's own method of a name, a call
+  inside the extension, through a bound or on an interface value here runs the extension's. They reach every conformer, an
+  enum, a union or an integer type too, where maxon expands them onto `type` conformers alone and refuses one on a
+  primitive (`E2015`). A conditional extension's message says `where Item implements Sizer` for maxon's `where Item is
+  Sizer`. Extensions and the conformances they
   declare are scoped as Hylo scopes them, where maxon sees every extension from every directory of the program: an
   extension is seen only from its own module and the modules that name it, a bound is met by the conformance seen from
   the module that instantiates the generic and passes it on with the instance, two extensions seen at one call that add

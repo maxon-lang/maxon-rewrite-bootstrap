@@ -369,10 +369,17 @@ end 'declaringModule'
 
 // funcLinkName is the link name of a function: the module and the name of a free function, with the type arguments of an
 // instance, and the type and the name of a method, in parentheses where the type is an instance; an instance given a
-// conformance outside its type argument's module ends with the modules of its conformances.
+// conformance outside its type argument's module ends with the modules of its conformances. A method that an extension of
+// an interface adds is named by its module and the interface, with the type it was made for among its type arguments,
+// so it never takes the name of a method of that type.
 export function funcLinkName(p Project, fid FuncID) returns String
 	let name = p.funcs.entries[fid as Count].name.clone()
 	let owner = p.funcs.entries[fid as Count].ownerTy
+	let iface = p.funcs.entries[fid as Count].extendedIface
+	if iface != noType 'ofInterface'
+		let args = joinNames(typeLinkNames(p, args: p.funcs.entries[fid as Count].typeArgs), sep: ", ")
+		return "{moduleLinkPath(p, modID: p.funcs.entries[fid as Count].module)}{linkSeparator}{extensionLinkWord} {typeLinkName(p, t: iface)}.{name}[{args}]{witnessSuffix(p, fid: fid)}"
+	end 'ofInterface'
 	if owner != noType 'method'
 		let ownerName = typeLinkName(p, t: owner)
 		var text = "{ownerName}.{name}"

@@ -80,29 +80,36 @@ export function resolveTarget(mutates p ast.Project, module diag.ModuleID, site 
 end 'resolveTarget'
 
 // witnessFor is the method of that name that meets a requirement for the type recv: the type's own, or else the one that
-// an extension adds where the module of the conformance sees it, as an instance for a generic type's arguments.
+// an extension of the type adds where the module of the conformance sees it, as an instance for a generic type's
+// arguments, or else the instance for recv of the one that an extension of an interface it implements adds there.
 function witnessFor(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, recv ast.TypeID, name String, conformance diag.ModuleID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
 	let origin = p.types.entries[recv as Count].effectiveOrigin()
 	match consumes p.types.entries[origin as Count].findMethod(name) 'found'
 		some(method) then return instantiateMethod(p, module: module, site: site, method: method, recv: recv, errs: errs)
 		none then _ = 0
 	end 'found'
-	match consumes ast.extensionKey(p, t: recv) 'key'
-		some(owner) then return instantiateMethod(p, module: module, site: site, method: witnessMethod(p, from: conformance, owner: owner, name: name), recv: recv, errs: errs)
-		none then _ = 0
-	end 'key'
-	panic("{ast.typeName(p.types, t: recv)} has no method '{name}' for the interface that requires it")
+	let key = ast.extensionKey(p, t: recv)
+	if key.isSome() 'extensions'
+		match consumes ast.extensionMethod(p, from: conformance, owner: key.unwrap(), name: name) 'ofType'
+			found(fid) then return instantiateMethod(p, module: module, site: site, method: fid, recv: recv, errs: errs)
+			absent then _ = 0
+			ambiguous(_, _) then panic("the conformance of {ast.typeName(p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has two methods '{name}'")
+		end 'ofType'
+	end 'extensions'
+	let have = ast.seenInterfaces(p, from: conformance, t: recv)
+	match consumes ast.interfaceExtensionMethod(p, from: conformance, have: have, name: name) 'ofInterface'
+		found(fid) then return instantiateExtension(p, module: module, site: site, method: fid, recv: recv, have: have, errs: errs)
+		absent then panic("the conformance of {ast.typeName(p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has no method '{name}'")
+		ambiguous(_, _) then panic("the conformance of {ast.typeName(p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has two methods '{name}'")
+	end 'ofInterface'
 end 'witnessFor'
 
-// witnessMethod is the method of that name that an extension adds to the type owner where the module from, which declares
-// the conformance a bound uses, sees it; the check of the conformance found it there.
-function witnessMethod(p ast.Project, from diag.ModuleID, owner ast.TypeID, name String) returns ast.FuncID
-	match consumes ast.extensionMethod(p, from: from, owner: owner, name: name) 'lookup'
-		found(fid) then return fid
-		absent then panic("the conformance of {ast.typeName(p.types, t: owner)} in {ast.describeModule(p, modID: from)} has no method '{name}'")
-		ambiguous(_, _) then panic("the conformance of {ast.typeName(p.types, t: owner)} in {ast.describeModule(p, modID: from)} has two methods '{name}'")
-	end 'lookup'
-end 'witnessMethod'
+// instantiateExtension is the instance for the type recv, which implements the interfaces have, of a method that an
+// extension of an interface adds.
+function instantiateExtension(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, method ast.FuncID, recv ast.TypeID, have ast.TypeIDList, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
+	let args = ast.interfaceExtensionArgs(p, recv: recv, have: have, fid: method)
+	return instantiateWith(p, module: module, site: site, origin: method, written: args, args: args, enclosing: ast.WitnessList.create(0), errs: errs)
+end 'instantiateExtension'
 
 // passedWitness is the module of the conformance that the code around a call was given for its type parameter param to an
 // interface that is iface or extends it.

@@ -186,14 +186,24 @@ function checkRecoveryCast(mutates c Checker, mutates p ast.Project, e ast.NodeI
 end 'checkRecoveryCast'
 
 // witnessCall types a call of a method that the interface of a value requires, which runs the method of the type the
-// value holds, through the table of the box.
+// value holds, through the table of the box. A method that an extension of the interface adds is lent the box: its
+// instance at the interface value's type reaches the requirements through the table.
 function witnessCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, iface ast.TypeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	let ifaceName = nameOfType(p, t: iface)
 	let named = requirementsNamed(p, iface: iface, name: name)
-	if named.count() == 0 'unknown'
-		failAt(c, p: p, node: call, code: diag.errUnknownFunction, msg: "'{ifaceName}' has no method '{name}': a value of an interface has the methods the interface requires and no others", errs: errs)
+	if named.count() == 0 'notRequired'
+		let have = oneType(iface)
+		let mark = errs.count()
+		let extended = lookedUp(c, p: p, t: iface, name: name, node: call, lookup: ast.interfaceExtensionMethod(p, from: c.modID, have: have, name: name), errs: errs)
+		if failedSince(errs, mark: mark) 'ambiguous'
+			return ast.noType
+		end 'ambiguous'
+		if extended != ast.noFunc 'extension'
+			return callInterfaceExtension(c, p: p, call: call, receiver: receiver, content: iface, method: extended, have: have, errs: errs)
+		end 'extension'
+		failAt(c, p: p, node: call, code: diag.errUnknownFunction, msg: "'{ifaceName}' has no method '{name}': a value of an interface has the methods the interface requires and those that the extensions of it that are seen here add, and no others", errs: errs)
 		return ast.noType
-	end 'unknown'
+	end 'notRequired'
 	if named.count() > 1 'inheritedTwice'
 		failAt(c, p: p, node: call, code: diag.errAmbiguousBound, msg: "'{name}' is required by both {requirementText(p, req: named[0])} and {requirementText(p, req: named[1])}, and a call through a value of '{ifaceName}' runs one of them; rename one requirement", errs: errs)
 		return ast.noType

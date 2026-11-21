@@ -1,0 +1,29 @@
+typealias Score = int(0 to 100)
+
+interface Tagged
+	function tag() returns Score
+end 'Tagged'
+
+extension Tagged
+	function twice() returns Score
+		return n
+	end 'twice'
+end 'Tagged'
+
+type Counter implements Tagged
+	var n as Score
+
+	static function create(n Score) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function tag() returns Score
+		return n
+	end 'tag'
+end 'Counter'
+
+function main() returns ExitCode
+	return Counter.create(3).twice()
+end 'main'
+
+// expect-error: E2004 at 9:10

@@ -819,3 +819,8 @@ end 'unknownAnnotation'
 export function heapAnnotationWithoutBinding() returns String
 	return "@heap must be followed by 'var' or 'let'"
 end 'heapAnnotationWithoutBinding'
+
+// The text of errInvalidFieldAccess for: Type '{typeName}' has no field named '{methodName}' ('{methodName}' is available as a conditional extension {clause}, but '{bindingName}' does not implement '{interfaceName}')
+export function conditionalExtensionWithheld(typeName String, methodName String, clause String, bindingName String, interfaceName String) returns String
+	return "Type '{typeName}' has no field named '{methodName}' ('{methodName}' is available as a conditional extension {clause}, but '{bindingName}' does not implement '{interfaceName}')"
+end 'conditionalExtensionWithheld'

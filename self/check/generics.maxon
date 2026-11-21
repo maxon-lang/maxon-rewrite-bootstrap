@@ -166,7 +166,7 @@ function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt
 	let sigConv = p.funcs.entries[sig as Count].selfConv
 	let sigError = p.funcs.entries[sig as Count].errTy
 	let sigStatic = p.funcs.entries[sig as Count].isStatic
-	if m != ast.noFunc and p.funcs.entries[m as Count].isStatic == sigStatic and (sigStatic or p.funcs.entries[m as Count].selfConv == sigConv) and sameSpecs(p.funcs.entries[m as Count].params, b: wantSpecs) and p.funcs.entries[m as Count].retTy == wantReturn and p.funcs.entries[m as Count].errTy == sigError 'matches'
+	if m != ast.noFunc and p.funcs.entries[m as Count].isStatic == sigStatic and (sigStatic or p.funcs.entries[m as Count].selfConv == sigConv) and witnessMatches(c, p: p, m: m, own: own, wantSpecs: wantSpecs, wantReturn: wantReturn, wantError: sigError) 'matches'
 		return
 	end 'matches'
 	let wanted = signatureText(p, name: sigName, isStatic: p.funcs.entries[sig as Count].isStatic, specs: wantSpecs, ret: wantReturn, err: sigError)
@@ -180,6 +180,22 @@ function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt
 	end 'absent'
 	wrong.push("{signatureText(p, name: p.funcs.entries[m as Count].name, isStatic: p.funcs.entries[m as Count].isStatic, specs: p.funcs.entries[m as Count].params, ret: p.funcs.entries[m as Count].retTy, err: p.funcs.entries[m as Count].errTy)} (expected {wanted})")
 end 'requireImplements'
+
+// witnessMatches is whether the method m, which meets a requirement for the type own, takes and gives what the requirement
+// does there. A method that an extension of an interface adds does at its instance for own.
+function witnessMatches(c Checker, mutates p ast.Project, m ast.FuncID, own ast.TypeID, wantSpecs ast.ParamSpecList, wantReturn ast.TypeID, wantError ast.TypeID) returns bool
+	var specs = p.funcs.entries[m as Count].params.clone()
+	var ret = p.funcs.entries[m as Count].retTy
+	var err = p.funcs.entries[m as Count].errTy
+	if p.funcs.entries[m as Count].extendedIface != ast.noType 'ofInterface'
+		let generics = ast.cloneTypeArgs(p.funcs.entries[m as Count].generics)
+		let args = ast.interfaceExtensionArgs(p, recv: own, have: ast.seenInterfaces(p, from: c.modID, t: own), fid: m)
+		specs = applySpecs(p, specs: specs, params: generics, args: args)
+		ret = ast.substituteType(p.types, t: ret, params: generics, args: args)
+		err = ast.substituteType(p.types, t: err, params: generics, args: args)
+	end 'ofInterface'
+	return sameSpecs(specs, b: wantSpecs) and ret == wantReturn and err == wantError
+end 'witnessMatches'
 
 // requirementsNamed are the requirements of that name that an interface has: one, or none, or two where an interface
 // declares again a requirement of one it extends.
@@ -273,10 +289,49 @@ export function verifyBounds(mutates c Checker, mutates p ast.Project, bounds Pe
 		end 'skipped'
 		let mark = errs.count()
 		c.boundedFn = bounds[i].withinFn
-		requireConforms(c, p: p, off: bounds[i].off, arg: bounds[i].argTy, iface: bounds[i].ifaceTy, param: bounds[i].paramTy, errs: errs)
+		if bounds[i].receiverTy != ast.noType 'conditional'
+			requireCondition(c, p: p, bound: bounds[i], errs: errs)
+		end 'conditional' else 'bound'
+			requireConforms(c, p: p, off: bounds[i].off, arg: bounds[i].argTy, iface: bounds[i].ifaceTy, param: bounds[i].paramTy, errs: errs)
+		end 'bound'
 		failedSame = failedSince(errs, mark: mark)
 	end 'each'
 end 'verifyBounds'
+
+// requireCondition checks one bound of the 'where' of a conditional extension at a call of a method it declares. The
+// method is one of the instances that meet it, so where the type argument does not, the value has no such method, which
+// is how maxon words it.
+function requireCondition(mutates c Checker, mutates p ast.Project, bound PendingBound, mutates errs diag.ErrorList)
+	var refused = diag.ErrorList.create(0)
+	requireConforms(c, p: p, off: bound.off, arg: bound.argTy, iface: bound.ifaceTy, param: bound.paramTy, errs: refused)
+	if refused.count() == 0 'met'
+		return
+	end 'met'
+	if refused[0].code != diag.errBoundNotMet 'other'
+		errs.append(refused)
+		return
+	end 'other'
+	let method = p.funcs.entries[bound.methodFn as Count].name.clone()
+	let msg = diag.conditionalExtensionWithheld(nameOfType(p, t: bound.receiverTy), methodName: method, clause: conditionText(p, method: bound.methodFn), bindingName: nameOfType(p, t: bound.argTy), interfaceName: nameOfType(p, t: bound.ifaceTy))
+	checkFail(c.modID, off: bound.off, code: diag.errInvalidFieldAccess, msg: msg, errs: errs)
+end 'requireCondition'
+
+// conditionText is the 'where' of the conditional extension that declares the method, as it is written.
+function conditionText(p ast.Project, method ast.FuncID) returns String
+	var parts = ast.StringList.create(0)
+	var param = ast.noType
+	for i in 0 upto p.funcs.entries[method as Count].conditionalBounds 'each'
+		let b = p.funcs.entries[method as Count].bounds[i].clone()
+		if b.paramTy == param 'same'
+			let last = try parts.count() - 1 otherwise panic("no condition before")
+			parts[last] = "{parts[last]} and {nameOfType(p, t: b.ifaceTy)}"
+		end 'same' else 'next'
+			parts.push("{nameOfType(p, t: b.paramTy)} implements {nameOfType(p, t: b.ifaceTy)}")
+			param = b.paramTy
+		end 'next'
+	end 'each'
+	return "where {ast.joinNames(parts, sep: ", ")}"
+end 'conditionText'
 
 function sameArgument(a PendingBound, b PendingBound) returns bool
 	return a.off == b.off and a.paramTy == b.paramTy and a.argTy == b.argTy and a.hasMethod == b.hasMethod and a.methodFn == b.methodFn

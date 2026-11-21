@@ -6,6 +6,9 @@
 function funcSymbol(p ast.Project, f ast.FuncID) returns String
 	let name = p.funcs.entries[f as Count].name.clone()
 	let owner = p.funcs.entries[f as Count].ownerTy
+	if p.funcs.entries[f as Count].extendedIface != ast.noType 'ofInterface'
+		return ast.interfaceExtensionSymbol(p, fid: f)
+	end 'ofInterface'
 	if owner == ast.noType 'free'
 		if p.funcs.entries[f as Count].genericOrigin != ast.noFunc 'instance'
 			var names = ast.StringList.create(0)

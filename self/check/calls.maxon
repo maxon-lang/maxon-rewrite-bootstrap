@@ -113,12 +113,21 @@ function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mut
 end 'typeCall'
 
 // siblingMethod is the method of the enclosing type that a bare name stands for, as a bare field name stands for a field,
-// or none: the type's method outranks a function of the same name.
+// or none: the type's method outranks a function of the same name. In an extension of an interface the enclosing type is
+// the parameter that stands for the type implementing it, whose methods are those of its bounds.
 function siblingMethod(c Checker, p ast.Project, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.FuncID
 	if c.owner == ast.noType or c.fn == ast.noFunc or c.inBehaviour or c.inClosure 'outside'
 		return ast.noFunc
 	end 'outside'
-	return methodOf(c, p: p, t: c.owner, name: ast.nameExprName(p.modules[c.modIdx].tree, id: callee), node: callee, errs: errs)
+	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: callee)
+	if typeHasKind(p, t: c.owner, kind: ast.TypeKind.typeParam) 'parameter'
+		let req = boundRequirement(p, boundedFn: c.boundedFn, param: c.owner, name: name)
+		if req.sig != ast.noFunc 'required'
+			return req.sig
+		end 'required'
+		return lookedUp(c, p: p, t: c.owner, name: name, node: callee, lookup: ast.interfaceExtensionMethod(p, from: c.modID, have: boundsOfParam(p, boundedFn: c.boundedFn, paramTy: c.owner), name: name), errs: errs)
+	end 'parameter'
+	return methodOf(c, p: p, t: c.owner, name: name, node: callee, errs: errs)
 end 'siblingMethod'
 
 // callSibling types a bare call of a method of the enclosing type: `helper()` is `self.helper()`, and a static method is
@@ -260,8 +269,9 @@ function methodNamed(p ast.Project, t ast.TypeID, name String) returns ast.FuncI
 end 'methodNamed'
 
 // methodLookup is what the name finds among the methods of a value of type t for the code of the module being checked:
-// the method the declaration of the type has, else what the extensions that the module sees add, which are its own and
-// those of the modules it names.
+// the method the declaration of the type has, else what the extensions of the type that the module sees add, which are
+// its own and those of the modules it names, else what the extensions it sees add to the interfaces that the type
+// implements there. Each outranks the next, so a type's own method is the one called wherever the type is known.
 function methodLookup(c Checker, p ast.Project, t ast.TypeID, name String) returns ast.MethodLookup
 	var own = methodNamed(p, t: t, name: name)
 	if t == p.builtins.stringTy 'string'
@@ -270,22 +280,31 @@ function methodLookup(c Checker, p ast.Project, t ast.TypeID, name String) retur
 	if own != ast.noFunc 'declared'
 		return ast.MethodLookup.found(own)
 	end 'declared'
-	match consumes ast.extensionKey(p, t: t) 'key'
-		some(owner) then return ast.extensionMethod(p, from: c.modID, owner: owner, name: name)
-		none then return ast.MethodLookup.absent
-	end 'key'
+	let key = ast.extensionKey(p, t: t)
+	if key.isSome() 'extensions'
+		let ofType = ast.extensionMethod(p, from: c.modID, owner: key.unwrap(), name: name)
+		if not ofType.isAbsent() 'found'
+			return ofType
+		end 'found'
+	end 'extensions'
+	return ast.interfaceExtensionMethod(p, from: c.modID, have: ast.seenInterfaces(p, from: c.modID, t: t), name: name)
 end 'methodLookup'
 
 // methodOf is the method that the name finds for a value of type t, or none. Two methods that extensions add under the
 // name are ambiguous, which it refuses at node.
 function methodOf(c Checker, p ast.Project, t ast.TypeID, name String, node ast.NodeID, mutates errs diag.ErrorList) returns ast.FuncID
-	match consumes methodLookup(c, p: p, t: t, name: name) 'lookup'
+	return lookedUp(c, p: p, t: t, name: name, node: node, lookup: methodLookup(c, p: p, t: t, name: name), errs: errs)
+end 'methodOf'
+
+// lookedUp is the method that a lookup of the name on a value of type t found, or none; it refuses an ambiguous one at node.
+function lookedUp(c Checker, p ast.Project, t ast.TypeID, name String, node ast.NodeID, consumes lookup ast.MethodLookup, mutates errs diag.ErrorList) returns ast.FuncID
+	match consumes lookup 'lookup'
 		absent then return ast.noFunc
 		found(fid) then return fid
 		ambiguous(first, second) then failAmbiguousMethod(c, p: p, node: node, t: t, name: name, first: first, second: second, errs: errs)
 	end 'lookup'
 	return ast.noFunc
-end 'methodOf'
+end 'lookedUp'
 
 // failAmbiguousMethod refuses a name that two extensions the module sees add to the type t. A call has no spelling that
 // names the method through its module, so one of them has to go or take another name.
@@ -293,8 +312,17 @@ function failAmbiguousMethod(c Checker, p ast.Project, node ast.NodeID, t ast.Ty
 	let typeName = nameOfType(p, t: t)
 	let firstModule = ast.describeModule(p, modID: p.funcs.entries[first as Count].module)
 	let secondModule = ast.describeModule(p, modID: p.funcs.entries[second as Count].module)
-	failAt(c, p: p, node: node, code: diag.errAmbiguousExtension, msg: "'{typeName}.{name}' is ambiguous here: an extension in {firstModule} and an extension in {secondModule} both add '{name}' to '{typeName}', and {ast.describeModule(p, modID: c.modID)} sees both; a call cannot name the method through its module, so rename or remove one of the two", errs: errs)
+	failAt(c, p: p, node: node, code: diag.errAmbiguousExtension, msg: "'{typeName}.{name}' is ambiguous here: {extensionText(p, fid: first, module: firstModule)} and {extensionText(p, fid: second, module: secondModule)} both add '{name}' to '{typeName}', and {ast.describeModule(p, modID: c.modID)} sees both; a call cannot name the method through its module, so rename or remove one of the two", errs: errs)
 end 'failAmbiguousMethod'
+
+// extensionText names the extension that declares the method fid, in the module described.
+function extensionText(p ast.Project, fid ast.FuncID, module String) returns String
+	let iface = p.funcs.entries[fid as Count].extendedIface
+	if iface != ast.noType 'ofInterface'
+		return "an extension of {p.types.entries[iface as Count].name} in {module}"
+	end 'ofInterface'
+	return "an extension in {module}"
+end 'extensionText'
 
 // stringMethodNamed is the method of String of that name, or none.
 function stringMethodNamed(p ast.Project, name String) returns ast.FuncID
@@ -413,6 +441,9 @@ end 'boundRequirement'
 
 // callOnType types a call written on a type's name: a case of a union that carries a payload, or a static function.
 function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, nt ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	if p.types.entries[nt as Count].kind == ast.TypeKind.typeParam 'parameter'
+		return callOnTypeParam(c, p: p, call: call, param: nt, name: name, errs: errs)
+	end 'parameter'
 	if p.types.entries[nt as Count].kind == ast.TypeKind.unionTy and p.types.entries[ast.originOf(p.types, t: nt) as Count].findCase(name).isSome() 'union'
 		return unionConstructor(c, p: p, call: call, ut: nt, caseName: name, errs: errs)
 	end 'union'
@@ -453,6 +484,9 @@ function callOnValue(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return ast.noType
 	end 'ambiguous'
+	if method != ast.noFunc and p.funcs.entries[method as Count].extendedIface != ast.noType 'ofInterface'
+		return callInterfaceExtension(c, p: p, call: call, receiver: receiver, content: content, method: method, have: ast.seenInterfaces(p, from: c.modID, t: content), errs: errs)
+	end 'ofInterface'
 	if method != ast.noFunc and not p.funcs.entries[method as Count].isStatic 'instance'
 		return callMethod(c, p: p, call: call, receiver: receiver, content: content, method: method, name: name, errs: errs)
 	end 'instance'
@@ -465,6 +499,18 @@ function callMethod(mutates c Checker, mutates p ast.Project, call ast.NodeID, r
 	end 'frozen'
 	return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: p.types.entries[content as Count].typeArgs.count() > 0, given: p.types.entries[content as Count].typeArgs.clone(), errs: errs)
 end 'callMethod'
+
+// callInterfaceExtension types a call of the method that an extension of an interface adds, on a value of the type
+// content, which implements the interfaces have: the instance at content and the associated types that it binds, whose
+// bound the verify stage checks as any instance's, with the conformance the module of the call sees.
+function callInterfaceExtension(mutates c Checker, mutates p ast.Project, call ast.NodeID, receiver ast.TypeID, content ast.TypeID, method ast.FuncID, have ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
+	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: p.funcs.entries[method as Count].selfConv, method: p.funcs.entries[method as Count].name, errs: errs) 'frozen'
+		return ast.noType
+	end 'frozen'
+	let args = ast.interfaceExtensionArgs(p, recv: content, have: have, fid: method)
+	queueBounds(c, p: p, off: offsetOf(c, p: p, node: call), params: ast.cloneTypeArgs(p.funcs.entries[method as Count].generics), args: args)
+	return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: true, given: args, errs: errs)
+end 'callInterfaceExtension'
 
 // requireNotFrozenChange refuses a call that would change or consume the contents of a frozen value.
 function requireNotFrozenChange(c Checker, p ast.Project, call ast.NodeID, recv ast.TypeID, conv ast.Convention, method String, mutates errs diag.ErrorList) returns bool
@@ -722,10 +768,18 @@ function boundCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, pa
 		iface = found.iface
 		sig = found.sig
 	end 'candidates'
-	if sig == ast.noFunc 'unknown'
+	if sig == ast.noFunc 'notRequired'
+		let mark = errs.count()
+		let extended = lookedUp(c, p: p, t: param, name: name, node: call, lookup: ast.interfaceExtensionMethod(p, from: c.modID, have: bounds, name: name), errs: errs)
+		if failedSince(errs, mark: mark) 'ambiguous'
+			return ast.noType
+		end 'ambiguous'
+		if extended != ast.noFunc 'extension'
+			return callInterfaceExtension(c, p: p, call: call, receiver: receiver, content: param, method: extended, have: bounds, errs: errs)
+		end 'extension'
 		failAt(c, p: p, node: call, code: diag.errUnknownFunction, msg: "{nameOfType(p, t: param)} has no method '{name}'{boundsText(p, bounds: bounds, param: param)}", errs: errs)
 		return ast.noType
-	end 'unknown'
+	end 'notRequired'
 	if p.funcs.entries[sig as Count].isStatic 'static'
 		failAt(c, p: p, node: call, code: diag.errStaticRequirementNotDispatchable, msg: diag.staticRequirementNotDispatchable("{p.types.entries[iface as Count].name}.{name}", reacher: "a value of type parameter '{nameOfType(p, t: param)}'"), errs: errs)
 		return ast.noType

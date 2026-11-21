@@ -1,0 +1,19 @@
+interface Sizer
+	function size() returns ExitCode
+end 'Sizer'
+
+enum Color
+	red
+end 'Color'
+
+extension Color where T implements Sizer
+	function code() returns ExitCode
+		return 1
+	end 'code'
+end 'Color'
+
+function main() returns ExitCode
+	return Color.red.code()
+end 'main'
+
+// expect-error: E2015 at 9:23

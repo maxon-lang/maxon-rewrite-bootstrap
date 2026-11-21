@@ -4,6 +4,9 @@
 export function funcSymbol(p ast.Project, fid ast.FuncID) returns String
 	let name = p.funcs.entries[fid as Count].name.clone()
 	let owner = p.funcs.entries[fid as Count].ownerTy
+	if p.funcs.entries[fid as Count].extendedIface != ast.noType 'ofInterface'
+		return "{ast.interfaceExtensionSymbol(p, fid: fid)}{ast.witnessSuffix(p, fid: fid)}"
+	end 'ofInterface'
 	if owner == ast.noType 'free'
 		let args = p.funcs.entries[fid as Count].typeArgs.count()
 		if args == 0 'plain'
