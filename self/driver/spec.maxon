@@ -487,35 +487,6 @@ function splitSections(source String) returns SourceSections
 	return sections
 end 'splitSections'
 
-// SpecWork is the scratch place of a run: the executable that each test is compiled to. It lives in the temporary
-// directory, under a name of the compiler's own location, so that runs of compilers from different checkouts do not meet.
-type SpecWork
-	var exe as String
-
-	static function make() returns SpecWork
-		let temp = try Process.environmentVariable("TEMP") otherwise panic("test: TEMP is not set")
-		let me = try Process.executablePath() otherwise panic("test: the compiler has no path")
-		let dir = "{temp}\\minimaxon-spec-{pathHash(me.toString())}"
-		if not Directory.create(try FilePath.from(dir) otherwise panic("test: {dir} is not a path")) 'made'
-			panic("test: cannot make {dir}")
-		end 'made'
-		return SpecWork{exe: "{dir}\\test.exe"}
-	end 'make'
-end 'SpecWork'
-
-// pathHash is a number of a path, in decimal, that tells paths apart well enough to name a directory.
-function pathHash(path String) returns Count
-	var hash = 5381 as Count
-	for i in 0 upto path.byteLength() 'bytes'
-		hash = try (hash * hashMultiplier + (path.byteAt(i) as Count)) mod hashModulus otherwise 0
-	end 'bytes'
-	return hash
-end 'pathHash'
-
-let hashModulus = 4294967296 as Count
-
-let hashMultiplier = 33 as Count
-
 // sectionFiles is the files of a multi-file test as the compiler loads them from memory, at the paths they would have in a
 // directory called projectRoot.
 function sectionFiles(sections SourceSections) returns project.SourceFiles
@@ -810,14 +781,15 @@ end 'specFiles'
 function runSpecs(path String, verbose bool) returns ExitCode
 	let root = project.absolutePath(path)
 	var shared = prepareSharedRuntime()
-	let work = SpecWork.make()
+	var scratch = Scratch.make("spec")
 	var tally = SpecRun.make(verbose)
 	let files = specFiles(root)
 	for i in 0 upto files.count() 'files'
-		runSpecFile(shared, work: work, tally: tally, file: files[i])
+		runSpecFile(shared, scratch: scratch, tally: tally, file: files[i])
 	end 'files'
 	print("\n")
 	printSummary(tally)
+	scratch.finish()
 	if tally.failed == 0 'clean'
 		return 0
 	end 'clean'
@@ -825,7 +797,7 @@ function runSpecs(path String, verbose bool) returns ExitCode
 end 'runSpecs'
 
 // runSpecFile runs the tests of one spec file.
-function runSpecFile(mutates shared SharedRuntime, work SpecWork, mutates tally SpecRun, file String)
+function runSpecFile(mutates shared SharedRuntime, mutates scratch Scratch, mutates tally SpecRun, file String)
 	let text = readText(file)
 	let stem = fileStem(file)
 	let display = project.lastComponent(file)
@@ -835,7 +807,7 @@ function runSpecFile(mutates shared SharedRuntime, work SpecWork, mutates tally 
 		if tally.verbose 'start'
 			print("RUN  {display}: {tests[i].name}\n")
 		end 'start'
-		let result = runSpecTest(shared, work: work, text: text, stem: stem, test: tests[i])
+		let result = runSpecTest(shared, scratch: scratch, text: text, stem: stem, test: tests[i])
 		if result.outcome == TestOutcome.testFailed 'failed'
 			tally.failed = offsetBy(tally.failed, by: 1)
 			print("FAIL {display}: {tests[i].name}: {result.detail}\n")
@@ -869,7 +841,7 @@ end 'fileStem'
 
 // runSpecTest runs one test: it is skipped for a reason of the runner, or compiled and then checked against its result
 // blocks.
-function runSpecTest(mutates shared SharedRuntime, work SpecWork, text String, stem String, test SpecTest) returns TestResult
+function runSpecTest(mutates shared SharedRuntime, mutates scratch Scratch, text String, stem String, test SpecTest) returns TestResult
 	let reason = skipReason(test, text: text)
 	if reason.isSome() 'skipped'
 		return TestResult.unsupported(reason.unwrap())
@@ -880,22 +852,23 @@ function runSpecTest(mutates shared SharedRuntime, work SpecWork, text String, s
 	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
 	let sections = splitSections(source)
 	var errs = diag.ErrorList.create(0)
-	compileSpecSource(shared, work: work, test: test, source: source, sections: sections, errs: errs)
-	let result = checkSpecTest(test, text: text, stem: stem, errs: errs, work: work, sections: sections)
-	if errs.count() == 0 and result.outcome != TestOutcome.testUnsupported 'built'
-		deleteExecutable(work.exe)
+	let exe = scratch.nextExecutable()
+	compileSpecSource(shared, exe: exe, test: test, source: source, sections: sections, errs: errs)
+	let result = checkSpecTest(test, text: text, stem: stem, errs: errs, exe: exe, sections: sections)
+	if errs.count() == 0 'built'
+		scratch.discard(exe)
 	end 'built'
 	return result
 end 'runSpecTest'
 
 // compileSpecSource compiles the maxon block of a test, split into sections, as the runner does: a fragment under maxon's
-// header line, or the files of a multi-file block. An executable is made at the work's when there is no error.
-function compileSpecSource(mutates shared SharedRuntime, work SpecWork, test SpecTest, source String, sections SourceSections, mutates errs diag.ErrorList)
+// header line, or the files of a multi-file block. An executable is made at exe when there is no error.
+function compileSpecSource(mutates shared SharedRuntime, exe String, test SpecTest, source String, sections SourceSections, mutates errs diag.ErrorList)
 	if sections.count() == 0 'single'
 		let fragment = "{fragmentHeader}{test.name}\n{source}\n"
-		compileSourceWith(shared, path: fragmentToken, text: fragment, output: work.exe, options: testOptions(), errs: errs)
+		compileSourceWith(shared, path: fragmentToken, text: fragment, output: exe, options: testOptions(), errs: errs)
 	end 'single' else 'project'
-		compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: work.exe, options: testOptions(), errs: errs)
+		compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: exe, options: testOptions(), errs: errs)
 	end 'project'
 end 'compileSpecSource'
 
@@ -915,9 +888,9 @@ function expectedFirstCode(test SpecTest, text String) returns table.Option with
 	return table.Option.some(block.sliceBytes(start, endPos: finish))
 end 'expectedFirstCode'
 
-// checkSpecTest is whether a compile that gave errs, and the executable at the work's when it gave none, is what the
+// checkSpecTest is whether a compile that gave errs, and the executable at exe when it gave none, is what the
 // result blocks of the test say.
-function checkSpecTest(test SpecTest, text String, stem String, errs diag.ErrorList, work SpecWork, sections SourceSections) returns TestResult
+function checkSpecTest(test SpecTest, text String, stem String, errs diag.ErrorList, exe String, sections SourceSections) returns TestResult
 	let expected = fenceText(test, text: text, base: compilerErrorFence)
 	if expected.isSome() 'expectsError'
 		return checkSpecError(test, expected: expected.unwrap(), stem: stem, errs: errs, sections: sections)
@@ -928,7 +901,7 @@ function checkSpecTest(test SpecTest, text String, stem String, errs diag.ErrorL
 		end 'interpreter'
 		return TestResult.failed("unexpected compile error: {oneLine(errs[0].code, limit: detailLimit)} {oneLine(errs[0].message, limit: detailLimit)}")
 	end 'failed'
-	return checkSpecRun(test, text: text, exe: work.exe)
+	return checkSpecRun(test, text: text, exe: exe)
 end 'checkSpecTest'
 
 // checkSpecError is whether the diagnostics are what the maxoncstderr block says, as text, with the positions left out when

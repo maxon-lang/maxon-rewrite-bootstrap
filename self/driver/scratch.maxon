@@ -1,0 +1,52 @@
+// Scratch is where a run of tests builds the executables of its programs: files in the temporary directory, named after the
+// process and a count, so that two runs at once never meet and no test waits for the file of the one before it. Windows may
+// keep the image of a program that just ended undeletable for a while (a scan of the new file, the end of the process), so a
+// test deletes its executable only when it can and the run tries the rest again when it is over.
+type Scratch
+	var prefix as String
+	var made as Count
+	var left as ast.StringList
+
+	static function make(kind String) returns Scratch
+		let dir = try Process.environmentVariable("TEMP") otherwise panic("test: TEMP is not set")
+		return Scratch{prefix: "{dir}\\minimaxon-{kind}-{Process.id()}-", made: 0, left: ast.StringList.create(0)}
+	end 'make'
+
+	// nextExecutable is the path of an executable that no other test of this run, and no other run, builds to.
+	function nextExecutable(mutates self) returns String
+		made = offsetBy(made, by: 1)
+		return "{prefix}{made}{executableExtension}"
+	end 'nextExecutable'
+
+	// discard deletes the executable of a finished test if the system lets it, and leaves it for finish if not.
+	function discard(mutates self, exe String)
+		if not deleteFile(exe) 'kept'
+			left.push(exe.clone())
+		end 'kept'
+	end 'discard'
+
+	// finish tries again for each executable that discard could not delete, and says in one line on standard error how many
+	// it could not. That never changes the exit code of the run.
+	function finish(mutates self)
+		var remaining = 0 as Count
+		var first = ""
+		for i in 0 upto left.count() 'each'
+			if not deleteFile(left[i]) 'stuck'
+				if remaining == 0 'named'
+					first = left[i].clone()
+				end 'named'
+				remaining = offsetBy(remaining, by: 1)
+			end 'stuck'
+		end 'each'
+		if remaining > 0 'report'
+			printError("test: could not delete {remaining} temporary executables, the first {first}\n")
+		end 'report'
+	end 'finish'
+end 'Scratch'
+
+// deleteFile is whether the file at path is gone after trying to delete it.
+function deleteFile(path String) returns bool
+	let filePath = try FilePath.from(path) otherwise return false
+	try File.delete(filePath) otherwise return false
+	return true
+end 'deleteFile'

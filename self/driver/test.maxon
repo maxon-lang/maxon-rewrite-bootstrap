@@ -385,6 +385,7 @@ function runTests(dir String, verbose bool, updatePositions bool) returns ExitCo
 	var failures = ast.StringList.create(0)
 	var unsupported = 0 as Count
 	var shared = prepareSharedRuntime()
+	var scratch = Scratch.make("test")
 	let checkOnlyPrefix = project.joinPath(project.joinPath(root, name: checkOnlyDir), name: "")
 	for i in 0 upto files.count() 'tests'
 		let file = files[i].clone()
@@ -396,7 +397,7 @@ function runTests(dir String, verbose bool, updatePositions bool) returns ExitCo
 		end 'start'
 		var expect = readExpectation(file)
 		expect.checkOnly = hasPrefix(file, prefix: checkOnlyPrefix)
-		let result = runTest(shared, file: file, expect: expect, updatePositions: updatePositions)
+		let result = runTest(shared, scratch: scratch, file: file, expect: expect, updatePositions: updatePositions)
 		var status = "PASS"
 		if result.outcome == TestOutcome.testFailed 'failed'
 			status = "FAIL"
@@ -413,6 +414,7 @@ function runTests(dir String, verbose bool, updatePositions bool) returns ExitCo
 	end 'failures'
 	let passed = try files.count() - failures.count() - unsupported otherwise panic("test: more failures than tests")
 	print("{passed} passed, {failures.count()} failed, {unsupported} not yet supported\n")
+	scratch.finish()
 	if failures.count() == 0 'clean'
 		return 0
 	end 'clean'
@@ -475,17 +477,17 @@ end 'onlyInterpreterErrors'
 
 // runTest compiles a test program and checks the result against what its directives say. The executable lives only as
 // long as the test.
-function runTest(mutates shared SharedRuntime, file String, expect Expectation, updatePositions bool) returns TestResult
+function runTest(mutates shared SharedRuntime, mutates scratch Scratch, file String, expect Expectation, updatePositions bool) returns TestResult
 	if endsWithText(file, suffix: fixCaseExtension) 'fix'
 		let stem = file.sliceBytes(0, endPos: try file.byteLength() - fixCaseExtension.byteLength() otherwise 0 as Count)
 		return runFixTest(file, expected: "{stem}{fixedExtension}")
 	end 'fix'
-	let exe = temporaryExecutable(file)
+	let exe = scratch.nextExecutable()
 	var errs = diag.ErrorList.create(0)
 	let compiled = compileForTest(shared, file: file, output: exe, errs: errs)
 	let result = checkTest(expect, file: file, compiled: compiled, errs: errs, exe: exe, updatePositions: updatePositions)
 	if errs.count() == 0 'built'
-		deleteExecutable(exe)
+		scratch.discard(exe)
 	end 'built'
 	return result
 end 'runTest'
@@ -609,12 +611,6 @@ function exitCodeText(code ExitCode) returns String
 	end 'negative'
 	return "{code}"
 end 'exitCodeText'
-
-// deleteExecutable removes the executable that a test was compiled to.
-function deleteExecutable(exe String)
-	let exePath = try FilePath.from(exe) otherwise panic("test: {exe} is not a path")
-	try File.delete(exePath) otherwise panic("test: cannot delete {exe}")
-end 'deleteExecutable'
 
 // How long a test executable may run before it is ended, in milliseconds.
 let testRunDeadlineMs = 10000 as Count
