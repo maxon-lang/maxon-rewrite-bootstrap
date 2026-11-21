@@ -34,7 +34,7 @@ end 'funcSymbol'
 // isNativeEntry is whether the backend implements a primitive's runtime entry.
 export function isNativeEntry(symbol Rt) returns bool
 	let unit = rtUnit(symbol)
-	return unit == RtUnit.rtUnitArrays or unit == RtUnit.rtUnitBytes or unit == RtUnit.rtUnitOs
+	return unit == RtUnit.rtUnitArrays or unit == RtUnit.rtUnitBytes or unit == RtUnit.rtUnitOs or unit == RtUnit.rtUnitShared
 end 'isNativeEntry'
 
 // isBytesEntry is whether symbol lives in the bytes runtime unit.

@@ -19,6 +19,7 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
 | `commandline.maxon` | — | the C runtime's command-line splitter and the quoting that is its inverse |
 | `os.maxon` | `osArgs`, `osEnvironmentVariable`, `osPathFrom`, `osReadText`, `osWriteText`, `osWriteBinary`, `osRename`, `osDelete`, `osIsDirectory`, `osCreateDirectory`, `osList` | files, directories, paths and the environment, over the `W` Win32 calls |
 | `subprocess.maxon` | `osRun` | `CreateProcessW` with the child's output and error read through pipes |
+| `frozen.maxon` | `frozenFreeze`, `frozenGet`, `share`, `cownNew` | making a frozen value and a cown, and another owner of one, a locked add on the count; the backend writes `frozenGet` in place, and a drop is the routine of the type, which `self/backend` makes (README, "Frozen values, cowns and behaviours in the IR") |
 | `sched.maxon` | `schedDrain`, `workerMain`, `osSetExitCode` | the scheduler: the workers, their Chase-Lev queues, stealing, parking and waking, the count of live behaviours, and the exit code. `when` will call `schedEnter` for each behaviour it makes, before it can run, and `schedPush` with its record when it is runnable |
 
 ## Rules a runtime file follows

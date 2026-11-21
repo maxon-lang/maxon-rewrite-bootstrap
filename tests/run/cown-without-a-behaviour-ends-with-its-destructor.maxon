@@ -1,0 +1,68 @@
+typealias CownArray = Array with cown with Account
+
+type Account
+	var name as String
+	var balance as Count
+
+	static function open(consumes name String, balance Count) returns Account
+		return Account{name: name, balance: balance}
+	end 'open'
+
+	function close(destructs self)
+		print("close {name} {balance}\n")
+	end 'close'
+end 'Account'
+
+type Note
+	var text as String
+
+	static function make(consumes text String) returns Note
+		return Note{text: text}
+	end 'make'
+end 'Note'
+
+type Bank
+	var main as cown with Account
+	var spare as cown with Account
+
+	static function of(consumes main cown with Account, consumes spare cown with Account) returns Bank
+		return Bank{main: main, spare: spare}
+	end 'of'
+end 'Bank'
+
+function keepFor(c cown with Account) returns cown with Account
+	return share(c)
+end 'keepFor'
+
+function openBank()
+	let bank = Bank.of(cown(Account.open("a".clone(), balance: 1), dropWith: close), spare: cown(Account.open("b".clone(), balance: 2), dropWith: close))
+	print("bank opened\n")
+end 'openBank'
+
+function main() returns ExitCode
+	openBank()
+	let owner = cown(Account.open("c".clone(), balance: 3), dropWith: close)
+	var copies = CownArray.create(0)
+	for i in 0 upto 4 'share'
+		copies.push(keepFor(owner))
+	end 'share'
+	copies.push(owner.clone())
+	print("{copies.count()} copies\n")
+	while copies.count() > 0 'drop'
+		_ = try copies.remove(copies.count() / 2) otherwise panic("no copy to drop")
+	end 'drop'
+	print("copies gone\n")
+	let plain = cown(Note.make("d".clone()))
+	let scalar = cown(5 as Count)
+	let again = share(scalar)
+	print("end of main\n")
+	return 0
+end 'main'
+
+//> bank opened
+//> close a 1
+//> close b 2
+//> 5 copies
+//> copies gone
+//> end of main
+//> close c 3

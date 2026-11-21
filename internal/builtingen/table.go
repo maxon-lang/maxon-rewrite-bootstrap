@@ -533,6 +533,7 @@ var units = []unit{
 	{Key: "Bytes", Doc: "the byte array unit, linked into a program that calls a byte array entry"},
 	{Key: "Os", Doc: "the OS unit, linked into a program that calls an OS entry"},
 	{Key: "Linker", Doc: "the linker, which defines the symbol itself"},
+	{Key: "Shared", Doc: "the frozen values and cowns, in the runtime's source (runtime/frozen.maxon)"},
 	{Key: "Interpreter", Doc: "no unit: only the interpreter runs the entry, and the compiler refuses a call of it"},
 	{Key: "Source", Doc: "the runtime's Maxon source (runtime/), which the compiler compiles with every program"},
 }
@@ -649,10 +650,10 @@ var entries = []entry{
 	{"PoolRemove", "rt.pool.remove", "Interpreter", roleCall, "(pool, handle) -> element: moves it out"},
 	{"PoolCopy", "rt.pool.copy", "Interpreter", roleCall, "(pool) -> pool: every element copied, handles still valid in the copy"},
 
-	{"FrozenFreeze", "rt.frozen.freeze", "Interpreter", roleCall, "(value) -> frozen: moves the value into a new box with a count of 1"},
-	{"FrozenGet", "rt.frozen.get", "Interpreter", roleCall, "(frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is"},
-	{"Share", "rt.share", "Interpreter", roleCall, "(frozen or cown) -> the same box: another owner, with the count raised by 1"},
-	{"CownNew", "rt.cown.new", "Interpreter", roleCall, "(value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop"},
+	{"FrozenFreeze", "rt.frozen.freeze", "Shared", roleCall, "(value) -> frozen: moves the value into a new box with a count of 1"},
+	{"FrozenGet", "rt.frozen.get", "Shared", roleCall, "(frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is; the backend writes it in place, a load that leaves the count alone"},
+	{"Share", "rt.share", "Shared", roleCall, "(frozen or cown) -> the same box: another owner, with the count raised by 1 in one locked step"},
+	{"CownNew", "rt.cown.new", "Shared", roleCall, "(value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop, and the backend passes its code's address, or 0, as a second word"},
 
 	{"BytesNew", "rt.bytes.new", "Bytes", roleCall, "() -> ByteArray"},
 	{"BytesLen", "rt.bytes.len", "Bytes", roleCall, "(ByteArray) -> count"},
@@ -731,6 +732,10 @@ var runtimeFunctions = []runtimeFunction{
 	{"CheckLeaks", "checkLeaks(code Count) Count"},
 	{"SchedDrain", "schedDrain(code Count) Count"},
 	{"WorkerMain", "workerMain(context Count)"},
+	{"FrozenFreeze", "frozenFreeze(value Count) Count"},
+	{"FrozenGet", "frozenGet(frozen Count) Count"},
+	{"Share", "share(box Count) Count"},
+	{"CownNew", "cownNew(value Count, ending Count) Count"},
 	{"ArrayNew", "arrayNew() Count"},
 	{"ArrayLen", "arrayLength(array Count) Count"},
 	{"ArrayElem", "arrayElem(array Count, index Count) Count"},

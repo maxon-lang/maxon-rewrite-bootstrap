@@ -111,8 +111,8 @@ and none is run. Any other program that compiles is run twice, as the executable
 (see "The interpreter"), from the IR that the native build lowered, and both must give the stdout and the exit code the
 directives say; the interpreter must also find no violation of the memory model, and the executable, built with
 `--count-allocations`, must end with no heap box live (a program that traps skips that check). A program that uses a
-map, a list, a pool, a frozen value, a cown or a behaviour has no executable yet: it fails to compile with `E9900`, and
-the runner then runs it under the interpreter alone. A program that schedules behaviours runs under 20 schedules
+map, a list, a pool or a behaviour has no executable yet: it fails to compile with `E9900`, and the runner then runs it
+under the interpreter alone. A program that schedules behaviours runs under 20 schedules
 (seeds 0 to 19), and every one must give the same stdout and exit code and no violation, so the directives of such a
 program must say an output that does not depend on the schedule: print only from behaviours that the cowns put in
 order, such as one chain, or behaviours on one cown. A program under `tests/runtime/` is a test of the runtime: it is
@@ -781,11 +781,17 @@ nothing waits for it. Its name is the enclosing function's with `$when` and a nu
 `swap[String]$when0` in an instance, `outer$when0$when0` for one inside another; `ast.behaviourName`), so a generic function that
 holds a behaviour has one for each instance, lowered with the instance's type arguments.
 
-**Native.** None of it has native code: green threads, a scheduler and atomic counts are not built (see
-[docs/regions.md](docs/regions.md)). The driver refuses a function that freezes, shares, thaws, makes a cown or schedules a
-behaviour, or reads through a frozen value, with `E9900` like a map, a list or a pool. `freeze` alone could be native, since
-nothing is counted or freed there yet, but a program that freezes and nothing else cannot show anything about the rules, and
-refusing every one keeps the backend free of a half of the feature.
+**Native.** Everything but `when` has native code; a function that schedules a behaviour is refused with `E9900`, as a
+map, a list or a pool is. `rt.frozen.freeze` and `rt.cown.new` are functions of `runtime/frozen.maxon`: one allocation and
+the stores of the header and the value, whatever the value holds (layouts `frozen*Offset` and `cown*Offset` of
+`internal/abigen`). `rt.frozen.get` is written in place by the backend, a load of the box's value that leaves the count
+alone, so a read or a borrow through a frozen value costs nothing more. `rt.share` (and the copy routine of
+`frozen with T`, `cown with T` and a function type, `backend.copyShared`) adds 1 to the count with one `lock xadd`. The
+backend passes `rt.cown.new` the address of the code of the instruction's routine, or 0, as a second word, stored as the
+cown's `ending`. The drop routine of `frozen with T` and of `cown with T` (`backend.dropFrozen`, `dropCown`) subtracts 1
+with one `lock xadd`, and the owner that found 1 there frees the box and then ends the value, which is the order the
+interpreter frees them in: the cown's `ending` with the value when it has one and the value is there, else the drop
+routine of `T`. A string literal stays immortal inside a frozen value, since dropping it is the string's drop.
 
 ### Function values in the IR
 
@@ -813,8 +819,9 @@ Copying a function value (`copy %s F`, which `clone()`, a consumed place of a fu
 same box; dropping one subtracts 1, and the last runs the closure's drop routine and frees the box. Every function type has
 the same two routines (`backend.dropClosure`, `copyClosure`), and the drop routine of a closure's captures is made with its
 body (`backend.emitCaptureDrop`), named `captures` and the body's symbol, since its types are the body's and no function
-type names them. Natively the count is a plain word: there are no threads. A closure that owns a value which only the
-interpreter can drop (a map, a list, a pool, a frozen value, a cown) is refused natively like one that drops it.
+type names them. Natively the count is stepped by one locked add (`lock xadd`), as a frozen value's is: a function value
+is immutable, so a copy of it may reach another thread, as the capture of a behaviour will. A closure that owns a value
+which only the interpreter can drop (a map, a list, a pool) is refused natively like one that drops it.
 
 ### Interface values in the IR
 
@@ -870,7 +877,7 @@ drops what it owns, deeply by type: the fields of a record, the payload of a uni
 dropped: a `let` or `mutates` parameter, a projection, and a `match` binding of a payload, which is stored with
 `store s3, %r borrow`. A place that holds nothing, because it was moved from or never assigned, drops as a no-op, so one drop at
 the end of a scope serves every path to it and no analysis of paths is needed. A function that drops a value that holds a map, a
-list, a pool, a frozen value or a cown is refused natively like one that makes it.
+list or a pool is refused natively like one that makes it.
 
 - **One place decides what moves.** The ownership pass marks each expression whose value changes owner (`ast.Typing.consumed`):
   a binding, an assignment, a `consumes` argument, a return, a field or a payload, a branch of a conditional or a match.
@@ -2590,9 +2597,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and the `E3064` lint on a tuple assignment of nothing but `_`.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
   `HeapFree` and no reference counting; Maxon counts references. A panic and a fault print no backtrace after their line
-  (the spec runner leaves maxon's `Stack trace:` lines out of what it compares). There is no green thread, scheduler or atomic count, so
-  a frozen value, a cown and a behaviour have no native code: the interpreter counts a frozen value and a cown, schedules
-  behaviours, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
+  (the spec runner leaves maxon's `Stack trace:` lines out of what it compares). A frozen value, a cown and a function
+  value are the values with a count of owners, always stepped by one locked add, whatever the program; a behaviour has
+  no native code yet: the interpreter schedules behaviours, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.
 - Errors (see "Errors of the program"): a `try` block's handler names
   one error, not the combined error of several (refused with `E3059`), and has no terminal `otherwise panic(...)` or

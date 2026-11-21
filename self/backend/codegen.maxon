@@ -29,6 +29,9 @@ let roundUp = 2 as Imm8
 // with one string instruction, which is shorter from there on.
 let zeroInlineSlots = 6
 
+// cownNewArguments is what the runtime's cownNew takes: the value and the destructor's code.
+let cownNewArguments = 2
+
 // The arguments of a call are the words above the return address and the saved frame pointer.
 let paramBase = 16
 
@@ -742,11 +745,16 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		self.put(f, v: x.dst, r: rax)
 	end 'visitAlloc'
 
-	function visitCall(mutates self, f ir.IrFunction, x ir.Instr)
-		let symbol = match calleeSymbols.get(ir.callCallee(f, x: x) as Count) 'callee'
+	// calleeSymbol is the link name of a function the function being written calls or takes the code of.
+	function calleeSymbol(fid ast.FuncID) returns String
+		return match calleeSymbols.get(fid as Count) 'callee'
 			some(name) gives name.clone()
-			none panic("backend: a callee that prepare did not name")
+			none gives panic("backend: a callee that prepare did not name")
 		end 'callee'
+	end 'calleeSymbol'
+
+	function visitCall(mutates self, f ir.IrFunction, x ir.Instr)
+		let symbol = self.calleeSymbol(ir.callCallee(f, x: x))
 		self.call(f, symbol: symbol, start: ir.callArgsStart(x), count: ir.callArgsCount(x), dst: x.dst)
 		match ir.callErrReg(x) 'throws'
 			some(err) then self.put(f, v: err, r: errorReg)
@@ -758,16 +766,26 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 	// or write one of their elements, or push one, are most of what a program does with them, so their common case is
 	// written in place, and the entry itself is only called for the rest: an index out of range, which it panics on, or a
 	// push that has to grow the buffer or an insert below the end, which move elements. What the program sees is the
-	// entry's behaviour either way.
+	// entry's behaviour either way. A read of what a frozen value holds is a load and nothing else, since a borrow leaves
+	// the count alone.
 	function visitCallRuntime(mutates self, f ir.IrFunction, x ir.Instr)
 		let symbol = ir.callRuntimeSymbol(x)
-		if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtStrLen 'length'
-			let offset = stringLengthOffset if symbol == ir.Rt.rtStrLen else arrayLengthOffset
+		if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtStrLen or symbol == ir.Rt.rtFrozenGet 'load'
+			var offset = imm32Of(arrayLengthOffset)
+			if symbol == ir.Rt.rtStrLen 'string'
+				offset = imm32Of(stringLengthOffset)
+			end 'string' else if symbol == ir.Rt.rtFrozenGet 'frozen'
+				offset = imm32Of(frozenValueOffset)
+			end 'frozen'
 			self.get(f, r: rcx, v: self.runtimeArg(f, x: x, index: 0))
 			u.asm.load(rax, base: rcx, disp: offset)
 			self.put(f, v: x.dst, r: rax)
 			return
-		end 'length'
+		end 'load'
+		if symbol == ir.Rt.rtCownNew 'cown'
+			self.cownNew(f, x: x)
+			return
+		end 'cown'
 		let slow = u.asm.newLabel()
 		let done = u.asm.newLabel()
 		if symbol == ir.Rt.rtArrayElem 'arrayElem'
@@ -801,6 +819,20 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		self.call(f, symbol: ir.rtSymbol(symbol), start: ir.callRuntimeArgsStart(x), count: ir.callRuntimeArgsCount(x), dst: x.dst)
 		u.asm.bind(done)
 	end 'visitCallRuntime'
+
+	// cownNew passes the entry the value and the address of the code of the destructor that ends it, or 0 when it is dropped.
+	function cownNew(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rax, v: self.runtimeArg(f, x: x, index: 0))
+		u.asm.push(rax)
+		match ir.callRuntimeRoutine(f, x: x) 'routine'
+			some(routine) then u.asm.leaSymbol(rax, symbol: self.calleeSymbol(routine))
+			none then u.asm.bitXor(rax, src: rax)
+		end 'routine'
+		u.asm.push(rax)
+		u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtCownNew))
+		u.asm.addImm(rsp, imm: imm32Of(cownNewArguments * wordBytes))
+		self.put(f, v: x.dst, r: rax)
+	end 'cownNew'
 
 	function runtimeArg(f ir.IrFunction, x ir.Instr, index Count) returns ir.Reg
 		return f.args[try ir.callRuntimeArgsStart(x) + index otherwise panic("backend: an argument past the pool")]
@@ -874,18 +906,12 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 
 	// visitFuncValue makes the box of a closure of a named function, which captures nothing and so has nothing to drop.
 	function visitFuncValue(mutates self, f ir.IrFunction, x ir.Instr)
-		let code = match calleeSymbols.get(ir.funcValueCallee(f, x: x) as Count) 'callee'
-			some(name) gives name.clone()
-			none panic("backend: a function value that prepare did not name")
-		end 'callee'
+		let code = self.calleeSymbol(ir.funcValueCallee(f, x: x))
 		self.closureBox(f, dst: x.dst, code: code, drop: "", captures: 0)
 	end 'visitFuncValue'
 
 	function visitCodeAddress(mutates self, f ir.IrFunction, x ir.Instr)
-		let code = match calleeSymbols.get(ir.codeAddressCallee(f, x: x) as Count) 'callee'
-			some(name) gives name.clone()
-			none panic("backend: the code of a function that prepare did not name")
-		end 'callee'
+		let code = self.calleeSymbol(ir.codeAddressCallee(f, x: x))
 		u.asm.leaSymbol(rax, symbol: code)
 		self.put(f, v: x.dst, r: rax)
 	end 'visitCodeAddress'

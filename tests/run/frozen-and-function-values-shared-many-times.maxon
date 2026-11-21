@@ -1,0 +1,52 @@
+typealias Words = Array with String
+
+typealias Scale = function(Count) returns Count
+
+typealias FrozenWords = Array with frozen with Words
+
+typealias Scales = Array with Scale
+
+function wordsOf(n Count) returns Words
+	var words = Words.create(0)
+	for i in 0 upto n 'each'
+		words.push("w{i}")
+	end 'each'
+	return words
+end 'wordsOf'
+
+function total(shared FrozenWords) returns Count throws ArithmeticError
+	var sum = 0 as Count
+	for i in 0 upto shared.count() 'each'
+		sum = try sum + shared[i].count()
+	end 'each'
+	return sum
+end 'total'
+
+function main() returns ExitCode
+	try 'run'
+		let frozenWords = freeze(wordsOf(3))
+		let prefix = "x".clone()
+		let scale = function(n Count) gives try n * prefix.byteLength() + 1 otherwise 0
+		var shared = FrozenWords.create(0)
+		var scales = Scales.create(0)
+		for i in 0 upto 50 'share'
+			shared.push(share(frozenWords))
+			scales.push(scale.clone())
+		end 'share'
+		print("{shared.count()} {try total(shared)} {scales[7](3)}\n")
+		var round = 0 as Count
+		while shared.count() > 0 'drop'
+			let at = try (round * 7) mod shared.count()
+			_ = try shared.remove(at) otherwise panic("no frozen value to drop")
+			_ = try scales.remove(scales.count() - 1) otherwise panic("no function value to drop")
+			round = try round + 1
+		end 'drop'
+		print("{frozenWords[2]} {frozenWords.count()} {scale(4)}\n")
+	end 'run' otherwise 'failed'
+		return 1
+	end 'failed'
+	return 0
+end 'main'
+
+//> 50 150 4
+//> w2 3 5

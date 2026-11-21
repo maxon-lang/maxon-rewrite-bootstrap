@@ -1,6 +1,6 @@
 let dropEmptyMessage = "dropEmpty of a collection that still holds an element"
 
-let interpreterOnlyMessage = "a map, a list, a pool, a frozen value, a cown or a behaviour runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
+let interpreterOnlyMessage = "a map, a list, a pool or a behaviour runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
 
 // entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
 // backend has no code for the entry.
@@ -888,8 +888,8 @@ function requireNative(mutates l Lowerer, mutates p ast.Project, site diag.Site,
 	end 'only'
 end 'requireNative'
 
-// holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a map, a list, a pool, a frozen value or a
-// cown. visiting are the records and unions being walked, so a type that contains itself through an array ends.
+// holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a map, a list or a pool. visiting are the
+// records and unions being walked, so a type that contains itself through an array ends.
 function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
 	let kind = p.types.entries[t as Count].kind
 	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
@@ -910,7 +910,10 @@ function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visit
 	if kind == ast.TypeKind.builtinArray 'array'
 		return holdsInterpreterOnly(p, t: elementType(p, bt: t), visiting: visiting)
 	end 'array'
-	if kind == ast.TypeKind.builtinMap or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool or kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown 'only'
+	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown 'shared'
+		return holdsInterpreterOnly(p, t: heldType(p, t: t), visiting: visiting)
+	end 'shared'
+	if kind == ast.TypeKind.builtinMap or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'only'
 		return true
 	end 'only'
 	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy 'nominal'

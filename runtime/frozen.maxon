@@ -1,0 +1,35 @@
+// Frozen values and cowns: boxes with a count of owners that threads share, so the count is only ever stepped by a locked
+// operation. Dropping an owner is each type's drop routine (self/backend/routines.maxon), since what the box holds is
+// dropped by the routine of its type, which only the compiler knows.
+
+// firstOwner is the count of a box that one place owns.
+let firstOwner = 1 as Count
+
+// frozenFreeze moves a value into a new frozen box, whatever the value holds: one allocation and two stores.
+function frozenFreeze(value Count) returns Count
+	let box = alloc(frozenBoxBytes)
+	__Raw.storeWord(box, offset: frozenCountOffset, value: firstOwner)
+	__Raw.storeWord(box, offset: frozenValueOffset, value: value)
+	return box
+end 'frozenFreeze'
+
+// frozenGet is what a frozen value holds, lent. The backend writes it in place; this is the same load.
+function frozenGet(frozen Count) returns Count
+	return __Raw.loadWord(frozen, offset: frozenValueOffset)
+end 'frozenGet'
+
+// share makes another owner of a frozen value or a cown, whose counts are at the same place.
+function share(box Count) returns Count
+	_ = __Raw.atomicAdd(box, offset: frozenCountOffset, value: firstOwner)
+	return box
+end 'share'
+
+// cownNew moves a value into a new cown that no behaviour waits for. ending is the address of the destructor that ends
+// the value in place of its drop, or 0.
+function cownNew(value Count, ending Count) returns Count
+	let cown = alloc(cownBytes)
+	__Raw.storeWord(cown, offset: cownCountOffset, value: firstOwner)
+	__Raw.storeWord(cown, offset: cownEndingOffset, value: ending)
+	__Raw.storeWord(cown, offset: cownValueOffset, value: value)
+	return cown
+end 'cownNew'
