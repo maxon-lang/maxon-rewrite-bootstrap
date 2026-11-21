@@ -116,7 +116,7 @@ end 'getNumber'
 
 function main() returns ExitCode
 	let c = Container.create(Value.number(42))
-	return getNumber(c) as ExitCode
+	return getNumber(c)
 end 'main'
 ```
 ```exitcode

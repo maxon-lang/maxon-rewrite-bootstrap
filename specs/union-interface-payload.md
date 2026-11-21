@@ -101,7 +101,7 @@ function get(h Holder) returns Val
 end 'get'
 
 function main() returns ExitCode
-	return get(Holder.full(Wrapped.create(7))) as ExitCode
+	return get(Holder.full(Wrapped.create(7)))
 end 'main'
 ```
 ```exitcode

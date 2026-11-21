@@ -840,7 +840,7 @@ function main() returns ExitCode
 		2 then result = 200
 		default then result = 0
 	end 'process'
-	return (result and 125) as ExitCode
+	return result and 125
 end 'main'
 ```
 ```exitcode
@@ -1135,7 +1135,7 @@ function main() returns ExitCode
 		b = a - 1
 		d = c - 1
 	end 'g3e'
-	return ((a + b + c + d) and 125) as ExitCode
+	return (a + b + c + d) and 125
 end 'main'
 ```
 ```exitcode

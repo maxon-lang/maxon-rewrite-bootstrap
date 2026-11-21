@@ -90,7 +90,7 @@ function main() returns ExitCode
 			end 'inner'
 		end 'shadowscope'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -145,7 +145,7 @@ function main() returns ExitCode
 			splat then sum = 33
 		end 'inner'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -251,7 +251,7 @@ function main() returns ExitCode
 			beta then sum = 9
 		end 'shadowed'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode

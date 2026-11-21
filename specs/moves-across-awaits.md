@@ -184,7 +184,7 @@ function fill(mutates db Db) returns Tally
 	var index = memo(db)
 	index.items.push(7)
 	index.items.push(8)
-	return index.items.count() as Tally
+	return index.items.count()
 end 'fill'
 
 function main() returns ExitCode

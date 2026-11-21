@@ -76,7 +76,7 @@ function main() returns ExitCode
 	if true 'reassign'
 		b = PointBox.create(Point.create(3, y: 4))
 	end 'reassign'
-	return b.itemDigest() as ExitCode
+	return b.itemDigest()
 end 'main'
 ```
 ```exitcode
@@ -129,7 +129,7 @@ function main() returns ExitCode
 		let pInner = Point.create(3, y: 4)
 		b = PointBox.create(pInner)
 	end 'reassign'
-	return b.itemDigest() as ExitCode
+	return b.itemDigest()
 end 'main'
 ```
 ```exitcode
@@ -184,7 +184,7 @@ function main() returns ExitCode
 		b = PointBox.create(pIn)
 		i = i + 1
 	end 'loop'
-	return b.itemDigest() as ExitCode
+	return b.itemDigest()
 end 'main'
 ```
 ```exitcode

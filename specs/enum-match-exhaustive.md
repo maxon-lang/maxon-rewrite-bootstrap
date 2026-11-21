@@ -681,7 +681,7 @@ function main() returns ExitCode
 	let small = classify(SmallOp.br)
 	let big = describeBig(BigOp.cmp)
 	if big == 30 'bigOk'
-		return small as ExitCode
+		return small
 	end 'bigOk'
 	return 99
 end 'main'

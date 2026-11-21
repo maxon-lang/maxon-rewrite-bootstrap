@@ -7,12 +7,16 @@ function size(n Count8) returns Count8
 	return n
 end 'size'
 
+function take(c ExitCode) returns ExitCode
+	return c
+end 'take'
+
 function code(n Wide) returns ExitCode
-	return try n as ExitCode otherwise panic("out of range")
+	return take(try n as ExitCode otherwise panic("out of range"))
 end 'code'
 
 function main() returns ExitCode
 	let n = size(7)
 	print("{code(3)}\n")
-	return n as ExitCode
+	return n
 end 'main'

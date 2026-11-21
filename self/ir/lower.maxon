@@ -314,10 +314,22 @@ function visitReturnStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 		v = konst(l, value: 0 as Word)
 	end 'none' else 'some'
 		v = lowerExpr(l, p: p, e: value)
+		if convertsAtReturn(p, module: l.module, node: s) 'converts'
+			convertReturned(l, p: p, s: s, value: value, v: v)
+		end 'converts'
 	end 'some'
 	unwind(l, p: p, depth: 0 as Count)
 	seal(l, t: newRet(v))
 end 'visitReturnStmt'
+
+// convertReturned converts the value of a return to the declared type of the function as the cast 'value as T' does.
+function convertReturned(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, value ast.NodeID, v Reg)
+	let fails = arithInfoAt(p, module: l.module, node: s).fails
+	let fail = overflowTo(l, p: p, fails: fails)
+	let target = p.funcs.entries[l.fn as Count].retTy
+	requireInt(p, t: target)
+	fit(l, p: p, v: v, target: target, source: exprType(p, module: l.module, node: value), fails: fails, fail: fail)
+end 'convertReturned'
 
 function visitBreakStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	let target = jumpsOf(l, node: jumpTargetOf(p, module: l.module, node: s))

@@ -63,14 +63,14 @@ end 'Expr'
 // death lands in a field-returning arm.
 function exprType(e Expr) returns Ty
 	return match e 'k'
-		direct(ty) gives ty
-		named(ty, _) gives ty
+		direct(ty) gives ty.clone()
+		named(ty, _) gives ty.clone()
 		unresolved gives Ty.stringy
 	end 'k'
 end 'exprType'
 
 function makeDirect(ty Ty) returns Expr
-	return Expr.direct(ty)
+	return Expr.direct(ty.clone())
 end 'makeDirect'
 
 function tyLen(ty Ty) returns TokenId
@@ -101,7 +101,7 @@ function walk(rounds TokenId) returns Expr
 		// exprType(e) is `e`'s last use; the fresh `e` (rc 1) then dies right
 		// where its `ty` field was just loaded.
 		let ty = exprType(e)
-		total = total + tyLen(ty)
+		total = try total + tyLen(ty) otherwise panic("out of range")
 		last = makeDirect(ty)
 	end 'loop'
 	return last
@@ -110,7 +110,7 @@ end 'walk'
 function main() returns ExitCode
 	let r = walk(5)
 	let ty = exprType(r)
-	return tyLen(ty) as ExitCode
+	return try tyLen(ty) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

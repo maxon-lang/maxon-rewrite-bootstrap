@@ -282,7 +282,7 @@ function main() returns ExitCode
 	let arr = IntArray.create(0)
 	arr.reserve(5)
 	arr.push(42)
-	return (try arr.get(0) otherwise 0) as ExitCode
+	return try arr.get(0) otherwise 0
 end 'main'
 ```
 ```exitcode
@@ -300,7 +300,7 @@ function main() returns ExitCode
 	let arr = IntArray.create(0)
 	arr.resize(5)
 	try arr.set(0, value: 99) otherwise panic("test invariant: set OOB")
-	return (try arr.get(0) otherwise 0) as ExitCode
+	return try arr.get(0) otherwise 0
 end 'main'
 ```
 ```exitcode
@@ -392,7 +392,7 @@ function main() returns ExitCode
 	arr.push(30 as Byte)
 	try arr.set(1, value: 99 as Byte) otherwise panic("test invariant: set OOB")
 	let val = try arr.get(1) otherwise 0 as Byte
-	return val as ExitCode
+	return val
 end 'main'
 ```
 ```exitcode
@@ -2542,7 +2542,7 @@ function main() returns ExitCode
 	arr.push(65)
 	arr.insert(0, value: 12)
 	try arr.set(1, value: 77) otherwise panic("test invariant: set OOB")
-	return (try arr.get(1) otherwise 0) as ExitCode
+	return try arr.get(1) otherwise 0
 end 'main'
 ```
 ```exitcode

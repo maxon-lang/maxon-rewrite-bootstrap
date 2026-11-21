@@ -252,7 +252,7 @@ function main() returns ExitCode
 	let i = Inner.create(10)
 	var o = Outer.create(i)
 	o.inner.x = 42
-	return o.inner.x as ExitCode
+	return o.inner.x
 end 'main'
 ```
 ```exitcode

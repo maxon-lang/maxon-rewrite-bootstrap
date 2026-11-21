@@ -68,7 +68,7 @@ function main() returns ExitCode
 	if t() or f() 'g'
 		code = code + 32
 	end 'g'
-	return code as ExitCode
+	return code
 end 'main'
 ```
 ```exitcode
@@ -94,7 +94,7 @@ function main() returns ExitCode
 	if x > 0 and y == 0 'mixed'
 		code = code + 4
 	end 'mixed'
-	return code as ExitCode
+	return code
 end 'main'
 ```
 ```exitcode
@@ -128,7 +128,7 @@ function main() returns ExitCode
 	if c 'c'
 		code = code + 4
 	end 'c'
-	return code as ExitCode
+	return code
 end 'main'
 ```
 ```exitcode
@@ -160,7 +160,7 @@ function main() returns ExitCode
 	if not (t() and f()) 'c'
 		code = code + 4
 	end 'c'
-	return code as ExitCode
+	return code
 end 'main'
 ```
 ```exitcode
@@ -231,7 +231,7 @@ function main() returns ExitCode
 	if eitherTrue() 'b'
 		code = code + 2
 	end 'b'
-	return code as ExitCode
+	return code
 end 'main'
 ```
 ```exitcode
@@ -297,7 +297,7 @@ function main() returns ExitCode
 	if f() or (t() and f()) 'c'
 		code = code + 4
 	end 'c'
-	return code as ExitCode
+	return code
 end 'main'
 ```
 ```exitcode

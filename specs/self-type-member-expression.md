@@ -109,7 +109,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.two(40, b: 1).twin() as ExitCode
+	return Gate.two(40, b: 1).twin()
 end 'main'
 ```
 ```exitcode
@@ -136,7 +136,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.twice(21).n as ExitCode
+	return Gate.twice(21).n
 end 'main'
 ```
 ```exitcode
@@ -210,7 +210,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.make(42).twin() as ExitCode
+	return Gate.make(42).twin()
 end 'main'
 ```
 ```exitcode
@@ -273,7 +273,7 @@ end 'Box'
 typealias IntBox = Box with Num
 
 function main() returns ExitCode
-	return IntBox.twice(42).v as ExitCode
+	return IntBox.twice(42).v
 end 'main'
 ```
 ```exitcode
@@ -614,7 +614,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.make(0).arg() as ExitCode
+	return Gate.make(0).arg()
 end 'main'
 ```
 ```exitcode
@@ -643,7 +643,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.make(0).twin() as ExitCode
+	return Gate.make(0).twin()
 end 'main'
 ```
 ```exitcode
@@ -672,7 +672,7 @@ end 'Holder'
 typealias NumHolder = Holder with Num
 
 function main() returns ExitCode
-	return NumHolder.make(42).twin() as ExitCode
+	return NumHolder.make(42).twin()
 end 'main'
 ```
 ```exitcode
@@ -701,7 +701,7 @@ end 'Gate'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Gate.twice(21).n as ExitCode
+	return Gate.twice(21).n
 end 'main'
 ```
 ```exitcode

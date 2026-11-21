@@ -58,7 +58,7 @@ function main() returns ExitCode
 	if not b.v.equals("second boxed string, long enough to live on the heap") 'badString'
 		return 93
 	end 'badString'
-	return b.tag as ExitCode
+	return b.tag
 end 'main'
 ```
 ```exitcode
@@ -101,7 +101,7 @@ function main() returns ExitCode
 	if not mine.v.equals("original boxed string, long enough to live on the heap") 'cloneFollowedTheSource'
 		return 96
 	end 'cloneFollowedTheSource'
-	return mine.tag as ExitCode
+	return mine.tag
 end 'main'
 ```
 ```exitcode

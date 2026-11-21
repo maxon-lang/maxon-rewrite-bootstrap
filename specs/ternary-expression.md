@@ -316,7 +316,7 @@ function main() returns ExitCode
 		let x = 5 if c else 9
 		total = total + x
 	end 'g'
-	return total as ExitCode
+	return total
 end 'main'
 ```
 ```exitcode
@@ -1099,7 +1099,7 @@ typealias Small = int(0 to 10)
 function clampOrGuard(useDefault bool, big Integer) returns Integer
 	// `big as Small` range-check-panics for big > 10; it sits in the arm that
 	// `useDefault` does NOT select, so it must never run.
-	return (5 if useDefault else (try big as Small otherwise panic("out of range"))) as Integer
+	return 5 if useDefault else (try big as Small otherwise panic("out of range"))
 end 'clampOrGuard'
 
 function main() returns ExitCode

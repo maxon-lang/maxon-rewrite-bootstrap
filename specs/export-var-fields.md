@@ -113,7 +113,7 @@ end 'Value'
 function main() returns ExitCode
 	var v = Value.create()
 	v.n = 42
-	return v.n as ExitCode
+	return v.n
 end 'main'
 ```
 ```exitcode

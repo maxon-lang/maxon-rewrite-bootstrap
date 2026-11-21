@@ -221,7 +221,7 @@ function main() returns ExitCode
 	b.push(false)
 	b.push(true)
 	b.push(true)
-	return countSet(b) as ExitCode
+	return countSet(b)
 end 'main'
 ```
 ```exitcode

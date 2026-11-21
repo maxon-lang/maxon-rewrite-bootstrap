@@ -255,7 +255,7 @@ function pick(a Num, b String, c bool) returns Num
 end 'pick'
 
 function main() returns ExitCode
-	return pick(1, c: true, b: "longer") as ExitCode
+	return pick(1, c: true, b: "longer")
 end 'main'
 ```
 ```exitcode
@@ -278,7 +278,7 @@ function pick(a Num, b String, c bool) returns Num
 end 'pick'
 
 function main() returns ExitCode
-	return pick(1, c: false, b: "abcde") as ExitCode
+	return pick(1, c: false, b: "abcde")
 end 'main'
 ```
 ```exitcode

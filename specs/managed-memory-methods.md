@@ -147,7 +147,7 @@ end 'main'
 function main() returns ExitCode
 	var s = "hello"
 	s.append(" world")
-	return s.byteLength() as ExitCode
+	return s.byteLength()
 end 'main'
 ```
 ```exitcode
@@ -3751,7 +3751,7 @@ end 'size'
 
 function main() returns ExitCode
 	let h = Held.mem("hello".toByteArray())
-	return size(h) as ExitCode
+	return try size(h) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

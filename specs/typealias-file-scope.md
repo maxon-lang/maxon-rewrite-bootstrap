@@ -190,7 +190,7 @@ typealias Unit = int(1 to 2)
 
 export function unitVal() returns ExitCode
 	let u = 2 as Unit
-	return u as ExitCode
+	return u
 end 'unitVal'
 
 // --- file: wide/wide.maxon
@@ -198,7 +198,7 @@ typealias Unit = int(0 to u64.max)
 
 export function wideVal() returns ExitCode
 	let w = 40 as Unit
-	return w as ExitCode
+	return w
 end 'wideVal'
 
 // --- file: main.maxon
@@ -284,14 +284,14 @@ unmarked. Each file's cast is checked against its own range, so both compile.
 typealias Span = int(0 to 20)
 
 export function fromA() returns ExitCode
-	return (20 as Span) as ExitCode
+	return 20 as Span
 end 'fromA'
 
 // --- file: b/b.maxon
 typealias Span = int(0 to 4000)
 
 export function fromB() returns ExitCode
-	return (22 as Span) as ExitCode
+	return 22 as Span
 end 'fromB'
 
 // --- file: main.maxon
@@ -427,7 +427,7 @@ typealias ElementIndex = int(0 to 2)
 
 export function libClamp() returns ExitCode
 	let i = 2 as ElementIndex
-	return i as ExitCode
+	return i
 end 'libClamp'
 
 // --- file: main.maxon
@@ -538,7 +538,7 @@ typealias Bytes = Array with Byte
 export function wide(v Integer) returns Integer
 	let b = Bytes.create(0)
 	b.push(v as Byte)
-	return (try b.get(0) otherwise 300) as Integer
+	return try b.get(0) otherwise 300
 end 'wide'
 
 export typealias Integer = int(i64.min to i64.max)

@@ -7,8 +7,12 @@ function size(n Count8) returns Count8
 	return n
 end 'size'
 
+function take(c ExitCode) returns ExitCode
+	return c
+end 'take'
+
 function code(n Wide) returns ExitCode
-	return n
+	return take(n)
 end 'code'
 
 function main() returns ExitCode

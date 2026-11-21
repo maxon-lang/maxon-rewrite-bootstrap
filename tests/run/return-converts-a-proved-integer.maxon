@@ -1,0 +1,30 @@
+// A return converts an integer to the declared type, with no cast, where the range analysis proves that it fits.
+typealias Wide = int(i64.min to i64.max)
+
+typealias Percent = int(0 to 100)
+
+function percent(n Wide) returns Percent
+	if n >= 0 and n <= 100 'fits'
+		return n
+	end 'fits'
+	return 0
+end 'percent'
+
+function status(count Count) returns ExitCode
+	if count <= 255 'fits'
+		return count
+	end 'fits'
+	return 1
+end 'status'
+
+function widen(p Percent) returns Count
+	return p
+end 'widen'
+
+function main() returns ExitCode
+	print("{percent(42)} {percent(500)} {widen(7)}\n")
+	return status(widen(percent(9)))
+end 'main'
+
+//> 42 0 7
+// expect-exit: 9

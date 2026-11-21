@@ -59,7 +59,7 @@ function spin(rounds Rounds) returns Rounds
 end 'spin'
 
 function main() returns ExitCode
-	return spin(1000) as ExitCode
+	return spin(1000)
 end 'main'
 ```
 ```exitcode

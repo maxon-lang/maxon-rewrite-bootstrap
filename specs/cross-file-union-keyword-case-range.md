@@ -125,7 +125,7 @@ function classify(ref Wrapper) returns Dim
 end 'classify'
 
 function main() returns ExitCode
-	return classify(Wrapper.value(MyType.named(7))) as ExitCode
+	return classify(Wrapper.value(MyType.named(7)))
 end 'main'
 ```
 ```exitcode

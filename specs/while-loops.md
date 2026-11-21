@@ -239,7 +239,7 @@ function main() returns ExitCode
 			break
 		end 'check'
 	end 'loop'
-	return x as ExitCode
+	return x
 end 'main'
 ```
 ```exitcode

@@ -130,7 +130,7 @@ typealias Score = int(0 to 100)
 
 function main() returns ExitCode
 	let s = 42 as Score
-	return s as ExitCode
+	return s
 end 'main'
 ```
 ```exitcode
@@ -145,7 +145,7 @@ typealias SmallInt = int(0 to 10)
 
 function main() returns ExitCode
 	let x = 7 as SmallInt
-	return x as ExitCode
+	return x
 end 'main'
 ```
 ```exitcode
@@ -175,7 +175,7 @@ typealias FullInt = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let x = 42 as FullInt
-	return x as ExitCode
+	return x
 end 'main'
 ```
 ```exitcode
@@ -536,7 +536,7 @@ typealias Idx = int(0 upto 10)
 
 function main() returns ExitCode
 	let i = 9 as Idx
-	return i as ExitCode
+	return i
 end 'main'
 ```
 ```exitcode
@@ -570,7 +570,7 @@ function double(s Score) returns Score
 end 'double'
 
 function main() returns ExitCode
-	return double(21) as ExitCode
+	return double(21)
 end 'main'
 ```
 ```exitcode
@@ -587,7 +587,7 @@ typealias Age = int(0 to 150)
 
 function makeAge(n Integer) returns Integer
 	let a = try n as Age otherwise panic("out of range")
-	return a as Integer
+	return a
 end 'makeAge'
 
 function main() returns ExitCode
@@ -635,7 +635,7 @@ typealias AsciiCode = int(0 to 127)
 
 function main() returns ExitCode
 	let c = 65 as AsciiCode
-	return c as ExitCode
+	return c
 end 'main'
 ```
 ```exitcode
@@ -960,7 +960,7 @@ end 'ident'
 
 function magnitude(imm Imm32) returns Integer
 	if imm >= 0 'nonNeg'
-		return imm as Integer
+		return imm
 	end 'nonNeg'
 	return -imm
 end 'magnitude'
@@ -1113,7 +1113,7 @@ end 'Player'
 
 function main() returns ExitCode
 	let p = Player.create("Alice", score: 42)
-	return p.score as ExitCode
+	return p.score
 end 'main'
 ```
 ```exitcode
@@ -1131,7 +1131,7 @@ function getScore() returns Score
 end 'getScore'
 
 function main() returns ExitCode
-	return getScore() as ExitCode
+	return getScore()
 end 'main'
 ```
 ```exitcode
@@ -1149,7 +1149,7 @@ function half(s Score) returns Score
 end 'half'
 
 function main() returns ExitCode
-	return half(84) as ExitCode
+	return half(84)
 end 'main'
 ```
 ```exitcode
@@ -1263,7 +1263,7 @@ typealias Handle = int(0 to u32.max)
 
 function main() returns ExitCode
 	let h = 42 as Handle
-	return h as ExitCode
+	return h
 end 'main'
 ```
 ```exitcode
@@ -1302,7 +1302,7 @@ typealias SmallSigned = int(i8.min to i8.max)
 
 function main() returns ExitCode
 	let s = 100 as SmallSigned
-	return s as ExitCode
+	return s
 end 'main'
 ```
 ```exitcode
@@ -1317,7 +1317,7 @@ typealias Port = int(0 to u16.max)
 
 function main() returns ExitCode
 	let p = 200 as Port
-	return p as ExitCode
+	return p
 end 'main'
 ```
 ```exitcode
@@ -1332,7 +1332,7 @@ typealias Handle = int(0 to u32.max)
 
 function main() returns ExitCode
 	let h = 42 as Handle
-	return h as ExitCode
+	return h
 end 'main'
 ```
 ```exitcode
@@ -1347,7 +1347,7 @@ typealias SmallInt = int(i8.min to i8.max)
 
 function main() returns ExitCode
 	let s = 100 as SmallInt
-	return s as ExitCode
+	return s
 end 'main'
 ```
 ```exitcode
@@ -1474,7 +1474,7 @@ typealias Handle = int(0 to 0xFFFF)
 
 function main() returns ExitCode
 	let h = 255 as Handle
-	return h as ExitCode
+	return h
 end 'main'
 ```
 ```exitcode

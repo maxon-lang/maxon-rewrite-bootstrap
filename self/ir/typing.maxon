@@ -67,6 +67,12 @@ export function arithInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID
 	end 'hit'
 end 'arithInfoAt'
 
+// convertsAtReturn is whether the return statement converts its value to the declared type of the function, which the
+// range analysis proved fits.
+export function convertsAtReturn(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
+	return p.typings[ast.modIndex(module)].arith.get(node as Count).isSome()
+end 'convertsAtReturn'
+
 // localOfNode is the local a let, a for or the handler of a try declares: none for a 'for' named '_' and for a handler
 // that binds no error.
 export function localOfNode(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.LocalID

@@ -52,7 +52,7 @@ end 'Point'
 function main() returns ExitCode
 	var p = Point.create(1, y: 2)
 	p.x = 100
-	return p.x as ExitCode
+	return p.x
 end 'main'
 ```
 ```exitcode

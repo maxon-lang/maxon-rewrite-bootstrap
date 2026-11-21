@@ -94,7 +94,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 42 as Byte
-	return b as ExitCode
+	return b
 end 'main'
 ```
 ```exitcode
@@ -108,7 +108,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 0 as Byte
-	return b as ExitCode
+	return b
 end 'main'
 ```
 ```exitcode
@@ -122,7 +122,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 255 as Byte
-	return b as ExitCode
+	return b
 end 'main'
 ```
 ```exitcode
@@ -136,7 +136,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 100 as Byte
-	return b as ExitCode
+	return b
 end 'main'
 ```
 ```exitcode
@@ -1190,7 +1190,7 @@ end 'takes'
 function main() returns ExitCode
 	var a = Bytes.create(0)
 	a.push(7)
-	return takes(a) as ExitCode
+	return takes(a)
 end 'main'
 ```
 ```exitcode

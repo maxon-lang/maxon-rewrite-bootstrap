@@ -1986,7 +1986,7 @@ function main() returns ExitCode
 	let s = SBox.create("hello")
 	let m = Box_String.held(Held.create(4))
 	match m 'k'
-		silent then return s.tag() as ExitCode
+		silent then return s.tag()
 		held(h) then return s.tag() + h.n
 	end 'k'
 end 'main'
@@ -2028,7 +2028,7 @@ function main() returns ExitCode
 	let s = SBox.create("hello")
 	let e = Box_String.square
 	match e 'k'
-		circle then return s.tag() as ExitCode
+		circle then return s.tag()
 		square then return s.tag() + 4
 	end 'k'
 end 'main'
@@ -2642,7 +2642,7 @@ typealias Status = int(0 to 5)
 
 export function clamped() returns ExitCode
 	let s = 4 as Status
-	return s as ExitCode
+	return s
 end 'clamped'
 
 // --- file: b/b.maxon
@@ -3103,7 +3103,7 @@ typealias Container = int(0 to 5)
 
 export function useA() returns ExitCode
 	let c = 4 as Container
-	return c as ExitCode
+	return c
 end 'useA'
 
 // --- file: b/b.maxon

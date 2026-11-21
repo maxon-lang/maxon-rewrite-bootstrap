@@ -270,7 +270,7 @@ function main() returns ExitCode
 	print("{hole}\n")
 	print("{moved}\n")
 	print("{alsoMoved}\n")
-	return xs.count() as ExitCode
+	return xs.count()
 end 'main'
 ```
 ```stdout
@@ -733,7 +733,7 @@ function main() returns ExitCode
 	try xs.managed.swap(0, j: 0) otherwise return 99
 	let only = try xs.get(0) otherwise "missing"
 	print("{only}\n")
-	return xs.count() as ExitCode
+	return xs.count()
 end 'main'
 ```
 ```stdout
@@ -782,7 +782,7 @@ function main() returns ExitCode
 	let second = try xs.get(1) otherwise "missing"
 	print("{first}\n")
 	print("{second}\n")
-	return xs.count() as ExitCode
+	return xs.count()
 end 'main'
 ```
 ```stdout

@@ -394,7 +394,7 @@ function main() returns ExitCode
 	var s = 0 as Score
 	s = 5
 	s = s + 20
-	return s as ExitCode
+	return s
 end 'main'
 ```
 ```exitcode
@@ -555,7 +555,7 @@ end 'JsonByte'
 function main() returns ExitCode
 	var b = 0 as Byte
 	b = JsonByte.lBracket
-	return b as ExitCode
+	return b
 end 'main'
 ```
 ```exitcode

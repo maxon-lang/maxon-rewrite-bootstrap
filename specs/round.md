@@ -143,7 +143,7 @@ function round(n Tally) returns Tally
 end 'round'
 
 function main() returns ExitCode
-	return round(10) as ExitCode
+	return round(10)
 end 'main'
 ```
 ```exitcode

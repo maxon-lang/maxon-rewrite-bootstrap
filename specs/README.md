@@ -52,11 +52,12 @@ specs to; raise it when more pass.
 | 2026-11-21 | dc8bc40 and the spec runner | 837 | 5393 | 11419 | 11.4 s to 12.5 s |
 | 2026-11-21 | the commit that removed the Go compiler | 840 | 5390 | 11419 | 18.8 s |
 | 2026-11-21 | the fix command (`specs.ps1`) | 2251 | 3830 | 11568 | 25 s |
+| 2026-11-21 | a return converts an integer that the range analysis proves fits | 2264 | 3817 | 11568 | 37 s |
 
 Of the skipped tests, 10719 are skipped by the conversion (`<!-- skip: kind -->`, 368 of them the main-in-a-subdirectory
 difference) and 700 by the runner (508 `tier`, the rest directives, overlays and result blocks it cannot honour yet).
 The failed tests are mostly the stdlib that is not ported (1,064), and the rules in which minimaxon differs from
-maxon: an `Integer` where an `ExitCode` is declared, arithmetic that needs a proof or a `try`, implicit copies, `let`
+maxon: an `Integer` returned where an `ExitCode` is declared and not proved to fit (the fix writes a `try`), arithmetic that needs a proof or a `try`, implicit copies, `let`
 mutability, interfaces as types, and diagnostics that minimaxon has no code for or words differently.
 
 Since the fix, 123 more tests are skipped for maxon's run-time trap, and of the four rules above only what names no change

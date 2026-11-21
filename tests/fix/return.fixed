@@ -1,0 +1,10 @@
+// A return whose integer may not fit the declared type is covered by a try around the conversion it makes.
+typealias Big = int(0 to 10000000000)
+
+function status(count Big) returns ExitCode
+	return try count as ExitCode otherwise panic("out of range")
+end 'status'
+
+function main() returns ExitCode
+	return status(3)
+end 'main'

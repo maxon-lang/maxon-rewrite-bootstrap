@@ -116,7 +116,7 @@ function main() returns ExitCode
 	var a = SmallCol.create(0)
 	a.push(40)
 	bump(a, by: 2)
-	return (try a.get(0) otherwise panic("get")) as ExitCode
+	return try a.get(0) otherwise panic("get")
 end 'main'
 ```
 ```exitcode

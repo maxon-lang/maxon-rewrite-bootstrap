@@ -115,7 +115,7 @@ function pick(o Op) returns Code
 end 'pick'
 
 function main() returns ExitCode
-	return pick(Op.systemOp(3)) as ExitCode
+	return pick(Op.systemOp(3))
 end 'main'
 ```
 ```exitcode

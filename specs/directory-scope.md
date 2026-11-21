@@ -837,7 +837,7 @@ typealias Score = int(0 to 200)
 
 // --- file: lib/b.maxon
 export function pick() returns ExitCode
-	return (150 as Score) as ExitCode
+	return 150 as Score
 end 'pick'
 
 // --- file: z/z.maxon
@@ -845,7 +845,7 @@ typealias Score = int(0 to 5)
 
 export function tiny() returns ExitCode
 	let s = 1 as Score
-	return s as ExitCode
+	return s
 end 'tiny'
 
 // --- file: main.maxon

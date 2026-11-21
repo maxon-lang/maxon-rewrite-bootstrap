@@ -794,7 +794,7 @@ function main() returns ExitCode
 	print("{q.x}")
 	p = Point.create(3)
 	p.x = 5
-	return p.x as ExitCode
+	return p.x
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -956,7 +956,7 @@ function main() returns ExitCode
 	let t = Box.create(5)
 	var u = t
 	u.value = 9
-	return u.value as ExitCode
+	return u.value
 end 'main'
 ```
 ```exitcode

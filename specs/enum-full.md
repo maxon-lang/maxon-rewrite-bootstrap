@@ -829,7 +829,7 @@ end 'Outcome'
 
 function main() returns ExitCode
 	let o = Outcome.failure(42)
-	return o.statusCode() as ExitCode
+	return o.statusCode()
 end 'main'
 ```
 ```exitcode

@@ -74,7 +74,7 @@ end 'Gate'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Gate.twice(21).n as ExitCode
+	return Gate.twice(21).n
 end 'main'
 ```
 ```exitcode
@@ -100,7 +100,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.twice(21).n as ExitCode
+	return Gate.twice(21).n
 end 'main'
 ```
 ```exitcode
@@ -153,7 +153,7 @@ end 'Gate'
 // --- file: main.maxon
 function main() returns ExitCode
 	let g = Gate.twice(21)
-	return g.n as ExitCode
+	return g.n
 end 'main'
 ```
 ```exitcode
@@ -193,7 +193,7 @@ public function pad(a P1, _ P2, _ P3) returns P1
 end 'pad'
 
 function main() returns ExitCode
-	return Gate.twice(21).n as ExitCode
+	return Gate.twice(21).n
 end 'main'
 ```
 ```exitcode
@@ -282,7 +282,7 @@ end 'Gate'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Gate.twice(21).n as ExitCode
+	return Gate.twice(21).n
 end 'main'
 ```
 ```exitcode
@@ -596,7 +596,7 @@ end 'Bag'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Bag.make().n as ExitCode
+	return Bag.make().n
 end 'main'
 ```
 ```exitcode
@@ -629,7 +629,7 @@ end 'Bag'
 // --- file: main.maxon
 function main() returns ExitCode
 	let b = Bag.make()
-	return b.n as ExitCode
+	return b.n
 end 'main'
 ```
 ```exitcode
@@ -690,7 +690,7 @@ typealias Integer = int(0 to u32.max)
 typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
-	return IntHolder.create(7).item as ExitCode
+	return IntHolder.create(7).item
 end 'main'
 ```
 ```exitcode

@@ -702,7 +702,7 @@ function main() returns ExitCode
 	a.push(2)
 	a.push(5)
 	_ = removeFirst(a, value: 2)
-	return a.count() as ExitCode
+	return a.count()
 end 'main'
 ```
 ```exitcode

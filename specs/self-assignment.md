@@ -56,7 +56,7 @@ function main() returns ExitCode
 	var x = 10 as FullRangeInt
 	let y = 20
 	x = y
-	return x as ExitCode
+	return x
 end 'main'
 ```
 ```exitcode
@@ -69,7 +69,7 @@ end 'main'
 function main() returns ExitCode
 	var x = 10 as FullRangeInt
 	x = x + 1
-	return x as ExitCode
+	return x
 end 'main'
 ```
 ```exitcode

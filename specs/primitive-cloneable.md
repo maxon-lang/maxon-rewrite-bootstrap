@@ -82,7 +82,7 @@ typealias Byte = int(0 to u8.max)
 function main() returns ExitCode
 	let x = 65 as Byte
 	let y = x.clone() as Integer
-	return y as ExitCode
+	return y
 end 'main'
 ```
 ```exitcode

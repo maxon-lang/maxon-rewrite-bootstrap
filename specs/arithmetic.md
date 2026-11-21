@@ -92,7 +92,7 @@ function divLive(a Integer, b NonZero, x Integer) returns Integer
 end 'divLive'
 
 function main() returns ExitCode
-	return divLive(10, b: 2, x: 5) as ExitCode
+	return divLive(10, b: 2, x: 5)
 end 'main'
 ```
 ```exitcode
@@ -136,7 +136,7 @@ function divLoop(n Integer) returns Integer
 end 'divLoop'
 
 function main() returns ExitCode
-	return divLoop(5) as ExitCode
+	return divLoop(5)
 end 'main'
 ```
 ```exitcode
@@ -161,7 +161,7 @@ function divCall(a Integer, b NonZero) returns Integer
 end 'divCall'
 
 function main() returns ExitCode
-	return divCall(10, b: 2) as ExitCode
+	return divCall(10, b: 2)
 end 'main'
 ```
 ```exitcode
@@ -182,7 +182,7 @@ function multiDiv(a Integer, b NonZero, c Integer, d NonZero) returns Integer
 end 'multiDiv'
 
 function main() returns ExitCode
-	return multiDiv(10, b: 2, c: 20, d: 4) as ExitCode
+	return multiDiv(10, b: 2, c: 20, d: 4)
 end 'main'
 ```
 ```exitcode

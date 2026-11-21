@@ -1435,17 +1435,17 @@ typealias Bits = int(0 to 63)
 
 function shlLowByte(n Bits) returns Num
 	let b = 200 as Byte
-	return try (b shl n) as Num otherwise panic("out of range")
+	return try b shl n otherwise panic("out of range")
 end 'shlLowByte'
 
 function shlTopByte(n Bits) returns Num
 	let b = 255 as Byte
-	return try (b shl n) as Num otherwise panic("out of range")
+	return try b shl n otherwise panic("out of range")
 end 'shlTopByte'
 
 function shrLowByte(n Bits) returns Num
 	let b = 200 as Byte
-	return (b shr n) as Num
+	return b shr n
 end 'shrLowByte'
 
 function bits(step Num) returns Bits
@@ -1685,11 +1685,11 @@ typealias Byte = int(0 to u8.max)
 typealias Bits = int(0 to 63)
 
 function shlByteByBits(b Byte, n Bits) returns Num
-	return try (b shl n) as Num otherwise panic("out of range")
+	return try b shl n otherwise panic("out of range")
 end 'shlByteByBits'
 
 function shrByteByBits(b Byte, n Bits) returns Num
-	return (b shr n) as Num
+	return b shr n
 end 'shrByteByBits'
 
 function byteOf(step Num) returns Byte
@@ -1842,7 +1842,7 @@ function complementHalf(b Small) returns Num
 end 'complementHalf'
 
 function complementShift(b Small) returns Num
-	return try ((not b) shr 1) as Num otherwise panic("out of range")
+	return try (not b) shr 1 otherwise panic("out of range")
 end 'complementShift'
 
 function main() returns ExitCode

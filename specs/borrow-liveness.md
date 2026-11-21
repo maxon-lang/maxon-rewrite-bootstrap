@@ -1376,7 +1376,7 @@ type Bag
 		let s = try items.get(0) otherwise ""
 		reset()
 		print("[{s}]\n")
-		return s.byteLength() as Integer
+		return s.byteLength()
 	end 'measure'
 end 'Bag'
 
@@ -1417,7 +1417,7 @@ type Bag
 		let s = try items.get(0) otherwise ""
 		self.reset()
 		print("[{s}]\n")
-		return s.byteLength() as Integer
+		return s.byteLength()
 	end 'measure'
 end 'Bag'
 

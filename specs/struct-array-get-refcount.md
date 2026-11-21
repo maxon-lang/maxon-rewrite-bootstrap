@@ -63,7 +63,7 @@ function main() returns ExitCode
 	list.walk()
 	list.pushFront(30)
 	let n1 = try list.nodes.get(1) otherwise Node.create(0, next: -1)
-	return n1.value as ExitCode
+	return n1.value
 end 'main'
 ```
 ```exitcode

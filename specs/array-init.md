@@ -645,7 +645,7 @@ function eat(xs ByteArray, fail bool) returns Integer throws Boom
 	if fail 'boom'
 		throw Boom.bad
 	end 'boom'
-	return xs.count() as Integer
+	return xs.count()
 end 'eat'
 
 function main() returns ExitCode

@@ -65,7 +65,7 @@ function main() returns ExitCode
 			failed then sum = 99
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -99,7 +99,7 @@ function main() returns ExitCode
 			failed then sum = 42
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -427,7 +427,7 @@ function main() returns ExitCode
 			splat then sum = 22
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -502,7 +502,7 @@ function main() returns ExitCode
 			emptySlot then sum = 99
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -989,7 +989,7 @@ function main() returns ExitCode
 			emptySlot then sum = 99
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -1050,7 +1050,7 @@ function main() returns ExitCode
 			emptySlot then sum = 99
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -1103,7 +1103,7 @@ function main() returns ExitCode
 			splat then sum = sum + 40
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -1148,7 +1148,7 @@ function main() returns ExitCode
 			splat then sum = 99
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -2750,7 +2750,7 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let b = PointBox.create(Point.create(3))
-	return b.itemDigest() as ExitCode
+	return b.itemDigest()
 end 'main'
 ```
 ```exitcode
@@ -2835,7 +2835,7 @@ function main() returns ExitCode
 			kaboom then sum = 42
 		end 'k'
 	end 'h'
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode
@@ -2889,7 +2889,7 @@ function main() returns ExitCode
 			failed then result = 55
 		end 'k'
 	end 'h'
-	return result as ExitCode
+	return result
 end 'main'
 ```
 ```exitcode

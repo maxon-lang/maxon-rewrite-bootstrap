@@ -74,7 +74,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create(5)
-	return b.get() as ExitCode
+	return b.get()
 end 'main'
 ```
 ```exitcode

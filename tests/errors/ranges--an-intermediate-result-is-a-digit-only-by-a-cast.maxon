@@ -14,7 +14,7 @@ function touch(mutates c Cell)
 	c.n = 0
 end 'touch'
 
-// expect-error: E3005 at 20:9
+// expect-error: E3057 at 20:9
 function f(a Digit, b Digit) returns Digit
 	let sum = a + b
 	return sum

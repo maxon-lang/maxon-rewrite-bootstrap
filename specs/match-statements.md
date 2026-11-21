@@ -1000,7 +1000,7 @@ typealias Tally = int(0 to 100)
 typealias Score = int(0 to 100)
 
 function main() returns ExitCode
-	return dispatch(1) as ExitCode
+	return dispatch(1)
 end 'main'
 ```
 ```exitcode
@@ -1029,7 +1029,7 @@ function dispatch(kind Tally) returns Score
 end 'dispatch'
 
 function main() returns ExitCode
-	return dispatch(1) as ExitCode
+	return dispatch(1)
 end 'main'
 ```
 ```exitcode

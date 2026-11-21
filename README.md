@@ -929,8 +929,9 @@ Every typealias is its own type. An integer literal is an untyped constant: it f
 holds it, and constant expressions fold at compile time. A value whose range is known but has no alias,
 such as a `for` variable or an intermediate result (below), fits any alias whose range contains it, and goes into
 one that does not only through `as`, which checks at compile time for a constant and is otherwise an operation that can
-fail. Mixing two different aliases is `E3005`. A `var` and a constant name their alias: `var x = a + b` and
-`let Total = a + b` are errors until the value is cast, `as <Alias>`.
+fail. Mixing two different aliases is `E3005`, except at a `return`, which converts an integer to the function's
+declared integer type when the range analysis proves that it fits (below). A `var` and a constant name their alias:
+`var x = a + b` and `let Total = a + b` are errors until the value is cast, `as <Alias>`.
 
 **The type of an operation.** `+`, `-`, `*`, `/`, `mod` and unary `-` take their type from where the result goes, and
 are computed in a 64-bit word that their operands decide:
@@ -951,7 +952,11 @@ are computed in a 64-bit word that their operands decide:
   operand.
 
 An anonymous range goes into an alias only if the alias holds all of it, else it is `E3005` and asks for a cast
-(`try t as Score`). Comparisons take any two integers one word holds, an alias against an anonymous range or a constant
+(`try t as Score`). A `return` of an integer of another type, an anonymous range included, converts it to the declared
+type with no cast, as `value as T` does, where the range analysis proves that it fits, as after
+`if count >= 0 and count <= 255` for `return count` in a function that returns an alias of 0 to 255; where it does
+not, it is `E3057` ("the value may not fit"), and the fix is `try <value> as T otherwise panic("out of range")`. A
+literal that does not fit is `E3005`, and an assignment, an argument and an initialiser still need the cast. Comparisons take any two integers one word holds, an alias against an anonymous range or a constant
 included; only two different aliases are `E3005`. The branches of a conditional, a `match` or a `try` with no type to
 take give their alias when both are of it, or one is and holds the other, and otherwise a range that holds both.
 
@@ -1639,6 +1644,10 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   nothing that throws) are not raised, so a sharper range analysis never breaks a program. A `try` covers every
   operation of its expression, not one call, and a condition that rules a failure out is a proof the compiler checks
   (see "Checked arithmetic").
+- A `return` converts an integer to the function's declared integer type with no cast where the range analysis proves that
+  it fits, and the value that may not fit is `E3057` (see "Integers"). Maxon converts every `return` implicitly and checks
+  it at run time, trapping where the value does not fit, so a function that returns an `ExitCode` can return any
+  integer there; here the conversion costs nothing and is never a trap, and a value that is not proved needs `try ... as T`.
 - No alias subtyping (an alias implementing another), floats, characters, tuples, closures, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
   parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and

@@ -53,7 +53,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create()
-	return c.twice() as ExitCode
+	return c.twice()
 end 'main'
 ```
 ```exitcode
@@ -83,7 +83,7 @@ end 'Rec'
 
 function main() returns ExitCode
 	let r = Rec.create()
-	return r.sumTo(3) as ExitCode
+	return r.sumTo(3)
 end 'main'
 ```
 ```exitcode
@@ -115,7 +115,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.first() as ExitCode
+	return b.first()
 end 'main'
 ```
 ```exitcode
@@ -147,7 +147,7 @@ end 'Adder'
 
 function main() returns ExitCode
 	let a = Adder.create(1)
-	return a.addTwice(3) as ExitCode
+	return a.addTwice(3)
 end 'main'
 ```
 ```exitcode
@@ -179,7 +179,7 @@ end 'Maker'
 
 function main() returns ExitCode
 	let m = Maker.create()
-	return m.useIt() as ExitCode
+	return m.useIt()
 end 'main'
 ```
 ```exitcode
@@ -206,7 +206,7 @@ type Maker
 end 'Maker'
 
 function main() returns ExitCode
-	return Maker.build() as ExitCode
+	return Maker.build()
 end 'main'
 ```
 ```exitcode
@@ -310,7 +310,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.pick() as ExitCode
+	return b.pick()
 end 'main'
 ```
 ```exitcode
@@ -347,7 +347,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.branchy(1) as ExitCode
+	return b.branchy(1)
 end 'main'
 ```
 ```exitcode

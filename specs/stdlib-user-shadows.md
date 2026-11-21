@@ -199,7 +199,7 @@ typealias DurationMs = int(0 to 10)
 
 function main() returns ExitCode
 	let d = 5 as DurationMs
-	return d as ExitCode
+	return d
 end 'main'
 ```
 ```exitcode
@@ -509,7 +509,7 @@ end 'FullRangeInt'
 
 function main() returns ExitCode
 	let p = FullRangeInt.create(7)
-	return p.value as ExitCode
+	return p.value
 end 'main'
 ```
 ```exitcode

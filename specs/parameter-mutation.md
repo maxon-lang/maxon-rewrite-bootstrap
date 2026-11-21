@@ -447,7 +447,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function grow(mutates s String) returns Integer
 	s.append("XY")
-	return s.byteLength() as Integer
+	return s.byteLength()
 end 'grow'
 
 function main() returns ExitCode

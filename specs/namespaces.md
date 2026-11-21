@@ -273,7 +273,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.make()
-	return c.bumpTwice(5) as ExitCode
+	return c.bumpTwice(5)
 end 'main'
 ```
 ```exitcode

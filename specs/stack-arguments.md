@@ -247,7 +247,7 @@ function joinLengths(a String, b String, c String, d String, e String, f String,
 end 'joinLengths'
 
 function main() returns ExitCode
-	return joinLengths("a string long enough to be heap allocated, one", b: "bb", c: "ccc", d: "dddd", e: "eeeee", f: "ffffff", g: "another heap allocated string, seven", h: "hhhhhhhhhhhhhhhhhhhhhhhhh") as ExitCode
+	return joinLengths("a string long enough to be heap allocated, one", b: "bb", c: "ccc", d: "dddd", e: "eeeee", f: "ffffff", g: "another heap allocated string, seven", h: "hhhhhhhhhhhhhhhhhhhhhhhhh")
 end 'main'
 ```
 ```exitcode

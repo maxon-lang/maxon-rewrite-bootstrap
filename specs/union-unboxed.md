@@ -1553,7 +1553,7 @@ end 'lookup'
 
 function main() returns ExitCode
 	let sum = lookup("idle") + lookup("done") + lookup("failed") + lookup("skipped") + lookup("eight") + lookup("nine") + lookup("ten") + lookup("text") + lookup("nothing")
-	return sum as ExitCode
+	return sum
 end 'main'
 ```
 ```exitcode

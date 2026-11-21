@@ -58,7 +58,7 @@ function main() returns ExitCode
 	for i in 0 upto 3 'b'
 		total = total + i
 	end 'b'
-	return total as ExitCode
+	return total
 end 'main'
 ```
 ```exitcode

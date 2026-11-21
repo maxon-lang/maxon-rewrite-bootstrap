@@ -174,7 +174,7 @@ end 'Kind'
 
 function main() returns ExitCode
 	let p = Point.at(3, y: 4)
-	return p.norm() as ExitCode
+	return p.norm()
 end 'main'
 ```
 ```exitcode
@@ -229,7 +229,7 @@ function pick(n Code) returns Code /// a note on the header
 end 'pick'
 
 function main() returns ExitCode
-	return pick(5) as ExitCode
+	return pick(5)
 end 'main'
 ```
 ```exitcode

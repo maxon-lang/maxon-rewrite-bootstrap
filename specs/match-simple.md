@@ -787,7 +787,7 @@ end 'nameOf'
 function main() returns ExitCode
 	var b = ByteArray.create(0)
 	b.push(65)
-	return nameOf(Op.alloc(b)) as ExitCode
+	return nameOf(Op.alloc(b))
 end 'main'
 ```
 ```exitcode

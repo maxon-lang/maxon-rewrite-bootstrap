@@ -128,7 +128,7 @@ end 'Calculator'
 
 function main() returns ExitCode
 	let calc = Calculator.create(5)
-	return calc.quadruple() as ExitCode
+	return calc.quadruple()
 end 'main'
 ```
 ```exitcode

@@ -88,7 +88,7 @@ function main() returns ExitCode
 	if a.managed.elementSize() != -4 'notPacked'
 		return 99
 	end 'notPacked'
-	return (try a.get(2) otherwise 0) as ExitCode
+	return try a.get(2) otherwise 0
 end 'main'
 ```
 ```exitcode
@@ -130,7 +130,7 @@ function main() returns ExitCode
 	if a.managed.elementSize() != 1 'shouldBeByte'
 		return 99
 	end 'shouldBeByte'
-	return (try a.get(0) otherwise 0) as ExitCode
+	return try a.get(0) otherwise 0
 end 'main'
 ```
 ```exitcode
@@ -170,7 +170,7 @@ function main() returns ExitCode
 	if a.managed.elementSize() != 1 'shouldBeByte'
 		return 99
 	end 'shouldBeByte'
-	return (try a.get(0) otherwise 1) as ExitCode
+	return try a.get(0) otherwise 1
 end 'main'
 ```
 ```exitcode

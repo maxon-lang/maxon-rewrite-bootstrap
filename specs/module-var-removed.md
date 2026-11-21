@@ -97,7 +97,7 @@ function main() returns ExitCode
 	var cell = Cell.create()
 	cell.n = 40
 	total = total + cell.n + 2
-	return total as ExitCode
+	return total
 end 'main'
 ```
 ```exitcode

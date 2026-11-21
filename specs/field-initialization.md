@@ -404,7 +404,7 @@ end 'Branched'
 
 function main() returns ExitCode
 	let b = Branched.make(true)
-	return b.value as ExitCode
+	return b.value
 end 'main'
 ```
 ```exitcode
@@ -484,7 +484,7 @@ end 'TwoReturns'
 
 function main() returns ExitCode
 	let t = TwoReturns.make(true)
-	return t.value as ExitCode
+	return t.value
 end 'main'
 ```
 ```exitcode

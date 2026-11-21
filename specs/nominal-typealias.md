@@ -1320,7 +1320,7 @@ typealias Wide = int(0 to u64.max)
 typealias Narrow = int(0 to 16)
 
 function widen(n Narrow) returns Wide
-	return n as Wide
+	return n
 end 'widen'
 
 function main() returns ExitCode
@@ -1975,7 +1975,7 @@ typealias Score = int(0 to 100)
 
 function main() returns ExitCode
 	let s = 7 as Score
-	return s as ExitCode
+	return s
 end 'main'
 ```
 ```exitcode
@@ -2732,7 +2732,7 @@ typealias Wide = int(0 to u64.max)
 typealias Narrow = int(0 to 16)
 
 function widen(n Narrow) returns Wide
-	return n as Wide
+	return n
 end 'widen'
 
 function main() returns ExitCode

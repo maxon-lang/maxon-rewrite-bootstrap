@@ -714,7 +714,11 @@ end 'rangeThrowStmt'
 function rangeReturnStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	let value = ast.returnStmtValue(p.modules[r.modIdx].tree, id: s)
 	if value != 0 'value'
-		_ = rangeEval(r, p: p, e: value)
+		let v = rangeEval(r, p: p, e: value)
+		if r.typing.arith.get(s as Count).isSome() 'converts'
+			let ret = p.funcs.entries[r.fn as Count].retTy
+			_ = rangeConverted(r, p: p, e: s, v: v, ty: ret, why: Unchecked.returned(ret, value: value))
+		end 'converts'
 	end 'value'
 	r.st = deadState
 end 'rangeReturnStmt'

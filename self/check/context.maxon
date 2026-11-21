@@ -312,6 +312,19 @@ export function assignable(p ast.Project, src ast.TypeID, dst ast.TypeID) return
 	return false
 end 'assignable'
 
+// convertsInteger is whether a value of the integer type src is converted to the integer type dst where it is returned,
+// which the range analysis accepts when it proves the value fits (the ArithInfo of the return statement records it). A
+// literal is not converted: it fits or is an error, as everywhere.
+export function convertsInteger(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
+	if src == ast.noType or dst == ast.noType 'err'
+		return false
+	end 'err'
+	if p.types.entries[src as Count].kind != ast.TypeKind.intRange or p.types.entries[dst as Count].kind != ast.TypeKind.intRange 'notIntegers'
+		return false
+	end 'notIntegers'
+	return not assignable(p, src: src, dst: dst)
+end 'convertsInteger'
+
 export function requireSigned64(c Checker, off diag.U32, t ast.TypeID, mutates p ast.Project, mutates errs diag.ErrorList) returns bool
 	if t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.constInt 'c'
 		if p.types.entries[t as Count].minVal.gt(ast.I128.i64Max()) 'over'

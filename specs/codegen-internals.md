@@ -175,7 +175,7 @@ function main() returns ExitCode
 		s.append(a)
 		i = i + 1
 	end 'loop'
-	return s.byteLength() as ExitCode
+	return s.byteLength()
 end 'main'
 ```
 ```exitcode

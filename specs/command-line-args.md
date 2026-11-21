@@ -267,7 +267,7 @@ lane, so `HeapStats` answers alike everywhere.
 function main() returns ExitCode
 	let args = CommandLine.args()
 	print("{HeapStats.rawAllocationsLive()}")
-	return args.count() as ExitCode
+	return args.count()
 end 'main'
 ```
 ```exitcode

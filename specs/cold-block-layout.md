@@ -159,7 +159,7 @@ function main() returns ExitCode
 	for i in 1 to 3 'seed'
 		a.push(i)
 	end 'seed'
-	return walkDown(a, start: 2) as ExitCode
+	return walkDown(a, start: 2)
 end 'main'
 ```
 ```exitcode

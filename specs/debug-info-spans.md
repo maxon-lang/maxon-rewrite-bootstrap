@@ -172,7 +172,7 @@ typealias NumChain = Chain with Num
 
 function main() returns ExitCode
 	let ch = NumChain.create(1)
-	return ch.churn(0) as ExitCode
+	return ch.churn(0)
 end 'main'
 ```
 ```stdout

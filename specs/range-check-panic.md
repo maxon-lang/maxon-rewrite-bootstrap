@@ -269,7 +269,7 @@ function check(x SmallInt) returns SmallInt
 end 'check'
 
 function main() returns ExitCode
-	return check(5) as ExitCode
+	return check(5)
 end 'main'
 ```
 ```exitcode
@@ -717,7 +717,7 @@ function h(x Integer) returns HashValue
 end 'h'
 
 function main() returns ExitCode
-	return h(12345) as ExitCode
+	return h(12345)
 end 'main'
 ```
 ```exitcode
@@ -1334,7 +1334,7 @@ function pick(_ SmallInt, b SmallInt) returns SmallInt
 end 'pick'
 
 function main() returns ExitCode
-	return pick(1, b: 7) as ExitCode
+	return pick(1, b: 7)
 end 'main'
 ```
 ```exitcode
@@ -1404,7 +1404,7 @@ function pick() returns Byte
 end 'pick'
 
 function main() returns ExitCode
-	return pick() as ExitCode
+	return pick()
 end 'main'
 ```
 ```exitcode
@@ -2423,7 +2423,7 @@ function pick(i Wide, flag bool) returns Small
 end 'pick'
 
 function main() returns ExitCode
-	return pick(widen(5), flag: false) as ExitCode
+	return pick(widen(5), flag: false)
 end 'main'
 ```
 ```exitcode

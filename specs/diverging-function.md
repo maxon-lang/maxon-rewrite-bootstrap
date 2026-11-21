@@ -591,7 +591,7 @@ function pick(b bool) returns Integer throws FatalError
 end 'pick'
 
 function main() returns ExitCode
-	return (try pick(true) otherwise 99) as ExitCode
+	return try pick(true) otherwise 99
 end 'main'
 ```
 ```exitcode

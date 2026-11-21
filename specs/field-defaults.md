@@ -289,7 +289,7 @@ end 'Ledger'
 
 function main() returns ExitCode
 	let l = Ledger.create()
-	return l.total.n as ExitCode
+	return l.total.n
 end 'main'
 ```
 ```exitcode

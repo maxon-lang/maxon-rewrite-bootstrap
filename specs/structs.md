@@ -92,7 +92,7 @@ end 'Point'
 function main() returns ExitCode
 	var p = Point.create(10, y: 20)
 	p.x = 30
-	return p.x as ExitCode
+	return p.x
 end 'main'
 ```
 ```exitcode
@@ -116,7 +116,7 @@ end 'Config'
 function main() returns ExitCode
 	var c = Config.create(1, count: 0)
 	c.count = 5
-	return c.count as ExitCode
+	return c.count
 end 'main'
 ```
 ```exitcode
@@ -140,7 +140,7 @@ end 'Point'
 function main() returns ExitCode
 	var p = Point.create(10, y: 20)
 	p.x = 30
-	return p.x as ExitCode
+	return p.x
 end 'main'
 ```
 ```exitcode

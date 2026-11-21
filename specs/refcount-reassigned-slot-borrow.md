@@ -87,7 +87,7 @@ function main() returns ExitCode
 	var o = Outer.create(Inner.create(6))
 	let old = o.inner
 	o.inner = Inner.create(9)
-	return old.tag as ExitCode
+	return old.tag
 end 'main'
 ```
 ```exitcode
@@ -134,7 +134,7 @@ end 'churn'
 
 function main() returns ExitCode
 	var label = "label number 0, long enough to live on the heap"
-	return churn(label) as ExitCode
+	return churn(label)
 end 'main'
 ```
 ```exitcode

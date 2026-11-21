@@ -53,16 +53,33 @@ function wrapFix(t ast.Tree, consumes kind String, e ast.NodeID, before String, 
 	return fixOf(kind, edits: edits)
 end 'wrapFix'
 
+function panicClause() returns String
+	return " otherwise panic(\"{fixPanicText}\")"
+end 'panicClause'
+
+// isCompound is whether the expression e needs parentheses where a cast is written after it.
+function isCompound(t ast.Tree, e ast.NodeID) returns bool
+	let k = t.kindOf(e)
+	return k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.castExpr
+end 'isCompound'
+
 // tryFix covers the failure of e with a try around the whole arithmetic expression it is part of, which panics: what
 // "handle the failure with 'try'" asks for, where the program had no handling of its own.
 export function tryFix(t ast.Tree, e ast.NodeID) returns diag.Fix
-	return wrapFix(t, kind: fixKindTry, e: ast.outermostArithmetic(t, e: e), before: "try ", after: " otherwise panic(\"{fixPanicText}\")")
+	return wrapFix(t, kind: fixKindTry, e: ast.outermostArithmetic(t, e: e), before: "try ", after: panicClause())
 end 'tryFix'
+
+// returnFix writes the conversion that a return makes to the integer type named target as a cast that a try covers.
+export function returnFix(t ast.Tree, e ast.NodeID, target String) returns diag.Fix
+	if isCompound(t, e: e) 'operator'
+		return wrapFix(t, kind: fixKindTry, e: e, before: "try (", after: ") as {target}{panicClause()}")
+	end 'operator'
+	return wrapFix(t, kind: fixKindTry, e: e, before: "try ", after: " as {target}{panicClause()}")
+end 'returnFix'
 
 // castFix converts the value of e to the integer type named target, as a cast to it is written.
 export function castFix(t ast.Tree, e ast.NodeID, target String) returns diag.Fix
-	let k = t.kindOf(e)
-	if k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.castExpr 'operator'
+	if isCompound(t, e: e) 'operator'
 		return wrapFix(t, kind: fixKindCast, e: e, before: "(", after: ") as {target}")
 	end 'operator'
 	return wrapFix(t, kind: fixKindCast, e: e, before: "", after: " as {target}")

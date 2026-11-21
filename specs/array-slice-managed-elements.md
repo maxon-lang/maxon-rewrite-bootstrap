@@ -47,7 +47,7 @@ function main() returns ExitCode
 		return 99
 	end 'badCount'
 	let item = try sliced.get(0) otherwise Item.create("", value: 0)
-	return item.value as ExitCode
+	return item.value
 end 'main'
 ```
 ```exitcode
@@ -82,7 +82,7 @@ function main() returns ExitCode
 	end 'badCount'
 	let op = try sliced.get(0) otherwise Op.nop
 	match op 'check'
-		sub(v) then return v as ExitCode
+		sub(v) then return v
 		add then return 98
 		nop then return 97
 	end 'check'

@@ -189,7 +189,7 @@ function tagOf(sh Shape) returns Integer
 end 'tagOf'
 
 function ordOf(sh Shape) returns Integer
-	return sh.ordinal as Integer
+	return sh.ordinal
 end 'ordOf'
 
 function main() returns ExitCode

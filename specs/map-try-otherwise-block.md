@@ -107,7 +107,7 @@ function main() returns ExitCode
 	let a = CodeArray.create(0)
 	a.push(41)
 	bump(a)
-	return (try a.get(0) otherwise 99) as ExitCode
+	return try a.get(0) otherwise 99
 end 'main'
 ```
 ```exitcode

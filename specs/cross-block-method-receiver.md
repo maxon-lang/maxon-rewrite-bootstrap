@@ -49,7 +49,7 @@ function build(n Integer) returns Integer
 		arr = IntArray.create(0)
 	end 'grow'
 	arr.reserve(4)
-	return arr.count() as Integer
+	return arr.count()
 end 'build'
 
 function main() returns ExitCode
@@ -185,7 +185,7 @@ function build(n Integer) returns Integer
 		end 'grow'
 		arr.reserve(4)
 	end 'loop'
-	return arr.count() as Integer
+	return arr.count()
 end 'build'
 
 function main() returns ExitCode

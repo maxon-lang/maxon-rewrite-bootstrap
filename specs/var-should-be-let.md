@@ -52,7 +52,7 @@ error E3077: specs/var-should-be-let/var-never-reassigned.maxon:4:6: variable 'x
 function main() returns ExitCode
 	var x = 10 as FullRangeInt
 	x = 20
-	return x as ExitCode
+	return x
 end 'main'
 ```
 ```exitcode
@@ -79,7 +79,7 @@ function main() returns ExitCode
 	if x == 0 'check'
 		x = 42
 	end 'check'
-	return x as ExitCode
+	return x
 end 'main'
 ```
 ```exitcode
@@ -107,7 +107,7 @@ function main() returns ExitCode
 	let x = 10 as FullRangeInt
 	var y = x
 	y = 20
-	return y as ExitCode
+	return y
 end 'main'
 ```
 ```exitcode
@@ -134,7 +134,7 @@ function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	var b = a
 	b.x = 99
-	return b.x as ExitCode
+	return b.x
 end 'main'
 ```
 ```exitcode
@@ -217,7 +217,7 @@ function main() returns ExitCode
 	let o = Outer.create(Inner.create(42))
 	var i = o.inner
 	i.value = 99
-	return i.value as ExitCode
+	return i.value
 end 'main'
 ```
 ```exitcode
@@ -242,7 +242,7 @@ function main() returns ExitCode
 	let p = Point.create(1, y: 2)
 	var x = p.x
 	x = 99
-	return x as ExitCode
+	return x
 end 'main'
 ```
 ```exitcode
@@ -257,7 +257,7 @@ function main() returns ExitCode
 	x = 20
 	var y = x
 	y = 30
-	return y as ExitCode
+	return y
 end 'main'
 ```
 ```exitcode
@@ -1248,7 +1248,7 @@ function main() returns ExitCode
 	let b = relay(a)
 	let f = bumpIt
 	f(b)
-	return a.x as ExitCode
+	return a.x
 end 'main'
 ```
 ```exitcode

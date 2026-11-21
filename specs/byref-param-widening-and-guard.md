@@ -30,7 +30,7 @@ end 'bump'
 
 function main() returns ExitCode
 	var v = 5 as Int
-	return bump(v) as ExitCode
+	return bump(v)
 end 'main'
 ```
 ```exitcode

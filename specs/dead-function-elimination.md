@@ -158,7 +158,7 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let b = PointBox.create(Point.create(3, y: 4))
-	return b.itemDigest() as ExitCode
+	return b.itemDigest()
 end 'main'
 ```
 ```exitcode

@@ -108,7 +108,7 @@ function main() returns ExitCode
 	let c = SimpleCounter.create(40)
 	c.increment()
 	c.increment()
-	return c.get() as ExitCode
+	return c.get()
 end 'main'
 ```
 ```exitcode
@@ -147,7 +147,7 @@ end 'Buffer'
 function main() returns ExitCode
 	let buf = Buffer.create(0)
 	buf.write(42)
-	return buf.read() as ExitCode
+	return buf.read()
 end 'main'
 ```
 ```exitcode
@@ -523,7 +523,7 @@ type Widget implements Processor
 	var v as Integer
 
 	function process(value A) returns Integer
-		return value as Integer
+		return value
 	end 'process'
 
 	static function create() returns Self

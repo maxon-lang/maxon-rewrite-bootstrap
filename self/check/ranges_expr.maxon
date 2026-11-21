@@ -3,6 +3,8 @@ union Unchecked
 	call(name String)
 	operation(op String, fails Byte, node ast.NodeID, ty ast.TypeID)
 	cast(ty ast.TypeID)
+	// returned is a return whose value is converted to ty, the declared type of the function.
+	returned(ty ast.TypeID, value ast.NodeID)
 	// thrown is a throw, which needs no try: no error names it.
 	thrown
 end 'Unchecked'
@@ -591,12 +593,41 @@ function operandFix(guard String) returns String
 	return "; handle the failure with 'try', or guard it with '{guard}'"
 end 'operandFix'
 
+// castText is the error for a conversion to ty that can fail where no try covers it.
+function castText(p ast.Project, ty ast.TypeID) returns String
+	return "the value may not fit {nameOfType(p, t: ty)} ({typeSpan(p.types, t: ty).lo.toString()} to {typeSpan(p.types, t: ty).hi.toString()}){operandFix("")}"
+end 'castText'
+
+// uncheckedNode is the node an error for why is reported at: the operation, or the value that a return converts.
+function uncheckedNode(why Unchecked, site ast.NodeID) returns ast.NodeID
+	return match why 'why'
+		returned(_, value) gives value
+		call(_) gives site
+		operation(_, _, _, _) gives site
+		cast(_) gives site
+		thrown gives site
+	end 'why'
+end 'uncheckedNode'
+
+// uncheckedFix is the change the error for why names: a try around the operation, or around the conversion that a return
+// makes.
+function uncheckedFix(p ast.Project, t ast.Tree, why Unchecked, site ast.NodeID) returns diag.Fix
+	return match why 'why'
+		returned(ty, value) gives returnFix(t, e: value, target: nameOfType(p, t: ty))
+		call(_) gives tryFix(t, e: site)
+		operation(_, _, _, _) gives tryFix(t, e: site)
+		cast(_) gives tryFix(t, e: site)
+		thrown gives tryFix(t, e: site)
+	end 'why'
+end 'uncheckedFix'
+
 // uncheckedText is the error for an operation that can fail where no try covers it.
 function uncheckedText(r Ranges, p ast.Project, why Unchecked) returns String
 	return match why 'why'
 		call(name) gives diag.throwingCallRequiresTry(name)
 		operation(op, fails, node, ty) gives "{failureText(p, op: op, fails: fails, ty: ty)}{operandFix(guardAdvice(p.modules[r.modIdx].tree, fails: fails, e: node))}"
-		cast(ty) gives "the value may not fit {nameOfType(p, t: ty)} ({typeSpan(p.types, t: ty).lo.toString()} to {typeSpan(p.types, t: ty).hi.toString()}){operandFix("")}"
+		cast(ty) gives castText(p, ty: ty)
+		returned(ty, _) gives castText(p, ty: ty)
 		thrown panic("ranges: a throw is always covered")
 	end 'why'
 end 'uncheckedText'
@@ -627,7 +658,7 @@ end 'setFails'
 function rangeFallible(mutates r Ranges, p ast.Project, site ast.NodeID, err ast.TypeID, why Unchecked)
 	if r.handlers.count() == 0 'uncovered'
 		if not r.probing 'report'
-			rangeRaiseFixed(r, p: p, node: site, code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, why: why), fix: tryFix(p.modules[r.modIdx].tree, e: site))
+			rangeRaiseFixed(r, p: p, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, why: why), fix: uncheckedFix(p, t: p.modules[r.modIdx].tree, why: why, site: site))
 		end 'report'
 		return
 	end 'uncovered'
@@ -682,6 +713,11 @@ end 'rangeUnaryExpr'
 function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 	let v = rangeEval(r, p: p, e: ast.castExprE(p.modules[r.modIdx].tree, id: e))
 	let ty = typeOf(r, e: e)
+	return rangeConverted(r, p: p, e: e, v: v, ty: ty, why: Unchecked.cast(ty))
+end 'rangeCastExpr'
+
+// rangeConverted is the conversion of the value of the span v to ty, at the node e that records how it can fail.
+function rangeConverted(mutates r Ranges, p ast.Project, e ast.NodeID, v Span, ty ast.TypeID, why Unchecked) returns Span
 	let t = typeSpan(p.types, t: ty)
 	var fails = ast.failNone
 	if v.lo.lt(t.lo) 'below'
@@ -690,6 +726,6 @@ function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	if v.hi.gt(t.hi) 'above'
 		fails = fails or ast.failAbove
 	end 'above'
-	rangeFail(r, p: p, e: e, fails: fails, why: Unchecked.cast(ty))
+	rangeFail(r, p: p, e: e, fails: fails, why: why)
 	return v.clamp(t)
-end 'rangeCastExpr'
+end 'rangeConverted'

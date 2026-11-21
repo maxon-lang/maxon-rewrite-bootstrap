@@ -108,7 +108,7 @@ function main() returns ExitCode
 	for i in 1 to 3 'seed'
 		a.push(i)
 	end 'seed'
-	return sumFrom(a, n: 0, start: 100) as ExitCode
+	return sumFrom(a, n: 0, start: 100)
 end 'main'
 ```
 ```exitcode
@@ -135,7 +135,7 @@ function main() returns ExitCode
 	for i in 7 to 9 'seed'
 		a.push(i)
 	end 'seed'
-	return sumFrom(a, n: 1, start: 100) as ExitCode
+	return sumFrom(a, n: 1, start: 100)
 end 'main'
 ```
 ```exitcode
@@ -167,7 +167,7 @@ function main() returns ExitCode
 	for i in 0 upto 9 'seed'
 		a.push(i)
 	end 'seed'
-	return grid(a, rows: 3, width: 3) as ExitCode
+	return grid(a, rows: 3, width: 3)
 end 'main'
 ```
 ```exitcode
@@ -203,7 +203,7 @@ function main() returns ExitCode
 	for i in 1 to 8 'seed'
 		a.push(i)
 	end 'seed'
-	return oddSum(a, n: 8) as ExitCode
+	return oddSum(a, n: 8)
 end 'main'
 ```
 ```exitcode
@@ -240,7 +240,7 @@ function main() returns ExitCode
 	for i in 1 to 8 'seed'
 		a.push(i)
 	end 'seed'
-	return weightedSum(a, n: 8) as ExitCode
+	return weightedSum(a, n: 8)
 end 'main'
 ```
 ```exitcode
@@ -299,7 +299,7 @@ function main() returns ExitCode
 	for i in 1 to 4 'seed'
 		a.push(i)
 	end 'seed'
-	return clampedSum(a, n: 7) as ExitCode
+	return clampedSum(a, n: 7)
 end 'main'
 ```
 ```exitcode
@@ -329,7 +329,7 @@ function main() returns ExitCode
 	for i in 1 to 3 'seed'
 		a.push(i)
 	end 'seed'
-	return walkDown(a, start: 1) as ExitCode
+	return walkDown(a, start: 1)
 end 'main'
 ```
 ```exitcode
@@ -406,7 +406,7 @@ function main() returns ExitCode
 	a.push(4)
 	a.push(-1)
 	a.push(5)
-	return firstNegative(a, n: 4) as ExitCode
+	return firstNegative(a, n: 4)
 end 'main'
 ```
 ```exitcode

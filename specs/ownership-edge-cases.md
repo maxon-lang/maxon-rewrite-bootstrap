@@ -509,7 +509,7 @@ function main() returns ExitCode
 	arr.push(Item.create(2))
 	arr.push(Item.create(3))
 	arr.clear()
-	return arr.count() as ExitCode
+	return arr.count()
 end 'main'
 ```
 ```exitcode
@@ -1846,7 +1846,7 @@ function main() returns ExitCode
 		s.append(a)
 		i = i + 1
 	end 'loop'
-	return s.byteLength() as ExitCode
+	return s.byteLength()
 end 'main'
 ```
 ```exitcode
