@@ -237,9 +237,19 @@ function entryOsList(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 end 'entryOsList'
 
 // The arguments of rt.os.run that are the addresses its output is stored at.
-let runStdoutArg = 2 as Count
+let runDeadlineArg = 2 as Count
 
-let runStderrArg = 3 as Count
+let runStdoutArg = 3 as Count
+
+let runStderrArg = 4 as Count
+
+// deadlineOf is the deadline that the milliseconds of rt.os.run name.
+function deadlineOf(ms ir.Word) returns WaitDeadline
+	if ms == ir.noDeadline 'never'
+		return WaitDeadline.none
+	end 'never'
+	return WaitDeadline.within(try ms as Count otherwise panic("interp: a deadline past a count"))
+end 'deadlineOf'
 
 // output stores what the child wrote to a stream at the address the argument at index gives.
 function output(mutates vm Vm, f ir.IrFunction, x ir.Instr, index Count, consumes text String) throws Halt
@@ -274,12 +284,13 @@ function entryOsRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if isPath(exeText) 'path'
 		executable = Executable.path(pathOf(exeText.clone()))
 	end 'path'
+	let deadline = deadlineOf(argNum(vm, f: f, x: x, i: runDeadlineArg))
 	var word = 0 as ir.Word
 	var stdout = ""
 	var stderr = ""
 	var code = 0 as ir.Word
 	try 'run'
-		let out = Subprocess.run(executable, arguments: args)
+		let out = Subprocess.runWithDeadline(executable, arguments: args, deadline: deadline)
 		stdout = out.stdout.clone()
 		stderr = out.stderr.clone()
 		code = out.exitCode() as ir.Word

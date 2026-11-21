@@ -33,6 +33,8 @@ var RtImports = []string{
 	"PeekNamedPipe",
 	"GetModuleFileNameA",
 	"GetCurrentDirectoryA",
+	"GetTickCount64",
+	"TerminateProcess",
 }
 
 // IsNativeEntry is whether the backend implements a primitive's runtime entry.

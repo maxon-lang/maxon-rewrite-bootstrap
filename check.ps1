@@ -22,7 +22,7 @@ $steps = @(
 	# holds the port to the Go compiler's symbols and runtime behaviour, which no test of self/'s parts reaches.
 	@('self-built compiler', { $null = New-Item -ItemType Directory -Force bin; .\minimaxon.exe build self -o bin\c1.exe }),
 	@('self-compile', { bin\c1.exe build self -o bin\c2.exe }),
-	# The runner has no timeout and test programs inherit stdin, so a program that reads it would wait forever.
+	# Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: give it none.
 	@('corpus by the self-compiled compiler', { $null | bin\c2.exe test })
 )
 foreach ($step in $steps) {

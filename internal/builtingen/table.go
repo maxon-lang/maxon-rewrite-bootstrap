@@ -103,6 +103,11 @@ var unionTypes = []unionType{
 		{Name: "name", Const: "ExecutableName", Payload: []string{"value String"}},
 		{Name: "path", Const: "ExecutablePath", Payload: []string{"value FilePath"}},
 	}},
+	// WaitDeadline is maxon's: no deadline, or the milliseconds after which a child is terminated.
+	{Key: "WaitDeadline", Name: "WaitDeadline", Cases: []unionCase{
+		{Name: "none", Const: "WaitDeadlineNone"},
+		{Name: "within", Const: "WaitDeadlineWithin", Payload: []string{"timeoutMs Count"}},
+	}},
 }
 
 type enumCase struct {
@@ -360,6 +365,9 @@ var tableFunctions = []function{
 	{Owner: "Directory", Name: "currentPath", Static: true, Result: "FilePath", Intrinsic: "DirectoryCurrentPath"},
 	{Owner: "Directory", Name: "list", Static: true, Params: []string{"path FilePath"}, Result: "Array with FilePath", Throws: "DirectoryListError", Intrinsic: "DirectoryList"},
 	{Owner: "Subprocess", Name: "run", Static: true, Params: []string{"executable Executable", "arguments Array with String"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRun"},
+	// minimaxon's built-ins have no default arguments, so maxon's run with a deadline is a function of its own. A child
+	// still running when the deadline passes is terminated, and the run throws timeout.
+	{Owner: "Subprocess", Name: "runWithDeadline", Static: true, Params: []string{"executable Executable", "arguments Array with String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithDeadline"},
 	{Owner: "CollectedOutput", Name: "exitCode", Result: "ExitCode", Intrinsic: "CollectedOutputExitCode"},
 	{Owner: "CollectedOutput", Name: "succeeded", Result: "Bool", Intrinsic: "CollectedOutputSucceeded"},
 }
@@ -497,7 +505,7 @@ var entries = []entry{
 	{"OsIsDirectory", "rt.os.isDirectory", "Os", roleCall, "(path String) -> bool"},
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
 	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
-	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it"},
+	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case"},
 }
 
 // runtimeFunction is the function of the runtime's source (runtime/) that defines an entry, so that self links a call of
@@ -549,5 +557,5 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsIsDirectory", "osIsDirectory(path String) Bool"},
 	{"OsCreateDirectory", "osCreateDirectory(path String) Bool"},
 	{"OsList", "osList(path String, errorAddress Count) Count"},
-	{"OsRun", "osRun(executable String, arguments Count, stdout Count, stderr Count, errorAddress Count) Count"},
+	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 }

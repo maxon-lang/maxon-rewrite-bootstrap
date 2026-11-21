@@ -91,7 +91,7 @@ const (
 	RtOsIsDirectory                       // (path String) -> bool
 	RtOsCreateDirectory                   // (path String) -> bool: makes the missing parents too, and is whether the directory is there after it
 	RtOsList                              // (path String, error) -> Array with String: the path joined to the name of each entry
-	RtOsRun                               // (executable String, arguments Array with String, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it
+	RtOsRun                               // (executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case
 )
 
 var rtNames = [...]string{
@@ -331,7 +331,7 @@ var rtFunctions = [...]*RtFunction{
 	RtOsIsDirectory:         {Name: "osIsDirectory", Symbol: "runtime::osIsDirectory", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}}, Result: "Bool"},
 	RtOsCreateDirectory:     {Name: "osCreateDirectory", Symbol: "runtime::osCreateDirectory", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}}, Result: "Bool"},
 	RtOsList:                {Name: "osList", Symbol: "runtime::osList", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "Count"},
-	RtOsRun:                 {Name: "osRun", Symbol: "runtime::osRun", Params: []RtParam{{Conv: ast.ConvLet, Name: "executable", Type: "String"}, {Conv: ast.ConvLet, Name: "arguments", Type: "Count"}, {Conv: ast.ConvLet, Name: "stdout", Type: "Count"}, {Conv: ast.ConvLet, Name: "stderr", Type: "Count"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "Count"},
+	RtOsRun:                 {Name: "osRun", Symbol: "runtime::osRun", Params: []RtParam{{Conv: ast.ConvLet, Name: "executable", Type: "String"}, {Conv: ast.ConvLet, Name: "arguments", Type: "Count"}, {Conv: ast.ConvLet, Name: "deadlineMs", Type: "Count"}, {Conv: ast.ConvLet, Name: "stdout", Type: "Count"}, {Conv: ast.ConvLet, Name: "stderr", Type: "Count"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "Count"},
 }
 
 // Function is the function of the runtime's source that defines the entry, when one does: self links a call of the
@@ -485,6 +485,8 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerDirectoryList(c, recv, args)
 	case ast.IntrinsicSubprocessRun:
 		return l.lowerSubprocessRun(c, recv, args)
+	case ast.IntrinsicSubprocessRunWithDeadline:
+		return l.lowerSubprocessRunWithDeadline(c, recv, args)
 	case ast.IntrinsicCollectedOutputExitCode:
 		return l.lowerCollectedOutputExitCode(c, recv, args)
 	case ast.IntrinsicCollectedOutputSucceeded:
@@ -586,6 +588,7 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicDirectoryCurrentPath,
 		ast.IntrinsicDirectoryList,
 		ast.IntrinsicSubprocessRun,
+		ast.IntrinsicSubprocessRunWithDeadline,
 		ast.IntrinsicCollectedOutputExitCode,
 		ast.IntrinsicCollectedOutputSucceeded,
 		ast.IntrinsicRawLoad8,

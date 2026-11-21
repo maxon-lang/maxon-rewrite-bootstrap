@@ -924,11 +924,14 @@ end 'joinLines'
 // checkSpecRun runs the compiled program and checks its exit code, when the test gives one, and its output, which must be
 // what the blocks say or else nothing.
 function checkSpecRun(test SpecTest, text String, exe String) returns TestResult
-	let ran = runExecutable(exe)
-	if not ran.isSome() 'cannot'
-		return TestResult.failed("cannot run the executable")
-	end 'cannot'
-	let out = ran.unwrap()
+	match consumes runExecutable(exe) 'run'
+		ran(out) then return checkSpecOutput(test, text: text, out: out)
+		cannotStart then return TestResult.failed("cannot run the executable")
+		timedOut then return TestResult.failed("timed out")
+	end 'run'
+end 'checkSpecRun'
+
+function checkSpecOutput(test SpecTest, text String, out CollectedOutput) returns TestResult
 	let code = out.exitCode()
 	let exitText = fenceText(test, text: text, base: exitFence)
 	if exitText.isSome() 'pinned'
@@ -949,7 +952,7 @@ function checkSpecRun(test SpecTest, text String, exe String) returns TestResult
 		return stdoutResult
 	end 'stdout'
 	return checkStream(test, text: text, base: stderrFence, actual: withoutCarriageReturns(out.stderr, loneToo: false))
-end 'checkSpecRun'
+end 'checkSpecOutput'
 
 // checkStream is whether the output of a run is the text of the block with that name, trimmed on both sides, or empty when
 // the test has no such block.

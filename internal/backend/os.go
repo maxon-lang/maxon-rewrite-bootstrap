@@ -28,6 +28,8 @@ const (
 	impPeekNamedPipe           = 25
 	impGetModuleFileNameA      = 26
 	impGetCurrentDirectoryA    = 27
+	impGetTickCount64          = 28
+	impTerminateProcess        = 29
 
 	winGenericRead             = 0x80000000
 	winGenericWrite            = 0x40000000
@@ -45,6 +47,8 @@ const (
 	winStartfUseStdHandles     = 0x100
 	// winPollMillis is how long a run waits for its child when neither of the child's pipes had anything to read.
 	winPollMillis = 1
+	// winTerminatedExitCode is the exit code of a child that a run ended at its deadline.
+	winTerminatedExitCode = 1
 
 	winFindDataBytes      = 320
 	winFindDataNameOffset = 44
@@ -1097,7 +1101,10 @@ func (g *osUnit) emitOsList() {
 func (g *osUnit) emitOsRun() {
 	a := g.asm
 	const (
-		runArgs     = 5
+		runArgs     = 6
+		argDeadline = 2
+		argStdout   = 3
+		argStderr   = 4
 		offOut      = -pipeBytes
 		offErr      = offOut - pipeBytes
 		offOutWrite = offErr - wordBytes
@@ -1108,7 +1115,8 @@ func (g *osUnit) emitOsRun() {
 		offMoved    = offIndex - wordBytes
 		offExitCode = offMoved - wordBytes
 		offError    = offExitCode - wordBytes
-		offSecurity = offError - winSecurityAttrBytes
+		offStarted  = offError - wordBytes
+		offSecurity = offStarted - winSecurityAttrBytes
 		offProcess  = offSecurity - winProcessInfoBytes
 		offStartup  = offProcess - winStartupInfoBytes
 		runLocals   = -offStartup
@@ -1121,6 +1129,9 @@ func (g *osUnit) emitOsRun() {
 	started := NewLabel()
 	drain := NewLabel()
 	drained := NewLabel()
+	inTime := NewLabel()
+	timedOut := NewLabel()
+	noClock := NewLabel()
 	pipeFailed := NewLabel()
 	a.Lea(Rdi, Rbp, offStartup)
 	a.Xor(Rax, Rax)
@@ -1256,7 +1267,23 @@ func (g *osUnit) emitOsRun() {
 	a.MovImm(Rax, 1)
 	a.Store(Rbp, offOut+pipeOpen, Rax)
 	a.Store(Rbp, offErr+pipeOpen, Rax)
+	a.Load(Rax, Rbp, osArg(argDeadline, runArgs))
+	a.Test(Rax, Rax)
+	a.Jcc(CcE, noClock)
+	a.CallImport(impGetTickCount64)
+	a.Store(Rbp, offStarted, Rax)
+	a.Bind(noClock)
 	a.Bind(drain)
+	a.Load(Rcx, Rbp, osArg(argDeadline, runArgs))
+	a.Test(Rcx, Rcx)
+	a.Jcc(CcE, inTime)
+	a.CallImport(impGetTickCount64)
+	a.Load(Rcx, Rbp, offStarted)
+	a.Sub(Rax, Rcx)
+	a.Load(Rcx, Rbp, osArg(argDeadline, runArgs))
+	a.Cmp(Rax, Rcx)
+	a.Jcc(CcAE, timedOut)
+	a.Bind(inTime)
 	a.Lea(Rbx, Rbp, offOut)
 	a.Call(g.drainPipe)
 	a.Store(Rbp, offMoved, Rax)
@@ -1275,6 +1302,26 @@ func (g *osUnit) emitOsRun() {
 	a.MovImm(Rdx, winPollMillis)
 	a.CallImport(impWaitForSingleObject)
 	a.Jmp(drain)
+
+	// The deadline passed with the child still writing or running: end it, and give back what the run holds.
+	a.Bind(timedOut)
+	a.Load(Rcx, Rbp, offProcess)
+	a.MovImm(Rdx, winTerminatedExitCode)
+	a.CallImport(impTerminateProcess)
+	a.Load(Rcx, Rbp, offProcess)
+	a.MovImm(Rdx, winInfinite)
+	a.CallImport(impWaitForSingleObject)
+	for _, end := range []int{offProcess, offOut + pipeHandle, offErr + pipeHandle} {
+		a.Load(Rcx, Rbp, end)
+		a.CallImport(impCloseHandle)
+	}
+	for _, pipe := range []int{offOut, offErr} {
+		a.Load(Rax, Rbp, pipe+pipeText)
+		a.Push(Rax)
+		g.callRuntime(g.rtFree, 1)
+	}
+	g.failWith(ast.ErrorTimeout)
+
 	a.Bind(drained)
 	a.Load(Rcx, Rbp, offProcess)
 	a.MovImm(Rdx, winInfinite)
@@ -1286,7 +1333,7 @@ func (g *osUnit) emitOsRun() {
 		a.Load(Rcx, Rbp, end)
 		a.CallImport(impCloseHandle)
 	}
-	for _, out := range [][2]int{{offOut, osArg(2, runArgs)}, {offErr, osArg(3, runArgs)}} {
+	for _, out := range [][2]int{{offOut, osArg(argStdout, runArgs)}, {offErr, osArg(argStderr, runArgs)}} {
 		a.Load(Rcx, Rbp, out[1])
 		a.Load(Rax, Rbp, out[0]+pipeText)
 		a.Store(Rcx, 0, Rax)

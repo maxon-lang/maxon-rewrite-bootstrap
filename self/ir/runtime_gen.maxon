@@ -1339,6 +1339,7 @@ export function rtFunctions(b ast.Builtins) returns RtFunctionList
 	var params39 = RtParamList.create(0)
 	params39.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.stringTy))
 	params39.push(RtParam.make(ast.Convention.convLet, name: "arguments", ty: b.countTy))
+	params39.push(RtParam.make(ast.Convention.convLet, name: "deadlineMs", ty: b.countTy))
 	params39.push(RtParam.make(ast.Convention.convLet, name: "stdout", ty: b.countTy))
 	params39.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
 	params39.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))

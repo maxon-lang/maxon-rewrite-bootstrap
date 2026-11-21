@@ -60,6 +60,8 @@ export function rtImports() returns NameList
 	names.push("GetCurrentDirectoryW")
 	names.push("GetModuleFileNameA")
 	names.push("GetCurrentDirectoryA")
+	names.push("GetTickCount64")
+	names.push("TerminateProcess")
 	return names
 end 'rtImports'
 

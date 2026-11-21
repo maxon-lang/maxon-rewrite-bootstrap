@@ -97,7 +97,7 @@ export function failureCase(op OsOperation, failure OsFailure) returns Count
 	end 'f'
 end 'failureCase'
 
-// payloadField is the index, in the payload of a case of Executable, of the one field it has.
+// payloadField is the index, in the payload of a case of Executable or WaitDeadline, of the one field it has.
 export let payloadField = 0 as Count
 
 // Path characters that FilePath.from refuses besides the control characters, as maxon's does on Windows.
@@ -250,16 +250,49 @@ function lowerDirectoryList(mutates l Lowerer, mutates p ast.Project, c CallSite
 	return paths
 end 'lowerDirectoryList'
 
-// lowerSubprocessRun runs the child and makes the CollectedOutput of what the entry stored and returned.
+// noDeadline is the deadline of rt.os.run that never passes.
+export let noDeadline = 0 as Word
+
 function lowerSubprocessRun(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let never = konst(l, value: noDeadline)
+	return runSubprocess(l, p: p, c: c, executable: args[0], arguments: args[1], deadlineMs: never)
+end 'lowerSubprocessRun'
+
+function lowerSubprocessRunWithDeadline(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let ms = deadlineMs(l, p: p, deadline: args[2])
+	return runSubprocess(l, p: p, c: c, executable: args[0], arguments: args[1], deadlineMs: ms)
+end 'lowerSubprocessRunWithDeadline'
+
+// deadlineMs is the milliseconds a WaitDeadline gives, noDeadline for none.
+function deadlineMs(mutates l Lowerer, mutates p ast.Project, deadline Reg) returns Reg
+	let ms = l.b.f.newSlot(IrKind.kindScalar)
+	let never = konst(l, value: noDeadline)
+	emit(l, i: newStoreSlot(ms, src: never, borrow: false))
+	let within = l.b.newBlock()
+	let join = l.b.newBlock()
+	let tag = tagReg(l, box: deadline)
+	let withinCase = konst(l, value: try ast.waitDeadlineWithin as Word otherwise panic("ir: a case index is out of range"))
+	let isWithin = compare(l, op: CmpOp.cmpEq, a: tag, b: withinCase, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(isWithin, ifTrue: within, ifFalse: join))
+	l.cur = within
+	let payload = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadField(payload, obj: deadline, offset: fieldOffset(payloadField, tagged: true)))
+	emit(l, i: newStoreSlot(ms, src: payload, borrow: false))
+	goTo(l, target: join)
+	return load(l, slot: ms)
+end 'deadlineMs'
+
+// runSubprocess runs the child and makes the CollectedOutput of what the entry stored and returned.
+function runSubprocess(mutates l Lowerer, mutates p ast.Project, c CallSite, executable Reg, arguments Reg, deadlineMs Reg) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let stdout = l.b.f.newSlot(IrKind.kindManaged)
 	let stderr = l.b.f.newSlot(IrKind.kindManaged)
 	let dst = newReg(l, kind: IrKind.kindScalar)
-	let exe = executableText(l, p: p, exe: args[0])
+	let exe = executableText(l, p: p, exe: executable)
 	var all = RegList.create(0)
 	all.push(exe)
-	all.push(args[1])
+	all.push(arguments)
+	all.push(deadlineMs)
 	all.push(slotAddr(l, slot: stdout))
 	all.push(slotAddr(l, slot: stderr))
 	let code = failing(l, p: p, site: site, dst: dst, symbol: Rt.rtOsRun, args: all)
@@ -271,7 +304,7 @@ function lowerSubprocessRun(mutates l Lowerer, mutates p ast.Project, c CallSite
 	fields[ast.collectedOutputStderrField] = fetch(l, slot: stderr)
 	fields[ast.collectedOutputCodeField] = code
 	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: fields)
-end 'lowerSubprocessRun'
+end 'runSubprocess'
 
 // executableText is the String an Executable names, a name or a path's, lent for as long as the Executable is.
 function executableText(mutates l Lowerer, mutates p ast.Project, exe Reg) returns Reg

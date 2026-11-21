@@ -403,12 +403,12 @@ function testOptions() returns Options
 end 'testOptions'
 
 // compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
-// an error the generate stage raises gets it.
-function compileForTest(mutates shared SharedRuntime, file String, output String) returns diag.ErrorList
-	var errs = diag.ErrorList.create(0)
-	compileProjectWith(shared, path: file, output: output, options: testOptions(), errs: errs)
+// an error the generate stage raises gets it. What it lowered is kept for the interpreter, which runs it as the executable
+// is made from it.
+function compileForTest(mutates shared SharedRuntime, file String, output String, mutates errs diag.ErrorList) returns CompiledProgram
+	let compiled = compileProjectWith(shared, path: file, output: output, options: testOptions(), errs: errs)
 	diag.sortErrors(errs)
-	return errs
+	return compiled
 end 'compileForTest'
 
 function joinErrors(errs diag.ErrorList) returns String
@@ -426,8 +426,6 @@ function positionText(e diag.CompileError) returns String
 	return "{e.line}:{e.col}"
 end 'positionText'
 
-let interpreterOnlyReason = "needs the interpreter: a map, list, pool, frozen value, cown or behaviour"
-
 // onlyInterpreterErrors is whether a program failed to compile only because it uses a map, a list, a pool, a frozen value,
 // a cown or a behaviour, which the compiler has no code for yet.
 function onlyInterpreterErrors(errs diag.ErrorList) returns bool
@@ -443,17 +441,19 @@ end 'onlyInterpreterErrors'
 // long as the test.
 function runTest(mutates shared SharedRuntime, file String, expect Expectation) returns TestResult
 	let exe = temporaryExecutable(file)
-	let errs = compileForTest(shared, file: file, output: exe)
-	let result = checkTest(expect, errs: errs, exe: exe)
+	var errs = diag.ErrorList.create(0)
+	let compiled = compileForTest(shared, file: file, output: exe, errs: errs)
+	let result = checkTest(expect, compiled: compiled, errs: errs, exe: exe)
 	if errs.count() == 0 'built'
 		deleteExecutable(exe)
 	end 'built'
 	return result
 end 'runTest'
 
-// checkTest is whether a compile that gave errs, and the executable at exe when it gave none, is what expect says.
-// There is no interpreter here, so a program that only the interpreter runs is not one this compiler is measured by.
-function checkTest(expect Expectation, errs diag.ErrorList, exe String) returns TestResult
+// checkTest is whether a compile that gave errs, and the executable at exe when it gave none, is what expect says. A program
+// that only the interpreter runs is run under it alone; any other is run natively and then under it too, unless it says it
+// is too heavy for that.
+function checkTest(expect Expectation, compiled CompiledProgram, errs diag.ErrorList, exe String) returns TestResult
 	if expect.hasError 'expected'
 		return checkExpectedError(expect, errs: errs)
 	end 'expected'
@@ -461,11 +461,44 @@ function checkTest(expect Expectation, errs diag.ErrorList, exe String) returns 
 	if errs.count() > 0 and not interpreterOnly 'failed'
 		return TestResult.failed(joinErrors(errs))
 	end 'failed'
-	if interpreterOnly 'unsupported'
-		return TestResult.unsupported(interpreterOnlyReason)
-	end 'unsupported'
-	return runNative(exe, expect: expect)
+	if interpreterOnly 'interpreted'
+		return runInterpreted(compiled, expect: expect)
+	end 'interpreted'
+	let native = runNative(exe, expect: expect)
+	if native.outcome == TestOutcome.testFailed or expect.nativeOnly 'done'
+		return native
+	end 'done'
+	return runInterpreted(compiled, expect: expect)
 end 'checkTest'
+
+// runInterpreted runs a program under the tracking interpreter, which must give what the program expects and break no rule of
+// the memory model. A program that schedules behaviours runs under several schedules, and each must give the same output.
+function runInterpreted(compiled CompiledProgram, expect Expectation) returns TestResult
+	for schedule in 0 upto scheduleSeeds 'schedules'
+		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(schedule), wantFrees: false)
+		var atSeed = ""
+		if out.behaviours > 0 'scheduled'
+			atSeed = " under the schedule of seed {schedule}"
+		end 'scheduled'
+		let code = interp.exitStatus(out.exitCode)
+		if out.violations.count() > 0 'violated'
+			return TestResult.failed("the interpreter found a violation of the memory model{atSeed}:\n{joinLines(out.violations)}")
+		end 'violated'
+		if out.timedOut 'timedOut'
+			return TestResult.failed("the interpreter timed out{atSeed}")
+		end 'timedOut'
+		if code != expect.exit 'exit'
+			return TestResult.failed("the interpreter exited {exitCodeText(code)}, expected {exitCodeText(expect.exit)}{atSeed}; stderr: {trimSpace(out.stderr)}")
+		end 'exit'
+		if out.stdout != expect.stdout 'stdout'
+			return TestResult.failed("the interpreter's stdout differs{atSeed}\n--- expected\n{expect.stdout}--- actual\n{out.stdout}")
+		end 'stdout'
+		if out.behaviours == 0 'oneSchedule'
+			break 'schedules'
+		end 'oneSchedule'
+	end 'schedules'
+	return TestResult.passed()
+end 'runInterpreted'
 
 // checkExpectedError is whether errs holds the error of the expect-error directive: its code, and its position when the
 // directive gives one.
@@ -505,22 +538,54 @@ function deleteExecutable(exe String)
 	try File.delete(exePath) otherwise panic("test: cannot delete {exe}")
 end 'deleteExecutable'
 
-// runExecutable runs the executable at exe with no arguments, and gives what it wrote and its exit code, or nothing when it
-// cannot be started.
-function runExecutable(exe String) returns table.Option with CollectedOutput
-	let exePath = try FilePath.from(exe) otherwise return table.Option.none
-	let out = try Subprocess.run(Executable.path(exePath.clone()), arguments: CommandNames.create(0)) otherwise return table.Option.none
-	return table.Option.some(out)
+// How long a test executable may run before it is ended, in milliseconds.
+let testRunDeadlineMs = 10000 as Count
+
+// How many schedules of its behaviours a program that schedules any is run under: the seeds from 0 up to this.
+let scheduleSeeds = 20 as Count
+
+// ExecutableRun is how running an executable ended: with its output and exit code, by not starting, or by outliving the deadline,
+// which ended it.
+union ExecutableRun
+	ran(out CollectedOutput)
+	cannotStart
+	timedOut
+end 'ExecutableRun'
+
+// runExecutable runs the executable at exe with no arguments, for no longer than testRunDeadlineMs.
+function runExecutable(exe String) returns ExecutableRun
+	let exePath = try FilePath.from(exe) otherwise return ExecutableRun.cannotStart
+	let deadline = WaitDeadline.within(testRunDeadlineMs)
+	try 'run'
+		let out = Subprocess.runWithDeadline(Executable.path(exePath.clone()), arguments: CommandNames.create(0), deadline: deadline)
+		return ExecutableRun.ran(out)
+	end 'run' otherwise (e) 'failed'
+		match e 'kind'
+			timeout then return ExecutableRun.timedOut
+			executableNotFound then return ExecutableRun.cannotStart
+			spawnFailed then return ExecutableRun.cannotStart
+			busy then return ExecutableRun.cannotStart
+			ioFailed then return ExecutableRun.cannotStart
+			treeNotEnded then return ExecutableRun.cannotStart
+			detachRefused then return ExecutableRun.cannotStart
+			inputTooLarge then return ExecutableRun.cannotStart
+			statusLost then return ExecutableRun.cannotStart
+		end 'kind'
+	end 'failed'
+	return ExecutableRun.cannotStart
 end 'runExecutable'
 
 // runNative runs the executable and checks its output and exit code against what the program expects. The memory limit
-// of the directive is not enforced, and nothing ends a program that never exits.
+// of the directive is not enforced.
 function runNative(exe String, expect Expectation) returns TestResult
-	let ran = runExecutable(exe)
-	if not ran.isSome() 'cannot'
-		return TestResult.failed("cannot run {exe}")
-	end 'cannot'
-	let out = ran.unwrap()
+	match consumes runExecutable(exe) 'run'
+		ran(out) then return checkNativeOutput(out, exe: exe, expect: expect)
+		cannotStart then return TestResult.failed("cannot run {exe}")
+		timedOut then return TestResult.failed("timed out")
+	end 'run'
+end 'runNative'
+
+function checkNativeOutput(out CollectedOutput, exe String, expect Expectation) returns TestResult
 	let actual = withoutCarriageReturns(out.stdout, loneToo: false)
 	let code = out.exitCode()
 	if code != expect.exit 'exit'
@@ -534,4 +599,4 @@ function runNative(exe String, expect Expectation) returns TestResult
 		return TestResult.failed("stdout differs\n--- expected\n{expect.stdout}--- actual\n{actual}")
 	end 'stdout'
 	return TestResult.passed()
-end 'runNative'
+end 'checkNativeOutput'

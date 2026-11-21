@@ -101,6 +101,7 @@ const (
 	IntrinsicDirectoryCurrentPath
 	IntrinsicDirectoryList
 	IntrinsicSubprocessRun
+	IntrinsicSubprocessRunWithDeadline
 	IntrinsicCollectedOutputExitCode
 	IntrinsicCollectedOutputSucceeded
 	IntrinsicRawLoad8
@@ -214,6 +215,7 @@ func (op Intrinsic) RuntimeOnly() bool {
 		IntrinsicDirectoryCurrentPath,
 		IntrinsicDirectoryList,
 		IntrinsicSubprocessRun,
+		IntrinsicSubprocessRunWithDeadline,
 		IntrinsicCollectedOutputExitCode,
 		IntrinsicCollectedOutputSucceeded:
 		return false
@@ -256,6 +258,12 @@ const (
 const (
 	ExecutableName = 0
 	ExecutablePath = 1
+)
+
+// The cases of WaitDeadline, by index.
+const (
+	WaitDeadlineNone   = 0
+	WaitDeadlineWithin = 1
 )
 
 // The cases of ArithmeticError, by index.
@@ -365,6 +373,7 @@ type builtinDecls struct {
 	Subprocess                *RecordTy
 	Raw                       *RecordTy
 	Executable                *UnionTy
+	WaitDeadline              *UnionTy
 	ArithmeticError           *EnumTy
 	ArrayError                *EnumTy
 	MapError                  *EnumTy
@@ -412,6 +421,11 @@ func (b *Builtins) declareTable() {
 	b.Executable.Cases = []*UnionCase{
 		{Name: "name", Payload: []PayloadField{{Name: "value", Type: StringTy}}},
 		{Name: "path", Payload: []PayloadField{{Name: "value", Type: b.FilePath}}},
+	}
+	b.WaitDeadline = b.newUnion("WaitDeadline")
+	b.WaitDeadline.Cases = []*UnionCase{
+		{Name: "none"},
+		{Name: "within", Payload: []PayloadField{{Name: "timeoutMs", Type: b.Count}}},
 	}
 	b.ArithmeticError = b.newEnum("ArithmeticError", "overflow", "divisionByZero", "negativeShift")
 	b.ArrayError = b.newEnum("ArrayError", "indexOutOfBounds", "emptySlot")
@@ -604,6 +618,10 @@ func (b *Builtins) declareTable() {
 	}
 	{
 		f := b.method(b.Subprocess, IntrinsicSubprocessRun, "run", true, ConvLet, b.CollectedOutput, param("executable", b.Executable, ConvLet), param("arguments", Instantiate(b.Array, []Ty{StringTy}), ConvLet))
+		f.ErrorType = b.SubprocessError
+	}
+	{
+		f := b.method(b.Subprocess, IntrinsicSubprocessRunWithDeadline, "runWithDeadline", true, ConvLet, b.CollectedOutput, param("executable", b.Executable, ConvLet), param("arguments", Instantiate(b.Array, []Ty{StringTy}), ConvLet), param("deadline", b.WaitDeadline, ConvLet))
 		f.ErrorType = b.SubprocessError
 	}
 	b.method(b.CollectedOutput, IntrinsicCollectedOutputExitCode, "exitCode", false, ConvLet, b.exitCode())

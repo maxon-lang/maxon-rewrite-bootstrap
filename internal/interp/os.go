@@ -2,6 +2,7 @@ package interp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // The interpreter's OS entries do what the native ones do through Go's os package, and tell its errors apart by the
@@ -176,9 +178,14 @@ func joinPath(path, name string) string {
 
 // The arguments of rt.os.run that are the addresses its output is stored at.
 const (
-	runStdoutArg = 2
-	runStderrArg = 3
+	runDeadlineArg = 2
+	runStdoutArg   = 3
+	runStderrArg   = 4
 )
+
+// orphanWait is how long a terminated child's output is waited for: a grandchild that inherited its pipes can hold them
+// open after the child is gone.
+const orphanWait = 100 * time.Millisecond
 
 // entryOsRun runs the child as the native entry does: Go quotes the arguments by the rules the C runtime splits them by.
 func (vm *vm) entryOsRun(c *runtimeCall) {
@@ -188,12 +195,22 @@ func (vm *vm) entryOsRun(c *runtimeCall) {
 	for i, e := range argsArr.elems {
 		args[i] = vm.text(e.v, "an argument")
 	}
-	cmd := exec.Command(exe, args...)
+	ctx := context.Background()
+	if ms := c.arg(runDeadlineArg).n; ms != ir.NoDeadline {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(ms)*time.Millisecond)
+		defer cancel()
+	}
+	cmd := exec.CommandContext(ctx, exe, args...)
+	cmd.WaitDelay = orphanWait
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()
 	var exit *exec.ExitError
 	switch {
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+		vm.failWith(c, ast.ErrorTimeout)
+		return
 	case errors.As(err, &exit):
 		err = nil
 	case errors.Is(err, exec.ErrNotFound) || errors.Is(err, os.ErrNotExist):

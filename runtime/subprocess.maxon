@@ -105,6 +105,14 @@ let spawnBusy = 2
 
 let ioFailed = 3
 
+let timedOut = 4
+
+// noDeadline is the deadline of a run that is never ended for taking long.
+let noDeadline = 0
+
+// killedExitCode is the exit code of a child that a run ended at its deadline.
+let killedExitCode = 1
+
 function spawnFailures() returns Count
 	return failureCases(executableNotFound, accessDenied: spawnFailed, busy: spawnBusy, alreadyExists: spawnFailed, other: spawnFailed)
 end 'spawnFailures'
@@ -222,9 +230,25 @@ function drainPipe(pipe Count) returns bool
 	return true
 end 'drainPipe'
 
+// endAtDeadline ends a child that is still running when its deadline passes, gives back what the run holds, and fails the
+// run with the timeout case.
+function endAtDeadline(child Count, output Count, errors Count, frame Count, errorAddress Count)
+	_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
+	_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
+	closeHandle(child)
+	closeHandle(wordAt(output, offset: pipeReadOffset))
+	closeHandle(wordAt(errors, offset: pipeReadOffset))
+	free(wordAt(output, offset: pipeTextOffset))
+	free(wordAt(errors, offset: pipeTextOffset))
+	free(frame)
+	failWith(errorAddress, errorCase: timedOut)
+end 'endAtDeadline'
+
 // osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard output
-// and error as strings at the two addresses. An executable that is not found fails with the first case of the error.
-function osRun(executable String, arguments Count, stdout Count, stderr Count, errorAddress Count) returns Count
+// and error as strings at the two addresses. An executable that is not found fails with the first case of the error. A
+// child still running deadlineMs milliseconds after it started, when that is not noDeadline, is ended and fails the run
+// with the timeout case.
+function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
 	let frame = alloc(frameBytes)
 	let output = fieldAt(frame, offset: frameOutputOffset)
 	let errors = fieldAt(frame, offset: frameErrorOffset)
@@ -260,8 +284,13 @@ function osRun(executable String, arguments Count, stdout Count, stderr Count, e
 	__Raw.storeWord(output, offset: pipeOpenOffset, value: 1)
 	__Raw.storeWord(errors, offset: pipeOpenOffset, value: 1)
 	let child = wordAt(process, offset: processHandleOffset)
+	let startedAt = __Raw.callImport0("GetTickCount64")
 	var draining = true
 	while draining 'drain'
+		if deadlineMs != noDeadline and __Raw.wrappingSub(__Raw.callImport0("GetTickCount64"), right: startedAt) >= deadlineMs 'late'
+			endAtDeadline(child, output: output, errors: errors, frame: frame, errorAddress: errorAddress)
+			return 0
+		end 'late'
 		let movedOutput = drainPipe(output)
 		let movedErrors = drainPipe(errors)
 		if not movedOutput and not movedErrors 'idle'

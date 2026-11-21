@@ -84,6 +84,7 @@ func (c *Checker) checkIntrinsicArgs(call ast.CallExpr, target *ast.FuncDecl, or
 		ast.IntrinsicDirectoryCurrentPath,
 		ast.IntrinsicDirectoryList,
 		ast.IntrinsicSubprocessRun,
+		ast.IntrinsicSubprocessRunWithDeadline,
 		ast.IntrinsicCollectedOutputExitCode,
 		ast.IntrinsicCollectedOutputSucceeded,
 		ast.IntrinsicRawLoad8,

@@ -48,14 +48,42 @@ end 'SharedRuntime'
 // runtimeModule is the module of the runtime in a project that prepareRuntime made: the first.
 let runtimeModule = 0 as diag.ModuleID
 
+// Generated is what the generate stage lowered, which a compile that makes an executable links and which the interpreter runs
+// as it is: the modules' functions, in the order the check visited the modules, and main.
+type Generated
+	var entry as ast.FuncID
+	var modules as backend.FunctionLists
+
+	static function make(entry ast.FuncID, consumes modules backend.FunctionLists) returns Generated
+		return Generated{entry: entry, modules: modules}
+	end 'make'
+
+	static function nothing() returns Generated
+		return Generated{entry: ast.noFunc, modules: backend.FunctionLists.create(0)}
+	end 'nothing'
+end 'Generated'
+
+// CompiledProgram is a program compiled on the shared runtime: its project, which the interpreter needs to name what it runs,
+// and what was lowered.
+type CompiledProgram
+	var p as ast.Project
+	var generated as Generated
+
+	static function make(consumes p ast.Project, consumes generated Generated) returns CompiledProgram
+		return CompiledProgram{p: p, generated: generated}
+	end 'make'
+end 'CompiledProgram'
+
 // compileProjectWith is compileProject for a compile that makes an executable of the project at path, on the runtime that
-// the run shares.
-function compileProjectWith(mutates shared SharedRuntime, path String, output String, options Options, mutates errs diag.ErrorList)
+// the run shares, and keeps what it lowered.
+function compileProjectWith(mutates shared SharedRuntime, path String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
 	var p = shared.projectForProgram()
 	let first = p.modules.count()
+	var generated = Generated.nothing()
 	if project.loadProjectInto(p, rootPath: path, errs: errs) 'loaded'
-		compileLoaded(p, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+		generated = compileLoadedKeeping(p, first: first, ready: shared.ready, output: output, options: options, errs: errs)
 	end 'loaded'
+	return CompiledProgram.make(p, generated: generated)
 end 'compileProjectWith'
 
 // compileFilesWith is compileProjectWith for a project whose files are held in memory, as the directory at path holds them.
@@ -101,13 +129,21 @@ end 'prepareRuntime'
 // compileLoaded is compileProject's compile of the modules of p from the one at index first on, which a project loaded
 // after the modules that p started with. ready are the units the program is linked with.
 function compileLoaded(mutates p ast.Project, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList)
+	_ = compileLoadedKeeping(p, first: first, ready: ready, output: output, options: options, errs: errs)
+end 'compileLoaded'
+
+// compileLoadedKeeping is compileLoaded that gives back what the generate stage lowered, which is nothing when an earlier stage
+// found errors.
+function compileLoadedKeeping(mutates p ast.Project, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
 	let makesProgram = output != ""
 	let checked = frontEndFrom(p, first: first, makesProgram: makesProgram, errs: errs)
+	var generated = Generated.nothing()
 	if errs.count() == 0 'generate'
-		generate(p, first: first, checked: checked, ready: ready, output: output, options: options, errs: errs)
+		generated = generate(p, first: first, checked: checked, ready: ready, output: output, options: options, errs: errs)
 	end 'generate'
 	ast.locateAllErrors(p.modules, errs: errs)
-end 'compileLoaded'
+	return generated
+end 'compileLoadedKeeping'
 
 // frontEnd is the pipeline: each stage runs only when the stages before it found nothing, so the errors are those of the
 // first stage that has any, as the Go compiler reports them. makesProgram says that the compile makes an executable, whose
@@ -185,7 +221,32 @@ typealias ErrorLists = Array with diag.ErrorList
 // the first such module in module order, as the Go compiler reports it. A compile that makes nothing then holds the
 // runtime's own project to the functions the compiler calls in it; one that makes an executable reports what only the
 // interpreter runs, and otherwise links the modules' functions with the ready units into it.
-function generate(mutates p ast.Project, first Count, checked check.Checked, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList)
+function generate(mutates p ast.Project, first Count, checked check.Checked, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
+	let generated = Generated.make(checked.entry, modules: lowerModules(p, first: first, checked: checked, lowersBodies: output != "", errs: errs))
+	if errs.count() > 0 'failed'
+		return generated
+	end 'failed'
+	checkRuntimeFunctions(p, first: first, errs: errs)
+	if output == "" or errs.count() > 0 'nothingToMake'
+		return generated
+	end 'nothingToMake'
+	if options.emitIr 'emitIr'
+		writeIr(p, lowered: generated.modules, path: "{output}{irExtension}")
+	end 'emitIr'
+	refusals(p, lowered: generated.modules, errs: errs)
+	if errs.count() > 0 'refused'
+		return generated
+	end 'refused'
+	let out = try FilePath.from(output) otherwise panic("driver: the output {output} is not a path")
+	try backend.compileProgram(p, modules: generated.modules, ready: ready, entry: checked.entry, options: backend.RuntimeOptions.make(options.countAllocations), out: out) otherwise panic("driver: cannot write {output}")
+	return generated
+end 'generate'
+
+// lowerModules lowers each module from the one at index first on, in the order the check visited them: the functions of a
+// module and the instances it needs, or only the instances when the compile makes no executable. The lists are in the order of
+// the modules from first on. An instance whose type arguments nest without end fails every module that reaches it, so the
+// program gets the failure of the first such module in module order, as the Go compiler reports it.
+function lowerModules(mutates p ast.Project, first Count, checked check.Checked, lowersBodies bool, mutates errs diag.ErrorList) returns backend.FunctionLists
 	let count = try p.modules.count() - first otherwise panic("driver: fewer modules than the ones checked already")
 	var lowered = backend.FunctionLists.create(0)
 	var unfinite = ErrorLists.create(0)
@@ -196,32 +257,20 @@ function generate(mutates p ast.Project, first Count, checked check.Checked, mut
 	for i in 0 upto checked.order.count() 'modules'
 		let m = ast.modIndex(checked.order[i])
 		let slot = try m - first otherwise panic("driver: a module that was checked already is checked again")
-		if output == "" 'instances'
-			_ = ir.findInstances(p, callers: checked.callers[m], errs: unfinite[slot])
-		end 'instances' else 'lower'
+		if lowersBodies 'lower'
 			lowered[slot] = ir.lowerModule(p, functions: checked.functions[m], callers: checked.callers[m], errs: unfinite[slot])
-		end 'lower'
+		end 'lower' else 'instances'
+			_ = ir.findInstances(p, callers: checked.callers[m], errs: unfinite[slot])
+		end 'instances'
 	end 'modules'
 	for slot in 0 upto count 'failures'
 		if unfinite[slot].count() > 0 'failed'
 			appendErrors(errs, found: unfinite[slot])
-			return
+			return lowered
 		end 'failed'
 	end 'failures'
-	checkRuntimeFunctions(p, first: first, errs: errs)
-	if output == "" or errs.count() > 0 'nothingToMake'
-		return
-	end 'nothingToMake'
-	if options.emitIr 'emitIr'
-		writeIr(p, lowered: lowered, path: "{output}{irExtension}")
-	end 'emitIr'
-	refusals(p, lowered: lowered, errs: errs)
-	if errs.count() > 0 'refused'
-		return
-	end 'refused'
-	let out = try FilePath.from(output) otherwise panic("driver: the output {output} is not a path")
-	try backend.compileProgram(p, modules: lowered, ready: ready, entry: checked.entry, options: backend.RuntimeOptions.make(options.countAllocations), out: out) otherwise panic("driver: cannot write {output}")
-end 'generate'
+	return lowered
+end 'lowerModules'
 
 function appendErrors(mutates errs diag.ErrorList, found diag.ErrorList)
 	for i in 0 upto found.count() 'each'

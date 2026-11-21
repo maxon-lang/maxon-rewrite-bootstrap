@@ -2,12 +2,16 @@
 //> quoted=true code=0 succeeded=true
 //> path=true
 //> missing=executableNotFound
+//> sleeper=timeout
+//> quick=ran 0
+//> unbounded=ran 0
 
 typealias Arguments = Array with String
 
-function runError(name String) returns String
+// outcome runs a program under a deadline and says how it ended.
+function outcome(name String, arguments Arguments, deadline WaitDeadline) returns String
 	try 'run'
-		let out = Subprocess.run(Executable.name(name.clone()), arguments: Arguments.create(0))
+		let out = Subprocess.runWithDeadline(Executable.name(name.clone()), arguments: arguments, deadline: deadline)
 		return "ran {out.exitCode()}"
 	end 'run' otherwise (e) 'failed'
 		match e 'kind'
@@ -23,7 +27,16 @@ function runError(name String) returns String
 		end 'kind'
 	end 'failed'
 	return "unreachable"
-end 'runError'
+end 'outcome'
+
+// pingFor runs ping, which takes about a second for each of its pings after the first.
+function pingFor(pings String, deadline WaitDeadline) returns String
+	var args = Arguments.create(0)
+	args.push("-n")
+	args.push(pings.clone())
+	args.push("127.0.0.1")
+	return outcome("ping.exe", arguments: args, deadline: deadline)
+end 'pingFor'
 
 function main() returns ExitCode
 	var script = Arguments.create(0)
@@ -40,6 +53,9 @@ function main() returns ExitCode
 	let shell = try FilePath.from(try Process.environmentVariable("ComSpec") otherwise panic("ComSpec is not set")) otherwise panic("not a path")
 	let byPath = try Subprocess.run(Executable.path(shell), arguments: echo) otherwise panic("cannot run the shell")
 	print("path={byPath.stdout == quoted.stdout}\n")
-	print("missing={runError("minimaxon_no_such_exe_98765")}\n")
+	print("missing={outcome("minimaxon_no_such_exe_98765", arguments: Arguments.create(0), deadline: WaitDeadline.none)}\n")
+	print("sleeper={pingFor("11", deadline: WaitDeadline.within(300))}\n")
+	print("quick={pingFor("1", deadline: WaitDeadline.within(30000))}\n")
+	print("unbounded={pingFor("1", deadline: WaitDeadline.none)}\n")
 	return 0
 end 'main'

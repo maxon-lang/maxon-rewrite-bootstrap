@@ -85,7 +85,7 @@ var (
 	}
 )
 
-// payloadField is the index, in the payload of a case of Executable, of the one field it has.
+// payloadField is the index, in the payload of a case of Executable or WaitDeadline, of the one field it has.
 const payloadField = 0
 
 // Path characters that FilePath.from refuses besides the control characters, as maxon's does on Windows.
@@ -211,12 +211,38 @@ func (l *Lowerer) lowerDirectoryList(c call, _ V, args []V) V {
 	return paths
 }
 
-// lowerSubprocessRun runs the child and makes the CollectedOutput of what the entry stored and returned.
+// NoDeadline is the deadline of rt.os.run that never passes.
+const NoDeadline = 0
+
 func (l *Lowerer) lowerSubprocessRun(c call, _ V, args []V) V {
+	return l.runSubprocess(c, args[0], args[1], l.konst(NoDeadline))
+}
+
+func (l *Lowerer) lowerSubprocessRunWithDeadline(c call, _ V, args []V) V {
+	return l.runSubprocess(c, args[0], args[1], l.deadlineMs(args[2]))
+}
+
+// deadlineMs is the milliseconds a WaitDeadline gives, NoDeadline for none.
+func (l *Lowerer) deadlineMs(deadline V) V {
+	ms := l.f.NewSlot(KindScalar)
+	l.emit(StoreSlot(ms, l.konst(NoDeadline), false))
+	within := l.b.NewBlock()
+	end := l.b.NewBlock()
+	l.b.Terminate(l.cur, Branch(l.compare(CmpEq, l.tag(deadline), l.konst(ast.WaitDeadlineWithin), false), within, end))
+	l.cur = within
+	payload := l.reg(KindScalar)
+	l.emit(LoadField(payload, deadline, FieldOffset(payloadField, true)))
+	l.emit(StoreSlot(ms, payload, false))
+	l.goTo(end)
+	return l.load(ms)
+}
+
+// runSubprocess runs the child and makes the CollectedOutput of what the entry stored and returned.
+func (l *Lowerer) runSubprocess(c call, executable, arguments, deadlineMs V) V {
 	site := c.CallExpr.Position()
 	stdout := l.f.NewSlot(KindManaged)
 	stderr := l.f.NewSlot(KindManaged)
-	code := l.failing(site, l.reg(KindScalar), RtOsRun, l.executableText(args[0]), args[1], l.slotAddr(stdout), l.slotAddr(stderr))
+	code := l.failing(site, l.reg(KindScalar), RtOsRun, l.executableText(executable), arguments, deadlineMs, l.slotAddr(stdout), l.slotAddr(stderr))
 	fields := make([]V, ast.CollectedOutputCodeField+1)
 	fields[ast.CollectedOutputStdoutField] = l.fetch(stdout)
 	fields[ast.CollectedOutputStderrField] = l.fetch(stderr)
