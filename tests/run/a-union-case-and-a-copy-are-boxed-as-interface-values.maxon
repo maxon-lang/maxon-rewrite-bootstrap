@@ -1,0 +1,42 @@
+//> 3 5
+//> 7
+typealias Integer = int(i64.min to i64.max)
+
+interface Sized
+	function size() returns Integer
+end 'Sized'
+
+union Piece implements Sized
+	one(n Integer)
+	two(a Integer, b Integer)
+
+	function size() returns Integer
+		return match self 'k'
+			one(n) gives n
+			two(a, b) gives try a + b otherwise panic("overflow")
+		end 'k'
+	end 'size'
+end 'Piece'
+
+type Block implements Sized
+	var side as Integer
+
+	static function create(side Integer) returns Self
+		return Self{side: side}
+	end 'create'
+
+	function size() returns Integer
+		return side
+	end 'size'
+end 'Block'
+
+function sizeOf(item Sized) returns Integer
+	return item.size()
+end 'sizeOf'
+
+function main() returns ExitCode
+	print("{sizeOf(Piece.one(3))} {sizeOf(Piece.two(2, b: 3))}\n")
+	let block = Block.create(7)
+	print("{sizeOf(block.clone())}\n")
+	return 0
+end 'main'

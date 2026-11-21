@@ -253,6 +253,9 @@ function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, b
 			continue 'each'
 		end 'notCall'
 		let info = callInfoAt(p, module: module, node: site)
+		if not runsFunction(info.kind) 'noFunction'
+			continue 'each'
+		end 'noFunction'
 		if witnessInterface(p, module: module, receiver: ast.callReceiver(p.modules[ast.modIndex(module)].tree, e: site, kind: info.kind), info: info, bindParams: bindParams, bindArgs: bindArgs) != ast.noType 'dispatched'
 			continue 'each'
 		end 'dispatched'
@@ -263,6 +266,23 @@ function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, b
 	end 'each'
 	return true
 end 'visitUses'
+
+// runsFunction is whether a call of the kind runs a function that can be an instance. A site is recorded for a use that
+// is not the call itself, such as the value that is put in an interface value, which can be a union case or a copy.
+function runsFunction(kind ast.CallKind) returns bool
+	return match kind 'k'
+		callFunction gives true
+		callMethod gives true
+		callStatic gives true
+		callBound gives true
+		callUnionCtor gives false
+		callPrint gives false
+		callPrintError gives false
+		callCopy gives false
+		callValue gives false
+		callUnresolved panic("a call was recorded as a use before the check resolved it")
+	end 'k'
+end 'runsFunction'
 
 // noteTable notes the instances that the methods of the table of a value boxed at site run.
 function noteTable(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, iface ast.TypeID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
