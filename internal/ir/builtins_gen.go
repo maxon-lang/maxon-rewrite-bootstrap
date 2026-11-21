@@ -80,6 +80,8 @@ const (
 	RtBytesToString                       // (ByteArray) -> String
 	RtOsArgs                              // () -> Array with String
 	RtOsEnvironmentVariable               // (name String, error) -> String
+	RtOsExecutablePath                    // (error) -> String: the full path of the running executable
+	RtOsCurrentPath                       // () -> String: the working directory, panicking when Windows cannot give it
 	RtOsPathFrom                          // (path String, error) -> String: the path with the native separator for the other one
 	RtOsReadText                          // (path String, error) -> String
 	RtOsWriteText                         // (path String, content String, error)
@@ -161,6 +163,8 @@ var rtNames = [...]string{
 	RtBytesToString:         "rt.bytes.toString",
 	RtOsArgs:                "rt.os.args",
 	RtOsEnvironmentVariable: "rt.os.environmentVariable",
+	RtOsExecutablePath:      "rt.os.executablePath",
+	RtOsCurrentPath:         "rt.os.currentPath",
 	RtOsPathFrom:            "rt.os.pathFrom",
 	RtOsReadText:            "rt.os.readText",
 	RtOsWriteText:           "rt.os.writeText",
@@ -255,6 +259,8 @@ var rtUnits = [...]RtUnit{
 	RtBytesToString:         RtUnitBytes,
 	RtOsArgs:                RtUnitOs,
 	RtOsEnvironmentVariable: RtUnitOs,
+	RtOsExecutablePath:      RtUnitOs,
+	RtOsCurrentPath:         RtUnitOs,
 	RtOsPathFrom:            RtUnitOs,
 	RtOsReadText:            RtUnitOs,
 	RtOsWriteText:           RtUnitOs,
@@ -314,6 +320,8 @@ var rtFunctions = [...]*RtFunction{
 	RtBytesToString:         {Name: "bytesToString", Symbol: "runtime::bytesToString", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}}, Result: "String"},
 	RtOsArgs:                {Name: "osArgs", Symbol: "runtime::osArgs", Params: []RtParam{}, Result: "Count"},
 	RtOsEnvironmentVariable: {Name: "osEnvironmentVariable", Symbol: "runtime::osEnvironmentVariable", Params: []RtParam{{Conv: ast.ConvLet, Name: "name", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "String"},
+	RtOsExecutablePath:      {Name: "osExecutablePath", Symbol: "runtime::osExecutablePath", Params: []RtParam{{Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "String"},
+	RtOsCurrentPath:         {Name: "osCurrentPath", Symbol: "runtime::osCurrentPath", Params: []RtParam{}, Result: "String"},
 	RtOsPathFrom:            {Name: "osPathFrom", Symbol: "runtime::osPathFrom", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "String"},
 	RtOsReadText:            {Name: "osReadText", Symbol: "runtime::osReadText", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "String"},
 	RtOsWriteText:           {Name: "osWriteText", Symbol: "runtime::osWriteText", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}, {Conv: ast.ConvLet, Name: "content", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "Void"},
@@ -336,7 +344,7 @@ func (r Rt) Function() (*RtFunction, bool) {
 }
 
 // RtFunctions are the entries that the runtime's source defines, in the table's order.
-var RtFunctions = []Rt{RtAlloc, RtFree, RtWrite, RtPanic, RtConcat, RtItoa, RtStreq, RtStrLen, RtStrByteAt, RtStrSlice, RtPanicIndex, RtCheckLeaks, RtArrayNew, RtArrayLen, RtArrayElem, RtArrayInsert, RtArrayRemove, RtBytesNew, RtBytesLen, RtBytesGet, RtBytesSet, RtBytesInsert, RtBytesRemove, RtBytesAppend, RtBytesAppendStr, RtBytesToString, RtOsArgs, RtOsEnvironmentVariable, RtOsPathFrom, RtOsReadText, RtOsWriteText, RtOsWriteBinary, RtOsRename, RtOsDelete, RtOsIsDirectory, RtOsCreateDirectory, RtOsList, RtOsRun}
+var RtFunctions = []Rt{RtAlloc, RtFree, RtWrite, RtPanic, RtConcat, RtItoa, RtStreq, RtStrLen, RtStrByteAt, RtStrSlice, RtPanicIndex, RtCheckLeaks, RtArrayNew, RtArrayLen, RtArrayElem, RtArrayInsert, RtArrayRemove, RtBytesNew, RtBytesLen, RtBytesGet, RtBytesSet, RtBytesInsert, RtBytesRemove, RtBytesAppend, RtBytesAppendStr, RtBytesToString, RtOsArgs, RtOsEnvironmentVariable, RtOsExecutablePath, RtOsCurrentPath, RtOsPathFrom, RtOsReadText, RtOsWriteText, RtOsWriteBinary, RtOsRename, RtOsDelete, RtOsIsDirectory, RtOsCreateDirectory, RtOsList, RtOsRun}
 
 // intrinsicCall lowers a call of a built-in whose receiver and arguments are lowered.
 func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
@@ -451,6 +459,8 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerCommandLineArgs(c, recv, args)
 	case ast.IntrinsicProcessEnvironmentVariable:
 		return l.lowerProcessEnvironmentVariable(c, recv, args)
+	case ast.IntrinsicProcessExecutablePath:
+		return l.lowerProcessExecutablePath(c, recv, args)
 	case ast.IntrinsicFilePathFrom:
 		return l.lowerFilePathFrom(c, recv, args)
 	case ast.IntrinsicFilePathToString:
@@ -469,6 +479,8 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerDirectoryIsDirectory(c, recv, args)
 	case ast.IntrinsicDirectoryCreate:
 		return l.lowerDirectoryCreate(c, recv, args)
+	case ast.IntrinsicDirectoryCurrentPath:
+		return l.lowerDirectoryCurrentPath(c, recv, args)
 	case ast.IntrinsicDirectoryList:
 		return l.lowerDirectoryList(c, recv, args)
 	case ast.IntrinsicSubprocessRun:
@@ -561,6 +573,7 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicCown,
 		ast.IntrinsicCommandLineArgs,
 		ast.IntrinsicProcessEnvironmentVariable,
+		ast.IntrinsicProcessExecutablePath,
 		ast.IntrinsicFilePathFrom,
 		ast.IntrinsicFilePathToString,
 		ast.IntrinsicFileReadText,
@@ -570,6 +583,7 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicFileDelete,
 		ast.IntrinsicDirectoryIsDirectory,
 		ast.IntrinsicDirectoryCreate,
+		ast.IntrinsicDirectoryCurrentPath,
 		ast.IntrinsicDirectoryList,
 		ast.IntrinsicSubprocessRun,
 		ast.IntrinsicCollectedOutputExitCode,

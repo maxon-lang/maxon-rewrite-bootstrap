@@ -87,6 +87,8 @@ let caseSpan = 256
 // The cases of the errors that the entries throw, by their position in the enum.
 let pathInvalidCharacter = 0
 
+let pathUnavailable = 0
+
 let variableUnset = 1
 
 let readNotFound = 0
@@ -148,6 +150,10 @@ let listPatternSuffix = "\\*"
 let findDataBytes = 592
 
 let findDataNameOffset = 44
+
+// longPathUnits is the longest path Windows has, which a buffer for the executable's path or the working directory is
+// made to hold.
+let longPathUnits = 32768
 
 // maxEnvironmentReads is how many times a variable's value is read again when it grows between the call that sizes it
 // and the one that reads it.
@@ -315,6 +321,34 @@ function osEnvironmentVariable(name String, errorAddress Count) returns String
 	failWith(errorAddress, errorCase: variableUnset)
 	return noString()
 end 'osEnvironmentVariable'
+
+// osExecutablePath is the full path of the running executable, which Windows may not be able to give.
+function osExecutablePath(errorAddress Count) returns String
+	let buffer = alloc(longPathUnits * wideUnitBytes)
+	let units = dword(__Raw.callImport3("GetModuleFileNameW", arg1: noBytes, arg2: buffer, arg3: longPathUnits))
+	if units == 0 or units == longPathUnits 'failed'
+		free(buffer)
+		failWith(errorAddress, errorCase: pathUnavailable)
+		return noString()
+	end 'failed'
+	let text = stringOfUnits(buffer, units: units)
+	free(buffer)
+	succeed(errorAddress)
+	return text
+end 'osExecutablePath'
+
+// osCurrentPath is the working directory, which stops the program when Windows cannot give it.
+function osCurrentPath() returns String
+	let buffer = alloc(longPathUnits * wideUnitBytes)
+	let units = dword(__Raw.callImport2("GetCurrentDirectoryW", arg1: longPathUnits, arg2: buffer))
+	if units == 0 or units >= longPathUnits 'failed'
+		free(buffer)
+		panic("Directory.currentPath: GetCurrentDirectory failed")
+	end 'failed'
+	let text = stringOfUnits(buffer, units: units)
+	free(buffer)
+	return text
+end 'osCurrentPath'
 
 // osPathFrom is a path with the native separator in place of the other one, which refuses a character that Windows does
 // not allow in a path.

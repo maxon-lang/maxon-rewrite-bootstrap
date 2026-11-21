@@ -42,18 +42,18 @@ type compileOutcome struct {
 	unsupported bool
 }
 
-// compile makes the executable of file at output, or, when the test expects an error and the compiler is external, only
-// checks it: the external compiler reports an error as the program's diagnostics, and one that comes after type checking
-// is a stage it does not have yet.
-func (c testCompiler) compile(file, output string, expectsError bool) compileOutcome {
+// compile makes the executable of file at output, as the driver does for every test, so that a test that expects an
+// error the generate stage raises gets it. The executables count their live heap boxes (countAllocations).
+func (c testCompiler) compile(file, output string) compileOutcome {
 	if c.external == "" {
 		errs, internal := compileForTest(file, output)
 		return compileOutcome{errs: errs, internal: internal}
 	}
-	if expectsError {
-		return c.runExternal("check", file)
+	arguments := []string{file, "-o", output}
+	if countAllocations {
+		arguments = append(arguments, countAllocationsFlag)
 	}
-	return c.runExternal("build", file, "-o", output)
+	return c.runExternal("build", arguments...)
 }
 
 // interprets is whether a program that compiled is also run under the interpreter. The test of an external compiler

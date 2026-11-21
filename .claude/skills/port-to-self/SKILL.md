@@ -121,3 +121,17 @@ follows the error style of the code around it (result unions in the front end); 
   `.\check.ps1`). Do not commit unless asked; then directly on `main`.
 - A gap in the Go compiler that blocks a port is fixed in Go only if `self/` needs it; a language change goes through
   the `language-change` skill and README "Where it differs from Maxon".
+
+## Speed: what the first profile found
+
+`c1.exe check self` took 134 s until three things were fixed (now 1.3 s). Profile before guessing:
+`.\minimaxon.exe build self -o bin\c1.exe --emit-map`, then `go run ./cmd/sample bin\c1.exe check self`.
+
+- Never write `try ... otherwise <fallback>` inside a hash or mixing function: the fallback becomes the hash of nearly
+  every key. Keep the operands 32-bit so a product cannot overflow, as maxon's stdlib does.
+- A fact every node has belongs in an array indexed by the node, as the Go compiler's slices are; keep `IntMap` and
+  `StringMap` for sparse keys.
+- Never copy a record out of a table to read one field: read through the element, or add an accessor that reads in
+  place (`ast.declName`, `ast.declLevel`). `IntMap.get` copies its value, so keep large values out of hot lookups.
+- Every record value is a heap box in the Go compiler's output, so a copy allocates. Pass by `mutates` or read in
+  place on hot paths.

@@ -159,6 +159,7 @@ export enum Intrinsic
 	intrExchange
 	intrCommandLineArgs
 	intrProcessEnvironmentVariable
+	intrProcessExecutablePath
 	intrFilePathFrom
 	intrFilePathToString
 	intrFileReadText
@@ -168,6 +169,7 @@ export enum Intrinsic
 	intrFileDelete
 	intrDirectoryIsDirectory
 	intrDirectoryCreate
+	intrDirectoryCurrentPath
 	intrDirectoryList
 	intrSubprocessRun
 	intrCollectedOutputExitCode
@@ -670,6 +672,8 @@ function declareProcessMethods(mutates tt TypeTable, mutates ft FuncTable, mutat
 	ps1.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
 	let f2 = registerMethodOn(tt, ft: ft, std: std, owner: b.processTy, op: Intrinsic.intrProcessEnvironmentVariable, name: "environmentVariable", isStatic: true, selfConv: Convention.convLet, ret: b.stringTy, params: ps1)
 	ft.entries[f2 as Count].errTy = b.processIntrospectionErrorTy
+	let f3 = registerMethodOn(tt, ft: ft, std: std, owner: b.processTy, op: Intrinsic.intrProcessExecutablePath, name: "executablePath", isStatic: true, selfConv: Convention.convLet, ret: b.filePathTy, params: ParamSpecList.create(0))
+	ft.entries[f3 as Count].errTy = b.processIntrospectionErrorTy
 end 'declareProcessMethods'
 
 function declareFilePathMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -715,6 +719,7 @@ function declareDirectoryMethods(mutates tt TypeTable, mutates ft FuncTable, mut
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps2)
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryCurrentPath, name: "currentPath", isStatic: true, selfConv: Convention.convLet, ret: b.filePathTy, params: ParamSpecList.create(0))
 	let ty3 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))

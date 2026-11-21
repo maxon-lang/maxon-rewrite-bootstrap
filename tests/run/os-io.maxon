@@ -1,5 +1,7 @@
 //> args=true
 //> unset=variableUnset
+//> exe=true false
+//> cwd=true
 //> path=a\b\c.txt
 //> invalid=invalidCharacter
 //> created=true isDirectory=true
@@ -109,6 +111,9 @@ end 'path'
 function main() returns ExitCode
 	print("args={CommandLine.args().count() >= 1}\n")
 	print("unset={envError("MINIMAXON_NO_SUCH_ENV_98765")}\n")
+	let exe = try Process.executablePath() otherwise panic("no executable path")
+	print("exe={exe.toString().byteLength() > 0} {Directory.isDirectory(exe)}\n")
+	print("cwd={Directory.isDirectory(Directory.currentPath())}\n")
 	print("path={pathError("a/b\\c.txt")}\n")
 	print("invalid={pathError("a?b")}\n")
 	let temp = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")

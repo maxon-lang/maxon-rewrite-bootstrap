@@ -85,11 +85,6 @@ export enum Convention
 			convDestructs gives "destructs"
 		end 'c'
 	end 'keyword'
-
-	// byAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
-	export function byAddress() returns bool
-		return self == Convention.convMutates or self == Convention.convSets
-	end 'byAddress'
 end 'Convention'
 
 export function parseConvention(kw String) returns Convention
@@ -666,3 +661,86 @@ export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, orig
 	ft.instCache.insert(key, value: id)
 	return id
 end 'instantiateFunc'
+
+// memberType is the type of a field or a payload that its declaration gives as declared, in the instance owner.
+export function memberType(mutates tt TypeTable, owner TypeID, declared TypeID) returns TypeID
+	let origin = originOf(tt, t: owner)
+	if owner == origin or tt.entries[owner as Count].typeArgs.count() == 0 'declared'
+		return declared
+	end 'declared'
+	let params = cloneTypeArgs(tt.entries[origin as Count].typeParams)
+	let args = cloneTypeArgs(tt.entries[owner as Count].typeArgs)
+	return substituteType(tt, t: declared, params: params, args: args)
+end 'memberType'
+
+// fieldType is the type of the field at index of the record owner, an instance's with its arguments applied.
+export function fieldType(mutates tt TypeTable, owner TypeID, index Count) returns TypeID
+	let declared = tt.entries[originOf(tt, t: owner) as Count].fields[index].ty
+	return memberType(tt, owner: owner, declared: declared)
+end 'fieldType'
+
+// payloadType is the type of the payload at index of a case of the union owner, an instance's with its arguments applied.
+export function payloadType(mutates tt TypeTable, owner TypeID, caseIndex Count, index Count) returns TypeID
+	let declared = tt.entries[originOf(tt, t: owner) as Count].cases[caseIndex].payload[index].ty
+	return memberType(tt, owner: owner, declared: declared)
+end 'payloadType'
+
+// packsBytes is whether t is an array whose box holds each element in one byte: an array of an integer type whose range
+// fits in a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an
+// array asks this, so the two boxes are never mistaken for each other.
+export function packsBytes(tt TypeTable, b Builtins, t TypeID) returns bool
+	if tt.entries[t as Count].kind != TypeKind.builtinArray 'notArray'
+		return false
+	end 'notArray'
+	let elem = tt.entries[t as Count].typeArgs[0]
+	if tt.entries[elem as Count].kind != TypeKind.intRange 'notInt'
+		return false
+	end 'notInt'
+	let byteTy = b.byteTy as Count
+	return tt.entries[elem as Count].minVal.ge(tt.entries[byteTy].minVal) and tt.entries[elem as Count].maxVal.le(tt.entries[byteTy].maxVal)
+end 'packsBytes'
+
+// isByAddress is whether a parameter of the convention is passed as the address of the caller's place.
+export function isByAddress(conv Convention) returns bool
+	return conv == Convention.convMutates or conv == Convention.convSets
+end 'isByAddress'
+
+// ownsValue is whether the callee owns what it is given: the caller's value moves in.
+export function ownsValue(conv Convention) returns bool
+	return conv == Convention.convConsumes or conv == Convention.convDestructs
+end 'ownsValue'
+
+// callReceiver is the object a call of a method names before its dot, or 0 for a call that has none.
+export function callReceiver(tree Tree, e NodeID, kind CallKind) returns NodeID
+	if kind == CallKind.callMethod or kind == CallKind.callBound or kind == CallKind.callCopy 'member'
+		let callee = callExprCallee(tree, id: e)
+		if tree.kindOf(callee) == NodeKind.memberExpr 'named'
+			return memberExprObj(tree, id: callee)
+		end 'named'
+	end 'member'
+	return 0 as NodeID
+end 'callReceiver'
+
+// isStorage is whether an expression reads a value that already lives somewhere, in a variable, a field or an element,
+// and so borrows it, as opposed to making a new value. typing is the module's, as far as the check has typed it.
+export function isStorage(tree Tree, typing Typing, node NodeID) returns bool
+	let e = through(tree, e: node)
+	let k = tree.kindOf(e)
+	if k == NodeKind.nameExpr 'name'
+		let kind = match typing.names.get(e as Count) 'hit'
+			some(info) gives info.kind
+			none panic("ast: the name at node {e} was not recorded by the check")
+		end 'hit'
+		return kind == NameKind.nameLocal or kind == NameKind.nameSelfField
+	end 'name'
+	if k == NodeKind.selfExpr or k == NodeKind.indexExpr 'place'
+		return true
+	end 'place'
+	if k == NodeKind.memberExpr 'member'
+		return match typing.members.get(e as Count) 'hit'
+			some(info) gives info.kind == MemberKind.memberField
+			none panic("ast: the member at node {e} was not recorded by the check")
+		end 'hit'
+	end 'member'
+	return false
+end 'isStorage'

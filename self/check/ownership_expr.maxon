@@ -49,7 +49,7 @@ function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consu
 	if not path.isPlace() 'fresh'
 		if projectsElement(o, p: p, e: e) 'element'
 			fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "an element of a collection that is not stored in a variable cannot be moved out of it into {dest.text()}; bind the collection to a variable and take the element out of it, or copy it")
-		end 'element' else if isStorageOwn(o, p: p, e: e) 'part'
+		end 'element' else if ast.isStorage(p.modules[o.c.modIdx].tree, typing: o.c.typing, node: e) 'part'
 			let advice = copyAdvice(o, p: p, t: t, ifCopyable: "copy it with '.clone()'", fallback: "")
 			fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "a part of a temporary value cannot be moved out of it into {dest.text()}, because the temporary is dropped when the statement ends; {advice}")
 		end 'part'
@@ -103,7 +103,7 @@ function requireWritable(mutates o Ownership, mutates p ast.Project, site diag.U
 		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var")
 		return
 	end 'let'
-	if root.isParam and ownsConv(root.conv) 'owns'
+	if root.isParam and ast.ownsValue(root.conv) 'owns'
 		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a '{root.conv.keyword()}' parameter; move it into a var first")
 		return
 	end 'owns'
@@ -342,7 +342,7 @@ end 'condExprOwn'
 
 function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
 	let call = ownCall(o, node: e)
-	let receiver = callReceiver(p.modules[o.c.modIdx].tree, e: e, kind: call.kind)
+	let receiver = ast.callReceiver(p.modules[o.c.modIdx].tree, e: e, kind: call.kind)
 	let k = call.kind
 	if k == ast.CallKind.callCopy 'copy'
 		return expr(o, p: p, e: receiver, s: s)
@@ -389,7 +389,7 @@ function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, cal
 	if receiver != 0 'receiver'
 		out = argument(o, p: p, e: receiver, conv: call.selfConv, dest: OwnDest.make(OwnDestKind.destParameter, name: "self"), s: out)
 		if n > 0 'more'
-			hold(o, p: p, place: receiver, kind: OwnProjectionKind.projectArgument, byAddress: call.selfConv.byAddress())
+			hold(o, p: p, place: receiver, kind: OwnProjectionKind.projectArgument, byAddress: ast.isByAddress(call.selfConv))
 		end 'more'
 	end 'receiver'
 	for i in 0 upto n 'args'
@@ -402,7 +402,7 @@ function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, cal
 		out = argument(o, p: p, e: arg, conv: conv, dest: OwnDest.make(OwnDestKind.destParameter, name: name), s: out)
 		let next = try i + 1 otherwise n
 		if next < n 'more'
-			hold(o, p: p, place: arg, kind: OwnProjectionKind.projectArgument, byAddress: conv.byAddress())
+			hold(o, p: p, place: arg, kind: OwnProjectionKind.projectArgument, byAddress: ast.isByAddress(conv))
 		end 'more'
 	end 'args'
 	release(o, mark: held)

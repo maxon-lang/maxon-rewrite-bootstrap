@@ -88,6 +88,7 @@ const (
 	IntrinsicExchange
 	IntrinsicCommandLineArgs
 	IntrinsicProcessEnvironmentVariable
+	IntrinsicProcessExecutablePath
 	IntrinsicFilePathFrom
 	IntrinsicFilePathToString
 	IntrinsicFileReadText
@@ -97,6 +98,7 @@ const (
 	IntrinsicFileDelete
 	IntrinsicDirectoryIsDirectory
 	IntrinsicDirectoryCreate
+	IntrinsicDirectoryCurrentPath
 	IntrinsicDirectoryList
 	IntrinsicSubprocessRun
 	IntrinsicCollectedOutputExitCode
@@ -199,6 +201,7 @@ func (op Intrinsic) RuntimeOnly() bool {
 		IntrinsicExchange,
 		IntrinsicCommandLineArgs,
 		IntrinsicProcessEnvironmentVariable,
+		IntrinsicProcessExecutablePath,
 		IntrinsicFilePathFrom,
 		IntrinsicFilePathToString,
 		IntrinsicFileReadText,
@@ -208,6 +211,7 @@ func (op Intrinsic) RuntimeOnly() bool {
 		IntrinsicFileDelete,
 		IntrinsicDirectoryIsDirectory,
 		IntrinsicDirectoryCreate,
+		IntrinsicDirectoryCurrentPath,
 		IntrinsicDirectoryList,
 		IntrinsicSubprocessRun,
 		IntrinsicCollectedOutputExitCode,
@@ -563,6 +567,10 @@ func (b *Builtins) declareTable() {
 		f.ErrorType = b.ProcessIntrospectionError
 	}
 	{
+		f := b.method(b.Process, IntrinsicProcessExecutablePath, "executablePath", true, ConvLet, b.FilePath)
+		f.ErrorType = b.ProcessIntrospectionError
+	}
+	{
 		f := b.method(b.FilePath, IntrinsicFilePathFrom, "from", true, ConvLet, SelfType(b.FilePath), param("path", StringTy, ConvLet))
 		f.ErrorType = b.FilePathError
 	}
@@ -589,6 +597,7 @@ func (b *Builtins) declareTable() {
 	}
 	b.method(b.Directory, IntrinsicDirectoryIsDirectory, "isDirectory", true, ConvLet, BoolTy, param("path", b.FilePath, ConvLet))
 	b.method(b.Directory, IntrinsicDirectoryCreate, "create", true, ConvLet, BoolTy, param("path", b.FilePath, ConvLet))
+	b.method(b.Directory, IntrinsicDirectoryCurrentPath, "currentPath", true, ConvLet, b.FilePath)
 	{
 		f := b.method(b.Directory, IntrinsicDirectoryList, "list", true, ConvLet, Instantiate(b.Array, []Ty{b.FilePath}), param("path", b.FilePath, ConvLet))
 		f.ErrorType = b.DirectoryListError

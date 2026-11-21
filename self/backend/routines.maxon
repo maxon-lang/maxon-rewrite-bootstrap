@@ -112,26 +112,9 @@ export type RoutineSet
 	end 'symbol'
 end 'RoutineSet'
 
-// memberType is the type of a field or a payload as the owner has it: an instance has the declaration's type with its own
-// type arguments in place of the parameters.
-function memberType(mutates tt ast.TypeTable, owner ast.TypeID, declared ast.TypeID) returns ast.TypeID
-	let origin = ast.originOf(tt, t: owner)
-	if owner == origin or tt.entries[owner as Count].typeArgs.count() == 0 'declared'
-		return declared
-	end 'declared'
-	let params = ast.cloneTypeArgs(tt.entries[origin as Count].typeParams)
-	let args = ast.cloneTypeArgs(tt.entries[owner as Count].typeArgs)
-	return ast.substituteType(tt, t: declared, params: params, args: args)
-end 'memberType'
-
 function fieldCount(tt ast.TypeTable, owner ast.TypeID) returns Count
 	return tt.entries[ast.originOf(tt, t: owner) as Count].fields.count()
 end 'fieldCount'
-
-function fieldType(mutates tt ast.TypeTable, owner ast.TypeID, index Count) returns ast.TypeID
-	let declared = tt.entries[ast.originOf(tt, t: owner) as Count].fields[index].ty
-	return memberType(tt, owner: owner, declared: declared)
-end 'fieldType'
 
 function caseCount(tt ast.TypeTable, owner ast.TypeID) returns Count
 	return tt.entries[ast.originOf(tt, t: owner) as Count].cases.count()
@@ -141,34 +124,14 @@ function payloadCount(tt ast.TypeTable, owner ast.TypeID, caseIndex Count) retur
 	return tt.entries[ast.originOf(tt, t: owner) as Count].cases[caseIndex].payload.count()
 end 'payloadCount'
 
-function payloadType(mutates tt ast.TypeTable, owner ast.TypeID, caseIndex Count, index Count) returns ast.TypeID
-	let declared = tt.entries[ast.originOf(tt, t: owner) as Count].cases[caseIndex].payload[index].ty
-	return memberType(tt, owner: owner, declared: declared)
-end 'payloadType'
-
 // elementType is the type of what an array holds.
 function elementType(tt ast.TypeTable, array ast.TypeID) returns ast.TypeID
 	return tt.entries[array as Count].typeArgs[0]
 end 'elementType'
 
-// packsBytes is whether t is an array whose box holds each element in one byte: an array of an integer type whose range
-// fits in a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an
-// array asks this, so the two boxes are never mistaken for each other.
-function packsBytes(p ast.Project, t ast.TypeID) returns bool
-	if p.types.entries[t as Count].kind != ast.TypeKind.builtinArray 'notArray'
-		return false
-	end 'notArray'
-	let elem = elementType(p.types, array: t)
-	if p.types.entries[elem as Count].kind != ast.TypeKind.intRange 'notInt'
-		return false
-	end 'notInt'
-	let byteTy = p.builtins.byteTy as Count
-	return p.types.entries[elem as Count].minVal.ge(p.types.entries[byteTy].minVal) and p.types.entries[elem as Count].maxVal.le(p.types.entries[byteTy].maxVal)
-end 'packsBytes'
-
 function anyManagedPayload(mutates tt ast.TypeTable, owner ast.TypeID, caseIndex Count) returns bool
 	for j in 0 upto payloadCount(tt, owner: owner, caseIndex: caseIndex) 'each'
-		let payloadTy = payloadType(tt, owner: owner, caseIndex: caseIndex, index: j)
+		let payloadTy = ast.payloadType(tt, owner: owner, caseIndex: caseIndex, index: j)
 		if ast.isManagedType(tt, t: payloadTy) 'managed'
 			return true
 		end 'managed'
@@ -182,7 +145,7 @@ function onlyFrees(mutates p ast.Project, ty ast.TypeID) returns bool
 	let kind = p.types.entries[ty as Count].kind
 	if kind == ast.TypeKind.record 'record'
 		for i in 0 upto fieldCount(p.types, owner: ty) 'fields'
-			let fieldTy = fieldType(p.types, owner: ty, index: i)
+			let fieldTy = ast.fieldType(p.types, owner: ty, index: i)
 			if ast.isManagedType(p.types, t: fieldTy) 'managed'
 				return false
 			end 'managed'
@@ -327,7 +290,7 @@ function emitDrop(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
-		if packsBytes(p, t: ty) 'bytes'
+		if ast.packsBytes(p.types, b: p.builtins, t: ty) 'bytes'
 			dropBytes(u)
 			return
 		end 'bytes'
@@ -352,7 +315,7 @@ function emitCopy(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
-		if packsBytes(p, t: ty) 'bytes'
+		if ast.packsBytes(p.types, b: p.builtins, t: ty) 'bytes'
 			copyBytes(u)
 			return
 		end 'bytes'
@@ -381,7 +344,7 @@ function dropRecord(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 	routinePrologue(u, locals: 0)
 	returnIfEmpty(u, done: done)
 	for i in 0 upto fieldCount(p.types, owner: ty) 'fields'
-		let fieldTy = fieldType(p.types, owner: ty, index: i)
+		let fieldTy = ast.fieldType(p.types, owner: ty, index: i)
 		if ast.isManagedType(p.types, t: fieldTy) 'managed'
 			dropWord(u, p: p, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
 		end 'managed'
@@ -407,7 +370,7 @@ function dropUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		u.asm.cmpImm(rax, imm: imm32Of(i))
 		u.asm.jcc(X64CondCode.notEqual, label: next)
 		for j in 0 upto payloadCount(p.types, owner: ty, caseIndex: i) 'payload'
-			let payloadTy = payloadType(p.types, owner: ty, caseIndex: i, index: j)
+			let payloadTy = ast.payloadType(p.types, owner: ty, caseIndex: i, index: j)
 			if ast.isManagedType(p.types, t: payloadTy) 'managed'
 				dropWord(u, p: p, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
 			end 'managed'
@@ -510,7 +473,7 @@ function copyRecord(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 	allocate(u, bytes: ir.boxBytes(fields, tagged: false))
 	u.asm.store(rbp, disp: routineLocal0, src: rax)
 	for i in 0 upto fields 'fields'
-		let fieldTy = fieldType(p.types, owner: ty, index: i)
+		let fieldTy = ast.fieldType(p.types, owner: ty, index: i)
 		copyWord(u, p: p, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
 	end 'fields'
 	u.asm.load(rax, base: rbp, disp: routineLocal0)
@@ -537,7 +500,7 @@ function copyUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		u.asm.movImm(rcx, imm: try i as FullRangeInt otherwise panic("a case index past memory"))
 		u.asm.store(rax, disp: imm32Of(ir.tagOffset), src: rcx)
 		for j in 0 upto payload 'payload'
-			let payloadTy = payloadType(p.types, owner: ty, caseIndex: i, index: j)
+			let payloadTy = ast.payloadType(p.types, owner: ty, caseIndex: i, index: j)
 			copyWord(u, p: p, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
 		end 'payload'
 		if not last 'skip'

@@ -181,7 +181,7 @@ end 'checkNameExpr'
 // selfFieldType records that a name stands for a field of the receiver, and gives the type the field has in the receiver.
 function selfFieldType(mutates c Checker, mutates p ast.Project, e ast.NodeID, rt ast.TypeID, consumes name String, index Count) returns ast.TypeID
 	c.typing.names.insert(e as Count, value: ast.NameInfo.selfFieldName(name, fieldIndex: index))
-	return typeFieldType(p, ownerTy: rt, fieldIdx: index)
+	return ast.fieldType(p.types, owner: rt, index: index)
 end 'selfFieldType'
 
 function checkDeclaredName(mutates c Checker, mutates p ast.Project, e ast.NodeID, consumes ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
@@ -293,6 +293,8 @@ function checkedFold(c Checker, off diag.U32, consumes r ast.I128, mutates errs 
 	return table.Option.some(r)
 end 'checkedFold'
 
+// setOperand records the arithmetic of an operator or a cast, which every one that types has, so that the lowering finds
+// it; the range analysis then says how the operation can fail.
 function setOperand(mutates c Checker, node ast.NodeID, operand ast.TypeID)
 	c.typing.arith.insert(node as Count, value: ast.ArithInfo.make(operand, word: operand, fails: ast.failNone, unreached: false, checkedFail: false))
 end 'setOperand'
@@ -413,18 +415,15 @@ function checkUnary(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 	if t == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
+	setOperand(c, node: e, operand: t)
 	let off = offsetOf(c, p: p, node: e)
 	if op == "not" 'not'
-		if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'bits'
-			setOperand(c, node: e, operand: t)
-		end 'bits'
 		return checkNot(c, p: p, off: off, t: t, errs: errs)
 	end 'not'
 	if isConstInt(p, t: t) 'constant'
 		return ast.internConstInt(p.types, val: p.types.entries[t as Count].minVal.neg())
 	end 'constant'
 	if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'range'
-		setOperand(c, node: e, operand: t)
 		return checkNegation(c, p: p, off: off, t: t, want: want, errs: errs)
 	end 'range'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'-' needs an integer, found {nameOfType(p, t: t)}", errs: errs)
@@ -507,6 +506,7 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if src == ast.noType 'badSource'
 		return ast.noType
 	end 'badSource'
+	setOperand(c, node: e, operand: src)
 	if isConstInt(p, t: src) 'constant'
 		let value = p.types.entries[src as Count].minVal.clone()
 		if not intRangeHolds(p.types, dst: target, v: value) 'doesNotFit'
@@ -515,11 +515,9 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{value.toString()} does not fit {nameOfType(p, t: target)} ({lo} to {hi})", errs: errs)
 			return ast.noType
 		end 'doesNotFit'
-		setOperand(c, node: e, operand: target)
 		return target
 	end 'constant'
 	if typeHasKind(p, t: src, kind: ast.TypeKind.intRange) 'range'
-		setOperand(c, node: e, operand: target)
 		return target
 	end 'range'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot cast {nameOfType(p, t: src)} to {nameOfType(p, t: target)}", errs: errs)

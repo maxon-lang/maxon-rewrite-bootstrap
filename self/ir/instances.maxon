@@ -46,22 +46,10 @@ function applyAll(mutates tt ast.TypeTable, ts ast.TypeIDList, params ast.TypeID
 	return out
 end 'applyAll'
 
-// receiverOf is the object a call of the kind is made on, or none for a call that has none. A method call, a call through
-// a bound and a copy are written 'object.name(...)', so it is the object of the member the call names.
-export function receiverOf(p ast.Project, module diag.ModuleID, node ast.NodeID, kind ast.CallKind) returns ast.NodeID
-	if kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound or kind == ast.CallKind.callCopy 'member'
-		let callee = ast.callExprCallee(p.modules[ast.modIndex(module)].tree, id: node)
-		if p.modules[ast.modIndex(module)].tree.kindOf(callee) == ast.NodeKind.memberExpr 'named'
-			return ast.memberExprObj(p.modules[ast.modIndex(module)].tree, id: callee)
-		end 'named'
-	end 'member'
-	return 0 as ast.NodeID
-end 'receiverOf'
-
 // resolveCall is the function a call runs once the type parameters of the code it is in are bound: the target itself, or
 // the instance of a generic one, or for a call through a bound the method of the type that stands in for the parameter.
 export function resolveCall(mutates p ast.Project, module diag.ModuleID, node ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList) returns ast.FuncID
-	return resolveTarget(p, module: module, receiver: receiverOf(p, module: module, node: node, kind: info.kind), info: info, bindParams: bindParams, bindArgs: bindArgs)
+	return resolveTarget(p, module: module, receiver: ast.callReceiver(p.modules[ast.modIndex(module)].tree, e: node, kind: info.kind), info: info, bindParams: bindParams, bindArgs: bindArgs)
 end 'resolveCall'
 
 // resolveTarget is resolveCall for a call whose object is already known.

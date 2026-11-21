@@ -1,7 +1,7 @@
 // declareProject runs the stages up to the constants over every module, each after the modules it names, and gives the
 // entry function.
 function declareProject(mutates p ast.Project, mutates errs diag.ErrorList) returns ast.FuncID
-	var checks = check.startChecks(p, order: project.topoOrder(project.newGraph(p)))
+	var checks = check.startChecks(p, order: project.topoOrder(project.newGraph(p)), makesProgram: false)
 	check.stageAliases(checks, p: p, errs: errs)
 	if errs.count() == 0 'aliased'
 		check.stageDeclare(checks, p: p, errs: errs)
@@ -13,7 +13,7 @@ function declareProject(mutates p ast.Project, mutates errs diag.ErrorList) retu
 		check.stageConstants(checks, p: p, errs: errs)
 	end 'ordered'
 	let entry = checks.entry
-	check.endChecks(p, ch: checks)
+	_ = check.endChecks(p, ch: checks)
 	return entry
 end 'declareProject'
 

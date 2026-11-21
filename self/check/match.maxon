@@ -324,6 +324,8 @@ function checkPattern(mutates c Checker, mutates p ast.Project, pattern ast.Node
 		checkCasePattern(c, p: p, pattern: pattern, st: st, owned: owned, altCount: altCount, state: state, errs: errs)
 		return
 	end 'case'
+	// A pattern of values binds nothing, and the lowering finds that in its entry as it does a case's bindings.
+	c.typing.patterns.insert(pattern as Count, value: ast.PatternInfo.makeValue(form))
 	if form == ast.PatternKind.patLiteral 'literal'
 		checkLiteralPattern(c, p: p, pattern: pattern, st: st, state: state, errs: errs)
 		return
@@ -398,7 +400,7 @@ function bindCase(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, 
 			locals.push(ast.noLocal)
 			continue 'payload'
 		end 'ignored'
-		let payloadTy = typePayloadType(p, ownerTy: st, caseIdx: caseIdx, fieldIdx: i)
+		let payloadTy = ast.payloadType(p.types, owner: st, caseIndex: caseIdx, index: i)
 		let id = declareLocal(c, p: p, name: bindingName, t: payloadTy, isVar: false, off: off, errs: errs)
 		if id == ast.noLocal 'failed'
 			return false

@@ -1,0 +1,98 @@
+// checkRuntimeFunctions holds the runtime's source to the functions the compiler calls in it (ir.rtFunctions): each is
+// declared, with the table's signature, and is a plain function that throws nothing, so that a call the compiler emits,
+// which passes words on the stack and takes a word back as a call of any function does, means what the function says.
+// A project with no runtime module has nothing to hold.
+function checkRuntimeFunctions(p ast.Project, mutates errs diag.ErrorList)
+	for m in 0 upto p.modules.count() 'modules'
+		if p.modules[m].isRuntime 'runtime'
+			let wants = ir.rtFunctions(p.builtins)
+			for i in 0 upto wants.count() 'each'
+				checkRuntimeFunction(p, module: m, want: wants[i], errs: errs)
+			end 'each'
+		end 'runtime'
+	end 'modules'
+end 'checkRuntimeFunctions'
+
+function checkRuntimeFunction(p ast.Project, module Count, want ir.RtFunction, mutates errs diag.ErrorList)
+	let m = p.modules[module].id
+	let ord = match p.modules[module].names.get(want.name) 'declared'
+		some(found) gives found
+		none gives noDeclaration
+	end 'declared'
+	let fid = runtimeFunctionID(p, module: m, ord: ord)
+	if fid == ast.noFunc 'missing'
+		diag.pushLocatedError(errs, code: diag.errUnknownFunction, message: "the runtime declares no function '{want.name}', which the compiler calls for {ir.rtText(want.entry)}; declare it as '{runtimeSignature(p, want: want)}'", file: p.modules[module].dir.clone(), line: 1, col: 1)
+		return
+	end 'missing'
+	let symbol = ast.funcLinkName(p, fid: fid)
+	if symbol != ir.rtSymbol(want.entry) 'linked'
+		panic("driver: the runtime's '{want.name}' links as {symbol}, where the compiler calls {ir.rtSymbol(want.entry)}")
+	end 'linked'
+	if not matchesSignature(p, fid: fid, want: want) 'differs'
+		let off = p.modules[module].decls[ord as Count].offset(p.modules[module].tree)
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: "the compiler calls '{want.name}' for {ir.rtText(want.entry)} as '{runtimeSignature(p, want: want)}', which throws nothing; declare it with that signature", module: m, offset: off)
+	end 'differs'
+end 'checkRuntimeFunction'
+
+// noDeclaration stands for a name that the runtime module does not declare, which no declaration's ordinal is.
+let noDeclaration = 65535 as ast.DeclOrdinal
+
+// runtimeFunctionID is the function that the declaration at ord is, or noFunc when there is none or it is not a function.
+function runtimeFunctionID(p ast.Project, module diag.ModuleID, ord ast.DeclOrdinal) returns ast.FuncID
+	if ord == noDeclaration 'none'
+		return ast.noFunc
+	end 'none'
+	let isFunction = match p.modules[ast.modIndex(module)].decls[ord as Count] 'kind'
+		funcDecl(_) gives true
+		typeDecl(_) gives false
+		enumDecl(_) gives false
+		unionDecl(_) gives false
+		interfaceDecl(_) gives false
+		aliasDecl(_) gives false
+		constDecl(_) gives false
+	end 'kind'
+	if not isFunction 'other'
+		return ast.noFunc
+	end 'other'
+	return match p.declFuncs.get(ast.declKey(ast.DeclRef.make(module, ordinal: ord))) 'fid'
+		some(fid) gives fid
+		none gives ast.noFunc
+	end 'fid'
+end 'runtimeFunctionID'
+
+function matchesSignature(p ast.Project, fid ast.FuncID, want ir.RtFunction) returns bool
+	let f = p.funcs.entries[fid as Count].clone()
+	var result = f.retTy
+	if result == ast.noType 'void'
+		result = p.builtins.voidTy
+	end 'void'
+	if f.generics.count() > 0 or f.errTy != ast.noType or f.params.count() != want.params.count() or result != want.result 'shape'
+		return false
+	end 'shape'
+	for i in 0 upto want.params.count() 'params'
+		if f.params[i].ty != want.params[i].ty or f.params[i].conv != want.params[i].conv 'param'
+			return false
+		end 'param'
+	end 'params'
+	return true
+end 'matchesSignature'
+
+// runtimeSignature is how the runtime's source declares a function the compiler calls.
+function runtimeSignature(p ast.Project, want ir.RtFunction) returns String
+	var out = ByteArray.create(0)
+	out.append("function {want.name}(".toByteArray())
+	for i in 0 upto want.params.count() 'params'
+		if i > 0 'comma'
+			out.append(", ".toByteArray())
+		end 'comma'
+		if want.params[i].conv != ast.Convention.convLet 'conv'
+			out.append("{want.params[i].conv.keyword()} ".toByteArray())
+		end 'conv'
+		out.append("{want.params[i].name} {ast.typeName(p.types, t: want.params[i].ty)}".toByteArray())
+	end 'params'
+	out.append(")".toByteArray())
+	if want.result != p.builtins.voidTy 'returns'
+		out.append(" returns {ast.typeName(p.types, t: want.result)}".toByteArray())
+	end 'returns'
+	return String.from(out)
+end 'runtimeSignature'

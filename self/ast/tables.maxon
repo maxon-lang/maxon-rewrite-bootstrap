@@ -149,9 +149,10 @@ export type PatternInfo
 		return PatternInfo{kind: PatternKind.patCase, caseIdx: caseIdx, bindings: bindings, hasConstInt: false, constVal: I128.zero()}
 	end 'makeCase'
 
-	export static function makeLiteral() returns PatternInfo
-		return PatternInfo{kind: PatternKind.patLiteral, caseIdx: 0 as Count, bindings: LocalIDList.create(0), hasConstInt: false, constVal: I128.zero()}
-	end 'makeLiteral'
+	// makeValue is a pattern that matches a value or a range of values, which binds nothing.
+	export static function makeValue(kind PatternKind) returns PatternInfo
+		return PatternInfo{kind: kind, caseIdx: 0 as Count, bindings: LocalIDList.create(0), hasConstInt: false, constVal: I128.zero()}
+	end 'makeValue'
 end 'PatternInfo'
 
 export type Capture

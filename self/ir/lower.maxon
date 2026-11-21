@@ -84,12 +84,13 @@ function lowerBody(mutates l Lowerer, mutates p ast.Project) returns IrFunction
 end 'lowerBody'
 
 // adoptParams moves each consumes parameter into a slot, which owns it from there on. A parameter the body does not name
-// (`_`) is dropped all the same, because the caller gave it away.
+// (`_`) is dropped all the same, because the caller gave it away. The locals are the origin's, whose body an instance is;
+// the types are the instance's.
 function adoptParams(mutates l Lowerer, mutates p ast.Project)
 	let hasReceiver = p.funcs.entries[l.fn as Count].hasReceiver
-	if hasReceiver and p.funcs.entries[l.fn as Count].selfLocal != ast.noLocal 'self'
-		let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[l.fn as Count].selfLocal)
-		if ownsValue(selfLocal.conv) and kindOf(l, p: p, t: selfLocal.ty) == IrKind.kindManaged 'owned'
+	if hasReceiver and p.funcs.entries[l.origin as Count].selfLocal != ast.noLocal 'self'
+		let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[l.origin as Count].selfLocal)
+		if ast.ownsValue(selfLocal.conv) and kindOf(l, p: p, t: selfLocal.ty) == IrKind.kindManaged 'owned'
 			let slot = adopt(l, p: p, index: selfLocal.paramIndex, t: selfLocal.ty)
 			l.selfOwner = indexOf(slot)
 		end 'owned'
@@ -102,7 +103,7 @@ function adoptParams(mutates l Lowerer, mutates p ast.Project)
 		let ty = p.funcs.entries[l.fn as Count].paramTypes[i]
 		if p.funcs.entries[l.fn as Count].params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, t: ty) == IrKind.kindManaged 'consumed'
 			let slot = adopt(l, p: p, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
-			let local = p.funcs.entries[l.fn as Count].paramLocals[i]
+			let local = p.funcs.entries[l.origin as Count].paramLocals[i]
 			if local != ast.noLocal 'named'
 				l.ownerSlots.push(OwnerSlot.make(local, slot: slot))
 			end 'named'
@@ -167,7 +168,7 @@ function selfReg(mutates l Lowerer, p ast.Project) returns Reg
 	if l.selfOwner != noSlot 'owned'
 		return load(l, slot: slotIndex(l.selfOwner))
 	end 'owned'
-	let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[l.fn as Count].selfLocal)
+	let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[l.origin as Count].selfLocal)
 	return paramReg(l, index: selfLocal.paramIndex, kind: IrKind.kindManaged)
 end 'selfReg'
 

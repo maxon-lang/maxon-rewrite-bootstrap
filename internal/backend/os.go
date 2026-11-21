@@ -26,6 +26,8 @@ const (
 	impCreatePipe              = 23
 	impSetHandleInformation    = 24
 	impPeekNamedPipe           = 25
+	impGetModuleFileNameA      = 26
+	impGetCurrentDirectoryA    = 27
 
 	winGenericRead             = 0x80000000
 	winGenericWrite            = 0x40000000
@@ -56,6 +58,8 @@ const (
 	winSecurityAttrBytes  = 24
 	winSecurityInherit    = 16
 	winOsCallHomeBytes    = 96
+	// winLongPathBytes is the longest path Windows has, which a buffer for the executable's path is made to hold.
+	winLongPathBytes = 32768
 
 	// errorArg is where an entry that can fail finds the address of its error word: its last argument, the one pushed
 	// nearest, above the saved rbp and the return address.
@@ -563,6 +567,62 @@ func (g *osUnit) emitOsEnvironmentVariable() {
 	a.Push(R12)
 	g.callRuntime(g.rtFree, 1)
 	g.failWith(ast.ErrorVariableUnset)
+}
+
+// rt.os.executablePath(error) -> String
+func (g *osUnit) emitOsExecutablePath() {
+	a := g.asm
+	g.startWinFrame(0)
+	failed := NewLabel()
+	a.MovImm(Rax, wordBytes+winLongPathBytes)
+	a.Push(Rax)
+	g.callRuntime(g.rtAlloc, 1)
+	a.Mov(R12, Rax) // R12 = String box
+	a.Xor(Rcx, Rcx)
+	a.Lea(Rdx, R12, wordBytes)
+	a.MovImm(R8, winLongPathBytes)
+	// It gives the length without the terminating 0, 0 when it fails, and the whole buffer when the path did not fit.
+	a.CallImport(impGetModuleFileNameA)
+	a.Test(Rax, Rax)
+	a.Jcc(CcE, failed)
+	a.CmpImm(Rax, winLongPathBytes)
+	a.Jcc(CcE, failed)
+	a.Store(R12, stringLengthOffset, Rax)
+	a.Mov(Rax, R12)
+	g.succeed()
+	a.Bind(failed)
+	a.Push(R12)
+	g.callRuntime(g.rtFree, 1)
+	g.failWith(ast.ErrorPathUnavailable)
+}
+
+// currentPathFailed is the panic of Directory.currentPath when Windows cannot give the working directory, maxon's.
+const currentPathFailed = "Directory.currentPath: GetCurrentDirectory failed"
+
+// rt.os.currentPath() -> String
+func (g *osUnit) emitOsCurrentPath() {
+	a := g.asm
+	g.startWinFrame(0)
+	failed := NewLabel()
+	a.MovImm(Rax, wordBytes+winLongPathBytes)
+	a.Push(Rax)
+	g.callRuntime(g.rtAlloc, 1)
+	a.Mov(R12, Rax) // R12 = String box
+	a.MovImm(Rcx, winLongPathBytes)
+	a.Lea(Rdx, R12, wordBytes)
+	// It gives the length without the terminating 0, 0 when it fails, and the size it needs when the path did not fit.
+	a.CallImport(impGetCurrentDirectoryA)
+	a.Test(Rax, Rax)
+	a.Jcc(CcE, failed)
+	a.CmpImm(Rax, winLongPathBytes)
+	a.Jcc(CcAE, failed)
+	a.Store(R12, stringLengthOffset, Rax)
+	a.Mov(Rax, R12)
+	g.epilogue()
+	a.Bind(failed)
+	a.LeaData(Rax, g.dataBytes.String(currentPathFailed))
+	a.Push(Rax)
+	a.Call(g.rtPanic)
 }
 
 // rt.os.pathFrom(path String, error) -> String

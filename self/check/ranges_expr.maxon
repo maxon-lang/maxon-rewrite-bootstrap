@@ -328,7 +328,7 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 		some(info) gives info
 		none panic("ranges: the call at node {e} was typed without a record of what it calls")
 	end 'call'
-	let receiver = callReceiver(p.modules[r.modIdx].tree, e: e, kind: call.kind)
+	let receiver = ast.callReceiver(p.modules[r.modIdx].tree, e: e, kind: call.kind)
 	if receiver != 0 'receiver'
 		_ = rangeEval(r, p: p, e: receiver)
 	end 'receiver'
@@ -339,7 +339,7 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	end 'args'
 	for i in 0 upto call.ordered.count() 'changes'
 		let a = call.ordered[i]
-		if a != 0 and i < call.paramSpecs.count() and call.paramSpecs[i].conv.byAddress() 'byAddress'
+		if a != 0 and i < call.paramSpecs.count() and ast.isByAddress(call.paramSpecs[i].conv) 'byAddress'
 			rangeChangedAt(r, p: p, e: a)
 		end 'byAddress'
 	end 'changes'

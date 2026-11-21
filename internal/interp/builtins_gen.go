@@ -124,6 +124,10 @@ func (vm *vm) runEntry(c *runtimeCall) {
 		vm.entryOsArgs(c)
 	case ir.RtOsEnvironmentVariable:
 		vm.entryOsEnvironmentVariable(c)
+	case ir.RtOsExecutablePath:
+		vm.entryOsExecutablePath(c)
+	case ir.RtOsCurrentPath:
+		vm.entryOsCurrentPath(c)
 	case ir.RtOsPathFrom:
 		vm.entryOsPathFrom(c)
 	case ir.RtOsReadText:

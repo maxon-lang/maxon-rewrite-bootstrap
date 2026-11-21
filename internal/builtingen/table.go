@@ -345,6 +345,7 @@ var tableFunctions = []function{
 	// The OS functions are maxon's stdlib, names, labels, results and errors.
 	{Owner: "CommandLine", Name: "args", Static: true, Result: "Array with String", Intrinsic: "CommandLineArgs"},
 	{Owner: "Process", Name: "environmentVariable", Static: true, Params: []string{"name String"}, Result: "String", Throws: "ProcessIntrospectionError", Intrinsic: "ProcessEnvironmentVariable"},
+	{Owner: "Process", Name: "executablePath", Static: true, Result: "FilePath", Throws: "ProcessIntrospectionError", Intrinsic: "ProcessExecutablePath"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
 	{Owner: "File", Name: "readText", Static: true, Params: []string{"path FilePath"}, Result: "String", Throws: "FileReadError", Intrinsic: "FileReadText"},
@@ -356,6 +357,7 @@ var tableFunctions = []function{
 	// create makes the missing parents too, and gives whether the directory is there after it.
 	{Owner: "Directory", Name: "create", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryCreate"},
 	// list gives the path of each entry, the directory's path joined to its name.
+	{Owner: "Directory", Name: "currentPath", Static: true, Result: "FilePath", Intrinsic: "DirectoryCurrentPath"},
 	{Owner: "Directory", Name: "list", Static: true, Params: []string{"path FilePath"}, Result: "Array with FilePath", Throws: "DirectoryListError", Intrinsic: "DirectoryList"},
 	{Owner: "Subprocess", Name: "run", Static: true, Params: []string{"executable Executable", "arguments Array with String"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRun"},
 	{Owner: "CollectedOutput", Name: "exitCode", Result: "ExitCode", Intrinsic: "CollectedOutputExitCode"},
@@ -484,6 +486,8 @@ var entries = []entry{
 	// A path is a String, which lowering takes out of a FilePath and makes one of, so no entry knows a record's layout.
 	{"OsArgs", "rt.os.args", "Os", roleCall, "() -> Array with String"},
 	{"OsEnvironmentVariable", "rt.os.environmentVariable", "Os", roleCall, "(name String, error) -> String"},
+	{"OsExecutablePath", "rt.os.executablePath", "Os", roleCall, "(error) -> String: the full path of the running executable"},
+	{"OsCurrentPath", "rt.os.currentPath", "Os", roleCall, "() -> String: the working directory, panicking when Windows cannot give it"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
 	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
 	{"OsWriteText", "rt.os.writeText", "Os", roleCall, "(path String, content String, error)"},
@@ -534,6 +538,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"BytesToString", "bytesToString(array Count) String"},
 	{"OsArgs", "osArgs() Count"},
 	{"OsEnvironmentVariable", "osEnvironmentVariable(name String, errorAddress Count) String"},
+	{"OsExecutablePath", "osExecutablePath(errorAddress Count) String"},
+	{"OsCurrentPath", "osCurrentPath() String"},
 	{"OsPathFrom", "osPathFrom(path String, errorAddress Count) String"},
 	{"OsReadText", "osReadText(path String, errorAddress Count) String"},
 	{"OsWriteText", "osWriteText(path String, content String, errorAddress Count)"},

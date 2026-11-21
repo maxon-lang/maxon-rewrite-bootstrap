@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"minimaxon/internal/ast"
+	"minimaxon/internal/diag"
 	"minimaxon/internal/ir"
 	"os"
 	"os/exec"
@@ -71,6 +72,24 @@ func (vm *vm) entryOsEnvironmentVariable(c *runtimeCall) {
 	}
 	vm.errorWord(c, 0)
 	c.set(value{ref: vm.newString(val)})
+}
+
+func (vm *vm) entryOsExecutablePath(c *runtimeCall) {
+	path, err := os.Executable()
+	if err != nil {
+		vm.failWith(c, ast.ErrorPathUnavailable)
+		return
+	}
+	vm.errorWord(c, 0)
+	c.set(value{ref: vm.newString(path)})
+}
+
+func (vm *vm) entryOsCurrentPath(c *runtimeCall) {
+	dir, err := os.Getwd()
+	if err != nil {
+		panic(diag.Internal("Directory.currentPath: GetCurrentDirectory failed: %v", err))
+	}
+	c.set(value{ref: vm.newString(dir)})
 }
 
 func (vm *vm) entryOsPathFrom(c *runtimeCall) {

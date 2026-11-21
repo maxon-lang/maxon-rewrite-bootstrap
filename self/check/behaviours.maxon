@@ -117,7 +117,7 @@ function selfFieldInBehaviour(c Checker, mutates p ast.Project, name String) ret
 		return table.Option.none
 	end 'noRecord'
 	match consumes p.types.entries[ast.originOf(p.types, t: rt) as Count].findField(name) 'field'
-		some(index) then return table.Option.some(typeFieldType(p, ownerTy: rt, fieldIdx: index))
+		some(index) then return table.Option.some(ast.fieldType(p.types, owner: rt, index: index))
 		none then return table.Option.none
 	end 'field'
 end 'selfFieldInBehaviour'
@@ -416,7 +416,7 @@ function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.T
 	if kind == ast.TypeKind.record 'record'
 		for fi in 0 upto p.types.entries[orig as Count].fields.count() 'fields'
 			let label = "{holder}.{p.types.entries[orig as Count].fields[fi].name}"
-			let held = typeFieldType(p, ownerTy: from, fieldIdx: fi)
+			let held = ast.fieldType(p.types, owner: from, index: fi)
 			if followHolding(p, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 				return true
 			end 'found'
@@ -427,7 +427,7 @@ function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.T
 		for ci in 0 upto p.types.entries[orig as Count].cases.count() 'cases'
 			let label = "{holder}.{p.types.entries[orig as Count].cases[ci].name}"
 			for pi in 0 upto p.types.entries[orig as Count].cases[ci].payload.count() 'payload'
-				let held = typePayloadType(p, ownerTy: from, caseIdx: ci, fieldIdx: pi)
+				let held = ast.payloadType(p.types, owner: from, caseIndex: ci, index: pi)
 				if followHolding(p, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 					return true
 				end 'found'

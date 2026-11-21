@@ -435,7 +435,7 @@ function payloadSpecs(mutates p ast.Project, ut ast.TypeID, caseIndex Count) ret
 	var specs = ast.ParamSpecList.create(0)
 	for i in 0 upto p.types.entries[orig as Count].cases[caseIndex].payload.count() 'each'
 		let name = p.types.entries[orig as Count].cases[caseIndex].payload[i].name.clone()
-		let t = typePayloadType(p, ownerTy: ut, caseIdx: caseIndex, fieldIdx: i)
+		let t = ast.payloadType(p.types, owner: ut, caseIndex: caseIndex, index: i)
 		specs.push(ast.ParamSpec.make(name, ty: t, conv: ast.Convention.convConsumes))
 	end 'each'
 	return specs

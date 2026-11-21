@@ -146,6 +146,15 @@ func (l *Lowerer) lowerProcessEnvironmentVariable(c call, _ V, args []V) V {
 	return l.failing(c.CallExpr.Position(), l.reg(KindManaged), RtOsEnvironmentVariable, args[0])
 }
 
+func (l *Lowerer) lowerProcessExecutablePath(c call, _ V, _ []V) V {
+	text := l.failing(c.CallExpr.Position(), l.reg(KindManaged), RtOsExecutablePath)
+	return l.builtinRecord(l.ty(c.CallExpr.Expr()), text)
+}
+
+func (l *Lowerer) lowerDirectoryCurrentPath(c call, _ V, _ []V) V {
+	return l.builtinRecord(l.ty(c.CallExpr.Expr()), l.entry(c.CallExpr.Position(), RtOsCurrentPath, KindManaged))
+}
+
 func (l *Lowerer) lowerFilePathFrom(c call, _ V, args []V) V {
 	text := l.failing(c.CallExpr.Position(), l.reg(KindManaged), RtOsPathFrom, args[0])
 	return l.builtinRecord(l.ty(c.CallExpr.Expr()), text)

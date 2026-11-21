@@ -530,7 +530,7 @@ end 'requireDroppable'
 // requireTemporaryDroppable is the drop of a fresh value that the statement does not give to anything.
 function requireTemporaryDroppable(mutates o Ownership, mutates p ast.Project, e ast.NodeID, s OwnState, kind OwnDropKind)
 	let t = ownType(o, node: e)
-	if not s.dead and isManagedOwn(p, t: t) and not isStorageOwn(o, p: p, e: e) 'fresh'
+	if not s.dead and isManagedOwn(p, t: t) and not ast.isStorage(p.modules[o.c.modIdx].tree, typing: o.c.typing, node: e) 'fresh'
 		requireDroppable(o, p: p, site: offsetOfOwn(o, p: p, node: e), t: t, d: OwnDrop.make(kind, name: ""))
 	end 'fresh'
 end 'requireTemporaryDroppable'
@@ -705,33 +705,10 @@ function ownJump(o Ownership, node ast.NodeID) returns ast.NodeID
 	end 'hit'
 end 'ownJump'
 
-// isStorageOwn is whether an expression reads a value that already lives somewhere, in a variable, a field or an
-// element, and so borrows it, as opposed to making a new value.
-function isStorageOwn(o Ownership, p ast.Project, e ast.NodeID) returns bool
-	let n = ast.through(p.modules[o.c.modIdx].tree, e: e)
-	let k = p.modules[o.c.modIdx].tree.kindOf(n)
-	if k == ast.NodeKind.nameExpr 'name'
-		let kind = ownName(o, node: n).kind
-		return kind == ast.NameKind.nameLocal or kind == ast.NameKind.nameSelfField
-	end 'name'
-	if k == ast.NodeKind.selfExpr or k == ast.NodeKind.indexExpr 'place'
-		return true
-	end 'place'
-	if k == ast.NodeKind.memberExpr 'member'
-		return ownMember(o, node: n).kind == ast.MemberKind.memberField
-	end 'member'
-	return false
-end 'isStorageOwn'
-
 // isBorrowed is whether the local only borrows its value, so the value cannot be moved out of it.
 function isBorrowed(l ast.LocalEntry) returns bool
-	return l.projected or (l.isParam and not ownsConv(l.conv))
+	return l.projected or (l.isParam and not ast.ownsValue(l.conv))
 end 'isBorrowed'
-
-// ownsConv is whether the callee owns what it is given: the caller's value moves in.
-function ownsConv(conv ast.Convention) returns bool
-	return conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs
-end 'ownsConv'
 
 // requireSetsInitialised is checked wherever the function returns: each sets parameter holds a value by then.
 function requireSetsInitialised(mutates o Ownership, mutates p ast.Project, s OwnState, site diag.U32)

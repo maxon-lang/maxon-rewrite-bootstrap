@@ -28,7 +28,7 @@ function reaches(mutates p ast.Project, from ast.TypeID, target ast.TypeID, muta
 	if kind == ast.TypeKind.record 'record'
 		for fi in 0 upto p.types.entries[orig as Count].fields.count() 'fields'
 			let edge = "{holder}.{p.types.entries[orig as Count].fields[fi].name}"
-			let held = typeFieldType(p, ownerTy: from, fieldIdx: fi)
+			let held = ast.fieldType(p.types, owner: from, index: fi)
 			if followEdge(p, edge: edge, held: held, target: target, path: path, visited: visited, growing: growing) 'found'
 				return true
 			end 'found'
@@ -37,7 +37,7 @@ function reaches(mutates p ast.Project, from ast.TypeID, target ast.TypeID, muta
 		for ci in 0 upto p.types.entries[orig as Count].cases.count() 'cases'
 			let edge = "{holder}.{p.types.entries[orig as Count].cases[ci].name}"
 			for pi in 0 upto p.types.entries[orig as Count].cases[ci].payload.count() 'payload'
-				let held = typePayloadType(p, ownerTy: from, caseIdx: ci, fieldIdx: pi)
+				let held = ast.payloadType(p.types, owner: from, caseIndex: ci, index: pi)
 				if followEdge(p, edge: edge, held: held, target: target, path: path, visited: visited, growing: growing) 'found'
 					return true
 				end 'found'

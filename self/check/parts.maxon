@@ -245,7 +245,7 @@ function requireRemainder(mutates o Ownership, mutates p ast.Project, site diag.
 			end 'moves'
 			if not gone 'left'
 				let fName = p.types.entries[orig as Count].fields[fi].name.clone()
-				let fTy = typeFieldType(p, ownerTy: ty, fieldIdx: fi)
+				let fTy = ast.fieldType(p.types, owner: ty, index: fi)
 				requireRemainder(o, p: p, site: site, ty: fTy, depth: try depth + 1 otherwise depth, moves: inside, name: "{name}.{fName}", kind: kind, destroys: false)
 			end 'left'
 		end 'fields'
@@ -255,7 +255,7 @@ function requireRemainder(mutates o Ownership, mutates p ast.Project, site diag.
 		for ci in 0 upto p.types.entries[orig as Count].cases.count() 'cases'
 			for pi in 0 upto p.types.entries[orig as Count].cases[ci].payload.count() 'payload'
 				let pName = p.types.entries[orig as Count].cases[ci].payload[pi].name.clone()
-				let pTy = typePayloadType(p, ownerTy: ty, caseIdx: ci, fieldIdx: pi)
+				let pTy = ast.payloadType(p.types, owner: ty, caseIndex: ci, index: pi)
 				requireDroppable(o, p: p, site: site, t: pTy, d: OwnDrop.make(kind, name: "{name}.{pName}"))
 			end 'payload'
 		end 'cases'

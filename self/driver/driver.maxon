@@ -4,14 +4,22 @@ export let notImplementedExitCode = 6 as ExitCode
 
 let diagnosticsExitCode = 1 as ExitCode
 
+let emitIrFlag = "--emit-ir"
+
+let countAllocationsFlag = "--count-allocations"
+
+let outputFlag = "-o"
+
+let executableExtension = ".exe"
+
+let irExtension = ".ir"
+
 typealias CommandNames = Array with String
 
 // goOnlyCommands are the commands of the Go compiler that this one does not have yet. They are told apart from an
 // unknown command so that the corpus runner counts a test that needs one as not yet supported instead of failed.
 function goOnlyCommands() returns CommandNames
 	var names = CommandNames.create(0)
-	names.push("build")
-	names.push("run")
 	names.push("test")
 	names.push("interp")
 	names.push("rewrite")
@@ -23,7 +31,7 @@ function goOnlyCommands() returns CommandNames
 end 'goOnlyCommands'
 
 export function usage() returns String
-	return "usage:\n  check <file.maxon|dir>   report diagnostics only\n  selftest                 run the compiler's own tests\n"
+	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir. --count-allocations builds executables that count their live\nheap boxes and fail at exit with code 99 if any is left (development only).\n"
 end 'usage'
 
 function isGoOnlyCommand(name String) returns bool
@@ -36,20 +44,55 @@ function isGoOnlyCommand(name String) returns bool
 	return false
 end 'isGoOnlyCommand'
 
-// run is the compiler's command line; args holds the program's own name first, as CommandLine.args() gives it.
+// Options say how a program is compiled to an executable.
+type Options
+	// emitIr writes the IR of every function beside the executable, as <output>.ir.
+	var emitIr as bool
+	// countAllocations makes the executable count its live heap boxes and fail at exit if any is left.
+	var countAllocations as bool
+
+	static function new() returns Options
+		return Options{emitIr: false, countAllocations: false}
+	end 'new'
+end 'Options'
+
+// run is the compiler's command line; args holds the program's own name first, as CommandLine.args() gives it. The flags
+// may stand anywhere after it.
 export function run(args Array with String) returns ExitCode
-	if args.count() < 2 'bare'
+	var options = Options.new()
+	var rest = CommandNames.create(0)
+	for i in 1 upto args.count() 'flags'
+		if args[i] == emitIrFlag 'emitIr'
+			options.emitIr = true
+		end 'emitIr' else if args[i] == countAllocationsFlag 'count'
+			options.countAllocations = true
+		end 'count' else 'argument'
+			rest.push(args[i].clone())
+		end 'argument'
+	end 'flags'
+	if rest.count() < 2 'bare'
+		if rest.count() == 1 and isGoOnlyCommand(rest[0]) 'later'
+			printError("the command '{rest[0]}' is not implemented yet\n")
+			return notImplementedExitCode
+		end 'later'
 		printError(usage())
 		return usageExitCode
 	end 'bare'
-	let command = args[1].clone()
+	let command = rest[0].clone()
+	let path = rest[1].clone()
 	if command == "check" 'check'
-		if args.count() < 3 'noPath'
-			printError(usage())
-			return usageExitCode
-		end 'noPath'
-		return checkPath(args[2].clone())
+		return compilePath(path, output: "", options: options)
 	end 'check'
+	if command == "build" 'build'
+		var output = defaultOutput(path)
+		if rest.count() >= 4 and rest[2] == outputFlag 'named'
+			output = rest[3].clone()
+		end 'named'
+		return compilePath(path, output: output, options: options)
+	end 'build'
+	if command == "run" 'run'
+		return runProgram(path, options: options)
+	end 'run'
 	if isGoOnlyCommand(command) 'later'
 		printError("the command '{command}' is not implemented yet\n")
 		return notImplementedExitCode
@@ -58,48 +101,123 @@ export function run(args Array with String) returns ExitCode
 	return usageExitCode
 end 'run'
 
-// check runs the front end over the project at path and prints its diagnostics.
+// defaultOutput is the executable a build of path makes when no -o names one: the path without its extension and with the
+// executable's.
+function defaultOutput(path String) returns String
+	var finish = path.byteLength()
+	while finish > 0 and isSeparator(path.byteAt(try finish - 1 otherwise 0)) 'trim'
+		finish = try finish - 1 otherwise 0
+	end 'trim'
+	let trimmed = path.sliceBytes(0, endPos: finish)
+	var at = finish
+	while at > 0 'back'
+		let before = try at - 1 otherwise 0
+		let c = trimmed.byteAt(before)
+		if isSeparator(c) 'separator'
+			break 'back'
+		end 'separator'
+		if c == dotByte 'extension'
+			return "{trimmed.sliceBytes(0, endPos: before)}{executableExtension}"
+		end 'extension'
+		at = before
+	end 'back'
+	return "{trimmed}{executableExtension}"
+end 'defaultOutput'
+
+let slashByte = 47 as Byte
+
+let backslashByte = 92 as Byte
+
+let dotByte = 46 as Byte
+
+function isSeparator(c Byte) returns bool
+	return c == slashByte or c == backslashByte
+end 'isSeparator'
+
+// runProgram builds the program to a temporary executable, runs it and passes on what it wrote and its exit code.
+function runProgram(path String, options Options) returns ExitCode
+	let exe = temporaryExecutable(path)
+	let built = compilePath(path, output: exe, options: options)
+	if built != 0 'failed'
+		return built
+	end 'failed'
+	let exePath = try FilePath.from(exe) otherwise panic("driver: the temporary executable has no path")
+	let out = try Subprocess.run(Executable.path(exePath.clone()), arguments: CommandNames.create(0)) otherwise panic("driver: cannot run {exe}")
+	print(out.stdout)
+	printError(out.stderr)
+	try File.delete(exePath) otherwise panic("driver: cannot delete {exe}")
+	return out.exitCode()
+end 'runProgram'
+
+// temporaryExecutable is where run builds the program at path: in the temporary directory, named after the program.
+function temporaryExecutable(path String) returns String
+	let dir = try Process.environmentVariable("TEMP") otherwise panic("driver: TEMP is not set")
+	let name = defaultOutput(path)
+	var at = name.byteLength()
+	while at > 0 and not isSeparator(name.byteAt(try at - 1 otherwise 0)) 'back'
+		at = try at - 1 otherwise 0
+	end 'back'
+	return "{dir}\\minimaxon-run-{name.sliceBytes(at, endPos: name.byteLength())}"
+end 'temporaryExecutable'
+
+// checkPath runs the front end over the project at path and prints its diagnostics.
 export function checkPath(path String) returns ExitCode
+	return compilePath(path, output: "", options: Options.new())
+end 'checkPath'
+
+// compilePath compiles the project at path: with an output, to the executable there, and without one only as far as the
+// diagnostics.
+function compilePath(path String, output String, options Options) returns ExitCode
 	var errs = diag.ErrorList.create(0)
 	let loaded = project.loadProject(path, errs: errs)
 	match consumes loaded 'load'
-		some(p) then return checkLoaded(p, errs: errs)
+		some(p) then return compileLoaded(p, output: output, options: options, errs: errs)
 		none then return report(errs)
 	end 'load'
-end 'checkPath'
+end 'compilePath'
 
-function checkLoaded(consumes loadedProject ast.Project, mutates errs diag.ErrorList) returns ExitCode
+function compileLoaded(consumes loadedProject ast.Project, output String, options Options, mutates errs diag.ErrorList) returns ExitCode
 	var p = loadedProject
-	frontEnd(p, errs: errs)
+	let makesProgram = output != ""
+	if makesProgram and errs.count() == 0 'runtime'
+		project.addRuntime(p, errs: errs)
+	end 'runtime'
+	let checked = frontEnd(p, makesProgram: makesProgram, errs: errs)
+	if errs.count() == 0 'generate'
+		generate(p, checked: checked, output: output, options: options, errs: errs)
+	end 'generate'
 	ast.locateAllErrors(p.modules, errs: errs)
 	return report(errs)
-end 'checkLoaded'
+end 'compileLoaded'
 
 // frontEnd is the pipeline: each stage runs only when the stages before it found nothing, so the errors are those of the
-// first stage that has any, as the Go compiler reports them. A later step adds its stage after the last one.
-export function frontEnd(mutates p ast.Project, mutates errs diag.ErrorList)
-	if errs.count() > 0 'discovered'
-		return
+// first stage that has any, as the Go compiler reports them. makesProgram says that the compile makes an executable, whose
+// root needs a main even when it is the runtime's own project.
+export function frontEnd(mutates p ast.Project, makesProgram bool, mutates errs diag.ErrorList) returns check.Checked
+	var order = check.ModuleOrder.create(0)
+	if errs.count() == 0 'discovered'
+		resolve.resolveProject(p, errs: errs)
 	end 'discovered'
-	resolve.resolveProject(p, errs: errs)
-	if errs.count() > 0 'resolved'
-		return
+	if errs.count() == 0 'resolved'
+		let graph = project.newGraph(p)
+		match project.checkAcyclic(graph, p: p) 'cycle'
+			some(cycleError) then errs.push(cycleError.clone())
+			none then order = project.topoOrder(graph)
+		end 'cycle'
 	end 'resolved'
-	let graph = project.newGraph(p)
-	match project.checkAcyclic(graph, p: p) 'cycle'
-		some(cycleError) then errs.push(cycleError.clone())
-		none then _ = 0
-	end 'cycle'
-	if errs.count() > 0 'cyclic'
-		return
-	end 'cyclic'
-	var checks = check.startChecks(p, order: project.topoOrder(graph))
+	if errs.count() > 0 'failed'
+		order = check.ModuleOrder.create(0)
+	end 'failed'
+	var checks = check.startChecks(p, order: order, makesProgram: makesProgram)
 	checkStages(checks, p: p, errs: errs)
-	check.endChecks(p, ch: checks)
+	return check.endChecks(p, ch: checks)
 end 'frontEnd'
 
 // checkStages runs the stages of the check over every module, each when the ones before it found nothing.
 function checkStages(mutates checks check.Checks, mutates p ast.Project, mutates errs diag.ErrorList)
+	if errs.count() > 0 'front'
+		return
+	end 'front'
 	check.stageAliases(checks, p: p, errs: errs)
 	if errs.count() > 0 'aliased'
 		return
@@ -122,6 +240,94 @@ function checkStages(mutates checks check.Checks, mutates p ast.Project, mutates
 	end 'bodies'
 	check.stageVerify(checks, p: p, errs: errs)
 end 'checkStages'
+
+typealias ErrorLists = Array with diag.ErrorList
+
+// generate is the stage after the check. Each module, in the order the check visited them, finds the instances it needs
+// and, for a compile that makes an executable, lowers its functions and those instances. An instance whose type arguments
+// nest without end fails every module that reaches it, so the program gets the failure of the first such module in module
+// order, as the Go compiler reports it. A compile that makes nothing then holds the runtime's own project to the functions
+// the compiler calls in it; one that makes an executable reports what only the interpreter runs, and otherwise links the
+// modules' functions with the runtime into it.
+function generate(mutates p ast.Project, checked check.Checked, output String, options Options, mutates errs diag.ErrorList)
+	let count = p.modules.count()
+	var lowered = backend.FunctionLists.create(0)
+	var unfinite = ErrorLists.create(0)
+	for _ in 0 upto count 'slots'
+		lowered.push(ir.IrFunctionList.create(0))
+		unfinite.push(diag.ErrorList.create(0))
+	end 'slots'
+	for i in 0 upto checked.order.count() 'modules'
+		let m = ast.modIndex(checked.order[i])
+		if output == "" 'instances'
+			_ = ir.findInstances(p, callers: checked.callers[m], errs: unfinite[m])
+		end 'instances' else 'lower'
+			lowered[m] = ir.lowerModule(p, functions: checked.functions[m], callers: checked.callers[m], errs: unfinite[m])
+		end 'lower'
+	end 'modules'
+	for m in 0 upto count 'failures'
+		if unfinite[m].count() > 0 'first'
+			appendErrors(errs, found: unfinite[m])
+			return
+		end 'first'
+	end 'failures'
+	checkRuntimeFunctions(p, errs: errs)
+	if output == "" or errs.count() > 0 'nothingToMake'
+		return
+	end 'nothingToMake'
+	if options.emitIr 'emitIr'
+		writeIr(p, lowered: lowered, path: "{output}{irExtension}")
+	end 'emitIr'
+	refusals(p, lowered: lowered, errs: errs)
+	if errs.count() > 0 'refused'
+		return
+	end 'refused'
+	let out = try FilePath.from(output) otherwise panic("driver: the output {output} is not a path")
+	try backend.compileProgram(p, modules: lowered, ready: backend.UnitList.create(0), entry: checked.entry, options: backend.RuntimeOptions.make(options.countAllocations), out: out) otherwise panic("driver: cannot write {output}")
+end 'generate'
+
+function appendErrors(mutates errs diag.ErrorList, found diag.ErrorList)
+	for i in 0 upto found.count() 'each'
+		errs.push(found[i].clone())
+	end 'each'
+end 'appendErrors'
+
+// writeIr writes the IR of every module's functions, in module order, as --emit-ir asks.
+function writeIr(p ast.Project, lowered backend.FunctionLists, path String)
+	var text = ByteArray.create(0)
+	for m in 0 upto lowered.count() 'modules'
+		text.append(ir.moduleIrText(p, functions: lowered[m]).toByteArray())
+	end 'modules'
+	let file = try FilePath.from(path) otherwise panic("driver: {path} is not a path")
+	try File.writeText(file, content: String.from(text)) otherwise panic("driver: cannot write {path}")
+end 'writeIr'
+
+// refusals are the places in the modules' functions where a program needs something the backend cannot run yet, such as
+// a map, a list, a pool, a frozen value, a cown or a behaviour, which only the interpreter runs. One is reported for each
+// function, at its first, and an instance that several modules lowered is reported once.
+function refusals(p ast.Project, lowered backend.FunctionLists, mutates errs diag.ErrorList)
+	var seen = ir.RefusalList.create(0)
+	for m in 0 upto lowered.count() 'modules'
+		for f in 0 upto lowered[m].count() 'functions'
+			if lowered[m][f].refusals.count() > 0 'refused'
+				let r = lowered[m][f].refusals[0].clone()
+				if not containsRefusal(seen, r: r) 'new'
+					diag.pushSiteError(errs, code: r.code.clone(), message: r.message.clone(), module: r.module, offset: r.offset)
+					seen.push(r)
+				end 'new'
+			end 'refused'
+		end 'functions'
+	end 'modules'
+end 'refusals'
+
+function containsRefusal(seen ir.RefusalList, r ir.Refusal) returns bool
+	for i in 0 upto seen.count() 'each'
+		if seen[i].module == r.module and seen[i].offset == r.offset and seen[i].code == r.code and seen[i].message == r.message 'same'
+			return true
+		end 'same'
+	end 'each'
+	return false
+end 'containsRefusal'
 
 function report(mutates errs diag.ErrorList) returns ExitCode
 	diag.sortErrors(errs)

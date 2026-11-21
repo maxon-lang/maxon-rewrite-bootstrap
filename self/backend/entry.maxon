@@ -56,6 +56,10 @@ export function rtImports() returns NameList
 	names.push("CreateDirectoryW")
 	names.push("GetEnvironmentVariableW")
 	names.push("CreateProcessW")
+	names.push("GetModuleFileNameW")
+	names.push("GetCurrentDirectoryW")
+	names.push("GetModuleFileNameA")
+	names.push("GetCurrentDirectoryA")
 	return names
 end 'rtImports'
 

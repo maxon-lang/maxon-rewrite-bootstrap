@@ -7,7 +7,7 @@ PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it, but it
 replaces it. It implements the subset of Maxon needed to compile `self/`, its own port to Maxon; once `self/`
-compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the front end `self/` has so far, with the diagnostics of `minimaxon check`, exit code 1 when there are any) and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
+compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the diagnostics of `minimaxon check`, exit code 1 when there are any), `build <file|dir> [-o out.exe]` and `run <file|dir>` (with `--emit-ir` and `--count-allocations`, as `minimaxon`'s; the runtime of `runtime/` is loaded as a module of every program, checked, lowered and linked with it), and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
 changes developed here ("Where it differs from Maxon"). Its code stays plain enough to port: structs, interfaces,
 slices, and no runtime-specific tricks the design depends on.
 
@@ -81,11 +81,12 @@ that. A program that schedules behaviours runs under 20 schedules (seeds 0 to 19
 stdout and exit code and no violation, so the directives of such a program must say an output that does not depend on the
 schedule: print only from behaviours that the cowns put in order, such as one chain, or behaviours on one cown.
 `minimaxon test --with=<exe>` runs the same corpus against another compiler, the one that `self/` makes, with the same
-expectations. Each compile is a subprocess: `<exe> check <path>` for a test that expects an error, `<exe> build <path> -o
-<out>` for one that runs, and the diagnostics are read from its stderr lines `error CODE: path:L:C: message` (exit code 1
-with no such line is a failure). A run test then runs the executable, and the interpreter has no part in it. A compiler
-that exits 6 (`notImplementedExitCode`: it does not have the command yet) does not fail the test: the test is counted
-as not yet supported. The summary is `N passed, M failed, K not yet supported`, the failures are listed, and the exit code is 0
+expectations. Each compile is a subprocess, `<exe> build <path> -o <out> --count-allocations` for every test as the
+in-process runner compiles every test to an executable, so an error the generate stage raises (`E9900`, `E3906`) is
+found; the diagnostics are read from its stderr lines `error CODE: path:L:C: message` (exit code 1 with no such line is a
+failure). A run test then runs the executable, and the interpreter has no part in it: a program that only the
+interpreter runs (only `E9900`) is counted as not yet supported, as is any test of a compiler that exits 6
+(`notImplementedExitCode`: it does not have the command yet). The summary is `N passed, M failed, K not yet supported`, the failures are listed, and the exit code is 0
 when nothing failed.
 
 Directives in comments say what the program must do:
@@ -1119,7 +1120,12 @@ installed one the one installed beside it. A project whose root is that director
 (`ast.Module.IsRuntime`): `minimaxon check runtime` checks it as a library, with no `main`, and `build` and `run` refuse
 it as a program with no `main` (`E3001`). The runtime's link path is `runtime` wherever it is compiled, so its functions
 are `runtime::alloc` and the like; `runtime` is a reserved top-level module name (`E3182`), so no module of a program
-takes it.
+takes it. `self/` finds it the same way (`project.runtimeDirectory`, from `Process.executablePath()`, and compares the
+project's absolute path, made with `Directory.currentPath()`, without case), so `c1.exe` must sit in or below the
+directory that holds `runtime/`. A `build` or `run` adds the runtime as the last module of the program
+(`project.addRuntime`): no module is its parent, so no program names it, and it goes through every stage with the
+program's modules, the generate stage holds it to the table (`checkRuntimeFunctions` in `self/driver/runtime.maxon`, also
+run by `check runtime`), and the linker keeps of it only what the entry reaches.
 
 **The intrinsics.** The runtime is written on `__Raw`, maxon's name for the closed set of raw machine and OS operations,
 here the static functions of a built-in record (`rawFunctions` in `internal/builtingen/table.go`). An address and a word
@@ -1757,6 +1763,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 |---|---|---|
 | `CommandLine.args()` | `Array with String`, the program's own name first | — |
 | `Process.environmentVariable(name)` | `String` | `ProcessIntrospectionError.variableUnset` |
+| `Process.executablePath()` | `FilePath`, the running executable's full path (`GetModuleFileNameA`) | `ProcessIntrospectionError.pathUnavailable` |
 | `FilePath.from(path)` | `FilePath`, with `/` made `\` | `FilePathError.invalidCharacter` for a control character or one of `<>"\|?*` |
 | `path.toString()` | `String` | — |
 | `File.readText(path)` | `String` | `FileReadError` |
@@ -1765,6 +1772,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
 | `Directory.isDirectory(path)` | `bool` | — |
 | `Directory.create(path)` | `bool`, whether the directory is there after it; the missing parents are made too | — |
+| `Directory.currentPath()` | `FilePath`, the working directory; a panic when Windows cannot give it | — |
 | `Directory.list(path)` | `Array with FilePath`, each the path joined to an entry's name (no `.` or `..`) | `DirectoryListError` |
 | `Subprocess.run(executable, arguments: args)` | `CollectedOutput`: `exitCode()`, `succeeded()`, `stdout`, `stderr` | `SubprocessError` |
 
@@ -1948,7 +1956,7 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   stdlib code: `FilePath` has only `from`, `toString` and its `path`, and `FilePath.from` does not resolve a `file://`
   URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
   and `writeText` and `writeBinary` take no `mode:`; `Directory` has no `exists`, `delete` or `removeTree`, and
-  `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable`; `Subprocess.run`
+  `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable` and `executablePath`; `Subprocess.run`
   takes no `workingDirectory:` or `deadline:`, and `CollectedOutput` has no `status`, `pid` or `durationMs`;
   `SubprocessError` is an enum without maxon's payloads (the name, the reason, the output). Natively the runtime uses
   the `A` Win32 calls, so a path or an argument is bytes in the system's code page rather than UTF-8 turned into

@@ -559,7 +559,7 @@ func failedIf(failure string, failed bool) (string, testOutcome) {
 
 func runTest(file string, expect expectation, compiler testCompiler) (string, testOutcome) {
 	exe := tempExe(file)
-	compiled := compiler.compile(file, exe, expect.HasError)
+	compiled := compiler.compile(file, exe)
 	if compiled.unsupported {
 		return "", testUnsupported
 	}
@@ -591,7 +591,11 @@ func runTest(file string, expect expectation, compiler testCompiler) (string, te
 	if len(errs) > 0 && !interpreterOnly {
 		return joinErrors(errs), testFailed
 	}
-	if interpreterOnly {
+	switch {
+	case interpreterOnly && !compiler.interprets():
+		// The interpreter is this compiler's, so a program only it runs is not one the external compiler is measured by.
+		return "", testUnsupported
+	case interpreterOnly:
 		return failedIf(runInterpreted(file, expect))
 	}
 	if failure, failed := runNative(exe, expect); failed {

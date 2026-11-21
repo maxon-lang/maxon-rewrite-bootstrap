@@ -112,26 +112,126 @@ function isReservedTopLevel(name String) returns bool
 	return name == ast.rootQualifier or name == ast.stdlibQualifier or name == ast.runtimeQualifier or name == "scriptlib"
 end 'isReservedTopLevel'
 
+// runtimeDirName is the directory of the runtime's source (README, "The runtime").
+let runtimeDirName = "runtime"
+
+let slashByte = 47 as Byte
+
+let backslashByte = 92 as Byte
+
+let colonByte = 58 as Byte
+
+let dotByte = 46 as Byte
+
+// runtimeDirectory is the runtime's source as maxon finds its library tiers: the runtime directory of the nearest
+// directory, from the compiler's executable's upward, that has one. A compiler built in a checkout finds the checkout's, and
+// an installed one the one installed beside it.
+export function runtimeDirectory() returns table.Option with String
+	let exe = try Process.executablePath() otherwise return table.Option.none
+	var dir = parentDir(exe.toString())
+	while true 'up'
+		let candidate = joinPath(dir, name: runtimeDirName)
+		if isDirectoryPath(candidate) 'found'
+			return table.Option.some(candidate)
+		end 'found'
+		let parent = parentDir(dir)
+		if parent == dir or parent == "." 'top'
+			return table.Option.none
+		end 'top'
+		dir = parent
+	end 'up'
+	return table.Option.none
+end 'runtimeDirectory'
+
 // isRuntimeDirectory is whether a project's directory is the runtime's source, which is then checked as the runtime: it
-// may call the __Raw intrinsics, and it is a library with no main. Maxon has no path of the running executable to find the
-// runtime directory beside, as the Go compiler does, so the directory is known by its name.
+// may call the __Raw intrinsics, and it is a library with no main.
 function isRuntimeDirectory(path String) returns bool
-	let clean = trimTrailingSlash(path)
-	let n = clean.byteLength()
-	let nameLen = ast.runtimeQualifier.byteLength()
-	if n < nameLen 'short'
-		return false
-	end 'short'
-	let start = try n - nameLen otherwise 0
-	if clean.sliceBytes(start, endPos: n) != ast.runtimeQualifier 'name'
-		return false
-	end 'name'
-	if start == 0 'bare'
-		return true
-	end 'bare'
-	let before = clean.byteAt(try start - 1 otherwise 0)
-	return before == 47 or before == 92
+	return match consumes runtimeDirectory() 'found'
+		some(dir) gives sameText(absolutePath(path), b: absolutePath(dir))
+		none gives false
+	end 'found'
 end 'isRuntimeDirectory'
+
+function isSeparator(c Byte) returns bool
+	return c == slashByte or c == backslashByte
+end 'isSeparator'
+
+// isAbsolutePath is whether a path names its drive or starts at a root, so that it does not depend on the working
+// directory.
+function isAbsolutePath(path String) returns bool
+	let n = path.byteLength()
+	if n >= 2 and path.byteAt(1) == colonByte 'drive'
+		return true
+	end 'drive'
+	return n >= 1 and isSeparator(path.byteAt(0))
+end 'isAbsolutePath'
+
+// absolutePath is a path from the working directory's, with the native separator, without '.' and '..' and without a
+// trailing separator, as Go's filepath.Abs gives it.
+function absolutePath(path String) returns String
+	var full = path.clone()
+	if not isAbsolutePath(path) 'relative'
+		full = joinPath(Directory.currentPath().toString(), name: path)
+	end 'relative'
+	var parts = ast.StringList.create(0)
+	var start = 0 as Count
+	let n = full.byteLength()
+	for i in 0 upto n 'scan'
+		if isSeparator(full.byteAt(i)) 'cut'
+			addPathPart(parts, part: full.sliceBytes(start, endPos: i))
+			start = i + 1
+		end 'cut'
+	end 'scan'
+	addPathPart(parts, part: full.sliceBytes(start, endPos: n))
+	var out = ByteArray.create(0)
+	for i in 0 upto parts.count() 'join'
+		if i > 0 'separator'
+			out.push(backslashByte)
+		end 'separator'
+		out.append(parts[i].toByteArray())
+	end 'join'
+	return String.from(out)
+end 'absolutePath'
+
+// addPathPart adds what lies between two separators to the parts of a path: '..' goes back one, below the drive only, and
+// '.' and an empty part go nowhere, except the empty one before the first separator of a path that starts at a root.
+function addPathPart(mutates parts ast.StringList, consumes part String)
+	if part == ".." 'back'
+		if parts.count() > 1 'below'
+			_ = try parts.pop() otherwise ""
+		end 'below'
+		return
+	end 'back'
+	if part != "." and (part != "" or parts.count() == 0) 'keep'
+		parts.push(part)
+	end 'keep'
+end 'addPathPart'
+
+// sameText is whether two paths are the same with ASCII letters compared without their case, as Windows compares them.
+function sameText(a String, b String) returns bool
+	if a.byteLength() != b.byteLength() 'length'
+		return false
+	end 'length'
+	for i in 0 upto a.byteLength() 'each'
+		if foldCase(a.byteAt(i)) != foldCase(b.byteAt(i)) 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'sameText'
+
+let upperA = 65 as Byte
+
+let upperZ = 90 as Byte
+
+let caseOffset = 32 as Byte
+
+function foldCase(c Byte) returns Byte
+	if c >= upperA and c <= upperZ 'upper'
+		return try c + caseOffset otherwise c
+	end 'upper'
+	return c
+end 'foldCase'
 
 typealias FilePathList = Array with FilePath
 
@@ -161,29 +261,34 @@ function lastComponent(path String) returns String
 	return path.sliceBytes(at, endPos: path.byteLength())
 end 'lastComponent'
 
-function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes modPath String, isRoot bool, mutates errs diag.ErrorList) returns table.Option with Count
-	let dirPath = try FilePath.from(dir) otherwise return table.Option.none
+// listDirectory sorts what a directory holds into the paths of its source files and the names of the directories that may be
+// modules, each in order.
+function listDirectory(dir String, mutates files ast.StringList, mutates dirs ast.StringList)
+	let dirPath = try FilePath.from(dir) otherwise return
 	let listed = try Directory.list(dirPath) otherwise FilePathList.create(0)
-	var entries = ast.StringList.create(0)
-	for i in 0 upto listed.count() 'names'
-		entries.push(lastComponent(listed[i].toString()))
-	end 'names'
-	var rawFiles = ast.StringList.create(0)
-	var rawDirs = ast.StringList.create(0)
-	for i in 0 upto entries.count() 'split'
-		let name = entries[i].clone()
+	for i in 0 upto listed.count() 'split'
+		let name = lastComponent(listed[i].toString())
 		let full = joinPath(dir, name: name)
 		if isDirectoryPath(full) 'd'
-			let startsDot = name.byteLength() > 0 and name.byteAt(0 as Count) == 46
+			let startsDot = name.byteLength() > 0 and name.byteAt(0 as Count) == dotByte
 			if not startsDot and name != "bin" and name != "obj" 'keepDir'
-				rawDirs.push(name)
+				dirs.push(name)
 			end 'keepDir'
 		end 'd' else if endsWithMaxon(name) 'f'
-			rawFiles.push(full)
+			files.push(full)
 		end 'f'
 	end 'split'
-	sortStrings(rawFiles)
-	sortStrings(rawDirs)
+	sortStrings(files)
+	sortStrings(dirs)
+end 'listDirectory'
+
+function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes modPath String, isRoot bool, mutates errs diag.ErrorList) returns table.Option with Count
+	if not isDirectoryPath(dir) 'missing'
+		return table.Option.none
+	end 'missing'
+	var rawFiles = ast.StringList.create(0)
+	var rawDirs = ast.StringList.create(0)
+	listDirectory(dir, files: rawFiles, dirs: rawDirs)
 	let myIdx = nodes.count()
 	nodes.push(DiscoveredDir.make(modPath.clone(), dir: dir.clone()))
 	nodes[myIdx].filePaths = rawFiles
@@ -410,6 +515,27 @@ export function loadProject(rootPath String, mutates errs diag.ErrorList) return
 	end 'buildTbl'
 	return table.Option.some(p)
 end 'loadProject'
+
+// addRuntime loads the runtime's source as a module of the program, after the program's own, so that it is checked,
+// lowered and linked with the program. No module of a program can name it, since none is its parent. A project that is the
+// runtime itself has it already.
+export function addRuntime(mutates p ast.Project, mutates errs diag.ErrorList)
+	if p.modules[ast.modIndex(p.rootModule)].isRuntime 'itself'
+		return
+	end 'itself'
+	let dir = match consumes runtimeDirectory() 'found'
+		some(found) gives found
+		none panic("there is no runtime directory in the compiler's directory or above it")
+	end 'found'
+	var m = ast.Module.new(0 as diag.ModuleID, path: ast.runtimeQualifier, text: "", files: ast.FileSpanList.create(0))
+	m.dir = dir.clone()
+	m.isRuntime = true
+	var subdirectories = ast.StringList.create(0)
+	listDirectory(dir, files: m.filePaths, dirs: subdirectories)
+	let mid = ast.addModule(p, m: m)
+	parseSingleModule(p, modIdx: ast.modIndex(mid), singleSrc: table.Option.none, errs: errs)
+	buildModuleTable(p, modID: mid, errs: errs)
+end 'addRuntime'
 
 function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns table.Option with ast.Project
 	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.clone(), line: 1 as Count, col: 1 as Count)

@@ -8,7 +8,7 @@ end 'loadProjectAt'
 function expectChecked(path String)
 	var errs = diag.ErrorList.create(0)
 	var p = loadProjectAt(path, errs: errs)
-	driver.frontEnd(p, errs: errs)
+	_ = driver.frontEnd(p, makesProgram: false, errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)
 		panic("{path}: unexpected error {errs[0].format()}")
@@ -18,7 +18,7 @@ end 'expectChecked'
 function expectCheckError(path String, code String, line Count, col Count)
 	var errs = diag.ErrorList.create(0)
 	var p = loadProjectAt(path, errs: errs)
-	driver.frontEnd(p, errs: errs)
+	_ = driver.frontEnd(p, makesProgram: false, errs: errs)
 	ast.locateAllErrors(p.modules, errs: errs)
 	if errs.count() == 0 'none'
 		panic("{path}: expected {code}, got none")

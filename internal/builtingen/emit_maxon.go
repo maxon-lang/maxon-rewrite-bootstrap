@@ -327,7 +327,33 @@ func emitMaxonRt(t table) string {
 		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn RtUnit.rtUnit%s\n\tend 'rt%s'\n", e.Name, e.Name, e.Unit, e.Name)
 	}
 	sb.WriteString("\tpanic(\"ir: rtNone is defined by no unit\")\nend 'rtUnit'\n")
+	emitMaxonRtFunctions(&sb, t)
 	return sb.String()
+}
+
+// emitMaxonRtFunctions writes the functions of the runtime's source that define entries, with their signatures, which the
+// driver holds the runtime to.
+func emitMaxonRtFunctions(sb *strings.Builder, t table) {
+	sb.WriteString("\n// RtParam is a parameter of an RtFunction.\nexport type RtParam\n\texport var conv as ast.Convention\n\texport var name as String\n\texport var ty as ast.TypeID\n\n")
+	sb.WriteString("\tstatic function make(conv ast.Convention, consumes name String, ty ast.TypeID) returns RtParam\n\t\treturn RtParam{conv: conv, name: name, ty: ty}\n\tend 'make'\nend 'RtParam'\n\n")
+	sb.WriteString("export typealias RtParamList = Array with RtParam\n\n")
+	sb.WriteString("// RtFunction is the function of the runtime's source that defines an entry (README, \"The runtime\"): code calls the\n// entry as it calls any function, so its signature is the entry's calling convention.\n")
+	sb.WriteString("export type RtFunction\n\texport var entry as Rt\n\texport var name as String\n\texport var params as RtParamList\n\texport var result as ast.TypeID\n\n")
+	sb.WriteString("\tstatic function make(entry Rt, consumes name String, consumes params RtParamList, result ast.TypeID) returns RtFunction\n\t\treturn RtFunction{entry: entry, name: name, params: params, result: result}\n\tend 'make'\nend 'RtFunction'\n\n")
+	sb.WriteString("export typealias RtFunctionList = Array with RtFunction\n\n")
+	sb.WriteString("// rtFunctions are the functions of the runtime's source that define entries, in the table's order.\nexport function rtFunctions(b ast.Builtins) returns RtFunctionList\n\tvar fns = RtFunctionList.create(0)\n")
+	for i, r := range t.rtFuncs {
+		binding := "var"
+		if len(r.params) == 0 {
+			binding = "let"
+		}
+		fmt.Fprintf(sb, "\t%s params%d = RtParamList.create(0)\n", binding, i)
+		for _, p := range r.params {
+			fmt.Fprintf(sb, "\tparams%d.push(RtParam.make(ast.Convention.%s, name: %q, ty: %s))\n", i, lowerFirst(goConv(p.conv)), p.name, primOf(p.ty.name).Maxon)
+		}
+		fmt.Fprintf(sb, "\tfns.push(RtFunction.make(Rt.rt%s, name: %q, params: params%d, result: %s))\n", r.entry.Name, r.name, i, primOf(r.result.name).Maxon)
+	}
+	sb.WriteString("\treturn fns\nend 'rtFunctions'\n")
 }
 
 // emitMaxonIntrinsics writes self/ir's dispatch from an intrinsic to the function that lowers it, which the lowerer

@@ -211,7 +211,7 @@ end 'checkFail'
 
 // isMutableLocal is whether the local, and the fields reached through it, may be assigned.
 function isMutableLocal(l ast.LocalEntry) returns bool
-	return l.isVar or (l.isParam and l.conv.byAddress())
+	return l.isVar or (l.isParam and ast.isByAddress(l.conv))
 end 'isMutableLocal'
 
 // nameInfoOf is what a name expression was typed as naming.
@@ -221,18 +221,6 @@ function nameInfoOf(typing ast.Typing, node ast.NodeID) returns ast.NameInfo
 		none then panic("the name at node {node} was typed without a record of what it is")
 	end 'info'
 end 'nameInfoOf'
-
-// callReceiver is the object a call of the kind is made on, or 0 for a call that has none. A method call, a call through
-// a bound and a copy are written 'object.name(...)', so it is the object of the member the call names.
-function callReceiver(tree ast.Tree, e ast.NodeID, kind ast.CallKind) returns ast.NodeID
-	if kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound or kind == ast.CallKind.callCopy 'member'
-		let callee = ast.callExprCallee(tree, id: e)
-		if tree.kindOf(callee) == ast.NodeKind.memberExpr 'named'
-			return ast.memberExprObj(tree, id: callee)
-		end 'named'
-	end 'member'
-	return 0 as ast.NodeID
-end 'callReceiver'
 
 export function checkerStartMod(mutates p ast.Project, modIdx Count) returns Checker
 	let modID = p.modules[modIdx].id
@@ -556,28 +544,6 @@ export function hasBoundCap(p ast.Project, boundedFn ast.FuncID, paramTy ast.Typ
 	return false
 end 'hasBoundCap'
 
-export function typeFieldType(mutates p ast.Project, ownerTy ast.TypeID, fieldIdx Count) returns ast.TypeID
-	let orig = ast.originOf(p.types, t: ownerTy)
-	let ft = p.types.entries[orig as Count].fields[fieldIdx].ty
-	if ownerTy == orig or p.types.entries[ownerTy as Count].typeArgs.count() == 0 'base'
-		return ft
-	end 'base'
-	let params = ast.cloneTypeArgs(p.types.entries[orig as Count].typeParams)
-	let args = ast.cloneTypeArgs(p.types.entries[ownerTy as Count].typeArgs)
-	return ast.substituteType(p.types, t: ft, params: params, args: args)
-end 'typeFieldType'
-
-export function typePayloadType(mutates p ast.Project, ownerTy ast.TypeID, caseIdx Count, fieldIdx Count) returns ast.TypeID
-	let orig = ast.originOf(p.types, t: ownerTy)
-	let pt = p.types.entries[orig as Count].cases[caseIdx].payload[fieldIdx].ty
-	if ownerTy == orig or p.types.entries[ownerTy as Count].typeArgs.count() == 0 'base'
-		return pt
-	end 'base'
-	let params = ast.cloneTypeArgs(p.types.entries[orig as Count].typeParams)
-	let args = ast.cloneTypeArgs(p.types.entries[ownerTy as Count].typeArgs)
-	return ast.substituteType(p.types, t: pt, params: params, args: args)
-end 'typePayloadType'
-
 export function typeElemType(mutates p ast.Project, ownerTy ast.TypeID) returns ast.TypeID
 	let orig = ast.originOf(p.types, t: ownerTy)
 	let k = p.types.entries[orig as Count].kind
@@ -646,7 +612,7 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 		end 'nc' else 'fields'
 			let fCount = p.types.entries[orig as Count].fields.count()
 			for fi in 0 upto fCount 'eachF'
-				let fTy = typeFieldType(p, ownerTy: t, fieldIdx: fi)
+				let fTy = ast.fieldType(p.types, owner: t, index: fi)
 				let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: fTy)
 				if sub.missing 'fMiss'
 					let fName = p.types.entries[orig as Count].fields[fi].name.clone()
@@ -667,7 +633,7 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 				let cName = p.types.entries[orig as Count].cases[ci].name.clone()
 				let pCount = p.types.entries[orig as Count].cases[ci].payload.count()
 				for pi in 0 upto pCount 'eachP'
-					let pTy = typePayloadType(p, ownerTy: t, caseIdx: ci, fieldIdx: pi)
+					let pTy = ast.payloadType(p.types, owner: t, caseIndex: ci, index: pi)
 					let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: pTy)
 					if sub.missing 'pMiss'
 						let pName = p.types.entries[orig as Count].cases[ci].payload[pi].name.clone()

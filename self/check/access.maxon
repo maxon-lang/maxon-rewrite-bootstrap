@@ -70,7 +70,7 @@ function checkLiteralField(mutates c Checker, mutates p ast.Project, rt ast.Type
 		failAt(c, p: p, node: sf, code: diag.errDuplicateDefinition, msg: "field '{name}' is given twice", errs: errs)
 		return false
 	end 'twice'
-	let fieldTy = typeFieldType(p, ownerTy: rt, fieldIdx: index)
+	let fieldTy = ast.fieldType(p.types, owner: rt, index: index)
 	let t = checkExpecting(c, p: p, e: value, want: fieldTy, errs: errs)
 	if t == ast.noType 'badValue'
 		return false
@@ -238,7 +238,7 @@ function checkFieldMember(mutates c Checker, mutates p ast.Project, e ast.NodeID
 	var info = ast.MemberInfo.make(ast.MemberKind.memberField, ownerTy: rt)
 	info.fieldIndex = index
 	c.typing.members.insert(e as Count, value: info)
-	return typeFieldType(p, ownerTy: rt, fieldIdx: index)
+	return ast.fieldType(p.types, owner: rt, index: index)
 end 'checkFieldMember'
 
 function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID

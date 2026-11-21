@@ -93,32 +93,3 @@ end 'localEntry'
 export function isByRef(local ast.LocalEntry) returns bool
 	return local.isParam and not local.isSelf and (local.conv == ast.Convention.convMutates or local.conv == ast.Convention.convSets)
 end 'isByRef'
-
-// isByAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
-export function isByAddress(conv ast.Convention) returns bool
-	return conv == ast.Convention.convMutates or conv == ast.Convention.convSets
-end 'isByAddress'
-
-// ownsValue is whether the callee owns what it is given: the caller's value moves in.
-export function ownsValue(conv ast.Convention) returns bool
-	return conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs
-end 'ownsValue'
-
-// isStorage is whether an expression reads a value that already lives somewhere, in a variable, a field or an element,
-// and so borrows it, as opposed to making a new value.
-export function isStorage(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
-	let mi = ast.modIndex(module)
-	let e = ast.through(p.modules[mi].tree, e: node)
-	let k = p.modules[mi].tree.kindOf(e)
-	if k == ast.NodeKind.nameExpr 'name'
-		let kind = nameInfoAt(p, module: module, node: e).kind
-		return kind == ast.NameKind.nameLocal or kind == ast.NameKind.nameSelfField
-	end 'name'
-	if k == ast.NodeKind.selfExpr or k == ast.NodeKind.indexExpr 'place'
-		return true
-	end 'place'
-	if k == ast.NodeKind.memberExpr 'member'
-		return memberInfoAt(p, module: module, node: e).kind == ast.MemberKind.memberField
-	end 'member'
-	return false
-end 'isStorage'

@@ -167,6 +167,9 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrProcessEnvironmentVariable 'intrProcessEnvironmentVariable'
 		return lowerProcessEnvironmentVariable(l, p: p, c: c, recv: recv, args: args)
 	end 'intrProcessEnvironmentVariable'
+	if op == ast.Intrinsic.intrProcessExecutablePath 'intrProcessExecutablePath'
+		return lowerProcessExecutablePath(l, p: p, c: c, recv: recv, args: args)
+	end 'intrProcessExecutablePath'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return lowerFilePathFrom(l, p: p, c: c, recv: recv, args: args)
 	end 'intrFilePathFrom'
@@ -194,6 +197,9 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrDirectoryCreate 'intrDirectoryCreate'
 		return lowerDirectoryCreate(l, p: p, c: c, recv: recv, args: args)
 	end 'intrDirectoryCreate'
+	if op == ast.Intrinsic.intrDirectoryCurrentPath 'intrDirectoryCurrentPath'
+		return lowerDirectoryCurrentPath(l, p: p, c: c, recv: recv, args: args)
+	end 'intrDirectoryCurrentPath'
 	if op == ast.Intrinsic.intrDirectoryList 'intrDirectoryList'
 		return lowerDirectoryList(l, p: p, c: c, recv: recv, args: args)
 	end 'intrDirectoryList'
@@ -430,6 +436,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrProcessEnvironmentVariable 'intrProcessEnvironmentVariable'
 		return false
 	end 'intrProcessEnvironmentVariable'
+	if op == ast.Intrinsic.intrProcessExecutablePath 'intrProcessExecutablePath'
+		return false
+	end 'intrProcessExecutablePath'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return false
 	end 'intrFilePathFrom'
@@ -457,6 +466,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrDirectoryCreate 'intrDirectoryCreate'
 		return false
 	end 'intrDirectoryCreate'
+	if op == ast.Intrinsic.intrDirectoryCurrentPath 'intrDirectoryCurrentPath'
+		return false
+	end 'intrDirectoryCurrentPath'
 	if op == ast.Intrinsic.intrDirectoryList 'intrDirectoryList'
 		return false
 	end 'intrDirectoryList'

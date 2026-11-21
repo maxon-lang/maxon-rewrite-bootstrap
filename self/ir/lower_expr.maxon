@@ -42,7 +42,7 @@ function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 		return v
 	end 'scalar'
 	let consumed = isConsumed(p, module: l.module, node: e)
-	if not isStorage(p, module: l.module, node: e) 'fresh'
+	if not ast.isStorage(p.modules[l.mi].tree, typing: p.typings[l.mi], node: e) 'fresh'
 		if not consumed and not isImmortal(l, p: p, e: e) 'temporary'
 			ownTemp(l, p: p, v: v, t: ty)
 		end 'temporary'
@@ -355,7 +355,7 @@ end 'CallSite'
 // callSite is the call a node is, with what its module's checker found out about it.
 function callSite(l Lowerer, p ast.Project, node ast.NodeID) returns CallSite
 	let info = callInfoAt(p, module: l.module, node: node)
-	let receiver = receiverOf(p, module: l.module, node: node, kind: info.kind)
+	let receiver = ast.callReceiver(p.modules[l.mi].tree, e: node, kind: info.kind)
 	let ordered = info.ordered.clone()
 	return CallSite.make(node, info: info, receiver: receiver, ordered: ordered)
 end 'callSite'
@@ -395,7 +395,7 @@ function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID
 			pushArg(l, v: recv)
 		end 'receiver'
 		for i in 0 upto c.ordered.count() 'each'
-			if isByAddress(c.info.paramSpecs[i].conv) 'address'
+			if ast.isByAddress(c.info.paramSpecs[i].conv) 'address'
 				let addr = address(l, p: p, e: c.ordered[i])
 				pushArg(l, v: addr)
 			end 'address' else 'value'

@@ -506,7 +506,7 @@ function takeApart(mutates o Ownership, mutates p ast.Project, core ast.NodeID, 
 				oblige(o, p: p, l: info.bindings[j], site: site)
 			end 'named' else 'dropped'
 				let name = p.types.entries[orig as Count].cases[info.caseIdx].payload[j].name.clone()
-				let t = typePayloadType(p, ownerTy: u, caseIdx: info.caseIdx, fieldIdx: j)
+				let t = ast.payloadType(p.types, owner: u, caseIndex: info.caseIdx, index: j)
 				requireDroppable(o, p: p, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropPayload, name: name))
 			end 'dropped'
 		end 'payload'
@@ -539,7 +539,7 @@ function requireUnnamedCasesDroppable(mutates o Ownership, mutates p ast.Project
 		end 'named'
 		for pi in 0 upto p.types.entries[orig as Count].cases[ci].payload.count() 'payload'
 			let name = p.types.entries[orig as Count].cases[ci].payload[pi].name.clone()
-			let t = typePayloadType(p, ownerTy: u, caseIdx: ci, fieldIdx: pi)
+			let t = ast.payloadType(p.types, owner: u, caseIndex: ci, index: pi)
 			requireDroppable(o, p: p, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropPayload, name: name))
 		end 'payload'
 	end 'cases'

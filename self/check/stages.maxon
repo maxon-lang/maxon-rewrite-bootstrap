@@ -24,29 +24,53 @@ export type Checks
 	export var modules as Array with ModuleState
 	// entry is the function the program starts in, once the declare stage has found it.
 	export var entry as ast.FuncID
+	// makesProgram is whether the compile makes an executable, which needs a main even in the runtime's own project.
+	export var makesProgram as bool
 
-	export static function make(consumes order Array with diag.ModuleID) returns Checks
-		return Checks{order: order, modules: Array.create(0), entry: ast.noFunc}
+	export static function make(consumes order Array with diag.ModuleID, makesProgram bool) returns Checks
+		return Checks{order: order, modules: Array.create(0), entry: ast.noFunc, makesProgram: makesProgram}
 	end 'make'
 end 'Checks'
 
+// Checked is what the check of a project gives the generate stage: the entry, the order of the modules, and by module the
+// functions the declare stage declared and the ones among them that call a generic or go through a bound.
+export type Checked
+	export var entry as ast.FuncID
+	export var order as ModuleOrder
+	export var functions as FuncIDLists
+	export var callers as FuncIDLists
+
+	export static function make(entry ast.FuncID, consumes order ModuleOrder, consumes functions FuncIDLists, consumes callers FuncIDLists) returns Checked
+		return Checked{entry: entry, order: order, functions: functions, callers: callers}
+	end 'make'
+end 'Checked'
+
+export typealias ModuleOrder = Array with diag.ModuleID
+
+export typealias FuncIDLists = Array with ast.FuncIDList
+
 // startChecks makes the check of every module of the project, which visits the modules in order.
-export function startChecks(mutates p ast.Project, consumes order Array with diag.ModuleID) returns Checks
-	var ch = Checks.make(order)
+export function startChecks(mutates p ast.Project, consumes order Array with diag.ModuleID, makesProgram bool) returns Checks
+	var ch = Checks.make(order, makesProgram: makesProgram)
 	for i in 0 upto p.modules.count() 'each'
 		ch.modules.push(ModuleState.make(checkerStartMod(p, modIdx: i)))
 	end 'each'
 	return ch
 end 'startChecks'
 
-// endChecks gives each module's typing back to the project.
-export function endChecks(mutates p ast.Project, consumes ch Checks)
+// endChecks gives each module's typing back to the project, and what the generate stage needs of the check.
+export function endChecks(mutates p ast.Project, consumes ch Checks) returns Checked
 	var rest = ch
+	var functions = FuncIDLists.create(0)
+	var callers = FuncIDLists.create(0)
 	for i in 0 upto rest.modules.count() 'each'
 		let modID = rest.modules[i].checker.modID
+		functions.push(exchange(rest.modules[i].functions, value: ast.FuncIDList.create(0)))
+		callers.push(exchange(rest.modules[i].checker.callers, value: ast.FuncIDList.create(0)))
 		let finished = exchange(rest.modules[i].checker, value: Checker.make(modID, typing: ast.Typing.new(modID)))
 		checkerEndMod(p, c: finished)
 	end 'each'
+	return Checked.make(rest.entry, order: exchange(rest.order, value: ModuleOrder.create(0)), functions: functions, callers: callers)
 end 'endChecks'
 
 // stageAliases declares the bounds of the type parameters of each module's types, then its typealiases of instances.
@@ -64,7 +88,7 @@ export function stageDeclare(mutates ch Checks, mutates p ast.Project, mutates e
 		let m = ast.modIndex(ch.order[i])
 		let paramsOk = ch.modules[m].paramsOk.clone()
 		ch.modules[m].functions = declareModule(ch.modules[m].checker, p: p, paramsOk: paramsOk, errs: errs)
-		if m == ast.modIndex(p.rootModule) and not p.modules[m].isRuntime 'root'
+		if m == ast.modIndex(p.rootModule) and (not p.modules[m].isRuntime or ch.makesProgram) 'root'
 			ch.entry = checkMain(ch.modules[m].checker, p: p, errs: errs)
 		end 'root'
 	end 'each'
