@@ -107,6 +107,79 @@ export function qualifierOf(m Module) returns String
 	return m.path.clone()
 end 'qualifierOf'
 
+// NameOwner says which module a bare name of another module's declaration means: none when no other module declares it, an
+// empty qualifier when more than one could be meant.
+export type NameOwner
+	export var declared as bool
+	export var qualifier as String
+
+	export static function none() returns NameOwner
+		return NameOwner{declared: false, qualifier: ""}
+	end 'none'
+
+	export static function ambiguous() returns NameOwner
+		return NameOwner{declared: true, qualifier: ""}
+	end 'ambiguous'
+
+	export static function of(consumes qualifier String) returns NameOwner
+		return NameOwner{declared: true, qualifier: qualifier}
+	end 'of'
+end 'NameOwner'
+
+// isExportedBy is whether the module declares an exported declaration of the name.
+function isExportedBy(module Module, name String) returns bool
+	return match module.names.get(name) 'declared'
+		some(ordinal) gives module.decls[ordinal as Count].level() != Visibility.unexported
+		none gives false
+	end 'declared'
+end 'isExportedBy'
+
+// owningModule is the qualifier of the declaration a bare name in module m means, as Maxon's bare lookup finds it: the root
+// module's, else the one exported declaration of that name in the project.
+export function owningModule(mods ModuleList, m diag.ModuleID, name String) returns NameOwner
+	var found = 0 as Count
+	var qualifier = ""
+	var rootDeclares = false
+	for i in 0 upto mods.count() 'modules'
+		if mods[i].id == m 'self'
+			continue 'modules'
+		end 'self'
+		if mods[i].path == "" 'root'
+			rootDeclares = mods[i].names.has(name)
+			continue 'modules'
+		end 'root'
+		if isExportedBy(mods[i], name: name) 'other'
+			found = try found + 1 otherwise panic("positions: more modules than memory")
+			qualifier = qualifierOf(mods[i])
+		end 'other'
+	end 'modules'
+	if rootDeclares 'root'
+		return NameOwner.of(rootQualifier)
+	end 'root'
+	if found == 0 'none'
+		return NameOwner.none()
+	end 'none'
+	if found == 1 'one'
+		return NameOwner.of(qualifier)
+	end 'one'
+	return NameOwner.ambiguous()
+end 'owningModule'
+
+// fixKindQualify is the kind of the fix that writes the module of a declaration before a bare name that means it.
+export let fixKindQualify = "qualify"
+
+// qualifyFix writes the module path before the bare name that the error did not find, when the name means one declaration of
+// another module, and is no fix when it could mean more than one or none.
+function qualifyFix(mods ModuleList, e diag.CompileError) returns diag.Fix
+	let owner = owningModule(mods, m: e.site.module, name: e.unqualified)
+	if not owner.declared or owner.qualifier == "" 'unplaced'
+		return diag.Fix.none()
+	end 'unplaced'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.insert(e.site.module, at: e.unqualifiedAt, text: "{owner.qualifier}."))
+	return diag.Fix.make(fixKindQualify, edits: edits)
+end 'qualifyFix'
+
 // qualifyHint is how to name the declarations of the bare name that an error did not find that other modules declare, or
 // "" if none does: another module's declarations are always qualified.
 function qualifyHint(mods ModuleList, e diag.CompileError) returns String
@@ -137,6 +210,9 @@ export function locateError(mods ModuleList, mutates e diag.CompileError)
 		return
 	end 'already'
 	e.message = "{e.message}{qualifyHint(mods, e: e)}"
+	if e.unqualified != "" and not e.fix.isSome() 'bare'
+		e.fix = qualifyFix(mods, e: e)
+	end 'bare'
 	e.unqualified = ""
 	let loc = locateSite(mods, site: e.site)
 	e.file = loc.file

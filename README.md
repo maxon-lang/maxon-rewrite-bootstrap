@@ -65,12 +65,12 @@ the rest, with line endings made LF. A test whose conversion warned, or whose so
 `<!-- skip: kind -->` line per kind of warning after its test marker; the runner skips and counts it, and every other test
 runs. `--check` over the specs, and the summary at the end of a conversion, give the tests converted cleanly and skipped and
 the kinds by tests blocked, most blocking first. Then `fix specs` applies the fixes that minimaxon's language differences
-name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`) to every test that runs a program; a test
+name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`, the module written before a bare name that means one declaration of another module, as `qualify` writes it) to every test that runs a program; a test
 that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
 instead, and so does a test that expects a compile error which minimaxon reports first under another code for a known reason
 (the pairs of `codeSkipTable` in `self/driver/fix.maxon`: ownership refused by another rule, the syntax error, operand
 types). A test that expects a compile error and is first refused under another code by a fixable language difference
-(arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`) gets the fixes of the errors that are not the
+(arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
 fixes move text; if that is never reached it is left as it was. A test whose program changes the collection that its `for`
 walks gets `<!-- skip: language difference: a loop holds the collection it walks -->`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
@@ -2510,7 +2510,8 @@ differs from Maxon" in the same change. A change to the syntax touches many prog
   name that the module, the standard library and its scopes do not declare and another module does. The name is taken
   to mean what Maxon's bare lookup finds, the root's declaration, else the one exported declaration of that name; a
   name that two modules export is listed and left alone. It is the step after converting a Maxon project, whose names
-  may be bare.
+  may be bare. `minimaxon fix` writes the same qualifiers (kind `qualify`) at the errors that report such a name, so a
+  project or a spec test is qualified together with its other fixes.
 - **`minimaxon rename <rule>... <program>...`** changes the programs that use a built-in when the table renames it or
   changes its signature, while the old one still compiles: it checks each program and rewrites each type name and each
   call by the declaration the checker resolved, so `append` on an `Array` becomes `push` and `append` on a `List` stays.

@@ -44,56 +44,6 @@ type ProjectQualifications
 	end 'add'
 end 'ProjectQualifications'
 
-// Owner says which module a bare name of another module's declaration means: none when no other module declares it, an
-// empty qualifier when more than one could be meant.
-type Owner
-	var declared as bool
-	var qualifier as String
-
-	static function none() returns Owner
-		return Owner{declared: false, qualifier: ""}
-	end 'none'
-
-	static function ambiguous() returns Owner
-		return Owner{declared: true, qualifier: ""}
-	end 'ambiguous'
-
-	static function of(consumes qualifier String) returns Owner
-		return Owner{declared: true, qualifier: qualifier}
-	end 'of'
-end 'Owner'
-
-// isExportedBy is whether the module declares an exported declaration of the name.
-function isExportedBy(p ast.Project, module ast.Module, name String) returns bool
-	return match module.names.get(name) 'declared'
-		some(ordinal) gives ast.declLevel(p, ref: ast.DeclRef.make(module.id, ordinal: ordinal)) != ast.Visibility.unexported
-		none gives false
-	end 'declared'
-end 'isExportedBy'
-
-// owningModule is the qualifier of the declaration a bare name in module m means.
-function owningModule(p ast.Project, m diag.ModuleID, name String) returns Owner
-	let root = ast.modIndex(p.rootModule)
-	if p.modules[root].names.has(name) and m != p.rootModule 'root'
-		return Owner.of(ast.qualifierOf(p.modules[root]))
-	end 'root'
-	var found = 0 as Count
-	var qualifier = ""
-	for i in 0 upto p.modules.count() 'modules'
-		if p.modules[i].id != m and p.modules[i].id != p.rootModule and isExportedBy(p, module: p.modules[i], name: name) 'other'
-			found = increment(found)
-			qualifier = ast.qualifierOf(p.modules[i])
-		end 'other'
-	end 'modules'
-	if found == 0 'none'
-		return Owner.none()
-	end 'none'
-	if found == 1 'one'
-		return Owner.of(qualifier)
-	end 'one'
-	return Owner.ambiguous()
-end 'owningModule'
-
 // projectQualifications finds the qualifications of the project's files, by file. It leaves the errors that kept it from
 // finding them in errs.
 function projectQualifications(dir String, mutates errs diag.ErrorList) returns ProjectQualifications
@@ -113,7 +63,7 @@ function projectQualifications(dir String, mutates errs diag.ErrorList) returns 
 		for i in 0 upto p.resolutions[m].unbound.count() 'names'
 			let name = p.resolutions[m].unbound[i].name.clone()
 			let offset = p.resolutions[m].unbound[i].offset
-			let owner = owningModule(p, m: p.modules[m].id, name: name)
+			let owner = ast.owningModule(p.modules, m: p.modules[m].id, name: name)
 			if not owner.declared 'ours'
 				continue 'names'
 			end 'ours'

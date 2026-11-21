@@ -1,0 +1,10 @@
+// A bare name of another module's declaration is written with its module.
+// --- file: main.maxon
+function main() returns ExitCode
+	print("{alpha.twice(2)}\n")
+	return 0
+end 'main'
+// --- file: alpha/twice.maxon
+export function twice(n Count) returns Count
+	return n
+end 'twice'
