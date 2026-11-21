@@ -57,3 +57,4 @@ of C2 building it again.
 | 2026-11-21 | fa4b30a | seed renewed; closures; one-compiler gate | 56765 | 4217 | 4086 | 4014 |
 | 2026-11-21 | 98aae37 | Phase 2: closures, floats, tuples, extensions, interfaces, raw values | 64354 | 5114 | 5546 | 5500 |
 | 2026-11-21 | a65524a | Phase 2: third batch (extensions, sibling calls, project model, fixed arrays, directives) | 66926 | 5506 | — | — |
+| 2026-11-21 | 6f9999f | Phase 2: fourth batch (interface values, extensions, casts, frame box), seed 6f9999f | 69471 | 5723 | 5843 | 5785 |
