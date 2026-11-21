@@ -115,6 +115,17 @@ go build -o minimaxon.exe . ; go vet ./... ; gofmt -l . ; go fix -diff ./... ; g
 runs `gofmt -w` and `go fix ./...`, which modify files, then vet, unit tests, build and the corpus; use it to save a
 round. Both suites green with 0 leaks. AGENTS.md's other rules still apply.
 
+## Self compile time
+
+After each task's commit, record how long the Go compiler takes to build `self/`:
+
+```powershell
+.\selftime.ps1 -Note '<stage>: <task>'
+```
+
+It appends a row (best of several uncached builds) to `docs/self-compile-times.md`; the row goes into the next commit.
+Report the number with the task, and say so when it jumps: a jump is looked into only for an algorithmic blow-up.
+
 ## Brief template
 
 Copy, fill every field, keep it under ~40 lines. Paths, not contents; apply "Brief pitfalls" above.
