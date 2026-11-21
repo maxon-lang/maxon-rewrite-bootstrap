@@ -46,3 +46,4 @@ of C2 building it again.
 |---|---|---|---:|---:|---:|---:|
 | 2026-11-21 | 750979c | cutover: seed, Go compiler removed | 49378 | 7723 | 7850 | 7355 |
 | 2026-11-21 | 8cbb12d | fix command; specs at 2,251 | 50660 | 7972 | 7113 | 7132 |
+| 2026-11-21 | c840d38 | formatter selftests | 50743 | 7810 | 7145 | 7422 |
