@@ -1,4 +1,4 @@
-// expect-error: E3004 at 21:17
+// expect-error: E3004 at 21:12
 typealias CellArray = Array with Cell
 
 typealias CellPool = Pool with Cell

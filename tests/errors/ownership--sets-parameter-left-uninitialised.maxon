@@ -36,7 +36,7 @@ function make(sets n Score, flag bool)
 	end 'late'
 end 'make'
 
-// expect-error: E3903 at 40:1
+// expect-error: E3903 at 40:10
 function f(sets n Score, flag bool)
 	if flag 'x'
 		n = 1

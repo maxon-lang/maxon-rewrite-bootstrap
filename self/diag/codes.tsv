@@ -17,6 +17,7 @@ ErrDependsOnItself	E2012	parserCircularDependency	Something is defined in terms 
 ErrAssignToImmutable	E2013	assignToImmutable	An assignment targets something that cannot be reassigned.
 ErrUnsupportedFeature	E2015	parserUnsupportedFeature	The source uses a construct this compiler does not implement, such as a static function outside a type.
 ErrMatchNotExhaustive	E2026	matchNotExhaustive	A match covers neither every case of its subject nor a default.
+ErrMatchTypeMismatch	E2028	matchTypeMismatch	A match arm or a ternary branch has a type that the others do not, or a pattern does not match its subject.
 ErrNonConstantInitializer	E2045	parserNonConstantInitializer	A constant's initializer is not known at compile time.
 ErrMatchDefaultEnumMustThrow	E2046	matchDefaultEnumMustThrow	The default arm of a match over an enum or union does not panic.
 ErrMatchBlockStatement	E2049	matchBlockStatement	A match arm's action is a block statement.

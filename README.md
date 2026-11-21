@@ -1791,6 +1791,13 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   name (`E3012`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
   an unneeded cast (`E3010`), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
   (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3092`, `E3219`).
+- A diagnostic with a maxon code has maxon's text and position, except where the language differs. The text keeps
+  minimaxon's own words where it names a keyword or a form that maxon spells otherwise (`mutates` for `mutable`, so a
+  `let` passed to a `mutates` parameter and an assignment to a parameter say `mutates`; `default panic(...)` of an enum
+  match, which has no `throws` form; `create(n)` of an element with no zero, which has no `zeroed:`; an overlapping
+  argument as one name reached through two, `E3186`). A syntax error is the parser's generic message, not maxon's
+  expectation of the token. A type is named structurally, so a generic instance written through a typealias is named
+  `Array with Byte` where maxon names it `Bytes`, and an index is a `Count` where maxon's is an `ElementIndex`.
 
 ## Changing the language
 

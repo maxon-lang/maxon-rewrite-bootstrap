@@ -31,6 +31,11 @@ function nameOfType(p ast.Project, t ast.TypeID) returns String
 	return ast.typeName(p.types, t: t)
 end 'nameOfType'
 
+// declaredNameOfType is the name a type was declared with, which a generic instance shares with its generic.
+function declaredNameOfType(p ast.Project, t ast.TypeID) returns String
+	return ast.typeName(p.types, t: ast.originOf(p.types, t: t))
+end 'declaredNameOfType'
+
 // checkExpr types an expression, which gives the type it has, or none after it reported why it has none.
 function checkExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	return checkExpecting(c, p: p, e: e, want: ast.noType, errs: errs)
@@ -239,7 +244,7 @@ function checkSelfExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 end 'checkSelfExpr'
 
 // foldOp is the value of an operator on two constants, or none after it reported why the operator gives none.
-function foldOp(c Checker, off diag.U32, op String, a ast.I128, b ast.I128, mutates errs diag.ErrorList) returns table.Option with ast.I128
+function foldOp(c Checker, off diag.U32, rightOff diag.U32, op String, a ast.I128, b ast.I128, mutates errs diag.ErrorList) returns table.Option with ast.I128
 	var r = ast.I128.zero()
 	if op == "+" 'add'
 		r = a.add(b)
@@ -264,7 +269,7 @@ function foldOp(c Checker, off diag.U32, op String, a ast.I128, b ast.I128, muta
 	end 'or' else if op == "xor" 'xor'
 		r = ast.bitwise(ast.BitsOp.bitXor, a: a, b: b)
 	end 'xor' else if op == "shl" or op == "shr" 'shift'
-		return foldShift(c, off: off, op: op, a: a, b: b, errs: errs)
+		return foldShift(c, off: rightOff, op: op, a: a, b: b, errs: errs)
 	end 'shift' else 'unknown'
 		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "cannot fold '{op}'", errs: errs)
 		return table.Option.none
@@ -341,8 +346,7 @@ function checkOperator(mutates c Checker, mutates p ast.Project, e ast.NodeID, l
 	end 'integers'
 	if isLogicalOp(op) 'logical'
 		if l != p.builtins.boolTy or r != p.builtins.boolTy 'notBool'
-			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operandTypeMismatch(op), errs: errs)
-			return ast.noType
+			return refuseOperands(c, p: p, off: off, op: op, l: l, r: r, errs: errs)
 		end 'notBool'
 		return p.builtins.boolTy
 	end 'logical'
@@ -353,18 +357,46 @@ function checkOperator(mutates c Checker, mutates p ast.Project, e ast.NodeID, l
 	return ast.noType
 end 'checkOperator'
 
+// isWordOp is whether an operator works on the bits of its operands, which must then be two bools or two integers.
+function isWordOp(op String) returns bool
+	return isLogicalOp(op) or op == "shl" or op == "shr"
+end 'isWordOp'
+
+// refuseOperands reports operands that the operator has no meaning for, in the words maxon gives each kind of operator.
+function refuseOperands(mutates c Checker, mutates p ast.Project, off diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let lName = gotName(p, t: l)
+	let rName = gotName(p, t: r)
+	if isWordOp(op) and not (l == r or (ast.isIntType(p.types, t: l) and ast.isIntType(p.types, t: r))) 'mixed'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operandTypeMismatch(op), errs: errs)
+		return ast.noType
+	end 'mixed'
+	if isWordOp(op) 'word'
+		var offending = lName
+		if ast.isIntType(p.types, t: l) 'left'
+			offending = rName
+		end 'left'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.nonIntegralOperands(op, operand: offending), errs: errs)
+		return ast.noType
+	end 'word'
+	if lName == rName 'same'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.undefinedOperatorForType(op, typeName: lName), errs: errs)
+		return ast.noType
+	end 'same'
+	checkFail(c.modID, off: off, code: diag.errExpressionError, msg: diag.nonNumericOperands(lName, right: rName), errs: errs)
+	return ast.noType
+end 'refuseOperands'
+
 // checkIntegerOp types an arithmetic, bitwise or shift operator on two integers.
 function checkIntegerOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)
 	if not ast.isIntType(p.types, t: l) or not ast.isIntType(p.types, t: r) 'notInts'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'{op}' needs integers, found {nameOfType(p, t: l)} and {nameOfType(p, t: r)}", errs: errs)
-		return ast.noType
+		return refuseOperands(c, p: p, off: off, op: op, l: l, r: r, errs: errs)
 	end 'notInts'
 	let lConst = isConstInt(p, t: l)
 	let rConst = isConstInt(p, t: r)
 	if lConst and rConst 'folded'
 		setOperand(c, node: e, operand: p.builtins.anon64Ty)
-		return foldedType(c, p: p, off: off, op: op, l: l, r: r, errs: errs)
+		return foldedType(c, p: p, off: off, rightOff: exprOffset(c, p: p, node: ast.binaryExprR(p.modules[c.modIdx].tree, id: e)), op: op, l: l, r: r, errs: errs)
 	end 'folded'
 	if (op == "/" or op == "mod") and rConst and p.types.entries[r as Count].minVal.isZero() 'byZero'
 		checkFail(c.modID, off: off, code: diag.errDivisionByZero, msg: diag.divisionByProvableZero(op), errs: errs)
@@ -379,13 +411,13 @@ function checkIntegerOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 		return shifted
 	end 'shift'
 	if isLogicalOp(op) 'bitwise'
-		let t = unifyInts(c, p: p, off: off, l: l, r: r, errs: errs)
+		let t = unifyInts(c, p: p, off: off, clash: Clash.operator(op.clone()), l: l, r: r, errs: errs)
 		if t != ast.noType 'unified'
 			setOperand(c, node: e, operand: t)
 		end 'unified'
 		return t
 	end 'bitwise'
-	let word = operandWord(c, p: p, off: off, l: l, r: r, errs: errs)
+	let word = operandWord(c, p: p, off: off, op: op, l: l, r: r, errs: errs)
 	if word == ast.noType 'noWord'
 		return ast.noType
 	end 'noWord'
@@ -398,10 +430,10 @@ function checkIntegerOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 	return exactType(p, word: word, lo: exact.lo, hi: exact.hi)
 end 'checkIntegerOp'
 
-function foldedType(mutates c Checker, mutates p ast.Project, off diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function foldedType(mutates c Checker, mutates p ast.Project, off diag.U32, rightOff diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let a = p.types.entries[l as Count].minVal.clone()
 	let b = p.types.entries[r as Count].minVal.clone()
-	match consumes foldOp(c, off: off, op: op, a: a, b: b, errs: errs) 'value'
+	match consumes foldOp(c, off: off, rightOff: rightOff, op: op, a: a, b: b, errs: errs) 'value'
 		some(v) then return ast.internConstInt(p.types, val: v)
 		none then return ast.noType
 	end 'value'
@@ -410,7 +442,7 @@ end 'foldedType'
 function checkComparison(mutates c Checker, mutates p ast.Project, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)
 	if ast.isIntType(p.types, t: l) and ast.isIntType(p.types, t: r) 'integers'
-		let word = operandWord(c, p: p, off: off, l: l, r: r, errs: errs)
+		let word = operandWord(c, p: p, off: off, op: op, l: l, r: r, errs: errs)
 		if word == ast.noType 'noWord'
 			return ast.noType
 		end 'noWord'
@@ -426,7 +458,15 @@ function checkComparison(mutates c Checker, mutates p ast.Project, e ast.NodeID,
 		setOperand(c, node: e, operand: l)
 		return p.builtins.boolTy
 	end 'comparable'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(nameOfType(p, t: l), right: nameOfType(p, t: r)), errs: errs)
+	if l == r and typeHasKind(p, t: l, kind: ast.TypeKind.typeParam) 'parameter'
+		var required = "Comparable"
+		if equality 'equality'
+			required = "Equatable"
+		end 'equality'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operatorRequiresConformance(op, typeParamName: nameOfType(p, t: l), interfaceName: required), errs: errs)
+		return ast.noType
+	end 'parameter'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(gotName(p, t: l), right: gotName(p, t: r)), errs: errs)
 	return ast.noType
 end 'checkComparison'
 
@@ -463,7 +503,7 @@ function checkNot(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.
 	if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'range'
 		return t
 	end 'range'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'not' needs a bool or an integer, found {nameOfType(p, t: t)}", errs: errs)
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.nonIntegralOperands("not", operand: gotName(p, t: t)), errs: errs)
 	return ast.noType
 end 'checkNot'
 
@@ -487,7 +527,7 @@ function requireBool(mutates c Checker, mutates p ast.Project, e ast.NodeID, key
 		return false
 	end 'failed'
 	if t != p.builtins.boolTy 'notBool'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errTypeMismatch, msg: diag.nonBoolCondition(keyword, got: nameOfType(p, t: t)), errs: errs)
+		checkFail(c.modID, off: exprOffset(c, p: p, node: e), code: diag.errTypeMismatch, msg: diag.nonBoolCondition(keyword, got: gotName(p, t: t)), errs: errs)
 		return false
 	end 'notBool'
 	return true
@@ -509,7 +549,7 @@ function checkCond(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if elseTy == ast.noType 'badElse'
 		return ast.noType
 	end 'badElse'
-	return joinTypes(c, p: p, off: offsetOf(c, p: p, node: e), a: thenTy, b: elseTy, errs: errs)
+	return joinTypes(c, p: p, off: offsetOf(c, p: p, node: e), clash: Clash.branches, a: thenTy, b: elseTy, errs: errs)
 end 'checkCond'
 
 function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
@@ -535,7 +575,7 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 		if not intRangeHolds(p.types, dst: target, v: value) 'doesNotFit'
 			let lo = p.types.entries[target as Count].minVal.toString()
 			let hi = p.types.entries[target as Count].maxVal.toString()
-			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{value.toString()} does not fit {nameOfType(p, t: target)} ({lo} to {hi})", errs: errs)
+			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.literalOutOfRange(value.toString(), alias: nameOfType(p, t: target), low: lo, high: hi), errs: errs)
 			return ast.noType
 		end 'doesNotFit'
 		return target
@@ -659,5 +699,5 @@ function checkFallback(mutates c Checker, mutates p ast.Project, fallback ast.No
 	if other == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	return joinTypes(c, p: p, off: offsetOf(c, p: p, node: fallback), a: result, b: other, errs: errs)
+	return joinTypes(c, p: p, off: offsetOf(c, p: p, node: fallback), clash: Clash.other, a: result, b: other, errs: errs)
 end 'checkFallback'

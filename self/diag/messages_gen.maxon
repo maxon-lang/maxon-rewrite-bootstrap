@@ -394,3 +394,83 @@ end 'duplicateTypeAlias'
 export function genericTypeGrowsWithoutBound(field String, owner String, declared String) returns String
 	return "field '{field}' of generic type '{owner}' is declared '{declared}', which holds '{owner}' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion"
 end 'genericTypeGrowsWithoutBound'
+
+// The text of errTypeMismatch for: operator '{op}' is not defined for type '{typeName}'
+export function undefinedOperatorForType(op String, typeName String) returns String
+	return "operator '{op}' is not defined for type '{typeName}'"
+end 'undefinedOperatorForType'
+
+// The text of errTypeMismatch for: operator '{op}' requires integer operands, but this one is {operand}
+export function nonIntegralOperands(op String, operand String) returns String
+	return "operator '{op}' requires integer operands, but this one is {operand}"
+end 'nonIntegralOperands'
+
+// The text of errTypeMismatch for: operator '{op}' requires both operands to be the same type: '{left}' and '{right}' are different typealiases — cast one side with 'as'
+export function operandAliasMismatch(op String, left String, right String) returns String
+	return "operator '{op}' requires both operands to be the same type: '{left}' and '{right}' are different typealiases — cast one side with 'as'"
+end 'operandAliasMismatch'
+
+// The text of errExpressionError for: Cannot operate on {left} and {right}
+export function nonNumericOperands(left String, right String) returns String
+	return "Cannot operate on {left} and {right}"
+end 'nonNumericOperands'
+
+// The text of errTypeMismatch for: match arms give incompatible types: '{got}' vs '{expected}'
+export function giveTypeMismatch(got String, expected String) returns String
+	return "match arms give incompatible types: '{got}' vs '{expected}'"
+end 'giveTypeMismatch'
+
+// The text of errMatchTypeMismatch for: ternary expression type mismatch: true branch is '{trueType}' but false branch is '{falseType}'
+export function ternaryValueTypeMismatch(trueType String, falseType String) returns String
+	return "ternary expression type mismatch: true branch is '{trueType}' but false branch is '{falseType}'"
+end 'ternaryValueTypeMismatch'
+
+// The text of errMatchTypeMismatch for: ternary expression requires a bool condition, got '{got}'
+export function ternaryNonBoolCondition(got String) returns String
+	return "ternary expression requires a bool condition, got '{got}'"
+end 'ternaryNonBoolCondition'
+
+// The text of errTypeMismatch for: Operator '{op}' requires type parameter '{typeParamName}' to be constrained with 'where {typeParamName} is {interfaceName}'
+export function operatorRequiresConformance(op String, typeParamName String, interfaceName String) returns String
+	return "Operator '{op}' requires type parameter '{typeParamName}' to be constrained with 'where {typeParamName} is {interfaceName}'"
+end 'operatorRequiresConformance'
+
+// The text of errUseAfterMove for: use of moved value '{name}': its ownership moved to another binding at an earlier bind or assignment
+export function useOfMovedValue(name String) returns String
+	return "use of moved value '{name}': its ownership moved to another binding at an earlier bind or assignment"
+end 'useOfMovedValue'
+
+// The text of errUseAfterMove for: use of moved value '{name}': it was moved in an earlier iteration of this loop
+export function movedInEarlierIteration(name String) returns String
+	return "use of moved value '{name}': it was moved in an earlier iteration of this loop"
+end 'movedInEarlierIteration'
+
+// The text of errDuplicateDefinition for: duplicate definition of '{name}' — already declared as `{keyword} {name}`
+export function duplicateDefinition(name String, keyword String) returns String
+	return "duplicate definition of '{name}' — already declared as `{keyword} {name}`"
+end 'duplicateDefinition'
+
+// The text of errModuleLetCallsFunction for: the initializer of '{name}' calls '{callee}': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
+export function moduleLetCallsFunction(name String, callee String) returns String
+	return "the initializer of '{name}' calls '{callee}': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used"
+end 'moduleLetCallsFunction'
+
+// The text of errAssignToImmutable for: '{name}' is a let field and cannot be reassigned
+export function letFieldReassigned(name String) returns String
+	return "'{name}' is a let field and cannot be reassigned"
+end 'letFieldReassigned'
+
+// The text of errConformance for: Partial interface implementation: type '{typeName}' is missing {count} method(s):
+export function missingMethods(typeName String, count String) returns String
+	return "Partial interface implementation: type '{typeName}' is missing {count} method(s):"
+end 'missingMethods'
+
+// The text of errConformance for: Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:
+export function wrongSignatureMethods(typeName String, count String) returns String
+	return "Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:"
+end 'wrongSignatureMethods'
+
+// The text of errUnknownFunction for: call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+export function undefinedReservedFunction(name String) returns String
+	return "call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists"
+end 'undefinedReservedFunction'

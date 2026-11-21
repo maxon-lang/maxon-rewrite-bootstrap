@@ -9,7 +9,11 @@ function readRoot(mutates o Ownership, mutates p ast.Project, l ast.LocalID, sit
 	let fact = s.factOf(l)
 	let name = o.c.typing.locals[l as Count].name.clone()
 	if fact.kind == OwnFactKind.factMoved 'moved'
-		fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.useOfValueMovedInto(name, into: fact.dest.text()))
+		if site <= fact.site 'loop'
+			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.movedInEarlierIteration(name))
+		end 'loop' else 'later'
+			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.useOfMovedValue(name))
+		end 'later'
 	end 'moved' else if fact.kind == OwnFactKind.factUninitialised 'uninitialised'
 		fail(o, p: p, site: site, code: diag.errUseBeforeInit, msg: "'{name}' has no value here; assign it on every path before reading it")
 	end 'uninitialised' else 'partly'
@@ -129,6 +133,12 @@ function requireMutable(mutates o Ownership, mutates p ast.Project, site diag.U3
 		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{root.name}' borrows part of {lenderName(o, p: p, root: root)} and cannot be changed; {advice}")
 		return false
 	end 'projected'
+	for i in 0 upto path.steps.count() 'steps'
+		if not path.steps[i].isElement() and not fieldIsVar(p, step: path.steps[i]) 'letField'
+			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: diag.letFieldReassigned(fieldName(p, step: path.steps[i])))
+			return false
+		end 'letField'
+	end 'steps'
 	if root.isSelf and not isMutableLocal(root) 'self'
 		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'", fix: mutatesSelfFix(p.modules[o.c.modIdx].tree, method: root.definedAt))
 		return false
@@ -142,15 +152,9 @@ function requireMutable(mutates o Ownership, mutates p ast.Project, site diag.U3
 		return false
 	end 'owns'
 	if not isMutableLocal(root) 'immutable'
-		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let; declare it with 'var'", fix: varFix(p.modules[o.c.modIdx].tree, stmt: root.definedAt))
+		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name), fix: varFix(p.modules[o.c.modIdx].tree, stmt: root.definedAt))
 		return false
 	end 'immutable'
-	for i in 0 upto path.steps.count() 'steps'
-		if not path.steps[i].isElement() and not fieldIsVar(p, step: path.steps[i]) 'letField'
-			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because the field '{fieldName(p, step: path.steps[i])}' is a let; declare it with 'var'")
-			return false
-		end 'letField'
-	end 'steps'
 	return true
 end 'requireMutable'
 

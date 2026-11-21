@@ -42,14 +42,19 @@ function callTargetName(p ast.Project, info ast.CallInfo) returns String
 	return p.funcs.entries[info.fn as Count].name.clone()
 end 'callTargetName'
 
+// reservedPrefix starts the names that the compiler keeps for its intrinsics.
+let reservedPrefix = "__"
+
 function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if not c.allowCalls 'forbidden'
-		failAt(c, p: p, node: call, code: diag.errModuleLetCallsFunction, msg: "a constant calls nothing", errs: errs)
-		return ast.noType
-	end 'forbidden'
 	let callee = ast.callExprCallee(p.modules[c.modIdx].tree, id: call)
 	let k = p.modules[c.modIdx].tree.kindOf(callee)
-	if k == ast.NodeKind.nameExpr and lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: callee)) == ast.noLocal 'named'
+	let named = k == ast.NodeKind.nameExpr and lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: callee)) == ast.noLocal
+	if (named or k == ast.NodeKind.memberExpr) and not c.allowCalls 'forbidden'
+		let written = writtenCallee(c, p: p, callee: callee, errs: errs)
+		checkFail(c.modID, off: exprOffset(c, p: p, node: call), code: diag.errModuleLetCallsFunction, msg: diag.moduleLetCallsFunction(c.constName.clone(), callee: written), errs: errs)
+		return ast.noType
+	end 'forbidden'
+	if named 'named'
 		return callNamed(c, p: p, call: call, callee: callee, errs: errs)
 	end 'named'
 	if k == ast.NodeKind.memberExpr 'member'
@@ -59,13 +64,39 @@ function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mut
 	return ast.noType
 end 'typeCall'
 
+// writtenCallee is a callee as a message names it: a function by its name, a method by the name of its type and its own.
+function writtenCallee(mutates c Checker, mutates p ast.Project, callee ast.NodeID, mutates errs diag.ErrorList) returns String
+	if p.modules[c.modIdx].tree.kindOf(callee) == ast.NodeKind.nameExpr 'function'
+		return ast.nameExprName(p.modules[c.modIdx].tree, id: callee)
+	end 'function'
+	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)
+	let method = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
+	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'named'
+		return "{ast.nameExprName(p.modules[c.modIdx].tree, id: obj)}.{method}"
+	end 'named'
+	let t = checkExpr(c, p: p, e: obj, errs: errs)
+	if t == ast.noType 'untyped'
+		return method
+	end 'untyped'
+	return "{declaredNameOfType(p, t: ast.contentType(p.types, t: t))}.{method}"
+end 'writtenCallee'
+
+// undefinedFunctionText is the refusal of a call to a function nothing declares, which says what the reserved prefix means when
+// the name has it.
+function undefinedFunctionText(name String) returns String
+	if name.byteLength() >= reservedPrefix.byteLength() and name.sliceBytes(0, endPos: reservedPrefix.byteLength()) == reservedPrefix 'reserved'
+		return diag.undefinedReservedFunction(name)
+	end 'reserved'
+	return diag.undefinedFunction(name)
+end 'undefinedFunctionText'
+
 function unknownFunction(c Checker, p ast.Project, call ast.NodeID, name String, qualifiers Count, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: call)
 	if qualifiers == 0 'bare'
-		diag.pushUnqualifiedError(errs, code: diag.errUnknownFunction, message: diag.undefinedFunction(name), module: c.modID, offset: off, name: name.clone())
+		diag.pushUnqualifiedError(errs, code: diag.errUnknownFunction, message: undefinedFunctionText(name), module: c.modID, offset: off, name: name.clone())
 		return ast.noType
 	end 'bare'
-	checkFail(c.modID, off: off, code: diag.errUnknownFunction, msg: diag.undefinedFunction(name), errs: errs)
+	checkFail(c.modID, off: off, code: diag.errUnknownFunction, msg: undefinedFunctionText(name), errs: errs)
 	return ast.noType
 end 'unknownFunction'
 
@@ -122,7 +153,7 @@ function callPrint(mutates c Checker, mutates p ast.Project, call ast.NodeID, na
 	var specs = ast.ParamSpecList.create(0)
 	specs.push(ast.ParamSpec.make("text", ty: p.builtins.stringTy, conv: ast.Convention.convLet))
 	let mark = errs.count()
-	let ordered = bindArgs(c, p: p, call: call, callee: name, specs: specs, argsChecked: false, errs: errs)
+	let ordered = bindArgs(c, p: p, call: call, callee: name, specs: specs, argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'failed'
 		return ast.noType
 	end 'failed'
@@ -255,7 +286,7 @@ function callFunction(mutates c Checker, mutates p ast.Project, call ast.NodeID,
 	info.intrinsic = p.funcs.entries[target as Count].intrinsic
 	if declares(c, p: p, f: target) 'declared'
 		let mark = errs.count()
-		info.ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, argsChecked: false, errs: errs)
+		info.ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, argsChecked: false, payload: false, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return ast.noType
 		end 'failed'
@@ -361,7 +392,7 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 		queuePending(c, call: call, callee: callee, fn: target, specs: specs)
 	end 'pending' else 'bound'
 		for i in 0 upto specs.count() 'each'
-			if not coerceArg(c, p: p, value: ordered[i], callee: callee, spec: specs[i], errs: errs) 'badArg'
+			if not coerceArg(c, p: p, call: call, value: ordered[i], callee: callee, spec: specs[i], payload: false, errs: errs) 'badArg'
 				return ast.noType
 			end 'badArg'
 		end 'each'
@@ -403,12 +434,12 @@ function unionConstructor(mutates c Checker, mutates p ast.Project, call ast.Nod
 		end 'badInstance'
 		specs = payloadSpecs(p, ut: resolved, caseIndex: caseIndex)
 		for i in 0 upto specs.count() 'each'
-			if not coerceArg(c, p: p, value: ordered[i], callee: callee, spec: specs[i], errs: errs) 'badArg'
+			if not coerceArg(c, p: p, call: call, value: ordered[i], callee: callee, spec: specs[i], payload: true, errs: errs) 'badArg'
 				return ast.noType
 			end 'badArg'
 		end 'each'
 	end 'generic' else 'plain'
-		ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, argsChecked: false, errs: errs)
+		ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, argsChecked: false, payload: true, errs: errs)
 		if failedSince(errs, mark: mark) 'badBind'
 			return ast.noType
 		end 'badBind'
@@ -478,7 +509,7 @@ function boundCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, pa
 	info.selfConv = selfConv
 	info.paramSpecs = specs.clone()
 	let mark = errs.count()
-	info.ordered = bindArgs(c, p: p, call: call, callee: calleeName, specs: specs, argsChecked: false, errs: errs)
+	info.ordered = bindArgs(c, p: p, call: call, callee: calleeName, specs: specs, argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'badArgs'
 		return ast.noType
 	end 'badArgs'
@@ -532,7 +563,7 @@ function copyCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, t a
 	end 'noCopy'
 	var info = ast.CallInfo.make(ast.CallKind.callCopy, fn: ast.noFunc, receiverTy: t)
 	let mark = errs.count()
-	info.ordered = bindArgs(c, p: p, call: call, callee: cloneMethod, specs: ast.ParamSpecList.create(0), argsChecked: false, errs: errs)
+	info.ordered = bindArgs(c, p: p, call: call, callee: cloneMethod, specs: ast.ParamSpecList.create(0), argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'badArgs'
 		return ast.noType
 	end 'badArgs'

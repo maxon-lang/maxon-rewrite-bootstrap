@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3918 at 108:27
+// expect-error: E3918 at 108:22
 function main() returns ExitCode
 	let a = Conn.open().clone()
 	return 0

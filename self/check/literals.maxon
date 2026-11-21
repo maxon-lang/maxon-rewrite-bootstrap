@@ -111,7 +111,7 @@ function addToColumn(mutates c Checker, mutates p ast.Project, mutates col Colum
 		return false
 	end 'wide'
 	if col.fixed 'stated'
-		return coerce(c, p: p, node: node, src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
+		return coerce(c, p: p, node: node, at: exprOffset(c, p: p, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
 	end 'stated'
 	if col.ty == ast.noType 'first'
 		col.ty = bareRange(p, t: t)
@@ -121,10 +121,10 @@ function addToColumn(mutates c Checker, mutates p ast.Project, mutates col Colum
 		if not requireCommonWord(c, p: p, off: off, a: col.ty, b: t, errs: errs) 'mixed'
 			return false
 		end 'mixed'
-		col.ty = joinTypes(c, p: p, off: off, a: col.ty, b: t, errs: errs)
+		col.ty = joinTypes(c, p: p, off: off, clash: Clash.other, a: col.ty, b: t, errs: errs)
 		return col.ty != ast.noType
 	end 'integers'
-	return coerce(c, p: p, node: node, src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
+	return coerce(c, p: p, node: node, at: exprOffset(c, p: p, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
 end 'addToColumn'
 
 // requireCommonWord refuses two integer types that no 64-bit word holds together: one may be negative while the other

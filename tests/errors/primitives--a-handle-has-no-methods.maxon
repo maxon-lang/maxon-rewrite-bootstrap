@@ -86,7 +86,7 @@ function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
-// expect-error: E3004 at 95:17
+// expect-error: E3004 at 95:12
 typealias CellPool = Pool with Cell
 
 function main() returns ExitCode

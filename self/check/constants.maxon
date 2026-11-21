@@ -284,6 +284,7 @@ function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdina
 		interfaceDecl(_) then panic("the declaration at ordinal {ord} is no constant")
 	end 'k'
 	enterContext(c, p: p, f: ast.noFunc, owner: ast.noType, calls: false)
+	c.constName = cd.name.clone()
 	let t = checkExpr(c, p: p, e: cd.value, errs: errs)
 	if t == ast.noType 'failed'
 		return

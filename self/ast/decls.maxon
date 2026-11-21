@@ -52,6 +52,19 @@ export union Decl
 		end 'd'
 	end 'visibility'
 
+	// keyword is the word that opens the declaration, as a diagnostic names its kind.
+	export function keyword() returns String
+		return match self 'd'
+			funcDecl(_) gives "function"
+			constDecl(_) gives "let"
+			typeDecl(_) gives "type"
+			enumDecl(_) gives "enum"
+			unionDecl(_) gives "union"
+			aliasDecl(_) gives "typealias"
+			interfaceDecl(_) gives "interface"
+		end 'd'
+	end 'keyword'
+
 	export function nodeID() returns NodeID
 		return match self 'd'
 			funcDecl(v) gives v.id
@@ -97,8 +110,7 @@ export union Decl
 	end 'isConst'
 
 	export function offset(t Tree) returns diag.U32
-		let id = self.nodeID() as Count
-		return t.records[id].start
+		return t.reportStartOf(self.nodeID())
 	end 'offset'
 end 'Decl'
 

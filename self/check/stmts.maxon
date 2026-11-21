@@ -425,7 +425,7 @@ end 'methodResult'
 function forVariableType(mutates c Checker, mutates p ast.Project, s ast.NodeID, lowerTy ast.TypeID, upperTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: s)
 	if typeIsNamedInt(p.types, t: lowerTy) or typeIsNamedInt(p.types, t: upperTy) 'named'
-		return unifyInts(c, p: p, off: off, l: lowerTy, r: upperTy, errs: errs)
+		return unifyInts(c, p: p, off: off, clash: Clash.other, l: lowerTy, r: upperTy, errs: errs)
 	end 'named'
 	let lowerOff = offsetOf(c, p: p, node: ast.forStmtFrom(p.modules[c.modIdx].tree, id: s))
 	if not requireSigned64(c, off: lowerOff, t: lowerTy, p: p, errs: errs) 'wideLower'
@@ -508,7 +508,7 @@ function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 			return
 		end 'notField'
 		let holder = ast.contentType(p.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: targetNode)))
-		wrong = Mismatch.assignment("field '{memberName}' of '{nameOfType(p, t: holder)}'")
+		wrong = Mismatch.assignment("field '{memberName}' of '{declaredNameOfType(p, t: holder)}'")
 	end 'member' else if k == ast.NodeKind.indexExpr 'index'
 		target = checkIndex(c, p: p, e: targetNode, errs: errs)
 	end 'index' else 'other'
@@ -523,7 +523,7 @@ function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	if value == ast.noType 'badValue'
 		return
 	end 'badValue'
-	_ = coerce(c, p: p, node: valueNode, src: value, target: target, wrong: wrong, errs: errs)
+	_ = coerce(c, p: p, node: valueNode, at: placeOffset(c, p: p, place: targetNode), src: value, target: target, wrong: wrong, errs: errs)
 end 'checkAssign'
 
 function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
@@ -560,7 +560,7 @@ function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 		setOperand(c, node: s, operand: t)
 		return
 	end 'converts'
-	_ = coerce(c, p: p, node: value, src: t, target: ret, wrong: Mismatch.returned, errs: errs)
+	_ = coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: s), src: t, target: ret, wrong: Mismatch.returned, errs: errs)
 end 'checkReturn'
 
 // checkThrow types a throw, which fails with a case of an error enum.
@@ -571,7 +571,7 @@ function checkThrow(mutates c Checker, mutates p ast.Project, s ast.NodeID, muta
 		return
 	end 'badValue'
 	if not typeHasKind(p, t: e, kind: ast.TypeKind.enumTy) 'notEnum'
-		failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: diag.thrownValueNotAnErrorEnum(), errs: errs)
+		failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.thrownValueNotAnErrorEnum(), errs: errs)
 		return
 	end 'notEnum'
 	recordFailure(c, e: e)

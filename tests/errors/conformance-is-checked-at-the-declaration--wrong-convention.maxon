@@ -61,7 +61,7 @@ function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() if a.area() > b.area() else b.area()
 end 'total'
 
-// expect-error: E3016 at 65:1
+// expect-error: E3016 at 65:6
 type Round implements Shape
 	var r as Score
 

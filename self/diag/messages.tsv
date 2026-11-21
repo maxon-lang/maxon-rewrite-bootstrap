@@ -85,3 +85,19 @@ emptyArrayLiteral	ErrUnsupportedFeature	Unsupported: an empty array literal `[]`
 noCommonIntegerType	ErrTypeMismatch	no common integer type for {low} and {high}: cast the elements to an alias
 duplicateTypeAlias	ErrDuplicateTypeAlias	Duplicate typealias '{name}': `{qualified}` is already declared {declaredBy}
 genericTypeGrowsWithoutBound	ErrGenericGrowsWithoutBound	field '{field}' of generic type '{owner}' is declared '{declared}', which holds '{owner}' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion
+undefinedOperatorForType	ErrTypeMismatch	operator '{op}' is not defined for type '{typeName}'
+nonIntegralOperands	ErrTypeMismatch	operator '{op}' requires integer operands, but this one is {operand}
+operandAliasMismatch	ErrTypeMismatch	operator '{op}' requires both operands to be the same type: '{left}' and '{right}' are different typealiases — cast one side with 'as'
+nonNumericOperands	ErrExpressionError	Cannot operate on {left} and {right}
+giveTypeMismatch	ErrTypeMismatch	match arms give incompatible types: '{got}' vs '{expected}'
+ternaryValueTypeMismatch	ErrMatchTypeMismatch	ternary expression type mismatch: true branch is '{trueType}' but false branch is '{falseType}'
+ternaryNonBoolCondition	ErrMatchTypeMismatch	ternary expression requires a bool condition, got '{got}'
+operatorRequiresConformance	ErrTypeMismatch	Operator '{op}' requires type parameter '{typeParamName}' to be constrained with 'where {typeParamName} is {interfaceName}'
+useOfMovedValue	ErrUseAfterMove	use of moved value '{name}': its ownership moved to another binding at an earlier bind or assignment
+movedInEarlierIteration	ErrUseAfterMove	use of moved value '{name}': it was moved in an earlier iteration of this loop
+duplicateDefinition	ErrDuplicateDefinition	duplicate definition of '{name}' — already declared as `{keyword} {name}`
+moduleLetCallsFunction	ErrModuleLetCallsFunction	the initializer of '{name}' calls '{callee}': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
+letFieldReassigned	ErrAssignToImmutable	'{name}' is a let field and cannot be reassigned
+missingMethods	ErrConformance	Partial interface implementation: type '{typeName}' is missing {count} method(s):
+wrongSignatureMethods	ErrConformance	Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:
+undefinedReservedFunction	ErrUnknownFunction	call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists

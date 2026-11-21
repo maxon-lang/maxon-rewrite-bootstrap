@@ -69,4 +69,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3017 at 65:14
+// expect-error: E3017 at 65:9

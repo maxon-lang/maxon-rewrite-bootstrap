@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3920 at 110:2
+// expect-error: E3920 at 110:11
 enum Light
 	red
 

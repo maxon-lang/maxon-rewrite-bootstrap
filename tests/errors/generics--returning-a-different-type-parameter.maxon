@@ -61,7 +61,7 @@ function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() if a.area() > b.area() else b.area()
 end 'total'
 
-// expect-error: E3005 at 66:16
+// expect-error: E3005 at 66:2
 function f(a T, b U) uses T, U returns T where U implements Copyable
 	return b.clone()
 end 'f'

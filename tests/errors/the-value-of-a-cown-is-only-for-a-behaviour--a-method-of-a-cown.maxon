@@ -43,7 +43,7 @@ function keep(consumes d Doc)
 	let kept = d
 end 'keep'
 
-// expect-error: E3915 at 49:16
+// expect-error: E3915 at 49:12
 function main() returns ExitCode
 	let c = cown(Doc.make("a"))
 	let n = c.read()

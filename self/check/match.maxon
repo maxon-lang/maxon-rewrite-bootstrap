@@ -7,9 +7,11 @@ type MatchState
 	export var hasDefault as bool
 	// result is the type the arms give, or none while no arm gave one.
 	export var result as ast.TypeID
+	// at is where the match starts, which is where a disagreement between its arms is reported.
+	export var at as diag.U32
 
-	static function make() returns MatchState
-		return MatchState{seen: BoolIntMap.new(), sawTrue: false, sawFalse: false, hasDefault: false, result: ast.noType}
+	static function make(at diag.U32) returns MatchState
+		return MatchState{seen: BoolIntMap.new(), sawTrue: false, sawFalse: false, hasDefault: false, result: ast.noType, at: at}
 	end 'make'
 end 'MatchState'
 
@@ -135,7 +137,7 @@ function checkMatch(mutates c Checker, mutates p ast.Project, core ast.NodeID, i
 		return ast.noType
 	end 'unfit'
 	let expect = c.expect
-	var state = MatchState.make()
+	var state = MatchState.make(offsetOf(c, p: p, node: core))
 	pushBlock(c, label: ast.matchCoreLabel(p.modules[c.modIdx].tree, id: core), isLoop: false, node: core)
 	let armsRef = ast.matchCoreArmsRef(p.modules[c.modIdx].tree, id: core)
 	let owned = ast.matchCoreConsumes(p.modules[c.modIdx].tree, id: core)
@@ -270,18 +272,27 @@ function joinArm(mutates c Checker, mutates p ast.Project, value ast.NodeID, exp
 		return
 	end 'first'
 	let before = state.result
-	let joined = joinTypes(c, p: p, off: offsetOf(c, p: p, node: value), a: before, b: t, errs: errs)
+	let joined = joinTypes(c, p: p, off: state.at, clash: Clash.arms, a: before, b: t, errs: errs)
 	if joined != ast.noType 'joined'
 		state.result = joined
 	end 'joined'
 end 'joinArm'
+
+// matchEndOffset is where maxon reports a match that does not cover its subject: the 'end' that closes it.
+function matchEndOffset(c Checker, p ast.Project, core ast.NodeID) returns diag.U32
+	let endNode = ast.matchCoreEnd(p.modules[c.modIdx].tree, id: core)
+	if endNode == 0 'unlabelled'
+		return offsetOf(c, p: p, node: core)
+	end 'unlabelled'
+	return p.modules[c.modIdx].tree.endKeywordStart(endNode)
+end 'matchEndOffset'
 
 // checkExhaustive refuses a match that no default ends and that leaves a case of its subject out.
 function checkExhaustive(c Checker, p ast.Project, core ast.NodeID, st ast.TypeID, isExpr bool, state MatchState, mutates errs diag.ErrorList)
 	if state.hasDefault 'covered'
 		return
 	end 'covered'
-	let off = offsetOf(c, p: p, node: core)
+	let off = matchEndOffset(c, p: p, core: core)
 	if hasCases(p, t: st) 'cases'
 		let orig = ast.originOf(p.types, t: st)
 		if state.seen.count() < p.types.entries[orig as Count].cases.count() 'missing'
@@ -432,7 +443,7 @@ function checkLiteralPattern(mutates c Checker, mutates p ast.Project, pattern a
 		if isConstInt(p, t: st) 'constSubject'
 			expected = p.builtins.anon64Ty
 		end 'constSubject'
-		_ = coerce(c, p: p, node: value, src: t, target: expected, wrong: Mismatch.expectedGot, errs: errs)
+		_ = coerce(c, p: p, node: value, at: exprOffset(c, p: p, node: value), src: t, target: expected, wrong: Mismatch.expectedGot, errs: errs)
 		return
 	end 'integer'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a pattern of {nameOfType(p, t: t)} cannot match {nameOfType(p, t: st)}", errs: errs)

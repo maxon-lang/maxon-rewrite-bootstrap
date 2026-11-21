@@ -135,10 +135,6 @@ end 'declareRangeAlias'
 // nestedOwnerSeparator is the dot that ends the owner's name in the name of a typealias declared in a type's body.
 let nestedOwnerSeparator = 46 as Byte
 
-let typealiasInitial = 116 as Byte
-
-let spaceByte = 32 as Byte
-
 // nestedAliasName is the name a typealias declared in the body of the type owner has in its module, which is how
 // messages name it. No name written in a source file has a dot, so it names nothing else.
 export function nestedAliasName(owner String, name String) returns String
@@ -177,23 +173,6 @@ export function nestedVisibility(owner String, member String) returns String
 	end 'own'
 	return owner.clone()
 end 'nestedVisibility'
-
-// aliasNameOffset is where the name of the typealias that starts at start is: its tokens are one space apart, and a
-// visibility modifier comes before 'typealias'.
-export function aliasNameOffset(tree Tree, start diag.U32) returns diag.U32
-	var words = 1 as Count
-	if tree.text.byteAt(start as Count) != typealiasInitial 'modifier'
-		words = 2 as Count
-	end 'modifier'
-	var at = start as Count
-	while words > 0 'skip'
-		if tree.text.byteAt(at) == spaceByte 'space'
-			words = try words - 1 otherwise 0 as Count
-		end 'space'
-		at = try at + 1 otherwise at
-	end 'skip'
-	return try at as diag.U32 otherwise start
-end 'aliasNameOffset'
 
 // nestedAliasOwner is the name of the type whose body declares the typealias of the name, or none for a name that is
 // no nested typealias's.

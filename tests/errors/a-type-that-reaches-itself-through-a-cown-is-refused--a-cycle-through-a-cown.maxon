@@ -17,7 +17,7 @@ union Option uses T
 	end 'unwrap'
 end 'Option'
 
-// expect-error: E3914 at 23:1
+// expect-error: E3914 at 23:6
 typealias NodeCownOption = Option with (cown with Node)
 
 type Node

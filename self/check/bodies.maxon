@@ -89,7 +89,7 @@ function checkFieldDefaults(mutates c Checker, mutates p ast.Project, tid ast.Ty
 		startUses(c, node: defaultExpr, inField: true)
 		let t = checkExpecting(c, p: p, e: defaultExpr, want: fieldTy, errs: errs)
 		if t != ast.noType 'typed'
-			_ = coerce(c, p: p, node: defaultExpr, src: t, target: fieldTy, wrong: Mismatch.expectedGot, errs: errs)
+			_ = coerce(c, p: p, node: defaultExpr, at: exprOffset(c, p: p, node: defaultExpr), src: t, target: fieldTy, wrong: Mismatch.expectedGot, errs: errs)
 		end 'typed'
 		finishUses(c)
 	end 'each'

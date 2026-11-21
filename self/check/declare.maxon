@@ -15,8 +15,36 @@ function failedSince(errs diag.ErrorList, mark Count) returns bool
 end 'failedSince'
 
 function offsetOf(c Checker, p ast.Project, node ast.NodeID) returns diag.U32
-	return p.modules[c.modIdx].tree.startOf(node)
+	return p.modules[c.modIdx].tree.reportStartOf(node)
 end 'offsetOf'
+
+// exprOffset is where an expression starts, which is where maxon points for a value that is not what its place needs.
+function exprOffset(c Checker, p ast.Project, node ast.NodeID) returns diag.U32
+	return try ast.exprStart(p.modules[c.modIdx].tree, e: node) as diag.U32 otherwise panic("an expression starts past the end of its module")
+end 'exprOffset'
+
+// braceOffset is where the brace of a struct literal opens, which is where maxon reports a field it leaves out: the
+// layout puts the brace right after the type name.
+function braceOffset(c Checker, p ast.Project, literal ast.NodeID) returns diag.U32
+	return try p.modules[c.modIdx].tree.startOf(literal) + (ast.structLitExprTypeName(p.modules[c.modIdx].tree, id: literal).byteLength() as diag.U32) otherwise panic("a struct literal ends past its module")
+end 'braceOffset'
+
+// closingOffset is where the parenthesis closing a call stands, which is where maxon reports the payload that a union case
+// is given of the wrong type.
+function closingOffset(c Checker, p ast.Project, call ast.NodeID) returns diag.U32
+	match ast.exprEnd(p.modules[c.modIdx].tree, e: call) 'end'
+		some(finish) then return try (finish - 1) as diag.U32 otherwise panic("a call ends past its module")
+		none then return exprOffset(c, p: p, node: call)
+	end 'end'
+end 'closingOffset'
+
+// placeOffset is where maxon points for an assignment to a place: a field at its name, any other place at its start.
+function placeOffset(c Checker, p ast.Project, place ast.NodeID) returns diag.U32
+	if p.modules[c.modIdx].tree.kindOf(place) == ast.NodeKind.memberExpr 'field'
+		return p.modules[c.modIdx].tree.memberNameStart(place)
+	end 'field'
+	return exprOffset(c, p: p, node: place)
+end 'placeOffset'
 
 function declTypeOf(p ast.Project, ref ast.DeclRef) returns ast.TypeID
 	match p.declTypes.get(ast.declKey(ref)) 'dt'

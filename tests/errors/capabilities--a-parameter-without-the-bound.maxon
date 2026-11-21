@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3918 at 108:16
+// expect-error: E3918 at 108:11
 function dup(a T) uses T returns T
 	return a.clone()
 end 'dup'

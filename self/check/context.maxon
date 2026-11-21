@@ -166,6 +166,8 @@ export type Checker
 	export var boundedFn as ast.FuncID
 	export var owner as ast.TypeID
 	export var allowCalls as bool
+	// constName is the module-level constant whose initializer is being typed, for the message that refuses a call in it.
+	export var constName as String
 	export var dead as bool
 	export var expect as ast.TypeID
 	// literalWide is whether an array or map literal being typed is inside another, so that its bare numbers take the whole word
@@ -204,7 +206,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
 	end 'make'
 end 'Checker'
 
@@ -360,10 +362,10 @@ export union Mismatch
 	end 'words'
 end 'Mismatch'
 
-// coerce requires the value of node, of type src, where a target is needed. An integer of another type is fixed by a cast
+// coerce requires the value of node, of type src, where a target is needed, and reports a refusal at the offset at, which is
+// where maxon points for the place that needs the value. An integer of another type is fixed by a cast
 // to the target, which is what the language converts with.
-export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
-	let off = offsetOf(c, p: p, node: node)
+export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, at diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
 	if src == ast.noType or target == ast.noType 'okErr'
 		return true
 	end 'okErr'
@@ -372,28 +374,27 @@ export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, src as
 	end 'ok'
 	let sk = p.types.entries[src as Count].kind
 	let dk = p.types.entries[target as Count].kind
-	if sk == ast.TypeKind.constInt and dk == ast.TypeKind.intRange 'kFit'
-		let ks = p.types.entries[src as Count].minVal.toString()
-		let tName = ast.typeName(p.types, t: target)
-		let tLo = p.types.entries[target as Count].minVal.toString()
-		let tHi = p.types.entries[target as Count].maxVal.toString()
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.literalOutOfRange(ks, alias: tName, low: tLo, high: tHi), errs: errs)
-		return false
-	end 'kFit'
-	if typeIsAnonInt(p.types, t: src) and dk == ast.TypeKind.intRange 'aFit'
-		let sName = ast.typeName(p.types, t: src)
-		let tName = ast.typeName(p.types, t: target)
-		checkFailFixed(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(tName, got: sName, castable: true), fix: castFix(p.modules[c.modIdx].tree, e: node, target: tName), errs: errs)
-		return false
-	end 'aFit'
 	let tName = ast.typeName(p.types, t: target)
+	if (sk == ast.TypeKind.constInt or typeIsAnonInt(p.types, t: src)) and dk == ast.TypeKind.intRange 'valueFit'
+		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: diag.literalOutOfRange(offendingBound(p, src: src, target: target), alias: tName, low: p.types.entries[target as Count].minVal.toString(), high: p.types.entries[target as Count].maxVal.toString()), errs: errs)
+		return false
+	end 'valueFit'
 	var fix = diag.Fix.none()
-	if sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange 'integers'
+	let integers = sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange
+	if integers 'cast'
 		fix = castFix(p.modules[c.modIdx].tree, e: node, target: tName)
-	end 'integers'
-	checkFailFixed(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, t: src), castable: false), fix: fix, errs: errs)
+	end 'cast'
+	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, t: src), castable: integers), fix: fix, errs: errs)
 	return false
 end 'coerce'
+
+// offendingBound is the end of the range of src that target does not hold: the lowest value when that is below the target, else the highest.
+function offendingBound(p ast.Project, src ast.TypeID, target ast.TypeID) returns String
+	if intRangeHolds(p.types, dst: target, v: p.types.entries[src as Count].minVal) 'high'
+		return p.types.entries[src as Count].maxVal.toString()
+	end 'high'
+	return p.types.entries[src as Count].minVal.toString()
+end 'offendingBound'
 
 // gotName is how a message names the type of the value it refuses: a bare number is an 'int', whatever its value.
 function gotName(p ast.Project, t ast.TypeID) returns String
@@ -403,12 +404,42 @@ function gotName(p ast.Project, t ast.TypeID) returns String
 	return ast.typeName(p.types, t: t)
 end 'gotName'
 
-export function requireOneAlias(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns bool
+// A Clash is how the place that joins two types words the refusal of types that do not agree.
+export union Clash
+	operator(op String)
+	arms
+	branches
+	other
+end 'Clash'
+
+// failAlias reports two different integer aliases where one type is needed.
+function failAlias(c Checker, p ast.Project, off diag.U32, clash Clash, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList)
+	let lName = ast.typeName(p.types, t: l)
+	let rName = ast.typeName(p.types, t: r)
+	match clash 'k'
+		operator(op) then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operandAliasMismatch(op, left: lName, right: rName), errs: errs)
+		arms then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.giveTypeMismatch(rName, expected: lName), errs: errs)
+		branches then checkFail(c.modID, off: off, code: diag.errMatchTypeMismatch, msg: diag.ternaryValueTypeMismatch(lName, falseType: rName), errs: errs)
+		other then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the operands are {lName} and {rName}; cast one so both are the same type", errs: errs)
+	end 'k'
+end 'failAlias'
+
+// failJoin reports two types that no one type holds, of which the first came before the second.
+function failJoin(c Checker, p ast.Project, off diag.U32, clash Clash, a ast.TypeID, b ast.TypeID, mutates errs diag.ErrorList)
+	match clash 'k'
+		arms then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.giveTypeMismatch(gotName(p, t: b), expected: gotName(p, t: a)), errs: errs)
+		branches then checkFail(c.modID, off: off, code: diag.errMatchTypeMismatch, msg: diag.ternaryValueTypeMismatch(gotName(p, t: a), falseType: gotName(p, t: b)), errs: errs)
+		other then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the branches produce {gotName(p, t: a)} and {gotName(p, t: b)}", errs: errs)
+		operator(op) then panic("the operator '{op}' joins no types")
+	end 'k'
+end 'failJoin'
+
+export function requireOneAlias(c Checker, p ast.Project, off diag.U32, clash Clash, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns bool
 	if l == ast.noType or r == ast.noType 'e'
 		return false
 	end 'e'
 	if typeIsNamedInt(p.types, t: l) and typeIsNamedInt(p.types, t: r) and l != r 'diff'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the operands are {ast.typeName(p.types, t: l)} and {ast.typeName(p.types, t: r)}; cast one so both are the same type", errs: errs)
+		failAlias(c, p: p, off: off, clash: clash, l: l, r: r, errs: errs)
 		return false
 	end 'diff'
 	return true
@@ -430,8 +461,8 @@ export function wordOf(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r a
 	return p.builtins.anonU64Ty
 end 'wordOf'
 
-export function operandWord(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if not requireOneAlias(c, p: p, off: off, l: l, r: r, errs: errs) 'bad'
+export function operandWord(c Checker, p ast.Project, off diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if not requireOneAlias(c, p: p, off: off, clash: Clash.operator(op.clone()), l: l, r: r, errs: errs) 'bad'
 		return ast.noType
 	end 'bad'
 	return wordOf(c, p: p, off: off, l: l, r: r, errs: errs)
@@ -451,8 +482,8 @@ export function exactType(mutates p ast.Project, word ast.TypeID, lo ast.I128, h
 	return ast.internIntRange(p.types, aliasName: "", minVal: cLo, maxVal: cHi, inferred: true)
 end 'exactType'
 
-export function unifyInts(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if not requireOneAlias(c, p: p, off: off, l: l, r: r, errs: errs) 'bad'
+export function unifyInts(c Checker, p ast.Project, off diag.U32, clash Clash, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if not requireOneAlias(c, p: p, off: off, clash: clash, l: l, r: r, errs: errs) 'bad'
 		return ast.noType
 	end 'bad'
 	var alias = ast.noType
@@ -476,7 +507,7 @@ export function unifyInts(c Checker, p ast.Project, off diag.U32, l ast.TypeID, 
 	return alias
 end 'unifyInts'
 
-export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, a ast.TypeID, b ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, clash Clash, a ast.TypeID, b ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if a == ast.noType or b == ast.noType 'e'
 		return ast.noType
 	end 'e'
@@ -487,7 +518,7 @@ export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, a ast.
 		return a
 	end 'nbOrEq'
 	if ast.isIntType(p.types, t: a) and ast.isIntType(p.types, t: b) 'ints'
-		if not requireOneAlias(c, p: p, off: off, l: a, r: b, errs: errs) 'bad'
+		if not requireOneAlias(c, p: p, off: off, clash: clash, l: a, r: b, errs: errs) 'bad'
 			return ast.noType
 		end 'bad'
 		var alias = ast.noType
@@ -510,7 +541,7 @@ export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, a ast.
 		let nHi = ast.maxI128(rangeHi(p.types, t: a), b: rangeHi(p.types, t: b))
 		return ast.internIntRange(p.types, aliasName: "", minVal: nLo, maxVal: nHi, inferred: true)
 	end 'ints'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the branches produce {ast.typeName(p.types, t: a)} and {ast.typeName(p.types, t: b)}", errs: errs)
+	failJoin(c, p: p, off: off, clash: clash, a: a, b: b, errs: errs)
 	return ast.noType
 end 'joinTypes'
 

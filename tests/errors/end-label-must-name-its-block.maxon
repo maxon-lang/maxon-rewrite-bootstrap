@@ -2,4 +2,4 @@ function main() returns ExitCode
 	return 0
 end 'mian'
 
-// expect-error: E2008 at 3:6
+// expect-error: E2008 at 3:1

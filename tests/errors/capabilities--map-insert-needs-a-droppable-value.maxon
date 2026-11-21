@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3017 at 108:10
+// expect-error: E3017 at 108:4
 function store(mutates m Map with (String, V), consumes value V) uses V
 	m.upsert("key", value: value)
 end 'store'

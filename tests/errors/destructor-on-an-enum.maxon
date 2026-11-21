@@ -11,4 +11,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3920 at 5:2
+// expect-error: E3920 at 5:11

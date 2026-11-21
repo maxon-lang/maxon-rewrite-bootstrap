@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3017 at 108:13
+// expect-error: E3017 at 108:9
 function hold(consumes x T) uses T returns cown with T
 	return cown(x)
 end 'hold'

@@ -56,4 +56,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3004 at 52:15
+// expect-error: E3004 at 52:11

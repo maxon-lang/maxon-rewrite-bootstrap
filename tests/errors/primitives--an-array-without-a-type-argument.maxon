@@ -86,7 +86,7 @@ function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
-// expect-error: E3179 at 91:22
+// expect-error: E3179 at 91:16
 function main() returns ExitCode
 	let a = Array.create(0)
 	return 0

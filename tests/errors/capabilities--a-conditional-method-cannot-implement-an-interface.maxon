@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3016 at 107:1
+// expect-error: E3016 at 107:6
 type Cell uses T implements Peekable
 	var item as T
 

@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3918 at 115:27
+// expect-error: E3918 at 115:22
 type Pair uses T
 	var item as T
 

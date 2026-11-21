@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3017 at 108:16
+// expect-error: E3017 at 108:10
 function main() returns ExitCode
 	let f = freeze(Txn.begin())
 	return 0

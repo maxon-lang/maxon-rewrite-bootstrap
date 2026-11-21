@@ -501,7 +501,7 @@ function funcSite(o Ownership, p ast.Project) returns diag.U32
 end 'funcSite'
 
 function offsetOfOwn(o Ownership, p ast.Project, node ast.NodeID) returns diag.U32
-	return p.modules[o.c.modIdx].tree.startOf(node)
+	return p.modules[o.c.modIdx].tree.reportStartOf(node)
 end 'offsetOfOwn'
 
 // selfLocalOf is the receiver of the function being checked.

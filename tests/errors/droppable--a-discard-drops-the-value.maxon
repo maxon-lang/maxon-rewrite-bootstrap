@@ -21,7 +21,7 @@ union Step
 	failed(txn Txn, note Score)
 end 'Step'
 
-// expect-error: E3919 at 26:15
+// expect-error: E3919 at 26:10
 function main() returns ExitCode
 	_ = Txn.begin()
 	return 0

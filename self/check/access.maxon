@@ -46,7 +46,7 @@ function checkLiteralFields(mutates c Checker, mutates p ast.Project, e ast.Node
 	for fi in 0 upto fieldCount 'defaults'
 		if ordered[fi] == 0 'left'
 			if not p.types.entries[orig as Count].fields[fi].hasDefault 'required'
-				failAt(c, p: p, node: e, code: diag.errFieldNotInitialized, msg: diag.fieldNotInitialized(p.types.entries[orig as Count].fields[fi].name, typeName: nameOfType(p, t: rt)), errs: errs)
+				checkFail(c.modID, off: braceOffset(c, p: p, literal: e), code: diag.errFieldNotInitialized, msg: diag.fieldNotInitialized(p.types.entries[orig as Count].fields[fi].name, typeName: nameOfType(p, t: rt)), errs: errs)
 				return ast.noType
 			end 'required'
 			recordFieldUses(c, defaultExpr: p.types.entries[orig as Count].fields[fi].defaultExpr)
@@ -75,7 +75,7 @@ function checkLiteralField(mutates c Checker, mutates p ast.Project, rt ast.Type
 	if t == ast.noType 'badValue'
 		return false
 	end 'badValue'
-	if not coerce(c, p: p, node: value, src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{typeName}'"), errs: errs) 'badType'
+	if not coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: sf), src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{declaredNameOfType(p, t: rt)}'"), errs: errs) 'badType'
 		return false
 	end 'badType'
 	ordered[index] = value
@@ -119,7 +119,7 @@ function checkIndex(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 	if argTy == ast.noType 'badIndex'
 		return ast.noType
 	end 'badIndex'
-	if not coerce(c, p: p, node: arg, src: argTy, target: indexTy, wrong: Mismatch.expectedGot, errs: errs) 'badType'
+	if not coerce(c, p: p, node: arg, at: exprOffset(c, p: p, node: arg), src: argTy, target: indexTy, wrong: Mismatch.expectedGot, errs: errs) 'badType'
 		return ast.noType
 	end 'badType'
 	return typeElemType(p, ownerTy: t)
@@ -193,7 +193,7 @@ function checkCaseMember(mutates c Checker, mutates p ast.Project, e ast.NodeID,
 	var caseIndex = 0 as Count
 	match consumes p.types.entries[orig as Count].findCase(member) 'found'
 		some(i) then caseIndex = i
-		none then return unknownCase(c, off: off, word: word, member: member, errs: errs)
+		none then return unknownCase(c, off: exprOffset(c, p: p, node: e), word: word, member: member, errs: errs)
 	end 'found'
 	if not isEnum and p.types.entries[orig as Count].cases[caseIndex].payload.count() > 0 'payload'
 		checkFail(c.modID, off: off, code: diag.errCallArgCountMismatch, msg: "case '{member}' carries a payload: construct it with arguments", errs: errs)

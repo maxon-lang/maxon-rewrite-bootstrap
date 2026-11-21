@@ -502,12 +502,10 @@ end 'buildModuleTable'
 
 function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
 	if ast.isNestedAlias(dName) 'nested'
-		pushDuplicateNestedAlias(dName, dOff: ast.aliasNameOffset(m.tree, start: dOff), modID: modID, errs: errs)
+		pushDuplicateNestedAlias(dName, dOff: dOff, modID: modID, errs: errs)
 		return
 	end 'nested'
-	let prevOff = m.decls[prevOrd as Count].offset(m.tree)
-	let prevLoc = ast.locateModuleOffset(m, offset: prevOff)
-	diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{dName}' is already declared in {m.display()} at {prevLoc.file}:{prevLoc.line}", module: modID, offset: dOff)
+	diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: diag.duplicateDefinition(dName, keyword: m.decls[prevOrd as Count].keyword()), module: modID, offset: dOff)
 end 'pushDuplicateDecl'
 
 // pushDuplicateNestedAlias reports a typealias that the body of its type declares a second time, at its name.

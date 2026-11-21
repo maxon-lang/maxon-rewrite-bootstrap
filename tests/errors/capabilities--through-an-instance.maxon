@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3918 at 108:39
+// expect-error: E3918 at 108:34
 function main() returns ExitCode
 	let a = Box.make(Socket.open()).clone()
 	return 0

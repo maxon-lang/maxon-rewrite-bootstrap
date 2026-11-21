@@ -16,7 +16,7 @@ function checkCycle(mutates c Checker, mutates p ast.Project, site ast.NodeID, t
 		failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: "type '{name}' has no finite size: via {path[0]} it contains itself with a larger type argument each time", errs: errs)
 		return
 	end 'growing'
-	failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: diag.typeReferenceCycle(name, path: ast.joinNames(path, sep: " -> ")), errs: errs)
+	failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: diag.typeReferenceCycle(name, path: "{name} → {ast.joinNames(path, sep: " → ")}"), errs: errs)
 end 'checkCycle'
 
 // reaches is whether a value of type from contains one of type target. A type that contains itself with a larger type
@@ -24,20 +24,19 @@ end 'checkCycle'
 function reaches(mutates p ast.Project, from ast.TypeID, target ast.TypeID, mutates path ast.StringList, mutates visited BoolIntMap, mutates growing bool) returns bool
 	let kind = p.types.entries[from as Count].kind
 	let orig = ast.originOf(p.types, t: from)
-	let holder = ast.typeName(p.types, t: from)
 	if kind == ast.TypeKind.record 'record'
 		for fi in 0 upto p.types.entries[orig as Count].fields.count() 'fields'
-			let edge = "{holder}.{p.types.entries[orig as Count].fields[fi].name}"
 			let held = ast.fieldType(p.types, owner: from, index: fi)
+			let edge = "{p.types.entries[orig as Count].fields[fi].name}: {ast.typeName(p.types, t: held)}"
 			if followEdge(p, edge: edge, held: held, target: target, path: path, visited: visited, growing: growing) 'found'
 				return true
 			end 'found'
 		end 'fields'
 	end 'record' else if kind == ast.TypeKind.unionTy 'union'
 		for ci in 0 upto p.types.entries[orig as Count].cases.count() 'cases'
-			let edge = "{holder}.{p.types.entries[orig as Count].cases[ci].name}"
 			for pi in 0 upto p.types.entries[orig as Count].cases[ci].payload.count() 'payload'
 				let held = ast.payloadType(p.types, owner: from, caseIndex: ci, index: pi)
+				let edge = "{p.types.entries[orig as Count].cases[ci].name}.{p.types.entries[orig as Count].cases[ci].payload[pi].name}: {ast.typeName(p.types, t: held)}"
 				if followEdge(p, edge: edge, held: held, target: target, path: path, visited: visited, growing: growing) 'found'
 					return true
 				end 'found'
@@ -73,19 +72,38 @@ function checkConformance(mutates c Checker, mutates p ast.Project, site ast.Nod
 	let own = ast.selfType(p.types, declTy: nt)
 	let orig = ast.originOf(p.types, t: nt)
 	let conforms = ast.cloneTypeArgs(p.types.entries[orig as Count].conforms)
+	var missing = ast.StringList.create(0)
+	var wrong = ast.StringList.create(0)
 	for i in 0 upto conforms.count() 'interfaces'
 		let sigs = p.types.entries[conforms[i] as Count].sigs.clone()
 		for j in 0 upto sigs.count() 'sigs'
 			let mark = errs.count()
-			requireImplements(c, p: p, site: site, nt: orig, own: own, iface: conforms[i], sig: sigs[j], errs: errs)
+			requireImplements(c, p: p, site: site, nt: orig, own: own, iface: conforms[i], sig: sigs[j], missing: missing, wrong: wrong, errs: errs)
 			if failedSince(errs, mark: mark) 'failed'
 				return
 			end 'failed'
 		end 'sigs'
 	end 'interfaces'
+	let typeName = p.types.entries[orig as Count].name.clone()
+	if missing.count() > 0 'missing'
+		failAt(c, p: p, node: site, code: diag.errConformance, msg: "{diag.missingMethods(typeName, count: "{missing.count()}")}\n{bulletLines(missing)}", errs: errs)
+	end 'missing' else if wrong.count() > 0 'wrong'
+		failAt(c, p: p, node: site, code: diag.errConformance, msg: "{diag.wrongSignatureMethods(typeName, count: "{wrong.count()}")}\n{bulletLines(wrong)}", errs: errs)
+	end 'wrong'
 end 'checkConformance'
 
-function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, own ast.TypeID, iface ast.TypeID, sig ast.FuncID, mutates errs diag.ErrorList)
+// bulletLines is the methods of an incomplete implementation, one bulleted line each.
+function bulletLines(items ast.StringList) returns String
+	var lines = ast.StringList.create(0)
+	for i in 0 upto items.count() 'each'
+		lines.push("  - {items[i]}")
+	end 'each'
+	return ast.joinNames(lines, sep: "\n")
+end 'bulletLines'
+
+// requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing, and
+// the method beside the requirement when its signature differs.
+function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, own ast.TypeID, iface ast.TypeID, sig ast.FuncID, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
 	let selfParams = oneType(p.types.entries[iface as Count].selfParam)
 	let bound = oneType(own)
 	let wantSpecs = applySpecs(p, specs: p.funcs.entries[sig as Count].params.clone(), params: selfParams, args: bound)
@@ -103,11 +121,12 @@ function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt
 	if m != ast.noFunc and not p.funcs.entries[m as Count].isStatic and p.funcs.entries[m as Count].selfConv == sigConv and sameSpecs(p.funcs.entries[m as Count].params, b: wantSpecs) and p.funcs.entries[m as Count].retTy == wantReturn and p.funcs.entries[m as Count].errTy == sigError 'matches'
 		return
 	end 'matches'
-	var problem = "does not have it"
-	if m != ast.noFunc 'found'
-		problem = "has it as '{signatureText(p, name: p.funcs.entries[m as Count].name, selfConv: p.funcs.entries[m as Count].selfConv, specs: p.funcs.entries[m as Count].params, ret: p.funcs.entries[m as Count].retTy, err: p.funcs.entries[m as Count].errTy)}'"
-	end 'found'
-	failAt(c, p: p, node: site, code: diag.errConformance, msg: "'{typeName}' says it implements {ifaceName}, which needs '{signatureText(p, name: sigName, selfConv: sigConv, specs: wantSpecs, ret: wantReturn, err: sigError)}', but '{typeName}' {problem}: add or change the method to match it", errs: errs)
+	let wanted = signatureText(p, name: sigName, isStatic: p.funcs.entries[sig as Count].isStatic, specs: wantSpecs, ret: wantReturn, err: sigError)
+	if m == ast.noFunc 'absent'
+		missing.push(wanted)
+		return
+	end 'absent'
+	wrong.push("{signatureText(p, name: p.funcs.entries[m as Count].name, isStatic: p.funcs.entries[m as Count].isStatic, specs: p.funcs.entries[m as Count].params, ret: p.funcs.entries[m as Count].retTy, err: p.funcs.entries[m as Count].errTy)} (expected {wanted})")
 end 'requireImplements'
 
 function sameSpecs(a ast.ParamSpecList, b ast.ParamSpecList) returns bool
@@ -122,23 +141,16 @@ function sameSpecs(a ast.ParamSpecList, b ast.ParamSpecList) returns bool
 	return true
 end 'sameSpecs'
 
-// signatureText is a method as it is written in a declaration.
-function signatureText(p ast.Project, name String, selfConv ast.Convention, specs ast.ParamSpecList, ret ast.TypeID, err ast.TypeID) returns String
+// signatureText is a method as maxon lists it in an incomplete implementation.
+function signatureText(p ast.Project, name String, isStatic bool, specs ast.ParamSpecList, ret ast.TypeID, err ast.TypeID) returns String
 	var parts = ast.StringList.create(0)
-	if selfConv != ast.Convention.convLet 'receiver'
-		parts.push("{selfConv.keyword()} self")
-	end 'receiver'
 	for i in 0 upto specs.count() 'each'
-		var word = ""
-		if specs[i].conv != ast.Convention.convLet 'convention'
-			word = "{specs[i].conv.keyword()} "
-		end 'convention'
-		parts.push("{word}{specs[i].name} {nameOfType(p, t: specs[i].ty)}")
+		parts.push("{specs[i].name} {nameOfType(p, t: specs[i].ty)}")
 	end 'each'
-	var text = "function {name}({ast.joinNames(parts, sep: ", ")})"
-	if ret != p.builtins.voidTy 'returns'
-		text = "{text} returns {nameOfType(p, t: ret)}"
-	end 'returns'
+	var text = "{name}({ast.joinNames(parts, sep: ", ")}) returns {nameOfType(p, t: ret)}"
+	if isStatic 'static'
+		text = "static {text}"
+	end 'static'
 	if err != ast.noType 'throws'
 		text = "{text} throws {nameOfType(p, t: err)}"
 	end 'throws'

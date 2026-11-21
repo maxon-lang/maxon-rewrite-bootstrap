@@ -33,6 +33,9 @@ export let errUnsupportedFeature = "E2015"
 // A match covers neither every case of its subject nor a default.
 export let errMatchNotExhaustive = "E2026"
 
+// A match arm or a ternary branch has a type that the others do not, or a pattern does not match its subject.
+export let errMatchTypeMismatch = "E2028"
+
 // A constant's initializer is not known at compile time.
 export let errNonConstantInitializer = "E2045"
 

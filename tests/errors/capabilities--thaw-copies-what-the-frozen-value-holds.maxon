@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-// expect-error: E3017 at 108:13
+// expect-error: E3017 at 108:9
 function open(x frozen with Socket) returns Socket
 	return thaw(x)
 end 'open'

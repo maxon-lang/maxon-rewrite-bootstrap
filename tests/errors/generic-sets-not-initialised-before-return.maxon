@@ -48,4 +48,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3903 at 43:1
+// expect-error: E3903 at 43:10

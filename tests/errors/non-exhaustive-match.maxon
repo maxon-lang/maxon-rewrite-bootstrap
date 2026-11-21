@@ -10,4 +10,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E2026 at 7:2
+// expect-error: E2026 at 9:2

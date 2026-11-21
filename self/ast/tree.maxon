@@ -80,6 +80,14 @@ export type StrPartsBuilder
 	end 'finish'
 end 'StrPartsBuilder'
 
+// endKeywordToLabelName is how many bytes an end label's name lies after the 'end' that it closes: 'end', a space and an apostrophe.
+let endKeywordToLabelName = 5 as diag.U32
+
+// isDeclarationKind is whether a node declares a name that a diagnostic about it points at.
+function isDeclarationKind(kind NodeKind) returns bool
+	return kind == NodeKind.funcDecl or kind == NodeKind.constDecl or kind == NodeKind.typeDecl or kind == NodeKind.fieldDecl or kind == NodeKind.enumDecl or kind == NodeKind.unionDecl or kind == NodeKind.aliasDecl or kind == NodeKind.interfaceDecl
+end 'isDeclarationKind'
+
 // Tree holds a module's flat AST records, list words, escaped strings, and source text.
 export type Tree
 	export var module as diag.ModuleID
@@ -169,6 +177,44 @@ export type Tree
 	export function startOf(id NodeID) returns diag.U32
 		return records[id as Count].start
 	end 'startOf'
+
+	// reportStartOf is where a diagnostic about a node points, as maxon places it: a call at the name it calls, a
+	// declaration at its name, and any other node at its start.
+	export function reportStartOf(id NodeID) returns diag.U32
+		if isDeclarationKind(records[id as Count].kind) 'declaration'
+			return self.declNameStart(id)
+		end 'declaration'
+		if records[id as Count].kind != NodeKind.callExpr 'plain'
+			return records[id as Count].start
+		end 'plain'
+		let callee = records[id as Count].a as Count
+		if records[callee].kind == NodeKind.memberExpr 'member'
+			return self.memberNameStart(callee as NodeID)
+		end 'member'
+		return records[callee].start
+	end 'reportStartOf'
+
+	// endKeywordStart is where the 'end' that an end label closes starts: the layout puts one space between it and the label's
+	// apostrophe, which comes before the label's name.
+	export function endKeywordStart(id NodeID) returns diag.U32
+		return try records[id as Count].start - endKeywordToLabelName otherwise panic("an end label starts before its 'end'")
+	end 'endKeywordStart'
+
+	// declNameStart is where the name of a declaration starts, after its modifiers and its keyword.
+	export function declNameStart(id NodeID) returns diag.U32
+		var at = records[id as Count].start as Count
+		var after = wordEnd(text, at: at)
+		while isReserved(text.sliceBytes(at, endPos: after)) 'leaders'
+			at = skipSpace(text, at: after)
+			after = wordEnd(text, at: at)
+		end 'leaders'
+		return try at as diag.U32 otherwise panic("a declaration starts past the end of its module")
+	end 'declNameStart'
+
+	// memberNameStart is where the name of a member expression starts.
+	export function memberNameStart(id NodeID) returns diag.U32
+		return try records[id as Count].b - 1 otherwise panic("a member expression names nothing")
+	end 'memberNameStart'
 
 	export function posOf(id NodeID) returns diag.Site
 		return diag.Site.make(module, offset: records[id as Count].start)

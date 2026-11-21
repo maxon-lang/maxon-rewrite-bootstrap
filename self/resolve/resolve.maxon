@@ -66,7 +66,7 @@ function checkEnd(mutates r Resolver, label String, endNode ast.NodeID, mutates 
 	end 'none'
 	let got = ast.endLabelName(r.tree, id: endNode)
 	if got != label 'bad'
-		let off = r.tree.startOf(endNode)
+		let off = r.tree.endKeywordStart(endNode)
 		pushErr(errs, modID: r.modID, off: off, code: diag.errMismatchedEndLabel, msg: diag.mismatchedEndLabel(label, got: got))
 	end 'bad'
 end 'checkEnd'
