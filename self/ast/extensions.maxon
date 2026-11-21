@@ -8,7 +8,7 @@
 // the declaration of a type, an enum, a union or a built-in generic type, String, bool, and for every integer the one
 // anonymous integer type that `int` names.
 export function extensionKey(p Project, t TypeID) returns table.Option with TypeID
-	return match p.types.entries[t as Count].kind 'k'
+	return match p.types.entries[typeIndex(t)].kind 'k'
 		record gives table.Option.some(originOf(p.types, t: t))
 		enumTy gives table.Option.some(originOf(p.types, t: t))
 		unionTy gives table.Option.some(originOf(p.types, t: t))
@@ -58,11 +58,11 @@ end 'aliasIn'
 // has no declaration, as Array, declares none.
 export function bodyAlias(p Project, t TypeID, member String) returns table.Option with DeclRef
 	let origin = originOf(p.types, t: t)
-	if not p.types.entries[origin as Count].hasDecl 'undeclared'
+	if not p.types.entries[typeIndex(origin)].hasDecl 'undeclared'
 		return table.Option.none
 	end 'undeclared'
-	let owner = p.types.entries[origin as Count].decl.clone()
-	let key = nestedAliasName(p.types.entries[origin as Count].name, name: member)
+	let owner = p.types.entries[typeIndex(origin)].decl.clone()
+	let key = nestedAliasName(p.types.entries[typeIndex(origin)].name, name: member)
 	var found as table.Option with DeclOrdinal
 	if owner.module == diag.stdlibID 'std'
 		found = p.stdlib.names.get(key)
@@ -140,10 +140,10 @@ end 'givesConformance'
 // modules from names that give it one.
 export function seenInterfaces(p Project, from diag.ModuleID, t TypeID) returns TypeIDList
 	var out = TypeIDList.create(0)
-	if p.types.entries[t as Count].kind == TypeKind.interfaceTy or p.types.entries[t as Count].kind == TypeKind.typeParam 'abstract'
+	if p.types.entries[typeIndex(t)].kind == TypeKind.interfaceTy or p.types.entries[typeIndex(t)].kind == TypeKind.typeParam 'abstract'
 		return out
 	end 'abstract'
-	out.append(p.types.entries[originOf(p.types, t: t) as Count].conforms)
+	out.append(p.types.entries[typeIndex(originOf(p.types, t: t))].conforms)
 	let key = extensionKey(p, t: t)
 	if key.isSome() and from != diag.stdlibID 'extensions'
 		let owner = key.unwrap()
@@ -197,7 +197,7 @@ end 'interfaceExtensionMethod'
 function collectInterfaceMethods(p Project, m Module, have TypeIDList, name String, mutates found FuncIDList)
 	for i in 0 upto m.extMethods.count() 'each'
 		let owner = m.extMethods[i].owner
-		if m.extMethods[i].name == name and p.types.entries[owner as Count].kind == TypeKind.interfaceTy and reachedBy(p.types, have: have, want: owner) and not found.contains(m.extMethods[i].func) 'hit'
+		if m.extMethods[i].name == name and p.types.entries[typeIndex(owner)].kind == TypeKind.interfaceTy and reachedBy(p.types, have: have, want: owner) and not found.contains(m.extMethods[i].func) 'hit'
 			found.push(m.extMethods[i].func)
 		end 'hit'
 	end 'each'
@@ -215,9 +215,9 @@ end 'reachedBy'
 
 // outranked is whether another of the methods found is one of an interface that extends the interface of the index-th.
 function outranked(p Project, found FuncIDList, index Count) returns bool
-	let mine = p.funcs.entries[found[index] as Count].extendedIface
+	let mine = p.funcs.entries[funcIndex(found[index])].extendedIface
 	for j in 0 upto found.count() 'others'
-		let theirs = p.funcs.entries[found[j] as Count].extendedIface
+		let theirs = p.funcs.entries[funcIndex(found[j])].extendedIface
 		if theirs != mine and reachesInterface(p.types, have: theirs, want: mine) 'more'
 			return true
 		end 'more'
@@ -229,15 +229,15 @@ end 'outranked'
 // value of the type recv, which implements the interfaces have: recv, then the associated types that the one of them that
 // is the extended interface binds, at recv's type arguments.
 export function interfaceExtensionArgs(mutates p Project, recv TypeID, have TypeIDList, fid FuncID) returns TypeIDList
-	let origin = p.funcs.entries[fid as Count].extendedIface
+	let origin = p.funcs.entries[funcIndex(fid)].extendedIface
 	var args = TypeIDList.create(0)
 	args.push(recv)
 	for i in 0 upto have.count() 'each'
 		if originOf(p.types, t: have[i]) == origin 'direct'
 			let declared = originOf(p.types, t: recv)
-			let params = cloneTypeArgs(p.types.entries[declared as Count].typeParams)
+			let params = cloneTypeArgs(p.types.entries[typeIndex(declared)].typeParams)
 			let bound = substituteType(p.types, t: have[i], params: params, args: typeArgsOf(p.types, t: recv))
-			args.append(p.types.entries[bound as Count].typeArgs)
+			args.append(p.types.entries[typeIndex(bound)].typeArgs)
 			return args
 		end 'direct'
 	end 'each'
@@ -248,13 +248,13 @@ end 'interfaceExtensionArgs'
 // interfaceExtensionSymbol is how a message names a method that an extension of an interface adds: by the interface, and
 // for an instance with the type arguments it was made for.
 export function interfaceExtensionSymbol(p Project, fid FuncID) returns String
-	let name = "{typeName(p.types, t: p.funcs.entries[fid as Count].extendedIface)}.{p.funcs.entries[fid as Count].name}"
-	if p.funcs.entries[fid as Count].typeArgs.count() == 0 'origin'
+	let name = "{typeName(p.types, t: p.funcs.entries[funcIndex(fid)].extendedIface)}.{p.funcs.entries[funcIndex(fid)].name}"
+	if p.funcs.entries[funcIndex(fid)].typeArgs.count() == 0 'origin'
 		return name
 	end 'origin'
 	var names = StringList.create(0)
-	for i in 0 upto p.funcs.entries[fid as Count].typeArgs.count() 'args'
-		names.push(typeName(p.types, t: p.funcs.entries[fid as Count].typeArgs[i]))
+	for i in 0 upto p.funcs.entries[funcIndex(fid)].typeArgs.count() 'args'
+		names.push(typeName(p.types, t: p.funcs.entries[funcIndex(fid)].typeArgs[i]))
 	end 'args'
 	return "{name}[{joinNames(names, sep: ", ")}]"
 end 'interfaceExtensionSymbol'
@@ -382,8 +382,8 @@ end 'conformanceSource'
 // declaresConformance is whether the declaration of t says it implements iface, with t's type arguments in what it binds.
 export function declaresConformance(mutates p Project, t TypeID, iface TypeID) returns bool
 	let orig = originOf(p.types, t: t)
-	let conforms = cloneTypeArgs(p.types.entries[orig as Count].conforms)
-	let params = cloneTypeArgs(p.types.entries[orig as Count].typeParams)
+	let conforms = cloneTypeArgs(p.types.entries[typeIndex(orig)].conforms)
+	let params = cloneTypeArgs(p.types.entries[typeIndex(orig)].typeParams)
 	let args = typeArgsOf(p.types, t: t)
 	for i in 0 upto conforms.count() 'each'
 		let have = substituteType(p.types, t: conforms[i], params: params, args: args)
@@ -419,17 +419,17 @@ end 'ambiguousConformanceText'
 // made of, so it needs none.
 export function boundSlots(p Project, fn FuncID) returns ParamBoundList
 	var out = ParamBoundList.create(0)
-	for i in 0 upto p.funcs.entries[fn as Count].generics.count() 'params'
-		let param = p.funcs.entries[fn as Count].generics[i]
-		for j in 0 upto p.types.entries[param as Count].bounds.count() 'bounds'
-			if not p.builtins.isCapability(p.types.entries[param as Count].bounds[j].ifaceTy) 'interface'
-				out.push(p.types.entries[param as Count].bounds[j].clone())
+	for i in 0 upto p.funcs.entries[funcIndex(fn)].generics.count() 'params'
+		let param = p.funcs.entries[funcIndex(fn)].generics[i]
+		for j in 0 upto p.types.entries[typeIndex(param)].bounds.count() 'bounds'
+			if not p.builtins.isCapability(p.types.entries[typeIndex(param)].bounds[j].ifaceTy) 'interface'
+				out.push(p.types.entries[typeIndex(param)].bounds[j].clone())
 			end 'interface'
 		end 'bounds'
 	end 'params'
-	for i in 0 upto p.funcs.entries[fn as Count].bounds.count() 'own'
-		if not p.builtins.isCapability(p.funcs.entries[fn as Count].bounds[i].ifaceTy) 'interface'
-			out.push(p.funcs.entries[fn as Count].bounds[i].clone())
+	for i in 0 upto p.funcs.entries[funcIndex(fn)].bounds.count() 'own'
+		if not p.builtins.isCapability(p.funcs.entries[funcIndex(fn)].bounds[i].ifaceTy) 'interface'
+			out.push(p.funcs.entries[funcIndex(fn)].bounds[i].clone())
 		end 'interface'
 	end 'own'
 	return out
@@ -437,12 +437,12 @@ end 'boundSlots'
 
 // reachesInterface is whether the interface have is an instance of the interface declaration want, or extends one.
 export function reachesInterface(tt TypeTable, have TypeID, want TypeID) returns bool
-	let orig = tt.entries[have as Count].effectiveOrigin()
+	let orig = tt.entries[typeIndex(have)].effectiveOrigin()
 	if orig == want 'same'
 		return true
 	end 'same'
-	for i in 0 upto tt.entries[orig as Count].conforms.count() 'parents'
-		if reachesInterface(tt, have: tt.entries[orig as Count].conforms[i], want: want) 'hit'
+	for i in 0 upto tt.entries[typeIndex(orig)].conforms.count() 'parents'
+		if reachesInterface(tt, have: tt.entries[typeIndex(orig)].conforms[i], want: want) 'hit'
 			return true
 		end 'hit'
 	end 'parents'
@@ -456,18 +456,18 @@ let witnessLinkWord = "using"
 // were given conformances of different modules: it is empty where each conformance is in its type argument's own module,
 // and else names the module of each.
 export function witnessSuffix(p Project, fid FuncID) returns String
-	let count = p.funcs.entries[fid as Count].witnesses.count()
+	let count = p.funcs.entries[funcIndex(fid)].witnesses.count()
 	if count == 0 'none'
 		return ""
 	end 'none'
-	let origin = p.funcs.entries[fid as Count].genericOrigin
+	let origin = p.funcs.entries[funcIndex(fid)].genericOrigin
 	var foreign = false
 	var paths = StringList.create(0)
 	for i in 0 upto count 'each'
-		let module = p.funcs.entries[fid as Count].witnesses[i].module
+		let module = p.funcs.entries[funcIndex(fid)].witnesses[i].module
 		paths.push(moduleLinkPath(p, modID: module))
-		for gi in 0 upto p.funcs.entries[origin as Count].generics.count() 'param'
-			if p.funcs.entries[origin as Count].generics[gi] == p.funcs.entries[fid as Count].witnesses[i].paramTy and module != declaringModule(p, t: p.funcs.entries[fid as Count].typeArgs[gi]) 'foreign'
+		for gi in 0 upto p.funcs.entries[funcIndex(origin)].generics.count() 'param'
+			if p.funcs.entries[funcIndex(origin)].generics[gi] == p.funcs.entries[funcIndex(fid)].witnesses[i].paramTy and module != declaringModule(p, t: p.funcs.entries[funcIndex(fid)].typeArgs[gi]) 'foreign'
 				foreign = true
 			end 'foreign'
 		end 'param'
@@ -502,14 +502,14 @@ end 'requirementsOf'
 
 function collectRequirements(tt TypeTable, iface TypeID, mutates out RequirementList)
 	let orig = originOf(tt, t: iface)
-	for i in 0 upto tt.entries[orig as Count].sigs.count() 'own'
-		let sig = tt.entries[orig as Count].sigs[i]
+	for i in 0 upto tt.entries[typeIndex(orig)].sigs.count() 'own'
+		let sig = tt.entries[typeIndex(orig)].sigs[i]
 		if not requirementIndex(out, sig: sig).isSome() 'new'
 			out.push(Requirement.make(iface, sig: sig))
 		end 'new'
 	end 'own'
-	for i in 0 upto tt.entries[orig as Count].conforms.count() 'parents'
-		collectRequirements(tt, iface: tt.entries[orig as Count].conforms[i], out: out)
+	for i in 0 upto tt.entries[typeIndex(orig)].conforms.count() 'parents'
+		collectRequirements(tt, iface: tt.entries[typeIndex(orig)].conforms[i], out: out)
 	end 'parents'
 end 'collectRequirements'
 

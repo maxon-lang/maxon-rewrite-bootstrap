@@ -2,7 +2,7 @@
 
 // checkIntrinsicArgs refuses an argument of a built-in that its signature alone cannot.
 function checkIntrinsicArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, target ast.FuncID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
-	let op = p.funcs.entries[target as Count].intrinsic
+	let op = p.funcs.entries[ast.funcIndex(target)].intrinsic
 	if op == ast.Intrinsic.intrArrayCreate 'checkArrayCreate'
 		checkArrayCreateArgs(c, p: p, call: call, ordered: ordered, errs: errs)
 		return

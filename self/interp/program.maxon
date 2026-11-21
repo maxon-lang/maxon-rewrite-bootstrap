@@ -4,13 +4,13 @@
 // convsOf are the conventions of the parameters of a declared function, the receiver of a method counting as the first.
 function convsOf(p ast.Project, decl ast.FuncID) returns CountList
 	var convs = CountList.create(0)
-	if p.funcs.entries[decl as Count].hasReceiver 'receiver'
-		convs.push(p.funcs.entries[decl as Count].selfConv.ordinal)
-	end 'receiver' else if p.funcs.entries[decl as Count].isClosure 'closure'
+	if p.funcs.entries[ast.funcIndex(decl)].hasReceiver 'receiver'
+		convs.push(p.funcs.entries[ast.funcIndex(decl)].selfConv.ordinal)
+	end 'receiver' else if p.funcs.entries[ast.funcIndex(decl)].isClosure 'closure'
 		convs.push(ast.Convention.convLet.ordinal)
 	end 'closure'
-	for i in 0 upto p.funcs.entries[decl as Count].params.count() 'params'
-		convs.push(p.funcs.entries[decl as Count].params[i].conv.ordinal)
+	for i in 0 upto p.funcs.entries[ast.funcIndex(decl)].params.count() 'params'
+		convs.push(p.funcs.entries[ast.funcIndex(decl)].params[i].conv.ordinal)
 	end 'params'
 	return convs
 end 'convsOf'
@@ -19,7 +19,7 @@ end 'convsOf'
 function addFunction(mutates prog Program, mutates paths CountLists, p ast.Project, f ir.IrFunction, path CountList, consumes convs CountList)
 	let fi = prog.symbols.count()
 	prog.add(ir.irSymbol(p, f: f), slots: f.slots.count(), regs: f.regs.count(), frameBoxes: f.frameBoxes, convs: convs)
-	prog.fnTakesClosure[fi] = p.funcs.entries[f.decl as Count].isClosure
+	prog.fnTakesClosure[fi] = p.funcs.entries[ast.funcIndex(f.decl)].isClosure
 	prog.fnCaptureOwned[fi] = f.captureOwned.clone()
 	paths.push(path.clone())
 	for b in 0 upto f.bodies.count() 'bodies'
@@ -27,7 +27,7 @@ function addFunction(mutates prog Program, mutates paths CountLists, p ast.Proje
 		child.push(b)
 		prog.fnChildren[fi].push(prog.symbols.count())
 		var bodyConvs = CountList.create(0)
-		if p.funcs.entries[f.bodies[b].decl as Count].isClosure 'closure'
+		if p.funcs.entries[ast.funcIndex(f.bodies[b].decl)].isClosure 'closure'
 			bodyConvs = convsOf(p, decl: f.bodies[b].decl)
 		end 'closure'
 		addFunction(prog, paths: paths, p: p, f: f.bodies[b], path: child, convs: bodyConvs)

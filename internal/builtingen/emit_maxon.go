@@ -59,7 +59,7 @@ func (m *maxonBody) strings(xs []string) string {
 // ownerParam binds a parameter of a type of the table.
 func (m *maxonBody) ownerParam(owner string, i int) string {
 	v := m.fresh("p")
-	m.line("let %s = tt.entries[%s as Count].typeParams[%d]", v, maxonOwner(owner), i)
+	m.line("let %s = tt.entries[typeIndex(%s)].typeParams[%d]", v, maxonOwner(owner), i)
 	return v
 }
 
@@ -217,7 +217,7 @@ func emitMaxon(t table) string {
 	}
 	for _, r := range recordTypes {
 		for _, iface := range r.Implements {
-			types.line("tt.entries[%s as Count].conforms.push(b.%s)", maxonOwner(r.Key), maxonField(iface, false))
+			types.line("tt.entries[typeIndex(%s)].conforms.push(b.%s)", maxonOwner(r.Key), maxonField(iface, false))
 		}
 	}
 	for _, a := range typeAliases {
@@ -263,7 +263,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		m.line("let %s = %s", id, call)
 		for _, bd := range f.bounds {
 			p := m.ownerParam(f.Owner, paramIndex(ownerParams(f.Owner), bd.param))
-			m.line("ft.entries[%s as Count].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
+			m.line("ft.entries[funcIndex(%s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
 		}
 		m.errorType(f, id)
 		if f.Field != "" {
@@ -295,14 +295,14 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	m.line("let %s = %s", id, call)
 	m.errorType(f, id)
 	if f.gbound != "" {
-		m.line("ft.entries[%s as Count].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
+		m.line("ft.entries[funcIndex(%s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
 	}
 	if f.Owner == stringOwner {
-		m.line("ft.entries[%s as Count].ownerTy = b.stringTy", id)
-		m.line("ft.entries[%s as Count].isStatic = %v", id, f.Static)
-		m.line("ft.entries[%s as Count].hasReceiver = %v", id, !f.Static)
+		m.line("ft.entries[funcIndex(%s)].ownerTy = b.stringTy", id)
+		m.line("ft.entries[funcIndex(%s)].isStatic = %v", id, f.Static)
+		m.line("ft.entries[funcIndex(%s)].hasReceiver = %v", id, !f.Static)
 		if f.Self != "" {
-			m.line("ft.entries[%s as Count].selfConv = %s", id, maxonConv(f.Self))
+			m.line("ft.entries[funcIndex(%s)].selfConv = %s", id, maxonConv(f.Self))
 		}
 		m.line("b.stringMethods.insert(%q, value: %s)", f.Name, id)
 	}
@@ -314,7 +314,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 // errorType sets the error that the function id throws, when it throws one.
 func (m *maxonBody) errorType(f fn, id string) {
 	if f.Throws != "" {
-		m.line("ft.entries[%s as Count].errTy = b.%s", id, maxonField(f.Throws, false))
+		m.line("ft.entries[funcIndex(%s)].errTy = b.%s", id, maxonField(f.Throws, false))
 	}
 }
 
@@ -409,7 +409,7 @@ func emitMaxonCheck(t table) string {
 	sb.WriteString(maxonHeader)
 	sb.WriteString("// checkIntrinsicArgs refuses an argument of a built-in that its signature alone cannot.\n")
 	sb.WriteString("function checkIntrinsicArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, target ast.FuncID, ordered ast.NodeIDList, mutates errs diag.ErrorList)\n")
-	sb.WriteString("\tlet op = p.funcs.entries[target as Count].intrinsic\n")
+	sb.WriteString("\tlet op = p.funcs.entries[ast.funcIndex(target)].intrinsic\n")
 	var unchecked []string
 	for _, in := range t.intrinsics {
 		if in.checked {

@@ -9,7 +9,7 @@ function declareRecordMembers(mutates c Checker, mutates p ast.Project, td ast.T
 	let selfTy = ast.selfType(p.types, declTy: tid)
 	for i in 0 upto td.fields.count() 'each'
 		let f = td.fields[i].clone()
-		if p.types.entries[tid as Count].findField(f.name).isSome() 'dup'
+		if p.types.entries[ast.typeIndex(tid)].findField(f.name).isSome() 'dup'
 			checkFail(c.modID, off: offsetOf(c, p: p, node: f.id), code: diag.errDuplicateDefinition, msg: diag.duplicateField(f.name, typeName: td.name), errs: errs)
 			return
 		end 'dup'
@@ -25,9 +25,9 @@ function declareRecordMembers(mutates c Checker, mutates p ast.Project, td ast.T
 			return
 		end 'grows'
 		let level = ast.visibilityOf(f.visibility)
-		var info = ast.FieldInfo.make(f.name.clone(), ty: ft, isVar: f.isVar, exported: level != ast.Visibility.unexported, hasDefault: f.defaultRef != 0, defaultExpr: f.defaultRef, index: p.types.entries[tid as Count].fields.count())
+		var info = ast.FieldInfo.make(f.name.clone(), ty: ft, isVar: f.isVar, exported: level != ast.Visibility.unexported, hasDefault: f.defaultRef != 0, defaultExpr: f.defaultRef, index: p.types.entries[ast.typeIndex(tid)].fields.count())
 		info.level = level
-		p.types.entries[tid as Count].fields.push(info)
+		p.types.entries[ast.typeIndex(tid)].fields.push(info)
 	end 'each'
 end 'declareRecordMembers'
 
@@ -136,8 +136,8 @@ function readRaw(mutates c Checker, mutates p ast.Project, tid ast.TypeID, raw a
 	if valued 'unordered'
 		return true
 	end 'unordered'
-	for j in 0 upto p.types.entries[tid as Count].cases.count() 'rawDup'
-		let other = p.types.entries[tid as Count].cases[j].clone()
+	for j in 0 upto p.types.entries[ast.typeIndex(tid)].cases.count() 'rawDup'
+		let other = p.types.entries[ast.typeIndex(tid)].cases[j].clone()
 		if other.rawValue.eq(st.value) and other.rawText == st.text 'same'
 			checkFail(c.modID, off: off, code: diag.errEnumDuplicateRawValue, msg: diag.duplicateRawValue(shown), errs: errs)
 			return false
@@ -151,10 +151,10 @@ function pushRawCase(mutates p ast.Project, tid ast.TypeID, consumes name String
 	var info = ast.CaseInfo.make(name, payload: payload, hasRaw: st.explicit, rawValue: st.value.clone())
 	info.rawText = st.text.clone()
 	info.rawExpr = st.expr
-	p.types.entries[tid as Count].cases.push(info)
-	p.types.entries[tid as Count].rawKind = st.kind
+	p.types.entries[ast.typeIndex(tid)].cases.push(info)
+	p.types.entries[ast.typeIndex(tid)].rawKind = st.kind
 	if st.explicit and st.kind != ast.RawKind.value 'explicit'
-		p.types.entries[tid as Count].hasExplicitRaw = true
+		p.types.entries[ast.typeIndex(tid)].hasExplicitRaw = true
 	end 'explicit'
 end 'pushRawCase'
 
@@ -170,7 +170,7 @@ function declareEnumMembers(mutates c Checker, mutates p ast.Project, ed ast.Enu
 	for i in 0 upto ed.cases.count() 'each'
 		let cs = ed.cases[i].clone()
 		let off = offsetOf(c, p: p, node: cs.id)
-		if p.types.entries[tid as Count].findCase(cs.name).isSome() 'dup'
+		if p.types.entries[ast.typeIndex(tid)].findCase(cs.name).isSome() 'dup'
 			checkFail(c.modID, off: off, code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
 			return
 		end 'dup'
@@ -192,7 +192,7 @@ function declareUnionMembers(mutates c Checker, mutates p ast.Project, ud ast.Un
 	var st = RawState.new()
 	for i in 0 upto ud.cases.count() 'each'
 		let cs = ud.cases[i].clone()
-		if p.types.entries[tid as Count].findCase(cs.name).isSome() 'dup'
+		if p.types.entries[ast.typeIndex(tid)].findCase(cs.name).isSome() 'dup'
 			checkFail(c.modID, off: offsetOf(c, p: p, node: cs.id), code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
 			return
 		end 'dup'
@@ -223,8 +223,8 @@ function declareParentInterfaces(mutates c Checker, mutates p ast.Project, ifd a
 	let parents = conformedInterfaces(c, p: p, interfaces: ifd.parents, capabilities: true, errs: errs)
 	for i in 0 upto parents.count() 'each'
 		let parent = parents[i]
-		let parentName = p.types.entries[parent as Count].name.clone()
-		if p.types.entries[ast.originOf(p.types, t: parent) as Count].typeParams.count() > 0 'generic'
+		let parentName = p.types.entries[ast.typeIndex(parent)].name.clone()
+		if p.types.entries[ast.typeIndex(ast.originOf(p.types, t: parent))].typeParams.count() > 0 'generic'
 			checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "the interface '{ifd.name}' extends '{parentName}', which has associated types; an interface extends only interfaces without them, so list '{parentName}' in the 'implements' of each type instead", errs: errs)
 			return
 		end 'generic'
@@ -232,7 +232,7 @@ function declareParentInterfaces(mutates c Checker, mutates p ast.Project, ifd a
 			checkFail(c.modID, off: off, code: diag.errResolutionCycle, msg: "interface '{ifd.name}' forms a type cycle: the interface it extends, '{parentName}', extends '{ifd.name}'", errs: errs)
 			return
 		end 'cycle'
-		p.types.entries[tid as Count].conforms.push(parent)
+		p.types.entries[ast.typeIndex(tid)].conforms.push(parent)
 	end 'each'
 end 'declareParentInterfaces'
 
@@ -240,7 +240,7 @@ end 'declareParentInterfaces'
 // implements the interface.
 function declareInterfaceMembers(mutates c Checker, mutates p ast.Project, ifd ast.InterfaceDecl, tid ast.TypeID, mutates errs diag.ErrorList)
 	let selfParam = ast.allocType(p.types, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: "Self"))
-	p.types.entries[tid as Count].selfParam = selfParam
+	p.types.entries[ast.typeIndex(tid)].selfParam = selfParam
 	declareParentInterfaces(c, p: p, ifd: ifd, tid: tid, errs: errs)
 	for i in 0 upto ifd.methods.count() 'each'
 		declareSignature(c, p: p, it: tid, m: ifd.methods[i].clone(), errs: errs)

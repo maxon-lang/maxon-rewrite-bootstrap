@@ -222,7 +222,7 @@ function voidCalleeText(c Checker, p ast.Project, call ast.NodeID) returns Strin
 	end 'plain'
 	let name = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
 	let holder = ast.contentType(p.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)))
-	if holder != ast.noType and p.types.entries[ast.originOf(p.types, t: holder) as Count].hasDecl and p.types.entries[ast.originOf(p.types, t: holder) as Count].decl.module != diag.stdlibID 'declared'
+	if holder != ast.noType and p.types.entries[ast.typeIndex(ast.originOf(p.types, t: holder))].hasDecl and p.types.entries[ast.typeIndex(ast.originOf(p.types, t: holder))].decl.module != diag.stdlibID 'declared'
 		return "{declaredNameOfType(p, t: holder)}.{name}"
 	end 'declared'
 	return name
@@ -426,7 +426,7 @@ function checkIteration(mutates c Checker, mutates p ast.Project, s ast.NodeID, 
 			failNotIterable(c, p: p, s: s, t: typed, errs: errs)
 			return ast.noType
 		end 'none'
-		let thrown = p.funcs.entries[factory as Count].errTy
+		let thrown = p.funcs.entries[ast.funcIndex(factory)].errTy
 		if thrown != ast.noType and thrown != p.builtins.iterationErrorTy 'otherError'
 			failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, t: t)}`, whose `{createIteratorMethod}()` throws `{nameOfType(p, t: thrown)}` — the loop absorbs what the traversal protocol throws without binding it, which is sound only for the payload-free `IterationError`; a factory throwing anything else must be called with an explicit `try` and its result iterated", errs: errs)
 			return ast.noType
@@ -469,7 +469,7 @@ end 'failNotIterable'
 function declaresCursor(p ast.Project, t ast.TypeID) returns bool
 	let current = zeroArgumentMethod(p, t: t, name: currentMethod)
 	let advance = zeroArgumentMethod(p, t: t, name: advanceMethod)
-	return current != ast.noFunc and advance != ast.noFunc and p.funcs.entries[current as Count].retTy != p.builtins.voidTy and p.funcs.entries[current as Count].errTy == ast.noType and p.funcs.entries[advance as Count].errTy == p.builtins.iterationErrorTy
+	return current != ast.noFunc and advance != ast.noFunc and p.funcs.entries[ast.funcIndex(current)].retTy != p.builtins.voidTy and p.funcs.entries[ast.funcIndex(current)].errTy == ast.noType and p.funcs.entries[ast.funcIndex(advance)].errTy == p.builtins.iterationErrorTy
 end 'declaresCursor'
 
 // zeroArgumentMethod is the method of that name a value of type t has that takes no arguments, or none.
@@ -478,14 +478,14 @@ function zeroArgumentMethod(p ast.Project, t ast.TypeID, name String) returns as
 		return ast.noFunc
 	end 'notNominal'
 	let method = methodNamed(p, t: t, name: name)
-	if method == ast.noFunc or p.funcs.entries[method as Count].isStatic or p.funcs.entries[method as Count].params.count() != 0 'unfit'
+	if method == ast.noFunc or p.funcs.entries[ast.funcIndex(method)].isStatic or p.funcs.entries[ast.funcIndex(method)].params.count() != 0 'unfit'
 		return ast.noFunc
 	end 'unfit'
 	return method
 end 'zeroArgumentMethod'
 
 function isGeneric(p ast.Project, f ast.FuncID) returns bool
-	return p.funcs.entries[f as Count].generics.count() > 0
+	return p.funcs.entries[ast.funcIndex(f)].generics.count() > 0
 end 'isGeneric'
 
 // methodCall is a call of a method that takes no arguments on a value of type recv, as a call written in the source
@@ -493,20 +493,20 @@ end 'isGeneric'
 function methodCall(p ast.Project, recv ast.TypeID, method ast.FuncID) returns ast.CallInfo
 	var info = ast.CallInfo.make(ast.CallKind.callMethod, fn: method, receiverTy: ast.noType)
 	if isGeneric(p, f: method) 'generic'
-		info.typeArgs = p.types.entries[recv as Count].typeArgs.clone()
+		info.typeArgs = p.types.entries[ast.typeIndex(recv)].typeArgs.clone()
 	end 'generic'
-	info.selfConv = p.funcs.entries[method as Count].selfConv
+	info.selfConv = p.funcs.entries[ast.funcIndex(method)].selfConv
 	return info
 end 'methodCall'
 
 // methodResult is the type that a method of the type recv returns, with the type's arguments for its parameters.
 function methodResult(mutates p ast.Project, recv ast.TypeID, method ast.FuncID) returns ast.TypeID
-	let result = p.funcs.entries[method as Count].retTy
+	let result = p.funcs.entries[ast.funcIndex(method)].retTy
 	if not isGeneric(p, f: method) 'plain'
 		return result
 	end 'plain'
-	let generics = ast.cloneTypeArgs(p.funcs.entries[method as Count].generics)
-	let args = ast.cloneTypeArgs(p.types.entries[recv as Count].typeArgs)
+	let generics = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(method)].generics)
+	let args = ast.cloneTypeArgs(p.types.entries[ast.typeIndex(recv)].typeArgs)
 	return ast.substituteType(p.types, t: result, params: generics, args: args)
 end 'methodResult'
 
@@ -704,8 +704,8 @@ function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
 end 'memberKindOf'
 
 function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
-	let ret = p.funcs.entries[c.fn as Count].retTy
-	let fnName = p.funcs.entries[c.fn as Count].name.clone()
+	let ret = p.funcs.entries[ast.funcIndex(c.fn)].retTy
+	let fnName = p.funcs.entries[ast.funcIndex(c.fn)].name.clone()
 	let value = ast.returnStmtValue(p.modules[c.modIdx].tree, id: s)
 	if ret == p.builtins.voidTy 'void'
 		if value != 0 and c.inClosure 'closure'

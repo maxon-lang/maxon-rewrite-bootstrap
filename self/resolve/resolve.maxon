@@ -500,7 +500,7 @@ function typeHasStatic(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, memberNa
 end 'typeHasStatic'
 
 function typeEntryHasMethod(p ast.Project, tid ast.TypeID, memberName String) returns bool
-	return p.types.entries[tid as Count].findMethod(memberName).isSome()
+	return p.types.entries[ast.typeIndex(tid)].findMethod(memberName).isSome()
 end 'typeEntryHasMethod'
 
 function enumHasCase(p ast.Project, ref ast.DeclRef, ed ast.EnumDecl, memberName String) returns bool
@@ -510,7 +510,7 @@ function enumHasCase(p ast.Project, ref ast.DeclRef, ed ast.EnumDecl, memberName
 		end 'hit'
 	end 'each'
 	match ast.declType(p, ref: ref) 'dt'
-		some(tid) then return p.types.entries[tid as Count].findCase(memberName).isSome()
+		some(tid) then return p.types.entries[ast.typeIndex(tid)].findCase(memberName).isSome()
 		none then return false
 	end 'dt'
 end 'enumHasCase'
@@ -522,7 +522,7 @@ function unionHasCase(p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, memberNa
 		end 'hit'
 	end 'each'
 	match ast.declType(p, ref: ref) 'dt'
-		some(tid) then return p.types.entries[tid as Count].findCase(memberName).isSome()
+		some(tid) then return p.types.entries[ast.typeIndex(tid)].findCase(memberName).isSome()
 		none then return false
 	end 'dt'
 end 'unionHasCase'

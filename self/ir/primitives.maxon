@@ -146,7 +146,7 @@ end 'builtinOf'
 // indexType is the type of what goes between the brackets: a position for an array, a key for a map, and for a list or a
 // pool the handle of the element.
 function indexType(mutates p ast.Project, bt ast.TypeID) returns ast.TypeID
-	let kind = p.types.entries[bt as Count].kind
+	let kind = p.types.entries[ast.typeIndex(bt)].kind
 	let args = ast.typeArgsOf(p.types, t: bt)
 	if kind == ast.TypeKind.builtinArray 'array'
 		return p.builtins.countTy
@@ -164,7 +164,7 @@ end 'indexType'
 
 // elementType is the type of t[i]: what the primitive holds.
 function elementType(p ast.Project, bt ast.TypeID) returns ast.TypeID
-	let kind = p.types.entries[bt as Count].kind
+	let kind = p.types.entries[ast.typeIndex(bt)].kind
 	let args = ast.typeArgsOf(p.types, t: bt)
 	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'one'
 		return args[0]
@@ -184,18 +184,18 @@ end 'indexValue'
 
 function isArray(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID) returns bool
 	let bt = builtinOf(l, p: p, collection: collection)
-	return p.types.entries[bt as Count].kind == ast.TypeKind.builtinArray
+	return p.types.entries[ast.typeIndex(bt)].kind == ast.TypeKind.builtinArray
 end 'isArray'
 
 function isMap(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID) returns bool
 	let bt = builtinOf(l, p: p, collection: collection)
-	return p.types.entries[bt as Count].kind == ast.TypeKind.builtinMap
+	return p.types.entries[ast.typeIndex(bt)].kind == ast.TypeKind.builtinMap
 end 'isMap'
 
 // elemEntry is the address of an element of a map, a list or a pool; an array's goes through arrayOf.
 function elemEntry(mutates l Lowerer, mutates p ast.Project, site diag.Site, collection ast.TypeID, coll Reg, index Reg) returns Reg
 	let bt = builtinOf(l, p: p, collection: collection)
-	let kind = p.types.entries[bt as Count].kind
+	let kind = p.types.entries[ast.typeIndex(bt)].kind
 	var symbol = Rt.rtNone
 	if kind == ast.TypeKind.builtinMap 'map'
 		symbol = Rt.rtMapElem
@@ -256,7 +256,7 @@ function lowerCollectionLit(mutates l Lowerer, mutates p ast.Project, e ast.Node
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[l.mi].tree, id: e)
 	let valuesRef = ast.collectionLitExprValuesRef(p.modules[l.mi].tree, id: e)
 	let isMap = p.modules[l.mi].tree.listLen(valuesRef) > 0
-	let isList = p.types.entries[ty as Count].kind == ast.TypeKind.builtinList
+	let isList = p.types.entries[ast.typeIndex(ty)].kind == ast.TypeKind.builtinList
 	var collection = noReg
 	var box = ArrayBox.make(site.clone(), ty: ty)
 	if isMap 'map'
@@ -295,7 +295,7 @@ function visitFromExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 		return lowerCollectionLit(l, p: p, e: value, ty: ty)
 	end 'literal'
 	var info = callInfoAt(p, module: l.module, node: e)
-	info.paramSpecs = p.funcs.entries[info.fn as Count].params.clone()
+	info.paramSpecs = p.funcs.entries[ast.funcIndex(info.fn)].params.clone()
 	var ordered = ast.NodeIDList.create(0)
 	ordered.push(value)
 	info.ordered = ordered.clone()
@@ -305,7 +305,7 @@ end 'visitFromExpr'
 
 // lowerIntrinsic lowers a call of a built-in method into the runtime entries of its primitive.
 function lowerIntrinsic(mutates l Lowerer, mutates p ast.Project, c CallSite) returns Reg
-	let op = p.funcs.entries[c.info.fn as Count].intrinsic
+	let op = p.funcs.entries[ast.funcIndex(c.info.fn)].intrinsic
 	if ownsOperands(op) 'owns'
 		return intrinsicCall(l, p: p, op: op, c: c, recv: noReg, args: RegList.create(0))
 	end 'owns'
@@ -411,9 +411,9 @@ end 'lowerFixedArrayRefill'
 // or a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type
 // parameter have none.
 function hasZero(p ast.Project, t ast.TypeID) returns bool
-	let kind = p.types.entries[t as Count].kind
+	let kind = p.types.entries[ast.typeIndex(t)].kind
 	if kind == ast.TypeKind.intRange 'range'
-		return p.types.entries[t as Count].minVal.le(ast.I128.zero()) and ast.I128.zero().le(p.types.entries[t as Count].maxVal)
+		return p.types.entries[ast.typeIndex(t)].minVal.le(ast.I128.zero()) and ast.I128.zero().le(p.types.entries[ast.typeIndex(t)].maxVal)
 	end 'range'
 	if kind == ast.TypeKind.floatRange 'float'
 		return ast.floatRangeHolds(p.types, t: t, bits: 0)
@@ -891,7 +891,7 @@ end 'requireNative'
 // holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a map, a list or a pool. visiting are the
 // records and unions being walked, so a type that contains itself through an array ends.
 function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
-	let kind = p.types.entries[t as Count].kind
+	let kind = p.types.entries[ast.typeIndex(t)].kind
 	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
 		return false
 	end 'plain'
@@ -923,12 +923,12 @@ function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visit
 			end 'again'
 		end 'seen'
 		visiting.push(t)
-		let origin = p.types.entries[t as Count].effectiveOrigin()
-		let params = ast.cloneTypeArgs(p.types.entries[origin as Count].typeParams)
-		let args = ast.cloneTypeArgs(p.types.entries[t as Count].typeArgs)
+		let origin = p.types.entries[ast.typeIndex(t)].effectiveOrigin()
+		let params = ast.cloneTypeArgs(p.types.entries[ast.typeIndex(origin)].typeParams)
+		let args = ast.cloneTypeArgs(p.types.entries[ast.typeIndex(t)].typeArgs)
 		if kind == ast.TypeKind.record 'record'
-			for i in 0 upto p.types.entries[origin as Count].fields.count() 'fields'
-				let declared = p.types.entries[origin as Count].fields[i].ty
+			for i in 0 upto p.types.entries[ast.typeIndex(origin)].fields.count() 'fields'
+				let declared = p.types.entries[ast.typeIndex(origin)].fields[i].ty
 				let field = ast.substituteType(p.types, t: declared, params: params, args: args)
 				if holdsInterpreterOnly(p, t: field, visiting: visiting) 'holds'
 					return true
@@ -936,9 +936,9 @@ function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visit
 			end 'fields'
 			return false
 		end 'record'
-		for i in 0 upto p.types.entries[origin as Count].cases.count() 'cases'
-			for j in 0 upto p.types.entries[origin as Count].cases[i].payload.count() 'payload'
-				let declared = p.types.entries[origin as Count].cases[i].payload[j].ty
+		for i in 0 upto p.types.entries[ast.typeIndex(origin)].cases.count() 'cases'
+			for j in 0 upto p.types.entries[ast.typeIndex(origin)].cases[i].payload.count() 'payload'
+				let declared = p.types.entries[ast.typeIndex(origin)].cases[i].payload[j].ty
 				let field = ast.substituteType(p.types, t: declared, params: params, args: args)
 				if holdsInterpreterOnly(p, t: field, visiting: visiting) 'holds'
 					return true

@@ -554,7 +554,7 @@ function allocShellTypeParams(mutates p ast.Project, modID diag.ModuleID, tid as
 		seen.insert(tpName.clone(), value: true)
 		let tpEntry = ast.TypeEntry.make(ast.TypeKind.typeParam, name: tpName)
 		let tpTid = ast.allocType(p.types, e: tpEntry)
-		p.types.entries[tid as Count].typeParams.push(tpTid)
+		p.types.entries[ast.typeIndex(tid)].typeParams.push(tpTid)
 	end 'each'
 end 'allocShellTypeParams'
 

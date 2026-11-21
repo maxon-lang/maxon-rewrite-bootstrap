@@ -10,9 +10,9 @@ end 'floatWord'
 // double, and any other integer converts.
 function floatOf(mutates l Lowerer, mutates p ast.Project, v Reg, e ast.NodeID) returns Reg
 	let t = applyType(l, p: p, t: exprType(p, module: l.module, node: e))
-	let kind = p.types.entries[t as Count].kind
+	let kind = p.types.entries[ast.typeIndex(t)].kind
 	if kind == ast.TypeKind.constInt 'constant'
-		return konst(l, value: floatWord(ast.floatFromInt(p.types.entries[t as Count].minVal)))
+		return konst(l, value: floatWord(ast.floatFromInt(p.types.entries[ast.typeIndex(t)].minVal)))
 	end 'constant'
 	if kind == ast.TypeKind.intRange 'integer'
 		let d = newReg(l, kind: IrKind.kindScalar)

@@ -155,7 +155,7 @@ function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasD
 		end 'failed'
 	end 'returns'
 	var shape = ast.FuncShape.make(convs, mutatesCaptures: ast.funcTypeCapturesRef(p.modules[c.modIdx].tree, id: a.fn) != 0)
-	if selfTy == ast.noType or p.types.entries[ast.originOf(p.types, t: selfTy) as Count].typeParams.count() == 0 'brand'
+	if selfTy == ast.noType or p.types.entries[ast.typeIndex(ast.originOf(p.types, t: selfTy))].typeParams.count() == 0 'brand'
 		shape.brand = ast.FuncBrand.make("{ast.declKey(ref)}", name: a.name.clone())
 	end 'brand'
 	let t = ast.internFuncType(p.types, params: params, shape: shape, result: result)
@@ -306,7 +306,7 @@ function declareSupertype(mutates c Checker, mutates p ast.Project, a ast.AliasD
 		checkFail(c.modID, off: p.modules[c.modIdx].tree.reportStartOf(a.id), code: diag.errResolutionCycle, msg: diag.aliasCycle(a.name), errs: errs)
 		return
 	end 'cycle'
-	p.types.entries[own as Count].supertype = parent
+	p.types.entries[ast.typeIndex(own)].supertype = parent
 end 'declareSupertype'
 
 function declTypeOrNone(p ast.Project, ref ast.DeclRef) returns ast.TypeID
@@ -318,24 +318,24 @@ end 'declTypeOrNone'
 
 // isRangedAlias is whether t is a typealias of an int or a float range.
 function isRangedAlias(p ast.Project, t ast.TypeID) returns bool
-	let kind = p.types.entries[t as Count].kind
-	return (kind == ast.TypeKind.intRange or kind == ast.TypeKind.floatRange) and p.types.entries[t as Count].name != ""
+	let kind = p.types.entries[ast.typeIndex(t)].kind
+	return (kind == ast.TypeKind.intRange or kind == ast.TypeKind.floatRange) and p.types.entries[ast.typeIndex(t)].name != ""
 end 'isRangedAlias'
 
 // rangePrimitiveName is the primitive a ranged alias is over, as maxon words it: an int range is unsigned when it holds
 // no negative value.
 function rangePrimitiveName(p ast.Project, t ast.TypeID) returns String
-	if p.types.entries[t as Count].kind == ast.TypeKind.floatRange 'float'
+	if p.types.entries[ast.typeIndex(t)].kind == ast.TypeKind.floatRange 'float'
 		return "a `float` range"
 	end 'float'
-	if p.types.entries[t as Count].minVal.isNeg() 'signed'
+	if p.types.entries[ast.typeIndex(t)].minVal.isNeg() 'signed'
 		return "a signed `int` range"
 	end 'signed'
 	return "an unsigned `int` range"
 end 'rangePrimitiveName'
 
 function rangeInside(p ast.Project, inner ast.TypeID, outer ast.TypeID) returns bool
-	if p.types.entries[inner as Count].kind == ast.TypeKind.floatRange 'float'
+	if p.types.entries[ast.typeIndex(inner)].kind == ast.TypeKind.floatRange 'float'
 		return ast.floatRangeCovers(p.types, dst: outer, src: inner)
 	end 'float'
 	return intRangeCovers(p.types, dst: outer, src: inner)

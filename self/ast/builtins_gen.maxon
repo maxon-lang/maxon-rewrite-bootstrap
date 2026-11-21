@@ -572,7 +572,7 @@ function declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b
 	b.droppableTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
-	tt.entries[b.filePathTy as Count].conforms.push(b.initableFromStringLiteralTy)
+	tt.entries[typeIndex(b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
 	let ty26 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
 	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty26)
 	let ty27 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
@@ -589,31 +589,31 @@ function declareArrayMethods(mutates tt TypeTable, mutates ft FuncTable, mutates
 	ps2.push(ParamSpec.make("count", ty: b.elementIndexTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ps2, listed: true)
 	let ty3 = selfType(tt, declTy: b.arrayOrigin)
-	let p4 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p4 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps5 = ParamSpecList.create(0)
 	ps5.push(ParamSpec.make("count", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps5.push(ParamSpec.make("value", ty: p4, conv: Convention.convConsumes))
 	let f6 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFilled, name: "filled", isStatic: true, selfConv: Convention.convLet, ret: ty3, params: ps5, listed: true)
-	let p7 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f6 as Count].bounds.push(ParamBound.make(p7, ifaceTy: b.copyableTy))
+	let p7 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f6)].bounds.push(ParamBound.make(p7, ifaceTy: b.copyableTy))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
-	let p8 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p8 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps9 = ParamSpecList.create(0)
 	ps9.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
 	let f10 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayGet, name: "get", isStatic: false, selfConv: Convention.convLet, ret: p8, params: ps9, listed: true)
-	let p11 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f10 as Count].bounds.push(ParamBound.make(p11, ifaceTy: b.copyableTy))
-	ft.entries[f10 as Count].errTy = b.arrayErrorTy
-	let p12 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p11 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f10)].bounds.push(ParamBound.make(p11, ifaceTy: b.copyableTy))
+	ft.entries[funcIndex(f10)].errTy = b.arrayErrorTy
+	let p12 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps13 = ParamSpecList.create(0)
 	ps13.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps13.push(ParamSpec.make("value", ty: p12, conv: Convention.convConsumes))
 	let f14 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArraySet, name: "set", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps13, listed: true)
-	let p15 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f14 as Count].bounds.push(ParamBound.make(p15, ifaceTy: b.droppableTy))
-	ft.entries[f14 as Count].errTy = b.arrayErrorTy
-	let p16 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p15 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f14)].bounds.push(ParamBound.make(p15, ifaceTy: b.droppableTy))
+	ft.entries[funcIndex(f14)].errTy = b.arrayErrorTy
+	let p16 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps17 = ParamSpecList.create(0)
 	ps17.push(ParamSpec.make("value", ty: p16, conv: Convention.convConsumes))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayPush, name: "push", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps17, listed: true)
@@ -621,61 +621,61 @@ function declareArrayMethods(mutates tt TypeTable, mutates ft FuncTable, mutates
 	var ps19 = ParamSpecList.create(0)
 	ps19.push(ParamSpec.make("other", ty: ty18, conv: Convention.convLet))
 	let f20 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps19, listed: true)
-	let p21 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f20 as Count].bounds.push(ParamBound.make(p21, ifaceTy: b.copyableTy))
-	let p22 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p21 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f20)].bounds.push(ParamBound.make(p21, ifaceTy: b.copyableTy))
+	let p22 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps23 = ParamSpecList.create(0)
 	ps23.push(ParamSpec.make("at", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps23.push(ParamSpec.make("value", ty: p22, conv: Convention.convConsumes))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayInsert, name: "insert", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps23, listed: true)
-	let p24 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p24 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps25 = ParamSpecList.create(0)
 	ps25.push(ParamSpec.make("at", ty: b.elementIndexTy, conv: Convention.convLet))
 	let f26 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p24, params: ps25, listed: true)
-	ft.entries[f26 as Count].errTy = b.arrayErrorTy
-	let p27 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f26)].errTy = b.arrayErrorTy
+	let p27 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	let f28 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayPop, name: "pop", isStatic: false, selfConv: Convention.convMutates, ret: p27, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f28 as Count].errTy = b.arrayErrorTy
+	ft.entries[funcIndex(f28)].errTy = b.arrayErrorTy
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	let f29 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayClear, name: "clear", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-	let p30 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f29 as Count].bounds.push(ParamBound.make(p30, ifaceTy: b.droppableTy))
+	let p30 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f29)].bounds.push(ParamBound.make(p30, ifaceTy: b.droppableTy))
 	var ps31 = ParamSpecList.create(0)
 	ps31.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
 	let f32 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayTruncate, name: "truncate", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps31, listed: true)
-	let p33 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f32 as Count].bounds.push(ParamBound.make(p33, ifaceTy: b.droppableTy))
+	let p33 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f32)].bounds.push(ParamBound.make(p33, ifaceTy: b.droppableTy))
 	var ps34 = ParamSpecList.create(0)
 	ps34.push(ParamSpec.make("minCapacity", ty: b.elementIndexTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayReserve, name: "reserve", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps34, listed: true)
 	var ps35 = ParamSpecList.create(0)
 	ps35.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
 	let f36 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayResize, name: "resize", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps35, listed: true)
-	let p37 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f36 as Count].bounds.push(ParamBound.make(p37, ifaceTy: b.droppableTy))
+	let p37 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f36)].bounds.push(ParamBound.make(p37, ifaceTy: b.droppableTy))
 	let ty38 = selfType(tt, declTy: b.arrayOrigin)
 	var ps39 = ParamSpecList.create(0)
 	ps39.push(ParamSpec.make("start", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps39.push(ParamSpec.make("endIndex", ty: b.elementIndexTy, conv: Convention.convLet))
 	let f40 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArraySlice, name: "slice", isStatic: false, selfConv: Convention.convLet, ret: ty38, params: ps39, listed: true)
-	let p41 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f40 as Count].bounds.push(ParamBound.make(p41, ifaceTy: b.copyableTy))
-	ft.entries[f40 as Count].errTy = b.arrayErrorTy
-	let p42 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p41 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f40)].bounds.push(ParamBound.make(p41, ifaceTy: b.copyableTy))
+	ft.entries[funcIndex(f40)].errTy = b.arrayErrorTy
+	let p42 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps43 = ParamSpecList.create(0)
 	ps43.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps43.push(ParamSpec.make("value", ty: p42, conv: Convention.convLet))
 	let f44 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayGrowFilled, name: "growFilled", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps43, listed: true)
-	let p45 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f44 as Count].bounds.push(ParamBound.make(p45, ifaceTy: b.copyableTy))
-	let p46 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p45 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f44)].bounds.push(ParamBound.make(p45, ifaceTy: b.copyableTy))
+	let p46 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps47 = ParamSpecList.create(0)
 	ps47.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps47.push(ParamSpec.make("value", ty: p46, conv: Convention.convLet))
 	let f48 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayRefill, name: "refill", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps47, listed: true)
-	let p49 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f48 as Count].bounds.push(ParamBound.make(p49, ifaceTy: b.copyableTy))
-	let p50 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p49 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f48)].bounds.push(ParamBound.make(p49, ifaceTy: b.copyableTy))
+	let p50 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	var ps51 = ParamSpecList.create(0)
 	ps51.push(ParamSpec.make("element", ty: p50, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps51, listed: true)
@@ -687,28 +687,28 @@ function declareArrayMethods(mutates tt TypeTable, mutates ft FuncTable, mutates
 	var ps55 = ParamSpecList.create(0)
 	ps55.push(ParamSpec.make("other", ty: ty54, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayEquals, name: "equals", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps55, listed: true)
-	let p56 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p56 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	let f57 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p56, params: ParamSpecList.create(0), listed: true)
-	let p58 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f57 as Count].bounds.push(ParamBound.make(p58, ifaceTy: b.copyableTy))
-	ft.entries[f57 as Count].errTy = b.arrayErrorTy
-	let p59 = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let p58 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f57)].bounds.push(ParamBound.make(p58, ifaceTy: b.copyableTy))
+	ft.entries[funcIndex(f57)].errTy = b.arrayErrorTy
+	let p59 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
 	let f60 = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p59, params: ParamSpecList.create(0), listed: true)
-	let p61 = tt.entries[b.arrayOrigin as Count].typeParams[0]
-	ft.entries[f60 as Count].bounds.push(ParamBound.make(p61, ifaceTy: b.copyableTy))
-	ft.entries[f60 as Count].errTy = b.arrayErrorTy
+	let p61 = tt.entries[typeIndex(b.arrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f60)].bounds.push(ParamBound.make(p61, ifaceTy: b.copyableTy))
+	ft.entries[funcIndex(f60)].errTy = b.arrayErrorTy
 end 'declareArrayMethods'
 
 function declareFixedArrayMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, declTy: b.fixedArrayOrigin)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrFixedArrayCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 	let ty2 = selfType(tt, declTy: b.fixedArrayOrigin)
-	let p3 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
+	let p3 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.labelledFirst("value", ty: p3, conv: Convention.convConsumes))
 	let f5 = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrFixedArrayFilled, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty2, params: ps4, listed: false)
-	let p6 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
-	ft.entries[f5 as Count].bounds.push(ParamBound.make(p6, ifaceTy: b.copyableTy))
+	let p6 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f5)].bounds.push(ParamBound.make(p6, ifaceTy: b.copyableTy))
 	b.fixedArrayCreateFilledFunc = f5
 	let ty7 = selfType(tt, declTy: b.fixedArrayOrigin)
 	var ps8 = ParamSpecList.create(0)
@@ -716,51 +716,51 @@ function declareFixedArrayMethods(mutates tt TypeTable, mutates ft FuncTable, mu
 	let f9 = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrFixedArrayCreateCounted, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty7, params: ps8, listed: false)
 	b.fixedArrayCreateCountedFunc = f9
 	let ty10 = selfType(tt, declTy: b.fixedArrayOrigin)
-	let p11 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
+	let p11 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
 	var ps12 = ParamSpecList.create(0)
 	ps12.push(ParamSpec.make("count", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps12.push(ParamSpec.make("value", ty: p11, conv: Convention.convConsumes))
 	let f13 = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrArrayFilled, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty10, params: ps12, listed: false)
-	let p14 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
-	ft.entries[f13 as Count].bounds.push(ParamBound.make(p14, ifaceTy: b.copyableTy))
+	let p14 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f13)].bounds.push(ParamBound.make(p14, ifaceTy: b.copyableTy))
 	b.fixedArrayCreateCountedFilledFunc = f13
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrFixedArrayCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
-	let p15 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
+	let p15 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
 	var ps16 = ParamSpecList.create(0)
 	ps16.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
 	let f17 = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrArrayGet, name: "get", isStatic: false, selfConv: Convention.convLet, ret: p15, params: ps16, listed: true)
-	let p18 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
-	ft.entries[f17 as Count].bounds.push(ParamBound.make(p18, ifaceTy: b.copyableTy))
-	ft.entries[f17 as Count].errTy = b.arrayErrorTy
-	let p19 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
+	let p18 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f17)].bounds.push(ParamBound.make(p18, ifaceTy: b.copyableTy))
+	ft.entries[funcIndex(f17)].errTy = b.arrayErrorTy
+	let p19 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
 	var ps20 = ParamSpecList.create(0)
 	ps20.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
 	let f21 = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrFixedArrayGetProven, name: "get", isStatic: false, selfConv: Convention.convLet, ret: p19, params: ps20, listed: false)
-	let p22 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
-	ft.entries[f21 as Count].bounds.push(ParamBound.make(p22, ifaceTy: b.copyableTy))
+	let p22 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f21)].bounds.push(ParamBound.make(p22, ifaceTy: b.copyableTy))
 	b.fixedArrayGetProvenFunc = f21
-	let p23 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
+	let p23 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
 	var ps24 = ParamSpecList.create(0)
 	ps24.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps24.push(ParamSpec.make("value", ty: p23, conv: Convention.convConsumes))
 	let f25 = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrArraySet, name: "set", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps24, listed: true)
-	let p26 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
-	ft.entries[f25 as Count].bounds.push(ParamBound.make(p26, ifaceTy: b.droppableTy))
-	ft.entries[f25 as Count].errTy = b.arrayErrorTy
-	let p27 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
+	let p26 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f25)].bounds.push(ParamBound.make(p26, ifaceTy: b.droppableTy))
+	ft.entries[funcIndex(f25)].errTy = b.arrayErrorTy
+	let p27 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
 	var ps28 = ParamSpecList.create(0)
 	ps28.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
 	ps28.push(ParamSpec.make("value", ty: p27, conv: Convention.convConsumes))
 	let f29 = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrFixedArraySetProven, name: "set", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps28, listed: false)
-	let p30 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
-	ft.entries[f29 as Count].bounds.push(ParamBound.make(p30, ifaceTy: b.droppableTy))
+	let p30 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f29)].bounds.push(ParamBound.make(p30, ifaceTy: b.droppableTy))
 	b.fixedArraySetProvenFunc = f29
-	let p31 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
+	let p31 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
 	var ps32 = ParamSpecList.create(0)
 	ps32.push(ParamSpec.make("value", ty: p31, conv: Convention.convLet))
 	let f33 = registerMethodOn(tt, ft: ft, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrFixedArrayRefill, name: "refill", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps32, listed: true)
-	let p34 = tt.entries[b.fixedArrayOrigin as Count].typeParams[0]
-	ft.entries[f33 as Count].bounds.push(ParamBound.make(p34, ifaceTy: b.copyableTy))
+	let p34 = tt.entries[typeIndex(b.fixedArrayOrigin)].typeParams[0]
+	ft.entries[funcIndex(f33)].bounds.push(ParamBound.make(p34, ifaceTy: b.copyableTy))
 end 'declareFixedArrayMethods'
 
 function declareMapMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -768,41 +768,41 @@ function declareMapMethods(mutates tt TypeTable, mutates ft FuncTable, mutates s
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
-	let p2 = tt.entries[b.mapOrigin as Count].typeParams[0]
+	let p2 = tt.entries[typeIndex(b.mapOrigin)].typeParams[0]
 	var ps3 = ParamSpecList.create(0)
 	ps3.push(ParamSpec.make("key", ty: p2, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps3, listed: true)
-	let p4 = tt.entries[b.mapOrigin as Count].typeParams[0]
-	let p5 = tt.entries[b.mapOrigin as Count].typeParams[1]
+	let p4 = tt.entries[typeIndex(b.mapOrigin)].typeParams[0]
+	let p5 = tt.entries[typeIndex(b.mapOrigin)].typeParams[1]
 	var ps6 = ParamSpecList.create(0)
 	ps6.push(ParamSpec.make("key", ty: p4, conv: Convention.convConsumes))
 	ps6.push(ParamSpec.make("value", ty: p5, conv: Convention.convConsumes))
 	let f7 = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapInsert, name: "insert", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps6, listed: true)
-	let p8 = tt.entries[b.mapOrigin as Count].typeParams[1]
-	ft.entries[f7 as Count].bounds.push(ParamBound.make(p8, ifaceTy: b.droppableTy))
-	ft.entries[f7 as Count].errTy = b.mapErrorTy
-	let p9 = tt.entries[b.mapOrigin as Count].typeParams[0]
-	let p10 = tt.entries[b.mapOrigin as Count].typeParams[1]
+	let p8 = tt.entries[typeIndex(b.mapOrigin)].typeParams[1]
+	ft.entries[funcIndex(f7)].bounds.push(ParamBound.make(p8, ifaceTy: b.droppableTy))
+	ft.entries[funcIndex(f7)].errTy = b.mapErrorTy
+	let p9 = tt.entries[typeIndex(b.mapOrigin)].typeParams[0]
+	let p10 = tt.entries[typeIndex(b.mapOrigin)].typeParams[1]
 	var ps11 = ParamSpecList.create(0)
 	ps11.push(ParamSpec.make("key", ty: p9, conv: Convention.convConsumes))
 	ps11.push(ParamSpec.make("value", ty: p10, conv: Convention.convConsumes))
 	let f12 = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapUpsert, name: "upsert", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps11, listed: true)
-	let p13 = tt.entries[b.mapOrigin as Count].typeParams[1]
-	ft.entries[f12 as Count].bounds.push(ParamBound.make(p13, ifaceTy: b.droppableTy))
-	let p14 = tt.entries[b.mapOrigin as Count].typeParams[1]
-	let p15 = tt.entries[b.mapOrigin as Count].typeParams[0]
-	let p16 = tt.entries[b.mapOrigin as Count].typeParams[1]
+	let p13 = tt.entries[typeIndex(b.mapOrigin)].typeParams[1]
+	ft.entries[funcIndex(f12)].bounds.push(ParamBound.make(p13, ifaceTy: b.droppableTy))
+	let p14 = tt.entries[typeIndex(b.mapOrigin)].typeParams[1]
+	let p15 = tt.entries[typeIndex(b.mapOrigin)].typeParams[0]
+	let p16 = tt.entries[typeIndex(b.mapOrigin)].typeParams[1]
 	var ps17 = ParamSpecList.create(0)
 	ps17.push(ParamSpec.make("key", ty: p15, conv: Convention.convConsumes))
 	ps17.push(ParamSpec.make("value", ty: p16, conv: Convention.convConsumes))
 	let f18 = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapReplace, name: "replace", isStatic: false, selfConv: Convention.convMutates, ret: p14, params: ps17, listed: true)
-	ft.entries[f18 as Count].errTy = b.mapErrorTy
-	let p19 = tt.entries[b.mapOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f18)].errTy = b.mapErrorTy
+	let p19 = tt.entries[typeIndex(b.mapOrigin)].typeParams[0]
 	var ps20 = ParamSpecList.create(0)
 	ps20.push(ParamSpec.make("key", ty: p19, conv: Convention.convLet))
 	let f21 = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: b.boolTy, params: ps20, listed: true)
-	let p22 = tt.entries[b.mapOrigin as Count].typeParams[1]
-	ft.entries[f21 as Count].bounds.push(ParamBound.make(p22, ifaceTy: b.droppableTy))
+	let p22 = tt.entries[typeIndex(b.mapOrigin)].typeParams[1]
+	ft.entries[funcIndex(f21)].bounds.push(ParamBound.make(p22, ifaceTy: b.droppableTy))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareMapMethods'
 
@@ -811,61 +811,61 @@ function declareListMethods(mutates tt TypeTable, mutates ft FuncTable, mutates 
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
-	let p2 = tt.entries[b.listOrigin as Count].typeParams[0]
+	let p2 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty3 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p2))
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.make("handle", ty: ty3, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps4, listed: true)
-	let p5 = tt.entries[b.listOrigin as Count].typeParams[0]
+	let p5 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty6 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p5))
-	let p7 = tt.entries[b.listOrigin as Count].typeParams[0]
+	let p7 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	var ps8 = ParamSpecList.create(0)
 	ps8.push(ParamSpec.make("value", ty: p7, conv: Convention.convConsumes))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListPrepend, name: "prepend", isStatic: false, selfConv: Convention.convMutates, ret: ty6, params: ps8, listed: true)
-	let p9 = tt.entries[b.listOrigin as Count].typeParams[0]
+	let p9 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty10 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p9))
-	let p11 = tt.entries[b.listOrigin as Count].typeParams[0]
+	let p11 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	var ps12 = ParamSpecList.create(0)
 	ps12.push(ParamSpec.make("value", ty: p11, conv: Convention.convConsumes))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: ty10, params: ps12, listed: true)
-	let p13 = tt.entries[b.listOrigin as Count].typeParams[0]
+	let p13 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let f14 = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemoveFirst, name: "removeFirst", isStatic: false, selfConv: Convention.convMutates, ret: p13, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f14 as Count].errTy = b.arrayErrorTy
-	let p15 = tt.entries[b.listOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f14)].errTy = b.arrayErrorTy
+	let p15 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let f16 = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemoveLast, name: "removeLast", isStatic: false, selfConv: Convention.convMutates, ret: p15, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f16 as Count].errTy = b.arrayErrorTy
-	let p17 = tt.entries[b.listOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f16)].errTy = b.arrayErrorTy
+	let p17 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty18 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p17))
 	let f19 = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: ty18, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f19 as Count].errTy = b.arrayErrorTy
-	let p20 = tt.entries[b.listOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f19)].errTy = b.arrayErrorTy
+	let p20 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty21 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p20))
 	let f22 = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: ty21, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f22 as Count].errTy = b.arrayErrorTy
-	let p23 = tt.entries[b.listOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f22)].errTy = b.arrayErrorTy
+	let p23 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty24 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p23))
-	let p25 = tt.entries[b.listOrigin as Count].typeParams[0]
+	let p25 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty26 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p25))
 	var ps27 = ParamSpecList.create(0)
 	ps27.push(ParamSpec.make("handle", ty: ty26, conv: Convention.convLet))
 	let f28 = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListNext, name: "next", isStatic: false, selfConv: Convention.convLet, ret: ty24, params: ps27, listed: true)
-	ft.entries[f28 as Count].errTy = b.arrayErrorTy
-	let p29 = tt.entries[b.listOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f28)].errTy = b.arrayErrorTy
+	let p29 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty30 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p29))
-	let p31 = tt.entries[b.listOrigin as Count].typeParams[0]
+	let p31 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty32 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p31))
 	var ps33 = ParamSpecList.create(0)
 	ps33.push(ParamSpec.make("handle", ty: ty32, conv: Convention.convLet))
 	let f34 = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListPrev, name: "prev", isStatic: false, selfConv: Convention.convLet, ret: ty30, params: ps33, listed: true)
-	ft.entries[f34 as Count].errTy = b.arrayErrorTy
-	let p35 = tt.entries[b.listOrigin as Count].typeParams[0]
-	let p36 = tt.entries[b.listOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f34)].errTy = b.arrayErrorTy
+	let p35 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
+	let p36 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty37 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p36))
 	var ps38 = ParamSpecList.create(0)
 	ps38.push(ParamSpec.make("handle", ty: ty37, conv: Convention.convLet))
 	let f39 = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p35, params: ps38, listed: true)
-	ft.entries[f39 as Count].errTy = b.arrayErrorTy
-	let p40 = tt.entries[b.listOrigin as Count].typeParams[0]
+	ft.entries[funcIndex(f39)].errTy = b.arrayErrorTy
+	let p40 = tt.entries[typeIndex(b.listOrigin)].typeParams[0]
 	let ty41 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p40))
 	var ps42 = ParamSpecList.create(0)
 	ps42.push(ParamSpec.make("handle", ty: ty41, conv: Convention.convLet))
@@ -878,242 +878,242 @@ function declarePoolMethods(mutates tt TypeTable, mutates ft FuncTable, mutates 
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
-	let p2 = tt.entries[b.poolOrigin as Count].typeParams[0]
+	let p2 = tt.entries[typeIndex(b.poolOrigin)].typeParams[0]
 	let ty3 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p2))
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.make("handle", ty: ty3, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps4, listed: true)
-	let p5 = tt.entries[b.poolOrigin as Count].typeParams[0]
+	let p5 = tt.entries[typeIndex(b.poolOrigin)].typeParams[0]
 	let ty6 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p5))
-	let p7 = tt.entries[b.poolOrigin as Count].typeParams[0]
+	let p7 = tt.entries[typeIndex(b.poolOrigin)].typeParams[0]
 	var ps8 = ParamSpecList.create(0)
 	ps8.push(ParamSpec.make("value", ty: p7, conv: Convention.convConsumes))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolInsert, name: "insert", isStatic: false, selfConv: Convention.convMutates, ret: ty6, params: ps8, listed: true)
-	let p9 = tt.entries[b.poolOrigin as Count].typeParams[0]
-	let p10 = tt.entries[b.poolOrigin as Count].typeParams[0]
+	let p9 = tt.entries[typeIndex(b.poolOrigin)].typeParams[0]
+	let p10 = tt.entries[typeIndex(b.poolOrigin)].typeParams[0]
 	let ty11 = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(p10))
 	var ps12 = ParamSpecList.create(0)
 	ps12.push(ParamSpec.make("handle", ty: ty11, conv: Convention.convLet))
 	let f13 = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p9, params: ps12, listed: true)
-	ft.entries[f13 as Count].errTy = b.arrayErrorTy
+	ft.entries[funcIndex(f13)].errTy = b.arrayErrorTy
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declarePoolMethods'
 
 function declareStringMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringByteLength, name: "byteLength", generics: TypeIDList.create(0), ret: b.countTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f1 as Count].ownerTy = b.stringTy
-	ft.entries[f1 as Count].isStatic = false
-	ft.entries[f1 as Count].hasReceiver = true
+	ft.entries[funcIndex(f1)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f1)].isStatic = false
+	ft.entries[funcIndex(f1)].hasReceiver = true
 	b.stringMethods.insert("byteLength", value: f1)
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("index", ty: b.countTy, conv: Convention.convLet))
 	let f3 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringByteAt, name: "byteAt", generics: TypeIDList.create(0), ret: b.byteTy, params: ps2, declareInStd: false)
-	ft.entries[f3 as Count].ownerTy = b.stringTy
-	ft.entries[f3 as Count].isStatic = false
-	ft.entries[f3 as Count].hasReceiver = true
+	ft.entries[funcIndex(f3)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f3)].isStatic = false
+	ft.entries[funcIndex(f3)].hasReceiver = true
 	b.stringMethods.insert("byteAt", value: f3)
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.make("start", ty: b.countTy, conv: Convention.convLet))
 	ps4.push(ParamSpec.make("endPos", ty: b.countTy, conv: Convention.convLet))
 	let f5 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringSliceBytes, name: "sliceBytes", generics: TypeIDList.create(0), ret: b.stringTy, params: ps4, declareInStd: false)
-	ft.entries[f5 as Count].ownerTy = b.stringTy
-	ft.entries[f5 as Count].isStatic = false
-	ft.entries[f5 as Count].hasReceiver = true
+	ft.entries[funcIndex(f5)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f5)].isStatic = false
+	ft.entries[funcIndex(f5)].hasReceiver = true
 	b.stringMethods.insert("sliceBytes", value: f5)
 	let ty6 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
 	let f7 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringToByteArray, name: "toByteArray", generics: TypeIDList.create(0), ret: ty6, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f7 as Count].ownerTy = b.stringTy
-	ft.entries[f7 as Count].isStatic = false
-	ft.entries[f7 as Count].hasReceiver = true
+	ft.entries[funcIndex(f7)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f7)].isStatic = false
+	ft.entries[funcIndex(f7)].hasReceiver = true
 	b.stringMethods.insert("toByteArray", value: f7)
 	let ty8 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
 	var ps9 = ParamSpecList.create(0)
 	ps9.push(ParamSpec.make("bytes", ty: ty8, conv: Convention.convLet))
 	let f10 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringFrom, name: "from", generics: TypeIDList.create(0), ret: b.stringTy, params: ps9, declareInStd: false)
-	ft.entries[f10 as Count].ownerTy = b.stringTy
-	ft.entries[f10 as Count].isStatic = true
-	ft.entries[f10 as Count].hasReceiver = false
+	ft.entries[funcIndex(f10)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f10)].isStatic = true
+	ft.entries[funcIndex(f10)].hasReceiver = false
 	b.stringMethods.insert("from", value: f10)
 	let f11 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringBytes, name: "bytes", generics: TypeIDList.create(0), ret: b.byteViewTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f11 as Count].ownerTy = b.stringTy
-	ft.entries[f11 as Count].isStatic = false
-	ft.entries[f11 as Count].hasReceiver = true
+	ft.entries[funcIndex(f11)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f11)].isStatic = false
+	ft.entries[funcIndex(f11)].hasReceiver = true
 	b.stringMethods.insert("bytes", value: f11)
 	let f12 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringCodepoints, name: "codepoints", generics: TypeIDList.create(0), ret: b.codepointViewTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f12 as Count].ownerTy = b.stringTy
-	ft.entries[f12 as Count].isStatic = false
-	ft.entries[f12 as Count].hasReceiver = true
+	ft.entries[funcIndex(f12)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f12)].isStatic = false
+	ft.entries[funcIndex(f12)].hasReceiver = true
 	b.stringMethods.insert("codepoints", value: f12)
 	let f13 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringUtf16, name: "utf16", generics: TypeIDList.create(0), ret: b.utf16ViewTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f13 as Count].ownerTy = b.stringTy
-	ft.entries[f13 as Count].isStatic = false
-	ft.entries[f13 as Count].hasReceiver = true
+	ft.entries[funcIndex(f13)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f13)].isStatic = false
+	ft.entries[funcIndex(f13)].hasReceiver = true
 	b.stringMethods.insert("utf16", value: f13)
 	let f14 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringIsEmpty, name: "isEmpty", generics: TypeIDList.create(0), ret: b.boolTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f14 as Count].ownerTy = b.stringTy
-	ft.entries[f14 as Count].isStatic = false
-	ft.entries[f14 as Count].hasReceiver = true
+	ft.entries[funcIndex(f14)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f14)].isStatic = false
+	ft.entries[funcIndex(f14)].hasReceiver = true
 	b.stringMethods.insert("isEmpty", value: f14)
 	var ps15 = ParamSpecList.create(0)
 	ps15.push(ParamSpec.make("other", ty: b.stringTy, conv: Convention.convLet))
 	let f16 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringEquals, name: "equals", generics: TypeIDList.create(0), ret: b.boolTy, params: ps15, declareInStd: false)
-	ft.entries[f16 as Count].ownerTy = b.stringTy
-	ft.entries[f16 as Count].isStatic = false
-	ft.entries[f16 as Count].hasReceiver = true
+	ft.entries[funcIndex(f16)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f16)].isStatic = false
+	ft.entries[funcIndex(f16)].hasReceiver = true
 	b.stringMethods.insert("equals", value: f16)
 	var ps17 = ParamSpecList.create(0)
 	ps17.push(ParamSpec.make("other", ty: b.stringTy, conv: Convention.convLet))
 	let f18 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringAppend, name: "append", generics: TypeIDList.create(0), ret: b.voidTy, params: ps17, declareInStd: false)
-	ft.entries[f18 as Count].ownerTy = b.stringTy
-	ft.entries[f18 as Count].isStatic = false
-	ft.entries[f18 as Count].hasReceiver = true
-	ft.entries[f18 as Count].selfConv = Convention.convMutates
+	ft.entries[funcIndex(f18)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f18)].isStatic = false
+	ft.entries[funcIndex(f18)].hasReceiver = true
+	ft.entries[funcIndex(f18)].selfConv = Convention.convMutates
 	b.stringMethods.insert("append", value: f18)
 	let f19 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringCount, name: "count", generics: TypeIDList.create(0), ret: b.countTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f19 as Count].ownerTy = b.stringTy
-	ft.entries[f19 as Count].isStatic = false
-	ft.entries[f19 as Count].hasReceiver = true
+	ft.entries[funcIndex(f19)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f19)].isStatic = false
+	ft.entries[funcIndex(f19)].hasReceiver = true
 	b.stringMethods.insert("count", value: f19)
 	var ps20 = ParamSpecList.create(0)
 	ps20.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
 	let f21 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringContains, name: "contains", generics: TypeIDList.create(0), ret: b.boolTy, params: ps20, declareInStd: false)
-	ft.entries[f21 as Count].ownerTy = b.stringTy
-	ft.entries[f21 as Count].isStatic = false
-	ft.entries[f21 as Count].hasReceiver = true
+	ft.entries[funcIndex(f21)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f21)].isStatic = false
+	ft.entries[funcIndex(f21)].hasReceiver = true
 	b.stringMethods.insert("contains", value: f21)
 	var ps22 = ParamSpecList.create(0)
 	ps22.push(ParamSpec.make("prefix", ty: b.stringTy, conv: Convention.convLet))
 	let f23 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringStartsWith, name: "startsWith", generics: TypeIDList.create(0), ret: b.boolTy, params: ps22, declareInStd: false)
-	ft.entries[f23 as Count].ownerTy = b.stringTy
-	ft.entries[f23 as Count].isStatic = false
-	ft.entries[f23 as Count].hasReceiver = true
+	ft.entries[funcIndex(f23)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f23)].isStatic = false
+	ft.entries[funcIndex(f23)].hasReceiver = true
 	b.stringMethods.insert("startsWith", value: f23)
 	var ps24 = ParamSpecList.create(0)
 	ps24.push(ParamSpec.make("suffix", ty: b.stringTy, conv: Convention.convLet))
 	let f25 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringEndsWith, name: "endsWith", generics: TypeIDList.create(0), ret: b.boolTy, params: ps24, declareInStd: false)
-	ft.entries[f25 as Count].ownerTy = b.stringTy
-	ft.entries[f25 as Count].isStatic = false
-	ft.entries[f25 as Count].hasReceiver = true
+	ft.entries[funcIndex(f25)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f25)].isStatic = false
+	ft.entries[funcIndex(f25)].hasReceiver = true
 	b.stringMethods.insert("endsWith", value: f25)
 	var ps26 = ParamSpecList.create(0)
 	ps26.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
 	let f27 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringFindFirst, name: "findFirst", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ps26, declareInStd: false)
-	ft.entries[f27 as Count].errTy = b.stringErrorTy
-	ft.entries[f27 as Count].ownerTy = b.stringTy
-	ft.entries[f27 as Count].isStatic = false
-	ft.entries[f27 as Count].hasReceiver = true
+	ft.entries[funcIndex(f27)].errTy = b.stringErrorTy
+	ft.entries[funcIndex(f27)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f27)].isStatic = false
+	ft.entries[funcIndex(f27)].hasReceiver = true
 	b.stringMethods.insert("findFirst", value: f27)
 	var ps28 = ParamSpecList.create(0)
 	ps28.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
 	let f29 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringFindLast, name: "findLast", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ps28, declareInStd: false)
-	ft.entries[f29 as Count].errTy = b.stringErrorTy
-	ft.entries[f29 as Count].ownerTy = b.stringTy
-	ft.entries[f29 as Count].isStatic = false
-	ft.entries[f29 as Count].hasReceiver = true
+	ft.entries[funcIndex(f29)].errTy = b.stringErrorTy
+	ft.entries[funcIndex(f29)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f29)].isStatic = false
+	ft.entries[funcIndex(f29)].hasReceiver = true
 	b.stringMethods.insert("findLast", value: f29)
 	let f30 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringStartIndex, name: "startIndex", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f30 as Count].ownerTy = b.stringTy
-	ft.entries[f30 as Count].isStatic = false
-	ft.entries[f30 as Count].hasReceiver = true
+	ft.entries[funcIndex(f30)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f30)].isStatic = false
+	ft.entries[funcIndex(f30)].hasReceiver = true
 	b.stringMethods.insert("startIndex", value: f30)
 	let f31 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringEndIndex, name: "endIndex", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f31 as Count].ownerTy = b.stringTy
-	ft.entries[f31 as Count].isStatic = false
-	ft.entries[f31 as Count].hasReceiver = true
+	ft.entries[funcIndex(f31)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f31)].isStatic = false
+	ft.entries[funcIndex(f31)].hasReceiver = true
 	b.stringMethods.insert("endIndex", value: f31)
 	var ps32 = ParamSpecList.create(0)
 	ps32.push(ParamSpec.make("start", ty: b.stringIndexTy, conv: Convention.convLet))
 	ps32.push(ParamSpec.make("endIndex", ty: b.stringIndexTy, conv: Convention.convLet))
 	let f33 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringSlice, name: "slice", generics: TypeIDList.create(0), ret: b.stringTy, params: ps32, declareInStd: false)
-	ft.entries[f33 as Count].ownerTy = b.stringTy
-	ft.entries[f33 as Count].isStatic = false
-	ft.entries[f33 as Count].hasReceiver = true
+	ft.entries[funcIndex(f33)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f33)].isStatic = false
+	ft.entries[funcIndex(f33)].hasReceiver = true
 	b.stringMethods.insert("slice", value: f33)
 	var ps34 = ParamSpecList.create(0)
 	ps34.push(ParamSpec.make("start", ty: b.stringIndexTy, conv: Convention.convLet))
 	ps34.push(ParamSpec.make("length", ty: b.countTy, conv: Convention.convLet))
 	let f35 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringSliceLength, name: "sliceLength", generics: TypeIDList.create(0), ret: b.stringTy, params: ps34, declareInStd: false)
-	ft.entries[f35 as Count].ownerTy = b.stringTy
-	ft.entries[f35 as Count].isStatic = false
-	ft.entries[f35 as Count].hasReceiver = true
+	ft.entries[funcIndex(f35)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f35)].isStatic = false
+	ft.entries[funcIndex(f35)].hasReceiver = true
 	b.stringMethods.insert("sliceLength", value: f35)
 	var ps36 = ParamSpecList.create(0)
 	ps36.push(ParamSpec.make("old", ty: b.stringTy, conv: Convention.convLet))
 	ps36.push(ParamSpec.make("with", ty: b.stringTy, conv: Convention.convLet))
 	let f37 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringReplace, name: "replace", generics: TypeIDList.create(0), ret: b.stringTy, params: ps36, declareInStd: false)
-	ft.entries[f37 as Count].ownerTy = b.stringTy
-	ft.entries[f37 as Count].isStatic = false
-	ft.entries[f37 as Count].hasReceiver = true
+	ft.entries[funcIndex(f37)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f37)].isStatic = false
+	ft.entries[funcIndex(f37)].hasReceiver = true
 	b.stringMethods.insert("replace", value: f37)
 	var ps38 = ParamSpecList.create(0)
 	ps38.push(ParamSpec.make("old", ty: b.stringTy, conv: Convention.convLet))
 	ps38.push(ParamSpec.make("with", ty: b.stringTy, conv: Convention.convLet))
 	let f39 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringReplaceFirst, name: "replaceFirst", generics: TypeIDList.create(0), ret: b.stringTy, params: ps38, declareInStd: false)
-	ft.entries[f39 as Count].ownerTy = b.stringTy
-	ft.entries[f39 as Count].isStatic = false
-	ft.entries[f39 as Count].hasReceiver = true
+	ft.entries[funcIndex(f39)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f39)].isStatic = false
+	ft.entries[funcIndex(f39)].hasReceiver = true
 	b.stringMethods.insert("replaceFirst", value: f39)
 	let f40 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrim, name: "trim", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f40 as Count].ownerTy = b.stringTy
-	ft.entries[f40 as Count].isStatic = false
-	ft.entries[f40 as Count].hasReceiver = true
+	ft.entries[funcIndex(f40)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f40)].isStatic = false
+	ft.entries[funcIndex(f40)].hasReceiver = true
 	b.stringMethods.insert("trim", value: f40)
 	let f41 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimStart, name: "trimStart", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f41 as Count].ownerTy = b.stringTy
-	ft.entries[f41 as Count].isStatic = false
-	ft.entries[f41 as Count].hasReceiver = true
+	ft.entries[funcIndex(f41)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f41)].isStatic = false
+	ft.entries[funcIndex(f41)].hasReceiver = true
 	b.stringMethods.insert("trimStart", value: f41)
 	let f42 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimEnd, name: "trimEnd", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f42 as Count].ownerTy = b.stringTy
-	ft.entries[f42 as Count].isStatic = false
-	ft.entries[f42 as Count].hasReceiver = true
+	ft.entries[funcIndex(f42)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f42)].isStatic = false
+	ft.entries[funcIndex(f42)].hasReceiver = true
 	b.stringMethods.insert("trimEnd", value: f42)
 	let f43 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringToLower, name: "toLower", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f43 as Count].ownerTy = b.stringTy
-	ft.entries[f43 as Count].isStatic = false
-	ft.entries[f43 as Count].hasReceiver = true
+	ft.entries[funcIndex(f43)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f43)].isStatic = false
+	ft.entries[funcIndex(f43)].hasReceiver = true
 	b.stringMethods.insert("toLower", value: f43)
 	let f44 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringToUpper, name: "toUpper", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.entries[f44 as Count].ownerTy = b.stringTy
-	ft.entries[f44 as Count].isStatic = false
-	ft.entries[f44 as Count].hasReceiver = true
+	ft.entries[funcIndex(f44)].ownerTy = b.stringTy
+	ft.entries[funcIndex(f44)].isStatic = false
+	ft.entries[funcIndex(f44)].hasReceiver = true
 	b.stringMethods.insert("toUpper", value: f44)
 end 'declareStringMethods'
 
 function declareByteViewMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerMethodOn(tt, ft: ft, std: std, owner: b.byteViewTy, op: Intrinsic.intrByteViewCreateIterator, name: "createIterator", isStatic: false, selfConv: Convention.convLet, ret: b.byteIteratorTy, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f1 as Count].errTy = b.iterationErrorTy
+	ft.entries[funcIndex(f1)].errTy = b.iterationErrorTy
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.byteViewTy, op: Intrinsic.intrByteViewCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareByteViewMethods'
 
 function declareByteIteratorMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.byteIteratorTy, op: Intrinsic.intrByteIteratorCurrent, name: "current", isStatic: false, selfConv: Convention.convLet, ret: b.byteTy, params: ParamSpecList.create(0), listed: true)
 	let f1 = registerMethodOn(tt, ft: ft, std: std, owner: b.byteIteratorTy, op: Intrinsic.intrByteIteratorAdvance, name: "advance", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f1 as Count].errTy = b.iterationErrorTy
+	ft.entries[funcIndex(f1)].errTy = b.iterationErrorTy
 end 'declareByteIteratorMethods'
 
 function declareCodepointViewMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerMethodOn(tt, ft: ft, std: std, owner: b.codepointViewTy, op: Intrinsic.intrCodepointViewCreateIterator, name: "createIterator", isStatic: false, selfConv: Convention.convLet, ret: b.codepointIteratorTy, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f1 as Count].errTy = b.iterationErrorTy
+	ft.entries[funcIndex(f1)].errTy = b.iterationErrorTy
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.codepointViewTy, op: Intrinsic.intrCodepointViewCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareCodepointViewMethods'
 
 function declareCodepointIteratorMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.codepointIteratorTy, op: Intrinsic.intrCodepointIteratorCurrent, name: "current", isStatic: false, selfConv: Convention.convLet, ret: b.codepointTy, params: ParamSpecList.create(0), listed: true)
 	let f1 = registerMethodOn(tt, ft: ft, std: std, owner: b.codepointIteratorTy, op: Intrinsic.intrCodepointIteratorAdvance, name: "advance", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f1 as Count].errTy = b.iterationErrorTy
+	ft.entries[funcIndex(f1)].errTy = b.iterationErrorTy
 end 'declareCodepointIteratorMethods'
 
 function declareUtf16ViewMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerMethodOn(tt, ft: ft, std: std, owner: b.utf16ViewTy, op: Intrinsic.intrUtf16ViewCreateIterator, name: "createIterator", isStatic: false, selfConv: Convention.convLet, ret: b.utf16IteratorTy, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f1 as Count].errTy = b.iterationErrorTy
+	ft.entries[funcIndex(f1)].errTy = b.iterationErrorTy
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.utf16ViewTy, op: Intrinsic.intrUtf16ViewCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareUtf16ViewMethods'
 
 function declareUtf16IteratorMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.utf16IteratorTy, op: Intrinsic.intrUtf16IteratorCurrent, name: "current", isStatic: false, selfConv: Convention.convLet, ret: b.codeUnit16Ty, params: ParamSpecList.create(0), listed: true)
 	let f1 = registerMethodOn(tt, ft: ft, std: std, owner: b.utf16IteratorTy, op: Intrinsic.intrUtf16IteratorAdvance, name: "advance", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f1 as Count].errTy = b.iterationErrorTy
+	ft.entries[funcIndex(f1)].errTy = b.iterationErrorTy
 end 'declareUtf16IteratorMethods'
 
 function declareStringIndexMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -1129,7 +1129,7 @@ function declareBuiltinFunctions(mutates tt TypeTable, mutates ft FuncTable, mut
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.make("x", ty: g2, conv: Convention.convConsumes))
 	let f5 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFreeze, name: "freeze", generics: oneArgList(g2), ret: ty3, params: ps4, declareInStd: true)
-	ft.entries[f5 as Count].bounds.push(ParamBound.make(g2, ifaceTy: b.droppableTy))
+	ft.entries[funcIndex(f5)].bounds.push(ParamBound.make(g2, ifaceTy: b.droppableTy))
 	var tp6 = TypeEntry.make(TypeKind.typeParam, name: "T")
 	let g7 = allocType(tt, e: tp6)
 	var ps8 = ParamSpecList.create(0)
@@ -1142,7 +1142,7 @@ function declareBuiltinFunctions(mutates tt TypeTable, mutates ft FuncTable, mut
 	var ps12 = ParamSpecList.create(0)
 	ps12.push(ParamSpec.make("x", ty: ty11, conv: Convention.convLet))
 	let f13 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrThaw, name: "thaw", generics: oneArgList(g10), ret: g10, params: ps12, declareInStd: true)
-	ft.entries[f13 as Count].bounds.push(ParamBound.make(g10, ifaceTy: b.copyableTy))
+	ft.entries[funcIndex(f13)].bounds.push(ParamBound.make(g10, ifaceTy: b.copyableTy))
 	var tp14 = TypeEntry.make(TypeKind.typeParam, name: "T")
 	tp14.boundIface = b.droppableTy
 	let g15 = allocType(tt, e: tp14)
@@ -1150,7 +1150,7 @@ function declareBuiltinFunctions(mutates tt TypeTable, mutates ft FuncTable, mut
 	var ps17 = ParamSpecList.create(0)
 	ps17.push(ParamSpec.make("x", ty: g15, conv: Convention.convConsumes))
 	let f18 = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrCown, name: "cown", generics: oneArgList(g15), ret: ty16, params: ps17, declareInStd: false)
-	ft.entries[f18 as Count].bounds.push(ParamBound.make(g15, ifaceTy: b.droppableTy))
+	ft.entries[funcIndex(f18)].bounds.push(ParamBound.make(g15, ifaceTy: b.droppableTy))
 	b.cownNewFunc = f18
 	var tp19 = TypeEntry.make(TypeKind.typeParam, name: "T")
 	let g20 = allocType(tt, e: tp19)
@@ -1202,9 +1202,9 @@ function declareProcessMethods(mutates tt TypeTable, mutates ft FuncTable, mutat
 	var ps1 = ParamSpecList.create(0)
 	ps1.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
 	let f2 = registerMethodOn(tt, ft: ft, std: std, owner: b.processTy, op: Intrinsic.intrProcessEnvironmentVariable, name: "environmentVariable", isStatic: true, selfConv: Convention.convLet, ret: b.stringTy, params: ps1, listed: true)
-	ft.entries[f2 as Count].errTy = b.processIntrospectionErrorTy
+	ft.entries[funcIndex(f2)].errTy = b.processIntrospectionErrorTy
 	let f3 = registerMethodOn(tt, ft: ft, std: std, owner: b.processTy, op: Intrinsic.intrProcessExecutablePath, name: "executablePath", isStatic: true, selfConv: Convention.convLet, ret: b.filePathTy, params: ParamSpecList.create(0), listed: true)
-	ft.entries[f3 as Count].errTy = b.processIntrospectionErrorTy
+	ft.entries[funcIndex(f3)].errTy = b.processIntrospectionErrorTy
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.processTy, op: Intrinsic.intrProcessId, name: "id", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.make("code", ty: b.exitCodeTy, conv: Convention.convLet))
@@ -1220,7 +1220,7 @@ function declareFilePathMethods(mutates tt TypeTable, mutates ft FuncTable, muta
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("path", ty: b.stringTy, conv: Convention.convLet))
 	let f3 = registerMethodOn(tt, ft: ft, std: std, owner: b.filePathTy, op: Intrinsic.intrFilePathFrom, name: "from", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ps2, listed: true)
-	ft.entries[f3 as Count].errTy = b.filePathErrorTy
+	ft.entries[funcIndex(f3)].errTy = b.filePathErrorTy
 	let ty4 = selfType(tt, declTy: b.filePathTy)
 	var ps5 = ParamSpecList.create(0)
 	ps5.push(ParamSpec.make("value", ty: b.stringTy, conv: Convention.convLet))
@@ -1232,27 +1232,27 @@ function declareFileMethods(mutates tt TypeTable, mutates ft FuncTable, mutates 
 	var ps1 = ParamSpecList.create(0)
 	ps1.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	let f2 = registerMethodOn(tt, ft: ft, std: std, owner: b.fileTy, op: Intrinsic.intrFileReadText, name: "readText", isStatic: true, selfConv: Convention.convLet, ret: b.stringTy, params: ps1, listed: true)
-	ft.entries[f2 as Count].errTy = b.fileReadErrorTy
+	ft.entries[funcIndex(f2)].errTy = b.fileReadErrorTy
 	var ps3 = ParamSpecList.create(0)
 	ps3.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	ps3.push(ParamSpec.make("content", ty: b.stringTy, conv: Convention.convLet))
 	let f4 = registerMethodOn(tt, ft: ft, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteText, name: "writeText", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps3, listed: true)
-	ft.entries[f4 as Count].errTy = b.fileWriteErrorTy
+	ft.entries[funcIndex(f4)].errTy = b.fileWriteErrorTy
 	let ty5 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
 	var ps6 = ParamSpecList.create(0)
 	ps6.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	ps6.push(ParamSpec.make("content", ty: ty5, conv: Convention.convLet))
 	let f7 = registerMethodOn(tt, ft: ft, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteBinary, name: "writeBinary", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps6, listed: true)
-	ft.entries[f7 as Count].errTy = b.fileWriteErrorTy
+	ft.entries[funcIndex(f7)].errTy = b.fileWriteErrorTy
 	var ps8 = ParamSpecList.create(0)
 	ps8.push(ParamSpec.make("from", ty: b.filePathTy, conv: Convention.convLet))
 	ps8.push(ParamSpec.make("to", ty: b.filePathTy, conv: Convention.convLet))
 	let f9 = registerMethodOn(tt, ft: ft, std: std, owner: b.fileTy, op: Intrinsic.intrFileRename, name: "rename", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps8, listed: true)
-	ft.entries[f9 as Count].errTy = b.fileRenameErrorTy
+	ft.entries[funcIndex(f9)].errTy = b.fileRenameErrorTy
 	var ps10 = ParamSpecList.create(0)
 	ps10.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	let f11 = registerMethodOn(tt, ft: ft, std: std, owner: b.fileTy, op: Intrinsic.intrFileDelete, name: "delete", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps10, listed: true)
-	ft.entries[f11 as Count].errTy = b.fileDeleteErrorTy
+	ft.entries[funcIndex(f11)].errTy = b.fileDeleteErrorTy
 end 'declareFileMethods'
 
 function declareDirectoryMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -1267,7 +1267,7 @@ function declareDirectoryMethods(mutates tt TypeTable, mutates ft FuncTable, mut
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	let f5 = registerMethodOn(tt, ft: ft, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryList, name: "list", isStatic: true, selfConv: Convention.convLet, ret: ty3, params: ps4, listed: true)
-	ft.entries[f5 as Count].errTy = b.directoryListErrorTy
+	ft.entries[funcIndex(f5)].errTy = b.directoryListErrorTy
 end 'declareDirectoryMethods'
 
 function declareSubprocessMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -1276,14 +1276,14 @@ function declareSubprocessMethods(mutates tt TypeTable, mutates ft FuncTable, mu
 	ps2.push(ParamSpec.make("executable", ty: b.executableTy, conv: Convention.convLet))
 	ps2.push(ParamSpec.make("arguments", ty: ty1, conv: Convention.convLet))
 	let f3 = registerMethodOn(tt, ft: ft, std: std, owner: b.subprocessTy, op: Intrinsic.intrSubprocessRun, name: "run", isStatic: true, selfConv: Convention.convLet, ret: b.collectedOutputTy, params: ps2, listed: true)
-	ft.entries[f3 as Count].errTy = b.subprocessErrorTy
+	ft.entries[funcIndex(f3)].errTy = b.subprocessErrorTy
 	let ty4 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
 	var ps5 = ParamSpecList.create(0)
 	ps5.push(ParamSpec.make("executable", ty: b.executableTy, conv: Convention.convLet))
 	ps5.push(ParamSpec.make("arguments", ty: ty4, conv: Convention.convLet))
 	ps5.push(ParamSpec.make("deadline", ty: b.waitDeadlineTy, conv: Convention.convLet))
 	let f6 = registerMethodOn(tt, ft: ft, std: std, owner: b.subprocessTy, op: Intrinsic.intrSubprocessRunWithDeadline, name: "runWithDeadline", isStatic: true, selfConv: Convention.convLet, ret: b.collectedOutputTy, params: ps5, listed: true)
-	ft.entries[f6 as Count].errTy = b.subprocessErrorTy
+	ft.entries[funcIndex(f6)].errTy = b.subprocessErrorTy
 end 'declareSubprocessMethods'
 
 function declareCollectedOutputMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)

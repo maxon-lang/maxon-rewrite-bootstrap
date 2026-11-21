@@ -464,6 +464,12 @@ export type TypeTable
 	end 'new'
 end 'TypeTable'
 
+// typeIndex is the position of the type t in the entries of its table. A handle is not an index: it will name the module
+// that holds the entry, so every read of an entry goes through here, and only ast knows how the two relate.
+export function typeIndex(t TypeID) returns Count
+	return t as Count
+end 'typeIndex'
+
 export function allocType(mutates tt TypeTable, consumes e TypeEntry) returns TypeID
 	let id = try tt.entries.count() as TypeID otherwise panic("too many types")
 	var copyE = e
@@ -544,22 +550,22 @@ export function isFloatType(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	let k = tt.entries[t as Count].kind
+	let k = tt.entries[typeIndex(t)].kind
 	return k == TypeKind.floatRange or k == TypeKind.constFloat
 end 'isFloatType'
 
 // floatBits is the double of a float constant, or a bound of a float range: minVal for the low one.
 export function floatLowBits(tt TypeTable, t TypeID) returns Count
-	return tt.entries[t as Count].minVal.lo
+	return tt.entries[typeIndex(t)].minVal.lo
 end 'floatLowBits'
 
 export function floatHighBits(tt TypeTable, t TypeID) returns Count
-	return tt.entries[t as Count].maxVal.lo
+	return tt.entries[typeIndex(t)].maxVal.lo
 end 'floatHighBits'
 
 // isFullFloatRange is whether a float range runs from f64.min to f64.max, and so holds every double.
 export function isFullFloatRange(tt TypeTable, t TypeID) returns bool
-	return tt.entries[t as Count].kind == TypeKind.floatRange and floatLowBits(tt, t: t) == floatNegate(floatMaxBits) and floatHighBits(tt, t: t) == floatMaxBits
+	return tt.entries[typeIndex(t)].kind == TypeKind.floatRange and floatLowBits(tt, t: t) == floatNegate(floatMaxBits) and floatHighBits(tt, t: t) == floatMaxBits
 end 'isFullFloatRange'
 
 // floatRangeHolds is whether the float range t holds the double of the bits.
@@ -598,9 +604,9 @@ export function extendsInterface(tt TypeTable, have TypeID, want TypeID) returns
 	if have == want 'same'
 		return true
 	end 'same'
-	let orig = tt.entries[have as Count].effectiveOrigin()
-	for i in 0 upto tt.entries[orig as Count].conforms.count() 'parents'
-		if extendsInterface(tt, have: tt.entries[orig as Count].conforms[i], want: want) 'hit'
+	let orig = tt.entries[typeIndex(have)].effectiveOrigin()
+	for i in 0 upto tt.entries[typeIndex(orig)].conforms.count() 'parents'
+		if extendsInterface(tt, have: tt.entries[typeIndex(orig)].conforms[i], want: want) 'hit'
 			return true
 		end 'hit'
 	end 'parents'
@@ -609,12 +615,12 @@ end 'extendsInterface'
 
 // isSubtypeOf is whether the ranged alias sub implements sup, directly or through the aliases it implements.
 export function isSubtypeOf(tt TypeTable, sub TypeID, sup TypeID) returns bool
-	var t = tt.entries[sub as Count].supertype
+	var t = tt.entries[typeIndex(sub)].supertype
 	while t != noType 'up'
 		if t == sup 'hit'
 			return true
 		end 'hit'
-		t = tt.entries[t as Count].supertype
+		t = tt.entries[typeIndex(t)].supertype
 	end 'up'
 	return false
 end 'isSubtypeOf'
@@ -626,7 +632,7 @@ export function commonSupertype(tt TypeTable, a TypeID, b TypeID) returns TypeID
 		if t == b or isSubtypeOf(tt, sub: b, sup: t) 'hit'
 			return t
 		end 'hit'
-		t = tt.entries[t as Count].supertype
+		t = tt.entries[typeIndex(t)].supertype
 	end 'up'
 	return noType
 end 'commonSupertype'
@@ -653,7 +659,7 @@ function funcInstanceKey(origin FuncID, args TypeIDList, witnesses WitnessList) 
 end 'funcInstanceKey'
 
 export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeIDList) returns TypeID
-	let baseOrigin = tt.entries[origin as Count].effectiveOrigin()
+	let baseOrigin = tt.entries[typeIndex(origin)].effectiveOrigin()
 	if args.count() == 0 'none'
 		return baseOrigin
 	end 'none'
@@ -662,15 +668,15 @@ export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeID
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
-	let origKind = tt.entries[baseOrigin as Count].kind
-	let origName = tt.entries[baseOrigin as Count].name.clone()
-	let origNoncopyable = tt.entries[baseOrigin as Count].isNoncopyable
-	let hasOrigDecl = tt.entries[baseOrigin as Count].hasDecl
-	let origDecl = tt.entries[baseOrigin as Count].decl.clone()
+	let origKind = tt.entries[typeIndex(baseOrigin)].kind
+	let origName = tt.entries[typeIndex(baseOrigin)].name.clone()
+	let origNoncopyable = tt.entries[typeIndex(baseOrigin)].isNoncopyable
+	let hasOrigDecl = tt.entries[typeIndex(baseOrigin)].hasDecl
+	let origDecl = tt.entries[typeIndex(baseOrigin)].decl.clone()
 	var e = TypeEntry.make(origKind, name: origName)
 	e.origin = baseOrigin
 	e.typeArgs = cloneTypeArgs(args)
-	e.isTuple = tt.entries[baseOrigin as Count].isTuple
+	e.isTuple = tt.entries[typeIndex(baseOrigin)].isTuple
 	e.isNoncopyable = origNoncopyable
 	e.hasDecl = hasOrigDecl
 	e.decl = origDecl
@@ -679,13 +685,13 @@ export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeID
 	if statesCount(tt, t: id) 'counted'
 		// A fixed array whose type states its count is one of the runtime-sized type of its element, which a place of that
 		// type takes and a join of the two gives.
-		let elements = tt.entries[baseOrigin as Count].typeParams.count()
+		let elements = tt.entries[typeIndex(baseOrigin)].typeParams.count()
 		var unsized = TypeIDList.create(0)
 		for i in 0 upto elements 'elements'
 			unsized.push(args[i])
 		end 'elements'
 		let sup = instantiateType(tt, origin: baseOrigin, args: unsized)
-		tt.entries[id as Count].supertype = sup
+		tt.entries[typeIndex(id)].supertype = sup
 	end 'counted'
 	return id
 end 'instantiateType'
@@ -701,7 +707,7 @@ let sizeofBool = 1 as Count
 // a word for any other value, which is a word in every place. t is concrete: a type parameter has its argument's size,
 // which an instance knows.
 export function byteSize(tt TypeTable, t TypeID) returns Count
-	return match tt.entries[t as Count].kind 'k'
+	return match tt.entries[typeIndex(t)].kind 'k'
 		primBool gives sizeofBool
 		record gives recordByteSize(tt, t: t)
 		typeParam gives panic("the size of a type parameter is its argument's")
@@ -728,8 +734,8 @@ export function byteSize(tt TypeTable, t TypeID) returns Count
 end 'byteSize'
 
 function recordByteSize(tt TypeTable, t TypeID) returns Count
-	let origin = tt.entries[t as Count].effectiveOrigin()
-	let fields = tt.entries[origin as Count].fields.count()
+	let origin = tt.entries[typeIndex(t)].effectiveOrigin()
+	let fields = tt.entries[typeIndex(origin)].fields.count()
 	if fields == 0 'empty'
 		return sizeofWord
 	end 'empty'
@@ -738,18 +744,18 @@ end 'recordByteSize'
 
 // countedType is the instance of a fixed array of the element of unsized, a runtime-sized one, that states count.
 export function countedType(mutates tt TypeTable, unsized TypeID, count Count) returns TypeID
-	var args = cloneTypeArgs(tt.entries[unsized as Count].typeArgs)
+	var args = cloneTypeArgs(tt.entries[typeIndex(unsized)].typeArgs)
 	args.push(internConstInt(tt, val: I128.fromCount(count)))
-	return instantiateType(tt, origin: tt.entries[unsized as Count].effectiveOrigin(), args: args)
+	return instantiateType(tt, origin: tt.entries[typeIndex(unsized)].effectiveOrigin(), args: args)
 end 'countedType'
 
 // statesCount is whether t is an instance of a fixed array that states its count, a type argument after its element.
 export function statesCount(tt TypeTable, t TypeID) returns bool
-	if tt.entries[t as Count].kind != TypeKind.builtinArray 'notArray'
+	if tt.entries[typeIndex(t)].kind != TypeKind.builtinArray 'notArray'
 		return false
 	end 'notArray'
-	let origin = tt.entries[t as Count].effectiveOrigin()
-	return tt.entries[t as Count].typeArgs.count() > tt.entries[origin as Count].typeParams.count()
+	let origin = tt.entries[typeIndex(t)].effectiveOrigin()
+	return tt.entries[typeIndex(t)].typeArgs.count() > tt.entries[typeIndex(origin)].typeParams.count()
 end 'statesCount'
 
 // statedCount is the count that the type of a fixed array states (statesCount).
@@ -757,9 +763,9 @@ export function statedCount(tt TypeTable, t TypeID) returns Count
 	if not statesCount(tt, t: t) 'none'
 		panic("the type {typeName(tt, t: t)} states no count")
 	end 'none'
-	let origin = tt.entries[t as Count].effectiveOrigin()
-	let arg = tt.entries[t as Count].typeArgs[tt.entries[origin as Count].typeParams.count()]
-	return tt.entries[arg as Count].minVal.lo
+	let origin = tt.entries[typeIndex(t)].effectiveOrigin()
+	let arg = tt.entries[typeIndex(t)].typeArgs[tt.entries[typeIndex(origin)].typeParams.count()]
+	return tt.entries[typeIndex(arg)].minVal.lo
 end 'statedCount'
 
 // countedSpelling is how an instance of a fixed array that states its count is written: the count before the element.
@@ -786,8 +792,8 @@ export function tupleOrigin(mutates tt TypeTable, arity Count) returns TypeID
 	for i in 0 upto arity 'each'
 		var tp = TypeEntry.make(TypeKind.typeParam, name: "T{i}")
 		let param = allocType(tt, e: tp)
-		tt.entries[origin as Count].typeParams.push(param)
-		tt.entries[origin as Count].fields.push(FieldInfo.make("{i}", ty: param, isVar: true, exported: true, hasDefault: false, defaultExpr: 0 as NodeID, index: i))
+		tt.entries[typeIndex(origin)].typeParams.push(param)
+		tt.entries[typeIndex(origin)].fields.push(FieldInfo.make("{i}", ty: param, isVar: true, exported: true, hasDefault: false, defaultExpr: 0 as NodeID, index: i))
 	end 'each'
 	tt.tupleOrigins[arity] = origin
 	return origin
@@ -800,42 +806,42 @@ export function tupleType(mutates tt TypeTable, elems TypeIDList) returns TypeID
 end 'tupleType'
 
 export function isTupleType(tt TypeTable, t TypeID) returns bool
-	return t != noType and tt.entries[t as Count].isTuple
+	return t != noType and tt.entries[typeIndex(t)].isTuple
 end 'isTupleType'
 
 export function selfType(mutates tt TypeTable, declTy TypeID) returns TypeID
-	let orig = tt.entries[declTy as Count].effectiveOrigin()
-	if tt.entries[orig as Count].declaring or tt.entries[orig as Count].typeParams.count() == 0 'self'
+	let orig = tt.entries[typeIndex(declTy)].effectiveOrigin()
+	if tt.entries[typeIndex(orig)].declaring or tt.entries[typeIndex(orig)].typeParams.count() == 0 'self'
 		return orig
 	end 'self'
-	let args = cloneTypeArgs(tt.entries[orig as Count].typeParams)
+	let args = cloneTypeArgs(tt.entries[typeIndex(orig)].typeParams)
 	return instantiateType(tt, origin: orig, args: args)
 end 'selfType'
 
 export function typeArgsOf(tt TypeTable, t TypeID) returns TypeIDList
-	if tt.entries[t as Count].typeArgs.count() > 0 'hasArgs'
-		return cloneTypeArgs(tt.entries[t as Count].typeArgs)
+	if tt.entries[typeIndex(t)].typeArgs.count() > 0 'hasArgs'
+		return cloneTypeArgs(tt.entries[typeIndex(t)].typeArgs)
 	end 'hasArgs'
-	return cloneTypeArgs(tt.entries[t as Count].typeParams)
+	return cloneTypeArgs(tt.entries[typeIndex(t)].typeParams)
 end 'typeArgsOf'
 
 // typeArgAt is the type argument at an index of what typeArgsOf gives, read in place.
 export function typeArgAt(tt TypeTable, t TypeID, index Count) returns TypeID
-	if tt.entries[t as Count].typeArgs.count() > 0 'hasArgs'
-		return tt.entries[t as Count].typeArgs[index]
+	if tt.entries[typeIndex(t)].typeArgs.count() > 0 'hasArgs'
+		return tt.entries[typeIndex(t)].typeArgs[index]
 	end 'hasArgs'
-	return tt.entries[t as Count].typeParams[index]
+	return tt.entries[typeIndex(t)].typeParams[index]
 end 'typeArgAt'
 
 export function originOf(tt TypeTable, t TypeID) returns TypeID
-	return tt.entries[t as Count].effectiveOrigin()
+	return tt.entries[typeIndex(t)].effectiveOrigin()
 end 'originOf'
 
 export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList, args TypeIDList) returns TypeID
 	if t == noType or params.count() == 0 'noop'
 		return t
 	end 'noop'
-	let kind = tt.entries[t as Count].kind
+	let kind = tt.entries[typeIndex(t)].kind
 	if kind == TypeKind.typeParam 'tp'
 		for i in 0 upto params.count() 'each'
 			if params[i] == t and i < args.count() 'hit'
@@ -844,12 +850,12 @@ export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList
 		end 'each'
 		return t
 	end 'tp'
-	let origArgs = cloneTypeArgs(tt.entries[t as Count].typeArgs)
+	let origArgs = cloneTypeArgs(tt.entries[typeIndex(t)].typeArgs)
 	if origArgs.count() == 0 'nonInst'
 		return t
 	end 'nonInst'
-	let selfOrigin = tt.entries[t as Count].effectiveOrigin()
-	if args.count() > params.count() and origArgs.equals(params) and tt.entries[selfOrigin as Count].typeParams.equals(params) 'countedSelf'
+	let selfOrigin = tt.entries[typeIndex(t)].effectiveOrigin()
+	if args.count() > params.count() and origArgs.equals(params) and tt.entries[typeIndex(selfOrigin)].typeParams.equals(params) 'countedSelf'
 		// Self of a fixed array at the arguments of an instance that states its count is that instance.
 		return instantiateType(tt, origin: selfOrigin, args: args)
 	end 'countedSelf'
@@ -865,7 +871,7 @@ export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList
 	if not changed 'same'
 		return t
 	end 'same'
-	let orig = tt.entries[t as Count].effectiveOrigin()
+	let orig = tt.entries[typeIndex(t)].effectiveOrigin()
 	return instantiateType(tt, origin: orig, args: nextArgs)
 end 'substituteType'
 
@@ -938,36 +944,36 @@ end 'internFuncType'
 
 // funcMutatesCaptures is whether a value of the function type may write what it captured.
 export function funcMutatesCaptures(tt TypeTable, t TypeID) returns bool
-	return tt.entries[originOf(tt, t: t) as Count].mutatesCaptures
+	return tt.entries[typeIndex(originOf(tt, t: t))].mutatesCaptures
 end 'funcMutatesCaptures'
 
 // funcIsBrand is whether a typealias made the function type a brand of its own.
 export function funcIsBrand(tt TypeTable, t TypeID) returns bool
-	return tt.entries[originOf(tt, t: t) as Count].isBrand
+	return tt.entries[typeIndex(originOf(tt, t: t))].isBrand
 end 'funcIsBrand'
 
 // funcParamCount is how many parameters a function type takes.
 export function funcParamCount(tt TypeTable, t TypeID) returns Count
-	return tt.entries[originOf(tt, t: t) as Count].paramConvs.count()
+	return tt.entries[typeIndex(originOf(tt, t: t))].paramConvs.count()
 end 'funcParamCount'
 
 export function funcParamType(tt TypeTable, t TypeID, index Count) returns TypeID
-	return tt.entries[t as Count].typeArgs[index]
+	return tt.entries[typeIndex(t)].typeArgs[index]
 end 'funcParamType'
 
 export function funcParamConv(tt TypeTable, t TypeID, index Count) returns Convention
-	return tt.entries[originOf(tt, t: t) as Count].paramConvs[index]
+	return tt.entries[typeIndex(originOf(tt, t: t))].paramConvs[index]
 end 'funcParamConv'
 
 // funcResult is what a function type returns, void for nothing.
 export function funcResult(tt TypeTable, t TypeID) returns TypeID
-	return tt.entries[t as Count].typeArgs[funcParamCount(tt, t: t)]
+	return tt.entries[typeIndex(t)].typeArgs[funcParamCount(tt, t: t)]
 end 'funcResult'
 
 // funcTypeSpelling is how a message spells a function type, as maxon's do: its brand's name, or its shape.
 function funcTypeSpelling(tt TypeTable, t TypeID) returns String
 	if funcIsBrand(tt, t: t) 'brand'
-		return tt.entries[originOf(tt, t: t) as Count].name.clone()
+		return tt.entries[typeIndex(originOf(tt, t: t))].name.clone()
 	end 'brand'
 	return funcShapeSpelling(tt, t: t)
 end 'funcTypeSpelling'
@@ -989,7 +995,7 @@ export function funcShapeSpelling(tt TypeTable, t TypeID) returns String
 	end 'params'
 	b.push(41 as Byte)
 	let result = funcResult(tt, t: t)
-	if tt.entries[result as Count].kind != TypeKind.primVoid 'returns'
+	if tt.entries[typeIndex(result)].kind != TypeKind.primVoid 'returns'
 		b.append(" returns {typeName(tt, t: result)}".toByteArray())
 	end 'returns'
 	if funcMutatesCaptures(tt, t: t) 'captures'
@@ -1003,8 +1009,8 @@ export function mentionsType(tt TypeTable, t TypeID, target TypeID) returns bool
 	if t == target 'same'
 		return true
 	end 'same'
-	for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
-		if mentionsType(tt, t: tt.entries[t as Count].typeArgs[i], target: target) 'inside'
+	for i in 0 upto tt.entries[typeIndex(t)].typeArgs.count() 'each'
+		if mentionsType(tt, t: tt.entries[typeIndex(t)].typeArgs[i], target: target) 'inside'
 			return true
 		end 'inside'
 	end 'each'
@@ -1013,11 +1019,11 @@ end 'mentionsType'
 
 // mentionsTypeParam is whether the type is a type parameter or an instance with one anywhere in its arguments.
 export function mentionsTypeParam(tt TypeTable, t TypeID) returns bool
-	if tt.entries[t as Count].kind == TypeKind.typeParam 'param'
+	if tt.entries[typeIndex(t)].kind == TypeKind.typeParam 'param'
 		return true
 	end 'param'
-	for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
-		if mentionsTypeParam(tt, t: tt.entries[t as Count].typeArgs[i]) 'inside'
+	for i in 0 upto tt.entries[typeIndex(t)].typeArgs.count() 'each'
+		if mentionsTypeParam(tt, t: tt.entries[typeIndex(t)].typeArgs[i]) 'inside'
 			return true
 		end 'inside'
 	end 'each'
@@ -1029,10 +1035,10 @@ end 'mentionsTypeParam'
 // found, since each holds a larger one. An argument that is a type parameter, as in a type that holds itself with its
 // parameters swapped, repeats.
 export function holdsGrowingInstance(tt TypeTable, t TypeID, origin TypeID) returns bool
-	let isInstanceOfOrigin = tt.entries[t as Count].typeArgs.count() > 0 and tt.entries[t as Count].effectiveOrigin() == origin
-	for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
-		let arg = tt.entries[t as Count].typeArgs[i]
-		if isInstanceOfOrigin and tt.entries[arg as Count].kind != TypeKind.typeParam and mentionsTypeParam(tt, t: arg) 'grows'
+	let isInstanceOfOrigin = tt.entries[typeIndex(t)].typeArgs.count() > 0 and tt.entries[typeIndex(t)].effectiveOrigin() == origin
+	for i in 0 upto tt.entries[typeIndex(t)].typeArgs.count() 'each'
+		let arg = tt.entries[typeIndex(t)].typeArgs[i]
+		if isInstanceOfOrigin and tt.entries[typeIndex(arg)].kind != TypeKind.typeParam and mentionsTypeParam(tt, t: arg) 'grows'
 			return true
 		end 'grows'
 		if holdsGrowingInstance(tt, t: arg, origin: origin) 'inside'
@@ -1046,13 +1052,13 @@ export function hasTypeDepthOverflow(tt TypeTable, t TypeID, depth Count) return
 	if depth > maxTypeDepth 'over'
 		return true
 	end 'over'
-	let n = tt.entries[t as Count].typeArgs.count()
+	let n = tt.entries[typeIndex(t)].typeArgs.count()
 	if n == 0 'leaf'
 		return false
 	end 'leaf'
 	let nextDepth = try depth + 1 otherwise maxTypeDepth
 	for i in 0 upto n 'each'
-		let child = tt.entries[t as Count].typeArgs[i]
+		let child = tt.entries[typeIndex(t)].typeArgs[i]
 		if hasTypeDepthOverflow(tt, t: child, depth: nextDepth) 'deep'
 			return true
 		end 'deep'
@@ -1064,7 +1070,7 @@ export function isIntType(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	let k = tt.entries[t as Count].kind
+	let k = tt.entries[typeIndex(t)].kind
 	return k == TypeKind.intRange or k == TypeKind.constInt
 end 'isIntType'
 
@@ -1073,7 +1079,7 @@ export function isBitPattern(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return tt.entries[t as Count].bitsWidth != 0
+	return tt.entries[typeIndex(t)].bitsWidth != 0
 end 'isBitPattern'
 
 // isWordPattern is whether the type is that of a bits(64) typealias: a pattern as wide as the word that arithmetic
@@ -1082,7 +1088,7 @@ export function isWordPattern(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return tt.entries[t as Count].bitsWidth == 64
+	return tt.entries[typeIndex(t)].bitsWidth == 64
 end 'isWordPattern'
 
 // isErrorType is whether a function can throw the type: an enum, whose case is the error, or a union, whose value is.
@@ -1090,7 +1096,7 @@ export function isErrorType(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return tt.entries[t as Count].kind == TypeKind.enumTy or tt.entries[t as Count].kind == TypeKind.unionTy
+	return tt.entries[typeIndex(t)].kind == TypeKind.enumTy or tt.entries[typeIndex(t)].kind == TypeKind.unionTy
 end 'isErrorType'
 
 // isUnionError is whether the type is an error union: its error is a heap box that the failing function hands to its
@@ -1099,36 +1105,36 @@ export function isUnionError(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return tt.entries[t as Count].kind == TypeKind.unionTy
+	return tt.entries[typeIndex(t)].kind == TypeKind.unionTy
 end 'isUnionError'
 
 export function isUnsignedInt(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	if tt.entries[t as Count].kind != TypeKind.intRange 'notRange'
+	if tt.entries[typeIndex(t)].kind != TypeKind.intRange 'notRange'
 		return false
 	end 'notRange'
-	return not tt.entries[t as Count].minVal.isNeg() and not tt.entries[t as Count].maxVal.fitsI64()
+	return not tt.entries[typeIndex(t)].minVal.isNeg() and not tt.entries[typeIndex(t)].maxVal.fitsI64()
 end 'isUnsignedInt'
 
 export function isSharedType(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	let k = tt.entries[t as Count].kind
+	let k = tt.entries[typeIndex(t)].kind
 	return k == TypeKind.builtinFrozen or k == TypeKind.builtinCown
 end 'isSharedType'
 
 // isFunctionType is whether the type is a function type, whose values are closures that may hold borrows.
 export function isFunctionType(tt TypeTable, t TypeID) returns bool
-	return t != noType and tt.entries[t as Count].kind == TypeKind.funcTy
+	return t != noType and tt.entries[typeIndex(t)].kind == TypeKind.funcTy
 end 'isFunctionType'
 
 // castRebrands is whether a cast to target changes only the type of its value: a cast to anything but a number converts
 // nothing, so its value is the operand's.
 export function castRebrands(tt TypeTable, target TypeID) returns bool
-	let k = tt.entries[target as Count].kind
+	let k = tt.entries[typeIndex(target)].kind
 	return k != TypeKind.intRange and k != TypeKind.floatRange
 end 'castRebrands'
 
@@ -1148,7 +1154,7 @@ export function isManagedType(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return match tt.entries[t as Count].kind 'k'
+	return match tt.entries[typeIndex(t)].kind 'k'
 		primString gives true
 		record gives true
 		unionTy gives true
@@ -1176,11 +1182,11 @@ end 'isManagedType'
 
 export function contentType(tt TypeTable, t TypeID) returns TypeID
 	var cur = t
-	while cur != noType and tt.entries[cur as Count].kind == TypeKind.builtinFrozen 'unwrap'
-		if tt.entries[cur as Count].typeArgs.count() > 0 'arg'
-			cur = tt.entries[cur as Count].typeArgs[0]
-		end 'arg' else if tt.entries[cur as Count].typeParams.count() > 0 'tp'
-			cur = tt.entries[cur as Count].typeParams[0]
+	while cur != noType and tt.entries[typeIndex(cur)].kind == TypeKind.builtinFrozen 'unwrap'
+		if tt.entries[typeIndex(cur)].typeArgs.count() > 0 'arg'
+			cur = tt.entries[typeIndex(cur)].typeArgs[0]
+		end 'arg' else if tt.entries[typeIndex(cur)].typeParams.count() > 0 'tp'
+			cur = tt.entries[typeIndex(cur)].typeParams[0]
 		end 'tp' else 'stop'
 			break 'unwrap'
 		end 'stop'
@@ -1219,49 +1225,49 @@ end 'instanceSpelling'
 
 // intSpelling is how an integer type's range is written.
 function intSpelling(tt TypeTable, t TypeID) returns String
-	return "int({tt.entries[t as Count].minVal.toString()} to {tt.entries[t as Count].maxVal.toString()})"
+	return "int({tt.entries[typeIndex(t)].minVal.toString()} to {tt.entries[typeIndex(t)].maxVal.toString()})"
 end 'intSpelling'
 
 export function typeName(tt TypeTable, t TypeID) returns String
 	if t == noType 'none'
 		return "<invalid>"
 	end 'none'
-	let k = tt.entries[t as Count].kind
+	let k = tt.entries[typeIndex(t)].kind
 	if k == TypeKind.funcTy 'function'
 		return funcTypeSpelling(tt, t: t)
 	end 'function'
 	if k == TypeKind.intRange 'rng'
-		if tt.entries[t as Count].name != "" 'named'
-			return tt.entries[t as Count].name.clone()
+		if tt.entries[typeIndex(t)].name != "" 'named'
+			return tt.entries[typeIndex(t)].name.clone()
 		end 'named'
 		return intSpelling(tt, t: t)
 	end 'rng'
-	if k == TypeKind.floatRange and tt.entries[t as Count].name == "" 'anonFloat'
+	if k == TypeKind.floatRange and tt.entries[typeIndex(t)].name == "" 'anonFloat'
 		return floatSpelling(tt, t: t)
 	end 'anonFloat'
-	if isTupleType(tt, t: t) and tt.entries[t as Count].typeArgs.count() > 0 'tuple'
+	if isTupleType(tt, t: t) and tt.entries[typeIndex(t)].typeArgs.count() > 0 'tuple'
 		var parts = ByteArray.create(0)
 		parts.push(40 as Byte)
-		for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
+		for i in 0 upto tt.entries[typeIndex(t)].typeArgs.count() 'each'
 			if i > 0 'sep'
 				parts.append(", ".toByteArray())
 			end 'sep'
-			parts.append(typeName(tt, t: tt.entries[t as Count].typeArgs[i]).toByteArray())
+			parts.append(typeName(tt, t: tt.entries[typeIndex(t)].typeArgs[i]).toByteArray())
 		end 'each'
 		parts.push(41 as Byte)
 		return String.from(parts)
 	end 'tuple'
 	if statesCount(tt, t: t) 'counted'
-		return countedSpelling(tt.entries[t as Count].name, count: "{statedCount(tt, t: t)}", element: typeName(tt, t: tt.entries[t as Count].typeArgs[0]))
+		return countedSpelling(tt.entries[typeIndex(t)].name, count: "{statedCount(tt, t: t)}", element: typeName(tt, t: tt.entries[typeIndex(t)].typeArgs[0]))
 	end 'counted'
-	if tt.entries[t as Count].typeArgs.count() > 0 'inst'
+	if tt.entries[typeIndex(t)].typeArgs.count() > 0 'inst'
 		var argNames = StringList.create(0)
-		for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
-			argNames.push(typeName(tt, t: tt.entries[t as Count].typeArgs[i]))
+		for i in 0 upto tt.entries[typeIndex(t)].typeArgs.count() 'each'
+			argNames.push(typeName(tt, t: tt.entries[typeIndex(t)].typeArgs[i]))
 		end 'each'
-		return instanceSpelling(tt.entries[t as Count].name, args: argNames)
+		return instanceSpelling(tt.entries[typeIndex(t)].name, args: argNames)
 	end 'inst'
-	return tt.entries[t as Count].name.clone()
+	return tt.entries[typeIndex(t)].name.clone()
 end 'typeName'
 
 export type FuncTable
@@ -1274,6 +1280,11 @@ export type FuncTable
 		return FuncTable{entries: es, instCache: FuncInternMap.new()}
 	end 'new'
 end 'FuncTable'
+
+// funcIndex is the position of the function f in the entries of its table, for the reason typeIndex is.
+export function funcIndex(f FuncID) returns Count
+	return f as Count
+end 'funcIndex'
 
 export function allocFunc(mutates ft FuncTable, consumes f FuncEntry) returns FuncID
 	let id = try ft.entries.count() as FuncID otherwise panic("too many functions")
@@ -1294,31 +1305,31 @@ export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, orig
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
-	let origName = ft.entries[origin as Count].name.clone()
-	let origVis = ft.entries[origin as Count].visibility.clone()
-	let origMod = ft.entries[origin as Count].module
-	let origNode = ft.entries[origin as Count].nodeID
+	let origName = ft.entries[funcIndex(origin)].name.clone()
+	let origVis = ft.entries[funcIndex(origin)].visibility.clone()
+	let origMod = ft.entries[funcIndex(origin)].module
+	let origNode = ft.entries[funcIndex(origin)].nodeID
 	var inst = FuncEntry.make(origName, visibility: origVis, module: origMod, nodeID: origNode)
-	inst.hasDecl = ft.entries[origin as Count].hasDecl
-	inst.decl = ft.entries[origin as Count].decl.clone()
-	inst.isStatic = ft.entries[origin as Count].isStatic
-	inst.isDestructor = ft.entries[origin as Count].isDestructor
-	inst.hasReceiver = ft.entries[origin as Count].hasReceiver
-	inst.selfConv = ft.entries[origin as Count].selfConv
-	inst.intrinsic = ft.entries[origin as Count].intrinsic
-	inst.errTy = ft.entries[origin as Count].errTy
+	inst.hasDecl = ft.entries[funcIndex(origin)].hasDecl
+	inst.decl = ft.entries[funcIndex(origin)].decl.clone()
+	inst.isStatic = ft.entries[funcIndex(origin)].isStatic
+	inst.isDestructor = ft.entries[funcIndex(origin)].isDestructor
+	inst.hasReceiver = ft.entries[funcIndex(origin)].hasReceiver
+	inst.selfConv = ft.entries[funcIndex(origin)].selfConv
+	inst.intrinsic = ft.entries[funcIndex(origin)].intrinsic
+	inst.errTy = ft.entries[funcIndex(origin)].errTy
 	inst.genericOrigin = origin
-	inst.extendedIface = ft.entries[origin as Count].extendedIface
+	inst.extendedIface = ft.entries[funcIndex(origin)].extendedIface
 	inst.typeArgs = cloneTypeArgs(args)
 	inst.witnesses = witnesses.clone()
-	let origParams = cloneTypeArgs(ft.entries[origin as Count].generics)
-	if ft.entries[origin as Count].ownerTy != noType 'own'
-		inst.ownerTy = substituteType(tt, t: ft.entries[origin as Count].ownerTy, params: origParams, args: args)
+	let origParams = cloneTypeArgs(ft.entries[funcIndex(origin)].generics)
+	if ft.entries[funcIndex(origin)].ownerTy != noType 'own'
+		inst.ownerTy = substituteType(tt, t: ft.entries[funcIndex(origin)].ownerTy, params: origParams, args: args)
 	end 'own'
-	inst.retTy = substituteType(tt, t: ft.entries[origin as Count].retTy, params: origParams, args: args)
-	for i in 0 upto ft.entries[origin as Count].params.count() 'eachP'
-		let pTy = substituteType(tt, t: ft.entries[origin as Count].params[i].ty, params: origParams, args: args)
-		var spec = ft.entries[origin as Count].params[i].clone()
+	inst.retTy = substituteType(tt, t: ft.entries[funcIndex(origin)].retTy, params: origParams, args: args)
+	for i in 0 upto ft.entries[funcIndex(origin)].params.count() 'eachP'
+		let pTy = substituteType(tt, t: ft.entries[funcIndex(origin)].params[i].ty, params: origParams, args: args)
+		var spec = ft.entries[funcIndex(origin)].params[i].clone()
 		spec.ty = pTy
 		inst.params.push(spec)
 		inst.paramTypes.push(pTy)
@@ -1331,23 +1342,23 @@ end 'instantiateFunc'
 // memberType is the type of a field or a payload that its declaration gives as declared, in the instance owner.
 export function memberType(mutates tt TypeTable, owner TypeID, declared TypeID) returns TypeID
 	let origin = originOf(tt, t: owner)
-	if owner == origin or tt.entries[owner as Count].typeArgs.count() == 0 'declared'
+	if owner == origin or tt.entries[typeIndex(owner)].typeArgs.count() == 0 'declared'
 		return declared
 	end 'declared'
-	let params = cloneTypeArgs(tt.entries[origin as Count].typeParams)
-	let args = cloneTypeArgs(tt.entries[owner as Count].typeArgs)
+	let params = cloneTypeArgs(tt.entries[typeIndex(origin)].typeParams)
+	let args = cloneTypeArgs(tt.entries[typeIndex(owner)].typeArgs)
 	return substituteType(tt, t: declared, params: params, args: args)
 end 'memberType'
 
 // fieldType is the type of the field at index of the record owner, an instance's with its arguments applied.
 export function fieldType(mutates tt TypeTable, owner TypeID, index Count) returns TypeID
-	let declared = tt.entries[originOf(tt, t: owner) as Count].fields[index].ty
+	let declared = tt.entries[typeIndex(originOf(tt, t: owner))].fields[index].ty
 	return memberType(tt, owner: owner, declared: declared)
 end 'fieldType'
 
 // payloadType is the type of the payload at index of a case of the union owner, an instance's with its arguments applied.
 export function payloadType(mutates tt TypeTable, owner TypeID, caseIndex Count, index Count) returns TypeID
-	let declared = tt.entries[originOf(tt, t: owner) as Count].cases[caseIndex].payload[index].ty
+	let declared = tt.entries[typeIndex(originOf(tt, t: owner))].cases[caseIndex].payload[index].ty
 	return memberType(tt, owner: owner, declared: declared)
 end 'payloadType'
 
@@ -1355,15 +1366,15 @@ end 'payloadType'
 // fits in a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an
 // array asks this, so the two boxes are never mistaken for each other.
 export function packsBytes(tt TypeTable, b Builtins, t TypeID) returns bool
-	if tt.entries[t as Count].kind != TypeKind.builtinArray 'notArray'
+	if tt.entries[typeIndex(t)].kind != TypeKind.builtinArray 'notArray'
 		return false
 	end 'notArray'
-	let elem = tt.entries[t as Count].typeArgs[0]
-	if tt.entries[elem as Count].kind != TypeKind.intRange 'notInt'
+	let elem = tt.entries[typeIndex(t)].typeArgs[0]
+	if tt.entries[typeIndex(elem)].kind != TypeKind.intRange 'notInt'
 		return false
 	end 'notInt'
-	let byteTy = b.byteTy as Count
-	return tt.entries[elem as Count].minVal.ge(tt.entries[byteTy].minVal) and tt.entries[elem as Count].maxVal.le(tt.entries[byteTy].maxVal)
+	let byteTy = b.byteTy
+	return tt.entries[typeIndex(elem)].minVal.ge(tt.entries[typeIndex(byteTy)].minVal) and tt.entries[typeIndex(elem)].maxVal.le(tt.entries[typeIndex(byteTy)].maxVal)
 end 'packsBytes'
 
 // leadingParams is how many words a call of the function passes before its parameters: the receiver of a method, or the

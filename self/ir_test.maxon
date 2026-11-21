@@ -44,7 +44,7 @@ function irLocal(mutates p ast.Project, fn ast.FuncID, name String, ty ast.TypeI
 	var entry = ast.LocalEntry.make(name.clone(), ty: ty, isVar: true, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
 	entry.slot = slot
 	let id = p.typings[0].allocLocal(entry)
-	let node = p.funcs.entries[fn as Count].nodeID
+	let node = p.funcs.entries[ast.funcIndex(fn)].nodeID
 	var ids = ast.LocalIDList.create(0)
 	match consumes p.typings[0].funcLocals.get(node as Count) 'known'
 		some(list) then ids = list
@@ -327,7 +327,7 @@ function testRaw()
 	let wID = p.typings[0].allocLocal(local)
 	var ids = ast.LocalIDList.create(0)
 	ids.push(wID)
-	p.typings[0].funcLocals.insert(p.funcs.entries[probe as Count].nodeID as Count, value: ids)
+	p.typings[0].funcLocals.insert(p.funcs.entries[ast.funcIndex(probe)].nodeID as Count, value: ids)
 	let wNode = irNode(p, kind: ast.NodeKind.nameExpr, ty: countTy)
 	p.typings[0].names.insert(wNode as Count, value: ast.NameInfo.localName(wID))
 	let nameNode = ast.newStrLit(p.modules[0].tree, start: 0 as diag.U32)

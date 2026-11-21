@@ -28,7 +28,7 @@ function checkFromExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 		failAt(c, p: p, node: head, code: diag.errUnknownType, msg: "'{placeText(p.modules[c.modIdx].tree, e: head)}' names no type: 'from' follows the name of the type that is written from the value", errs: errs)
 		return ast.noType
 	end 'unnamed'
-	let kind = p.types.entries[ty as Count].kind
+	let kind = p.types.entries[ast.typeIndex(ty)].kind
 	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList 'collection'
 		return checkFromCollection(c, p: p, e: e, ty: ty, value: value, errs: errs)
 	end 'collection'
@@ -40,7 +40,7 @@ end 'checkFromExpr'
 function checkFromCollection(mutates c Checker, mutates p ast.Project, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = nameOfType(p, t: ty)
 	if p.modules[c.modIdx].tree.kindOf(value) != ast.NodeKind.collectionLitExpr 'notLiteral'
-		if p.types.entries[ty as Count].kind == ast.TypeKind.builtinList 'list'
+		if p.types.entries[ast.typeIndex(ty)].kind == ast.TypeKind.builtinList 'list'
 			failAt(c, p: p, node: value, code: diag.errUnsupportedFeature, msg: "Unsupported: '{name} from' an array value; write the elements as a literal: '{name} from [a, b]'", errs: errs)
 			return ast.noType
 		end 'list'
@@ -54,11 +54,11 @@ function checkFromCollection(mutates c Checker, mutates p ast.Project, e ast.Nod
 	if ast.originOf(p.types, t: ty) == p.builtins.fixedArrayOrigin 'fixed'
 		return checkFromFixedArray(c, p: p, e: e, ty: ty, value: value, errs: errs)
 	end 'fixed'
-	let bare = p.types.entries[ty as Count].typeParams.count() > 0
+	let bare = p.types.entries[ast.typeIndex(ty)].typeParams.count() > 0
 	var want = ast.noType
 	if not bare 'stated'
 		want = ty
-		if p.types.entries[ty as Count].kind == ast.TypeKind.builtinList 'list'
+		if p.types.entries[ast.typeIndex(ty)].kind == ast.TypeKind.builtinList 'list'
 			var args = ast.TypeIDList.create(0)
 			args.push(ast.typeArgAt(p.types, t: ty, index: 0))
 			let arrayOrigin = p.builtins.arrayOrigin
@@ -80,7 +80,7 @@ end 'checkFromCollection'
 // checkFromFixedArray types a fixed array written from an array literal: an array of the element its head states, or of
 // the one the elements give, whose count is the literal's. A head that states a count takes a literal of as many elements.
 function checkFromFixedArray(mutates c Checker, mutates p ast.Project, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let bare = p.types.entries[ty as Count].typeParams.count() > 0
+	let bare = p.types.entries[ast.typeIndex(ty)].typeParams.count() > 0
 	var want = ast.noType
 	if not bare 'stated'
 		var args = ast.TypeIDList.create(0)
@@ -116,9 +116,9 @@ end 'checkFromFixedArray'
 // implementsNamed is whether the declaration of t says it implements an interface of that name, whichever declaration of
 // the name that is: Maxon finds a type's conformance to the literal interfaces by their names.
 function implementsNamed(p ast.Project, t ast.TypeID, name String) returns bool
-	let conforms = ast.cloneTypeArgs(p.types.entries[ast.originOf(p.types, t: t) as Count].conforms)
+	let conforms = ast.cloneTypeArgs(p.types.entries[ast.typeIndex(ast.originOf(p.types, t: t))].conforms)
 	for i in 0 upto conforms.count() 'each'
-		if p.types.entries[conforms[i] as Count].name == name 'named'
+		if p.types.entries[ast.typeIndex(conforms[i])].name == name 'named'
 			return true
 		end 'named'
 	end 'each'
@@ -137,7 +137,7 @@ function checkFromString(mutates c Checker, mutates p ast.Project, head ast.Node
 		return ast.noType
 	end 'doesNotConform'
 	let init = methodNamed(p, t: ty, name: initName)
-	if init == ast.noFunc or not p.funcs.entries[init as Count].isStatic 'missing'
+	if init == ast.noFunc or not p.funcs.entries[ast.funcIndex(init)].isStatic 'missing'
 		failAt(c, p: p, node: e, code: diag.errUnknownFunction, msg: diag.undefinedFunction("{name}.{initName}"), errs: errs)
 		return ast.noType
 	end 'missing'
@@ -149,7 +149,7 @@ function checkFromString(mutates c Checker, mutates p ast.Project, head ast.Node
 		return ast.noType
 	end 'failed'
 	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: init, receiverTy: ast.noType)
-	info.intrinsic = p.funcs.entries[init as Count].intrinsic
+	info.intrinsic = p.funcs.entries[ast.funcIndex(init)].intrinsic
 	c.typing.calls.insert(e as Count, value: info)
 	return ty
 end 'checkFromString'

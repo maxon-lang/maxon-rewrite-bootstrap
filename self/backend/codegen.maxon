@@ -98,7 +98,7 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
 	// routines of its types, which are asked for in the order the code does.
 	function prepare(mutates self, mutates p ast.Project, f ir.IrFunction)
-		canThrow = p.funcs.entries[f.decl as Count].errTy != ast.noType
+		canThrow = p.funcs.entries[ast.funcIndex(f.decl)].errTy != ast.noType
 		calleeSymbols = CalleeSymbols.new()
 		for i in 0 upto f.callees.count() 'callees'
 			calleeSymbols.insert(f.callees[i] as Count, value: ast.funcLinkName(p, fid: f.callees[i]))
@@ -1266,7 +1266,7 @@ end 'frameBytes'
 export function emitModule(mutates p ast.Project, fns ir.IrFunctionList) returns CodeUnit
 	var g = Codegen.new()
 	for i in 0 upto fns.count() 'each'
-		emitFunctionTree(g, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.entries[fns[i].decl as Count].genericOrigin != ast.noFunc)
+		emitFunctionTree(g, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.entries[ast.funcIndex(fns[i].decl)].genericOrigin != ast.noFunc)
 	end 'each'
 	g.u.asm.endLabels()
 	return exchange(g.u, value: CodeUnit.new())

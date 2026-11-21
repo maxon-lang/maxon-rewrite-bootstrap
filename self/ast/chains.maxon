@@ -38,7 +38,7 @@ export function trimFolded(p Project, typing Typing, mutates chain NodeList)
 	for i in 0 upto chain.count() 'scan'
 		let nested = chain[i]
 		let ty = nodeType(typing, node: nested)
-		if i < keep and ty != noType and (p.types.entries[ty as Count].kind == TypeKind.constInt or p.types.entries[ty as Count].kind == TypeKind.constFloat) 'folded'
+		if i < keep and ty != noType and (p.types.entries[typeIndex(ty)].kind == TypeKind.constInt or p.types.entries[typeIndex(ty)].kind == TypeKind.constFloat) 'folded'
 			keep = i
 		end 'folded'
 	end 'scan'

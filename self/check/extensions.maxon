@@ -49,13 +49,13 @@ function bindExtensionParams(mutates c Checker, mutates p ast.Project, xd ast.Ex
 end 'bindExtensionParams'
 
 function bindParamsFrom(mutates c Checker, mutates p ast.Project, first Count, nt ast.TypeID)
-	for i in 0 upto p.types.entries[nt as Count].typeParams.count() 'params'
+	for i in 0 upto p.types.entries[ast.typeIndex(nt)].typeParams.count() 'params'
 		let slot = try first + i otherwise panic("too many type parameters")
 		let node = p.resolutions[c.modIdx].typeParams[slot].id
 		let name = p.resolutions[c.modIdx].typeParams[slot].name.clone()
 		match paramNamed(p, owner: nt, name: name) 'shell'
 			some(tid) then ast.setParamType(p, module: c.modID, node: node, t: tid)
-			none then panic("the type parameter '{name}' of an extension is not one of '{p.types.entries[nt as Count].name}'")
+			none then panic("the type parameter '{name}' of an extension is not one of '{p.types.entries[ast.typeIndex(nt)].name}'")
 		end 'shell'
 	end 'params'
 end 'bindParamsFrom'
@@ -63,19 +63,19 @@ end 'bindParamsFrom'
 // staticAllowed is whether an extension of the type may add a static function: only a type and a built-in generic type have
 // them.
 function staticAllowed(p ast.Project, nt ast.TypeID) returns bool
-	let kind = p.types.entries[nt as Count].kind
+	let kind = p.types.entries[ast.typeIndex(nt)].kind
 	return kind == ast.TypeKind.record or kind.isBuiltin()
 end 'staticAllowed'
 
 // staticRefusal is why an extension of the type nt may not add a static function.
 function staticRefusal(p ast.Project, nt ast.TypeID) returns String
-	let kind = p.types.entries[nt as Count].kind
+	let kind = p.types.entries[ast.typeIndex(nt)].kind
 	if kind == ast.TypeKind.enumTy or kind == ast.TypeKind.unionTy 'cases'
 		var word = unionWord
 		if kind == ast.TypeKind.enumTy 'enum'
 			word = enumWord
 		end 'enum'
-		return "Unsupported: a `static function` on `{word} {p.types.entries[nt as Count].name}` (an INSTANCE method is supported — a static one has no receiver to name the {word} through, and no `enum`/`union` in the corpus declares one)"
+		return "Unsupported: a `static function` on `{word} {p.types.entries[ast.typeIndex(nt)].name}` (an INSTANCE method is supported — a static one has no receiver to name the {word} through, and no `enum`/`union` in the corpus declares one)"
 	end 'cases'
 	return "a static function belongs in a 'type'"
 end 'staticRefusal'
@@ -105,8 +105,8 @@ function addExtensionMethod(mutates c Checker, mutates p ast.Project, xd ast.Ext
 		return
 	end 'dup'
 	let fid = newFuncEntry(c, p: p, f: m, ownerTy: nt, ref: ast.DeclRef.make(c.modID, ordinal: 0 as ast.DeclOrdinal))
-	if p.types.entries[key as Count].kind == ast.TypeKind.interfaceTy 'ofInterface'
-		p.funcs.entries[fid as Count].extendedIface = key
+	if p.types.entries[ast.typeIndex(key)].kind == ast.TypeKind.interfaceTy 'ofInterface'
+		p.funcs.entries[ast.funcIndex(fid)].extendedIface = key
 	end 'ofInterface'
 	p.modules[c.modIdx].extMethods.push(ast.ExtMethod.make(key, name: m.name.clone(), func: fid))
 	addFunction(c, p: p, f: m, fid: fid, nt: nt, declared: declared, errs: errs)
@@ -114,7 +114,7 @@ function addExtensionMethod(mutates c Checker, mutates p ast.Project, xd ast.Ext
 	for i in 0 upto xd.whereList.count() 'conditions'
 		conditional = try conditional + p.modules[c.modIdx].tree.listLen(xd.whereList[i].bounds) otherwise panic("too many bounds")
 	end 'conditions'
-	p.funcs.entries[fid as Count].conditionalBounds = conditional
+	p.funcs.entries[ast.funcIndex(fid)].conditionalBounds = conditional
 end 'addExtensionMethod'
 
 // declareExtension declares the methods and the conformances an extension adds, under the key of the type it extends.
@@ -125,7 +125,7 @@ function declareExtension(mutates c Checker, mutates p ast.Project, xd ast.Exten
 		return
 	end 'failed'
 	bindExtensionParams(c, p: p, xd: xd, nt: nt)
-	if p.types.entries[nt as Count].kind == ast.TypeKind.interfaceTy 'ofInterface'
+	if p.types.entries[ast.typeIndex(nt)].kind == ast.TypeKind.interfaceTy 'ofInterface'
 		declareInterfaceExtension(c, p: p, xd: xd, iface: nt, declared: declared, errs: errs)
 		return
 	end 'ofInterface'
@@ -147,14 +147,14 @@ end 'declareExtension'
 // the interface's associated types, and its body is checked once against the bound. It is no requirement: a call reaches
 // it where the code knows no method of that name of the type.
 function declareInterfaceExtension(mutates c Checker, mutates p ast.Project, xd ast.ExtensionDecl, iface ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
-	let name = p.types.entries[iface as Count].name.clone()
+	let name = p.types.entries[ast.typeIndex(iface)].name.clone()
 	if p.modules[c.modIdx].tree.listLen(xd.conforms) > 0 'conforms'
 		checkFail(c.modID, off: offsetOf(c, p: p, node: xd.id), code: diag.errUnsupportedFeature, msg: "Unsupported: `extension {name} implements ...` — an extension of an interface adds methods to the types that implement it and declares no conformance; let '{name}' extend the other interface, or say `implements` on each type", errs: errs)
 		return
 	end 'conforms'
 	let selfParam = ast.allocType(p.types, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: "Self"))
 	let bound = ast.selfType(p.types, declTy: iface)
-	p.types.entries[selfParam as Count].bounds.push(ast.ParamBound.make(selfParam, ifaceTy: bound))
+	p.types.entries[ast.typeIndex(selfParam)].bounds.push(ast.ParamBound.make(selfParam, ifaceTy: bound))
 	for i in 0 upto xd.methods.count() 'methods'
 		addExtensionMethod(c, p: p, xd: xd, method: xd.methods[i].clone(), nt: selfParam, key: iface, declared: declared, errs: errs)
 	end 'methods'
@@ -207,7 +207,7 @@ export function verifyExtensions(mutates c Checker, mutates p ast.Project, mutat
 	for i in 0 upto p.modules[c.modIdx].extMethods.count() 'each'
 		let entry = p.modules[c.modIdx].extMethods[i].clone()
 		if bodyDeclares(p, owner: entry.owner, name: entry.name) 'dup'
-			checkFail(c.modID, off: offsetOf(c, p: p, node: p.funcs.entries[entry.func as Count].nodeID), code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(entry.name, typeName: ast.typeName(p.types, t: entry.owner)), errs: errs)
+			checkFail(c.modID, off: offsetOf(c, p: p, node: p.funcs.entries[ast.funcIndex(entry.func)].nodeID), code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(entry.name, typeName: ast.typeName(p.types, t: entry.owner)), errs: errs)
 		end 'dup'
 	end 'each'
 end 'verifyExtensions'
@@ -217,7 +217,7 @@ function bodyDeclares(p ast.Project, owner ast.TypeID, name String) returns bool
 	if owner == p.builtins.stringTy 'string'
 		return stringMethodNamed(p, name: name) != ast.noFunc
 	end 'string'
-	return p.types.entries[owner as Count].findMethod(name).isSome()
+	return p.types.entries[ast.typeIndex(owner)].findMethod(name).isSome()
 end 'bodyDeclares'
 
 // declareExtensionAliases files the typealiases that the module's extensions declare under the types they extend, which the
@@ -249,12 +249,12 @@ function declareAliasesOfExtension(mutates c Checker, mutates p ast.Project, xd 
 	if failedSince(errs, mark: mark) 'failed'
 		nt = ast.noType
 	end 'failed'
-	if nt != ast.noType and (p.types.entries[nt as Count].kind == ast.TypeKind.enumTy or p.types.entries[nt as Count].kind == ast.TypeKind.unionTy) 'cases'
+	if nt != ast.noType and (p.types.entries[ast.typeIndex(nt)].kind == ast.TypeKind.enumTy or p.types.entries[ast.typeIndex(nt)].kind == ast.TypeKind.unionTy) 'cases'
 		refuseExtensionAliases(c, p: p, xd: xd, code: diag.errExpectedToken, msg: diag.expectedToken("'function'", got: "typealias"), errs: errs)
 		nt = ast.noType
 	end 'cases'
-	if nt != ast.noType and p.types.entries[nt as Count].kind == ast.TypeKind.interfaceTy 'interface'
-		refuseExtensionAliases(c, p: p, xd: xd, code: diag.errUnsupportedFeature, msg: "Unsupported: a typealias in an extension of the interface '{p.types.entries[nt as Count].name}': an interface's typealiases are declared in its body, and an extension of an interface adds methods only", errs: errs)
+	if nt != ast.noType and p.types.entries[ast.typeIndex(nt)].kind == ast.TypeKind.interfaceTy 'interface'
+		refuseExtensionAliases(c, p: p, xd: xd, code: diag.errUnsupportedFeature, msg: "Unsupported: a typealias in an extension of the interface '{p.types.entries[ast.typeIndex(nt)].name}': an interface's typealiases are declared in its body, and an extension of an interface adds methods only", errs: errs)
 		nt = ast.noType
 	end 'interface'
 	var key = ast.noType
@@ -292,7 +292,7 @@ end 'fileExtensionAlias'
 // refuseExtensionAlias reports why an extension of the type nt may not declare the typealias a, and tells whether it did: a
 // ranged one would be a type for each instance of a generic type, and the body of the type may declare the name.
 function refuseExtensionAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, key ast.TypeID, nt ast.TypeID, mutates errs diag.ErrorList) returns bool
-	if p.types.entries[nt as Count].typeParams.count() > 0 and not ast.aliasNamesInstance(a) 'perInstance'
+	if p.types.entries[ast.typeIndex(nt)].typeParams.count() > 0 and not ast.aliasNamesInstance(a) 'perInstance'
 		checkFail(c.modID, off: p.modules[c.modIdx].tree.startOf(a.id), code: diag.errUnsupportedFeature, msg: ast.perInstanceRangeRefusal(a.name), errs: errs)
 		return true
 	end 'perInstance'
@@ -348,7 +348,7 @@ end 'typeOfDecl'
 
 function bindMemberOf(mutates c Checker, mutates p ast.Project, ref ast.MemberRef, ownerTy ast.TypeID, off diag.U32, mutates errs diag.ErrorList)
 	let ownerName = ast.typeName(p.types, t: ownerTy)
-	if p.types.entries[ownerTy as Count].typeParams.count() > 0 'generic'
+	if p.types.entries[ast.typeIndex(ownerTy)].typeParams.count() > 0 'generic'
 		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: '{ownerName}.{ref.member}' names a typealias through the generic type '{ownerName}', whose typealiases are at its own type parameters: write it inside the type or an extension of it", errs: errs)
 		return
 	end 'generic'

@@ -144,17 +144,17 @@ end 'refuseBehaviourSelf'
 // one, so that a behaviour naming it is told why it cannot.
 function selfFieldInBehaviour(c Checker, mutates p ast.Project, name String) returns table.Option with ast.TypeID
 	let root = c.outers[0].fn
-	if root == ast.noFunc or not p.funcs.entries[root as Count].hasReceiver 'notMethod'
+	if root == ast.noFunc or not p.funcs.entries[ast.funcIndex(root)].hasReceiver 'notMethod'
 		return table.Option.none
 	end 'notMethod'
 	var rt = ast.noType
-	if p.types.entries[c.owner as Count].kind == ast.TypeKind.record 'record'
+	if p.types.entries[ast.typeIndex(c.owner)].kind == ast.TypeKind.record 'record'
 		rt = c.owner
 	end 'record'
 	if rt == ast.noType 'noRecord'
 		return table.Option.none
 	end 'noRecord'
-	match consumes p.types.entries[ast.originOf(p.types, t: rt) as Count].findField(name) 'field'
+	match consumes p.types.entries[ast.typeIndex(ast.originOf(p.types, t: rt))].findField(name) 'field'
 		some(index) then return table.Option.some(ast.fieldType(p.types, owner: rt, index: index))
 		none then return table.Option.none
 	end 'field'
@@ -163,7 +163,7 @@ end 'selfFieldInBehaviour'
 // enterBehaviour starts checking the body of a behaviour as a function of its own, whose first parameters give access to
 // the values of the cowns it names. It is false when a name that gives access cannot be bound.
 function enterBehaviour(mutates c Checker, mutates p ast.Project, stmt ast.NodeID, values ast.TypeIDList, mutates errs diag.ErrorList) returns bool
-	var entry = ast.FuncEntry.make(ast.behaviourName(funcSymbol(p, f: c.fn), index: c.whens), visibility: p.funcs.entries[c.fn as Count].visibility.clone(), module: c.modID, nodeID: stmt)
+	var entry = ast.FuncEntry.make(ast.behaviourName(funcSymbol(p, f: c.fn), index: c.whens), visibility: p.funcs.entries[ast.funcIndex(c.fn)].visibility.clone(), module: c.modID, nodeID: stmt)
 	entry.bodyRef = ast.whenStmtBodyRef(p.modules[c.modIdx].tree, id: stmt)
 	entry.retTy = p.builtins.voidTy
 	let fid = ast.allocFunc(p.funcs, f: entry)
@@ -246,9 +246,9 @@ end 'restoreOuter'
 
 function addBehaviourParam(mutates c Checker, mutates p ast.Project, fn ast.FuncID, local ast.LocalID)
 	let entry = c.typing.locals[local as Count].clone()
-	p.funcs.entries[fn as Count].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
-	p.funcs.entries[fn as Count].paramTypes.push(entry.ty)
-	p.funcs.entries[fn as Count].paramLocals.push(local)
+	p.funcs.entries[ast.funcIndex(fn)].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
+	p.funcs.entries[ast.funcIndex(fn)].paramTypes.push(entry.ty)
+	p.funcs.entries[ast.funcIndex(fn)].paramLocals.push(local)
 end 'addBehaviourParam'
 
 // checkBehaviour types a behaviour: it names cowns, and its body runs once it has exclusive access to all of them, with
@@ -426,23 +426,23 @@ function dropWithCall(mutates c Checker, mutates p ast.Project, call ast.NodeID,
 	if not requireVisible(c, p: p, node: arg, target: method, errs: errs) 'hidden'
 		return ast.noFunc
 	end 'hidden'
-	queueMethodBounds(c, p: p, off: offsetOf(c, p: p, node: call), method: method, args: p.types.entries[content as Count].typeArgs.clone())
+	queueMethodBounds(c, p: p, off: offsetOf(c, p: p, node: call), method: method, args: p.types.entries[ast.typeIndex(content)].typeArgs.clone())
 	return method
 end 'dropWithCall'
 
 // isNakedDestructor is whether a method is a destructor that takes nothing else and returns nothing, which is all that a
 // cown can call.
 function isNakedDestructor(p ast.Project, method ast.FuncID) returns bool
-	return not p.funcs.entries[method as Count].isStatic and p.funcs.entries[method as Count].isDestructor and p.funcs.entries[method as Count].params.count() == 0 and p.funcs.entries[method as Count].retTy == p.builtins.voidTy
+	return not p.funcs.entries[ast.funcIndex(method)].isStatic and p.funcs.entries[ast.funcIndex(method)].isDestructor and p.funcs.entries[ast.funcIndex(method)].params.count() == 0 and p.funcs.entries[ast.funcIndex(method)].retTy == p.builtins.voidTy
 end 'isNakedDestructor'
 
 // dropWithCandidates names the destructors that dropWith: may name, in declaration order, for the error that names another.
 function dropWithCandidates(p ast.Project, t ast.TypeID) returns String
 	let orig = ast.originOf(p.types, t: t)
 	var names = ast.StringList.create(0)
-	for i in 0 upto p.types.entries[orig as Count].methods.count() 'methods'
-		if isNakedDestructor(p, method: p.types.entries[orig as Count].methods[i].func) 'candidate'
-			names.push(p.types.entries[orig as Count].methods[i].name.clone())
+	for i in 0 upto p.types.entries[ast.typeIndex(orig)].methods.count() 'methods'
+		if isNakedDestructor(p, method: p.types.entries[ast.typeIndex(orig)].methods[i].func) 'candidate'
+			names.push(p.types.entries[ast.typeIndex(orig)].methods[i].name.clone())
 		end 'candidate'
 	end 'methods'
 	if names.count() == 0 'none'
@@ -468,12 +468,12 @@ end 'checkCownCycle'
 // reachesThroughCown is whether a value of type from holds one of type target, with a cown on the way. via is whether the
 // way so far already went through one.
 function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
-	let kind = p.types.entries[from as Count].kind
+	let kind = p.types.entries[ast.typeIndex(from)].kind
 	let orig = ast.originOf(p.types, t: from)
 	let holder = nameOfType(p, t: from)
 	if kind == ast.TypeKind.record 'record'
-		for fi in 0 upto p.types.entries[orig as Count].fields.count() 'fields'
-			let label = "{holder}.{p.types.entries[orig as Count].fields[fi].name}"
+		for fi in 0 upto p.types.entries[ast.typeIndex(orig)].fields.count() 'fields'
+			let label = "{holder}.{p.types.entries[ast.typeIndex(orig)].fields[fi].name}"
 			let held = ast.fieldType(p.types, owner: from, index: fi)
 			if followHolding(p, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 				return true
@@ -482,9 +482,9 @@ function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.T
 		return false
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		for ci in 0 upto p.types.entries[orig as Count].cases.count() 'cases'
-			let label = "{holder}.{p.types.entries[orig as Count].cases[ci].name}"
-			for pi in 0 upto p.types.entries[orig as Count].cases[ci].payload.count() 'payload'
+		for ci in 0 upto p.types.entries[ast.typeIndex(orig)].cases.count() 'cases'
+			let label = "{holder}.{p.types.entries[ast.typeIndex(orig)].cases[ci].name}"
+			for pi in 0 upto p.types.entries[ast.typeIndex(orig)].cases[ci].payload.count() 'payload'
 				let held = ast.payloadType(p.types, owner: from, caseIndex: ci, index: pi)
 				if followHolding(p, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 					return true
@@ -494,8 +494,8 @@ function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.T
 		return false
 	end 'union'
 	if kind.isBuiltin() and kind != ast.TypeKind.builtinHandle 'builtin'
-		for ai in 0 upto p.types.entries[from as Count].typeArgs.count() 'args'
-			let held = p.types.entries[from as Count].typeArgs[ai]
+		for ai in 0 upto p.types.entries[ast.typeIndex(from)].typeArgs.count() 'args'
+			let held = p.types.entries[ast.typeIndex(from)].typeArgs[ai]
 			if followHolding(p, label: holder, held: held, isCown: kind == ast.TypeKind.builtinCown, target: target, via: via, path: path, visited: visited) 'found'
 				return true
 			end 'found'

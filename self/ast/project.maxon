@@ -397,37 +397,37 @@ end 'typeLinkNames'
 
 // nominalLinkName is the link name of a declared type, and of an instance of a generic one.
 function nominalLinkName(p Project, t TypeID) returns String
-	let origin = p.types.entries[t as Count].effectiveOrigin()
-	if p.types.entries[origin as Count].isTuple 'tuple'
-		return "({joinNames(typeLinkNames(p, args: p.types.entries[t as Count].typeArgs), sep: ", ")})"
+	let origin = p.types.entries[typeIndex(t)].effectiveOrigin()
+	if p.types.entries[typeIndex(origin)].isTuple 'tuple'
+		return "({joinNames(typeLinkNames(p, args: p.types.entries[typeIndex(t)].typeArgs), sep: ", ")})"
 	end 'tuple'
-	if not p.types.entries[origin as Count].hasDecl 'undeclared'
-		panic("the type {p.types.entries[origin as Count].name} has no declaration, so no module can be named for its code")
+	if not p.types.entries[typeIndex(origin)].hasDecl 'undeclared'
+		panic("the type {p.types.entries[typeIndex(origin)].name} has no declaration, so no module can be named for its code")
 	end 'undeclared'
-	let declaring = p.types.entries[origin as Count].decl.module
-	let base = "{moduleLinkPath(p, modID: declaring)}{linkSeparator}{p.types.entries[origin as Count].name}"
-	if p.types.entries[t as Count].typeArgs.count() == 0 'plain'
+	let declaring = p.types.entries[typeIndex(origin)].decl.module
+	let base = "{moduleLinkPath(p, modID: declaring)}{linkSeparator}{p.types.entries[typeIndex(origin)].name}"
+	if p.types.entries[typeIndex(t)].typeArgs.count() == 0 'plain'
 		return base
 	end 'plain'
 	if statesCount(p.types, t: t) 'counted'
-		return countedSpelling(base, count: "{statedCount(p.types, t: t)}", element: typeLinkName(p, t: p.types.entries[t as Count].typeArgs[0]))
+		return countedSpelling(base, count: "{statedCount(p.types, t: t)}", element: typeLinkName(p, t: p.types.entries[typeIndex(t)].typeArgs[0]))
 	end 'counted'
-	return instanceSpelling(base, args: typeLinkNames(p, args: p.types.entries[t as Count].typeArgs))
+	return instanceSpelling(base, args: typeLinkNames(p, args: p.types.entries[typeIndex(t)].typeArgs))
 end 'nominalLinkName'
 
 // typeLinkName is the link name of a type. Two integer aliases of one name are told apart by their ranges, which is all the
 // code for an integer type depends on.
 export function typeLinkName(p Project, t TypeID) returns String
-	return match p.types.entries[t as Count].kind 'k'
-		invalid gives p.types.entries[t as Count].name.clone()
-		primBool gives p.types.entries[t as Count].name.clone()
-		primString gives p.types.entries[t as Count].name.clone()
-		primVoid gives p.types.entries[t as Count].name.clone()
-		primNever gives p.types.entries[t as Count].name.clone()
-		typeParam gives p.types.entries[t as Count].name.clone()
-		interfaceTy gives p.types.entries[t as Count].name.clone()
+	return match p.types.entries[typeIndex(t)].kind 'k'
+		invalid gives p.types.entries[typeIndex(t)].name.clone()
+		primBool gives p.types.entries[typeIndex(t)].name.clone()
+		primString gives p.types.entries[typeIndex(t)].name.clone()
+		primVoid gives p.types.entries[typeIndex(t)].name.clone()
+		primNever gives p.types.entries[typeIndex(t)].name.clone()
+		typeParam gives p.types.entries[typeIndex(t)].name.clone()
+		interfaceTy gives p.types.entries[typeIndex(t)].name.clone()
 		intRange gives intLinkName(p.types, t: t)
-		constInt gives "integer constant {p.types.entries[t as Count].minVal.toString()}"
+		constInt gives "integer constant {p.types.entries[typeIndex(t)].minVal.toString()}"
 		floatRange gives floatLinkName(p.types, t: t)
 		constFloat gives "float constant {floatLowBits(p.types, t: t)}"
 		record gives nominalLinkName(p, t: t)
@@ -460,27 +460,27 @@ end 'funcTypeLinkName'
 
 function floatLinkName(tt TypeTable, t TypeID) returns String
 	let spelling = "float({floatLowBits(tt, t: t)} to {floatHighBits(tt, t: t)})"
-	if tt.entries[t as Count].name == "" 'anonymous'
+	if tt.entries[typeIndex(t)].name == "" 'anonymous'
 		return spelling
 	end 'anonymous'
-	return "{tt.entries[t as Count].name}{intLinkAliasMark}{spelling}"
+	return "{tt.entries[typeIndex(t)].name}{intLinkAliasMark}{spelling}"
 end 'floatLinkName'
 
 function intLinkName(tt TypeTable, t TypeID) returns String
 	let spelling = intSpelling(tt, t: t)
-	if tt.entries[t as Count].name == "" 'anonymous'
+	if tt.entries[typeIndex(t)].name == "" 'anonymous'
 		return spelling
 	end 'anonymous'
-	return "{tt.entries[t as Count].name}{intLinkAliasMark}{spelling}"
+	return "{tt.entries[typeIndex(t)].name}{intLinkAliasMark}{spelling}"
 end 'intLinkName'
 
 let extensionLinkWord = "extension"
 
 // declaringModule is the module that declares the type t, which is the standard library for one that has no declaration.
 export function declaringModule(p Project, t TypeID) returns diag.ModuleID
-	let origin = p.types.entries[t as Count].effectiveOrigin()
-	if p.types.entries[origin as Count].hasDecl 'declared'
-		return p.types.entries[origin as Count].decl.module
+	let origin = p.types.entries[typeIndex(t)].effectiveOrigin()
+	if p.types.entries[typeIndex(origin)].hasDecl 'declared'
+		return p.types.entries[typeIndex(origin)].decl.module
 	end 'declared'
 	return diag.stdlibID
 end 'declaringModule'
@@ -491,28 +491,28 @@ end 'declaringModule'
 // an interface adds is named by its module and the interface, with the type it was made for among its type arguments,
 // so it never takes the name of a method of that type.
 export function funcLinkName(p Project, fid FuncID) returns String
-	let name = p.funcs.entries[fid as Count].name.clone()
-	let owner = p.funcs.entries[fid as Count].ownerTy
-	let iface = p.funcs.entries[fid as Count].extendedIface
+	let name = p.funcs.entries[funcIndex(fid)].name.clone()
+	let owner = p.funcs.entries[funcIndex(fid)].ownerTy
+	let iface = p.funcs.entries[funcIndex(fid)].extendedIface
 	if iface != noType 'ofInterface'
-		let args = joinNames(typeLinkNames(p, args: p.funcs.entries[fid as Count].typeArgs), sep: ", ")
-		return "{moduleLinkPath(p, modID: p.funcs.entries[fid as Count].module)}{linkSeparator}{extensionLinkWord} {typeLinkName(p, t: iface)}.{name}[{args}]{witnessSuffix(p, fid: fid)}"
+		let args = joinNames(typeLinkNames(p, args: p.funcs.entries[funcIndex(fid)].typeArgs), sep: ", ")
+		return "{moduleLinkPath(p, modID: p.funcs.entries[funcIndex(fid)].module)}{linkSeparator}{extensionLinkWord} {typeLinkName(p, t: iface)}.{name}[{args}]{witnessSuffix(p, fid: fid)}"
 	end 'ofInterface'
 	if owner != noType 'method'
 		let ownerName = typeLinkName(p, t: owner)
 		var text = "{ownerName}.{name}"
-		if p.types.entries[owner as Count].typeArgs.count() > 0 'instance'
+		if p.types.entries[typeIndex(owner)].typeArgs.count() > 0 'instance'
 			text = "({ownerName}).{name}"
 		end 'instance'
-		let declaring = p.funcs.entries[fid as Count].module
+		let declaring = p.funcs.entries[funcIndex(fid)].module
 		if declaring != declaringModule(p, t: owner) 'extension'
 			return "{moduleLinkPath(p, modID: declaring)}{linkSeparator}{extensionLinkWord} {text}{witnessSuffix(p, fid: fid)}"
 		end 'extension'
 		return "{text}{witnessSuffix(p, fid: fid)}"
 	end 'method'
-	let base = "{moduleLinkPath(p, modID: p.funcs.entries[fid as Count].module)}{linkSeparator}{name}"
-	if p.funcs.entries[fid as Count].typeArgs.count() > 0 'instance'
-		return "{base}[{joinNames(typeLinkNames(p, args: p.funcs.entries[fid as Count].typeArgs), sep: ", ")}]{witnessSuffix(p, fid: fid)}"
+	let base = "{moduleLinkPath(p, modID: p.funcs.entries[funcIndex(fid)].module)}{linkSeparator}{name}"
+	if p.funcs.entries[funcIndex(fid)].typeArgs.count() > 0 'instance'
+		return "{base}[{joinNames(typeLinkNames(p, args: p.funcs.entries[funcIndex(fid)].typeArgs), sep: ", ")}]{witnessSuffix(p, fid: fid)}"
 	end 'instance'
 	return base
 end 'funcLinkName'

@@ -87,7 +87,7 @@ function tupleSource(mutates c Checker, mutates p ast.Project, s ast.NodeID, val
 		failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: diag.destructureNonTuple(gotName(p, t: t)), errs: errs)
 		return table.Option.none
 	end 'notTuple'
-	let elements = p.types.entries[t as Count].typeArgs.count()
+	let elements = p.types.entries[ast.typeIndex(t)].typeArgs.count()
 	if elements != names 'arity'
 		if assignment 'assign'
 			failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.tupleAssignArity("{elements}", names: "{names}"), errs: errs)
@@ -201,7 +201,7 @@ function declareTupleVariable(mutates c Checker, mutates p ast.Project, s ast.No
 		failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: diag.destructureNonTuple(gotName(p, t: varType)), errs: errs)
 		return ast.noLocal
 	end 'notTuple'
-	let elements = p.types.entries[varType as Count].typeArgs.count()
+	let elements = p.types.entries[ast.typeIndex(varType)].typeArgs.count()
 	if elements != count 'arity'
 		failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: diag.destructureArity("{count}", elements: "{elements}"), errs: errs)
 		return ast.noLocal

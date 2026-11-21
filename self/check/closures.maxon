@@ -9,12 +9,12 @@ function functionValue(mutates c Checker, mutates p ast.Project, e ast.NodeID, c
 		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errExpressionError, msg: diag.undefinedVariable(name), errs: errs)
 		return ast.noType
 	end 'notFunction'
-	if p.funcs.entries[fid as Count].generics.count() > 0 or p.funcs.entries[fid as Count].intrinsic != ast.Intrinsic.intrNone 'generic'
+	if p.funcs.entries[ast.funcIndex(fid)].generics.count() > 0 or p.funcs.entries[ast.funcIndex(fid)].intrinsic != ast.Intrinsic.intrNone 'generic'
 		failAt(c, p: p, node: e, code: diag.errUnsupported, msg: "'{name}' is generic or built in, so it is not a value of one function type; pass a closure that calls it: 'function(x T) gives {name}(x)'", errs: errs)
 		return ast.noType
 	end 'generic'
-	if p.funcs.entries[fid as Count].errTy != ast.noType 'throws'
-		failAt(c, p: p, node: e, code: diag.errFunctionValueThrows, msg: diag.throwingFunctionAsValue(name, errorType: nameOfType(p, t: p.funcs.entries[fid as Count].errTy)), errs: errs)
+	if p.funcs.entries[ast.funcIndex(fid)].errTy != ast.noType 'throws'
+		failAt(c, p: p, node: e, code: diag.errFunctionValueThrows, msg: diag.throwingFunctionAsValue(name, errorType: nameOfType(p, t: p.funcs.entries[ast.funcIndex(fid)].errTy)), errs: errs)
 		return ast.noType
 	end 'throws'
 	if not requireVisible(c, p: p, node: e, target: fid, errs: errs) 'hidden'
@@ -27,11 +27,11 @@ end 'functionValue'
 // signatureType is the function type of a function's parameters and result.
 function signatureType(mutates p ast.Project, fid ast.FuncID) returns ast.TypeID
 	var convs = ast.ConventionList.create(0)
-	for i in 0 upto p.funcs.entries[fid as Count].params.count() 'params'
-		convs.push(p.funcs.entries[fid as Count].params[i].conv)
+	for i in 0 upto p.funcs.entries[ast.funcIndex(fid)].params.count() 'params'
+		convs.push(p.funcs.entries[ast.funcIndex(fid)].params[i].conv)
 	end 'params'
-	let params = p.funcs.entries[fid as Count].paramTypes.clone()
-	let result = p.funcs.entries[fid as Count].retTy
+	let params = p.funcs.entries[ast.funcIndex(fid)].paramTypes.clone()
+	let result = p.funcs.entries[ast.funcIndex(fid)].retTy
 	return ast.internFuncType(p.types, params: params, shape: ast.FuncShape.make(convs, mutatesCaptures: false), result: result)
 end 'signatureType'
 
@@ -155,10 +155,10 @@ function checkClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, mu
 		checkBlock(c, p: p, body: ast.closureExprBodyRef(p.modules[c.modIdx].tree, id: e), errs: errs)
 	end 'entered'
 	let made = leaveClosure(c, p: p, e: e)
-	if fid == ast.noFunc or p.funcs.entries[made as Count].retTy == ast.noType 'failed'
+	if fid == ast.noFunc or p.funcs.entries[ast.funcIndex(made)].retTy == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let t = ast.internFuncType(p.types, params: types, shape: ast.FuncShape.make(convs, mutatesCaptures: mutating), result: p.funcs.entries[made as Count].retTy)
+	let t = ast.internFuncType(p.types, params: types, shape: ast.FuncShape.make(convs, mutatesCaptures: mutating), result: p.funcs.entries[ast.funcIndex(made)].retTy)
 	var info = ast.ClosureInfo.make(made, ty: t, captures: ast.CaptureList.create(0))
 	match consumes c.typing.closures.get(e as Count) 'captured'
 		some(found) then info.captures = found.captures
@@ -172,7 +172,7 @@ end 'checkClosure'
 // parameters. A mutating closure, one written for a type that mutates its captures, borrows the mutable variables it
 // captures to change them. It gives none when a parameter cannot be bound, after reporting why.
 function enterClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, types ast.TypeIDList, convs ast.ConventionList, result ast.TypeID, mutating bool, mutates errs diag.ErrorList) returns ast.FuncID
-	var entry = ast.FuncEntry.make(ast.closureName(funcSymbol(p, f: c.fn), index: c.whens), visibility: p.funcs.entries[c.fn as Count].visibility.clone(), module: c.modID, nodeID: e)
+	var entry = ast.FuncEntry.make(ast.closureName(funcSymbol(p, f: c.fn), index: c.whens), visibility: p.funcs.entries[ast.funcIndex(c.fn)].visibility.clone(), module: c.modID, nodeID: e)
 	entry.bodyRef = ast.closureExprBodyRef(p.modules[c.modIdx].tree, id: e)
 	entry.retTy = result
 	entry.isClosure = true
@@ -185,16 +185,16 @@ function enterClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, ty
 	for i in 0 upto types.count() 'params'
 		let param = p.modules[c.modIdx].tree.listAt(paramsRef, index: i) as ast.NodeID
 		let name = ast.closureParamName(p.modules[c.modIdx].tree, id: param)
-		p.funcs.entries[fid as Count].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
-		p.funcs.entries[fid as Count].paramTypes.push(types[i])
+		p.funcs.entries[ast.funcIndex(fid)].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
+		p.funcs.entries[ast.funcIndex(fid)].paramTypes.push(types[i])
 		if name == "_" 'anonymous'
-			p.funcs.entries[fid as Count].paramLocals.push(ast.noLocal)
+			p.funcs.entries[ast.funcIndex(fid)].paramLocals.push(ast.noLocal)
 			continue 'params'
 		end 'anonymous'
 		var local = ast.LocalEntry.make(name, ty: types[i], isVar: false, isParam: true, conv: convs[i], definedAt: param)
 		local.paramIndex = try i + 1 otherwise panic("too many parameters in a closure")
 		let id = bindLocal(c, p: p, entry: local, off: offsetOf(c, p: p, node: param), errs: errs)
-		p.funcs.entries[fid as Count].paramLocals.push(id)
+		p.funcs.entries[ast.funcIndex(fid)].paramLocals.push(id)
 		if id == ast.noLocal 'unbound'
 			failedParam = true
 		end 'unbound'
@@ -228,7 +228,7 @@ function inferResult(mutates c Checker, mutates p ast.Project, t ast.TypeID) ret
 	if isConstInt(p, t: t) 'bare'
 		result = p.builtins.anon64Ty
 	end 'bare'
-	p.funcs.entries[c.fn as Count].retTy = result
+	p.funcs.entries[ast.funcIndex(c.fn)].retTy = result
 	return result
 end 'inferResult'
 
