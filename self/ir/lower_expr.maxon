@@ -308,11 +308,11 @@ function visitCastExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 		return lowerRecoveryCast(l, p: p, e: e, inner: inner, target: castTy)
 	end 'recovered'
 	let v = lowerExpr(l, p: p, e: inner)
-	if ast.isFunctionType(p.types, t: castTy) or p.types.entries[castTy as Count].kind == ast.TypeKind.interfaceTy 'function'
-		// A function cast changes only the type, and a cast to an interface is the box that its operand was put in: the
-		// value is the operand's, which the ownership pass gave it.
+	if ast.castRebrands(p.types, target: castTy) 'rebrand'
+		// The value is the operand's, which the ownership pass gave it; a cast to an interface is the box its operand was
+		// put in.
 		return v
-	end 'function'
+	end 'rebrand'
 	let fails = arithInfoAt(p, module: l.module, node: e).fails
 	let fail = overflowTo(l, p: p, fails: fails)
 	let target = exprType(p, module: l.module, node: e)
@@ -1194,7 +1194,8 @@ end 'flip'
 
 function visitUnaryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let op = ast.unaryExprOp(p.modules[l.mi].tree, id: e)
-	let v = lowerExpr(l, p: p, e: ast.unaryExprE(p.modules[l.mi].tree, id: e))
+	let operand = ast.unaryExprE(p.modules[l.mi].tree, id: e)
+	let v = lowerExpr(l, p: p, e: operand)
 	let ty = exprType(p, module: l.module, node: e)
 	if op == "not" and ty == p.builtins.boolTy 'boolean'
 		return flip(l, boolean: v)
@@ -1215,7 +1216,7 @@ function visitUnaryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) 
 		emit(l, i: newNeg(d, src: v, fail: wordFail))
 	end 'neg'
 	requireInt(p, t: ty)
-	rangeCheck(l, p: p, v: d, t: ty, unsigned: op == "not" and ast.isUnsignedInt(p.types, t: ty), fails: fails, fail: overflow)
+	rangeCheck(l, p: p, v: d, t: ty, unsigned: op == "not" and ast.isUnsignedInt(p.types, t: exprType(p, module: l.module, node: operand)), fails: fails, fail: overflow)
 	return d
 end 'visitUnaryExpr'
 

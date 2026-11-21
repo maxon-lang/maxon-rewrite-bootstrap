@@ -334,16 +334,16 @@ function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	end 'unary'
 	if k == ast.NodeKind.castExpr 'cast'
 		let operand = ast.castExprE(p.modules[o.c.modIdx].tree, id: e)
-		if ast.isFunctionType(p.types, t: ownType(o, node: e)) 'function'
-			// The cast gives the same closure, which the value it makes shares or takes over.
-			return consume(o, p: p, e: operand, dest: OwnDest.of(OwnDestKind.destCast), s: s)
-		end 'function'
 		if typeHasKind(p, t: ownType(o, node: e), kind: ast.TypeKind.interfaceTy) or typeHasKind(p, t: ownType(o, node: operand), kind: ast.TypeKind.interfaceTy) 'interface'
 			// A cast to an interface puts the value in a new box, and a cast of an interface value to a type takes it out of
 			// its box, so the operand moves either way.
 			let moved = consume(o, p: p, e: operand, dest: OwnDest.of(OwnDestKind.destCast), s: s)
 			return failed(o, p: p, e: e, s: moved)
 		end 'interface'
+		if ast.castRebrands(p.types, target: ownType(o, node: e)) 'rebrand'
+			// The cast gives the same value, which the value it makes shares or takes over.
+			return consume(o, p: p, e: operand, dest: OwnDest.of(OwnDestKind.destCast), s: s)
+		end 'rebrand'
 		let out = expr(o, p: p, e: operand, s: s)
 		return failed(o, p: p, e: e, s: out)
 	end 'cast'

@@ -1000,6 +1000,10 @@ and nothing else.
   one whose closures change what they capture), a function named without a call, a closure `function(n Count) gives n +
   offset` (its parameters' types and its result may be left to the function type it is written for), a call through a
   value (`f(x)`, `self.op(x)`, `ops[i](x)`, a module-level `let`), and a cast to another function type (`h as Callback`).
+- A cast to a type that is not a number is the value itself, moved or borrowed as the operand is: to the type the value
+  has (a literal is written as the target, `[1, 2] as Ages`), or between two instances of one generic whose type
+  arguments are one type or integer aliases of one name, range and domain (the library's `Byte` and the author's), as
+  maxon retags a container. A cast to another instance is `E3131`, and to any other type that is not the value's `E3009`.
 - `extension` blocks (see "Extensions"): methods, static functions of a type and conformances added to a type, an enum, a
   union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
@@ -1050,7 +1054,9 @@ are computed in a 64-bit word that their operands decide:
   needs no check, and `let t = a + b` holds the whole sum. A result past the word is cut to it and the operation can fail
   with `overflow`: `a - b` of two `Count` values is `int(0 to u64.max)` and fails below 0.
 - `and`, `or` and `xor` take the alias of an operand, which must hold the other, and a shift the type of its left
-  operand.
+  operand. `not` keeps its operand's alias where the alias is closed under it (a pattern, or a range that flipping maps
+  onto itself, as `int(i64.min to i64.max)` and `Count`), and is otherwise typed as `-` is: by its context, or else the
+  exact range of the flipped bits, so `not b` of an `int(0 to 100)` is `int(-101 to -1)`.
 
 An anonymous range goes into an alias only if the alias holds all of it, else it is `E3005` and asks for a cast
 (`try t as Score`). A `return` of an integer of another type, an anonymous range included, converts it to the declared
@@ -2474,7 +2480,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   module's parent, as Go's `internal/`, and `public` everyone. Import cycles are refused.
 - It checks only the rules that the generated code depends on. The style rules are left out: an unused
   name (`E3012`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
-  an unneeded cast (`E3010`), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
+  an unneeded cast (`E3010`, so a cast to the type a value has is accepted), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
   (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3092`, `E3219`).
 - A diagnostic with a maxon code has maxon's text and position, except where the language differs. The text keeps
   minimaxon's own words where it names a keyword or a form that maxon spells otherwise (`mutates` for `mutable`, so a

@@ -588,7 +588,7 @@ function checkUnary(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 	setOperand(c, node: e, operand: t)
 	let off = offsetOf(c, p: p, node: e)
 	if op == "not" 'not'
-		return checkNot(c, p: p, off: off, t: t, errs: errs)
+		return checkNot(c, p: p, off: off, t: t, want: want, errs: errs)
 	end 'not'
 	if isConstInt(p, t: t) 'constant'
 		return ast.internConstInt(p.types, val: p.types.entries[t as Count].minVal.neg())
@@ -603,7 +603,10 @@ function checkUnary(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 	return ast.noType
 end 'checkUnary'
 
-function checkNot(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+// checkNot gives a complement the operand's alias only where the alias is closed under it (a pattern, or a range that
+// flipping maps onto itself), as maxon does; otherwise, like a negation, the type the context expects or the exact range
+// of the flipped bits.
+function checkNot(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if t == p.builtins.boolTy 'bool'
 		return t
 	end 'bool'
@@ -611,7 +614,23 @@ function checkNot(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.
 		return ast.internConstInt(p.types, val: ast.notWord(p.types.entries[t as Count].minVal))
 	end 'constant'
 	if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'range'
-		return t
+		let lo = rangeLo(p.types, t: t)
+		let hi = rangeHi(p.types, t: t)
+		var word = p.builtins.anon64Ty
+		var flippedLo = hi.neg().sub(ast.I128.one())
+		var flippedHi = lo.neg().sub(ast.I128.one())
+		if ast.isUnsignedInt(p.types, t: t) 'unsigned'
+			word = p.builtins.anonU64Ty
+			flippedLo = ast.I128.u64Max().sub(hi)
+			flippedHi = ast.I128.u64Max().sub(lo)
+		end 'unsigned'
+		if p.types.entries[t as Count].bitsWidth != 0 or (flippedLo.eq(lo) and flippedHi.eq(hi)) 'closed'
+			return t
+		end 'closed'
+		if typeHasKind(p, t: want, kind: ast.TypeKind.intRange) 'expected'
+			return want
+		end 'expected'
+		return exactType(p, word: word, lo: flippedLo, hi: flippedHi)
 	end 'range'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.nonIntegralOperands("not", operand: gotName(p, t: t)), errs: errs)
 	return ast.noType
@@ -698,11 +717,14 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	end 'interface'
 	let toFloat = typeHasKind(p, t: target, kind: ast.TypeKind.floatRange)
 	let toInt = typeHasKind(p, t: target, kind: ast.TypeKind.intRange)
-	if not toInt and not toFloat and not castTargetIsRefused(p, target: target) 'notNumber'
-		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
-		return ast.noType
-	end 'notNumber'
-	let src = checkExpr(c, p: p, e: operand, errs: errs)
+	let numeric = toInt or toFloat
+	var src = ast.noType
+	if numeric 'number'
+		src = checkExpr(c, p: p, e: operand, errs: errs)
+	end 'number' else 'other'
+		// A literal is written as the target, as at any place that expects the type.
+		src = checkExpecting(c, p: p, e: operand, want: target, errs: errs)
+	end 'other'
 	if src == ast.noType 'badSource'
 		return ast.noType
 	end 'badSource'
@@ -710,14 +732,23 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if typeHasKind(p, t: src, kind: ast.TypeKind.interfaceTy) 'recovered'
 		return checkRecoveryCast(c, p: p, e: e, src: src, target: target, errs: errs)
 	end 'recovered'
-	if not toInt and not toFloat 'refused'
-		if sameType(p.types, a: src, b: target) or assignable(p, src: src, dst: target) 'identity'
-			checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
-			return ast.noType
+	if not numeric 'notNumber'
+		// Every spelling of a type is that one type here, so a cast to the type the value has, or to one it retags to,
+		// is the value itself.
+		if retags(p.types, a: src, b: target) 'identity'
+			return target
 		end 'identity'
-		failCast(c, p: p, off: off, src: src, target: target, errs: errs)
+		if p.types.entries[target as Count].typeArgs.count() > 0 and not p.types.entries[target as Count].isTuple 'container'
+			checkFail(c.modID, off: off, code: diag.errCastTargetIsAContainer, msg: diag.castTargetIsAContainer(nameOfType(p, t: target), source: nameOfType(p, t: src)), errs: errs)
+			return ast.noType
+		end 'container'
+		if castTargetIsRefused(p, target: target) and not assignable(p, src: src, dst: target) 'refused'
+			failCast(c, p: p, off: off, src: src, target: target, errs: errs)
+			return ast.noType
+		end 'refused'
+		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
 		return ast.noType
-	end 'refused'
+	end 'notNumber'
 	if toFloat 'float'
 		return checkFloatCast(c, p: p, off: off, src: src, target: target, errs: errs)
 	end 'float'
@@ -967,8 +998,10 @@ function checkTryJump(mutates c Checker, mutates p ast.Project, e ast.NodeID, mu
 end 'checkTryJump'
 
 function checkFallback(mutates c Checker, mutates p ast.Project, fallback ast.NodeID, result ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	// An integer fallback with no type to take is joined with the result as a conditional's branches are, rather than
+	// computed in the result's alias, which it need not fit.
 	var expected = want
-	if expected == ast.noType 'noExpectation'
+	if expected == ast.noType and not typeHasKind(p, t: result, kind: ast.TypeKind.intRange) 'noExpectation'
 		expected = result
 	end 'noExpectation'
 	let other = checkExpecting(c, p: p, e: fallback, want: expected, errs: errs)

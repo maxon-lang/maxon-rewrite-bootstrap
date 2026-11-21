@@ -79,6 +79,7 @@ ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names s
 ErrAmbiguousBound	E3114	semanticAmbiguousWitnessDispatch	A method call on a type parameter names a method that more than one of its bounds declares.
 ErrStaticRequirementNotDispatchable	E3116	semanticStaticRequirementNotDispatchable	A static requirement of an interface is called through a type parameter, which has no receiver to dispatch on.
 ErrIfTryDiscardsResult	E3124	ifTryDiscardsResult	An 'if try' with no binding tests a call that returns a value, which it discards.
+ErrCastTargetIsAContainer	E3131	castTargetIsAContainer	A cast to an instance of a generic that the value's type does not retag to: the elements have a layout of their own.
 ErrBoundBindingDisagrees	E3133	semanticWhereConstraintBindingDisagreement	A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
 ErrIllegalBitWidth	E3148	semanticIllegalBitWidth	A bits(n) typealias has a width the language does not have.
 ErrRawIntrinsicOutsideRuntime	E3152	rawIntrinsicOutsideRuntimeTier	A source file outside the runtime calls a __Raw intrinsic.

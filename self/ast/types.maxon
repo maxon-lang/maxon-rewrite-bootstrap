@@ -1097,6 +1097,13 @@ export function isFunctionType(tt TypeTable, t TypeID) returns bool
 	return t != noType and tt.entries[t as Count].kind == TypeKind.funcTy
 end 'isFunctionType'
 
+// castRebrands is whether a cast to target changes only the type of its value: a cast to anything but a number converts
+// nothing, so its value is the operand's.
+export function castRebrands(tt TypeTable, target TypeID) returns bool
+	let k = tt.entries[target as Count].kind
+	return k != TypeKind.intRange and k != TypeKind.floatRange
+end 'castRebrands'
+
 // sharesOnCopy is whether a value of the type is never moved: a function value whose closure is immutable, so that every
 // place that would take it takes another value that shares the closure. A value of a type that mutates its captures has
 // state of its own in its closure, so it has one owner and moves as a record does.

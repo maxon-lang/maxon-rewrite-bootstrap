@@ -822,14 +822,16 @@ function rangeFallible(mutates r Ranges, p ast.Project, site ast.NodeID, err ast
 end 'rangeFallible'
 
 function rangeUnaryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
-	let v = rangeEval(r, p: p, e: ast.unaryExprE(p.modules[r.modIdx].tree, id: e))
+	let operand = ast.unaryExprE(p.modules[r.modIdx].tree, id: e)
+	let v = rangeEval(r, p: p, e: operand)
 	let t = typeOf(r, e: e)
 	if not ast.isIntType(p.types, t: t) 'notInt'
 		return noSpan()
 	end 'notInt'
 	let op = ast.unaryExprOp(p.modules[r.modIdx].tree, id: e)
-	// A negation is computed in a signed word whatever type the context gives its result.
-	let unsigned = op == "not" and ast.isUnsignedInt(p.types, t: t)
+	// A negation is computed in a signed word whatever type the context gives its result, and a complement in its
+	// operand's word.
+	let unsigned = op == "not" and ast.isUnsignedInt(p.types, t: typeOf(r, e: operand))
 	var word = signedWord()
 	if unsigned 'unsigned'
 		word = unsignedWord()
@@ -856,9 +858,6 @@ function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	let operand = ast.castExprE(p.modules[r.modIdx].tree, id: e)
 	let v = rangeEval(r, p: p, e: operand)
 	let ty = typeOf(r, e: e)
-	if ast.isFunctionType(p.types, t: ty) or typeHasKind(p, t: ty, kind: ast.TypeKind.interfaceTy) 'function'
-		return noSpan()
-	end 'function'
 	let src = typeOf(r, e: operand)
 	if typeHasKind(p, t: src, kind: ast.TypeKind.interfaceTy) 'recovered'
 		if not isDead(r, s: r.st) 'live'
@@ -869,6 +868,9 @@ function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 		end 'integer'
 		return noSpan()
 	end 'recovered'
+	if ast.castRebrands(p.types, target: ty) 'rebrand'
+		return noSpan()
+	end 'rebrand'
 	return rangeConverted(r, p: p, e: e, v: v, src: typeOf(r, e: operand), ty: ty, why: Unchecked.cast(ty))
 end 'rangeCastExpr'
 

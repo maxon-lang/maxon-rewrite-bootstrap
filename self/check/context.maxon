@@ -321,6 +321,38 @@ export function sameType(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns b
 	return false
 end 'sameType'
 
+// retags is whether a value of a is a value of b by its bits alone, so that a cast between them retags it, as maxon's
+// does a container: one type, or two instances of one generic whose arguments retag pairwise, where two integer
+// aliases retag when they are declarations of one name with one range and one domain (the alias of a library and the
+// author's own, or one spelled from two modules).
+export function retags(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns bool
+	if sameType(tt, a: a, b: b) 'same'
+		return true
+	end 'same'
+	if a == ast.noType or b == ast.noType or tt.entries[a as Count].kind != tt.entries[b as Count].kind 'kinds'
+		return false
+	end 'kinds'
+	if tt.entries[a as Count].kind == ast.TypeKind.intRange 'range'
+		let named = tt.entries[a as Count].name != "" and tt.entries[a as Count].name == tt.entries[b as Count].name
+		let ranged = tt.entries[a as Count].minVal.eq(tt.entries[b as Count].minVal) and tt.entries[a as Count].maxVal.eq(tt.entries[b as Count].maxVal)
+		return named and ranged and tt.entries[a as Count].bitsWidth == tt.entries[b as Count].bitsWidth
+	end 'range'
+	let origin = tt.entries[a as Count].origin
+	if origin == ast.noType or origin != tt.entries[b as Count].origin 'origins'
+		return false
+	end 'origins'
+	let arity = tt.entries[a as Count].typeArgs.count()
+	if arity == 0 or arity != tt.entries[b as Count].typeArgs.count() 'arity'
+		return false
+	end 'arity'
+	for i in 0 upto arity 'args'
+		if not retags(tt, a: tt.entries[a as Count].typeArgs[i], b: tt.entries[b as Count].typeArgs[i]) 'differs'
+			return false
+		end 'differs'
+	end 'args'
+	return true
+end 'retags'
+
 export function assignable(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
 	if src == ast.noType or dst == ast.noType 'err'
 		return true

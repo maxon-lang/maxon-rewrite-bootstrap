@@ -59,6 +59,7 @@ throwsNamesAnInterface	ErrThrowsNotAnErrorEnum	'throws {declared}' names an INTE
 throwsNamesNoError	ErrThrowsNotAnErrorEnum	'throws {declared}' names no declared enum or union. A caught error is decoded off the DECLARED clause, so the clause has to name the type whose cases it decodes into
 thrownValueNotAnErrorEnum	ErrTypeMismatch	throw requires an error enum value
 bareIntType	ErrTypeMismatch	Cannot use bare 'int' as a type. Define a typealias with range constraints, e.g., typealias MyInt = int(0 to 100)
+castTargetIsAContainer	ErrCastTargetIsAContainer	Cannot cast to '{target}': a container's elements have a storage layout of their own, so '{source}' cannot be retagged as one — build the container with the element type you need, or convert it element by element
 bareIntCast	ErrTypeMismatch	Cannot cast to bare 'int'. Define a typealias with range constraints, e.g., 'value as MyInt' where 'typealias MyInt = int(0 to 100)'
 bareFloatCast	ErrTypeMismatch	Cannot cast to bare 'float'. Define a typealias with range constraints, e.g., 'value as MyFloat' where 'typealias MyFloat = float(0.0 to 1.0)'
 bareFloatType	ErrTypeMismatch	Cannot use bare 'float' as a type. Define a typealias with range constraints, e.g., typealias MyFloat = float(0.0 to 1.0)

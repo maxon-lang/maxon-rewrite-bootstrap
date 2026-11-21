@@ -1,0 +1,48 @@
+// A complement over an alias it leaves and the fallback of a try are signed numbers of their own range, not values of
+// the operand's alias; a cast to the type a value already has, and an array literal cast to an array alias, are the
+// value itself.
+typealias Small = int(0 to 100)
+
+typealias Num = int(i64.min to i64.max)
+
+typealias Measures = Array with Small
+
+type Gauge
+	export var level as Small
+
+	static function create(level Small) returns Self
+		return Self{level: level}
+	end 'create'
+end 'Gauge'
+
+function complementHalf(b Small) returns Num
+	return try (not b) / 2 otherwise panic("out of range")
+end 'complementHalf'
+
+function fetch(b Small) returns Small throws ArrayError
+	if b < 200 'always'
+		throw ArrayError.indexOutOfBounds
+	end 'always'
+	return b
+end 'fetch'
+
+function fallbackHalf(b Small) returns Num
+	let d = try fetch(b) otherwise try b - 10 otherwise panic("out of range")
+	return (d / 2) as Num
+end 'fallbackHalf'
+
+function main() returns ExitCode
+	if complementHalf(7) != -4 'complement'
+		return 1
+	end 'complement'
+	if fallbackHalf(5) != -2 'fallback'
+		return 2
+	end 'fallback'
+	let g = Gauge.create(7) as Gauge
+	let ms = [11, 12] as Measures
+	let again = ms as Measures
+	if g.level != 7 or (try again.get(1) otherwise 0) != 12 'cast'
+		return 3
+	end 'cast'
+	return 0
+end 'main'

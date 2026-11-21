@@ -219,6 +219,9 @@ export let errStaticRequirementNotDispatchable = "E3116"
 // An 'if try' with no binding tests a call that returns a value, which it discards.
 export let errIfTryDiscardsResult = "E3124"
 
+// A cast to an instance of a generic that the value's type does not retag to: the elements have a layout of their own.
+export let errCastTargetIsAContainer = "E3131"
+
 // A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
 export let errBoundBindingDisagrees = "E3133"
 

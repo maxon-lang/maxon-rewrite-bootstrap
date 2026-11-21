@@ -265,6 +265,11 @@ export function bareIntType() returns String
 	return "Cannot use bare 'int' as a type. Define a typealias with range constraints, e.g., typealias MyInt = int(0 to 100)"
 end 'bareIntType'
 
+// The text of errCastTargetIsAContainer for: Cannot cast to '{target}': a container's elements have a storage layout of their own, so '{source}' cannot be retagged as one — build the container with the element type you need, or convert it element by element
+export function castTargetIsAContainer(target String, source String) returns String
+	return "Cannot cast to '{target}': a container's elements have a storage layout of their own, so '{source}' cannot be retagged as one — build the container with the element type you need, or convert it element by element"
+end 'castTargetIsAContainer'
+
 // The text of errTypeMismatch for: Cannot cast to bare 'int'. Define a typealias with range constraints, e.g., 'value as MyInt' where 'typealias MyInt = int(0 to 100)'
 export function bareIntCast() returns String
 	return "Cannot cast to bare 'int'. Define a typealias with range constraints, e.g., 'value as MyInt' where 'typealias MyInt = int(0 to 100)'"

@@ -1,0 +1,15 @@
+typealias Wide = int(0 to 100000)
+
+typealias Narrow = int(0 to 100)
+
+typealias Wides = Array with Wide
+
+typealias Narrows = Array with Narrow
+
+function main() returns ExitCode
+	let ws = Wides.create(0)
+	let ns = ws as Narrows
+	return 0
+end 'main'
+
+// expect-error: E3131 at 11:14
