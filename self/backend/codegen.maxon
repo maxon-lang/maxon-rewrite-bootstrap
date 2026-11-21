@@ -518,9 +518,105 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		end 'throws'
 	end 'visitCall'
 
+	// visitCallRuntime calls a runtime entry. The entries that read the length of an array, a byte array or a string, read
+	// or write one of their elements, or push one, are most of what a program does with them, so their common case is
+	// written in place, and the entry itself is only called for the rest: an index out of range, which it panics on, or a
+	// push that has to grow the buffer or an insert below the end, which move elements. What the program sees is the
+	// entry's behaviour either way.
 	function visitCallRuntime(mutates self, f ir.IrFunction, x ir.Instr)
-		self.call(f, symbol: ir.rtSymbol(ir.callRuntimeSymbol(x)), start: ir.callRuntimeArgsStart(x), count: ir.callRuntimeArgsCount(x), dst: x.dst)
+		let symbol = ir.callRuntimeSymbol(x)
+		if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtStrLen 'length'
+			let offset = stringLengthOffset if symbol == ir.Rt.rtStrLen else arrayLengthOffset
+			self.get(f, r: rcx, v: self.runtimeArg(f, x: x, index: 0))
+			u.asm.load(rax, base: rcx, disp: offset)
+			self.put(f, v: x.dst, r: rax)
+			return
+		end 'length'
+		let slow = u.asm.newLabel()
+		let done = u.asm.newLabel()
+		if symbol == ir.Rt.rtArrayElem 'arrayElem'
+			self.elementAddress(f, x: x, elementBytes: wordBytes, slow: slow)
+			self.put(f, v: x.dst, r: rax)
+		end 'arrayElem' else if symbol == ir.Rt.rtBytesGet 'bytesGet'
+			self.elementAddress(f, x: x, elementBytes: byteBytes, slow: slow)
+			u.asm.loadByte(rax, base: rax, disp: 0)
+			self.put(f, v: x.dst, r: rax)
+		end 'bytesGet' else if symbol == ir.Rt.rtBytesSet 'bytesSet'
+			self.elementAddress(f, x: x, elementBytes: byteBytes, slow: slow)
+			self.get(f, r: rdx, v: self.runtimeArg(f, x: x, index: 2))
+			u.asm.storeByte(rax, disp: 0, src: rdx)
+		end 'bytesSet' else if symbol == ir.Rt.rtArrayInsert 'arrayInsert'
+			self.pushInPlace(f, x: x, elementBytes: wordBytes, slow: slow)
+			u.asm.store(rax, disp: 0, src: rdx)
+		end 'arrayInsert' else if symbol == ir.Rt.rtBytesInsert 'bytesInsert'
+			self.pushInPlace(f, x: x, elementBytes: byteBytes, slow: slow)
+			u.asm.storeByte(rax, disp: 0, src: rdx)
+		end 'bytesInsert' else if symbol == ir.Rt.rtStrByteAt 'stringByteAt'
+			self.inBounds(f, x: x, lengthOffset: stringLengthOffset, slow: slow)
+			u.asm.add(rax, src: rcx)
+			u.asm.loadByte(rax, base: rax, disp: stringBytesOffset)
+			self.put(f, v: x.dst, r: rax)
+		end 'stringByteAt' else 'call'
+			self.call(f, symbol: ir.rtSymbol(symbol), start: ir.callRuntimeArgsStart(x), count: ir.callRuntimeArgsCount(x), dst: x.dst)
+			return
+		end 'call'
+		u.asm.jmp(done)
+		u.asm.bind(slow)
+		self.call(f, symbol: ir.rtSymbol(symbol), start: ir.callRuntimeArgsStart(x), count: ir.callRuntimeArgsCount(x), dst: x.dst)
+		u.asm.bind(done)
 	end 'visitCallRuntime'
+
+	function runtimeArg(f ir.IrFunction, x ir.Instr, index Count) returns ir.Reg
+		return f.args[try ir.callRuntimeArgsStart(x) + index otherwise panic("backend: an argument past the pool")]
+	end 'runtimeArg'
+
+	// inBounds puts the entry's box, its first argument, in rcx and the index, its second, in rax, and jumps to slow when the
+	// index is not below the length the box holds at lengthOffset. The comparison is unsigned, so no index the entry would
+	// refuse passes it.
+	function inBounds(mutates self, f ir.IrFunction, x ir.Instr, lengthOffset Imm32, slow LabelID)
+		self.get(f, r: rcx, v: self.runtimeArg(f, x: x, index: 0))
+		self.get(f, r: rax, v: self.runtimeArg(f, x: x, index: 1))
+		u.asm.load(rdx, base: rcx, disp: lengthOffset)
+		u.asm.cmp(rax, right: rdx)
+		u.asm.jcc(X64CondCode.aboveEqual, label: slow)
+	end 'inBounds'
+
+	// elementAddress puts in rax the address of the element at the index of the entry's array, or jumps to slow when the
+	// index is out of range.
+	function elementAddress(mutates self, f ir.IrFunction, x ir.Instr, elementBytes Count, slow LabelID)
+		self.inBounds(f, x: x, lengthOffset: arrayLengthOffset, slow: slow)
+		self.scaleIndex(elementBytes)
+		u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
+		u.asm.add(rax, src: rcx)
+	end 'elementAddress'
+
+	// pushInPlace jumps to slow unless the entry inserts at the end of an array whose buffer has room; otherwise it counts
+	// the new element and leaves its address in rax and the element, the third argument, in rdx.
+	function pushInPlace(mutates self, f ir.IrFunction, x ir.Instr, elementBytes Count, slow LabelID)
+		self.get(f, r: rcx, v: self.runtimeArg(f, x: x, index: 0))
+		self.get(f, r: rax, v: self.runtimeArg(f, x: x, index: 1))
+		u.asm.load(rdx, base: rcx, disp: arrayLengthOffset)
+		u.asm.cmp(rax, right: rdx)
+		u.asm.jcc(X64CondCode.notEqual, label: slow)
+		u.asm.load(rdx, base: rcx, disp: arrayCapacityOffset)
+		u.asm.cmp(rax, right: rdx)
+		u.asm.jcc(X64CondCode.aboveEqual, label: slow)
+		u.asm.lea(rdx, base: rax, disp: 1)
+		u.asm.store(rcx, disp: arrayLengthOffset, src: rdx)
+		self.scaleIndex(elementBytes)
+		u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
+		u.asm.add(rax, src: rcx)
+		self.get(f, r: rdx, v: self.runtimeArg(f, x: x, index: 2))
+	end 'pushInPlace'
+
+	// scaleIndex turns the index in rax into a byte offset; it uses rdx.
+	function scaleIndex(mutates self, elementBytes Count)
+		if elementBytes == byteBytes 'bytes'
+			return
+		end 'bytes'
+		u.asm.movImm(rdx, imm: try elementBytes as FullRangeInt otherwise panic("backend: an element past memory"))
+		u.asm.imul(rax, src: rdx)
+	end 'scaleIndex'
 
 	function visitWhen(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("codegen: a behaviour has no native code, and the driver refuses it before code is generated")

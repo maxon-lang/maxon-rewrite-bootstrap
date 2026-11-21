@@ -211,7 +211,7 @@ end 'lowerConverted'
 
 // heldType is the type of the value a frozen value or a cown holds.
 function heldType(p ast.Project, t ast.TypeID) returns ast.TypeID
-	return ast.typeArgsOf(p.types, t: t)[0]
+	return ast.typeArgAt(p.types, t: t, index: 0)
 end 'heldType'
 
 // siteOf is where a node is, which a refusal at it is reported at.

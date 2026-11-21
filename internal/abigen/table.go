@@ -42,7 +42,7 @@ var layouts = []layoutConst{
 
 	{"stringLengthOffset", 0, false, toRuntime | toSelfBack,
 		"where a String's box holds its length in bytes, a word."},
-	{"stringBytesOffset", 1, false, toRuntime,
+	{"stringBytesOffset", 1, false, toRuntime | toSelfBack,
 		"where a String's bytes begin, UTF-8 with no terminator."},
 
 	// A byte array's box is an array's box, so its routines read the same offsets; only its buffer differs.
@@ -57,7 +57,7 @@ var layouts = []layoutConst{
 	{"arrayFirstCapacity", 4, true, toRuntime,
 		"the capacity of an empty array's first buffer, which it doubles from."},
 
-	{"byteBytes", 1, true, toRuntime,
+	{"byteBytes", 1, true, toRuntime | toSelfBack,
 		"the size of an element of a byte array."},
 	{"bytesFirstCapacity", 16, true, toRuntime,
 		"the capacity of an empty byte array's first buffer, which it doubles from."},

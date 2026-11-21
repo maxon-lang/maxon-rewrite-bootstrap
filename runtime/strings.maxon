@@ -62,10 +62,18 @@ function streq(left String, right String) returns bool
 	end 'lengths'
 	let leftBytes = bytesOf(__Raw.stringAddress(left))
 	let rightBytes = bytesOf(__Raw.stringAddress(right))
-	for i in 0 upto length 'bytes'
-		if __Raw.loadByte(leftBytes, offset: i) != __Raw.loadByte(rightBytes, offset: i) 'differ'
+	var at = 0 as Count
+	while __Raw.wrappingAdd(at, right: wordBytes) <= length 'words'
+		if __Raw.loadWord(leftBytes, offset: at) != __Raw.loadWord(rightBytes, offset: at) 'differ'
 			return false
 		end 'differ'
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'words'
+	while at < length 'bytes'
+		if __Raw.loadByte(leftBytes, offset: at) != __Raw.loadByte(rightBytes, offset: at) 'differ'
+			return false
+		end 'differ'
+		at = __Raw.wrappingAdd(at, right: 1)
 	end 'bytes'
 	return true
 end 'streq'
@@ -107,8 +115,16 @@ function bytesOf(box Count) returns Count
 	return __Raw.wrappingAdd(box, right: stringBytesOffset)
 end 'bytesOf'
 
+// copyBytes copies a word at a time and then the bytes left over, first first, so that a target below the source may
+// overlap it: each word is read before the target that overlaps it is written.
 function copyBytes(source Count, target Count, count Count)
-	for i in 0 upto count 'bytes'
-		__Raw.storeByte(target, offset: i, value: __Raw.loadByte(source, offset: i))
+	var at = 0 as Count
+	while __Raw.wrappingAdd(at, right: wordBytes) <= count 'words'
+		__Raw.storeWord(target, offset: at, value: __Raw.loadWord(source, offset: at))
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'words'
+	while at < count 'bytes'
+		__Raw.storeByte(target, offset: at, value: __Raw.loadByte(source, offset: at))
+		at = __Raw.wrappingAdd(at, right: 1)
 	end 'bytes'
 end 'copyBytes'

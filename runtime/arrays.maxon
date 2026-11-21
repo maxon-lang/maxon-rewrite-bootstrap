@@ -115,9 +115,14 @@ function collectionCloseGap(box Count, index Count, elementBytes Count)
 	__Raw.storeWord(box, offset: arrayLengthOffset, value: __Raw.wrappingSub(length, right: 1))
 end 'collectionCloseGap'
 
-// copyBackward copies bytes last first, so that a target above the source may overlap it.
+// copyBackward copies a word at a time from the end and then the bytes left at the start, so that a target above the
+// source may overlap it: each word is read before the target that overlaps it is written.
 function copyBackward(source Count, target Count, count Count)
 	var left = count
+	while left >= wordBytes 'words'
+		left = __Raw.wrappingSub(left, right: wordBytes)
+		__Raw.storeWord(target, offset: left, value: __Raw.loadWord(source, offset: left))
+	end 'words'
 	while left != 0 'bytes'
 		left = __Raw.wrappingSub(left, right: 1)
 		__Raw.storeByte(target, offset: left, value: __Raw.loadByte(source, offset: left))

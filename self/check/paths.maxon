@@ -156,7 +156,7 @@ function withContents(p ast.Project, mutates steps PathSteps, t ast.TypeID)
 	var cur = t
 	while cur != ast.noType and p.types.entries[cur as Count].kind == ast.TypeKind.builtinFrozen 'frozen'
 		steps.push(PathStep.contents())
-		cur = ast.typeArgsOf(p.types, t: cur)[0]
+		cur = ast.typeArgAt(p.types, t: cur, index: 0)
 	end 'frozen'
 end 'withContents'
 

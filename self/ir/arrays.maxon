@@ -11,7 +11,7 @@ end 'arrayOf'
 // a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an array
 // asks this, so the two boxes are never mistaken for each other.
 function arrayPacked(p ast.Project, box ArrayBox) returns bool
-	let elem = ast.typeArgsOf(p.types, t: box.ty)[0]
+	let elem = ast.typeArgAt(p.types, t: box.ty, index: 0)
 	if p.types.entries[elem as Count].kind != ast.TypeKind.intRange 'notInt'
 		return false
 	end 'notInt'
@@ -20,7 +20,7 @@ function arrayPacked(p ast.Project, box ArrayBox) returns bool
 end 'arrayPacked'
 
 function arrayElem(p ast.Project, box ArrayBox) returns ast.TypeID
-	return ast.typeArgsOf(p.types, t: box.ty)[0]
+	return ast.typeArgAt(p.types, t: box.ty, index: 0)
 end 'arrayElem'
 
 function arrayNew(mutates l Lowerer, mutates p ast.Project, box ArrayBox) returns Reg

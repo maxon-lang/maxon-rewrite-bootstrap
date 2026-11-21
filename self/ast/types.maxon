@@ -334,11 +334,7 @@ export function allocType(mutates tt TypeTable, consumes e TypeEntry) returns Ty
 end 'allocType'
 
 export function cloneTypeArgs(args TypeIDList) returns TypeIDList
-	var out = TypeIDList.create(0)
-	for i in 0 upto args.count() 'each'
-		out.push(args[i])
-	end 'each'
-	return out
+	return args.clone()
 end 'cloneTypeArgs'
 
 export function internIntRange(mutates tt TypeTable, consumes aliasName String, consumes minVal I128, consumes maxVal I128, inferred bool) returns TypeID
@@ -427,6 +423,14 @@ export function typeArgsOf(tt TypeTable, t TypeID) returns TypeIDList
 	end 'hasArgs'
 	return cloneTypeArgs(tt.entries[t as Count].typeParams)
 end 'typeArgsOf'
+
+// typeArgAt is the type argument at an index of what typeArgsOf gives, read in place.
+export function typeArgAt(tt TypeTable, t TypeID, index Count) returns TypeID
+	if tt.entries[t as Count].typeArgs.count() > 0 'hasArgs'
+		return tt.entries[t as Count].typeArgs[index]
+	end 'hasArgs'
+	return tt.entries[t as Count].typeParams[index]
+end 'typeArgAt'
 
 export function originOf(tt TypeTable, t TypeID) returns TypeID
 	return tt.entries[t as Count].effectiveOrigin()
