@@ -1,0 +1,152 @@
+// The C runtime's command-line rules, in both directions: the splitter reads a command line into its arguments as
+// CommandLineToArgvW does, for `CommandLine.args()`, and the quoting writes an argument so that the same rules read it back,
+// for `Subprocess.run`. Both work on UTF-8 bytes: the bytes they treat specially are ASCII, which no UTF-8 sequence
+// contains, so converting the command line before it is split is the same as splitting it as UTF-16.
+
+let spaceByte = 0x20
+
+let tabByte = 0x09
+
+let quoteByte = 0x22
+
+let backslashByte = 0x5C
+
+// emptyArgumentBytes is the length of `""`, which is how an empty argument is written.
+let emptyArgumentBytes = 2
+
+function isSeparator(byte Byte) returns bool
+	return byte == spaceByte or byte == tabByte
+end 'isSeparator'
+
+// storeRepeatedByte writes a byte a number of times from an offset, and gives the offset after them.
+function storeRepeatedByte(dst Count, offset Count, value Byte, count Count) returns Count
+	var at = offset
+	for _ in 0 upto count 'each'
+		at = storeNextByte(dst, offset: at, value: value)
+	end 'each'
+	return at
+end 'storeRepeatedByte'
+
+// skipSeparators is the position of the first byte from a position on that is not a space or a tab, or the length.
+function skipSeparators(line Count, length Count, position Count) returns Count
+	var at = position
+	while at < length and isSeparator(__Raw.loadByte(line, offset: at)) 'skip'
+		at = at + 1
+	end 'skip'
+	return at
+end 'skipSeparators'
+
+// backslashRun is the number of backslashes in a row from a position on.
+function backslashRun(line Count, length Count, position Count) returns Count
+	var at = position
+	while at < length and __Raw.loadByte(line, offset: at) == backslashByte 'count'
+		at = at + 1
+	end 'count'
+	return __Raw.wrappingSub(at, right: position)
+end 'backslashRun'
+
+// quoteAt is whether the byte at a position is a quote, which a position past the end is not.
+function quoteAt(line Count, length Count, position Count) returns bool
+	return position < length and __Raw.loadByte(line, offset: position) == quoteByte
+end 'quoteAt'
+
+// scanArgument reads the argument that starts at a position of a command line, writes it into a string box (its length
+// and its bytes, which are never more than the line has left), and gives the position where the argument ended: at a space
+// or a tab outside quotes, or at the end. The rules are the C runtime's, the first argument's included:
+//   - a space or a tab ends the argument unless it is inside quotes;
+//   - a quote that has no backslash in front of it starts or ends quotes, and is not part of the argument;
+//   - a quote inside quotes and directly followed by another is a literal quote, and both are read;
+//   - 2n backslashes in front of a quote are n backslashes and leave the quote to the rules above;
+//   - 2n+1 backslashes in front of a quote are n backslashes and a literal quote;
+//   - backslashes that no quote follows are literal.
+function scanArgument(line Count, length Count, position Count, box Count) returns Count
+	let dest = bytesOf(box)
+	var at = position
+	var written = 0 as Count
+	var quoted = false
+	var scanning = true
+	while at < length and scanning 'scan'
+		let byte = __Raw.loadByte(line, offset: at)
+		if byte == backslashByte 'backslashes'
+			let run = backslashRun(line, length: length, position: at)
+			let afterRun = __Raw.wrappingAdd(at, right: run)
+			at = afterRun
+			if quoteAt(line, length: length, position: afterRun) 'beforeQuote'
+				written = storeRepeatedByte(dest, offset: written, value: backslashByte, count: run / 2)
+				if run mod 2 == 1 'literalQuote'
+					written = storeNextByte(dest, offset: written, value: quoteByte)
+					at = __Raw.wrappingAdd(afterRun, right: 1)
+				end 'literalQuote'
+			end 'beforeQuote' else 'plain'
+				written = storeRepeatedByte(dest, offset: written, value: backslashByte, count: run)
+			end 'plain'
+		end 'backslashes' else if byte == quoteByte 'quote'
+			if quoted and quoteAt(line, length: length, position: __Raw.wrappingAdd(at, right: 1)) 'doubled'
+				written = storeNextByte(dest, offset: written, value: quoteByte)
+				at = __Raw.wrappingAdd(at, right: 2)
+			end 'doubled' else 'toggle'
+				quoted = not quoted
+				at = __Raw.wrappingAdd(at, right: 1)
+			end 'toggle'
+		end 'quote' else if not quoted and isSeparator(byte) 'separator'
+			scanning = false
+		end 'separator' else 'ordinary'
+			written = storeNextByte(dest, offset: written, value: byte)
+			at = __Raw.wrappingAdd(at, right: 1)
+		end 'ordinary'
+	end 'scan'
+	__Raw.storeWord(box, offset: stringLengthOffset, value: written)
+	return at
+end 'scanArgument'
+
+// hasSeparator is whether a text has a space or a tab, which is what makes an argument need quotes.
+function hasSeparator(source Count, length Count) returns bool
+	for i in 0 upto length 'each'
+		if isSeparator(__Raw.loadByte(source, offset: i)) 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'hasSeparator'
+
+// quotedBound is the most bytes that quoting a text of a length writes: a byte is at most doubled, and the quotes are two.
+function quotedBound(length Count) returns Count
+	if length >= textUnitLimit 'outside'
+		panic("argument too long to quote")
+	end 'outside'
+	return length * 2 + emptyArgumentBytes
+end 'quotedBound'
+
+// quoteArgument writes an argument at dst as the rules of scanArgument read it back (Go's syscall.EscapeArg), and gives
+// the number of bytes written, at most quotedBound. An empty argument is `""`; one with a space or a tab is in quotes;
+// a quote is escaped by a backslash after the backslashes before it are doubled, and so are the backslashes before the
+// closing quote.
+function quoteArgument(source Count, length Count, dst Count) returns Count
+	if length == 0 'empty'
+		var at = storeNextByte(dst, offset: 0, value: quoteByte)
+		return storeNextByte(dst, offset: at, value: quoteByte)
+	end 'empty'
+	let inQuotes = hasSeparator(source, length: length)
+	var at = 0 as Count
+	if inQuotes 'open'
+		at = storeNextByte(dst, offset: at, value: quoteByte)
+	end 'open'
+	var backslashes = 0 as Count
+	for i in 0 upto length 'each'
+		let byte = __Raw.loadByte(source, offset: i)
+		if byte == quoteByte 'quote'
+			at = storeRepeatedByte(dst, offset: at, value: backslashByte, count: __Raw.wrappingAdd(backslashes, right: 1))
+		end 'quote'
+		if byte == backslashByte 'backslash'
+			backslashes = __Raw.wrappingAdd(backslashes, right: 1)
+		end 'backslash' else 'other'
+			backslashes = 0
+		end 'other'
+		at = storeNextByte(dst, offset: at, value: byte)
+	end 'each'
+	if inQuotes 'close'
+		at = storeRepeatedByte(dst, offset: at, value: backslashByte, count: backslashes)
+		at = storeNextByte(dst, offset: at, value: quoteByte)
+	end 'close'
+	return at
+end 'quoteArgument'

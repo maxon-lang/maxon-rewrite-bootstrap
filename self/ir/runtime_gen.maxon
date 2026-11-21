@@ -284,40 +284,40 @@ export function rtSymbol(r Rt) returns String
 		return "runtime::bytesToString"
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
-		return "rt.os.args"
+		return "runtime::osArgs"
 	end 'rtOsArgs'
 	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
-		return "rt.os.environmentVariable"
+		return "runtime::osEnvironmentVariable"
 	end 'rtOsEnvironmentVariable'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
-		return "rt.os.pathFrom"
+		return "runtime::osPathFrom"
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return "rt.os.readText"
+		return "runtime::osReadText"
 	end 'rtOsReadText'
 	if r == Rt.rtOsWriteText 'rtOsWriteText'
-		return "rt.os.writeText"
+		return "runtime::osWriteText"
 	end 'rtOsWriteText'
 	if r == Rt.rtOsWriteBinary 'rtOsWriteBinary'
-		return "rt.os.writeBinary"
+		return "runtime::osWriteBinary"
 	end 'rtOsWriteBinary'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return "rt.os.rename"
+		return "runtime::osRename"
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return "rt.os.delete"
+		return "runtime::osDelete"
 	end 'rtOsDelete'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return "rt.os.isDirectory"
+		return "runtime::osIsDirectory"
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return "rt.os.createDirectory"
+		return "runtime::osCreateDirectory"
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return "rt.os.list"
+		return "runtime::osList"
 	end 'rtOsList'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return "rt.os.run"
+		return "runtime::osRun"
 	end 'rtOsRun'
 	panic("ir: rtNone names no runtime symbol")
 end 'rtSymbol'

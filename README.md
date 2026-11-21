@@ -1786,9 +1786,13 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
   after doubling the backslashes before it (Go's `syscall.EscapeArg`). The child's standard output and error are pipes,
   which the run drains in turn without waiting on either, so a child that fills one cannot block; its standard input is
   the program's. A name that is not found is `executableNotFound`.
-- **Natively**, the entries are x64 over the `A` Win32 calls (`internal/backend/os.go`), and `CommandLine.args()` splits
-  the command line simply: space or tab outside quotes, and a token that is quoted whole. The interpreter runs them
-  through Go's `os` and `os/exec` (`internal/interp/os.go`).
+- **Natively**, the Go compiler's entries are x64 over the `A` Win32 calls (`internal/backend/os.go`), and
+  `CommandLine.args()` splits the command line simply: space or tab outside quotes, and a token that is quoted whole.
+  `self/`'s runtime (`runtime/os.maxon`, `subprocess.maxon`) calls the `W` functions instead, converting the program's
+  UTF-8 to UTF-16 and back (`text.maxon`; a byte that is not UTF-8 and a lone surrogate become U+FFFD), and splits the
+  command line by the C runtime's rules (`commandline.maxon`): 2n backslashes before a quote are n, 2n+1 are n and a
+  literal quote, a doubled quote inside quotes is a literal one, and the program's own name is split by the same rules.
+  The interpreter runs the entries through Go's `os` and `os/exec` (`internal/interp/os.go`).
 
 ### Immutable values, cowns and behaviours
 

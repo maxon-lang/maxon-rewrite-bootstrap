@@ -13,6 +13,10 @@ here, the globals, caching) is the root README's section "The runtime". The Go c
 | `strings.maxon` | `concat`, `itoa`, `streq`, `stringLength`, `stringByteAt`, `stringSlice` | the string entries |
 | `arrays.maxon` | `arrayNew`, `arrayLength`, `arrayElem`, `arrayInsert`, `arrayRemove` | the array entries, and the routines that arrays and byte arrays share, which take an element's size |
 | `bytes.maxon` | `bytesNew`, `bytesLength`, `bytesGet`, `bytesSet`, `bytesInsert`, `bytesRemove`, `bytesAppend`, `bytesAppendStr`, `bytesToString` | the byte array entries |
+| `text.maxon` | — | UTF-8 and UTF-16 conversion, over addresses and lengths, for the `W` calls |
+| `commandline.maxon` | — | the C runtime's command-line splitter and the quoting that is its inverse |
+| `os.maxon` | `osArgs`, `osEnvironmentVariable`, `osPathFrom`, `osReadText`, `osWriteText`, `osWriteBinary`, `osRename`, `osDelete`, `osIsDirectory`, `osCreateDirectory`, `osList` | files, directories, paths and the environment, over the `W` Win32 calls |
+| `subprocess.maxon` | `osRun` | `CreateProcessW` with the child's output and error read through pipes |
 
 ## Rules a runtime file follows
 

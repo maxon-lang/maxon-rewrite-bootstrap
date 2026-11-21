@@ -1,0 +1,294 @@
+// UTF-8 and UTF-16: the text the OS functions exchange with the Win32 `W` calls. A program's strings are UTF-8 and Win32
+// takes UTF-16, so every path, name and command line is converted here on the way in and out. The cores work on addresses,
+// byte offsets and lengths only, so they hold no more than the loads and stores that the conversion itself needs.
+
+let wideUnitBytes = 2
+
+// textUnitLimit is the number of units that no text converted here reaches. It is what lets the byte offset of a unit
+// be computed without a check: a text that long would not fit the heap's boxes anyway.
+let textUnitLimit = 0x100000000
+
+// maxUtf8BytesPerUnit bounds the UTF-8 length of a UTF-16 text: a unit of the basic plane is at most 3 bytes, and a
+// surrogate pair, which is two units, is 4.
+let maxUtf8BytesPerUnit = 3
+
+let asciiLimit = 0x80
+
+let continuationFloor = 0x80
+
+let continuationCeiling = 0xBF
+
+let continuationPayloadMask = 0x3F
+
+let continuationPayloadBits = 6
+
+// The numbers of values a payload takes, which the code point of a sequence is multiplied by: the lead byte's payload by
+// the span of every continuation after it, and each continuation's by the span of those after it.
+let payloadSpan = 64
+
+let payloadSpanSquared = 4096
+
+let payloadSpanCubed = 262144
+
+let twoByteLeadFloor = 0xC2
+
+let twoByteLead = 0xC0
+
+let threeByteLead = 0xE0
+
+let fourByteLead = 0xF0
+
+let leadCeiling = 0xF5
+
+let twoByteLeadMask = 0x1F
+
+let threeByteLeadMask = 0x0F
+
+let fourByteLeadMask = 0x07
+
+let threeByteOverlongSecondFloor = 0xA0
+
+let surrogateRangeLead = 0xED
+
+let surrogateRangeSecondCeiling = 0x9F
+
+let fourByteOverlongSecondFloor = 0x90
+
+let fourByteLastLead = 0xF4
+
+let fourByteLastSecondCeiling = 0x8F
+
+let twoByteCeiling = 0x800
+
+let basicPlaneCeiling = 0x10000
+
+let replacementCodepoint = 0xFFFD
+
+let highSurrogateFloor = 0xD800
+
+let highSurrogateCeiling = 0xDBFF
+
+let lowSurrogateFloor = 0xDC00
+
+let lowSurrogateCeiling = 0xDFFF
+
+let surrogatePayloadBits = 10
+
+// byteAt is the byte at an offset from an address, as a word.
+function byteAt(address Count, offset Count) returns Count
+	return __Raw.loadByte(address, offset: offset) as Count
+end 'byteAt'
+
+// unitAt is the UTF-16 unit at an index of a text at an address.
+function unitAt(address Count, index Count) returns Count
+	if index >= textUnitLimit 'outside'
+		panic("text too long to convert")
+	end 'outside'
+	return __Raw.loadWord16(address, offset: index * wideUnitBytes)
+end 'unitAt'
+
+function storeUnit(address Count, index Count, value Count)
+	if index >= textUnitLimit 'outside'
+		panic("text too long to convert")
+	end 'outside'
+	__Raw.storeWord16(address, offset: index * wideUnitBytes, value: value)
+end 'storeUnit'
+
+// boxLength is the number of bytes of the string whose box is at an address.
+function boxLength(box Count) returns Count
+	return __Raw.loadWord(box, offset: stringLengthOffset)
+end 'boxLength'
+
+// continuationAt is whether the byte ahead of an index is in range lowest..highest, which a byte past the end never is.
+function continuationAt(source Count, index Count, ahead Count, byteLength Count, lowest Count, highest Count) returns bool
+	let position = __Raw.wrappingAdd(index, right: ahead)
+	if position >= byteLength 'truncated'
+		return false
+	end 'truncated'
+	let value = byteAt(source, offset: position)
+	return value >= lowest and value <= highest
+end 'continuationAt'
+
+// utf8SequenceWidth is the length of the well-formed sequence that starts at an index, 1 to 4, or 0 for a byte that
+// starts none: a stray continuation, an overlong or surrogate or out-of-range encoding, or a sequence cut short.
+function utf8SequenceWidth(source Count, index Count, byteLength Count) returns Count
+	let lead = byteAt(source, offset: index)
+	if lead < asciiLimit 'ascii'
+		return 1
+	end 'ascii'
+	if lead < twoByteLeadFloor 'strayOrOverlong'
+		return 0
+	end 'strayOrOverlong'
+	if lead < threeByteLead 'twoByte'
+		if continuationAt(source, index: index, ahead: 1, byteLength: byteLength, lowest: continuationFloor, highest: continuationCeiling) 'complete'
+			return 2
+		end 'complete'
+		return 0
+	end 'twoByte'
+	if lead < fourByteLead 'threeByte'
+		let secondLowest = threeByteOverlongSecondFloor if lead == threeByteLead else continuationFloor
+		let secondHighest = surrogateRangeSecondCeiling if lead == surrogateRangeLead else continuationCeiling
+		if continuationAt(source, index: index, ahead: 1, byteLength: byteLength, lowest: secondLowest, highest: secondHighest) and continuationAt(source, index: index, ahead: 2, byteLength: byteLength, lowest: continuationFloor, highest: continuationCeiling) 'complete'
+			return 3
+		end 'complete'
+		return 0
+	end 'threeByte'
+	if lead < leadCeiling 'fourByte'
+		let secondLowest = fourByteOverlongSecondFloor if lead == fourByteLead else continuationFloor
+		let secondHighest = fourByteLastSecondCeiling if lead == fourByteLastLead else continuationCeiling
+		if continuationAt(source, index: index, ahead: 1, byteLength: byteLength, lowest: secondLowest, highest: secondHighest) and continuationAt(source, index: index, ahead: 2, byteLength: byteLength, lowest: continuationFloor, highest: continuationCeiling) and continuationAt(source, index: index, ahead: 3, byteLength: byteLength, lowest: continuationFloor, highest: continuationCeiling) 'complete'
+			return 4
+		end 'complete'
+		return 0
+	end 'fourByte'
+	return 0
+end 'utf8SequenceWidth'
+
+// Payload is what a continuation byte carries: its low 6 bits.
+typealias Payload = int(0 to 63)
+
+function payloadAt(source Count, index Count, ahead Count) returns Payload
+	return byteAt(source, offset: __Raw.wrappingAdd(index, right: ahead)) mod (continuationPayloadMask + 1)
+end 'payloadAt'
+
+// utf8Codepoint is the code point of the well-formed sequence of a width that starts at an index.
+function utf8Codepoint(source Count, index Count, width Count) returns Count
+	let lead = byteAt(source, offset: index)
+	if width == 1 'oneByte'
+		return lead
+	end 'oneByte'
+	if width == 2 'twoByte'
+		return ((lead mod (twoByteLeadMask + 1)) * payloadSpan) + payloadAt(source, index: index, ahead: 1)
+	end 'twoByte'
+	if width == 3 'threeByte'
+		return ((lead mod (threeByteLeadMask + 1)) * payloadSpanSquared) + (payloadAt(source, index: index, ahead: 1) * payloadSpan) + payloadAt(source, index: index, ahead: 2)
+	end 'threeByte'
+	return ((lead mod (fourByteLeadMask + 1)) * payloadSpanCubed) + (payloadAt(source, index: index, ahead: 1) * payloadSpanSquared) + (payloadAt(source, index: index, ahead: 2) * payloadSpan) + payloadAt(source, index: index, ahead: 3)
+end 'utf8Codepoint'
+
+// storeUtf16 writes the units of a code point at an index and gives the index after them.
+function storeUtf16(dst Count, index Count, codepoint Count) returns Count
+	if codepoint < basicPlaneCeiling 'basic'
+		storeUnit(dst, index: index, value: codepoint)
+		return __Raw.wrappingAdd(index, right: 1)
+	end 'basic'
+	let beyondBasic = __Raw.wrappingSub(codepoint, right: basicPlaneCeiling)
+	storeUnit(dst, index: index, value: highSurrogateFloor + (beyondBasic shr surrogatePayloadBits) mod (1 shl surrogatePayloadBits))
+	storeUnit(dst, index: __Raw.wrappingAdd(index, right: 1), value: lowSurrogateFloor + beyondBasic mod (1 shl surrogatePayloadBits))
+	return __Raw.wrappingAdd(index, right: 2)
+end 'storeUtf16'
+
+// storeNextByte writes a byte at an offset from an address and gives the offset after it.
+function storeNextByte(dst Count, offset Count, value Byte) returns Count
+	__Raw.storeByte(dst, offset: offset, value: value)
+	return __Raw.wrappingAdd(offset, right: 1)
+end 'storeNextByte'
+
+// storeUtf8 writes the bytes of a code point at an offset and gives the offset after them. Each byte is taken mod its
+// range, so that the stored value is known to fit a byte.
+function storeUtf8(dst Count, offset Count, codepoint Count) returns Count
+	var at = offset
+	if codepoint < asciiLimit 'oneByte'
+		return storeNextByte(dst, offset: at, value: codepoint mod asciiLimit)
+	end 'oneByte'
+	if codepoint < twoByteCeiling 'twoByte'
+		at = storeNextByte(dst, offset: at, value: twoByteLead + (codepoint shr continuationPayloadBits) mod (twoByteLeadMask + 1))
+		return storeNextByte(dst, offset: at, value: continuationFloor + codepoint mod (continuationPayloadMask + 1))
+	end 'twoByte'
+	if codepoint < basicPlaneCeiling 'threeByte'
+		at = storeNextByte(dst, offset: at, value: threeByteLead + (codepoint shr (continuationPayloadBits * 2)) mod (threeByteLeadMask + 1))
+		at = storeNextByte(dst, offset: at, value: continuationFloor + (codepoint shr continuationPayloadBits) mod (continuationPayloadMask + 1))
+		return storeNextByte(dst, offset: at, value: continuationFloor + codepoint mod (continuationPayloadMask + 1))
+	end 'threeByte'
+	at = storeNextByte(dst, offset: at, value: fourByteLead + (codepoint shr (continuationPayloadBits * 3)) mod (fourByteLeadMask + 1))
+	at = storeNextByte(dst, offset: at, value: continuationFloor + (codepoint shr (continuationPayloadBits * 2)) mod (continuationPayloadMask + 1))
+	at = storeNextByte(dst, offset: at, value: continuationFloor + (codepoint shr continuationPayloadBits) mod (continuationPayloadMask + 1))
+	return storeNextByte(dst, offset: at, value: continuationFloor + codepoint mod (continuationPayloadMask + 1))
+end 'storeUtf8'
+
+// utf16FromUtf8 writes the UTF-16 units of a UTF-8 text at dst, then a zero unit, and gives the number of units before it.
+// Each byte that starts no well-formed sequence is U+FFFD. No sequence gives more units than it has bytes, so a buffer of
+// byteLength + 1 units is enough.
+function utf16FromUtf8(source Count, byteLength Count, dst Count) returns Count
+	var index = 0 as Count
+	var written = 0 as Count
+	while index < byteLength 'each'
+		let width = utf8SequenceWidth(source, index: index, byteLength: byteLength)
+		var codepoint = replacementCodepoint as Count
+		var consumed = 1 as Count
+		if width != 0 'valid'
+			codepoint = utf8Codepoint(source, index: index, width: width)
+			consumed = width
+		end 'valid'
+		written = storeUtf16(dst, index: written, codepoint: codepoint)
+		index = __Raw.wrappingAdd(index, right: consumed)
+	end 'each'
+	storeUnit(dst, index: written, value: 0)
+	return written
+end 'utf16FromUtf8'
+
+// utf8FromUtf16 writes the UTF-8 bytes of a UTF-16 text at dst, and gives the number of bytes, at most
+// maxUtf8BytesPerUnit for each unit. A surrogate that has no partner is U+FFFD.
+function utf8FromUtf16(source Count, units Count, dst Count) returns Count
+	var index = 0 as Count
+	var written = 0 as Count
+	while index < units 'each'
+		let unit = unitAt(source, index: index)
+		let next = __Raw.wrappingAdd(index, right: 1)
+		var codepoint = unit
+		var consumed = 1 as Count
+		if unit >= highSurrogateFloor and unit <= lowSurrogateCeiling 'surrogate'
+			codepoint = replacementCodepoint
+			if unit <= highSurrogateCeiling and next < units 'canPair'
+				let following = unitAt(source, index: next)
+				if following >= lowSurrogateFloor and following <= lowSurrogateCeiling 'paired'
+					codepoint = basicPlaneCeiling + ((unit - highSurrogateFloor) shl surrogatePayloadBits) + (following - lowSurrogateFloor)
+					consumed = 2
+				end 'paired'
+			end 'canPair'
+		end 'surrogate'
+		written = storeUtf8(dst, offset: written, codepoint: codepoint)
+		index = __Raw.wrappingAdd(index, right: consumed)
+	end 'each'
+	return written
+end 'utf8FromUtf16'
+
+// wideLength is the number of units of the zero-terminated UTF-16 text at an address.
+function wideLength(address Count) returns Count
+	var index = 0 as Count
+	while unitAt(address, index: index) != 0 'each'
+		index = __Raw.wrappingAdd(index, right: 1)
+	end 'each'
+	return index
+end 'wideLength'
+
+// wideOf is a new zero-terminated UTF-16 copy of a string, which the caller frees.
+function wideOf(text String) returns Count
+	let box = __Raw.stringAddress(text)
+	let length = boxLength(box)
+	if length >= textUnitLimit 'outside'
+		panic("text too long to convert")
+	end 'outside'
+	let wide = alloc((length + 1) * wideUnitBytes)
+	_ = utf16FromUtf8(bytesOf(box), byteLength: length, dst: wide)
+	return wide
+end 'wideOf'
+
+// stringOfUnits is a new string of the UTF-8 form of a UTF-16 text.
+function stringOfUnits(source Count, units Count) returns String
+	if units >= textUnitLimit 'outside'
+		panic("text too long to convert")
+	end 'outside'
+	let box = newStringBox(units * maxUtf8BytesPerUnit)
+	let written = utf8FromUtf16(source, units: units, dst: bytesOf(box))
+	__Raw.storeWord(box, offset: stringLengthOffset, value: written)
+	return __Raw.stringAt(box)
+end 'stringOfUnits'
+
+// copyStringBox is a new box with the length and the bytes of another.
+function copyStringBox(box Count) returns Count
+	let length = boxLength(box)
+	let copy = newStringBox(length)
+	copyBytes(bytesOf(box), target: bytesOf(copy), count: length)
+	return copy
+end 'copyStringBox'

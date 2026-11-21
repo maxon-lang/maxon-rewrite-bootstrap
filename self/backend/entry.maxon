@@ -46,6 +46,16 @@ export function rtImports() returns NameList
 	names.push("CreatePipe")
 	names.push("SetHandleInformation")
 	names.push("PeekNamedPipe")
+	names.push("GetCommandLineW")
+	names.push("CreateFileW")
+	names.push("MoveFileExW")
+	names.push("DeleteFileW")
+	names.push("FindFirstFileW")
+	names.push("FindNextFileW")
+	names.push("GetFileAttributesW")
+	names.push("CreateDirectoryW")
+	names.push("GetEnvironmentVariableW")
+	names.push("CreateProcessW")
 	return names
 end 'rtImports'
 
