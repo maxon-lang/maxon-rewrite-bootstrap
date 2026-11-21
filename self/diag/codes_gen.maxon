@@ -138,7 +138,7 @@ export let errEnumDuplicateCase = "E3030"
 // Two cases of an enum have the same raw value.
 export let errEnumDuplicateRawValue = "E3031"
 
-// The raw values of an enum or a union are not all of one kind: integers, floats or strings.
+// The raw values of an enum or a union are not all of one kind: integers, floats, strings or values of one type.
 export let errEnumRawValueTypeMismatch = "E3032"
 
 // A name is not a case of its enum or union.

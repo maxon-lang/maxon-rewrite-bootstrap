@@ -1,0 +1,13 @@
+type Meta
+	export let on as bool
+end 'Meta'
+
+union Shape
+	circle(r Count) = Meta{on: true}
+end 'Shape'
+
+function main() returns ExitCode
+	return Shape.circle.r
+end 'main'
+
+// expect-error: E3036 at 10:14

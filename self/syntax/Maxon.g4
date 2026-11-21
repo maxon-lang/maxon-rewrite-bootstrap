@@ -184,14 +184,7 @@ enumDecl
     ;
 
 enumCaseDecl
-    : name=(Name | 'from') ('=' raw=rawValue)?
-    ;
-
-// A raw value is a literal: an integer, a float or a string with no interpolation, which the checker holds to.
-rawValue returns [Expr value]
-    : value=intLit
-    | value=floatLit
-    | value=strLit
+    : name=(Name | 'from') ('=' raw=expr)?
     ;
 
 unionDecl
@@ -201,7 +194,7 @@ unionDecl
     ;
 
 unionCaseDecl
-    : name=(Name | 'from') (^'(' (fields+=param (',' fields+=param)*)? ')')? ('=' raw=rawValue)?
+    : name=(Name | 'from') (^'(' (fields+=param (',' fields+=param)*)? ')')? ('=' raw=expr)?
     ;
 
 aliasDecl

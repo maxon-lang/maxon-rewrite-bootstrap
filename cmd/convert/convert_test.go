@@ -523,11 +523,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "a block handler ('otherwise (e) 'label'') inside brackets",
 		},
 		{
-			name:     "function-backed enum raw value",
-			in:       "enum Op\n\tdoubleOp = doubleFn\nend 'Op'\n",
-			wantTodo: "struct-backed and function-backed raw values",
-		},
-		{
 			name:     "empty array literal",
 			in:       "function f() returns Count\n\tlet xs = []\n\treturn 0\nend 'f'\n",
 			wantTodo: "an empty array literal",

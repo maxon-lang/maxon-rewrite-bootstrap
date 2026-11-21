@@ -1,0 +1,15 @@
+type Meta
+	export let label as String
+end 'Meta'
+
+enum Named
+	first = Meta{label: "first"}
+end 'Named'
+
+function main() returns ExitCode
+	let n = Named.first
+	print(n.label)
+	return 0
+end 'main'
+
+// expect-error: E2015 at 11:9

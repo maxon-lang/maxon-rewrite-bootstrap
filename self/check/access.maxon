@@ -20,7 +20,7 @@ function checkStructLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "a literal of the generic '{tName}' is written 'Self\{...\}', which gives it its own type parameters", errs: errs)
 		return ast.noType
 	end 'generic'
-	if c.owner != target or (c.fn == ast.noFunc and c.constName == "") 'restricted'
+	if not c.inRawValue and (c.owner != target or (c.fn == ast.noFunc and c.constName == "")) 'restricted'
 		checkFail(c.modID, off: off, code: diag.errConstructorRestriction, msg: diag.constructorRestricted(tName), errs: errs)
 		return ast.noType
 	end 'restricted'
@@ -224,6 +224,10 @@ function checkMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, mut
 			none then _ = 0
 		end 'limit'
 	end 'headIsSized'
+	match consumes payloadCaseNamed(c, p: p, obj: obj) 'payloadCase'
+		some(read) then return checkCaseRead(c, p: p, e: e, read: read, errs: errs)
+		none then _ = 0
+	end 'payloadCase'
 	let typed = checkExpr(c, p: p, e: obj, errs: errs)
 	if typed == ast.noType 'badObj'
 		return ast.noType
@@ -379,6 +383,13 @@ function checkValueMember(mutates c Checker, mutates p ast.Project, e ast.NodeID
 	if typeHasKind(p, t: content, kind: ast.TypeKind.record) and p.types.entries[ast.originOf(p.types, t: content) as Count].findField(member).isSome() 'field'
 		return checkFieldMember(c, p: p, e: e, rt: content, member: member, errs: errs)
 	end 'field'
+	if rawValuesUntyped(p, t: t) and member != "name" and member != "ordinal" 'untyped'
+		return failRawUntyped(c, p: p, e: e, t: t, errs: errs)
+	end 'untyped'
+	match consumes rawBackingField(p, t: t, member: member) 'backing'
+		some(index) then return checkRawFieldMember(c, p: p, e: e, t: t, index: index, errs: errs)
+		none then _ = 0
+	end 'backing'
 	let k = kindOfType(p, t: t)
 	if (k == ast.TypeKind.enumTy and (member == "name" or member == "ordinal" or member == "rawValue")) or (k == ast.TypeKind.unionTy and (member == "name" or member == "ordinal" or member == "rawValue")) 'builtinMember'
 		return builtinMemberType(c, p: p, e: e, t: t, member: member, errs: errs)
@@ -423,6 +434,9 @@ function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeI
 			kind = ast.MemberKind.memberEnumRaw
 		end 'enumRaw'
 		result = rawValueType(p, t: t)
+		if result == ast.noType 'untyped'
+			return failRawUntyped(c, p: p, e: e, t: t, errs: errs)
+		end 'untyped'
 	end 'raw' else if isEnum 'enumName'
 		kind = ast.MemberKind.memberEnumName
 	end 'enumName'
@@ -430,10 +444,13 @@ function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeI
 	return result
 end 'builtinMemberType'
 
-// rawValueType is the type of the raw value of an enum or a union: a String or a FullRangeFloat for the strings and floats
-// the cases write, and for integers a Count, or a FullRangeInt where a case has a negative one.
+// rawValueType is the type of the raw value of an enum or a union: the type of the values the cases write, a String or a
+// FullRangeFloat for the strings and floats, and for integers a Count, or a FullRangeInt where a case has a negative one.
 function rawValueType(p ast.Project, t ast.TypeID) returns ast.TypeID
 	let orig = ast.originOf(p.types, t: t)
+	if p.types.entries[orig as Count].rawKind == ast.RawKind.value 'value'
+		return p.types.entries[orig as Count].rawType
+	end 'value'
 	if p.types.entries[orig as Count].rawKind == ast.RawKind.string 'string'
 		return p.builtins.stringTy
 	end 'string'

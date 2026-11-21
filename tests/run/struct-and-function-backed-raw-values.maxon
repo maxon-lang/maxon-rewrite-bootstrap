@@ -1,0 +1,79 @@
+typealias Latency = int(0 to 50)
+
+typealias Wide = int(0 to 1000)
+
+typealias Unary = function(Wide) returns Wide
+
+let slow = 40 as Latency
+
+type Meta
+	export let latency as Latency
+	export let memory as bool
+	export let label as String
+
+	static function create(latency Latency, memory bool) returns Self
+		return Self{latency: latency, memory: memory, label: "made"}
+	end 'create'
+end 'Meta'
+
+type Detail
+	export let meta as Meta
+	export let tag as Count
+end 'Detail'
+
+enum Instruction
+	add = Meta{latency: 1, memory: false, label: "add"}
+	load = Meta.create(4, memory: true)
+	store = Meta{latency: slow, memory: true, label: "store"}
+end 'Instruction'
+
+enum Described
+	first = Detail{meta: Meta.create(2, memory: false), tag: 7}
+	second = Detail{meta: Meta{latency: 3, memory: true, label: "inner"}, tag: 8}
+end 'Described'
+
+function plus(x Wide) returns Wide
+	return x
+end 'plus'
+
+function twice(x Wide) returns Wide
+	return x
+end 'twice'
+
+enum Dispatch
+	same = plus
+	again = twice
+	inline = function(x Wide) gives x
+end 'Dispatch'
+
+union Shape
+	circle(r Count) = Meta{latency: 5, memory: false, label: "circle"}
+	square(side Count) = Meta{latency: 6, memory: true, label: "square"}
+	blank = Meta.create(0, memory: false)
+end 'Shape'
+
+function latencyOf(op Instruction) returns Latency
+	return op.rawValue.latency
+end 'latencyOf'
+
+function main() returns ExitCode
+	let op = Instruction.load
+	let whole = op.rawValue
+	print("{whole.latency} {whole.label} {latencyOf(Instruction.add)} {latencyOf(Instruction.store)}\n")
+	print("{op.latency} {op.memory} {Instruction.store.latency} {op.name} {op.ordinal} {op}\n")
+	let detail = Described.second
+	print("{detail.rawValue.meta.label} {detail.rawValue.meta.latency} {detail.rawValue.tag} {detail.tag}\n")
+	let f = Dispatch.again.rawValue
+	let g = Dispatch.inline.rawValue
+	let h = Dispatch.same.rawValue
+	print("{f(5)} {g(6)} {h(7)}\n")
+	let shape = Shape.square(3)
+	print("{shape.latency} {shape.rawValue.label} {shape.name} {Shape.circle.latency} {Shape.circle.name} {Shape.circle.ordinal} {Shape.blank.rawValue.label}\n")
+	return 0
+end 'main'
+
+//> 4 made 1 40
+//> 4 true 40 load 1 load
+//> inner 3 8 8
+//> 5 6 7
+//> 6 square square 5 circle 0 made

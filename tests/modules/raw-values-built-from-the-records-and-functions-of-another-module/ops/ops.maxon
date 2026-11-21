@@ -1,0 +1,21 @@
+export typealias Wide = int(0 to 1000)
+
+export typealias Unary = function(Wide) returns Wide
+
+function bump(x Wide) returns Wide
+	return x
+end 'bump'
+
+export enum Instruction
+	add = meta.Meta.create(1, memory: false)
+	load = meta.Meta.create(4, memory: true)
+end 'Instruction'
+
+export enum Handler
+	first = bump
+end 'Handler'
+
+export union Shape
+	circle(r Count) = meta.Meta.create(2, memory: false)
+	blank = meta.Meta.create(0, memory: true)
+end 'Shape'

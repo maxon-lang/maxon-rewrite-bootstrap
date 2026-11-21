@@ -1236,12 +1236,18 @@ function resolveTopConst(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mu
 end 'resolveTopConst'
 
 function resolveConstDecl(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mutates errs diag.ErrorList)
+	resolveStandaloneExpr(r, p: p, e: cd.value, errs: errs)
+end 'resolveConstDecl'
+
+// resolveStandaloneExpr resolves an expression that no function holds, a constant's value, a field's default or a raw value, which
+// names no local and no field.
+function resolveStandaloneExpr(mutates r Resolver, p ast.Project, e ast.NodeID, mutates errs diag.ErrorList)
 	r.scopes = ScopeStack.create(0)
 	pushScope(r)
 	r.fields = BoolStrMap.new()
-	resolveExpr(r, p: p, id: cd.value, errs: errs)
+	resolveExpr(r, p: p, id: e, errs: errs)
 	popScope(r)
-end 'resolveConstDecl'
+end 'resolveStandaloneExpr'
 
 function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: td.name, endNode: td.endRef, errs: errs)
@@ -1259,11 +1265,7 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 		end 'ht'
 		let dExpr = td.fields[i].defaultRef
 		if dExpr != 0 'hd'
-			r.scopes = ScopeStack.create(0)
-			pushScope(r)
-			r.fields = BoolStrMap.new()
-			resolveExpr(r, p: p, id: dExpr, errs: errs)
-			popScope(r)
+			resolveStandaloneExpr(r, p: p, e: dExpr, errs: errs)
 		end 'hd'
 	end 'flds'
 	let emptyFields = BoolStrMap.new()
@@ -1305,9 +1307,19 @@ function resolveNestedAliases(mutates r Resolver, p ast.Project, owner String, a
 	end 'values'
 end 'resolveNestedAliases'
 
+// resolveRawValue resolves the value that a case writes after '=', where it is not a literal: a literal names nothing.
+function resolveRawValue(mutates r Resolver, p ast.Project, raw ast.NodeID, mutates errs diag.ErrorList)
+	if raw != 0 'written'
+		resolveStandaloneExpr(r, p: p, e: raw, errs: errs)
+	end 'written'
+end 'resolveRawValue'
+
 function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: ed.name, endNode: ed.endRef, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: ed.conforms, errs: errs)
+	for i in 0 upto ed.cases.count() 'cs'
+		resolveRawValue(r, p: p, raw: ed.cases[i].raw, errs: errs)
+	end 'cs'
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ed.methods.count() 'meths'
 		let ms = methodSurface(r, owner: ed.name, m: ed.methods[i])
@@ -1326,6 +1338,7 @@ function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s
 			let cs = Surface.make(s.tier, noun: "union case", name: "{ud.name}.{ud.cases[i].name}", at: r.tree.startOf(tRef))
 			signatureType(r, p: p, s: cs, position: "in the type of payload '{ud.cases[i].fields[j].name}'", tr: tRef, errs: errs)
 		end 'ps'
+		resolveRawValue(r, p: p, raw: ud.cases[i].raw, errs: errs)
 	end 'cs'
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ud.methods.count() 'meths'

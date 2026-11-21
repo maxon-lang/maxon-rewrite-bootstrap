@@ -881,13 +881,24 @@ function checkValues(mutates o Ownership, mutates p ast.Project, ord ast.DeclOrd
 		constDecl(cd) then checkValue(o, p: p, e: cd.value, name: cd.name)
 		typeDecl(_) then checkFieldValues(o, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
 		funcDecl(_) then _ = 0
-		enumDecl(_) then _ = 0
-		unionDecl(_) then _ = 0
+		enumDecl(_) then checkRawValueExprs(o, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
+		unionDecl(_) then checkRawValueExprs(o, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
 		aliasDecl(_) then _ = 0
 		interfaceDecl(_) then _ = 0
 		extensionDecl(_) then _ = 0
 	end 'k'
 end 'checkValues'
+
+// checkRawValueExprs checks the values that the cases of an enum or a union write after "=" and that are no literal: each is
+// built where it is read and given to the one who reads it.
+function checkRawValueExprs(mutates o Ownership, mutates p ast.Project, tid ast.TypeID)
+	for i in 0 upto p.types.entries[tid as Count].cases.count() 'each'
+		let e = p.types.entries[tid as Count].cases[i].rawExpr
+		if e != 0 'written'
+			checkValue(o, p: p, e: e, name: p.types.entries[tid as Count].cases[i].name.clone())
+		end 'written'
+	end 'each'
+end 'checkRawValueExprs'
 
 function checkFieldValues(mutates o Ownership, mutates p ast.Project, tid ast.TypeID)
 	for i in 0 upto p.types.entries[tid as Count].fields.count() 'each'

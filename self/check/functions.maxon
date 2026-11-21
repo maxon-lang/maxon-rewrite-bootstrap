@@ -12,6 +12,7 @@ function enterContext(mutates c Checker, p ast.Project, f ast.FuncID, owner ast.
 	c.outers = Array.create(0)
 	c.owner = owner
 	c.constName = ""
+	c.inRawValue = false
 	c.allowCalls = calls
 	c.scopes = ScopeList.create(0)
 	c.scopes.push(LocalScope.new())

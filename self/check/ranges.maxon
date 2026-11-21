@@ -114,8 +114,13 @@ function rangeParamValues(mutates r Ranges, p ast.Project, fid ast.FuncID)
 	end 'params'
 end 'rangeParamValues'
 
-// rangeCheckValues analyses the defaults of a record's fields, which no function holds.
+// rangeCheckValues analyses the defaults of a record's fields, and the raw values of an enum or a union that are no literal,
+// which no function holds.
 function rangeCheckValues(mutates r Ranges, p ast.Project, ord ast.DeclOrdinal)
+	if isNominalDecl(p.modules[r.modIdx].decls[ord as Count]) 'raws'
+		rangeRawValues(r, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(r.modID, ordinal: ord)))
+		return
+	end 'raws'
 	if not isRecordDecl(p.modules[r.modIdx].decls[ord as Count]) 'notRecord'
 		return
 	end 'notRecord'
@@ -127,6 +132,30 @@ function rangeCheckValues(mutates r Ranges, p ast.Project, ord ast.DeclOrdinal)
 		end 'default'
 	end 'fields'
 end 'rangeCheckValues'
+
+function rangeRawValues(mutates r Ranges, p ast.Project, tid ast.TypeID)
+	for i in 0 upto p.types.entries[tid as Count].cases.count() 'cases'
+		let e = p.types.entries[tid as Count].cases[i].rawExpr
+		if e != 0 'written'
+			r.failed = false
+			_ = rangeValue(r, p: p, e: e)
+		end 'written'
+	end 'cases'
+end 'rangeRawValues'
+
+// isNominalDecl is whether a declaration is an enum or a union, whose cases may write raw values.
+function isNominalDecl(d ast.Decl) returns bool
+	return match d 'k'
+		enumDecl(_) gives true
+		unionDecl(_) gives true
+		typeDecl(_) gives false
+		funcDecl(_) gives false
+		constDecl(_) gives false
+		aliasDecl(_) gives false
+		interfaceDecl(_) gives false
+		extensionDecl(_) gives false
+	end 'k'
+end 'isNominalDecl'
 
 function isRecordDecl(d ast.Decl) returns bool
 	return match d 'k'

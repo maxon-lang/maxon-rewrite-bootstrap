@@ -143,19 +143,22 @@ end 'CaseFieldInfo'
 
 export typealias CaseFieldList = Array with CaseFieldInfo
 
-// RawKind is what the raw values of an enum or a union are: the integers that count up from the case before, or the floats
-// and the strings that every case writes.
+// RawKind is what the raw values of an enum or a union are: the integers that count up from the case before, the floats and
+// the strings that every case writes, or values that are not literals: a record, a function, anything an expression builds,
+// which every case writes as the same type (the type of `rawType`).
 export enum RawKind
 	integer
 	float
 	string
+	value
 
-	// noun is how a message names the kind, as maxon does.
+	// noun is how a message names a kind of literal, as maxon does; a value is named by its type.
 	export function noun() returns String
 		return match self 'k'
 			integer gives "int"
 			float gives "float"
 			string gives "String"
+			value gives panic("a raw value that is no literal is named by its type")
 		end 'k'
 	end 'noun'
 end 'RawKind'
@@ -168,9 +171,11 @@ export type CaseInfo
 	export var rawValue as I128
 	// rawText is the text of the case whose raw value is a string.
 	export var rawText as String
+	// rawExpr is the expression of a case whose raw value is not a literal, in the module that declares the type, and 0 for any other.
+	export var rawExpr as NodeID
 
 	export static function make(consumes name String, consumes payload CaseFieldList, hasRaw bool, consumes rawValue I128) returns CaseInfo
-		return CaseInfo{name: name, payload: payload, hasRaw: hasRaw, rawValue: rawValue, rawText: ""}
+		return CaseInfo{name: name, payload: payload, hasRaw: hasRaw, rawValue: rawValue, rawText: "", rawExpr: 0 as NodeID}
 	end 'make'
 end 'CaseInfo'
 
@@ -305,6 +310,8 @@ export type TypeEntry
 	export var cases as CaseInfoList
 	export var hasExplicitRaw as bool
 	export var rawKind as RawKind
+	// rawType is the type that the raw values of the cases are, when rawKind is value and the constants stage has typed them.
+	export var rawType as TypeID
 	export var methods as MethodRefList
 	export var sigs as FuncIDList
 	export var boundIface as TypeID
@@ -323,7 +330,7 @@ export type TypeEntry
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, supertype: noType}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, rawType: noType, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, supertype: noType}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID

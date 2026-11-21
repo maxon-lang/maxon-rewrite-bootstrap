@@ -213,7 +213,7 @@ function isImmortal(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
 	end 'str'
 	if k == ast.NodeKind.memberExpr 'member'
 		let kind = memberInfoAt(p, module: l.module, node: through).kind
-		return kind == ast.MemberKind.memberEnumName or kind == ast.MemberKind.memberUnionName
+		return kind == ast.MemberKind.memberEnumName or kind == ast.MemberKind.memberUnionName or kind == ast.MemberKind.memberCaseName
 	end 'member'
 	if k == ast.NodeKind.nameExpr 'name'
 		let name = nameInfoAt(p, module: l.module, node: through)
@@ -765,6 +765,18 @@ function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID)
 		let tag = tagReg(l, box: u)
 		return rawValueOf(l, p: p, t: ut, index: tag)
 	end 'unionRaw'
+	if kind == ast.MemberKind.memberRawField 'rawField'
+		let ot = exprType(p, module: l.module, node: obj)
+		let v = lowerExpr(l, p: p, e: obj)
+		var index = v
+		if p.types.entries[ot as Count].kind == ast.TypeKind.unionTy 'union'
+			index = tagReg(l, box: v)
+		end 'union'
+		return rawFieldOf(l, p: p, t: ot, index: index, field: member.fieldIndex, ft: exprType(p, module: l.module, node: e))
+	end 'rawField'
+	if kind == ast.MemberKind.memberCaseName or kind == ast.MemberKind.memberCaseOrdinal or kind == ast.MemberKind.memberCaseRaw or kind == ast.MemberKind.memberCaseRawField 'caseRead'
+		return lowerCaseRead(l, p: p, e: e, member: member)
+	end 'caseRead'
 	if kind == ast.MemberKind.memberUnionOrdinal 'unionOrdinal'
 		let u = lowerExpr(l, p: p, e: obj)
 		return tagReg(l, box: u)
@@ -776,6 +788,36 @@ function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID)
 	end 'unionName'
 	panic("lower: unresolved member")
 end 'visitMemberExpr'
+
+// lowerCaseRead is a member read from the case that a union type names, which the case's tag answers: its index is a constant.
+function lowerCaseRead(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, member ast.MemberInfo) returns Reg
+	let index = konst(l, value: try member.enumCase as Word otherwise panic("ir: a case index is out of range"))
+	if member.kind == ast.MemberKind.memberCaseName 'name'
+		let origin = p.types.entries[member.ownerTy as Count].effectiveOrigin()
+		return strReg(l, value: p.types.entries[origin as Count].cases[member.enumCase].name.clone())
+	end 'name'
+	if member.kind == ast.MemberKind.memberCaseOrdinal 'ordinal'
+		return index
+	end 'ordinal'
+	if member.kind == ast.MemberKind.memberCaseRaw 'raw'
+		return rawValueOf(l, p: p, t: member.ownerTy, index: index)
+	end 'raw'
+	if member.kind == ast.MemberKind.memberCaseRawField 'field'
+		return rawFieldOf(l, p: p, t: member.ownerTy, index: index, field: member.fieldIndex, ft: exprType(p, module: l.module, node: e))
+	end 'field'
+	panic("lower: a member of kind {member.kind.name} is no read of a case")
+end 'lowerCaseRead'
+
+// rawFieldOf is a field of the raw value of the case that index says: the raw value is made for the read and dropped after it,
+// which only a field that holds no value of its own survives.
+function rawFieldOf(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, index Reg, field Count, ft ast.TypeID) returns Reg
+	let record = rawValueOf(l, p: p, t: t, index: index)
+	let recordTy = p.types.entries[p.types.entries[t as Count].effectiveOrigin() as Count].rawType
+	let d = newReg(l, kind: kindOf(l, p: p, t: ft))
+	emit(l, i: newLoadField(d, obj: record, offset: wordOffset(field)))
+	dropValue(l, p: p, v: record, t: recordTy)
+	return d
+end 'rawFieldOf'
 
 // lowerCaseList builds the array that 'Type.allCases' or 'Type.allCaseNames' is: a new one each time, since an array has
 // one owner, holding a case of the enum, or the name of a case, for each case in the order they are declared.
@@ -798,9 +840,12 @@ end 'lowerCaseList'
 
 // rawValueOf is the raw value of the case of the enum or union type t that index says: the index itself for integers that the
 // cases did not write, and otherwise the raw value of each case, chosen by a switch.
-function rawValueOf(mutates l Lowerer, p ast.Project, t ast.TypeID, index Reg) returns Reg
+function rawValueOf(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, index Reg) returns Reg
 	let origin = p.types.entries[t as Count].effectiveOrigin()
 	let kind = p.types.entries[origin as Count].rawKind
+	if kind == ast.RawKind.value 'value'
+		return builtRawValue(l, p: p, origin: origin, index: index)
+	end 'value'
 	if kind == ast.RawKind.string 'string'
 		var texts = ast.StringList.create(0)
 		for i in 0 upto p.types.entries[origin as Count].cases.count() 'texts'
@@ -820,6 +865,25 @@ function rawValueOf(mutates l Lowerer, p ast.Project, t ast.TypeID, index Reg) r
 	end 'each'
 	return selectEnd(l, s: sel)
 end 'rawValueOf'
+
+// builtRawValue is the raw value of the case that index says, when the cases write expressions: the one the case writes, built
+// where it is read, in the module that declares the type. Whoever reads it owns it, as for a call's result.
+function builtRawValue(mutates l Lowerer, mutates p ast.Project, origin ast.TypeID, index Reg) returns Reg
+	let count = p.types.entries[origin as Count].cases.count()
+	let module = p.types.entries[origin as Count].decl.module
+	let sel = selectStart(l, kind: kindOfType(p, t: p.types.entries[origin as Count].rawType), index: index, count: count)
+	for i in 0 upto count 'each'
+		selectArm(l, s: sel, i: i)
+		pushScope(l, block: false)
+		let mark = l.pending.count()
+		let v = exprIn(l, p: p, e: ExprRef.make(module, node: p.types.entries[origin as Count].cases[i].rawExpr))
+		emit(l, i: newStoreSlot(sel.result, src: v, borrow: false))
+		popPending(l, n: mark)
+		popScope(l, p: p)
+		goTo(l, target: sel.join)
+	end 'each'
+	return selectEnd(l, s: sel)
+end 'builtRawValue'
 
 // names is the name of the case that index says, as a string of the executable.
 function names(mutates l Lowerer, index Reg, names ast.StringList) returns Reg

@@ -53,7 +53,8 @@ function aliasOrTypeName(p ast.Project, ref ast.DeclRef, t ast.TypeID) returns S
 end 'aliasOrTypeName'
 
 // RawState is the raw values of the cases of an enum or a union read so far: what they are, which the first case settles
-// (a case that writes none is an integer), and the integer that the next case without one has.
+// (a case that writes none is an integer; one that writes a value that is no literal makes them all values, whose types
+// the constants stage compares), and the integer that the next case without one has.
 type RawState
 	var kind as ast.RawKind
 	var started as bool
@@ -63,29 +64,48 @@ type RawState
 	var value as ast.I128
 	var text as String
 	var explicit as bool
+	// expr is the expression of the case read last when it is a value, and 0 otherwise.
+	var expr as ast.NodeID
 
 	static function new() returns RawState
-		return RawState{kind: ast.RawKind.integer, started: false, next: ast.I128.zero(), value: ast.I128.zero(), text: "", explicit: false}
+		return RawState{kind: ast.RawKind.integer, started: false, next: ast.I128.zero(), value: ast.I128.zero(), text: "", explicit: false, expr: 0 as ast.NodeID}
 	end 'new'
 end 'RawState'
 
+// rawKindOf is the kind of raw value that a case writes: the literal's kind, an integer for a case that writes none, and a
+// value for any other expression.
+function rawKindOf(p ast.Project, modIdx Count, raw ast.NodeID) returns ast.RawKind
+	if raw == 0 'none'
+		return ast.RawKind.integer
+	end 'none'
+	let k = p.modules[modIdx].tree.kindOf(raw)
+	if k == ast.NodeKind.intLit 'integer'
+		return ast.RawKind.integer
+	end 'integer'
+	if k == ast.NodeKind.floatLit 'float'
+		return ast.RawKind.float
+	end 'float'
+	if k == ast.NodeKind.strLit 'string'
+		return ast.RawKind.string
+	end 'string'
+	return ast.RawKind.value
+end 'rawKindOf'
+
 // readRaw reads the raw value that a case writes, or the integer that counts up for a case that writes none, into st, and
-// refuses one that is not of the kind the first case settled or that another case of the type has. It gives whether it did
-// not refuse.
+// refuses a literal that is not of the kind the first case settled or that another case of the type has. A value that is no
+// literal is typed by the constants stage, which compares it with the others there, so it makes every case a value. It gives
+// whether it did not refuse.
 function readRaw(mutates c Checker, mutates p ast.Project, tid ast.TypeID, raw ast.NodeID, off diag.U32, mutates st RawState, mutates errs diag.ErrorList) returns bool
 	st.explicit = raw != 0
-	var kind = ast.RawKind.integer
-	if st.explicit and p.modules[c.modIdx].tree.kindOf(raw) == ast.NodeKind.floatLit 'float'
-		kind = ast.RawKind.float
-	end 'float' else if st.explicit and p.modules[c.modIdx].tree.kindOf(raw) == ast.NodeKind.strLit 'string'
-		kind = ast.RawKind.string
-	end 'string'
-	if st.started and st.kind != kind 'mismatch'
+	let kind = rawKindOf(p, modIdx: c.modIdx, raw: raw)
+	let valued = kind == ast.RawKind.value or (st.started and st.kind == ast.RawKind.value)
+	if st.started and not valued and st.kind != kind 'mismatch'
 		checkFail(c.modID, off: off, code: diag.errEnumRawValueTypeMismatch, msg: diag.rawValueTypeMismatch(st.kind.noun(), got: kind.noun()), errs: errs)
 		return false
 	end 'mismatch'
 	st.started = true
-	st.kind = kind
+	st.kind = ast.RawKind.value if valued else kind
+	st.expr = raw if kind == ast.RawKind.value else 0 as ast.NodeID
 	var shown = ""
 	if kind == ast.RawKind.integer 'integer'
 		st.value = st.next.clone()
@@ -100,7 +120,7 @@ function readRaw(mutates c Checker, mutates p ast.Project, tid ast.TypeID, raw a
 		st.value = ast.I128.fromCount(bits)
 		st.text = ""
 		shown = ast.floatDiagnosticText(bits)
-	end 'floatKind' else 'stringKind'
+	end 'floatKind' else if kind == ast.RawKind.string 'stringKind'
 		let parts = ast.strLitPartsRef(p.modules[c.modIdx].tree, id: raw)
 		if not p.modules[c.modIdx].tree.strIsPlain(parts) 'interpolated'
 			checkFail(c.modID, off: offsetOf(c, p: p, node: raw), code: diag.errRawValueNotLiteral, msg: "a raw value is a constant: write the string without an interpolated value", errs: errs)
@@ -109,7 +129,13 @@ function readRaw(mutates c Checker, mutates p ast.Project, tid ast.TypeID, raw a
 		st.value = ast.I128.zero()
 		st.text = ast.strPartsText(p.modules[c.modIdx].tree, partsRef: parts)
 		shown = st.text.clone()
-	end 'stringKind'
+	end 'stringKind' else 'valueKind'
+		st.value = ast.I128.zero()
+		st.text = ""
+	end 'valueKind'
+	if valued 'unordered'
+		return true
+	end 'unordered'
 	for j in 0 upto p.types.entries[tid as Count].cases.count() 'rawDup'
 		let other = p.types.entries[tid as Count].cases[j].clone()
 		if other.rawValue.eq(st.value) and other.rawText == st.text 'same'
@@ -124,9 +150,10 @@ end 'readRaw'
 function pushRawCase(mutates p ast.Project, tid ast.TypeID, consumes name String, consumes payload ast.CaseFieldList, st RawState)
 	var info = ast.CaseInfo.make(name, payload: payload, hasRaw: st.explicit, rawValue: st.value.clone())
 	info.rawText = st.text.clone()
+	info.rawExpr = st.expr
 	p.types.entries[tid as Count].cases.push(info)
 	p.types.entries[tid as Count].rawKind = st.kind
-	if st.explicit 'explicit'
+	if st.explicit and st.kind != ast.RawKind.value 'explicit'
 		p.types.entries[tid as Count].hasExplicitRaw = true
 	end 'explicit'
 end 'pushRawCase'

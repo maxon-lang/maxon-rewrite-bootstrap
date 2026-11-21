@@ -169,12 +169,13 @@ export function stageConstantOrder(mutates ch Checks, p ast.Project, mutates err
 	end 'each'
 end 'stageConstantOrder'
 
-// stageConstants types each module's constants.
+// stageConstants types each module's constants, then the raw values of its enums and unions, which may name them.
 export function stageConstants(mutates ch Checks, mutates p ast.Project, mutates errs diag.ErrorList)
 	for i in 0 upto ch.order.count() 'each'
 		let m = ast.modIndex(ch.order[i])
 		let order = ch.modules[m].constants.clone()
 		checkConstants(ch.modules[m].checker, p: p, order: order, errs: errs)
+		checkRawValues(ch.modules[m].checker, p: p, errs: errs)
 	end 'each'
 end 'stageConstants'
 

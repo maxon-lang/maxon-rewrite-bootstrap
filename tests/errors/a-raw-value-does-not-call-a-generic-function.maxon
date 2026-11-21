@@ -1,0 +1,13 @@
+function pick(x T, y T) uses T returns T
+	return x
+end 'pick'
+
+enum Pick
+	first = pick(1 as Count, y: 2)
+end 'Pick'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2015 at 6:10

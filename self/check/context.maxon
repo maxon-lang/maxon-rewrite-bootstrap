@@ -182,6 +182,9 @@ export type Checker
 	export var allowCalls as bool
 	// constName is the module-level constant whose initializer is being typed, for the message that refuses a call in it.
 	export var constName as String
+	// inRawValue is whether the value that a case of an enum or a union writes after "=" is being typed: it may build any record,
+	// since it belongs to the enum or union that declares it and to no record.
+	export var inRawValue as bool
 	export var dead as bool
 	export var expect as ast.TypeID
 	// literalWide is whether an array or map literal being typed is inside another, so that its bare numbers take the whole word
@@ -224,7 +227,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
 	end 'make'
 end 'Checker'
 

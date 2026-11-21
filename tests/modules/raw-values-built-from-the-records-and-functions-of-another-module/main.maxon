@@ -1,0 +1,9 @@
+function main() returns ExitCode
+	let op = ops.Instruction.load
+	let h = ops.Handler.first.rawValue
+	print("{op.rawValue.latency} {op.latency} {op.rawValue.memory} {h(3)} {ops.Shape.circle.latency} {ops.Shape.blank.memory}\n")
+	return op.latency
+end 'main'
+
+//> 4 4 true 3 2 true
+// expect-exit: 4

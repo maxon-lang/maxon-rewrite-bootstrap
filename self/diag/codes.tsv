@@ -52,7 +52,7 @@ ErrBoundNotMet	E3017	semanticWhereConstraintViolation	A type argument does not m
 ErrUnknownField	E3018	semanticUnknownField	A field access names a field the type does not have.
 ErrEnumDuplicateCase	E3030	enumDuplicateCase	An enum declares a case name twice.
 ErrEnumDuplicateRawValue	E3031	enumDuplicateRawValue	Two cases of an enum have the same raw value.
-ErrEnumRawValueTypeMismatch	E3032	enumRawValueTypeMismatch	The raw values of an enum or a union are not all of one kind: integers, floats or strings.
+ErrEnumRawValueTypeMismatch	E3032	enumRawValueTypeMismatch	The raw values of an enum or a union are not all of one kind: integers, floats, strings or values of one type.
 ErrEnumUnknownCase	E3034	enumUnknownCase	A name is not a case of its enum or union.
 ErrEnumWrongBindingCount	E3035	enumWrongBindingCount	A match pattern binds a different number of values than its case carries.
 ErrCallArgCountMismatch	E3036	callArgCountMismatch	A call passes a different number of arguments than the callee takes.

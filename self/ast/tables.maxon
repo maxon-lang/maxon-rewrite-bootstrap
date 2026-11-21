@@ -42,6 +42,15 @@ export enum MemberKind
 	memberUnionName
 	memberUnionOrdinal
 	memberUnionRaw
+	// memberRawField is a field of the raw value of an enum or a union value, read as the value's own: `op.latency` is
+	// `op.rawValue.latency`.
+	memberRawField
+	// The member case kinds read the name, the ordinal, the raw value or a field of the raw value of the case that a union type
+	// names (`Op.mul.latency`), which has a payload, so that no value of it is made: the case is the tag.
+	memberCaseName
+	memberCaseOrdinal
+	memberCaseRaw
+	memberCaseRawField
 	memberAllCases
 	memberAllCaseNames
 	memberLimit
@@ -50,7 +59,7 @@ end 'MemberKind'
 // memberOfType is whether a member is read from a type that the expression names, never from a value, so there is no
 // object to evaluate.
 export function memberOfType(kind MemberKind) returns bool
-	return kind == MemberKind.memberEnumCase or kind == MemberKind.memberUnionCase or kind == MemberKind.memberAllCases or kind == MemberKind.memberAllCaseNames or kind == MemberKind.memberLimit
+	return kind == MemberKind.memberEnumCase or kind == MemberKind.memberUnionCase or kind == MemberKind.memberAllCases or kind == MemberKind.memberAllCaseNames or kind == MemberKind.memberLimit or kind == MemberKind.memberCaseName or kind == MemberKind.memberCaseOrdinal or kind == MemberKind.memberCaseRaw or kind == MemberKind.memberCaseRawField
 end 'memberOfType'
 
 export let failNone = 0 as Byte

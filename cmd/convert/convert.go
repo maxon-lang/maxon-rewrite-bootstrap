@@ -714,10 +714,8 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			}
 		}
 
-		// Inside enum/union body: check case raw values.
-		if currentBlock() == blockEnum {
-			checkEnumCase(line, warn)
-		} else if currentBlock() == blockUnion {
+		// Inside a union body: check the payload of each case.
+		if currentBlock() == blockUnion {
 			checkUnionCase(line, warn)
 		}
 
@@ -1215,47 +1213,12 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 	}
 }
 
-func checkEnumCase(line *sourceLine, warn func(*sourceLine, string)) {
-	eqIdx := findToken(line.code, 0, "=")
-	if eqIdx < 0 || eqIdx+1 >= len(line.code) {
-		return
-	}
-	checkRawValue(line, eqIdx, warn)
-}
-
-// checkRawValue warns of the raw value after the = at eqIdx unless it is a literal minimaxon holds: an integer, a float or
-// a string. A character literal, which the lexer reads as a label, gets the warning of every character literal.
-func checkRawValue(line *sourceLine, eqIdx int, warn func(*sourceLine, string)) {
-	val := line.code[eqIdx+1]
-	if val.text == "-" && eqIdx+2 < len(line.code) {
-		val = line.code[eqIdx+2]
-	}
-	switch val.kind {
-	case tokInt, tokFloat, tokString, tokLabel:
-	default:
-		warn(line, "struct-backed and function-backed raw values are not supported in minimaxon")
-	}
-}
-
 func checkUnionCase(line *sourceLine, warn func(*sourceLine, string)) {
 	// Skip lines that are methods or end.
 	if line.code[0].text == "end" || funcKeywordIndex(line.code) >= 0 {
 		return
 	}
-	depth := 0
-	for i, t := range line.code {
-		switch t.text {
-		case "(":
-			depth++
-		case ")":
-			if depth > 0 {
-				depth--
-			}
-		case "=":
-			if depth == 0 {
-				checkRawValue(line, i, warn)
-			}
-		}
+	for _, t := range line.code {
 		if t.kind == tokIdent && isCapabilityWord(t.text) {
 			warn(line, fmt.Sprintf("capability qualifier '%s' on union payload is not supported in minimaxon", t.text))
 		}

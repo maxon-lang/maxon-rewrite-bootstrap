@@ -1,0 +1,10 @@
+export typealias Latency = int(0 to 50)
+
+export type Meta
+	export let latency as Latency
+	export let memory as bool
+
+	export static function create(latency Latency, memory bool) returns Self
+		return Self{latency: latency, memory: memory}
+	end 'create'
+end 'Meta'

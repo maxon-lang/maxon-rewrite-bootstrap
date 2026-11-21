@@ -1,0 +1,24 @@
+type Meta
+	export let on as bool
+end 'Meta'
+
+type Other
+	export let on as bool
+end 'Other'
+
+enum Mixed
+	first = Meta{on: true}
+	second = Other{on: false}
+end 'Mixed'
+
+enum Literal
+	first = 4
+	second = Meta{on: true}
+end 'Literal'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3032 at 11:2
+// expect-error: E3032 at 16:2
