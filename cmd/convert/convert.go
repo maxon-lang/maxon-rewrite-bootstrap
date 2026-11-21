@@ -547,6 +547,8 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 	type openBlock struct {
 		indent string
 		kind   blockKind
+		// generic is whether the block is a type with type parameters.
+		generic bool
 	}
 	var stack []openBlock
 
@@ -555,6 +557,9 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			return blockOther
 		}
 		return stack[len(stack)-1].kind
+	}
+	inGenericType := func() bool {
+		return len(stack) > 0 && stack[len(stack)-1].kind == blockType && stack[len(stack)-1].generic
 	}
 
 	for i := range lines {
@@ -592,7 +597,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		switch declWord {
 		case "type":
 			transformTypeOrUnionHeader(line, declIdx, warn)
-			stack = append(stack, openBlock{indent: line.indent, kind: blockType})
+			stack = append(stack, openBlock{indent: line.indent, kind: blockType, generic: hasUsesClause(line.code[declIdx:])})
 			continue
 		case "union":
 			transformTypeOrUnionHeader(line, declIdx, warn)
@@ -615,8 +620,14 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 				continue
 			}
 		case "typealias":
-			if currentBlock() == blockInterface || currentBlock() == blockType {
-				warn(line, "nested typealias declarations are not supported in minimaxon")
+			switch currentBlock() {
+			case blockInterface, blockEnum, blockUnion:
+				warn(line, "typealias declarations in an interface, enum or union are not supported in minimaxon")
+			case blockType:
+				if inGenericType() && isRangeTypealias(line.code, declIdx) {
+					warn(line, "ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own")
+				}
+			case blockOther:
 			}
 			transformTypealias(line, declIdx, warn)
 			continue
@@ -727,6 +738,18 @@ func transformTypeOrUnionHeader(line *sourceLine, kwIdx int, warn func(*sourceLi
 		warn(line, "union errors are not supported in minimaxon; an error is an enum")
 	}
 	transformWhereInSlice(toks, kwIdx+2, line, warn)
+}
+
+// hasUsesClause reports whether a type declaration's header declares type parameters.
+func hasUsesClause(header []token) bool {
+	return slices.ContainsFunc(header, func(t token) bool { return t.kind == tokIdent && t.text == "uses" })
+}
+
+// isRangeTypealias reports whether the typealias at kwIdx names an integer range, as against an instance of a generic
+// type.
+func isRangeTypealias(toks []token, kwIdx int) bool {
+	eqIdx := findToken(toks, kwIdx+1, "=")
+	return eqIdx >= 0 && eqIdx+1 < len(toks) && toks[eqIdx+1].text == "int"
 }
 
 // implementsError reports whether a declaration header's conformance list names Error.

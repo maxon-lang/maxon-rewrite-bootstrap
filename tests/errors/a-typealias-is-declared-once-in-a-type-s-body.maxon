@@ -1,0 +1,11 @@
+type Pool uses Element
+	typealias Items = Array with Element
+	typealias Items = Array with Element
+	var items as Items
+end 'Pool'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3061 at 3:12

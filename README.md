@@ -902,7 +902,7 @@ and nothing else.
 ## The subset
 
 - `function`, `type` (fields, defaults, methods, `static function`), `enum` (integer raw values), `union`
-  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = Box with Count`, a top-level
+  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = Box with Count` (also in a type's body), a top-level
   `let` constant. A function, a type and a union can be generic (see "Generics"). A `type` or a `union` can say
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
@@ -1241,6 +1241,14 @@ end 'wrap'
   instance, `typealias Counts = Array with Count`, or, with several arguments, `typealias Counts = Map with String, Count` (a bare list, which only a typealias takes), and is that instance, not a type of its own: `Counts` and `array
   with Count` are one type. Its right-hand side is an instance (`E3917`), it may name other typealiases in any module,
   and one that names itself is `E2012`.
+- **Nested typealiases.** A `type`'s body can declare a typealias, before or among its fields and methods:
+  `typealias Items = Array with Element`, or `typealias Name = int(0 to 99)`. It is a declaration of the module like a
+  top-level one, named `Pool.Items` in messages, with the type as its scope: the bare name spells it in the type's
+  own body (a field, a signature, an expression such as `Items.create(0)`) and shadows a module typealias of the same name
+  there, and the type's parameters are in scope in its target, so `Items` of `Pool with Element` is the instance at the
+  type's own parameter. Declaring one twice in a body is `E3061`. A field that holds the type again over a type built from its parameters (`var kids as Array with (Nest with (T, Cell with U))`) is `E3184`, since its instances never end. Not supported: a typealias in an `interface`, an `enum`
+  or a `union`, a ranged one in a generic type (a type for each instance, `E2015`), and naming one from outside the body
+  (`Pool.Items`).
 - **Calls infer.** An expression writes no type arguments, so brackets are always a subscript. A call takes them from
   its arguments' types (`swap(a, b: c)`, `Option.some(x)`, `Box.make(x)`), and the ones the arguments leave open from
   the type the call's result must have where it is used: a return value, an argument of a function that is not

@@ -46,6 +46,7 @@ ErrCallDuplicateArg	E3038	callDuplicateArg	Two arguments of one call are for the
 ErrMainCannotThrow	E3054	mainCannotThrow	'main' is declared 'throws', with no caller to handle the error.
 ErrUncheckedFailure	E3057	throwingFunctionRequiresTry	A call that can fail is made without 'try' where nothing catches the failure.
 ErrErrorTypeMismatch	E3059	errorTypeMismatch	An error goes where nothing takes an error of its type: a 'try' or 'throw' with no caller to pass it to, or one that throws another.
+ErrDuplicateTypeAlias	E3061	semanticDuplicateTypeAlias	A typealias is declared twice in one type's body.
 ErrEnumNotComparable	E3066	semanticEnumNotComparable	A union is compared with '==' or '!='.
 ErrConstructorRestriction	E3076	semanticConstructorRestriction	A struct literal is written outside the methods of its type.
 ErrTryBlockBindingNotMatched	E3084	tryBlockBindingNotMatched	The handler of a try block names the error but never matches on it.
@@ -59,6 +60,7 @@ ErrRawIntrinsicOutsideRuntime	E3152	rawIntrinsicOutsideRuntimeTier	A source file
 ErrExposesHiddenType	E3167	semanticSignatureTypeLessVisibleThanDeclaration	A declaration's signature names a type less visible than the declaration.
 ErrCannotInfer	E3179	genericTypeParameterNotInferable	A type parameter of a generic function is fixed by no argument.
 ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program cannot be spelled as a module name.
+ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
 ErrExclusivity	E3186	argumentOverlapsWrittenParameter	An argument handed to a written parameter overlaps another operand of the call.
 ErrFrozenChange	E3197	semanticWriteThroughReadOnly	A write or a consuming call goes through the contents of a frozen value.
 ErrUnsignedNegation	E3218	semanticUnsignedNegation	An unsigned value is negated.

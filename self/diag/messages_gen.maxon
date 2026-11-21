@@ -369,3 +369,13 @@ end 'emptyArrayLiteral'
 export function noCommonIntegerType(low String, high String) returns String
 	return "no common integer type for {low} and {high}: cast the elements to an alias"
 end 'noCommonIntegerType'
+
+// The text of errDuplicateTypeAlias for: Duplicate typealias '{name}': `{qualified}` is already declared {declaredBy}
+export function duplicateTypeAlias(name String, qualified String, declaredBy String) returns String
+	return "Duplicate typealias '{name}': `{qualified}` is already declared {declaredBy}"
+end 'duplicateTypeAlias'
+
+// The text of errGenericGrowsWithoutBound for: field '{field}' of generic type '{owner}' is declared '{declared}', which holds '{owner}' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion
+export function genericTypeGrowsWithoutBound(field String, owner String, declared String) returns String
+	return "field '{field}' of generic type '{owner}' is declared '{declared}', which holds '{owner}' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion"
+end 'genericTypeGrowsWithoutBound'

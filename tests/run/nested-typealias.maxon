@@ -1,0 +1,75 @@
+typealias Count = int(0 to 1000)
+
+typealias Name = int(0 to 9)
+
+type Pool uses Element
+	typealias Items = Array with Element
+	typealias Pairs = Array with Items
+	var items as Items
+
+	static function make(consumes first Element) returns Self
+		var all = Items.create(0)
+		all.push(first)
+		return Self{items: all}
+	end 'make'
+
+	function count() returns Count
+		return try self.items.count() as Count otherwise 0
+	end 'count'
+
+	function nested(consumes first Items, consumes more Items) returns Pairs
+		var out = Pairs.create(0)
+		out.push(first)
+		out.push(more)
+		return out
+	end 'nested'
+end 'Pool'
+
+typealias CountPool = Pool with Count
+
+type Holder
+	typealias Name = int(0 to 99)
+	typealias Names = Array with Name
+	var names as Names
+
+	static function make() returns Self
+		var all = Names.create(0)
+		all.push(7)
+		return Self{names: all}
+	end 'make'
+
+	function first() returns Name
+		return self.names[0]
+	end 'first'
+end 'Holder'
+
+export type Node uses Element
+	export typealias Peers = Array with Self
+	var value as Element
+	var peers as Peers
+
+	static function make(consumes value Element) returns Self
+		return Self{value: value, peers: Peers.create(0)}
+	end 'make'
+
+	function count() returns Count
+		return try self.peers.count() as Count otherwise 0
+	end 'count'
+end 'Node'
+
+typealias CountNode = Node with Count
+
+function main() returns ExitCode
+	let pool = CountPool.make(5)
+	print("{pool.count()}\n")
+	let h = Holder.make()
+	let n = h.first()
+	print("{n}\n")
+	let node = CountNode.make(3)
+	print("{node.count()}\n")
+	return 0
+end 'main'
+
+//> 1
+//> 7
+//> 0

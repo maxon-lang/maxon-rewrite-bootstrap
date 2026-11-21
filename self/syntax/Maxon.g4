@@ -143,7 +143,7 @@ constDecl
 
 typeDecl
     : visibility=('export' | 'public')? 'type' name=Name ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
-      (Indent ((fields+=fieldDecl | methods+=funcDecl) Newline)+ Dedent)?
+      (Indent ((aliases+=aliasDecl | fields+=fieldDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 

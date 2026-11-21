@@ -20,12 +20,36 @@ function declareRecordMembers(mutates c Checker, mutates p ast.Project, td ast.T
 				return
 			end 'badType'
 		end 'typed'
+		if f.typeRef != 0 and ast.holdsGrowingInstance(p.types, t: ft, origin: tid) 'grows'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: f.typeRef), code: diag.errGenericGrowsWithoutBound, msg: diag.genericTypeGrowsWithoutBound(f.name, owner: td.name, declared: declaredTypeName(p, c: c, tr: f.typeRef, t: ft)), errs: errs)
+			return
+		end 'grows'
 		let level = ast.visibilityOf(f.visibility)
 		var info = ast.FieldInfo.make(f.name.clone(), ty: ft, isVar: f.isVar, exported: level != ast.Visibility.unexported, hasDefault: f.defaultRef != 0, defaultExpr: f.defaultRef, index: p.types.entries[tid as Count].fields.count())
 		info.level = level
 		p.types.entries[tid as Count].fields.push(info)
 	end 'each'
 end 'declareRecordMembers'
+
+// declaredTypeName is how a declaration writes a type in a message: the typealias that names it, else the type.
+function declaredTypeName(p ast.Project, c Checker, tr ast.NodeID, t ast.TypeID) returns String
+	match consumes p.resolutions[c.modIdx].decls.get(tr as Count) 'bound'
+		some(ref) then return aliasOrTypeName(p, ref: ref, t: t)
+		none then return ast.typeName(p.types, t: t)
+	end 'bound'
+end 'declaredTypeName'
+
+function aliasOrTypeName(p ast.Project, ref ast.DeclRef, t ast.TypeID) returns String
+	return match ast.moduleDecl(p, ref: ref) 'd'
+		aliasDecl(_) gives ast.declName(p, ref: ref)
+		funcDecl(_) gives ast.typeName(p.types, t: t)
+		constDecl(_) gives ast.typeName(p.types, t: t)
+		typeDecl(_) gives ast.typeName(p.types, t: t)
+		enumDecl(_) gives ast.typeName(p.types, t: t)
+		unionDecl(_) gives ast.typeName(p.types, t: t)
+		interfaceDecl(_) gives ast.typeName(p.types, t: t)
+	end 'd'
+end 'aliasOrTypeName'
 
 // declareEnumMembers declares the cases of an enum, each with the raw value it writes or else the one after the case
 // before.

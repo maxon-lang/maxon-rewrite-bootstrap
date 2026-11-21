@@ -560,6 +560,34 @@ function parseInterpolation(mutates p Parser) returns ast.NodeID throws SyntaxEr
 	return e
 end 'parseInterpolation'
 
+// pushDecl adds a declaration to a module's list, and after a type the typealiases its body declares, each named by its
+// owner and its own name: a nested typealias is a declaration of the module like the others, with the type as its scope.
+function pushDecl(mutates decls ast.DeclList, consumes d ast.Decl)
+	var nested = ast.DeclList.create(0)
+	match d 'k'
+		typeDecl(td) then nestedAliasDecls(td, out: nested)
+		funcDecl(_) then _ = 0
+		constDecl(_) then _ = 0
+		enumDecl(_) then _ = 0
+		unionDecl(_) then _ = 0
+		aliasDecl(_) then _ = 0
+		interfaceDecl(_) then _ = 0
+	end 'k'
+	decls.push(d)
+	for i in 0 upto nested.count() 'each'
+		decls.push(nested[i].clone())
+	end 'each'
+end 'pushDecl'
+
+function nestedAliasDecls(td ast.TypeDecl, mutates out ast.DeclList)
+	for i in 0 upto td.aliases.count() 'each'
+		var a = td.aliases[i].clone()
+		a.visibility = ast.nestedVisibility(td.visibility, member: a.visibility)
+		a.name = ast.nestedAliasName(td.name, name: a.name)
+		out.push(ast.Decl.aliasDecl(a))
+	end 'each'
+end 'nestedAliasDecls'
+
 // parseProgram parses every declaration of a module's files. A syntax error abandons the rest of its file, so each
 // file reports its own first error.
 function parseProgram(mutates p Parser) returns ast.DeclList
@@ -587,7 +615,7 @@ function parseProgram(mutates p Parser) returns ast.DeclList
 		try 'decl'
 			p.blanks = blanksBefore(count)
 			let d = parseDecl(p)
-			decls.push(d)
+			pushDecl(decls, d: d)
 			_ = p.expect(TokenKind.newline, what: "the end of the line")
 		end 'decl' otherwise 'refused'
 			abandoned = true

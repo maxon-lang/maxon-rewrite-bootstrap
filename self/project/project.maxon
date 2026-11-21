@@ -501,10 +501,22 @@ function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates er
 end 'buildModuleTable'
 
 function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
+	if ast.isNestedAlias(dName) 'nested'
+		pushDuplicateNestedAlias(dName, dOff: ast.aliasNameOffset(m.tree, start: dOff), modID: modID, errs: errs)
+		return
+	end 'nested'
 	let prevOff = m.decls[prevOrd as Count].offset(m.tree)
 	let prevLoc = ast.locateModuleOffset(m, offset: prevOff)
 	diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{dName}' is already declared in {m.display()} at {prevLoc.file}:{prevLoc.line}", module: modID, offset: dOff)
 end 'pushDuplicateDecl'
+
+// pushDuplicateNestedAlias reports a typealias that the body of its type declares a second time, at its name.
+function pushDuplicateNestedAlias(dName String, dOff diag.U32, modID diag.ModuleID, mutates errs diag.ErrorList)
+	match consumes ast.nestedAliasOwner(dName) 'owner'
+		some(owner) then diag.pushSiteError(errs, code: diag.errDuplicateTypeAlias, message: diag.duplicateTypeAlias(ast.nestedAliasMember(dName), qualified: dName, declaredBy: "earlier in the body of `{owner}`"), module: modID, offset: dOff)
+		none then panic("'{dName}' is not a nested typealias")
+	end 'owner'
+end 'pushDuplicateNestedAlias'
 
 function parseSingleModule(mutates p ast.Project, modIdx Count, memory SourceFiles, mutates errs diag.ErrorList)
 	let mPath = p.modules[modIdx].path.clone()

@@ -120,6 +120,9 @@ export let errUncheckedFailure = "E3057"
 // An error goes where nothing takes an error of its type: a 'try' or 'throw' with no caller to pass it to, or one that throws another.
 export let errErrorTypeMismatch = "E3059"
 
+// A typealias is declared twice in one type's body.
+export let errDuplicateTypeAlias = "E3061"
+
 // A union is compared with '==' or '!='.
 export let errEnumNotComparable = "E3066"
 
@@ -158,6 +161,9 @@ export let errCannotInfer = "E3179"
 
 // A directory of the program cannot be spelled as a module name.
 export let errBadModuleName = "E3182"
+
+// A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
+export let errGenericGrowsWithoutBound = "E3184"
 
 // An argument handed to a written parameter overlaps another operand of the call.
 export let errExclusivity = "E3186"

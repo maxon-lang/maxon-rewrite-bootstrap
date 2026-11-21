@@ -119,6 +119,27 @@ typealias Counts = Map with String, Count
 `,
 		},
 		{
+			name: "a typealias in a type's body is left as Maxon writes it",
+			in: `type Pool uses Element
+	typealias Items = Array with Element
+	var items as Items
+end 'Pool'
+
+type Holder
+	typealias Index = int(0 to 99)
+end 'Holder'
+`,
+			want: `type Pool uses Element
+	typealias Items = Array with Element
+	var items as Items
+end 'Pool'
+
+type Holder
+	typealias Index = int(0 to 99)
+end 'Holder'
+`,
+		},
+		{
 			name: "where T is Bound becomes where T implements Bound",
 			in: `function total(a T, b U) uses T, U returns Count where T is Shape and Named, U is Shape
 	return a.area() + b.area()
@@ -271,6 +292,16 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "alias subtyping",
 			in:       "typealias NodeIndex = int(0 to 100) implements ElementIndex\n",
 			wantTodo: "alias subtyping",
+		},
+		{
+			name:     "ranged typealias in a generic type",
+			in:       "type Pool uses Element\n\ttypealias Idx = int(0 to u64.max)\nend 'Pool'\n",
+			wantTodo: "ranged typealiases in a generic type",
+		},
+		{
+			name:     "typealias in an interface",
+			in:       "interface Seq\n\ttypealias Items = Array with Count\nend 'Seq'\n",
+			wantTodo: "typealias declarations in an interface, enum or union",
 		},
 		{
 			name:     "float typealias",

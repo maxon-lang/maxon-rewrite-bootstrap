@@ -64,6 +64,34 @@ export function aliasNamesInstance(ad AliasDecl) returns bool
 	return ad.instance != 0
 end 'aliasNamesInstance'
 
+// isGenericOwned is whether the typealias of the name is declared in the body of a generic type, where a range would be a
+// distinct type for each instance.
+function isGenericOwned(p Project, modIdx Count, name String) returns bool
+	match consumes nestedAliasOwner(name) 'owner'
+		some(ownerName) then return typeParamCountOf(p, modIdx: modIdx, name: ownerName) > 0
+		none then return false
+	end 'owner'
+end 'isGenericOwned'
+
+function typeParamCountOf(p Project, modIdx Count, name String) returns Count
+	match consumes p.modules[modIdx].names.get(name) 'declared'
+		some(ord) then return typeParamCountOfDecl(p.modules[modIdx].decls[ord as Count])
+		none then return 0
+	end 'declared'
+end 'typeParamCountOf'
+
+function typeParamCountOfDecl(d Decl) returns Count
+	return match d 'k'
+		typeDecl(td) gives td.typeParams.count()
+		unionDecl(ud) gives ud.typeParams.count()
+		funcDecl(_) gives 0
+		constDecl(_) gives 0
+		enumDecl(_) gives 0
+		aliasDecl(_) gives 0
+		interfaceDecl(_) gives 0
+	end 'k'
+end 'typeParamCountOfDecl'
+
 // declareRangeAlias gives a typealias of a range its integer type, which is its own even where another alias has the
 // same range. A typealias of an instance has none yet: its type is the instance, which the checker's aliases stage
 // finds once the types it names are known.
@@ -73,6 +101,10 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 	end 'instance'
 	let modIdx = modIndex(ref.module)
 	let off = p.modules[modIdx].tree.startOf(ad.id)
+	if isGenericOwned(p, modIdx: modIdx, name: ad.name) 'perInstance'
+		diag.pushSiteError(errs, code: diag.errUnsupportedFeature, message: "the ranged typealias '{ad.name}' is declared in a generic type, where each instance would have a type of its own, which this compiler does not implement: declare it outside the type", module: ref.module, offset: off)
+		return
+	end 'perInstance'
 	var lo as I128
 	match consumes boundValue(ref.module, tree: p.modules[modIdx].tree, b: ad.low, errs: errs) 'low'
 		some(v) then lo = v
@@ -101,3 +133,75 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 	e.decl = ref.clone()
 	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
 end 'declareRangeAlias'
+
+// nestedOwnerSeparator is the dot that ends the owner's name in the name of a typealias declared in a type's body.
+let nestedOwnerSeparator = 46 as Byte
+
+let typealiasInitial = 116 as Byte
+
+let spaceByte = 32 as Byte
+
+// nestedAliasName is the name a typealias declared in the body of the type owner has in its module, which is how
+// messages name it. No name written in a source file has a dot, so it names nothing else.
+export function nestedAliasName(owner String, name String) returns String
+	return "{owner}.{name}"
+end 'nestedAliasName'
+
+// nestedOwnerLength is where the dot is in the name of a nested typealias: the length of its owner's name, or none for
+// a name that is not one.
+function nestedOwnerLength(name String) returns table.Option with Count
+	for i in 0 upto name.byteLength() 'each'
+		if name.byteAt(i) == nestedOwnerSeparator 'dot'
+			return table.Option.some(i)
+		end 'dot'
+	end 'each'
+	return table.Option.none
+end 'nestedOwnerLength'
+
+// isNestedAlias is whether the name is that of a typealias declared in a type's body.
+export function isNestedAlias(name String) returns bool
+	return nestedOwnerLength(name).isSome()
+end 'isNestedAlias'
+
+// nestedAliasMember is the name a nested typealias is declared by in its type's body.
+export function nestedAliasMember(name String) returns String
+	match nestedOwnerLength(name) 'dot'
+		some(n) then return name.sliceBytes(try n + 1 otherwise n, endPos: name.byteLength())
+		none then return name.clone()
+	end 'dot'
+end 'nestedAliasMember'
+
+// nestedVisibility is the visibility modifier a typealias has that a type's body declares with the modifier member: the
+// narrower of the type's and its own, since it is named through the type.
+export function nestedVisibility(owner String, member String) returns String
+	if visibilityOf(member).ordinal < visibilityOf(owner).ordinal 'own'
+		return member.clone()
+	end 'own'
+	return owner.clone()
+end 'nestedVisibility'
+
+// aliasNameOffset is where the name of the typealias that starts at start is: its tokens are one space apart, and a
+// visibility modifier comes before 'typealias'.
+export function aliasNameOffset(tree Tree, start diag.U32) returns diag.U32
+	var words = 1 as Count
+	if tree.text.byteAt(start as Count) != typealiasInitial 'modifier'
+		words = 2 as Count
+	end 'modifier'
+	var at = start as Count
+	while words > 0 'skip'
+		if tree.text.byteAt(at) == spaceByte 'space'
+			words = try words - 1 otherwise 0 as Count
+		end 'space'
+		at = try at + 1 otherwise at
+	end 'skip'
+	return try at as diag.U32 otherwise start
+end 'aliasNameOffset'
+
+// nestedAliasOwner is the name of the type whose body declares the typealias of the name, or none for a name that is
+// no nested typealias's.
+export function nestedAliasOwner(name String) returns table.Option with String
+	match nestedOwnerLength(name) 'dot'
+		some(n) then return table.Option.some(name.sliceBytes(0 as Count, endPos: n))
+		none then return table.Option.none
+	end 'dot'
+end 'nestedAliasOwner'

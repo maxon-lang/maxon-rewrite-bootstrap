@@ -1,0 +1,10 @@
+type Pool uses Element
+	typealias Index = int(0 to 99)
+	var items as Array with Element
+end 'Pool'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2015 at 2:2

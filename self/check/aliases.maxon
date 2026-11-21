@@ -84,6 +84,29 @@ function namedAliases(p ast.Project, modIdx Count, tr ast.NodeID, mutates out De
 	end 'args'
 end 'namedAliases'
 
+// aliasSelf is the type that 'Self' names in the target of a typealias: the type whose body declares it, at its own
+// parameters, or none for a typealias of the module.
+function aliasSelf(c Checker, mutates p ast.Project, a ast.AliasDecl) returns ast.TypeID
+	match consumes ast.nestedAliasOwner(a.name) 'owner'
+		some(ownerName) then return selfOfOwner(c, p: p, ownerName: ownerName)
+		none then return ast.noType
+	end 'owner'
+end 'aliasSelf'
+
+function selfOfOwner(c Checker, mutates p ast.Project, ownerName String) returns ast.TypeID
+	match consumes p.modules[c.modIdx].names.get(ownerName) 'declared'
+		some(ord) then return selfOfDecl(p, ref: ast.DeclRef.make(c.modID, ordinal: ord))
+		none then panic("the owner '{ownerName}' of a nested typealias is not declared")
+	end 'declared'
+end 'selfOfOwner'
+
+function selfOfDecl(mutates p ast.Project, ref ast.DeclRef) returns ast.TypeID
+	match consumes p.declTypes.get(ast.declKey(ref)) 'type'
+		some(tid) then return ast.selfType(p.types, declTy: tid)
+		none then panic("the declaration at ordinal {ref.ordinal} has no type")
+	end 'type'
+end 'selfOfDecl'
+
 // declareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
 function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
 	let off = p.modules[c.modIdx].tree.startOf(a.instance)
@@ -92,7 +115,8 @@ function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl,
 		checkFail(c.modID, off: off, code: diag.errAliasTarget, msg: "a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '{target}' itself where '{a.name}' is used", errs: errs)
 		return
 	end 'plain'
-	let t = resolveTypeRef(c, p: p, tr: a.instance, selfTy: ast.noType, errs: errs)
+	let selfTy = aliasSelf(c, p: p, a: a)
+	let t = resolveTypeRef(c, p: p, tr: a.instance, selfTy: selfTy, errs: errs)
 	if t != ast.noType 'named'
 		p.declTypes.insert(ast.declKey(ref), value: t)
 	end 'named'

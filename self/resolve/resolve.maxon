@@ -42,10 +42,13 @@ type Resolver
 	export var scopes as ScopeStack
 	export var fields as BoolStrMap
 	export var typeParams as TypeParamMap
+	// members are the typealiases the body being resolved declares, by the name its code writes, which a bare name finds
+	// before the module's own declarations.
+	export var members as ast.DeclIndex
 	export var whenDepth as Count
 
 	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
-		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), whenDepth: 0 as Count}
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclIndex.new(), whenDepth: 0 as Count}
 	end 'make'
 end 'Resolver'
 
@@ -101,9 +104,14 @@ function takeLookup(mutates r Resolver, p ast.Project, consumes lr LookupResult,
 	return table.Option.some(lr.decl)
 end 'takeLookup'
 
-// bareLookup looks up a name written without a module: the module's own declaration, else a built-in. Another module's
-// declarations are always qualified, so resolving a module reads only the modules it names.
+// bareLookup looks up a name written without a module: a typealias of the type being resolved, else the module's own
+// declaration, else a built-in. Another module's declarations are always qualified, so resolving a module reads only the
+// modules it names.
 function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
+	match r.members.get(name) 'member'
+		some(ord) then return LookupResult.hit(ast.DeclRef.make(r.modID, ordinal: ord))
+		none then _ = 0
+	end 'member'
 	let ownIdx = ast.modIndex(r.modID)
 	match p.modules[ownIdx].names.get(name) 'own'
 		some(ord) then return LookupResult.hit(ast.DeclRef.make(r.modID, ordinal: ord))
@@ -962,10 +970,18 @@ function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates e
 		typeDecl(td) then resolveTypeDecl(r, p: p, td: td, s: declSurface(r, d: d, noun: "type"), errs: errs)
 		enumDecl(ed) then resolveEnumDecl(r, p: p, ed: ed, s: declSurface(r, d: d, noun: "enum"), errs: errs)
 		unionDecl(ud) then resolveUnionDecl(r, p: p, ud: ud, s: declSurface(r, d: d, noun: "union"), errs: errs)
-		aliasDecl(ad) then resolveAliasDecl(r, p: p, ad: ad, s: declSurface(r, d: d, noun: "typealias"), errs: errs)
+		aliasDecl(ad) then resolveTopAlias(r, p: p, ad: ad, s: declSurface(r, d: d, noun: "typealias"), errs: errs)
 		interfaceDecl(ifd) then resolveInterfaceDecl(r, p: p, ifd: ifd, errs: errs)
 	end 'k'
 end 'resolveTopDecl'
+
+// resolveTopAlias resolves a typealias of the module, except one a type's body declares, which its type resolves with the
+// type's parameters in scope.
+function resolveTopAlias(mutates r Resolver, p ast.Project, ad ast.AliasDecl, s Surface, mutates errs diag.ErrorList)
+	if not ast.isNestedAlias(ad.name) 'topLevel'
+		resolveAliasDecl(r, p: p, ad: ad, s: s, errs: errs)
+	end 'topLevel'
+end 'resolveTopAlias'
 
 function resolveConstDecl(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mutates errs diag.ErrorList)
 	r.scopes = ScopeStack.create(0)
@@ -978,6 +994,7 @@ end 'resolveConstDecl'
 function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: td.name, endNode: td.endRef, errs: errs)
 	let outer = enterTypeParams(r, p: p, owner: td.name, s: s, params: td.typeParams, constraints: td.whereList, errs: errs)
+	resolveNestedAliases(r, p: p, td: td, s: s, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: td.conforms, errs: errs)
 	var fNames = BoolStrMap.new()
 	for i in 0 upto td.fields.count() 'flds'
@@ -1006,8 +1023,25 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: fNames, errs: errs)
 		end 'inst'
 	end 'meths'
+	r.members = ast.DeclIndex.new()
 	r.typeParams = outer
 end 'resolveTypeDecl'
+
+// resolveNestedAliases brings the typealiases the body of td declares into scope, then resolves their targets, which may
+// name the type's parameters and each other.
+function resolveNestedAliases(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
+	for i in 0 upto td.aliases.count() 'scope'
+		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(td.name, name: td.aliases[i].name)) 'declared'
+			some(ord) then r.members.insert(td.aliases[i].name.clone(), value: ord)
+			none then panic("the typealias '{td.aliases[i].name}' of '{td.name}' is not among the declarations of its module")
+		end 'declared'
+	end 'scope'
+	for i in 0 upto td.aliases.count() 'targets'
+		let a = td.aliases[i].clone()
+		let surface = Surface.make(narrower(s.tier, b: ast.visibilityOf(a.visibility)), noun: "typealias", name: ast.nestedAliasName(td.name, name: a.name), at: r.tree.startOf(a.id))
+		resolveAliasDecl(r, p: p, ad: a, s: surface, errs: errs)
+	end 'targets'
+end 'resolveNestedAliases'
 
 function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: ed.name, endNode: ed.endRef, errs: errs)

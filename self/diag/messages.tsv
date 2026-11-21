@@ -80,3 +80,5 @@ typeReferenceCycle	ErrTypeCycle	type '{name}' contains a reference cycle (via {p
 rawIntrinsicOutsideRuntime	ErrRawIntrinsicOutsideRuntime	call to '{callee}' from outside the runtime source tier: '__Raw' names a raw runtime intrinsic, callable only from a source file under runtime/
 emptyArrayLiteral	ErrUnsupportedFeature	Unsupported: an empty array literal `[]` — its element type cannot be inferred; use `Array with T` + `.create()` for an empty typed array
 noCommonIntegerType	ErrTypeMismatch	no common integer type for {low} and {high}: cast the elements to an alias
+duplicateTypeAlias	ErrDuplicateTypeAlias	Duplicate typealias '{name}': `{qualified}` is already declared {declaredBy}
+genericTypeGrowsWithoutBound	ErrGenericGrowsWithoutBound	field '{field}' of generic type '{owner}' is declared '{declared}', which holds '{owner}' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion

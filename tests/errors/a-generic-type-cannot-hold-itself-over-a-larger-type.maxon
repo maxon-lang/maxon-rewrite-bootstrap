@@ -1,0 +1,16 @@
+type Cell uses T
+	var item as T
+end 'Cell'
+
+type Nest uses T, U
+	typealias Kid = Nest with (T, Cell with U)
+	typealias Kids = Array with Kid
+	var item as T
+	var kids as Kids
+end 'Nest'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3184 at 9:14

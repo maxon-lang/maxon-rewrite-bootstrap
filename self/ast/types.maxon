@@ -469,6 +469,37 @@ export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList
 	return instantiateType(tt, origin: orig, args: nextArgs)
 end 'substituteType'
 
+// mentionsTypeParam is whether the type is a type parameter or an instance with one anywhere in its arguments.
+export function mentionsTypeParam(tt TypeTable, t TypeID) returns bool
+	if tt.entries[t as Count].kind == TypeKind.typeParam 'param'
+		return true
+	end 'param'
+	for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
+		if mentionsTypeParam(tt, t: tt.entries[t as Count].typeArgs[i]) 'inside'
+			return true
+		end 'inside'
+	end 'each'
+	return false
+end 'mentionsTypeParam'
+
+// holdsGrowingInstance is whether the type holds an instance of origin, itself or in its arguments, over an argument that
+// is built from type parameters without being one: the instances of origin that a program needs are then never all
+// found, since each holds a larger one. An argument that is a type parameter, as in a type that holds itself with its
+// parameters swapped, repeats.
+export function holdsGrowingInstance(tt TypeTable, t TypeID, origin TypeID) returns bool
+	let isInstanceOfOrigin = tt.entries[t as Count].typeArgs.count() > 0 and tt.entries[t as Count].effectiveOrigin() == origin
+	for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
+		let arg = tt.entries[t as Count].typeArgs[i]
+		if isInstanceOfOrigin and tt.entries[arg as Count].kind != TypeKind.typeParam and mentionsTypeParam(tt, t: arg) 'grows'
+			return true
+		end 'grows'
+		if holdsGrowingInstance(tt, t: arg, origin: origin) 'inside'
+			return true
+		end 'inside'
+	end 'each'
+	return false
+end 'holdsGrowingInstance'
+
 export function hasTypeDepthOverflow(tt TypeTable, t TypeID, depth Count) returns bool
 	if depth > maxTypeDepth 'over'
 		return true

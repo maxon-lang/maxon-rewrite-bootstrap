@@ -18,7 +18,7 @@ let lookahead7 = "00000000000000000000000000000000000000000010001000000000000000
 
 let lookahead8 = "000000000000000000000000000001111000000000000000000000000000000000000000000000000000000"
 
-let lookahead9 = "000000000000000000000000000001111000000000100010000000000000000000000000000000000000000"
+let lookahead9 = "000000000000000000000000000001111000000000100010001000000000000000000000000000000000000"
 
 let lookahead10 = "000100000000000000000000000001111000000000000000000000000000000000000000000000000000000"
 
@@ -95,6 +95,7 @@ type ListStacks
 	var ids_CollectionLitExpr_Elems as ListStack with diag.U32
 	var ids_CollectionLitExpr_Values as ListStack with diag.U32
 	var ptr_Param as ListStack with ast.Param
+	var ptr_AliasDecl as ListStack with ast.AliasDecl
 	var ptr_FieldDecl as ListStack with ast.FieldDecl
 	var ptr_FuncDecl as ListStack with ast.FuncDecl
 	var ptr_EnumCaseDecl as ListStack with ast.EnumCaseDecl
@@ -104,7 +105,7 @@ type ListStacks
 	var ptr_FuncSig as ListStack with ast.FuncSig
 
 	static function new() returns ListStacks
-		return ListStacks{ids_TypeRef_Qualifier: ListStack.new(), ids_aliasTypeArgs: ListStack.new(), ids_typeArgs: ListStack.new(), ids_Constraint_Bounds: ListStack.new(), ids_conformsClause: ListStack.new(), ids_block: ListStack.new(), ids_IfStmt_Else: ListStack.new(), ids_WhenStmt_Cowns: ListStack.new(), ids_WhenStmt_Names: ListStack.new(), ids_MatchCore_Arms: ListStack.new(), ids_MatchArm_Patterns: ListStack.new(), ids_Pattern_Bindings: ListStack.new(), ids_IndexExpr_Args: ListStack.new(), ids_CallExpr_Args: ListStack.new(), ids_StructLitExpr_Fields: ListStack.new(), ids_CollectionLitExpr_Elems: ListStack.new(), ids_CollectionLitExpr_Values: ListStack.new(), ptr_Param: ListStack.new(), ptr_FieldDecl: ListStack.new(), ptr_FuncDecl: ListStack.new(), ptr_EnumCaseDecl: ListStack.new(), ptr_UnionCaseDecl: ListStack.new(), ptr_TypeParam: ListStack.new(), ptr_Constraint: ListStack.new(), ptr_FuncSig: ListStack.new()}
+		return ListStacks{ids_TypeRef_Qualifier: ListStack.new(), ids_aliasTypeArgs: ListStack.new(), ids_typeArgs: ListStack.new(), ids_Constraint_Bounds: ListStack.new(), ids_conformsClause: ListStack.new(), ids_block: ListStack.new(), ids_IfStmt_Else: ListStack.new(), ids_WhenStmt_Cowns: ListStack.new(), ids_WhenStmt_Names: ListStack.new(), ids_MatchCore_Arms: ListStack.new(), ids_MatchArm_Patterns: ListStack.new(), ids_Pattern_Bindings: ListStack.new(), ids_IndexExpr_Args: ListStack.new(), ids_CallExpr_Args: ListStack.new(), ids_StructLitExpr_Fields: ListStack.new(), ids_CollectionLitExpr_Elems: ListStack.new(), ids_CollectionLitExpr_Values: ListStack.new(), ptr_Param: ListStack.new(), ptr_AliasDecl: ListStack.new(), ptr_FieldDecl: ListStack.new(), ptr_FuncDecl: ListStack.new(), ptr_EnumCaseDecl: ListStack.new(), ptr_UnionCaseDecl: ListStack.new(), ptr_TypeParam: ListStack.new(), ptr_Constraint: ListStack.new(), ptr_FuncSig: ListStack.new()}
 	end 'new'
 
 	function reset(mutates self)
@@ -126,6 +127,7 @@ type ListStacks
 		ids_CollectionLitExpr_Elems.reset()
 		ids_CollectionLitExpr_Values.reset()
 		ptr_Param.reset()
+		ptr_AliasDecl.reset()
 		ptr_FieldDecl.reset()
 		ptr_FuncDecl.reset()
 		ptr_EnumCaseDecl.reset()
@@ -290,6 +292,7 @@ end 'parseConstDecl'
 function parseTypeDecl(mutates p Parser) returns ast.TypeDecl throws SyntaxError
 	let t = p.curStart()
 	var n = ast.newTypeDecl(p.tree, start: t)
+	let mark_n_Aliases = p.lists.ptr_AliasDecl.mark()
 	let mark_n_Fields = p.lists.ptr_FieldDecl.mark()
 	let mark_n_Methods = p.lists.ptr_FuncDecl.mark()
 	if p.inSet(lookahead3) 'b1'
@@ -322,39 +325,47 @@ function parseTypeDecl(mutates p Parser) returns ast.TypeDecl throws SyntaxError
 	_ = try p.expect(TokenKind.newline, what: "the end of the line")
 	if p.at(TokenKind.indent) 'b7'
 		_ = try p.expect(TokenKind.indent, what: "an indented line")
-		if p.inSet(lookahead7) or (p.at(TokenKind.kw_export) and p.peekIn(lookahead7)) or (p.at(TokenKind.kw_public) and p.peekIn(lookahead7)) 'b8'
-			let v6 = try parseFieldDecl(p)
-			p.lists.ptr_FieldDecl.push(v6)
-		end 'b8' else if p.inSet(lookahead8) 'b9'
-			let v7 = try parseFuncDecl(p)
-			p.lists.ptr_FuncDecl.push(v7)
-		end 'b9' else 'b10'
-			throw p.expected("'export', 'function', 'let', 'public', 'static' or 'var'")
-		end 'b10'
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
-		while p.inSet(lookahead9) 'b11'
-			if p.inSet(lookahead7) or (p.at(TokenKind.kw_export) and p.peekIn(lookahead7)) or (p.at(TokenKind.kw_public) and p.peekIn(lookahead7)) 'b12'
-				let v8 = try parseFieldDecl(p)
-				p.lists.ptr_FieldDecl.push(v8)
-			end 'b12' else if p.inSet(lookahead8) 'b13'
-				let v9 = try parseFuncDecl(p)
-				p.lists.ptr_FuncDecl.push(v9)
-			end 'b13' else 'b14'
-				throw p.expected("'export', 'function', 'let', 'public', 'static' or 'var'")
-			end 'b14'
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b8'
+			let v6 = try parseAliasDecl(p)
+			p.lists.ptr_AliasDecl.push(v6)
+		end 'b8' else if p.inSet(lookahead7) or (p.at(TokenKind.kw_export) and p.peekIn(lookahead7)) or (p.at(TokenKind.kw_public) and p.peekIn(lookahead7)) 'b9'
+			let v7 = try parseFieldDecl(p)
+			p.lists.ptr_FieldDecl.push(v7)
+		end 'b9' else if p.inSet(lookahead8) 'b10'
+			let v8 = try parseFuncDecl(p)
+			p.lists.ptr_FuncDecl.push(v8)
+		end 'b10' else 'b11'
+			throw p.expected("'export', 'function', 'let', 'public', 'static', 'typealias' or 'var'")
 		end 'b11'
+		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		while p.inSet(lookahead9) 'b12'
+			if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b13'
+				let v9 = try parseAliasDecl(p)
+				p.lists.ptr_AliasDecl.push(v9)
+			end 'b13' else if p.inSet(lookahead7) or (p.at(TokenKind.kw_export) and p.peekIn(lookahead7)) or (p.at(TokenKind.kw_public) and p.peekIn(lookahead7)) 'b14'
+				let v10 = try parseFieldDecl(p)
+				p.lists.ptr_FieldDecl.push(v10)
+			end 'b14' else if p.inSet(lookahead8) 'b15'
+				let v11 = try parseFuncDecl(p)
+				p.lists.ptr_FuncDecl.push(v11)
+			end 'b15' else 'b16'
+				throw p.expected("'export', 'function', 'let', 'public', 'static', 'typealias' or 'var'")
+			end 'b16'
+			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		end 'b12'
 		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b7'
 	_ = try p.expect(TokenKind.kw_end, what: "'end'")
-	if p.at(TokenKind.label) 'b15'
-		let v10 = try parseEndLabel(p)
-		n.endRef = v10
-	end 'b15'
-	let v11 = p.lists.ptr_FieldDecl.take(mark_n_Fields)
-	n.fields = v11
-	let v12 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
-	n.methods = v12
+	if p.at(TokenKind.label) 'b17'
+		let v12 = try parseEndLabel(p)
+		n.endRef = v12
+	end 'b17'
+	let v13 = p.lists.ptr_AliasDecl.take(mark_n_Aliases)
+	n.aliases = v13
+	let v14 = p.lists.ptr_FieldDecl.take(mark_n_Fields)
+	n.fields = v14
+	let v15 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
+	n.methods = v15
 	return n
 end 'parseTypeDecl'
 
