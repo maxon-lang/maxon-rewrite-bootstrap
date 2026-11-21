@@ -225,7 +225,6 @@ end 'main'
 
 
 <!-- test: wide-unsigned-ordering -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 Two operands whose DECLARED ranges reach past `i64.max` order by their VALUES, not by the sign bit
 of their patterns. `u64.max` is `0xFFFF…FFFF`, which a signed compare reads as `-1` — so before the
 ordering-comparison signedness rule this answered `three > big`, exactly backwards, in both
@@ -233,7 +232,6 @@ compilers. The two calls are what keep the operands out of the constant folder: 
 DECLARED types, and this case is about a value only known at run time.
 
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function wide(n Wide) returns Wide
@@ -255,14 +253,12 @@ end 'main'
 
 
 <!-- test: wide-unsigned-ordering-against-a-narrow-range -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 One operand reaching past `i64.max` is enough to decide the pair: the other's `int(0 to 100)` admits
 no negative, so every value either can hold orders the same way under the unsigned reading. This is
 the half a ONE-SIDED optimal type would get wrong in the other direction — see
 `a-plain-int-operand-keeps-the-signed-reading`.
 
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 typealias Narrow = int(0 to 100)
@@ -290,13 +286,11 @@ end 'main'
 
 
 <!-- test: compared-against-the-unsigned-extreme -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 `u64.max` written in EXPRESSION position is the largest value the domain has, so nothing exceeds it.
 It rides as the wrapped `-1`, so a compiler that reads its PATTERN rather than what the source wrote
 answers this `true` — which is the shape this case exists to refuse.
 
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function wide(n Wide) returns Wide
@@ -317,13 +311,11 @@ end 'main'
 
 
 <!-- test: a-negative-literal-is-not-the-unsigned-extreme -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 The negative control for the case above, and the reason `u64.max` is recognised by what the source
 WROTE rather than by the value it folded to: a literal `-1` is the SAME 64 bits and is a genuinely
 negative operand, so a non-negative value is above it. Read as `u64.max` this would answer `false`.
 
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function wide(n Wide) returns Wide
@@ -371,7 +363,6 @@ end 'main'
 
 
 <!-- test: a-wide-domain-orders-unsigned -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⭐⭐ **A VALUE ABOVE `i64.max` COMPARED AGAINST A SMALL CONSTANT** — pinned here as the unsigned answer.
 
 A folded constant that FITS the signed domain does not veto the unsigned reading: `big > 100` read signed
@@ -382,7 +373,6 @@ carrying a sentinel (`Map.findSlot` THROWS rather than encoding a miss), and `10
 about which reading its author meant — does not override it.
 
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function wide(n Wide) returns Wide

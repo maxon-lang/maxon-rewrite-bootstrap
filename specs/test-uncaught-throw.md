@@ -175,7 +175,6 @@ end 'main'
 
 <!-- test: bare-try-on-a-boxed-foreign-error-compiles -->
 <!-- skip: test declarations are not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The same relaxation over a **payload-carrying union**, which is a different mechanism and not a second
 spelling of the case above. A payload-free enum's error arrives as an `ordinal + bias` in the flag
 register and owns nothing; a union's arrives as a BOX POINTER the catcher now owns, so the substituted
@@ -191,7 +190,6 @@ report, the `__str_decref` of the interpolation, the `__destruct_ApiError` of th
 `TestFailure` throw on one; the statement after the `try`, with no drop of anything, on the other.
 ```maxon
 // --- file: suite.maxtest
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ApiError implements Error
 	notFound(detail String)
 end 'ApiError'
@@ -318,12 +316,10 @@ end 'main'
 
 <!-- test: implied-try-boxed-foreign-error -->
 <!-- skip: test declarations are not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The no-`try` twin of `bare-try-on-a-boxed-foreign-error-compiles`: a payload-carrying union reaches the
 implied handler as a box the handler owns, releases, and un-enrols on the terminated error edge.
 ```maxon
 // --- file: suite.maxtest
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ApiError implements Error
 	notFound(detail String)
 end 'ApiError'

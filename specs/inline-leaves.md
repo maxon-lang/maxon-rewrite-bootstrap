@@ -196,7 +196,6 @@ Stack trace:
 ```
 
 <!-- test: a-leaf-relying-on-declined-cascades-keeps-them-at-an-unproven-site -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A leaf that fits its op budget only because its entry cascades are not counted is spliced where the caller
 proves every argument and stays a call anywhere else, so the cascade it keeps is still the one that refuses.
 `blend` is called twice, so the called-once rule does not admit it. The first call passes literals the `Stride`
@@ -205,7 +204,6 @@ proving it, which is at least `5` at run time. That call is not spliced, and the
 argument from `blend`'s frame.
 
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Stride = int(1 to 4)

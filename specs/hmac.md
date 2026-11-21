@@ -24,7 +24,6 @@ CAVP block-sized keys and the empty key.
 ## Tests
 
 <!-- test: hmac.tags -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Every HMAC vector for the three algorithms: RFC 4231 cases 1 to 7, an empty message, a key exactly one block long, and an empty key with an empty message.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -52,7 +51,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

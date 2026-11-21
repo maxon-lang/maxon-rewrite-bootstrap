@@ -667,7 +667,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function removeFirst(arr IntArray, value Integer) returns bool
+function removeFirst(mutates arr IntArray, value Integer) returns bool
 	var i = 0 as ElementIndex
 	while i < arr.count() 'scan'
 		let cur = try arr.get(i) otherwise panic("oob")
@@ -681,11 +681,11 @@ function removeFirst(arr IntArray, value Integer) returns bool
 end 'removeFirst'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(2)
 	a.push(5)
 	_ = removeFirst(a, value: 2)
-	return a.count()
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -688,7 +688,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.the-format-spec-path-keeps-the-modules-alias -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ⭐⭐ **The route the two cases above cannot reach, and it was still wrong when they went green.** Float
 printing enters `stdlib/Builtins.maxon` through `__float_toString`; an INTEGER format spec — `"{n:x}"`,
 `"{n:b}"`, `"{n:o}"`, `"{n:d}"` and their padded forms — enters somewhere else entirely, at
@@ -718,17 +717,11 @@ end 'FullRangeInt'
 function main() returns ExitCode
 	let p = FullRangeInt.create(11)
 	let n = 48879 as Bits
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:x}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:X}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:o}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:b}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:06x}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:d}")
 	return p.value
 end 'main'
@@ -741,7 +734,6 @@ beef|BEEF|137357|1011111011101111|00beef|48879
 ```
 
 <!-- test: stdlib-user-shadows.the-format-spec-path-control-under-an-uncontested-name -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The CONTROL for the case above, and the reason its failure can be attributed to the name rather than to
 the format specs. Byte for byte the same program with the type renamed to `UserFullRangeInt`, so nothing in
 `stdlib/Builtins.maxon` is contested — same six spellings, same expected text. A fault in the case above
@@ -762,17 +754,11 @@ end 'UserFullRangeInt'
 function main() returns ExitCode
 	let p = UserFullRangeInt.create(11)
 	let n = 48879 as Bits
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:x}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:X}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:o}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:b}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:06x}")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("|{n:d}")
 	return p.value
 end 'main'

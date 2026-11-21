@@ -635,13 +635,10 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.enum-float-backed-ref -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 
 enum Ratio
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	half = 0.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	quarter = 0.25
 end 'Ratio'
 
@@ -1220,12 +1217,10 @@ error E2013: <fragment>:11:3: 'v' is a let and cannot be passed to a `mutable` p
 ```
 
 <!-- test: pass-by-reference.a-ranged-var-handed-to-a-function-value-keeps-its-range-guard -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 A `var` handed to a function value that takes the position by reference lives in a cell; the guard its sum owes is still run, before the cell is ever handed over.
 ```maxon
 typealias Wide = int(0 to 5000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Num = int(0 to 1000) implements Wide
 
 function bump(mutates n Wide)
@@ -1360,13 +1355,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.a-narrow-var-at-a-wider-mutable-parameter-is-refused-at-the-call -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A callee that takes the position at a wider alias may write any wider value through the cell, which the variable naming the narrower alias cannot hold, so the call is refused.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpWide(mutates n Wide)
@@ -1385,13 +1378,11 @@ error E3005: <fragment>:11:11: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: pass-by-reference.a-narrow-var-at-a-wider-mutable-parameter-of-a-function-value-is-refused-at-the-call -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The same through a function value of the callee's own type: the position is the function type's, and a function value may write any value of it.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpWide(mutates n Wide)
@@ -1435,13 +1426,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.a-narrow-var-at-a-wider-mutable-position-of-a-function-typed-parameter-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A function-typed parameter declares the position it is called through, so a narrow variable handed to its wider `mutable` position is refused in the function that calls it.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 typealias Bump = function(mutates Wide)
@@ -1495,13 +1484,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.a-narrow-var-at-a-wider-mutable-parameter-of-a-generic-function-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A generic function's `mutable` parameter that names an alias is the alias whatever the type argument is, so a narrow variable handed to it is refused at the call.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpWide(mutates n Wide, tag T) uses T returns T
@@ -1545,13 +1532,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.a-narrow-parameter-relayed-to-a-wider-callee-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A by-reference parameter of a narrow alias handed on to a callee that takes the wider alias is refused in the frame that hands it on.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpWide(mutates n Wide)
@@ -1574,13 +1559,11 @@ error E3005: <fragment>:10:11: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: pass-by-reference.a-narrow-var-at-a-wider-parameter-of-a-throwing-callee-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal follows a call routed through `try` exactly as it follows a plain one.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 enum StepError implements Error
@@ -1606,12 +1589,10 @@ error E3005: <fragment>:19:15: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: pass-by-reference.a-callee-taking-the-vars-own-alias-needs-no-copy-back-check -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 A callee that takes the variable's own alias writes only values that alias admits, so the variable is read back as written.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpNarrow(mutates n Narrow)
@@ -1633,13 +1614,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.a-narrow-field-at-a-wider-mutable-parameter-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A field handed by reference to a callee that takes the wider alias is refused: the field cell has the field's declared type.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 type Meter
@@ -1666,13 +1645,11 @@ error E3005: <fragment>:19:11: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: pass-by-reference.a-narrow-local-var-at-a-wider-mutable-parameter-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A local `var` handed by reference to a callee that takes the wider alias is refused.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpWide(mutates n Wide)
@@ -1693,13 +1670,11 @@ error E3005: <fragment>:11:11: argument type mismatch for 'n': expected 'Wide', 
 <!-- test: pass-by-reference.an-async-call-refuses-a-narrow-var-the-coroutine-could-widen -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The coroutine writes the variable itself, so a wider parameter than the variable's own type is refused.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpWide(mutates n Wide) returns Wide
@@ -1725,13 +1700,11 @@ error E3005: <fragment>:13:25: argument type mismatch for 'n': expected 'Wide', 
 
 <!-- test: pass-by-reference.a-service-message-copies-a-narrow-var-so-the-handler-cannot-widen-it -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message carries its arguments by value in the request, so a handler that widens its copy of the parameter leaves the sender's narrower variable alone.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 type Meter
@@ -1771,13 +1744,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.error.a-callback-typed-at-a-narrower-alias-refuses-a-body-taking-a-wider-one -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A function type over the narrower alias does not admit a body that takes the wider alias, so the wider body can never be reached through it.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 typealias Step = function(mutates Narrow)
@@ -1802,13 +1773,11 @@ error E3005: <fragment>:17:2: argument type mismatch for 'f': expected 'fn(mutab
 ```
 
 <!-- test: pass-by-reference.a-narrow-var-at-a-wider-parameter-of-a-callee-that-then-throws-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal is at the call, so no handler is ever reached with a widened variable.
 ```maxon
 typealias Wide = int(0 to 10000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 enum StepError implements Error

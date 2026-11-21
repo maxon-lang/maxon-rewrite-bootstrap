@@ -70,14 +70,12 @@ ignoring `containerElementOwesDrop`): the write control and the substituted-fiel
 ## Tests
 
 <!-- test: an-integer-element-read-asks-no-destructor-question -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The shape this specialization exists for. A checked `get` over `Array with Integer`: the fast arm is the
 bound, the buffer load, the element load and the edge to the continuation. No `[<rec> + 40]` load, no
 `__im_empty` block, no `cmpRegImm32 …, 0` on the loaded element.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias WordArray = Array with Word
@@ -87,13 +85,13 @@ function pick(a WordArray, i Idx) returns Word
 end 'pick'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i * i)
 	end 'seed'
 	var t = 0 as Word
 	for i in 0 upto 6 'sum'
-		t = t + pick(a, i: i)
+		t = try t + pick(a, i: i) otherwise panic("out of range")
 	end 'sum'
 	if t != 55 'total'
 		return 1
@@ -143,23 +141,21 @@ end 'main'
 ```
 
 <!-- test: a-managed-element-write-still-destroys-the-occupant -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The control for the write arm. A `set` over a managed element DESTROYS the occupant it overwrites, and
 that is the runtime's job: the stamp says the element owes a drop, so the guard stays and the write
 takes the slow arm. Sabotage — stamping this site trivial — stores over four Strings nobody releases,
 and the leak gate answers exit 101.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Names = Array with String
 
-function relabel(a Names, i Idx)
+function relabel(mutates a Names, i Idx)
 	try a.set(i, value: "renamed-{i}") otherwise panic("set: index out of range")
 end 'relabel'
 
 function main() returns ExitCode
-	let a = Names.create(0)
+	var a = Names.create(0)
 	for i in 0 upto 4 'seed'
 		a.push("original-{i}")
 	end 'seed'
@@ -168,7 +164,7 @@ function main() returns ExitCode
 	end 'rewrite'
 	var bytes = 0 as Idx
 	for s in a 'measure'
-		bytes = bytes + s.byteLength()
+		bytes = try bytes + s.byteLength() otherwise panic("out of range")
 	end 'measure'
 	if bytes != 36 'total'
 		return 1
@@ -207,7 +203,6 @@ end 'main'
 ```
 
 <!-- test: a-substituted-container-field-keeps-its-element-answer -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 A shared generic body records nothing, so `Bag.put`/`Bag.at` keep both guards for every
 instantiation. The same record reached through a CONCRETE receiver — `w.items` typed `Array with Word`,
 `n.items` typed `Array with String` — is stamped per instantiation: the word field drops the guard, the
@@ -216,7 +211,6 @@ String field keeps it, and the Strings the direct `set` overwrites are still des
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element

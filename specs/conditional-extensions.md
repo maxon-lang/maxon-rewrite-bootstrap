@@ -53,12 +53,10 @@ end 'Container'
 <!-- test: conditional-extensions.basic-equatable -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface HasItems uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -121,13 +119,11 @@ When the associated type does not satisfy the where constraint, calling the meth
 <!-- test: conditional-extensions.constraint-not-met -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Item
 	function get() returns Item
 end 'Holder'
@@ -232,12 +228,10 @@ end 'main'
 <!-- test: conditional-extensions.multiple-constraints -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bucket uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -314,12 +308,10 @@ end 'main'
 <!-- test: conditional-extensions.partial-availability -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -401,10 +393,8 @@ from the name withholds the method from `Packed`.
 <!-- test: conditional-extensions.binding-over-an-alias-two-files-declare -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // --- file: holder/holder.maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Holder uses Item
 	function get() returns Item
 end 'Holder'
@@ -483,12 +473,10 @@ type `other` as an array of strings.
 <!-- test: conditional-extensions.associated-type-in-an-extension-body-over-an-alias-two-files-declare -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // --- file: holder/holder.maxon
 typealias Bag = Array with String
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Holder uses Item
 	function get() returns Item
 end 'Holder'

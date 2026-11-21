@@ -41,7 +41,6 @@ worked out by hand from those rules.
 ## Tests
 
 <!-- test: der.reads-a-subject-public-key-info -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A SubjectPublicKeyInfo walked element by element, nested readers over a BIT STRING's content, `isAtEnd`, and `finish` refusing what follows the last element.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -69,7 +68,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -267,7 +265,6 @@ header-023 truncated
 ```
 
 <!-- test: der.integers -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `readInteger` gives the magnitude without its sign octet and refuses an empty, non-minimal (X.690 section 8.3.2) or negative INTEGER, and a constructed or wrongly tagged element.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -295,7 +292,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -372,7 +368,6 @@ integer-015 nonMinimalInteger
 ```
 
 <!-- test: der.primitives -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 OBJECT IDENTIFIER (X.690 section 8.19), NULL (8.8), BIT STRING (8.6 and 11.2) and OCTET STRING: their content rules, and the constructed forms DER forbids.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -400,7 +395,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -518,7 +512,6 @@ octets-004 truncated
 ```
 
 <!-- test: der.constructed -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 SET and SEQUENCE readers, an explicit `[n]` tag as X.509 writes its version, and an element running past its parent.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -546,7 +539,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -774,7 +766,6 @@ time-028 unexpectedTag
 ```
 
 <!-- test: der.x509-reads -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The reads X.509 needs beyond the universal types: BOOLEAN (X.690 sections 8.2 and 11.1), an INTEGER of either sign (8.3), an implicitly tagged primitive (8.14), a whole element, and the six string types with their character rules.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -802,7 +793,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

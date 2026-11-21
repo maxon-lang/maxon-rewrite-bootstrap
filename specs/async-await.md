@@ -449,7 +449,6 @@ end 'main'
 <!-- test: async-await.try-await.otherwise-bind-assoc-value -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The bound error is an associated-value union, so the error flag IS a heap
 pointer to the payload. The binding takes ownership and scope-end releases
 it exactly once — a leak here (the payload never decref'd) or a double-free
@@ -459,7 +458,6 @@ all on a DIRECT await and the payload leaked.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union WorkError implements Error
 	failed(reason String)
 	refused(code Integer)
@@ -497,7 +495,6 @@ caught: negative input
 <!-- test: async-await.try-await.otherwise-bind-cross-block -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The `async` and its `try await` sit in different basic blocks, so the promise
 reaches the await through the cross-block variable-reference path. That path
 re-tags the promise value and must carry ALL of its metadata across — it used
@@ -506,7 +503,6 @@ shape where a spawn is followed by any intervening control flow.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union WorkError implements Error
 	failed(reason String)
 end 'WorkError'
@@ -670,7 +666,6 @@ end 'main'
 <!-- test: async-await.storage.release-union-payload-through-storage -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The error carried back out of storage is an associated-value union, so its flag IS a heap pointer
 to the payload. The binding takes ownership and scope-end releases it exactly once. Only a worker that DIES
 runs this path, so nothing else in the suite shows a leak here: a flag reading "not a heap pointer" (a
@@ -683,7 +678,6 @@ typealias WorkPromise = Promise with (Integer, WorkError)
 
 typealias WorkPromiseArray = Array with WorkPromise
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union WorkError implements Error
 	failed(reason String)
 	refused(code Integer)
@@ -2519,7 +2513,6 @@ error E3059: specs/async-await/async-await.error.propagate-type-mismatch.maxon:2
 <!-- test: async-await.error.propagate-type-mismatch-through-storage -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 The propagation type check needs an error type to check, and it has one even when the promise
 came out of storage. Unchecked, this program is a SILENT MISCOMPILE: `mayFail` throws `TaskError`,
@@ -2539,7 +2532,6 @@ enum TaskError implements Error
 	crashed
 end 'TaskError'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union WrapError implements Error
 	wrapped(reason String)
 end 'WrapError'
@@ -2933,7 +2925,6 @@ error E3142: specs/async-await/async-await.error.double-await-after-ternary-arm.
 <!-- test: async-await.error.await-without-try -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 A throwing thunk hands the awaiting frame an OWNED error on its error path. A
 plain `await` has nowhere to put it: the value it yields is the undefined success
@@ -2943,7 +2934,6 @@ receive the error, as the top of this spec says, and the compiler enforces it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union TaskError implements Error
 	crashed(reason String)
 end 'TaskError'
@@ -3104,7 +3094,6 @@ end 'main'
 <!-- test: async-await.promise-array-throwing-assoc-value -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A stored promise whose thunk throws an ASSOCIATED-VALUE union: the heap-allocated error payload
 must be released on the `otherwise` path, or the third element's `WorkError.failed` allocation
 leaks. The storage type names `WorkError`, so the release is a straight-line decref emitted from
@@ -3119,7 +3108,6 @@ typealias IntPromise = Promise with (Integer, WorkError)
 
 typealias IntPromiseArray = Array with IntPromise
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union WorkError implements Error
 	failed(reason String)
 end 'WorkError'
@@ -5562,7 +5550,6 @@ error E3186: <fragment>:17:36: argument 'word' is read by another operand of thi
 <!-- test: async-await.storage.a-record-result-with-a-thrown-error-releases-both -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A promise stored as `Promise with (Box, WorkError)` carries a record result and an error whose payload is a heap String. The success path hands the record to the awaiter and the failure path hands it the error; neither leaks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5575,7 +5562,6 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union WorkError implements Error
 	failed(reason String)
 	refused(code Integer)
@@ -5629,7 +5615,6 @@ caught: negative input
 <!-- test: async-await.storage.a-record-holding-an-array-with-a-thrown-error-releases-both -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The result record holds a heap array next to the awaited error whose payload is a heap String. Both the success value and the error are released exactly once, which a leak check at exit would otherwise turn into exit 101.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5645,7 +5630,6 @@ type Batch
 	end 'create'
 end 'Batch'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union WorkError implements Error
 	failed(reason String)
 	refused(code Integer)

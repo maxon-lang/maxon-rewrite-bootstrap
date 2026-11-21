@@ -656,8 +656,6 @@ end 'main'
 ```
 
 <!-- test: a-function-value-throwing-its-parameter-in-a-payload-does-not-convert-to-a-plain-function-type -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
-<!-- positions: moved -->
 A thrown payload stores its argument, so `find` keeps `key`, and `lookup`, which hands `key` to it, keeps `key` too.
 
 ```maxon
@@ -669,7 +667,6 @@ type Key
 	end 'create'
 end 'Key'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Missing implements Error
 	absent(key Key)
 end 'Missing'
@@ -701,7 +698,6 @@ error E3210: <fragment>:33:15: function value for 'Lookup' writes its parameter 
 ```
 
 <!-- test: a-function-value-throwing-a-clone-of-its-parameter-converts-to-a-plain-function-type -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The `clone()` cure: the payload holds a copy.
 
 ```maxon
@@ -709,11 +705,10 @@ type Key
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Key'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Missing implements Error
 	absent(key Key)
 end 'Missing'
@@ -737,7 +732,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let key = Key.create("abc")
-	return apply(lookup, key: key) as ExitCode
+	return try apply(lookup, key: key) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

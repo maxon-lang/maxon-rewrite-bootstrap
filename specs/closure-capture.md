@@ -601,7 +601,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closure-capture.captured-ranged-alias-binding -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A capture whose declared type is a ranged typealias — where what the slot is ACCESSED as and what the
 value IS are not the same type. The env slot's `storeIndirect`/`loadIndirect` pair carries a WIDTH, so
 the op's type must be the concrete primitive the alias stands for: a `named` type reaches lowering
@@ -613,16 +612,15 @@ zero-fills and yields 3. Minted at the storage type it would be a bare `int`, si
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function usesClosure(bump Integer, high Word) returns Integer
-	let op = function(n Integer) gives n + bump + ((high shr 62) as Integer)
+	let op = function(n Integer) gives try n + bump + ((high shr 62) as Integer) otherwise panic("out of range")
 	return op(1)
 end 'usesClosure'
 
 function main() returns ExitCode
-	return usesClosure(38, high: 0xC000000000000000) as ExitCode
+	return try usesClosure(38, high: 0xC000000000000000) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1704,15 +1702,12 @@ a-local b-param
 ```
 
 <!-- test: closure-capture.a-captured-enum-value-answers-its-raw-value -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 A captured enum value with a raw type answers its `rawValue` inside the closure.
 ```maxon
 typealias Message = function() returns String
 
 enum Token
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	pass = "PASS"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	fail = "FAIL"
 end 'Token'
 
@@ -1730,7 +1725,7 @@ FAIL
 ```
 
 <!-- test: closure-capture.a-captured-enum-value-answers-its-name-ordinal-and-record -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 A captured enum value answers `name`, `ordinal` and a struct-backed record's fields inside the closure.
 ```maxon
 typealias Latency = int(0 to 50)
@@ -1743,9 +1738,9 @@ type OpMeta
 end 'OpMeta'
 
 enum Instruction
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1, isMemory: false}
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4, isMemory: true}
 end 'Instruction'
 
@@ -1917,7 +1912,7 @@ beta b-
 ```
 
 <!-- test: closure-capture.a-captured-self-answers-its-record-and-a-union-self-its-name -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 `self` in a struct-backed enum's method answers its record's fields, and `self` in a union's method answers
 `name` and `ordinal`, directly and captured.
 ```maxon
@@ -1930,9 +1925,9 @@ type OpMeta
 end 'OpMeta'
 
 enum Instruction
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1}
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4}
 
 	function cost() returns String
@@ -1973,7 +1968,7 @@ fail 1 fail
 ```
 
 <!-- test: closure-capture.self-in-a-struct-backed-union-reads-its-backing-field -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 `self` in a struct-backed union's method reads a backing field by its short name, as a binding does, directly
 and captured.
 ```maxon
@@ -1988,9 +1983,9 @@ type OpMeta
 end 'OpMeta'
 
 union Instruction
-	// TODO: explicit raw values on union cases are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest Slot) = OpMeta{latency: 1}
-	// TODO: explicit raw values on union cases are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load(dest Slot) = OpMeta{latency: 4}
 
 	function cost() returns Latency
@@ -2013,7 +2008,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.self-in-a-struct-backed-union-still-reads-no-payload -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 A payload name stays unreadable through `self`, backing or not.
 ```maxon
@@ -2026,9 +2021,9 @@ type OpMeta
 end 'OpMeta'
 
 union Instruction
-	// TODO: explicit raw values on union cases are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest Slot) = OpMeta{latency: 1}
-	// TODO: explicit raw values on union cases are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load(dest Slot) = OpMeta{latency: 4}
 
 	function target() returns Slot
@@ -2077,7 +2072,7 @@ fail 1
 ```
 
 <!-- test: closure-capture.a-bare-struct-backed-enum-field-reads-its-record -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -2086,9 +2081,9 @@ type OpMeta
 end 'OpMeta'
 
 enum Instruction
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1}
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4}
 end 'Instruction'
 

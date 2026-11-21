@@ -801,7 +801,6 @@ end 'main'
 ```
 
 <!-- test: shr-unsigned-operand-zero-fills -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⭐ **THE CASE THAT DISCRIMINATES.** `u64.max shr 60` is **15** under the logical reading and **-1**
 under the arithmetic one, so it is the one shift that can tell the two readings apart — and until
 it was written down, the compiler answered **-1** for this program.
@@ -815,7 +814,6 @@ The count is shifted both as a **constant** (which the compiler folds) and as a 
 it cannot see, and must guard at run time). Both must give 15: the fold and the codegen are two
 readings of one rule, and a rule with two readers is a rule that will be read two ways.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 typealias Num = int(i64.min to i64.max)
@@ -825,7 +823,7 @@ function shrConst(v Wide) returns Wide
 end 'shrConst'
 
 function shrDynamic(v Wide, d Num) returns Wide
-	return v shr d
+	return try v shr d otherwise panic("out of range")
 end 'shrDynamic'
 
 function shrPastWidth(v Wide) returns Wide
@@ -901,12 +899,10 @@ end 'main'
 ```
 
 <!-- test: shl-zero-fills-whatever-the-operand-signedness -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A LEFT shift vacates the *low* bits and always fills them with zeros — an unsigned left operand
 changes nothing about it. Pinned so that "the left operand's type decides the fill" is not
 over-applied to the one shift whose fill is not in question.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 typealias Num = int(i64.min to i64.max)
@@ -937,7 +933,6 @@ end 'main'
 ```
 
 <!-- test: shift-signedness-survives-a-branch -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⚠ A shift's fill is a property of its LEFT OPERAND'S TYPE, so it cannot depend on **which block the
 operand is read in**. It is easy to lose: reading a variable outside the block that assigned
 it mints a fresh SSA value, and resolving a ranged type by *searching for a variable
@@ -946,7 +941,6 @@ currently bound to that value* finds nothing, concludes "not a ranged type", and
 
 The same shift, on the same variable, in two blocks. It must give one answer.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 typealias Num = int(i64.min to i64.max)
@@ -1050,7 +1044,6 @@ end 'main'
 ```
 
 <!-- test: shift-signedness-follows-the-cast -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⚠ A cast to a ranged type emits no op, so `let w = p as Wide` leaves `w` and `p` **sharing one SSA
 value** with two different declared types. Resolving a shift's ranged type by searching for a variable
 bound to that value returns whichever the search reaches first — `p`'s — so `w shr 60` would sign-fill
@@ -1060,7 +1053,6 @@ answers **15**.
 The cast is the whole of what the programmer wrote to say "treat this as unsigned". It has to be
 what the shift reads.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 typealias Num = int(i64.min to i64.max)
@@ -1092,7 +1084,6 @@ end 'main'
 ```
 
 <!-- test: shift-signedness-follows-the-cast-in-both-directions -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 The case above pins that the CAST decides the fill; these two pin what that costs, and the compiler got both
 wrong in opposite directions for the same reason — `as` produced no value at all, so `w` and `p`
 shared one SSA value and one tag.
@@ -1107,14 +1098,13 @@ case cannot pin this one — `15 - (-1)` is 16, `15 - 15` is 0, and `-1 - (-1)` 
 leaves the unsigned→signed direction reading the SOURCE, and the compiler answered 15 where it must
 answer -1.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 typealias Num = int(i64.min to i64.max)
 
 function sourceKeepsItsOwnType(p Num) returns Num
 	let w = p as Wide
-	return ((w shr 60) as Num) - (p shr 60)
+	return try ((w shr 60) as Num) - (p shr 60) otherwise panic("out of range")
 end 'sourceKeepsItsOwnType'
 
 function castToSigned(v Wide) returns Num
@@ -1137,7 +1127,6 @@ end 'main'
 ```
 
 <!-- test: and-hands-its-operands-ranged-alias-down -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⭐ **`and` CAN ONLY CLEAR BITS, SO THE AND OF TWO `Wide`s IS A `Wide` — and a compiler that forgets
 that has not lost one instruction, it has lost the value's TYPE.** `let m = a and b` over two
 `bits(64)` parameters produces a value the program never named a type for, so every later
@@ -1153,7 +1142,6 @@ such as `Wide` the result is still a value of its operands' type, so `m shr 60` 
 zeros as it does for `and`. Over a narrower alias the result is an unnamed signed number. Only `and` is
 bounded by its operands.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 typealias Num = int(i64.min to i64.max)
@@ -1267,7 +1255,6 @@ Stack trace:
 ```
 
 <!-- test: proven-count-at-the-boundary -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⭐ **A COUNT WHOSE DECLARED TYPE CANNOT PUT IT OUT OF RANGE NEEDS NO RUNTIME GUARD — AND MUST STILL
 ANSWER THE SAME.** The saturation a shift by an unfoldable count carries exists to fold a count
 outside `0..63` back to the answer the folded form gives. A count declared `int(0 to 63)` can never
@@ -1284,13 +1271,12 @@ ranged count does decide.
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Bits = int(0 to 63)
 
 function shlBy(value Num, n Bits) returns Num
-	return value shl n
+	return try value shl n otherwise panic("out of range")
 end 'shlBy'
 
 function shrBy(value Num, n Bits) returns Num
@@ -1302,7 +1288,7 @@ function shrWordBy(value Word, n Bits) returns Word
 end 'shrWordBy'
 
 function boundary(step Num) returns Bits
-	return (step * 63) as Bits
+	return try (step * 63) as Bits otherwise panic("out of range")
 end 'boundary'
 
 function main() returns ExitCode
@@ -1334,7 +1320,6 @@ end 'main'
 ```
 
 <!-- test: a-count-whose-alias-reaches-64-keeps-the-guard -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⚠ **THE BOUND IS `0..63`, NOT "SOMETHING SMALL", AND ONE PAST IT IS THE WHOLE DIFFERENCE.** `int(0
 to 64)` differs from `int(0 to 63)` by exactly one value, and that value is the one the hardware
 masks: unguarded, `7 shl 64` is `7 shl 0` — **7**, the operand UNCHANGED — and `u64.max shr 64` is
@@ -1346,13 +1331,12 @@ instruction takes as written.
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias UpTo64 = int(0 to 64)
 
 function shlBy(value Num, n UpTo64) returns Num
-	return value shl n
+	return try value shl n otherwise panic("out of range")
 end 'shlBy'
 
 function shrBy(value Num, n UpTo64) returns Num
@@ -1364,7 +1348,7 @@ function shrWordBy(value Word, n UpTo64) returns Word
 end 'shrWordBy'
 
 function widen(step Num) returns UpTo64
-	return (step * 64) as UpTo64
+	return try (step * 64) as UpTo64 otherwise panic("out of range")
 end 'widen'
 
 function main() returns ExitCode
@@ -1501,7 +1485,7 @@ end 'main'
 ```
 
 <!-- test: a-count-whose-alias-reaches-below-zero-keeps-the-guard -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ **THE OTHER END OF THE BOUND.** An alias may
 reach below 0 as well as above 63, and `int(-1 to 5)` is small in every direction but one. A count
 of -1 masks to **63** in the hardware, so an elision that checked only the upper bound would turn
@@ -1517,7 +1501,6 @@ below satisfied. The panic is what an elision would silently remove.
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Small = int(-1 to 5)
@@ -1568,7 +1551,7 @@ Stack trace:
 ```
 
 <!-- test: a-rebound-count-is-proven-around-a-loop -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⛔⛔ **A SHIFT COUNT REACHED THROUGH A LOOP'S MERGE IS PROVEN BY THE REBIND DOOR.** The cases above
 prove a count through a PARAMETER (guarded at the callee's entry) and through an `as` (guarded at the
 cast). A `var` reassigned around a loop is proven the same way: every rebind of a ranged `var` is a range
@@ -1578,7 +1561,6 @@ elided saturation below it can never meet a count the hardware would mask.
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Bits = int(0 to 63)
@@ -1618,7 +1600,6 @@ Stack trace:
 ```
 
 <!-- test: a-merged-count-is-not-proven-through-a-fallback -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ⚠ **A MERGE THAT CAN CARRY A COUNT ITS ALIAS NEVER ADMITTED: `try … otherwise <computed value>`.**
 The ok edge is the callee's own guarded `return`, so a `try f() otherwise 0` merge IS provable and
 keeps its elision — but a computed fallback is not range-checked, so the merge below denotes `Bits`
@@ -1630,7 +1611,6 @@ Masked, `1 shl 100` would be `1 shl 36` = **68719476736**. It is 0 here.
 ```maxon
 typealias Bits = int(0 to 63)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Missing implements Error
 	nothing
 end 'Missing'
@@ -1652,7 +1632,7 @@ function main() returns ExitCode
 	if n != 100 'reached'
 		return 1
 	end 'reached'
-	if 1 shl n != 0 'shl'
+	if (try 1 shl n otherwise panic("out of range")) != 0 'shl'
 		return 2
 	end 'shl'
 	let negative = -4
@@ -1917,14 +1897,12 @@ end 'main'
 ```
 
 <!-- test: bitwise-operators.a-full-width-unsigned-alias-keeps-its-name-under-complement-and-a-pattern-wraps-under-negation -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 **A FULL-WIDTH UNSIGNED ALIAS IS CLOSED UNDER `not`, `or` AND `xor`, AND A `bits(64)` PATTERN UNDER `-` TOO** —
 they wrap modulo 2^64 and every result is a value of the alias. The result keeps the name, so the quotient and
 the shift after it are UNSIGNED. (`-c` over a `Count` is refused: see `range-check-panic`.)
 ```maxon
 typealias Count = int(0 to u64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function complementShift(c Count) returns Count

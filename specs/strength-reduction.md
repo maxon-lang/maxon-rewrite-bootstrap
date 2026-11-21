@@ -338,7 +338,6 @@ end 'main'
 ```
 
 <!-- test: an-unsigned-power-of-two-reads-the-whole-bit-pattern -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⭐ The unsigned path has no sign correction at all — `x /u 2^k` is one `shr` and `x modu 2^k` is one
 `and` — and its whole risk is the OTHER direction: a dividend above `i64.max` has its top bit set, so
 answering it with the SIGNED sequence would give a negative quotient. The three dividends past
@@ -346,7 +345,6 @@ answering it with the SIGNED sequence would give a negative quotient. The three 
 name them. `10` is included to check that a magic divisor on this path divides right over the same
 dividends.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Unsigned = bits(64)
 
 typealias UnsignedArray = Array with Unsigned
@@ -362,7 +360,7 @@ function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
 end 'refUMod'
 
 function main() returns ExitCode
-	let ns = UnsignedArray.create(0)
+	var ns = UnsignedArray.create(0)
 	ns.push(0)
 	ns.push(1)
 	ns.push(31)
@@ -396,14 +394,12 @@ end 'main'
 ```
 
 <!-- test: an-unsigned-divisor-above-the-signed-range-keeps-its-answer -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 `huge` is `2^64 - 16`. Read as a signed word it is `-16`, whose magnitude is a power of two a
 reduction would answer with `shrLogical 4`; the right answer is `0`, because the dividend is smaller
 than the divisor. Both operands' declared types are `int(0 to u64.max)`, so the division is UNSIGNED,
 and the divisor is folded, so it reaches the classifier as a constant and takes the large-divisor
 quotient. A reduction that read it as `-16` would answer `576460752303423550`.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Unsigned = bits(64)
 
 typealias UPosDivisor = int(2 to u64.max)
@@ -419,16 +415,16 @@ end 'refUMod'
 function main() returns ExitCode
 	let huge = (9223372036854775807 as Unsigned) + (9223372036854775793 as Unsigned)
 	let a = (9223372036854775807 as Unsigned) + 1000
-	if a / huge != refUDiv(a, d: huge as UPosDivisor) 'quotient'
+	if (try a / huge otherwise panic("out of range")) != refUDiv(a, d: try huge as UPosDivisor otherwise panic("out of range")) 'quotient'
 		return 1
 	end 'quotient'
-	if a mod huge != refUMod(a, d: huge as UPosDivisor) 'remainder'
+	if (try a mod huge otherwise panic("out of range")) != refUMod(a, d: try huge as UPosDivisor otherwise panic("out of range")) 'remainder'
 		return 2
 	end 'remainder'
-	if a / huge != 0 'quotientIsZero'
+	if (try a / huge otherwise panic("out of range")) != 0 'quotientIsZero'
 		return 3
 	end 'quotientIsZero'
-	if a mod huge != a 'remainderIsTheDividend'
+	if (try a mod huge otherwise panic("out of range")) != a 'remainderIsTheDividend'
 		return 4
 	end 'remainderIsTheDividend'
 	return 0
@@ -508,7 +504,6 @@ Stack trace:
 ```
 
 <!-- test: an-unsigned-magic-divisor-agrees-with-the-hardware-divide -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⭐⭐ **THE UNSIGNED GATE, AND ITS ORACLE IS THE HARDWARE `div` JUST AS THE SIGNED ONE'S IS `idiv`.** Every
 comparison here computes the answer twice: once by dividing by the LITERAL, and once through a reference
 function whose divisor is a RUNTIME value of the same magnitude. The reference's divisor carries a ranged
@@ -537,7 +532,6 @@ taking one. Both `/` and
 the subtraction would otherwise go unseen. Each comparison returns its own exit code, so a failure names
 the divisor and the operator it failed on rather than merely reporting a mismatch.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Unsigned = bits(64)
 
 typealias UnsignedArray = Array with Unsigned
@@ -553,7 +547,7 @@ function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
 end 'refUMod'
 
 function edgeDividends() returns UnsignedArray
-	let ns = UnsignedArray.create(0)
+	var ns = UnsignedArray.create(0)
 	ns.push(0)
 	ns.push(1)
 	ns.push(31)
@@ -624,7 +618,6 @@ end 'main'
 ```
 
 <!-- test: the-hardest-unsigned-dividend-for-a-divisor -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⛔⛔ **THE UNSIGNED ANALOGUE OF `anc`, AND IT EXISTS FOR THE SAME REASON.** The gate above tests
 the EMITTED SEQUENCE and takes the CONSTANT that sequence carries on trust. A fixed-point reciprocal that
 is slightly too coarse is still right for almost every dividend in a 64-bit space — it is wrong only in a
@@ -646,7 +639,6 @@ out instead would make this file a second transcription of the derivation it is 
 replace the probe with one the gate above already makes. The guard is an equality against `u64.max` rather
 than an ordering, so it says exactly that and nothing about how patterns compare.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Unsigned = bits(64)
 
 typealias UnsignedArray = Array with Unsigned
@@ -671,7 +663,7 @@ end 'hardestDividend'
 function neighbourhood(d UPosDivisor) returns UnsignedArray
 	let umax = u64.max as Unsigned
 	let nc = hardestDividend(d)
-	let ns = UnsignedArray.create(0)
+	var ns = UnsignedArray.create(0)
 	ns.push(nc)
 	ns.push(nc - 1)
 	if nc != umax 'roomAbove'

@@ -340,7 +340,6 @@ fin 1
 ```
 
 <!-- test: a-linear-error-carries-its-value-to-the-handler -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A union that carries a linear value is linear and may implement `Error`. `throw` and a propagating `try` move the value on, and the handler's `match` binds and consumes it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -361,19 +360,18 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Back implements Error
 	refused(r Resp)
 end 'Back'
 
-function trySend(r Resp, flag bool) throws Back
+function trySend(consumes r Resp, flag bool) throws Back
 	if flag 'f'
 		throw Back.refused(r)
 	end 'f'
 	r.fin()
 end 'trySend'
 
-function viaPropagate(r Resp, flag bool) throws Back
+function viaPropagate(consumes r Resp, flag bool) throws Back
 	try trySend(r, flag: flag)
 end 'viaPropagate'
 

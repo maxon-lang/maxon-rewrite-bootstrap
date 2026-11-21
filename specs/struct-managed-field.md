@@ -421,7 +421,6 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-construct-match -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A struct field that is a payload-bearing (boxed) `union` is constructed by moving the
 box into the field slot, read back through the box, and matched — the
 scalar payloads bind and the container is dropped at scope exit through its cascade,
@@ -429,7 +428,6 @@ no leak.
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union OuterErr implements Error
 	unterminatedString(line N, column N)
 	unexpectedEof(line N, column N)
@@ -446,10 +444,10 @@ end 'Holder'
 function main() returns ExitCode
 	let h = Holder.create()
 	let r = match h.pending 'k'
-		unterminatedString(line, column) gives (line + column)
-		unexpectedEof(line, column) gives (line + column + 100)
+		unterminatedString(line, column) gives (try line + column otherwise panic("out of range"))
+		unexpectedEof(line, column) gives (try line + column + 100 otherwise panic("out of range"))
 	end 'k'
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -457,13 +455,11 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-reassign-drops-old -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 Reassigning a boxed-union field drops the old box before moving the new one in — the
 old union box is freed once, no leak, and the new value reads back.
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union OuterErr implements Error
 	unterminatedString(line N, column N)
 	unexpectedEof(line N, column N)
@@ -478,13 +474,13 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.pending = OuterErr.unterminatedString(7, column: 13)
 	let r = match h.pending 'k'
-		unterminatedString(line, column) gives (line + column)
-		unexpectedEof(line, column) gives (line + column + 100)
+		unterminatedString(line, column) gives (try line + column otherwise panic("out of range"))
+		unexpectedEof(line, column) gives (try line + column + 100 otherwise panic("out of range"))
 	end 'k'
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -492,13 +488,11 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-drop-scope-exit -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A container holding a boxed-union field it never touches is still dropped at scope
 exit — the field's box is freed exactly once by the cascade, no leak (a leak is 101).
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union OuterErr implements Error
 	unterminatedString(line N, column N)
 	unexpectedEof(line N, column N)

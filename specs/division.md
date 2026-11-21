@@ -461,7 +461,6 @@ apart: the signedness is decided in the parser and has to survive a desugar that
 whole divide from a CALLEE NAME.
 
 <!-- test: an-unsigned-divide-survives-the-throwing-desugar -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 An unsigned divisor whose range ADMITS zero — `bits(64)` is every 64-bit pattern, so it cannot
 exclude one — takes the THROWING expansion rather than the bare divide. The expansion rebuilds
 the divide from the callee it was handed, so a signedness that did not ride that name would silently
@@ -469,7 +468,6 @@ come back signed here and nowhere else: `u64.max / 3` would answer `0` inside a 
 `6148914691236517205` outside one, from one source operator. Both operators, because the remainder
 takes a different callee and a different guard.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Any64 = int(i64.min to i64.max)
@@ -581,10 +579,8 @@ r=1
 ```
 
 <!-- test: unsigned-divisors-at-or-above-two-to-the-63 -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 Unsigned constant divisors from 2^63 up agree with the hardware divide.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Unsigned = bits(64)
 
 typealias UnsignedArray = Array with Unsigned
@@ -600,7 +596,7 @@ function refUMod(n Unsigned, d UBigDivisor) returns Unsigned
 end 'refUMod'
 
 function dividendsAround(d UBigDivisor) returns UnsignedArray
-	let ns = UnsignedArray.create(0)
+	var ns = UnsignedArray.create(0)
 	let top = (9223372036854775807 as Unsigned) + 1
 	let dw = d as Unsigned
 	ns.push(0)

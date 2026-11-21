@@ -1547,7 +1547,6 @@ error E3005: <fragment>:4:16: Value 2048 is outside the range of 'HeapBucketInde
 <!-- test: slab-census.a-census-read-while-classes-churn-returns-and-one-after-the-join-is-exact -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
 **THE CENSUS UNDER CONCURRENT REFILLS, AND THE EQUALITY ONCE THEY HAVE STOPPED.** Every census read takes the
 allocator's structures while the allocator is also refilling, relisting and returning spans for them.
@@ -1628,7 +1627,6 @@ type Churn
 		let keep = StringArray.create(0)
 		var made = 0 as Tally
 		for k in 0 upto self.population 'make'
-			// TODO: string interpolation format specifiers are not supported in minimaxon
 			let s = "{k:04}:{self.pad}:{k:04}"
 			if not holds(s, key: k, fillByte: self.fillByte, padLength: self.padLength) 'badBuild'
 				self.wrong = self.wrong + 1

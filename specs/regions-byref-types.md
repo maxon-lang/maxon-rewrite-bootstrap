@@ -19,14 +19,12 @@ coroutines alike.
 ## Tests
 
 <!-- test: a-narrow-variable-at-a-wider-mutable-parameter-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 `widen` may write any `Wide` value, which the `Narrow` variable `x` cannot hold.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function widen(mutates n Wide)
@@ -45,14 +43,12 @@ error E3005: <fragment>:11:8: argument type mismatch for 'n': expected 'Wide', g
 ```
 
 <!-- test: a-wide-variable-at-a-narrower-mutable-parameter-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The variable's type must equal the parameter's in this direction too.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function shrink(mutates n Narrow)
@@ -71,14 +67,12 @@ error E3005: <fragment>:11:2: argument type mismatch for 'n': expected 'Narrow',
 ```
 
 <!-- test: a-narrow-variable-at-a-wider-mutable-parameter-of-a-method-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A method call is a call like any other.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 type Settler
@@ -108,7 +102,6 @@ error E3005: <fragment>:20:17: argument type mismatch for 'n': expected 'Wide', 
 <!-- test: a-narrow-variable-at-a-wider-mutable-parameter-of-an-async-callee-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The coroutine writes the variable itself, so the same rule holds.
@@ -116,7 +109,6 @@ The coroutine writes the variable itself, so the same rule holds.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpWide(mutates n Wide) returns Wide
@@ -142,7 +134,6 @@ error E3005: <fragment>:14:25: argument type mismatch for 'n': expected 'Wide', 
 <!-- test: a-narrow-variable-at-a-wider-mutable-parameter-of-a-generic-async-callee-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The generic instance a coroutine runs is checked as a direct call's is: `bumpWide` writes any `Wide` into the caller's variable.
@@ -150,7 +141,6 @@ The generic instance a coroutine runs is checked as a direct call's is: `bumpWid
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function bumpWide(mutates n Wide, tag T) uses T returns T
@@ -253,14 +243,12 @@ end 'main'
 ```
 
 <!-- test: a-narrow-field-at-a-wider-mutable-parameter-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A field cell handed by reference has the field's declared type.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 type Gauge
@@ -370,7 +358,6 @@ error E2013: <fragment>:5:2: 'slot' is a generic parameter and cannot be reassig
 <!-- test: a-narrow-variable-at-a-type-parameter-by-reference-of-a-wider-instance-is-refused-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The other arguments make `T` `Wide`, and the instance may overwrite the `Narrow` variable with any `Wide`.
@@ -378,7 +365,6 @@ The other arguments make `T` `Wide`, and the instance may overwrite the `Narrow`
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function pick(mutates slot T, other T, first bool) uses T returns T
@@ -402,14 +388,12 @@ error E3005: <fragment>:14:21: argument type mismatch for 'slot': expected 'Wide
 ```
 
 <!-- test: a-narrow-variable-at-a-type-parameter-by-reference-of-a-wider-instance-is-refused-sync -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The direct call is refused as the coroutine is.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function pick(mutates slot T, other T, first bool) uses T returns T
@@ -431,14 +415,12 @@ error E3005: <fragment>:12:15: argument type mismatch for 'slot': expected 'Wide
 <!-- test: a-variable-of-the-instances-own-type-at-a-type-parameter-by-reference-is-accepted-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The control: the variable and the value are both `Narrow`, so `T` is `Narrow`.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function pick(mutates slot T, other T, first bool) uses T returns T
@@ -465,16 +447,14 @@ end 'main'
 ```
 
 <!-- test: a-variable-of-the-instances-own-type-at-a-type-parameter-by-reference-is-accepted-sync -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The control: the variable and the value are both `Narrow`, so `T` is `Narrow`.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
-function pick(mutates slot T, other T, first bool) uses T returns T
+function pick(mutates slot T, consumes other T, first bool) uses T returns T
 	return slot if first else other
 end 'pick'
 
@@ -494,14 +474,12 @@ end 'main'
 ```
 
 <!-- test: a-narrow-variable-in-a-generic-body-at-a-nested-generic-by-reference-is-refused-sync -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The `inner` instance is requested only while the `outer` instance's body is parsed, and its `T` is `Wide` through `other`.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function inner(mutates slot T, other T, first bool) uses T returns T
@@ -526,7 +504,6 @@ error E3005: <fragment>:11:15: argument type mismatch for 'slot': expected 'Wide
 <!-- test: a-narrow-variable-in-a-generic-body-at-a-nested-generic-by-reference-is-refused-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The coroutine twin of the nested instance above.
@@ -534,7 +511,6 @@ The coroutine twin of the nested instance above.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function inner(mutates slot T, other T, first bool) uses T returns T
@@ -561,14 +537,12 @@ error E3005: <fragment>:13:22: argument type mismatch for 'slot': expected 'Wide
 ```
 
 <!-- test: a-mutable-type-parameter-handed-on-to-a-wider-formal-is-refused-at-the-caller-sync -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 `pass` hands its `slot` on to `widen`, whose formal is `mutable Wide`, so the instance `pass` with `T` as `Wide` may write any `Wide` through the `Narrow` variable.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function widen(mutates n Wide)
@@ -594,7 +568,6 @@ error E3005: <fragment>:16:7: argument type mismatch for 'slot': expected 'Wide'
 <!-- test: a-mutable-type-parameter-handed-on-to-a-wider-formal-is-refused-at-the-caller-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The coroutine twin of the relay above.
@@ -602,7 +575,6 @@ The coroutine twin of the relay above.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function widen(mutates n Wide)
@@ -630,13 +602,11 @@ error E3005: <fragment>:17:21: argument type mismatch for 'slot': expected 'Wide
 ```
 
 <!-- test: a-generic-types-method-with-a-type-parameter-formal-writes-nothing-through-it -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 A method of a generic type has one body for every instance, where `T` is opaque: it cannot rebind `v`, cannot hand it to a function whose formal is a concrete alias, and a generic function cannot take an opaque `T`. A `Narrow` variable handed there is never overwritten.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 type Box uses T
@@ -669,14 +639,12 @@ end 'main'
 ```
 
 <!-- test: an-opaque-type-parameter-cannot-be-handed-to-a-generic-function-by-reference -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The generic type's method cannot relay its `mutable T` formal to a generic function either.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function widen(mutates n Wide)
@@ -714,14 +682,12 @@ error E3181: <fragment>:21:3: type parameter 'T' of 'pass' cannot be 'type param
 ```
 
 <!-- test: a-method-of-a-primitive-cannot-assign-its-receiver -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A method's receiver is read-only, so a `Narrow` variable it is called on is never overwritten.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 extension int
@@ -742,7 +708,6 @@ error E2001: <fragment>:7:3: unexpected token: 'self'
 ```
 
 <!-- test: a-field-cell-declared-in-another-file-keeps-its-own-alias-when-the-reader-declares-the-name -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The field's `Narrow` is the declaring file's, whatever `app/main.maxon` means by the same name, so it is compared with `Wide` as that declaration.
@@ -751,7 +716,6 @@ The field's `Narrow` is the declaring file's, whatever `app/main.maxon` means by
 // --- file: a/gauge.maxon
 export typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 export typealias Narrow = int(0 to 10) implements Wide
 
 export type Gauge
@@ -810,14 +774,13 @@ error E3011: <fragment>:4:35: Unknown type 'T'
 ```
 
 <!-- test: a-generic-function-is-not-a-function-value -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: differing error code: operand types -->
 <!-- positions: moved -->
 A generic function has no single formal for a function value to carry, so it cannot be passed where a `mutable Wide` function is expected.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 typealias Step = function(mutates Wide)
@@ -846,14 +809,12 @@ error E2004: <fragment>:20:8: Undefined variable 'relay'
 ```
 
 <!-- test: a-narrow-tuple-variable-at-a-wider-mutable-tuple-parameter-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple's elements are ranged too, so the callee may write a `Wide` element a `Narrow` element cannot hold.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 typealias WidePair = (Wide, Wide)
@@ -880,14 +841,12 @@ error E3005: <fragment>:17:2: argument type mismatch for 'p': expected 'WidePair
 ```
 
 <!-- test: a-narrow-variable-at-a-mutable-exitcode-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 `ExitCode` is a ranged alias of its own, so a `Narrow` variable is not an `ExitCode` variable.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 function reset(mutates code ExitCode)
@@ -1013,7 +972,6 @@ error E3008: app/<fragment>:21:2: function 'relay' is not exported
 ```
 
 <!-- test: a-private-function-of-another-file-is-refused-as-not-exported-before-its-parameters-are-judged -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `widen` is not exported, so the call is refused as naming it; the callee's `Wide` formal is not compared with the `Narrow` variable.
@@ -1022,7 +980,6 @@ error E3008: app/<fragment>:21:2: function 'relay' is not exported
 // --- file: lib/lib.maxon
 export typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 export typealias Narrow = int(0 to 10) implements Wide
 
 function widen(mutates n Wide)

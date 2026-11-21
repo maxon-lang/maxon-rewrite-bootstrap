@@ -221,7 +221,6 @@ The inner-alias route must not claim the enclosing type's own name. `Holder` dec
 constructs itself with `Self{}`, whose every field is defaulted.
 
 <!-- test: self-literal-beside-an-inner-alias -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -251,7 +250,6 @@ function main() returns ExitCode
 	return 1
 end 'main'
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Seed = int(0 to u64.max) implements ElementIndex
 ```
 ```exitcode
@@ -524,7 +522,6 @@ language means here, and the compiler answers it uniformly at every declaration 
 
 <!-- test: extension-body-user-generic-inner-alias-create -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -540,7 +537,6 @@ type Wrapped uses T
 	end 'get'
 end 'Wrapped'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Tagged uses Tag
 	function tag() returns Tag
 end 'Tagged'

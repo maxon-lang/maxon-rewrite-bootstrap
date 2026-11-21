@@ -1133,16 +1133,12 @@ end 'main'
 
 <!-- test: explicit-char-backed -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Direction
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	North = 'n'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	South = 's'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	East = 'e'
 end 'Direction'
@@ -1162,7 +1158,6 @@ end 'main'
 ```
 
 <!-- test: explicit-string-raw-value-decodes-escapes -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ### An explicit string raw value is read like every other string literal
 `\{` and `\}` are the literal braces (see string-interpolation.md) and `\n` is a newline, in a raw
 value exactly as in an expression, and one reader decodes both arms. Keeping the raw token slice for a
@@ -1172,11 +1167,8 @@ a compiler built one way and `{` under one built the other: a self-hosting fixed
 byte-identical gate cannot see.
 ```maxon
 enum Tok
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	leftBrace = "\{"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	rightBrace = "\}"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	twoLines = "a\nb"
 end 'Tok'
 
@@ -1195,14 +1187,10 @@ b] 3
 ```
 
 <!-- test: float-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum FloatBacked
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	North = 1.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	South = 2.2
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	East = 3.3
 end 'FloatBacked'
 
@@ -1236,12 +1224,9 @@ error E3031: specs/enum-full/error.duplicate-raw-value.maxon:4:2: duplicate raw 
 ```
 
 <!-- test: error.raw-value-type-mismatch -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum Status
 	ok = 100
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	fail = "error"
 end 'Status'
 
@@ -1254,12 +1239,9 @@ error E3032: specs/enum-full/error.raw-value-type-mismatch.maxon:4:2: raw value 
 ```
 
 <!-- test: error.mixed-backing-types -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum Mixed
 	first = 1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	second = "two"
 end 'Mixed'
 

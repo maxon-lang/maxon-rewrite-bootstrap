@@ -159,9 +159,7 @@ end 'main'
 ```
 
 <!-- test: guard-protects-right-side -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Index = int(0 to u64.max) implements ElementIndex
 
 function main() returns ExitCode

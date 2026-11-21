@@ -2520,7 +2520,6 @@ error E3215: <fragment>:22:11: 'Outer.Items' is not sendable, so it cannot be 'T
 
 <!-- test: a-sendable-bound-refuses-a-container-instance-through-an-extension-alias-named-through-a-conformer -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Digits.Items` is the `Array with Tally` that `extension Seq` declares for `Digits`, a container instance.
@@ -2537,7 +2536,6 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -3355,7 +3353,6 @@ error E3215: <fragment>:21:33: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-under-an-interface-base -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 The only holder of `Pool with T` is the argument of an interface instance, `Seq with (Pool with T)`, that `Outer`
@@ -3377,7 +3374,6 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function first() returns Element
 end 'Seq'
@@ -3565,7 +3561,6 @@ error E3011: <fragment>:17:33: Unknown type 'Shape.Items'
 
 <!-- test: a-sendable-bound-accepts-an-associated-type-in-an-extension-of-an-interface-bound-to-a-value -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `extension Seq` writes `Pool with Item`, and `Jobs` binds `Item` to a `Tally`, which is a value. The alias is judged as `Pool with Tally` for that conformer, and it meets the bound.
 
@@ -3581,7 +3576,6 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -3623,7 +3617,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-in-an-extension-of-an-interface-bound-to-a-plain-record -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 An interface's associated type is not a type parameter: `extension Seq` declares `SP` once per conformer, with `Item` replaced by that conformer's binding. `Tasks` binds `Item` to a plain record `Job`, so its `SP` is `Pool with Job`, refused where the extension writes the alias.
@@ -3648,7 +3641,6 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -3687,7 +3679,6 @@ error E3215: <fragment>:25:12: 'Job' is not sendable, so it cannot be 'T' of 'Po
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-in-an-extension-of-an-interface-once-for-the-conformer-that-fails -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 The same `extension Seq` with two conformers: `Jobs` binds `Item` to a `Tally` and meets the bound, `Tasks` binds it to a plain record `Job` and does not. The refusal is reported once, for the conformer that fails.
@@ -3712,7 +3703,6 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -3763,7 +3753,6 @@ error E3215: <fragment>:25:12: 'Job' is not sendable, so it cannot be 'T' of 'Po
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-bound-to-a-generic-conformers-unbounded-parameter -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Box` binds `Item` to its own parameter `T` and declares no `where` clause, so the alias in `extension Seq` is judged from `Box`'s clause alone, and `T` is not bounded `sendable`. It is reported once, although `Box` is never instantiated.
@@ -3780,7 +3769,6 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -3819,7 +3807,6 @@ error E3215: <fragment>:17:12: 'T' of 'Box' is not bounded `sendable`, so it can
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-bound-to-a-generic-conformers-unbounded-parameter-once-for-two-instantiations -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 The same unbounded `Box`, instantiated at `Tally` and at `String` and used. The refusal comes from `Box`'s own clause, so it is reported once, whatever the instantiations.
@@ -3836,7 +3823,6 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -3879,7 +3865,6 @@ error E3215: <fragment>:17:12: 'T' of 'Box' is not bounded `sendable`, so it can
 
 <!-- test: a-sendable-bound-accepts-an-associated-type-bound-to-a-generic-conformers-bounded-parameter -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `Box` binds `Item` to its parameter `T` and declares `where T is sendable`, so the alias in `extension Seq` is judged from that clause and meets the bound; `Box with Tally` runs.
 
@@ -3895,7 +3880,6 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -5399,7 +5383,6 @@ hello
 
 <!-- test: an-isolated-bound-refuses-a-container-instance-through-an-extension-alias-named-through-a-conformer -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Digits.Items` is the `Array with Tally` that `extension Seq` declares for `Digits`, which is not `unique`.
@@ -5416,7 +5399,6 @@ type Cell uses T where T implements isolated
 	end 'create'
 end 'Cell'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'

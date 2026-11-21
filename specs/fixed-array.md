@@ -1800,7 +1800,6 @@ error E3106: <fragment>:19:21: 'FixedArray.create' cannot publish slots of a typ
 <!-- test: a-fixed-array-in-an-extension-body-over-an-associated-type -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 The construct reached from its third position, which sources its layout
 descriptor differently from the other two: an `extension` body has no `uses` clause of its own and is
@@ -1811,7 +1810,6 @@ above do not stand in.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sized uses Element
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -5323,7 +5321,6 @@ end 'main'
 <!-- test: error.a-static-witness-reading-countof-Self-through-a-runtime-sized-alias -->
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 A `static` requirement is not dispatchable through a type parameter at all, so a witness table can never hand a runtime-sized instance a count that only a record could answer: the call is refused before any table is read.
 ```maxon
@@ -5332,7 +5329,6 @@ typealias Int = int(i64.min to i64.max)
 typealias Buf = FixedArray with Int
 
 interface Counting
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function slots() returns Count
 end 'Counting'
 
@@ -5569,7 +5565,6 @@ error E3005: <fragment>:6:12: Value -1 is outside the range of 'ElementIndex' (i
 <!-- test: runtime-sized-reached-through-a-witness-table-that-also-holds-a-static-requirement -->
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 A conformance whose interface also declares a `static` requirement reading the count builds a table with a slot for each. The instance slot reads the record's length; the static slot is never dispatched through the type parameter, so the table needs no receiver for it: `6`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -5578,7 +5573,6 @@ typealias Buf = FixedArray with Int
 
 interface Measured
 	function measure() returns Count
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function slots() returns Count
 end 'Measured'
 
@@ -5588,6 +5582,7 @@ extension FixedArray implements Measured
 		// TODO: countof(...) is not supported in minimaxon
 		return countof(Self)
 	end 'measure'
+
 	static function slots() returns Count
 		// TODO: countof(...) is not supported in minimaxon
 		return countof(Self)
@@ -5722,7 +5717,6 @@ end 'main'
 ## A Sized Fixed Array Strides By Its Element, Not By The Machine Word
 
 <!-- test: a-sized-fixed-array-strides-by-its-element-and-reads-back-every-element -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -5732,10 +5726,8 @@ typealias Half = int(0 to 65535)
 
 typealias Wide = int(0 to u32.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Octet = bits(8)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Lane = bits(16)
 
 typealias Crumb = int(0 to 3)

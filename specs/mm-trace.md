@@ -591,13 +591,11 @@ mm_free ArrayRecord #1
 ```
 
 <!-- test: a-type-sized-fixed-array-above-256-bytes-is-one-allocation -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The same for a type that states its length: 40 words are 320 bytes, past the growable array's co-allocation bound,
 and still one `mm_alloc`.
 <!-- MmTrace -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon

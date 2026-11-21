@@ -25,7 +25,6 @@ are stored as heap pointers and have the same dangling-alias hazard.
 ## Tests
 
 <!-- test: rethrow-stashed-self-union-field -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Re-throwing a union-typed self field that was rewritten by an inner call
 
 A method stashes a union value into a self field. An inner method overwrites
@@ -36,12 +35,10 @@ rewritten variant — and there must be no use-after-free of the original value.
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Inner implements Error
 	exhausted
 end 'Inner'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Outer implements Error
 	first(line N, column N)
 	second(line N, column N)

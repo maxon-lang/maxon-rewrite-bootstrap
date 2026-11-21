@@ -2323,7 +2323,6 @@ error E3136: <fragment>:38:26: `interface Tone` requires `pitch`, and `type Soft
 
 <!-- test: a-service-behind-a-derived-interface-widens-to-the-base-handle -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service implementing a derived interface converts to its base interface's handle, beside a service implementing the base directly.
 ```maxon
@@ -2333,7 +2332,6 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Sub extends Pinger
 	function tag() returns Count
 end 'Sub'
@@ -4252,12 +4250,10 @@ error E3171: <fragment>:15:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-an-interfaces-type-parameter -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface's type parameter takes no `sendable` bound, so the alias is written over a concrete type.
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Cell = SharedValue with Element
@@ -4274,10 +4270,8 @@ error E3171: <fragment>:3:19: `Element` cannot be a registry value or a `SharedV
 
 <!-- test: error.a-shared-value-over-an-interfaces-type-parameter-in-its-extension -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	function only() returns Element
 end 'Holder'

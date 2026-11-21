@@ -499,7 +499,6 @@ end 'main'
 
 <!-- test: error.an-unconformed-extension-does-not-leak-its-associated-type-names -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **AN `extension <Interface>` WHOSE INTERFACE NO TYPE IMPLEMENTS MUST NOT MAKE THAT INTERFACE'S
 ASSOCIATED-TYPE NAMES SPELLABLE AT FILE SCOPE.** `Parser.readExtensionHeader` installs the
@@ -524,7 +523,6 @@ cases exercise two different passes: this one type RESOLUTION, the next `Semanti
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function firstOne() returns Element
 end 'Seq'
@@ -551,7 +549,6 @@ error E3011: <fragment>:14:14: Unknown type 'Element'
 
 <!-- test: error.an-unconformed-extension-leak-is-not-a-compiler-panic -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The deeper half of the case above: `f` returns a GENERIC INSTANCE, which is what routes its call through
 `SemanticCheck.checkTypeParameterArgs` — the pass that asks `opaqueTypeParamPosition` for an opaque
@@ -575,7 +572,6 @@ end 'Box'
 
 typealias BoxN = Box with Num
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function firstOne() returns Element
 end 'Seq'
@@ -604,7 +600,6 @@ error E3011: <fragment>:28:14: Unknown type 'Element'
 
 <!-- test: conformance-clause-order-does-not-change-extensions -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **`implements Tagged with Integer, Held with Integer` AND `implements Held with Integer, Tagged
 with Integer` ARE THE SAME CLAUSE, so they must publish the same extension methods.** The
 declaration sweep is what decides which types an `extension <Interface>` lands on, and the sweep alone
@@ -621,12 +616,10 @@ what makes the two spellings one program; this case's emitted code holds both
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Tagged uses Tag
 	function tag() returns Tag
 end 'Tagged'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Held uses Item
 	function held() returns Item
 end 'Held'
@@ -681,7 +674,6 @@ end 'main'
 ```
 
 <!-- test: conformance-clause-order-reaches-an-enum-too -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐ **THE SAME CLAUSE, ON THE OTHER DECLARATION KIND.** An `enum` records no `with` bindings — it has no
 conditional extension to evaluate — but a LOST NAME is the same loss, and on an error enum the name that
 gets lost is the one `throws Error` is narrowed against (`EnumLayout.conformsTo`). `Slow` writes
@@ -694,7 +686,6 @@ error edge takes the handler's 55.
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Tagged uses Tag
 	function tag() returns Tag
 end 'Tagged'
@@ -793,7 +784,6 @@ error E2008: <fragment>:12:1: Mismatched end label: expected 'Countable', got 'C
 
 <!-- test: a-base-extension-discharges-a-derived-interfaces-requirement -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ⭐ **THE CONFORMANCE CONSEQUENCE OF "Transitive Extensions", PINNED AS BEHAVIOUR RATHER THAN AS PROSE.**
 `Both extends Forward` REQUIRES `back()`, and `Walker implements Both` declares only `step()` — which
 reads like a missing method. It is not: `extension Forward` supplies one `back()` that works for every
@@ -814,7 +804,6 @@ interface Forward
 	function step() returns Integer
 end 'Forward'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Both extends Forward
 	function back() returns Integer
 end 'Both'

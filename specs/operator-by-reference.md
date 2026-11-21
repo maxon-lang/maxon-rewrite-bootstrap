@@ -103,12 +103,9 @@ error E3016: <fragment>:2:6: Partial interface implementation: type 'Shade' has 
 ```
 
 <!-- test: operator-by-reference.error.a-conformer-through-an-extending-interface-may-not-write-its-operand -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Count = int(i64.min to i64.max)
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Keyed extends Equatable
 	function key() returns Count
 end 'Keyed'

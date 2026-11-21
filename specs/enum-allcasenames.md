@@ -114,14 +114,10 @@ serverError
 
 <!-- test: enum-allcasenames.string-backed -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum ContentType
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	json = "application/json"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	html = "text/html"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	plain = "text/plain"
 end 'ContentType'
 

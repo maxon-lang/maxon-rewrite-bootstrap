@@ -88,14 +88,10 @@ end 'main'
 ```
 
 <!-- test: string-backed-enum-as-map-key -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Planet
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	earth = "Earth"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mars = "Mars"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	venus = "Venus"
 end 'Planet'
 
@@ -184,16 +180,12 @@ error E3017: specs/enum-hashable/error.associated-value-enum-not-hashable.maxon:
 
 <!-- test: char-backed-enum-as-map-key -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	excellent = 'A'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	good = 'B'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	average = 'C'
 end 'Grade'

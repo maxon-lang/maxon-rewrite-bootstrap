@@ -56,7 +56,6 @@ with E3104. Every `__Builtins` member is library-tier: a call from outside `stdl
 ## Tests
 
 <!-- test: aes-hardware.fips-197-vectors -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 FIPS 197 appendices B and C for each key size: the cipher text, the plain text recovered from it, the last
 encryption round key (appendix A.1 for the 128-bit key) and the decryption schedule's first and last round keys,
@@ -87,7 +86,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -103,7 +101,6 @@ end 'scheduleFor'
 function sliceHex(bytes ByteArray, from Count) returns String
 	var text = ""
 	for position in from upto from + 16 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{(try bytes.get(position) otherwise 0):02x}")
 	end 'eachByte'
 	return text
@@ -154,7 +151,6 @@ d014f9a8c9ee2589e13f0cc8b6630ca6
 ```
 
 <!-- test: aes-hardware.matches-the-bitsliced-cipher -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 Sixty-four pseudo-random blocks under each key size: the hardware cipher answers what the software `AesBitsliced`
 answers, in both directions, and decrypts what it encrypted.
@@ -171,7 +167,6 @@ end 'bytesFor'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -514,7 +509,6 @@ error E3104: <fragment>:20:13: this construct lowers to the runtime entry '__cpu
 ```
 
 <!-- test: aes-hardware.ctr-groups-match-the-bitsliced-cipher -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 Every group size (1, 2, 4 and 8 blocks) at three block offsets inside a buffer that starts mid-array, under three
 counters (zero, a middle one and the last one that fits), for each key size: the bytes of the group are the
@@ -532,7 +526,6 @@ end 'bytesFor'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -601,7 +594,6 @@ end 'main'
 ```
 
 <!-- test: aes-hardware.ctr-counter-wraps-inside-its-word -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A group whose counters pass 2^32 - 1 wraps to zero inside the last four bytes of the counter block and never carries
 into the nonce: block `j` is the cipher of the nonce followed by `(counter + offset + j) mod 2^32`. An offset past 2^32 counts
@@ -619,7 +611,6 @@ end 'bytesFor'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -681,7 +672,6 @@ end 'main'
 ```
 
 <!-- test: aes-hardware.xor-key-stream-matches-the-bitsliced-cipher -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 Every length from 0 to 300 bytes covers each group size and the partial last block. Under 128-, 192- and
 256-bit keys, from counter zero and from the last counter the length allows, `Aes.xorKeyStream` and
@@ -700,7 +690,6 @@ end 'bytesFor'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -738,7 +727,6 @@ function pastMask(cipher Aes, nonce ByteArray, counter Count, data ByteArray) re
 	let (low, high) = try cipher.xorKeyStreamPastFirstBlock(nonce, counter: first, data: data, output: output) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	return "{toHex(output)} {low:016x} {high:016x}"
 end 'pastMask'
 
@@ -751,7 +739,6 @@ function pastMaskBySoftware(cipher AesBitsliced, nonce ByteArray, counter Count,
 	let (low, high) = try cipher.xorKeyStreamPastFirstBlock(nonce, counter: first, data: data, output: output) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	return "{toHex(output)} {low:016x} {high:016x}"
 end 'pastMaskBySoftware'
 
@@ -801,7 +788,6 @@ counterOverflow
 ```
 
 <!-- test: aes-hardware.nist-sp-800-38a-ctr-vectors -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 NIST SP 800-38A appendix F.5.1, F.5.3 and F.5.5: the four-block message under each key size. The standard's initial
 counter block `f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff` is the 12-byte nonce `f0f1f2f3f4f5f6f7f8f9fafb` and the 32-bit counter
 `0xfcfdfeff`; the four blocks do not carry out of that counter.
@@ -831,7 +817,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -963,7 +948,6 @@ error E3036: <fragment>:4:13: '__Builtins.aesCtrXor' takes exactly 6 arguments, 
 ```
 
 <!-- test: aes-hardware.gcm-intrinsics-match-the-mcgrew-viega-vectors -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The McGrew-Viega test cases 1 to 12 (AES-128, AES-192 and AES-256 with the zero and the Feldman key, with and
 without associated data and a partial last block) sealed and opened with the GCM intrinsics: the key block, the
@@ -995,7 +979,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1963,12 +1946,10 @@ open true true
 ```
 
 <!-- test: aes-hardware.error.a-fixed-array-of-wider-elements-is-not-a-buffer -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A buffer position takes a fixed array only of bytes.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Words = FixedArray with Word

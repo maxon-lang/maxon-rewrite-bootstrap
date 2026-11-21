@@ -46,11 +46,9 @@ reproduce the hazard. The infallible `current()` paired with a separate fallible
 ## Tests
 
 <!-- test: infallible-cursor-borrow-thrown-edge -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 An infallible cursor borrow dropped on a sibling `advance()` throw edge must not
 release the collection's element, or the array teardown double-frees it.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Tag = int(0 to u64.max) implements ElementIndex
 
 type Item

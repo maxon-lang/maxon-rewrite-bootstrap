@@ -737,7 +737,6 @@ q=-33 r=1
 ```
 
 <!-- test: div-both-operands-non-negative-stays-unsigned -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 #### Two non-negative ranges still buy the UNSIGNED divide
 Answering the width question by giving up on the signedness one would be the same defect wearing a
 fix's clothes. An `int(0 to u64.max)` dividend over a non-negative divisor is an unsigned divide,
@@ -745,7 +744,6 @@ and a value with bit 63 set is what says so: read signed, `u64.max / 8` is `0`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias MachineWord = bits(64)
 
 typealias HalfRadix = int(1 to 8)
@@ -772,7 +770,6 @@ end 'main'
 ```
 
 <!-- test: div-a-cast-to-a-zero-admitting-unsigned-alias-is-still-a-declaration -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 #### A cast to a non-negative alias that ADMITS ZERO still asks for the unsigned divide
 ⭐⭐ **THE OPERAND THAT CANNOT ITSELF BE MISREAD IS THE ONE THAT MISREADS THE OTHER.** `int(0 to 255)`
 cannot reach bit 63, so nothing about *that* operand depends on the reading — but a divide runs at ONE
@@ -791,7 +788,6 @@ unable to reach bit 63. Every one of those is true of both ranges, and the value
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias MachineWord = bits(64)
 
 typealias Small = int(0 to 255)
@@ -803,18 +799,18 @@ end 'ident'
 function main() returns ExitCode
 	let w = ident(-1) as MachineWord
 	// The operand is a CALL RESULT — a value no binding shares.
-	let s = ident(8) as Small
+	let s = try ident(8) as Small otherwise panic("out of range")
 	print("q={try (w / (s as MachineWord)) otherwise 999} r={try (w mod (s as MachineWord)) otherwise 999}\n")
 	// The operand is a BARE LOCAL — `b` and `a` would be one value, so the cast has to mint.
 	let a = ident(8)
-	let b = a as Small
+	let b = try a as Small otherwise panic("out of range")
 	print("q={try (w / (b as MachineWord)) otherwise 999} r={try (w mod (b as MachineWord)) otherwise 999}\n")
 	// ⚠ And `a` itself must be UNTOUCHED by that mint: it is still a plain signed `int`.
 	print("a={ident(-20) / 3}\n")
-	let e = ident(8) as ExitCode
+	let e = try ident(8) as ExitCode otherwise panic("out of range")
 	print("q={try (w / (e as MachineWord)) otherwise 999}\n")
 	let a2 = ident(8)
-	let e2 = a2 as ExitCode
+	let e2 = try a2 as ExitCode otherwise panic("out of range")
 	print("q={try (w / (e2 as MachineWord)) otherwise 999}\n")
 	return 0
 end 'main'
@@ -1624,9 +1620,7 @@ The half of the rule that stops it being too wide: `u64.max` rides as the same w
 the case above refuses, and it is in range.
 
 <!-- test: unsigned-full-alias-admits-the-unsigned-extreme -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Slot = bits(64)
 
 let NO_SLOT = u64.max as Slot
@@ -1652,9 +1646,7 @@ The other half. `0xFFFFFFFFFFFFFFFE` is 18446744073709551614 — a non-negative 
 pattern is the negative `-2`. Nothing about it was written with a sign, so it is in range.
 
 <!-- test: unsigned-full-alias-admits-a-bit-63-hex-literal -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Slot = bits(64)
 
 function take(s Slot) returns Slot
@@ -1690,9 +1682,7 @@ a line in an UNRELATED function cannot take it away.
 
 
 <!-- test: a-written-negative-in-one-function-does-not-reach-another-functions-default -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function withDefault(p Wide = 0x8000000000000000) returns Wide

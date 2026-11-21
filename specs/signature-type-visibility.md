@@ -2274,9 +2274,7 @@ error E3167: api/<fragment>:7:13: exported type 'api.Holder' names unexported in
 ```
 
 <!-- test: error.an-exported-type-binding-a-file-private-enum-in-its-implements-clause-is-refused -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 The `with` arguments of a conformance are named types of the declaration.
 ```maxon
 // --- file: api/lib.maxon
@@ -2285,7 +2283,6 @@ enum Mode
 	slow
 end 'Mode'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Source uses Element
 	function next() returns Element
 end 'Source'
@@ -2371,16 +2368,13 @@ error E3167: api/<fragment>:7:13: exported type 'api.Box' names unexported inter
 ```
 
 <!-- test: error.an-exported-interface-extending-a-file-private-interface-is-refused -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 ```maxon
 // --- file: api/lib.maxon
 interface Inner
 	function code() returns ExitCode
 end 'Inner'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 export interface Outer extends Inner
 	function more() returns ExitCode
 end 'Outer'
@@ -2427,7 +2421,6 @@ end 'main'
 ```
 
 <!-- test: an-exported-type-implementing-with-an-exported-enum-is-legal -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
@@ -2436,7 +2429,6 @@ export enum Mode
 	slow
 end 'Mode'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Source uses Element
 	function next() returns Element
 end 'Source'
@@ -2539,7 +2531,6 @@ end 'main'
 7
 ```
 <!-- test: an-exported-interface-extending-an-exported-interface-is-legal -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
@@ -2547,7 +2538,6 @@ export interface Inner
 	function code() returns ExitCode
 end 'Inner'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 export interface Outer extends Inner
 	function more() returns ExitCode
 end 'Outer'
@@ -2602,7 +2592,7 @@ error E3167: api/<fragment>:6:11: exported function 'api.Sized.size' names unexp
 
 <!-- test: error.an-exported-enum-backed-by-a-file-private-record-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 A struct-backed enum hands out its record through `rawValue`, so the record is part of the enum's surface and
 is held to the enum's tier. The refusal sits at the enum NAME.
@@ -2613,9 +2603,9 @@ type OpMeta
 end 'OpMeta'
 
 export enum Instruction
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1}
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4}
 end 'Instruction'
 
@@ -2634,7 +2624,7 @@ error E3167: api/<fragment>:7:13: exported enum 'api.Instruction' names unexport
 
 <!-- test: an-exported-enum-backed-by-an-exported-record-is-legal -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 Equal tiers, and `OpMeta` is named by the enum's backing alone.
 ```maxon
 // --- file: api/lib.maxon
@@ -2643,9 +2633,9 @@ export type OpMeta
 end 'OpMeta'
 
 export enum Instruction
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1}
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4}
 end 'Instruction'
 

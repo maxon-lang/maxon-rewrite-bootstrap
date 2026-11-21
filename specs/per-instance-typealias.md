@@ -775,7 +775,6 @@ byte by byte, and then the one written first in the file.
 ### Two extensions in two files declare different instances of one member
 
 <!-- test: error.two-extensions-declare-different-instances-of-one-member -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 `Box implements Seq`, and `a.maxon`'s and `b.maxon`'s `extension Seq` each declare `Items` — an `Array`
@@ -784,7 +783,6 @@ and a `List`. `Box.Items` has no single meaning, and a reader of it was handed w
 // --- file: seq.maxon
 export typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -833,7 +831,6 @@ error E3061: <fragment>:33:19: Duplicate typealias 'Items': `Box.Items` is alrea
 ### Two extensions in two files declare the SAME instance of one member
 
 <!-- test: error.two-extensions-declare-the-same-instance-of-one-member -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 The same program with both sites declaring `Array with Item`. The two spellings denote one instance, but
@@ -843,7 +840,6 @@ a different instance is.
 // --- file: seq.maxon
 export typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -892,7 +888,6 @@ error E3061: <fragment>:33:19: Duplicate typealias 'Items': `Box.Items` is alrea
 ### Two extensions in ONE file declare one member
 
 <!-- test: error.two-extensions-in-one-file-declare-one-member -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 The refusal does not depend on the sites being in different files: the later `extension Seq` is the
@@ -901,7 +896,6 @@ duplicate, and the message names the file the earlier one is in, which is this o
 // --- file: seq.maxon
 export typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -949,14 +943,12 @@ error E3061: <fragment>:32:19: Duplicate typealias 'Items': `Box.Items` is alrea
 ### One extension body declares a member twice
 
 <!-- test: error.one-extension-body-declares-a-member-twice -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 ```maxon
 // --- file: seq.maxon
 export typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -1125,7 +1117,6 @@ error E3061: <fragment>:24:19: Duplicate typealias 'Pair': `Holder.Pair` is alre
 ### What the refusal leaves alone
 
 <!-- test: extensions-declare-members-of-different-names-and-conformers-keep-their-own -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 Two `extension Seq` bodies declaring DIFFERENT members, and two conformers each receiving the same member
 through ONE extension: the key is `<Type>.<member>`, so neither is a duplicate.
@@ -1133,7 +1124,6 @@ through ONE extension: the key is `<Type>.<member>`, so neither is a duplicate.
 // --- file: seq.maxon
 typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -1198,13 +1188,11 @@ end 'main'
 
 <!-- test: conditional-extensions-withheld-from-a-conformer-declare-one-member -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 Two CONDITIONAL extensions declaring `Items`, each withheld from the conformer the other reaches: a
 withheld extension gives its conformer no members, so `Flagged.Items` and `Ranked.Items` each have ONE
 declaration.
 ```maxon
 // --- file: seq.maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -1402,13 +1390,11 @@ error E3061: <fragment>:6:12: Duplicate typealias 'Pair': `Box.Pair` is already 
 ```
 
 <!-- test: error.an-interface-body-declares-a-member-twice -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Items = Array with Item
@@ -1744,13 +1730,11 @@ error E3061: <fragment>:3:12: Duplicate typealias 'ElementArray': `List.ElementA
 
 <!-- test: an-interface-extension-generic-member-yields-to-the-conformers-own -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `Box` declares `Items` over a `List`, and `extension Seq` declares it over an `Array`. The extension's
 `items`, compiled for `Box`, returns `Box`'s `List`.
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -1789,7 +1773,6 @@ end 'main'
 
 <!-- test: an-interface-extension-generic-member-yields-to-the-conformers-own-in-any-file-order -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 The extension sits in a file that sorts before the type's. A second extension declares a different member,
 which the conformer still receives.
@@ -1797,7 +1780,6 @@ which the conformer still receives.
 // --- file: a.maxon
 typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -1848,11 +1830,9 @@ end 'main'
 
 <!-- test: an-interface-extension-function-member-yields-to-the-conformers-own -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias Number = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -1889,11 +1869,9 @@ end 'main'
 
 <!-- test: an-interface-extension-tuple-member-yields-to-the-conformers-own -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias Number = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -1931,14 +1909,12 @@ end 'main'
 
 <!-- test: error.an-interface-extension-ranged-member-yields-to-the-conformers-own -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 `Box.Idx` is `int(0 to 9)`, so the extension's `widen`, compiled for `Box`, refuses the `50` that the
 extension's own `int(0 to 99)` would take.
 ```maxon
 typealias Number = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -1975,14 +1951,12 @@ error E3005: <fragment>:31:13: Value 50 is outside the range of 'Idx' (int(0 to 
 
 <!-- test: a-conformer-without-its-own-member-receives-the-interface-extensions -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The control: `Plain` declares no `Items`, so it receives the extension's `Array`.
 ```maxon
 typealias Digit = int(0 to 9)
 
 typealias Wide = int(0 to 99)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -2679,10 +2653,8 @@ end 'main'
 ```
 
 <!-- test: a-nested-pattern-alias-compares-and-prints-unsigned -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ```maxon
 type Holder
-	// TODO: bits(...) typealiases are not supported in minimaxon
 	typealias Word = bits(64)
 	var unused as bool
 

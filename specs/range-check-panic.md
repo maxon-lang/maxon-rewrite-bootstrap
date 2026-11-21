@@ -375,13 +375,11 @@ error E3005: <fragment>:32:25: Value 9 is outside the range of 'ByteCount' (int(
 ```
 
 <!-- test: range-check-panic.witness-literal-argument-to-an-associated-type-is-not-checked-against-a-same-named-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A literal argument at a parameter written as an associated type is checked against the conformer's binding, not against an unrelated alias that happens to share the associated type's name.
 ```maxon
 // --- file: a.maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Accumulator uses Item
 	function add(item Item) returns Self
 	function total() returns Integer
@@ -519,21 +517,16 @@ error E3167: a/<fragment>:6:22: exported field 'a.Box.item' names unexported typ
 ```
 
 <!-- test: range-check-panic.witness-literal-argument-to-a-base-interfaces-associated-type -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 A literal argument at a base interface's associated-type parameter, dispatched through the derived interface, is checked against the conformer's binding, not against an alias that shares the associated type's name.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias Item = int(0 to 3)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function take(item Item) returns Item
 end 'Source'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink extends Source uses Item
 	function extra() returns Integer
 end 'Sink'
@@ -2199,7 +2192,6 @@ Stack trace:
 
 
 <!-- test: range-check-panic.an-inclusive-counted-loop-past-the-unsigned-top-still-panics -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ⚠⚠ **THE DISCRIMINATING CASE FOR THE TOP BOUND.** A `to` loop runs the
 body AT its bound, steps past it and tests again — so at the top of the domain the test READS, the step wraps
 to that domain's bottom and the loop never leaves. There are two tops, because `emitCompare` picks a
@@ -2212,7 +2204,6 @@ arrive negative through arithmetic, not through a literal the parser marks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Big = bits(64)
 
 typealias Neg = int(-5 to -1)
@@ -3727,10 +3718,8 @@ error E3218: <fragment>:4:10: unary '-' cannot negate a value of 'Count': it hol
 ```
 
 <!-- test: range-check-panic.negating-a-pattern-or-a-signed-value-is-unchanged -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A `bits(64)` pattern wraps under `-`, and a signed alias is negated as a number.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Delta = int(-100 to 100)

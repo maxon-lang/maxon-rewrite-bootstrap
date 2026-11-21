@@ -1722,11 +1722,9 @@ shape offers: it ends holding two slots over one record with a refcount of two, 
 releases both. A missing retain frees it twice; an unpaired one leaks it.
 
 <!-- test: push-borrowed-opaque-element-takes-a-reference -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Count = int(0 to u64.max) implements ElementIndex
 
 type Container uses Element
@@ -1887,11 +1885,9 @@ one the copy leaks.
 rather than an ownership one.
 
 <!-- test: push-for-element-into-second-opaque-array -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Count = int(0 to u64.max) implements ElementIndex
 
 type Container uses Element
@@ -2596,13 +2592,11 @@ to `Bag.absorb` is an edge like any other.
 
 <!-- test: interface-extension-body-forwards-a-descriptor -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Appendable uses Func
 	function opsCount() returns Count
 	function absorb(mutates self, other Func)
@@ -2783,12 +2777,10 @@ VERDICT: a conformer the extension is withheld from is not scanned, because thos
 <!-- test: a-withheld-conditional-extension-scans-no-descriptor-site -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Item
 	function get() returns Item
 end 'Holder'
@@ -2880,11 +2872,9 @@ The loop is what makes that reading worth having — a per-call leak would be a 
 records rather than one, and a doubled release faults on the poison byte.
 
 <!-- test: a-borrowed-opaque-element-forwarded-to-a-storing-sibling-is-referenced -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type GHolder uses T
@@ -4933,10 +4923,8 @@ end 'main'
 ```
 
 <!-- test: a-generic-type-implements-an-interface-with-itself-as-the-associated-type -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `implements Combiner with Self` binds the associated type to the enclosing type.
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Combiner uses Other
 	function combine(o Other) returns Other
 end 'Combiner'

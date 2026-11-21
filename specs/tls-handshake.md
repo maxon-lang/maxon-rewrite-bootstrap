@@ -52,7 +52,6 @@ application keys of RFC 8448, signing under each scheme, and the names a program
 
 <!-- test: tls-handshake.replay-rfc8448-and-openssl -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 The RFC 8448 section 3 1-RTT trace and three OpenSSL 3.0.13 transcripts replay byte for byte: every record the client sends is the record the vector lists, ClientHello, change_cipher_spec, Finished, application data and close_notify included. The RFC 8448 vector replaces the built ClientHello with the printed one and does not authenticate the peer; the OpenSSL vectors verify the server's certificate chain and CertificateVerify, ignore its NewSessionTickets and, in the last, answer its CertificateRequest with a P-256 client certificate.
 ```maxon
@@ -81,7 +80,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -215,7 +213,6 @@ client13-openssl-mtls-ecdsa-p256 {"state":"connected","version":772,"cipher_suit
 
 <!-- test: tls-handshake.handshakes-by-server-key -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 The reference server's handshakes with each server key type: the default (ECDSA P-256, compatibility mode, ALPN), RSA-PSS with no compatibility mode, ECDSA P-384 and Ed25519.
 ```maxon
@@ -244,7 +241,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -378,7 +374,6 @@ client13-ed25519 {"state":"connected","version":772,"cipher_suite":4867,"group":
 
 <!-- test: tls-handshake.client-authentication -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A CertificateRequest is answered with a Certificate and CertificateVerify under the first of the client's own schemes the request lists and the key fits (ECDSA P-256, RSA-PSS, Ed25519), with an empty Certificate when the client holds none, and with an empty Certificate again when no scheme is common.
 ```maxon
@@ -407,7 +402,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -551,7 +545,6 @@ client13-mtls-no-common-scheme {"state":"connected","version":772,"cipher_suite"
 
 <!-- test: tls-handshake.certificate-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A Certificate message the client refuses: an empty list is DecodeError, a root it does not trust UnknownCa, an expired leaf CertificateExpired, a leaf for another host name BadCertificate, and a non-empty certificate_request_context IllegalParameter.
 ```maxon
@@ -580,7 +573,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -724,7 +716,6 @@ client13-err-certificate-context illegalParameter
 
 <!-- test: tls-handshake.certificate-verify-and-finished-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A CertificateVerify or Finished the client refuses: a bad signature or Finished value is DecryptError, a scheme that does not fit the key, is not offered or is RSA PKCS #1 is IllegalParameter, a Finished of the wrong length is DecodeError, and a message out of order UnexpectedMessage.
 ```maxon
@@ -753,7 +744,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -917,7 +907,6 @@ client13-err-message-order unexpectedMessage
 
 <!-- test: tls-handshake.reference-handshakes-the-canra-vectors-do-not-list -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Handshakes made with the canra reference server and checked by the canra reference client, for paths the canra vectors do not reach: a HelloRetryRequest with a cookie (the second ClientHello carries the cookie last and the one new share), a HelloRetryRequest that carries only a cookie (the second ClientHello repeats the first and the client waits), a KeyUpdate that asks for no update, an ignored user_canceled alert, two ALPN protocols offered, application data written in fragments of 16384 bytes with an empty write between, and records after close_notify, which are ignored unread.
 ```maxon
@@ -946,7 +935,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1110,7 +1098,6 @@ reference13-records-after-close-notify-are-ignored {"state":"connected","version
 
 <!-- test: tls-handshake.reference-refusals-the-canra-vectors-do-not-list -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Refusals made with the canra reference server and checked by the canra reference client: a Certificate entry extension the client did not offer, a Finished that does not end its record, a fatal alert and a change_cipher_spec after the handshake, a KeyUpdate that does not end its record, and a plaintext handshake record once the keys are installed.
 ```maxon
@@ -1139,7 +1126,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1434,14 +1420,12 @@ tls12-only types=[0,23,65281,10,11,13] name=example.com versions=[]
 ```
 
 <!-- test: tls-handshake.production-entropy-is-fresh-and-consistent -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 `TlsClientEntropy.fresh` draws a 32-byte random, a 32-byte session id, a 64-byte PSS salt and one private key per group the config lists, 32 bytes each, with the public key the group derives from it; two draws share nothing; a handshake started from it sends one record, a plaintext handshake record with the legacy record version 0x0301 whose ClientHello carries that random and session id and the nine default suites.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1511,7 +1495,6 @@ connected=false drained=0
 
 <!-- test: tls-handshake.a-failure-sends-its-alert-and-stops-the-client -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A defect before any key exists sends the contract's fatal alert in a plaintext record (`15 03 03 00 02 02 <description>`) and stops the client: the same record again throws the same error and queues nothing. A fatal alert from the server, or a close_notify before the handshake completes, is `alertReceived` and sends nothing. `write` and `close` before the handshake completes are refused.
 ```maxon
@@ -1540,7 +1523,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1652,7 +1634,6 @@ queued=0
 
 <!-- test: tls-handshake.a-failure-sends-its-alert-under-the-keys-the-client-has -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A failure after the ServerHello sends its alert under the client handshake keys, after the compatibility change_cipher_spec: a record of type 23 holding `02 <description>` and its content type, where the failure is in EncryptedExtensions, the Certificate, the CertificateVerify or the Finished. A failure before the ServerHello is accepted sends it in plaintext, and one after a HelloRetryRequest does too, with the change_cipher_spec sent once, before the second ClientHello. A fatal alert from the server sends nothing. A line prints the id, the error and every record the client sent, the alert last: these are the canra `alert-record` vectors.
 ```maxon
@@ -1681,7 +1662,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1828,7 +1808,6 @@ client13-alert-from-the-server-sends-nothing alertReceived outbound=["16030100e6
 ```
 
 <!-- test: tls-handshake.an-alert-after-the-keys-are-installed-is-encrypted -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A failure after the handshake completes sends its alert under the client's current application write keys. The RFC 8448 section 3 trace is replayed to the connected state, its application data record is forged, and the fatal bad_record_mac alert the client sends opens under `client_application_traffic_secret_0` of the same RFC as an alert record holding `02 14`.
 ```maxon
@@ -1857,7 +1836,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1999,7 +1977,7 @@ partial-message-then-alert unexpectedMessage closed=false
 ```
 
 <!-- test: tls-handshake.a-private-key-signs-for-each-scheme-that-fits-it -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '_' -->
 <!-- tier: stdlib/helpers/tls -->
 `TlsPrivateKey.sign` signs under every scheme that fits the key and refuses the others: the signature verifies under the certificate's key and not for another message (ECDSA P-256, Ed25519, and RSA under the three RSA-PSS and three PKCS #1 v1.5 schemes), a P-384 signature is the canra `ecdsa-sign-p384` vector's, a key and a scheme that do not fit are `internalError`, and an RSA-PSS salt shorter than the digest is `internalError`.
 ```maxon
@@ -2028,7 +2006,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

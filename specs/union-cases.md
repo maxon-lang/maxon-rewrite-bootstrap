@@ -185,11 +185,11 @@ function nameOf(sh Shape) returns String
 end 'nameOf'
 
 function tagOf(sh Shape) returns Integer
-	return sh.rawValue
+	return try sh.rawValue as Integer otherwise panic("out of range")
 end 'tagOf'
 
 function ordOf(sh Shape) returns Integer
-	return sh.ordinal
+	return try sh.ordinal as Integer otherwise panic("out of range")
 end 'ordOf'
 
 function main() returns ExitCode
@@ -329,7 +329,6 @@ end 'main'
 ### The write/read round-trip this file's Documentation describes, COMPOSED
 
 <!-- test: union-cases.rawvalue-companion-roundtrip -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 The Documentation states the companion's purpose: *"write the variant's `rawValue` to a buffer alongside its
 payload; on read, lift the raw `int` back to a `U.unionCases` via `fromRawValue`"*. Both halves are pinned
 above — `union-cases.runtime-accessors` reads a union's `rawValue`, `union-cases.fromrawvalue-roundtrip`
@@ -347,9 +346,7 @@ are different numbers here on purpose.
 typealias ID = int(i64.min to i64.max)
 
 union Instr
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	add(dest ID, src ID) = 5
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	nop = 7
 end 'Instr'
 
@@ -378,7 +375,6 @@ add
 
 <!-- test: union-cases.companion-mirrors-backing -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 The companion mirrors the union's backing only where the tag IS the raw value. For `float` and `character`
 the tag is an IEEE bit pattern / a codepoint, so the backing travels with it and `.rawValue` decodes to the
 written value. For a `string` backing the raw text rides a column the companion does not carry, so its tag
@@ -388,25 +384,19 @@ is the declaration index and `integer` is what that index IS — copying `string
 typealias ID = int(i64.min to i64.max)
 
 union F
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	a(x ID) = 1.5
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	b = 2.5
 end 'F'
 
 union C
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	m(x ID) = 'm'
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	n = 'n'
 end 'C'
 
 union S
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	p(x ID) = "alpha"
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	q = "beta"
 end 'S'
 

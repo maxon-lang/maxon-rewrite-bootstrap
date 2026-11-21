@@ -310,13 +310,11 @@ random-bytes-011 length 33554432
 ```
 
 <!-- test: random.bytes-draws-differ -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Two equal 32-byte draws happen with probability 2^-256, and a repeat among a thousand 16-byte draws with probability below 2^-108.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

@@ -757,7 +757,6 @@ end 'main'
 ### Stringable with Format Specifier
 
 <!-- test: stringable-format-spec -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -779,7 +778,6 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create(42)
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{c:verbose}\n")
 	return 0
 end 'main'
@@ -915,14 +913,10 @@ Direction: east
 ### String-Backed Enum Interpolation
 
 <!-- test: string-enum-interpolation -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Status
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	active = "Active"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	inactive = "Inactive"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	pending = "Pending"
 end 'Status'
 
@@ -970,12 +964,9 @@ DECODE it rather than hand the integer renderer an encoding. Read as an integer 
 `4612811918334230528` — the bits of 2.5 read as a decimal integer — instead of `2.5`.
 
 <!-- test: float-enum-interpolation -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 
@@ -1000,14 +991,10 @@ The spellings where reading the encoding is most obviously wrong. Read as an int
 cannot tell them apart.
 
 <!-- test: float-enum-interpolation-extremes -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Scale
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	huge = 1.0e300
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	down = -2.2
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	zero = 0.0
 end 'Scale'
 
@@ -1030,7 +1017,6 @@ interpolation. A fix that routed every enum to the float renderer would print `2
 compiler that never decodes would print the bits of 2.5 — so neither reading passes this case.
 
 <!-- test: int-and-float-enum-interpolation -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Code
 	ok = 200
@@ -1038,7 +1024,6 @@ enum Code
 end 'Code'
 
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
 end 'Weight'
 
@@ -1061,13 +1046,10 @@ renderer as the file that declares it — the whole-program enum registry is wha
 local to the declaring parse survives to answer here.
 
 <!-- test: cross-file-float-enum-interpolation -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 // --- file: weights.maxon
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 
@@ -1087,17 +1069,13 @@ end 'main'
 ### Integer Format Specifier - Zero Padding
 
 <!-- test: int-format-zero-pad -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let n = 42
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:04}\n")
 	let m = 7
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{m:04}\n")
 	let big = 12345
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{big:04}\n")
 	return 0
 end 'main'
@@ -1114,19 +1092,14 @@ end 'main'
 ### Integer Format Specifier - Hex
 
 <!-- test: int-format-hex -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let n = 255
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:x}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:X}\n")
 	let m = 0
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{m:x}\n")
 	let big = 65535
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{big:x}\n")
 	return 0
 end 'main'
@@ -1151,23 +1124,16 @@ and the fill would start at index 1 and overwrite the digit it had just shifted 
 chars wide, so it never pads); only a value SHORTER than its field reaches the fill loop.
 
 <!-- test: int-format-zero-padded-unsigned -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let n = 255
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:08x}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:08X}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:06o}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:012b}\n")
 	// Space fill and the signed path share the same shift-and-fill code.
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:8x}\n")
 	let neg = -42
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{neg:08d}\n")
 	return 0
 end 'main'
@@ -1187,7 +1153,6 @@ end 'main'
 ### Integer Format Specifier - Hex High Bit (unsigned bases)
 
 <!-- test: int-format-high-bit-unsigned -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// Values with bit 63 set exceed i64.max (negative as signed i64). The
@@ -1195,18 +1160,13 @@ function main() returns ExitCode
 	// every digit — a signed `<= 0` loop guard or signed div/rem would bail out
 	// early and print only zero-padding.
 	let high = 1 shl 63
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{high:016x}\n")
 	let allBits = -1
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{allBits:x}\n")
 	let upper = 11 shl 60
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{upper:X}\n")
 	let mixed = 15 shl 60
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{mixed:o}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{high:b}\n")
 	return 0
 end 'main'
@@ -1225,13 +1185,10 @@ B000000000000000
 ### Integer Format Specifier - Width
 
 <!-- test: int-format-width -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let n = 42
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{n:6}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{n:2}]\n")
 	return 0
 end 'main'
@@ -1247,11 +1204,9 @@ end 'main'
 ### Integer Format Specifier - Negative Zero Padding
 
 <!-- test: int-format-neg-zero-pad -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let n = -42
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:06}\n")
 	return 0
 end 'main'
@@ -1273,14 +1228,11 @@ carved inside the overrun and the first part reads those bytes back as its own p
 after it. A field is built in `stdlib` over a String that grows, so a width has no ceiling to breach.
 
 <!-- test: int-format-wide-field -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let a = 7
 	let b = 3735928559
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("A<{a:200}>B<{b:X}>\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{a:120}|\n")
 	return 0
 end 'main'
@@ -1300,7 +1252,6 @@ specifier on one has exactly the meaning it has on any other integer. Dropped in
 print `404` for `"{code:08}"` rather than `00000404`, and `404` for `"{code:x}"` rather than `194`.
 
 <!-- test: int-format-enum-backing -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 enum ErrorCode
 	ok = 0
@@ -1310,11 +1261,8 @@ end 'ErrorCode'
 function main() returns ExitCode
 	let code = ErrorCode.notFound
 	print("[{code}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{code:08}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{code:x}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{code:6}]\n")
 	return 0
 end 'main'
@@ -1340,8 +1288,6 @@ never reaches the enum arm at all — and without these cases a shared integer-r
 padding a case name without a single test noticing.
 
 <!-- test: format-spec-on-a-text-rendering-enum-is-ignored -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 enum Plain
 	red
@@ -1349,18 +1295,14 @@ enum Plain
 end 'Plain'
 
 enum Text
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	active = "Active"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	idle = "Idle"
 end 'Text'
 
 function main() returns ExitCode
 	let p = Plain.green
 	let t = Text.idle
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{p}] [{p:6}] [{p:08}] [{p:x}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{t}] [{t:6}] [{t:08}] [{t:x}]\n")
 	return 0
 end 'main'
@@ -1384,14 +1326,10 @@ spelling prints as `18446744073709551615`. Signedness is decided once, by the co
 to the renderer.
 
 <!-- test: int-format-unsigned-decimal -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function show(u Wide)
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{u}] [{u:d}] [{u:25}] [{u:x}]\n")
 end 'show'
 
@@ -1414,14 +1352,12 @@ end 'main'
 ### Integer Format Specifier - A Width Is a Minimum in Every Base
 
 <!-- test: int-format-width-is-a-minimum-in-every-base -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let n = 123456
 	let neg = -12345
 	let h = 11259375
 	let small = 255
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{n:3}] [{n:03}] [{neg:3}] [{neg:04}] [{h:2x}] [{h:02X}] [{small:3o}] [{small:3b}]\n")
 	return 0
 end 'main'
@@ -1436,11 +1372,9 @@ end 'main'
 ### Integer Format Specifier - Space Fill Goes in Front of the Sign
 
 <!-- test: int-format-space-fill-precedes-the-sign -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = -42
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{m:8}] [{m:8d}] [{m:3}] [{m:2}]\n")
 	return 0
 end 'main'
@@ -1455,23 +1389,17 @@ end 'main'
 ### Integer Format Specifier - The Extremes in Every Base
 
 <!-- test: int-format-extremes-in-every-base -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function showUnsigned(u Wide)
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{u:d}] [{u:x}] [{u:X}] [{u:o}] [{u:b}]\n")
 end 'showUnsigned'
 
 function main() returns ExitCode
 	let low = i64.min
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{low:d}] [{low:25}] [{low:025}] [{low:x}] [{low:X}] [{low:o}] [{low:b}]\n")
 	let high = i64.max
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{high:d}] [{high:x}] [{high:b}]\n")
 	showUnsigned(u64.max)
 	return 0
@@ -1489,11 +1417,9 @@ end 'main'
 ### Integer Format Specifier - Zero in Every Base
 
 <!-- test: int-format-zero-in-every-base -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let z = 0
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{z:d}] [{z:x}] [{z:X}] [{z:o}] [{z:b}] [{z:4}] [{z:04}] [{z:04b}]\n")
 	return 0
 end 'main'
@@ -1508,16 +1434,11 @@ end 'main'
 ### Integer Format Specifier - A Zero-Filled Field Wider Than 64
 
 <!-- test: int-format-zero-filled-field-wider-than-64 -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function showWide(u Wide)
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{u:070b}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{u:66d}]\n")
 end 'showWide'
 
@@ -1525,11 +1446,8 @@ function main() returns ExitCode
 	let neg = -12345
 	let small = 255
 	let h = 11259375
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{neg:070}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{small:070b}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{h:066X}]\n")
 	showWide(u64.max)
 	return 0
@@ -1549,22 +1467,19 @@ end 'main'
 ### Integer Format Specifier - A Program Whose `Byte` Is Wider Than One Byte
 
 <!-- test: int-format-in-a-program-whose-byte-is-wider-than-one-byte -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 typealias Byte = int(0 to 1000)
 
 typealias Bytes = Array with Byte
 
 function main() returns ExitCode
-	let made = Bytes.create(0)
+	var made = Bytes.create(0)
 	made.push(300)
 	let first = try made.get(0) otherwise 0
 	let n = 48879
 	let neg = -42
 	let control = "a\u001Fb"
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{n}] [{n:x}] [{n:X}] [{n:08d}] [{neg:6}] [{n:o}] [{first:b}] [{first}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{control:q}\n")
 	return 0
 end 'main'
@@ -1589,9 +1504,7 @@ way this can be wrong: a renderer that negates instead of dividing unsigned woul
 where `u64.max` merely comes out as `-1`.
 
 <!-- test: unsigned-decimal-interpolation -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function show(u Wide)
@@ -1621,9 +1534,7 @@ chooses the converter for both spellings — so a second selection site would sh
 else. This is what pins that there is only one.
 
 <!-- test: unsigned-decimal-tostring -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
 function show(u Wide)
@@ -1731,16 +1642,12 @@ end 'main'
 ### Float Format Specifier - Precision
 
 <!-- test: float-format-precision -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let f = 3.14159
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{f:.2}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{f:.4}\n")
 	let g = 2.0
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{g:.3}\n")
 	return 0
 end 'main'
@@ -1757,11 +1664,9 @@ end 'main'
 ### Float Format Specifier - Width and Precision
 
 <!-- test: float-format-width-precision -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let f = 3.14
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{f:8.2}]\n")
 	return 0
 end 'main'
@@ -1776,7 +1681,6 @@ end 'main'
 ### Enum Raw Value Format Specifier
 
 <!-- test: enum-rawvalue-format -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 enum ErrorCode
 	ok = 0
@@ -1786,10 +1690,8 @@ end 'ErrorCode'
 
 function main() returns ExitCode
 	let code = ErrorCode.notFound
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("E{code.rawValue:04}\n")
 	let ok = ErrorCode.ok
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("E{ok.rawValue:04}\n")
 	return 0
 end 'main'
@@ -1810,15 +1712,12 @@ output is always a valid string literal. The text is otherwise unchanged, so a p
 non-ASCII text pass through.
 
 <!-- test: quote-format-string-plain -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello world"
 	let empty = ""
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{s:q}]\n")
 	print("[{s}]\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{empty:q}]\n")
 	return 0
 end 'main'
@@ -1833,7 +1732,6 @@ end 'main'
 ```
 
 <!-- test: quote-format-string-escapes -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let quote = "say \"hi\""
@@ -1842,17 +1740,11 @@ function main() returns ExitCode
 	let tab = "a\tb"
 	let carriage = "a\rb"
 	let control = "a\u0001b"
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{quote:q}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{slash:q}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{newline:q}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{tab:q}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{carriage:q}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{control:q}\n")
 	return 0
 end 'main'
@@ -1871,18 +1763,14 @@ end 'main'
 
 <!-- test: quote-format-control-escapes-spell-uppercase-hex-on-both-sides-of-9 -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let low = "\u0000\u0001\u0008\u000B\u000C\u000F"
 	let high = "\u0010\u0019\u001A\u001F\u007F"
 	// TODO: character literals are not supported in minimaxon
 	let escape = '\u001B'
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{low:q}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{high:q}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{escape:q}\n")
 	return 0
 end 'main'
@@ -1897,11 +1785,9 @@ end 'main'
 ```
 
 <!-- test: quote-format-string-passes-printable-text-through -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let s = "it's café"
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{s:q}\n")
 	return 0
 end 'main'
@@ -1914,11 +1800,9 @@ end 'main'
 ```
 
 <!-- test: quote-format-string-escapes-braces -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let braced = "a\{b\}c"
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{braced:q}\n")
 	return 0
 end 'main'
@@ -1937,7 +1821,6 @@ A brace stays bare, because `'{'` is already a valid character literal and `\{` 
 
 <!-- test: quote-format-character -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
@@ -1952,7 +1835,6 @@ function main() returns ExitCode
 	let newline = '\n'
 	// TODO: character literals are not supported in minimaxon
 	let accent = 'é'
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{letter:q} {single:q} {double:q} {slash:q} {newline:q} {accent:q}\n")
 	return 0
 end 'main'
@@ -1966,14 +1848,12 @@ end 'main'
 
 <!-- test: quote-format-character-braces -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
 	let open = '{'
 	// TODO: character literals are not supported in minimaxon
 	let close = '}'
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{open:q} {close:q}\n")
 	return 0
 end 'main'
@@ -1992,13 +1872,11 @@ width the text already fills changes nothing, and a leading `0` is no fill for t
 
 <!-- test: quote-format-width-pads-the-quoted-text -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let s = "ab"
 	// TODO: character literals are not supported in minimaxon
 	let c = 'x'
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{s:8q}] [{c:5q}] [{s:2q}]\n")
 	return 0
 end 'main'
@@ -2012,13 +1890,11 @@ end 'main'
 
 <!-- test: quote-format-zero-flag-pads-text-with-spaces -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let s = "ab"
 	// TODO: character literals are not supported in minimaxon
 	let c = 'x'
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{s:08q}] [{c:05q}]\n")
 	return 0
 end 'main'
@@ -2037,12 +1913,10 @@ end 'main'
 receives any other.
 
 <!-- test: quote-format-leaves-a-float-as-plain-interpolation -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let f = 3.5
 	let neg = -0.25
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{f:q} {neg:q}\n")
 	print("{f} {neg}\n")
 	return 0
@@ -2057,7 +1931,6 @@ end 'main'
 ```
 
 <!-- test: quote-format-leaves-a-stringable-type-as-plain-interpolation -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 typealias Score = int(i64.min to i64.max)
 
@@ -2076,7 +1949,6 @@ end 'Point'
 
 function main() returns ExitCode
 	let p = Point.create(1, y: 2)
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{p:q} {p}\n")
 	return 0
 end 'main'
@@ -2089,7 +1961,6 @@ end 'main'
 ```
 
 <!-- test: quote-format-passes-q-to-a-formatted-stringable-type-as-its-specifier -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 type Tagged implements FormattedStringable
 	var label as String
@@ -2105,7 +1976,6 @@ end 'Tagged'
 
 function main() returns ExitCode
 	let t = Tagged.create("item")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{t:q} {t:verbose}\n")
 	return 0
 end 'main'
@@ -2118,13 +1988,11 @@ item/q item/verbose
 ```
 
 <!-- test: quote-format-leaves-an-int-and-a-bool-as-plain-interpolation -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let n = 42
 	let neg = -7
 	let flag = true
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{n:q} {neg:q} {flag:q}\n")
 	print("{n} {neg} {flag}\n")
 	return 0
@@ -2145,10 +2013,8 @@ end 'main'
 
 <!-- test: quote-format-in-a-generic-body-is-resolved-per-instantiation -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function quoted(value T) uses T returns String
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	return "{value:q}"
 end 'quoted'
 
@@ -2174,11 +2040,9 @@ end 'main'
 ⚠ A letter that names no base is read as decimal, so it has no effect on a `String`; `q` is the lowercase letter alone.
 
 <!-- test: quote-format-only-the-lowercase-q-quotes -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let s = "plain"
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{s:z}] [{s:Q}]\n")
 	return 0
 end 'main'
@@ -2253,13 +2117,12 @@ code, position and message (it reaches `scanInterp`'s own newline handling inste
 a format specifier is not a place where a missing brace becomes invisible.
 
 <!-- test: error.unclosed-format-spec -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected '=', 'and' or the end of the line but got 'return' -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	let y = 2
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("a{x:") print("b{y}") return 0
 end 'main'
 ```
@@ -2497,11 +2360,9 @@ more form in that case's single `print`. The split dates from when this half cou
 cases together assert exactly what canonical's one asserts.
 
 <!-- test: interp-expression-boundary-format-spec -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let a = 3
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{a:8}]\n")
 	return 0
 end 'main'

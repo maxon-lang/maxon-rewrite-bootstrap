@@ -218,13 +218,11 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: async-try-await.otherwise-bind-assoc-value -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The thrown error is an associated-value union, so the error flag IS a heap pointer to the payload. The
 `(e)` binding takes ownership and scope-end releases it exactly once — a leak (the payload never decref'd)
 or a double-free would surface under the runtime's allocation accounting (exit 101). The payload is a
 scalar `int`, which the B2b error channel carries.
 ```maxon
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union WorkError implements Error
 	refused(code Integer)
 end 'WorkError'

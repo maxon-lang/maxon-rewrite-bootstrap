@@ -350,14 +350,11 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.float-backed-range -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Threshold
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	low = 0.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	medium = 0.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 

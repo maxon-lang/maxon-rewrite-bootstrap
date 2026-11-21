@@ -405,11 +405,9 @@ end 'main'
 ```
 
 <!-- test: an-alias-of-element-index-indexes-an-array -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 An alias that `implements` another is its subtype: a `BlockId` goes wherever an `ElementIndex` is
 expected, with no cast.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
 typealias Row = int(0 to 1000)
@@ -417,7 +415,7 @@ typealias Row = int(0 to 1000)
 typealias RowArray = Array with Row
 
 function main() returns ExitCode
-	let rows = RowArray.create(0)
+	var rows = RowArray.create(0)
 	rows.push(4)
 	rows.push(9)
 	let last = 1 as BlockId
@@ -431,13 +429,10 @@ end 'main'
 ```
 
 <!-- test: a-subtype-widens-at-a-parameter-transitively -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 `typealias LoopHead = int(0 to u64.max) implements BlockId` is a subtype of `BlockId` and of `ElementIndex` both.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias LoopHead = int(0 to u64.max) implements BlockId
 
 function takesBlock(b BlockId) returns BlockId
@@ -461,14 +456,11 @@ end 'main'
 ```
 
 <!-- test: error.a-sibling-subtype-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 Two subtypes of one alias do not meet: a `VarId` is not a `BlockId`.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to u64.max) implements ElementIndex
 
 function takesBlock(b BlockId) returns BlockId
@@ -487,11 +479,8 @@ error E3005: <fragment>:11:10: argument type mismatch for 'b': expected 'BlockId
 ```
 
 <!-- test: error.a-supertype-does-not-narrow-to-its-subtype -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- positions: moved -->
 Widening is one way: a plain `ElementIndex` needs a cast to become a `BlockId`.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
 function takesBlock(b BlockId) returns BlockId
@@ -510,11 +499,9 @@ error E3005: <fragment>:10:10: argument type mismatch for 'b': expected 'BlockId
 ```
 
 <!-- test: a-subtype-with-its-ancestor-is-the-subtype -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 Arithmetic over an alias and its ancestor, in either order, or with an unaliased operand, yields the
 MORE-DERIVED alias: `block + offset`, `offset + block` and `block + 1` are all `BlockId`s.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
 function takesBlock(b BlockId) returns BlockId
@@ -522,9 +509,9 @@ function takesBlock(b BlockId) returns BlockId
 end 'takesBlock'
 
 function report(block BlockId, offset ElementIndex)
-	let a = takesBlock(block + offset)
-	let b = takesBlock(offset + block)
-	let c = takesBlock(block + 1)
+	let a = takesBlock(try block + offset otherwise panic("out of range"))
+	let b = takesBlock(try offset + block otherwise panic("out of range"))
+	let c = takesBlock(try block + 1 otherwise panic("out of range"))
 	print("{a} {b} {c}")
 end 'report'
 
@@ -538,14 +525,11 @@ end 'main'
 ```
 
 <!-- test: an-expression-satisfies-any-operands-alias -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 An arithmetic expression satisfies a target alias when ANY of its operands does: `block + varId` passes
 to a `BlockId` parameter, to a `VarId` parameter, and to an `ElementIndex` one.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to u64.max) implements ElementIndex
 
 function takesBlock(b BlockId) returns BlockId
@@ -577,16 +561,14 @@ end 'main'
 ```
 
 <!-- test: a-mixed-expression-is-guarded-as-its-destination -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `takesBlock(block + varId)` computes the sum into a temporary `BlockId`, so the sum must pass
 `BlockId`'s range check at the door.
 ```maxon
 typealias Small = int(0 to 10)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to 10) implements Small
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to 10) implements Small
 
 function takesBlock(b BlockId) returns BlockId
@@ -612,14 +594,12 @@ Stack trace:
 ```
 
 <!-- test: a-mixed-expression-is-guarded-as-a-struct-literal-field -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Small = int(0 to 10)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to 10) implements Small
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to 10) implements Small
 
 type Holder
@@ -647,14 +627,12 @@ Stack trace:
   in mrt_start
 ```
 <!-- test: a-mixed-expression-is-guarded-as-an-assigned-field -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Small = int(0 to 10)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to 10) implements Small
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to 10) implements Small
 
 type Holder
@@ -684,14 +662,11 @@ Stack trace:
   in mrt_start
 ```
 <!-- test: a-mixed-expression-in-range-is-stored-in-a-field -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 10)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to 10) implements Small
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to 10) implements Small
 
 type Holder
@@ -699,7 +674,7 @@ type Holder
 	export var other as VarId
 
 	static function create(block BlockId, varId VarId) returns Self
-		return Self{block: block + varId, other: block + varId}
+		return Self{block: try block + varId otherwise panic("out of range"), other: try block + varId otherwise panic("out of range")}
 	end 'create'
 end 'Holder'
 
@@ -713,14 +688,12 @@ end 'main'
 7 7
 ```
 <!-- test: a-mixed-expression-is-guarded-as-its-otherwise-merge -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Small = int(0 to 10)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to 10) implements Small
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to 10) implements Small
 
 enum Miss
@@ -755,14 +728,12 @@ Stack trace:
   in mrt_start
 ```
 <!-- test: a-mixed-expression-is-guarded-as-its-match-arm-merge -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Small = int(0 to 10)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to 10) implements Small
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to 10) implements Small
 
 enum Pick
@@ -795,14 +766,12 @@ Stack trace:
   in mrt_start
 ```
 <!-- test: a-mixed-expression-into-a-nominal-parameter-is-guarded-at-the-call -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Small = int(0 to 10)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to 10) implements Small
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to 10) implements Small
 
 function show(b BlockId) returns String
@@ -827,15 +796,12 @@ Stack trace:
 ```
 
 <!-- test: error.a-mixed-expression-no-operand-of-which-fits-the-field -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Small = int(0 to 10)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to 10) implements Small
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to 10) implements Small
 
 type Holder
@@ -856,11 +822,9 @@ end 'main'
 error E3005: <fragment>:10:15: cannot assign a value of type 'VarId' to field 'block' of 'Holder', which holds 'BlockId' — cast the value with 'as BlockId'
 ```
 <!-- test: an-implements-alias-widens-to-its-parent -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 `typealias FooId = int(0 to 1000) implements ElementIndex` keeps its own range and is a subtype of
 `ElementIndex`: it passes to an `ElementIndex` parameter and indexes an Array with no cast.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias FooId = int(0 to 1000) implements ElementIndex
 
 typealias Row = int(0 to 1000)
@@ -872,7 +836,7 @@ function takesIndex(i ElementIndex) returns ElementIndex
 end 'takesIndex'
 
 function main() returns ExitCode
-	let rows = RowArray.create(0)
+	var rows = RowArray.create(0)
 	rows.push(4)
 	rows.push(9)
 	let foo = 1 as FooId
@@ -887,12 +851,9 @@ end 'main'
 ```
 
 <!-- test: an-implements-alias-is-transitive -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias FooId = int(0 to 1000) implements ElementIndex
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BarId = int(0 to 10) implements FooId
 
 function takesIndex(i ElementIndex) returns ElementIndex
@@ -914,12 +875,10 @@ end 'main'
 ```
 
 <!-- test: error.an-implements-range-must-fit-its-parent -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias FooId = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias WideId = int(0 to 5000) implements FooId
 
 function main() returns ExitCode
@@ -933,12 +892,10 @@ error E3178: <fragment>:3:46: typealias 'WideId' does not fit the alias it imple
 ```
 
 <!-- test: error.an-implements-alias-must-share-its-parents-primitive -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias FooId = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0) implements FooId
 
 function main() returns ExitCode
@@ -952,9 +909,8 @@ error E3178: <fragment>:3:48: typealias 'Ratio' does not fit the alias it implem
 ```
 
 <!-- test: a-value-narrowed-into-an-implements-alias-is-guarded -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias FooId = int(0 to 1000) implements ElementIndex
 
 function takesFoo(f FooId) returns FooId
@@ -979,15 +935,12 @@ Stack trace:
 ```
 
 <!-- test: a-ternary-over-two-siblings-joins-to-their-parent -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The arms of a ternary over two subtypes of one alias join to that alias.
 ```maxon
 typealias Base = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Left = int(0 to 100) implements Base
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Right = int(0 to 200) implements Base
 
 function leftOf() returns Left
@@ -1013,14 +966,11 @@ end 'main'
 ```
 
 <!-- test: a-match-over-two-siblings-joins-to-their-parent -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias Base = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Left = int(0 to 100) implements Base
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Right = int(0 to 200) implements Base
 
 enum Side
@@ -1054,15 +1004,12 @@ end 'main'
 ```
 
 <!-- test: error.a-joined-ternary-is-its-parent-not-its-arm -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Base = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Left = int(0 to 100) implements Base
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Right = int(0 to 200) implements Base
 
 function leftOf() returns Left
@@ -1113,14 +1060,12 @@ error E2028: <fragment>:14:19: ternary expression type mismatch: true branch is 
 ```
 
 <!-- test: a-private-alias-of-one-name-implements-a-parent-per-file -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 Two files each declare an unmarked `Id` implementing a different parent; each file's `Id` widens to its own
 parent.
 ```maxon
 // --- file: a/a.maxon
 typealias Small = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Id = int(0 to 10) implements Small
 
 function takeSmall(s Small) returns ExitCode
@@ -1135,7 +1080,6 @@ end 'checkA'
 // --- file: b/b.maxon
 typealias Big = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Id = int(0 to 10) implements Big
 
 function takeBig(b Big) returns ExitCode
@@ -1157,13 +1101,11 @@ end 'main'
 ```
 
 <!-- test: an-implements-parent-may-be-qualified -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 // --- file: api/base.maxon
 export typealias Base = int(0 to 100)
 
 // --- file: main.maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Kid = int(0 to 10) implements api.Base
 
 function takeBase(b api.Base) returns api.Base
@@ -1181,7 +1123,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-implements-parent-beside-a-same-named-type-is-the-parameters-alias -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The parent `stdlib.ElementIndex` shares its name with an author's enum, and the subtype edge is filed under the
 identity the parameter type `stdlib.ElementIndex` carries, so a `Kid` is accepted there.
 ```maxon
@@ -1192,7 +1133,6 @@ export enum ElementIndex
 end 'ElementIndex'
 
 // --- file: main.maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Kid = int(0 to 10) implements stdlib.ElementIndex
 
 function take(b stdlib.ElementIndex) returns stdlib.ElementIndex
@@ -1210,13 +1150,10 @@ end 'main'
 ```
 
 <!-- test: error.an-expression-no-operand-of-which-satisfies-the-target -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to u64.max) implements ElementIndex
 
 function takesBlock(b BlockId) returns BlockId
@@ -1236,15 +1173,12 @@ error E3005: <fragment>:12:10: argument type mismatch for 'b': expected 'BlockId
 ```
 
 <!-- test: error.a-bound-mixed-expression-is-the-common-ancestor -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 With no target where it lands, `block + varId` takes the nearest common ancestor of its operands, so
 `x` is an `ElementIndex` and no longer satisfies `BlockId`.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to u64.max) implements ElementIndex
 
 function takesBlock(b BlockId) returns BlockId
@@ -2335,13 +2269,10 @@ end 'main'
 ```
 
 <!-- test: file-scope-constants-of-sibling-aliases-meet-through-their-ancestor -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 Two file-scope constants whose aliases share an ancestor under `implements` fold with no cast, as the same pair does in a body.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias BlockId = int(0 to u64.max) implements ElementIndex
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias VarId = int(0 to u64.max) implements ElementIndex
 
 let block = 3 as BlockId
@@ -2786,8 +2717,6 @@ end 'main'
 ```
 
 <!-- test: error.an-implements-parent-another-file-keeps-private-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- positions: moved -->
 An unmarked parent is nameable from its own directory and its subdirectories alone, so an `implements` clause in
 another directory naming it is refused at the parent's name, exactly as a cast to it is.
 ```maxon
@@ -2800,7 +2729,6 @@ export function widest() returns ExitCode
 end 'widest'
 
 // --- file: main.maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Kid = int(0 to 10) implements Base
 
 function main() returns ExitCode
@@ -2814,8 +2742,6 @@ error E3008: <fragment>:11:41: typealias 'Base' is not exported
 ```
 
 <!-- test: error.an-implements-parent-two-directories-export-is-ambiguous -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- positions: moved -->
 Two directories export `Base`, so a bare `implements Base` from a third file could mean either and must be
 qualified.
 ```maxon
@@ -2826,7 +2752,6 @@ export typealias Base = int(0 to 100)
 export typealias Base = int(0 to 200)
 
 // --- file: main.maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Kid = int(0 to 10) implements Base
 
 function main() returns ExitCode
@@ -2839,9 +2764,7 @@ error E3063: <fragment>:9:41: Ambiguous type name 'Base': more than one visible 
 ```
 
 <!-- test: error.a-qualified-implements-parent-the-reader-cannot-see-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 A qualified parent is held to the declaration's tier like every other qualified type name: an unmarked alias is
 not nameable from outside its directory.
 ```maxon
@@ -2849,7 +2772,6 @@ not nameable from outside its directory.
 typealias Base = int(0 to 100)
 
 // --- file: other/main.maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Kid = int(0 to 10) implements feature.Base
 
 function main() returns ExitCode

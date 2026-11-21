@@ -375,18 +375,14 @@ the one spelling that can never be an existential, which is why it is served whi
 ABI that carries a descriptor.
 
 <!-- test: error.a-cursor-over-a-parameter-is-still-refused -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 	function advance() throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'

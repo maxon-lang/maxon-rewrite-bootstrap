@@ -50,10 +50,8 @@ so a store that took no reference double-frees and a store that took one too man
 gate reports the second as exit 101 while the program still prints the right answer.
 
 <!-- test: one-opaque-value-written-into-three-slots -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -112,10 +110,8 @@ still owes exactly one release — the half a parse-time move gets wrong by deci
 TEXT that the store happened.
 
 <!-- test: a-loop-that-never-runs-still-releases-the-value -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -166,10 +162,8 @@ any N; one taken and never released is a hundred leaked records, and one release
 the poison byte.
 
 <!-- test: one-opaque-value-written-into-a-hundred-slots -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -224,9 +218,7 @@ record, so the reference the managed case takes costs a load and nothing else he
 is the one every slot was filled with.
 
 <!-- test: a-trivial-element-loop-store-is-inert -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Num = int(0 to 1000)
@@ -278,10 +270,8 @@ The binding was never moved, so reading it after the fill is legal — the prope
 takes away, and the one a body that fills a column and then reports what it filled with needs.
 
 <!-- test: the-filled-value-is-still-readable-after-the-loop -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -334,10 +324,8 @@ containers are destroyed at the end of `main`, so a missing retain is a double f
 release is exit 101.
 
 <!-- test: a-borrowed-element-stored-in-a-loop-takes-a-reference-per-slot -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Strs = Array with String
@@ -412,9 +400,7 @@ the retirement.
 it took. A missing retain is a double free at teardown and a surplus one is exit 101.
 
 <!-- test: a-consuming-sibling-called-in-a-loop-takes-a-reference-per-call -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -526,10 +512,8 @@ with a seed and then `set` each slot. Each case below is the user-tier twin of t
 beside it.
 
 <!-- test: a-user-written-fill-stores-one-opaque-value-into-three-slots -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 Twin of `one-opaque-value-written-into-three-slots`.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -582,10 +566,8 @@ a filled string long enough to force a heap allocation
 ```
 
 <!-- test: a-user-written-fill-that-never-runs-still-releases-the-value -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 Twin of `a-loop-that-never-runs-still-releases-the-value`.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -630,10 +612,8 @@ an unstored string long enough to force a heap allocation
 ```
 
 <!-- test: a-user-written-fill-stores-one-opaque-value-into-a-hundred-slots -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 Twin of `one-opaque-value-written-into-a-hundred-slots`.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -682,10 +662,8 @@ a repeated string long enough to force a heap allocation
 ```
 
 <!-- test: a-user-written-fill-leaves-the-value-readable-after-the-loop -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 Twin of `the-filled-value-is-still-readable-after-the-loop`.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -730,10 +708,8 @@ a re-read string long enough to force a heap allocation
 ```
 
 <!-- test: a-user-written-copy-stores-a-borrowed-element-with-a-reference-per-slot -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 Twin of `a-borrowed-element-stored-in-a-loop-takes-a-reference-per-slot`.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Strs = Array with String

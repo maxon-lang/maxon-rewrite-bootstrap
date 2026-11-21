@@ -50,9 +50,7 @@ end of `main` and the record is freed exactly once, which a missing retain turns
 and a missing release turns into exit 101.
 
 <!-- test: a-borrowed-element-read-from-another-container-is-stored -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Strs = Array with String
@@ -109,9 +107,7 @@ a borrowed string long enough to force a heap allocation
 does not own, and push it. Each iteration takes its own reference and each slot releases one.
 
 <!-- test: the-loop-form-copies-every-borrowed-element -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Strs = Array with String
@@ -174,9 +170,7 @@ any N; one taken and never released is a hundred leaked records and exit 101, an
 faults on the poison byte.
 
 <!-- test: a-hundred-borrowed-stores-balance -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Strs = Array with String
@@ -285,9 +279,7 @@ The other spelling the refusal named: a bare `T` field the record still owns. Th
 field and the container releases the slot, and they are two references to one String.
 
 <!-- test: a-borrowed-opaque-field-read-is-stored -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -337,9 +329,7 @@ an argument that owns no record, so the store costs a load and the container's w
 — and the answer is the element that was copied across.
 
 <!-- test: a-trivial-elements-borrowed-store-is-inert -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Num = int(0 to 1000)
@@ -395,9 +385,7 @@ The source container is dropped before the bag is. The reference the store took 
 the element survives its original owner and prints after it is gone.
 
 <!-- test: the-borrows-owner-may-be-destroyed-first -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias Strs = Array with String

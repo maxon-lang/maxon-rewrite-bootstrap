@@ -422,7 +422,7 @@ error E3155: <fragment>:3:10: reference to undefined function 'maxon_force_segfa
 ```
 
 <!-- test: error.function-backed-enum-case-cannot-name-a-reserved-entry -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 **THE SECOND POSITION A NAME BECOMES A FUNCTION VALUE, AND IT IS A DECLARATION RATHER THAN AN
 EXPRESSION.** A function-backed enum case IS a function reference written in a declaration, so
@@ -432,7 +432,7 @@ CASE, whether or not any program ever reads the enum: `.rawValue` would otherwis
 tier entry's address.
 ```maxon
 enum Boundary
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	checkpoint = __parallel_boundary
 end 'Boundary'
 

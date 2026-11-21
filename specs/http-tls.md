@@ -382,7 +382,6 @@ server 1.2, client 1.3: error tlsFailed(peerAlert(protocolVersion))
 
 <!-- test: http-tls.a-large-body-round-trips -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 <!-- runs: alone -->
@@ -496,7 +495,6 @@ end 'BodyEchoHandler'
 function payload() returns String
 	let text = StringBuilder.create()
 	for row in 0 upto PayloadRows 'eachRow'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{row:08x}0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-\n")
 	end 'eachRow'
 	return text.build()
@@ -718,7 +716,6 @@ end 'main'
 
 <!-- test: http-tls.mutual-tls -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 With `requireClientCertificates` a client that presents no certificate is refused (the typed `tlsFailed` carries the alert), the server goes on, and a client with the case's client certificate is served: the handler reads the client's chain from `exchange.security()` and finds alice's leaf. With `requestClientCertificates` the anonymous client is served too, and the handler sees an empty chain.
@@ -748,7 +745,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1144,7 +1140,6 @@ named in the options: 200 connection=close [get https://127.0.0.1/?- body=0 tls1
 <!-- test: http-tls.a-plain-peer-on-a-tls-port-is-refused-cleanly -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 A plain HTTP client that reaches the TLS port is refused with the alert and nothing else, and the server keeps serving: a peer that goes on sending 200 KB after the refusal still hears the unexpected_message alert record (the server drains what the peer sent before it closes), `HttpClient` over `http://` gets `invalidResponse`, and the https request that follows is answered. The reverse, an `https` URL on a plain server, is a typed TLS failure on the client, and the plain server keeps serving too.
@@ -1174,7 +1169,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1298,7 +1292,6 @@ let ExtraBytes = 200000
 function filler() returns String
 	let text = StringBuilder.create()
 	for row in 0 upto ExtraBytes / 16 'eachRow'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{row:08x}-padding\n")
 	end 'eachRow'
 	return text.build()

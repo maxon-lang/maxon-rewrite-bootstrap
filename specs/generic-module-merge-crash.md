@@ -12,16 +12,12 @@ category: type-system
 ### Generic module with merge extension
 
 <!-- test: generic-module-merge -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Count = int(0 to u64.max) implements ElementIndex
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Mergeable uses Func
 	function itemCount() returns Count
 	function getItem(index Count) returns Func

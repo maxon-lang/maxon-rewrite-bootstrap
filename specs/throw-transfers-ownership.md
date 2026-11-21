@@ -30,7 +30,6 @@ and the no-binding `otherwise` form decrefs once to release the transfer.
 ## Tests
 
 <!-- test: propagate-throw-through-local-struct -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Propagating a heap-allocated error through a function holding a local struct
 
 A function creates a local struct, calls a method that throws an
@@ -42,7 +41,6 @@ cleanup; the throw must keep the pointer alive until the caller consumes it.
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union OuterErr implements Error
 	unterminatedString(line N, column N)
 	unexpectedEof(line N, column N)
@@ -97,7 +95,6 @@ end 'main'
 ```
 
 <!-- test: propagate-throw-otherwise-no-binding-decrefs -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### A binding-less `otherwise` on a heap-allocated error path decrefs once
 
 When a `try ... otherwise` block catches an associated-value error without
@@ -108,7 +105,6 @@ sees no leak.
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union LexErr implements Error
 	unterminatedString(line N, column N)
 end 'LexErr'
@@ -124,7 +120,7 @@ function main() returns ExitCode
 		return 0
 	end 'noBinding'
 	if ran 'ranOk'
-		return (v + 5)
+		return (try v + 5 otherwise panic("out of range"))
 	end 'ranOk'
 	return 99
 end 'main'
@@ -134,7 +130,6 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-throw-owned-local -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Throwing a boxed-union field of a struct held in a local transfers it out
 
 A function holds an owned local struct with a boxed-union field and throws that
@@ -157,7 +152,6 @@ pins the move-out itself.
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union OuterErr implements Error
 	unterminatedString(line N, column N)
 	unexpectedEof(line N, column N)
@@ -179,11 +173,11 @@ end 'process'
 function main() returns ExitCode
 	let v = try process() otherwise (e) 'fail'
 		match e 'kind'
-			unterminatedString(line, column) then return (line + column)
-			unexpectedEof(line, column) then return (line + column + 100)
+			unterminatedString(line, column) then return (try line + column otherwise panic("out of range"))
+			unexpectedEof(line, column) then return (try line + column + 100 otherwise panic("out of range"))
 		end 'kind'
 	end 'fail'
-	return (v + 200)
+	return (try v + 200 otherwise panic("out of range"))
 end 'main'
 ```
 ```exitcode
@@ -191,7 +185,6 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-throw-borrowed-self -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Throwing a boxed-union self-field through a BORROWED receiver RETAINS the box
 
 An instance method throws its own boxed-union `self`-field. `self` is BORROWED — its owner
@@ -210,7 +203,6 @@ double-free. This applies the #40 retain-promotion thesis to the throw error cha
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union OuterErr implements Error
 	unterminatedString(line N, column N)
 	unexpectedEof(line N, column N)
@@ -224,7 +216,7 @@ type Lex
 	end 'create'
 
 	function run() returns N throws OuterErr
-		throw pendingError
+		throw pendingError.clone()
 	end 'run'
 end 'Lex'
 
@@ -233,14 +225,14 @@ function main() returns ExitCode
 	var caught = 0 as N
 	try lex.run() otherwise (e) 'fail'
 		match e 'k'
-			unterminatedString(line, column) then caught = (line + column)
+			unterminatedString(line, column) then caught = (try line + column otherwise panic("out of range"))
 			unexpectedEof(line, column) then caught = 900
 		end 'k'
 	end 'fail'
 	let again = lex.pendingError
 	match again 'k2'
-		unterminatedString(line, column) then return (caught + line + column)
-		unexpectedEof(line, column) then return (caught + 500)
+		unterminatedString(line, column) then return (try caught + line + column otherwise panic("out of range"))
+		unexpectedEof(line, column) then return (try caught + 500 otherwise panic("out of range"))
 	end 'k2'
 end 'main'
 ```
@@ -249,7 +241,6 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-throw-out-of-a-sole-owned-literal -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Throwing a boxed-union field of a SOLELY-owned struct still MOVES it out
 
 ⭐⭐ **WITHOUT THIS CASE `moveOutThrownField` HAS NO TEST.** A call result is a CO-OWNER, so every
@@ -271,7 +262,6 @@ co-owned rather than sole — see the case below.
 ```maxon
 typealias N = int(0 to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union OuterErr implements Error
 	unterminatedString(line N, column N)
 	unexpectedEof(line N, column N)
@@ -289,11 +279,11 @@ end 'Holder'
 function main() returns ExitCode
 	let v = try Holder.boom() otherwise (e) 'fail'
 		match e 'kind'
-			unterminatedString(line, column) then return (line + column)
-			unexpectedEof(line, column) then return (line + column + 100)
+			unterminatedString(line, column) then return (try line + column otherwise panic("out of range"))
+			unexpectedEof(line, column) then return (try line + column + 100 otherwise panic("out of range"))
 		end 'kind'
 	end 'fail'
-	return (v + 200)
+	return (try v + 200 otherwise panic("out of range"))
 end 'main'
 ```
 ```exitcode
@@ -324,7 +314,7 @@ type Body
 	export var e as Err
 
 	static function create(e Err) returns Self
-		return Self{e: e}
+		return Self{e: e.clone()}
 	end 'create'
 end 'Body'
 
@@ -333,16 +323,16 @@ union Wrap
 end 'Wrap'
 
 function probe(body Body) returns Integer throws Err
-	let w = Wrap.held(body)
+	let w = Wrap.held(body.clone())
 	match w 'o'
-		held(b) then throw b.e
+		held(b) then throw b.e.clone()
 	end 'o'
 	return 0
 end 'probe'
 
 function whyLen(e Err) returns Integer
 	return match e 'l'
-		bad(why) gives why.byteLength() as Integer
+		bad(why) gives try why.byteLength() as Integer otherwise panic("out of range")
 	end 'l'
 end 'whyLen'
 

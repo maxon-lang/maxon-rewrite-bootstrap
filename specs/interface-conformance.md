@@ -636,7 +636,6 @@ end 'main'
 
 
 <!-- test: interface-method-via-extended-interface -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -645,7 +644,6 @@ interface Base
 	function ping(payload Integer) returns Integer
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Extended extends Base
 	function other() returns Integer
 end 'Extended'
@@ -962,7 +960,6 @@ two-components-disagreeing shape this rule closes.
 interface picked.
 
 <!-- test: error.static-requirement-not-supplied -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 A `static` requirement the conformer does not supply is E3016, not a failure in
 `bakeFuncAbs64Relocs`.
@@ -970,7 +967,6 @@ A `static` requirement the conformer does not supply is E3016, not a failure in
 typealias Code = int(0 to u32.max)
 
 interface Wide
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function tag() returns Code
 	function digest() returns Code
 end 'Wide'
@@ -1013,7 +1009,6 @@ error E3016: <fragment>:9:6: Partial interface implementation: type 'Point' is m
 ```
 
 <!-- test: error.static-requirement-not-supplied-without-witness -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **WHETHER A WITNESS TABLE IS BUILT MUST NOT DECIDE WHETHER A TYPE CONFORMS.** The identical conformance
 with no generic instantiation anywhere in the program — so no witness table, no relocation, nothing that
@@ -1022,7 +1017,6 @@ could fail at link time — is the SAME E3016.
 typealias Code = int(0 to u32.max)
 
 interface Wide
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function tag() returns Code
 	function digest() returns Code
 end 'Wide'
@@ -1050,7 +1044,6 @@ error E3016: <fragment>:9:6: Partial interface implementation: type 'Point' is m
 ```
 
 <!-- test: static-requirement-supplied -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 ⭐⭐ **THE OVER-REJECTION GUARD.** A conformer that DOES supply the static compiles and runs — and it is the
 case a careless fix breaks, because checking a static requirement against the type's INSTANCE members
 rejects this program while still rejecting the two above. The witness table is built here, so its `tag`
@@ -1059,7 +1052,6 @@ slot relocates against a `Point.tag` that exists.
 typealias Code = int(0 to u32.max)
 
 interface Wide
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function tag() returns Code
 	function digest() returns Code
 end 'Wide'
@@ -1083,7 +1075,7 @@ end 'Point'
 type Box uses T where T implements Wide
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1105,7 +1097,6 @@ end 'main'
 ```
 
 <!-- test: error.static-requirement-wrong-signature -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 A supplied static whose signature disagrees with the requirement reaches E3016's WRONG-SIGNATURE arm, the
 same arm an instance method reaches. Under dictionary-passing a static is dispatched through its witness
@@ -1114,7 +1105,6 @@ slot, so the shapes must agree.
 typealias Code = int(0 to u32.max)
 
 interface Wide
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function tag() returns Code
 	function digest() returns Code
 end 'Wide'
@@ -1146,7 +1136,6 @@ error E3016: <fragment>:9:6: Partial interface implementation: type 'Point' has 
 ```
 
 <!-- test: error.static-requirement-supplied-as-instance-method -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **A RECEIVER-KIND DISAGREEMENT IS A SIGNATURE DISAGREEMENT (this compiler's own rule — neither reference has it).**
 An instance method carries `__self` at position 0 and a static does not, so an instance impl installed in a
@@ -1157,7 +1146,6 @@ print as the same string.
 typealias Code = int(0 to u32.max)
 
 interface Wide
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function tag() returns Code
 	function digest() returns Code
 end 'Wide'
@@ -1322,7 +1310,6 @@ error E3113: <fragment>:17:11: 'throws Error' names an INTERFACE. A caught error
 ```
 
 <!-- test: error.boxed-throws-under-abstract-requirement -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 ⭐⭐ **THE RELAXATION STOPS AT THE FLAG SHAPE, AND THAT BOUNDARY IS A MEMORY-SAFETY OBLIGATION RATHER THAN A
 WRONG ANSWER.** An abstract requirement declares no case, so a `try` at the dispatch catches it through the
@@ -1340,7 +1327,6 @@ E3113: `Digest.digest`'s `throws Error` is an interface REQUIREMENT, which never
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxedError implements Error
 	withMessage(msg String)
 end 'BoxedError'
@@ -1687,7 +1673,6 @@ end 'main'
 ```
 
 <!-- test: an-interface-extends-an-interface-named-through-its-directory -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 `Both` extends `sub.Base`, so a conformer of `Both` answers `Base`'s requirement through it (5 + 6).
 ```maxon
 // --- file: sub/base.maxon
@@ -1696,7 +1681,6 @@ export interface Base
 end 'Base'
 
 // --- file: main.maxon
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Both extends sub.Base
 	function more() returns ExitCode
 end 'Both'

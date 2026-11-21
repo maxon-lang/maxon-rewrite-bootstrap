@@ -729,7 +729,6 @@ dark
 
 <!-- test: first-class-function.interface-extension-alias-over-an-associated-type-at-two-instantiations -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The same alias reached through an INTERFACE extension, which is the shape `stdlib/Interfaces.maxon`'s
 `extension Iterable` wears: `ItemPredicate` names the interface's ASSOCIATED type `Item`, and the conformer
 binds that associated type to its OWN type parameter (`implements Container with Element`). Keying the
@@ -739,7 +738,6 @@ parameter tag.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Container uses Item
 	function only() returns Item
 end 'Container'
@@ -2005,7 +2003,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-passed-to-try-call -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 A capturing closure handed to a THROWING callee, through `try`. A try-call flattens its arguments
 exactly as a plain call does, and the closure is one word among them: the record carries its own
 captures, so the callee reads `bump` whichever call shape delivered it.
@@ -2016,7 +2013,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias UnaryOp = function(Integer) returns Integer
 
 enum ApplyError implements Error
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	negative = "n must not be negative"
 end 'ApplyError'
 
@@ -2029,10 +2025,10 @@ end 'applyChecked'
 
 function main() returns ExitCode
 	let bump = 5 as Integer
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	let ok = try applyChecked(f, n: 10) otherwise 0
 	let bad = try applyChecked(f, n: -1) otherwise 99
-	return (ok + bad) as ExitCode
+	return try (ok + bad) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2852,13 +2848,11 @@ error E2078: <fragment>:11:14: 'int.make' is a method, and a method is not a fun
 ```
 
 <!-- test: error.a-requirement-through-a-type-parameter-is-not-a-function-value -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function make() returns Integer
 	function id() returns Integer
 end 'Maker'
@@ -3269,13 +3263,11 @@ error E2073: <fragment>:2:14: 'byte' has no static method named 'nope' — a pri
 ```
 
 <!-- test: error.a-requirement-through-a-type-parameter-outranks-a-top-level-type-of-that-name -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function make() returns Integer
 	function id() returns Integer
 end 'Maker'
@@ -3316,13 +3308,11 @@ error E2078: <fragment>:32:12: 'T.make' is a requirement of 'Maker', and a requi
 ```
 
 <!-- test: error.a-call-through-a-type-parameter-outranks-a-top-level-type-of-that-name -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function make() returns Integer
 	function id() returns Integer
 end 'Maker'
@@ -3429,13 +3419,11 @@ error E2078: <fragment>:21:12: 'T.id' is an instance method, and a method is not
 ```
 
 <!-- test: error.a-static-requirement-called-as-a-statement-through-a-type-parameter -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 interface Pinger
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function ping()
 end 'Pinger'
 
@@ -3465,13 +3453,11 @@ error E3116: <fragment>:21:4: 'T.ping' is a `static` requirement, and a `static`
 ```
 
 <!-- test: error.a-static-requirement-called-as-a-statement-through-a-type-parameter-beside-a-top-level-type-of-that-name -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 interface Pinger
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function ping()
 end 'Pinger'
 
@@ -3553,13 +3539,11 @@ end 'main'
 ```
 
 <!-- test: error.a-type-call-through-a-type-parameter-reaches-the-static-requirement -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function make() returns Integer
 end 'Maker'
 
@@ -4111,7 +4095,6 @@ helped
 
 
 <!-- test: error.a-type-parameter-outranks-a-container-alias-of-its-name -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4119,7 +4102,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias T = Array with Integer
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function create() returns Integer
 end 'Maker'
 
@@ -4149,7 +4131,6 @@ error E3116: <fragment>:22:11: 'T.create' is a `static` requirement, and a `stat
 
 
 <!-- test: error.a-type-parameter-outranks-a-shared-value-alias-of-its-name -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4157,7 +4138,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias T = SharedValue with bool
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function create() returns Integer
 end 'Maker'
 
@@ -4289,13 +4269,11 @@ error E2078: <fragment>:17:14: 'Box.wrap' is a method, and a method is not a fun
 
 
 <!-- test: error.a-call-through-a-type-parameter-names-a-static-requirement-in-a-generic-type-body -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function make() returns Integer
 end 'Maker'
 
@@ -4335,13 +4313,11 @@ error E3116: <fragment>:28:12: 'T.make' is a `static` requirement, and a `static
 ```
 
 <!-- test: error.a-requirement-through-a-type-parameter-of-a-generic-type-is-not-a-function-value -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function make() returns Integer
 end 'Maker'
 
@@ -4382,13 +4358,11 @@ error E2078: <fragment>:28:13: 'T.make' is a requirement of 'Maker', and a requi
 ```
 
 <!-- test: error.a-call-through-a-type-parameter-names-a-static-requirement-in-a-generic-function -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function make() returns Integer
 	function id() returns Integer
 end 'Maker'

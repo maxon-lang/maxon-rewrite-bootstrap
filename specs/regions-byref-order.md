@@ -5548,7 +5548,6 @@ end 'main'
 ```
 
 <!-- test: witness-candidates-disagree-on-a-cell -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 A position that any requirement of the called name takes by reference is lent, though the arity that picks the requirement is known only after the arguments.
 
@@ -5557,7 +5556,6 @@ interface Base
 	function swap(a String, b String, c String)
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Sub extends Base
 	function swap(mutates a String, mutates b String)
 end 'Sub'
@@ -5975,13 +5973,11 @@ end 'main'
 ```
 
 <!-- test: throw-handler-reads-in-its-own-frame -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A `throw` handler diverges, so the read of the local in the thrown value does not precede a later operand's write.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Fault implements Error
 	sized(n Tally)
 end 'Fault'
@@ -5999,7 +5995,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function combine(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'combine'
 
 function run() returns Tally throws Fault

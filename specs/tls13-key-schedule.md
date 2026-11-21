@@ -41,7 +41,6 @@ The 4 canra vectors that name a value the Maxon types cannot spell have no case:
 ## Tests
 
 <!-- test: tls13-key-schedule.derive-secret -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13KeySchedule.deriveSecret`: every RFC 8448 derivation whose context is a transcript hash, the OpenSSL handshakes, both hash widths and the refused secrets, labels and hashes. Vectors derive-secret-001 to ks-err-020 (44).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -69,7 +68,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -182,7 +180,6 @@ ks-err-020 invalidSecretLength
 ```
 
 <!-- test: tls13-key-schedule.expand-label -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13KeySchedule.expandLabel`: RFC 8448 derivations whose context is not a transcript hash, the boundary labels, contexts and lengths, and the refusals. Vectors expand-label-001 to ks-err-019 (12).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -210,7 +207,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -259,7 +255,6 @@ ks-err-019 invalidLabel
 ```
 
 <!-- test: tls13-key-schedule.transcript-hash -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13KeySchedule.transcriptHash` over the messages of RFC 8448 and the OpenSSL handshakes, and over no message at all. Vectors transcript-hash-001 to transcript-hash-gen-002 (12).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -287,7 +282,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -333,7 +327,6 @@ transcript-hash-gen-002 c38079b44f415ed04c56dbf5337be9c8fbe97f84ce66165f21f9b2a8
 ```
 
 <!-- test: tls13-key-schedule.message-hash -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13KeySchedule.messageHash`: the synthetic message that replaces the first ClientHello after a HelloRetryRequest. Vectors message-hash-rfc8448-5 to message-hash-gen-001 (2).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -361,7 +354,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -387,7 +379,6 @@ message-hash-gen-001 fe000030fd334e9f72f8fc359e20a9e1224e035d20a3a6fc8af705f2b53
 ```
 
 <!-- test: tls13-key-schedule.secret-ladder -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13KeySchedule.keySchedule`: the whole ladder for RFC 8448 sections 3, 5, 6 and 7, the OpenSSL handshakes and both hash widths. A line prints the early, handshake, client and server handshake traffic, master, client and server application traffic and exporter master secrets. Vectors key-schedule-rfc8448-3 to ks-err-017 (19).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -415,7 +406,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -478,7 +468,6 @@ ks-err-017 invalidSharedSecretLength
 ```
 
 <!-- test: tls13-key-schedule.traffic-keys -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13KeySchedule.trafficKeys`: the key and IV of every traffic secret of RFC 8448 and the OpenSSL handshakes, for each suite. A line prints the key then the IV. Vectors traffic-keys-001 to ks-err-005 (50).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -506,7 +495,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -631,7 +619,6 @@ ks-err-005 invalidSecretLength
 ```
 
 <!-- test: tls13-key-schedule.finished-verify-data -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13KeySchedule.finishedVerifyData`: the Finished messages of RFC 8448 and the PSK binder, and the refused keys and hashes. Vectors finished-001 to ks-err-015 (15).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -659,7 +646,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -714,7 +700,6 @@ ks-err-015 invalidTranscriptHashLength
 ```
 
 <!-- test: tls13-key-schedule.next-application-traffic-secret -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13KeySchedule.nextApplicationTrafficSecret`: the KeyUpdate step, repeated, for each suite, and a refused secret. Vectors next-secret-gen-001 to ks-err-007 (9).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -742,7 +727,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

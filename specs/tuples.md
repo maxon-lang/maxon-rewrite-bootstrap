@@ -3894,11 +3894,9 @@ error E3005: <fragment>:10:8: cannot assign a value of type 'function' to elemen
 ```
 
 <!-- test: error.a-tuple-pushed-into-an-array-of-words-names-the-tuple-type -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple handed to an array of scalars is named by its tuple type, not by the kind word `struct`.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Words = Array with Word
@@ -4160,11 +4158,9 @@ end 'main'
 ```
 
 <!-- test: a-pair-from-a-function-holding-standing-calls-allocates-only-for-a-throwing-forwarder -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- MmTrace -->
 `twin` returns a pair built from two calls to `churn`, which is too large to be spliced, so `twin` is a real function with calls standing in it. Its result is read out of the two return registers at the loop in `main` and forwarded out of `checkedTwin`, whose throwing return cannot carry a pair in registers: `checkedTwin` builds a record from the two registers it receives. The loop runs a thousand times and the trace holds one record per checked call, two in all, and nothing else, so `twin` is not held to the heap convention by the one caller that needs a record.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias WordPair = (Word, Word)
@@ -4228,11 +4224,9 @@ mm_free __Tuple2.Word.Word #1
 ```
 
 <!-- test: a-rebuilt-pair-with-a-bool-half-reads-back-the-same-bool -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- MmTrace -->
 `flagged` holds standing calls, so it is a real function whose pair rides the two return registers: the loop's first call reads the halves out and drops the box. The second call passes its result to `inspect`, which takes the tuple as a record, so that one site builds the record from the two registers it receives. The bool half is stored into the record's eight-byte slot and read back through the bool load, so a stale upper byte in the register would flip `inspect`'s branch. The trace holds one record per loop round and nothing else.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Flagged = (bool, Word)
@@ -4322,11 +4316,9 @@ mm_free __Tuple2.bool.Word #5
 ```
 
 <!-- test: a-rebuilt-pair-with-a-managed-half-releases-the-half-with-the-record -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- MmTrace -->
 The same shape with a String half. `named` returns its pair in registers because the first site reads out the halves and releases the string through the cascade; the second site passes the result to `describe`, which takes the tuple as a record, so that site builds one from the two registers. The record owns the string, and releasing the record releases it: the trace pairs every string record with a free.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Named = (String, Word)
@@ -4437,11 +4429,9 @@ mm_free __Tuple2.String.Word #15
 ```
 
 <!-- test: a-caller-on-the-convention-builds-a-record-at-its-one-site-that-needs-one -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- MmTrace -->
 `relay` returns its pair in registers: it forwards `twin`'s pair straight out on one path, and the same function passes `twin`'s pair to `inspect` on the other, where the callee takes a record. `relay` stays on the convention and builds the one record at the second site; `main` reads relay's halves out of the registers. The trace holds one record per call that took the second path and no record for the forwarded one.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias WordPair = (Word, Word)

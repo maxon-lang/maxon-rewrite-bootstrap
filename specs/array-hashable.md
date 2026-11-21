@@ -1484,13 +1484,11 @@ error E2015: <fragment>:11:21: Unsupported: '__Builtins.elementsHashAsStorage' t
 ```
 
 <!-- test: elements-hash-as-storage-reads-a-constraint-that-extends-hashable -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 A `where … is` constraint naming an interface that extends `Hashable` is a `Hashable` constraint, so
 `__Builtins.elementsHashAsStorage()` reads its witness table: an element type that declares its own `hash()`
 does not hash as its storage.
 ```maxon
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface KeyLike extends Hashable
 end 'KeyLike'
 
@@ -1535,12 +1533,10 @@ false
 ```
 
 <!-- test: elements-hash-as-storage-reads-one-parameter-under-two-hashable-constraints -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 `__Builtins.elementsHashAsStorage()` counts the type parameters its constraints name, so one type parameter
 constrained to `Hashable` and to an interface that extends it leaves one constraint to read.
 ```maxon
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface KeyLike extends Hashable
 end 'KeyLike'
 
@@ -1585,12 +1581,10 @@ false
 ```
 
 <!-- test: elements-hash-as-storage-reads-an-enum-through-a-constraint-that-extends-hashable -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 An enum that declares no `hash()` of its own hashes as its storage, and a constraint naming an interface
 that extends `Hashable` reads that the same as `where … is Hashable` does.
 ```maxon
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface KeyLike extends Hashable
 end 'KeyLike'
 

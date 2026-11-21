@@ -4017,7 +4017,6 @@ server: handshake: handshakeTimedOut
 
 <!-- test: tls-stream.input-that-is-not-tls-is-refused-before-its-body -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The server reads the 5-byte record header first and refuses what cannot be a TLS record: an HTTP request, a record of an unknown protocol version, and a record that declares a body past the bound, without waiting for a body that never comes. The peer receives the alert, a plaintext record of type 21.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -4045,7 +4044,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -4552,7 +4550,6 @@ a client dialling a server that never answers: handshakeTimedOut then ended
 <!-- test: tls-stream.a-peer-that-sent-more-than-the-header-still-hears-the-alert -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A peer that is not speaking TLS and has sent far more than a record header still receives the alert the listener refused it with: the refusing side shuts down its write side and drains what the peer sent, bounded, before it closes, so the close does not reset the connection ahead of the alert. The peer's whole send completes.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -4580,7 +4577,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -4649,7 +4645,6 @@ let ExtraBytes = 200000
 function filler() returns String
 	let text = StringBuilder.create()
 	for row in 0 upto ExtraBytes / 16 'eachRow'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{row:08x}-padding\n")
 	end 'eachRow'
 	return text.build()

@@ -21,7 +21,6 @@ none unspellable.
 
 <!-- test: tls-handshake-negotiation.hello-retry-request-replays -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 HelloRetryRequest handshakes: the RFC 8448 section 5 trace and the section 7 compatibility-mode trace replay byte for byte, as does an OpenSSL 3.0.13 HelloRetryRequest to secp256r1; a ClientHello with no server answers `handshaking`; the reference server's HelloRetryRequest is answered with a second ClientHello whose key_share is the one secp256r1 share.
 ```maxon
@@ -50,7 +49,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -194,7 +192,6 @@ client13-hello-retry-request {"state":"connected","version":772,"cipher_suite":4
 
 <!-- test: tls-handshake-negotiation.negotiated-handshakes -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Handshakes that negotiate: a server that accepts the P-256 share without a HelloRetryRequest, a server that selects no ALPN protocol, a KeyUpdate that asks the client to update its own keys, and a server flight split over many records.
 ```maxon
@@ -223,7 +220,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -357,7 +353,6 @@ client13-fragmented-flight {"state":"connected","version":772,"cipher_suite":486
 
 <!-- test: tls-handshake-negotiation.server-hello-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A ServerHello the client refuses, each with the alert the client sends: a suite it did not offer, a wrong session id echo, a wrong legacy_version, a selected version of TLS 1.2, a missing or unsent key_share, an invalid X25519 share, an extension it did not offer, a compression method, and a version it does not support.
 ```maxon
@@ -386,7 +381,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -590,7 +584,6 @@ client13-err-protocol-version protocolVersion
 
 <!-- test: tls-handshake-negotiation.hello-retry-request-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A HelloRetryRequest the client refuses: a second HelloRetryRequest, a group it already sent a share for, a request that changes nothing, a group it did not offer, and a cipher suite the second ServerHello changes.
 ```maxon
@@ -619,7 +612,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -763,7 +755,6 @@ client13-err-hello-retry-request-suite-change illegalParameter
 
 <!-- test: tls-handshake-negotiation.encrypted-extensions-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 An EncryptedExtensions the client refuses: an ALPN protocol it did not offer, an extension it did not offer, and an extension EncryptedExtensions may not carry.
 ```maxon
@@ -792,7 +783,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -916,7 +906,6 @@ client13-err-encrypted-extensions-forbidden illegalParameter
 
 <!-- test: tls-handshake-negotiation.record-and-post-handshake-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Records and post-handshake messages the client refuses: a tampered record, a change_cipher_spec whose body is not 1, a fatal alert from the server, a ServerHello that does not end its record, application data during the handshake, a KeyUpdate with a value above 1 and a post-handshake CertificateRequest.
 ```maxon
@@ -945,7 +934,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1109,7 +1097,6 @@ client13-err-post-handshake-certificate-request unexpectedMessage
 
 <!-- test: tls-handshake-negotiation.message-length-limits -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A handshake message is refused, with InternalError, as soon as its 4-byte header announces more than 65536 bytes, or more than 262144 for a Certificate, before any of its body arrives: a ServerHello header one byte over the cap, a Certificate header one byte over, and a NewSessionTicket header one byte over after the handshake. A ServerHello, a Certificate and a NewSessionTicket header exactly at the cap are not refused: the client waits for the rest.
 ```maxon
@@ -1138,7 +1125,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1292,7 +1278,6 @@ client13-post-handshake-message-at-the-length-limit {"state":"connected","versio
 
 <!-- test: tls-handshake-negotiation.no-record-inside-a-handshake-message -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 While a partial post-handshake message is buffered, application data and an alert are UnexpectedMessage; a NewSessionTicket split over two records and followed by application data is accepted.
 ```maxon
@@ -1321,7 +1306,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1445,7 +1429,6 @@ client13-handshake-message-split-before-application-data {"state":"connected","v
 
 <!-- test: tls-handshake-negotiation.useless-records -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Records that advance nothing are limited to 16 in a row: sixteen change_cipher_spec records after the ServerHello are dropped and a seventeenth is UnexpectedMessage, a ServerHello between two runs of sixteen restarts the count, and ignored user_canceled alerts after the handshake are counted the same way.
 ```maxon
@@ -1474,7 +1457,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

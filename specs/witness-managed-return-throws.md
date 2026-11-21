@@ -44,7 +44,6 @@ region (needs a per-invocation shadow stack).
 ## Tests
 
 <!-- test: throwing-witness-managed-return-both-edges -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A throwing witness-dispatched method returning a managed `Chunk`, exercising BOTH
 edges of one `witnessTryCall` shape. `attempt` dispatches through the bare
 `ChunkMaker` interface. The first call SUCCEEDS — its managed result's `+1` must
@@ -65,7 +64,6 @@ end 'Chunk'
 
 // A boxed-union error (it carries a payload case) so the caught error is a heap
 // box — exercising the `witnessTryCall` error-flag release.
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union MakeError implements Error
 	tooBig(limit Payload)
 end 'MakeError'

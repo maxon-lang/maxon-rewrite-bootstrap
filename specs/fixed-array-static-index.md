@@ -170,7 +170,6 @@ end 'main'
 ```
 
 <!-- test: a-counter-cast-to-an-index-alias-needs-no-try -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A counter whose interval reaches past the size is narrowed by a cast to an alias inside it: the cast's
 guard holds the value to `Slot`, so the access is proven by the narrower of the two facts.
@@ -180,7 +179,6 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Slot = int(0 to 3) implements ElementIndex
 
 function main() returns ExitCode
@@ -411,7 +409,6 @@ end 'main'
 ```
 
 <!-- test: an-index-whose-range-fits-the-size-needs-no-try -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 An index that is not a constant is proven by its declared range: `Slot` is `int(0 to 3)`, inside a
 `FixedArray with 4`, so the `get` on the parameter is total.
@@ -421,7 +418,6 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Slot = int(0 to 3) implements ElementIndex
 
 function read(v Vec4, at Slot) returns Int
@@ -439,7 +435,6 @@ end 'main'
 ```
 
 <!-- test: a-ranged-index-wider-than-the-size-keeps-its-try -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The CONTROL for the case above: `Wide` is `int(0 to 4)`, which reaches one past a `FixedArray with 4`,
 so the index is not proven, the access keeps its `try`, and the out-of-range value throws at run time.
@@ -449,7 +444,6 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Wide = int(0 to 4) implements ElementIndex
 
 function read(v Vec4, at Wide) returns Int

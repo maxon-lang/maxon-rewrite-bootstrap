@@ -53,14 +53,12 @@ instance in hand.
 ## Tests
 
 <!-- test: associated-binding.constrained-parameter-typed-through-the-binding -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐ **THE RESULT OF A DISPATCH THROUGH A CONSTRAINED TYPE PARAMETER.** `s.current()` returns `Cursor`'s
 associated `Element`; the constraint says this `Cursor` binds it to `E`; so the tuple `(s, s.current())`
 is the declared `(S, E)`, and the function returns it as that type.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -80,7 +78,7 @@ end 'IntCur'
 type Wrap uses S, E where S implements Cursor with E
 	var s as S
 
-	static function create(s S) returns Self
+	static function create(consumes s S) returns Self
 		return Self{s: s}
 	end 'create'
 
@@ -106,7 +104,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.the-constraint-settles-a-disagreement -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **TWO CONFORMERS BIND THE POSITION DIFFERENTLY AND THE DISPATCH IS STILL WELL TYPED.** `IntCur`
 binds `Cursor`'s `Element` to `Integer` and `TextCur` binds it to `String`; the dispatch inside `Wrap`
 names neither, and the constraint's binding types the dispatch. Both instantiations run, through one
@@ -114,7 +111,6 @@ compiled body.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -135,18 +131,18 @@ type TextCur implements Cursor with String
 	var v as String
 
 	static function create(v String) returns Self
-		return Self{v: v}
+		return Self{v: v.clone()}
 	end 'create'
 
 	function current() returns String
-		return self.v
+		return self.v.clone()
 	end 'current'
 end 'TextCur'
 
 type Wrap uses S, E where S implements Cursor with E
 	var s as S
 
-	static function create(s S) returns Self
+	static function create(consumes s S) returns Self
 		return Self{s: s}
 	end 'create'
 
@@ -296,7 +292,6 @@ end 'main'
 ```
 
 <!-- test: error.the-type-argument-binds-the-associated-type-to-something-else -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **A BINDING IS A CLAIM, AND IT IS CHECKED AT THE INSTANTIATION.** `Wrap with (TextCur, Integer)`
 says `TextCur`'s `Cursor` conformance binds `Element` to `Integer`; it binds it to `String`. Admitting
@@ -304,7 +299,6 @@ it would compile one shared body against `Integer` and hand it a `String` confor
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -346,7 +340,6 @@ error E3133: <fragment>:32:11: 'Wrap' constrains type parameter 'S' to 'Cursor w
 ```
 
 <!-- test: error.a-constraint-over-one-files-limit-is-not-met-by-another-files-wider-or-narrower-limit -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The binding is a declaration, not a spelling. `pkg/lib.maxon`'s constraint binds `Element` to its own
@@ -356,7 +349,6 @@ The binding is a declaration, not a spelling. `pkg/lib.maxon`'s constraint binds
 // --- file: pkg/lib.maxon
 typealias Limit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -397,7 +389,6 @@ error E3167: pkg/<fragment>:9:13: exported type 'pkg.Wrap' names unexported type
 ```
 
 <!-- test: error.a-constraint-over-one-files-limit-is-not-met-by-another-files-limit-of-the-same-range -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The same program with both declarations over one range. They are still two declarations, so the binding
@@ -406,7 +397,6 @@ still disagrees, and the exported `Wrap` still names the unmarked `Limit`, which
 // --- file: pkg/lib.maxon
 typealias Limit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -984,7 +974,6 @@ end 'main'
 
 <!-- test: error.an-extension-declared-binding-is-checked-against-the-constraint -->
 <!-- skip: extension headers with type arguments are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A conformance declared by an `extension` is the one `Wrap`'s constraint is checked against, whichever declaration of the type comes first.
 ```maxon
@@ -994,7 +983,6 @@ interface Named
 	function code() returns Integer
 end 'Named'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -1182,7 +1170,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.a-constraint-binding-a-generic-alias-is-met-by-a-conformer-binding-that-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `Wrap`'s constraint binds `Cursor`'s `Element` to the generic-instance alias `Ints`, and `Tick` binds it to
 the same `Ints`. The constraint is read in the declaration sweep, before the alias registries are whole, and
 the conformance after; both name one instance, so the instantiation keeps the claim.
@@ -1191,7 +1178,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Ints = Array with Integer
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'

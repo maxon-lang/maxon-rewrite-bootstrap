@@ -658,7 +658,6 @@ remote-after-drop=0 before=0
 <!-- test: slab-sharding.services-churning-different-size-classes-keep-their-sums -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
 **SIX SERVICES, SIX SIZE CLASSES, ONE ALLOCATOR, FOUR PROCESSORS.** Every refill, every return of an exhausted
 span to its class's list and every scavenge shares the allocator's structures, and a change to how they are
@@ -760,7 +759,6 @@ type Churn
 		let keep = StringArray.create(0)
 		var made = 0 as Tally
 		for k in 0 upto self.population 'make'
-			// TODO: string interpolation format specifiers are not supported in minimaxon
 			let s = "{k:04}:{self.pad}:{k:04}"
 			if not holds(s, key: k, fillByte: self.fillByte, padLength: self.padLength) 'badBuild'
 				self.wrong = self.wrong + 1
@@ -805,7 +803,6 @@ function landsIn(fill String, length Tally, sizeClass HeapBucketIndex) returns b
 	let held = StringArray.create(0)
 	let before = classCount(sizeClass)
 	for k in 0 upto ProbeObjects 'alloc'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		held.push("{k:04}:{pad}:{k:04}")
 	end 'alloc'
 	return classCount(sizeClass) >= before + (held.count() as HeapCount)
@@ -880,7 +877,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800
 <!-- test: slab-sharding.the-same-churn-keeps-its-sums-while-another-service-scavenges -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
 **THE CHURN OF THE CASE ABOVE, WITH THE SCAVENGER RUNNING UNDER IT.** The same six services, the same six
 size classes (8, 19, 33, 44, 54 and 67) and the same checks, plus a seventh service that calls
@@ -960,7 +956,6 @@ type Churn
 		let keep = StringArray.create(0)
 		var made = 0 as Tally
 		for k in 0 upto self.population 'make'
-			// TODO: string interpolation format specifiers are not supported in minimaxon
 			let s = "{k:04}:{self.pad}:{k:04}"
 			if not holds(s, key: k, fillByte: self.fillByte, padLength: self.padLength) 'badBuild'
 				self.wrong = self.wrong + 1
@@ -1083,7 +1078,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800 sweeps=360
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
 **THE CONTROL FOR SAME-LIST CONTENTION: SIX SERVICES, ONE SIZE CLASS.** The ring and the checks of the first
 case, with every service building 1000-byte pads: all six allocate from class 33 (1152-byte slots, 7 to a
@@ -1164,7 +1158,6 @@ type Churn
 		let keep = StringArray.create(0)
 		var made = 0 as Tally
 		for k in 0 upto self.population 'make'
-			// TODO: string interpolation format specifiers are not supported in minimaxon
 			let s = "{k:04}:{self.pad}:{k:04}"
 			if not holds(s, key: k, fillByte: self.fillByte, padLength: self.padLength) 'badBuild'
 				self.wrong = self.wrong + 1
@@ -1209,7 +1202,6 @@ function landsIn(fill String, length Tally, sizeClass HeapBucketIndex) returns b
 	let held = StringArray.create(0)
 	let before = classCount(sizeClass)
 	for k in 0 upto ProbeObjects 'alloc'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		held.push("{k:04}:{pad}:{k:04}")
 	end 'alloc'
 	return classCount(sizeClass) >= before + (held.count() as HeapCount)
@@ -1282,7 +1274,6 @@ total built=261792000 absorbed=130896000 wrong=0 rounds=261792000
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums-while-another-service-scavenges -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
 **THE TWO CASES ABOVE, JOINED: SIX SERVICES ON ONE SIZE CLASS, A SEVENTH SCAVENGING UNDER THEM.** The ring, the
 pads and the checks of the one-class case (all six build 1000-byte pads in class 33, each hands every second
@@ -1371,7 +1362,6 @@ type Churn
 		let keep = StringArray.create(0)
 		var made = 0 as Tally
 		for k in 0 upto self.population 'make'
-			// TODO: string interpolation format specifiers are not supported in minimaxon
 			let s = "{k:04}:{self.pad}:{k:04}"
 			if not holds(s, key: k, fillByte: self.fillByte, padLength: self.padLength) 'badBuild'
 				self.wrong = self.wrong + 1
@@ -1437,7 +1427,6 @@ function landsIn(fill String, length Tally, sizeClass HeapBucketIndex) returns b
 	let held = StringArray.create(0)
 	let before = classCount(sizeClass)
 	for k in 0 upto ProbeObjects 'alloc'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		held.push("{k:04}:{pad}:{k:04}")
 	end 'alloc'
 	return classCount(sizeClass) >= before + (held.count() as HeapCount)

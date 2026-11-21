@@ -627,11 +627,9 @@ live. The box is in flight to the handler, so the throw edge drops every owner e
 handler adopts the box once.
 
 <!-- test: routed-throw-of-a-bound-box-releases-the-owners-around-it -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Index = int(0 to 255)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Failure implements Error
 	detail(message String)
 	code(value Index)

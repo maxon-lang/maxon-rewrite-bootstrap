@@ -49,7 +49,6 @@ is confined and nothing there moves.
 ## Tests
 
 <!-- test: generic-hash-table-regalloc.rehash-loop-forwards-hidden-parameters -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 The reproducer, and the reason this file exists. `Tbl.grow`'s rehash loop holds 16 GPR values at
 one op against a pool of 14; two of them are the `Hashable` and `Equatable` witness parameters,
@@ -64,7 +63,6 @@ subject here is the ALLOCATION, and the two accessors pin that the function stil
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Cap = int(0 to u64.max) implements ElementIndex
 
 enum SlotState

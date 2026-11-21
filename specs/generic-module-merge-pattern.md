@@ -16,13 +16,10 @@ Exercises the full IrModule pattern from the self-hosted compiler: a generic typ
 ### Generic module merge with ops and list iteration
 
 <!-- test: generic-module-merge -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Count = int(0 to u64.max) implements ElementIndex
 
 typealias Integer = int(i64.min to i64.max)
@@ -54,7 +51,6 @@ end 'Block'
 
 typealias BlockArray = Array with Block
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Mergeable uses Func
 	function opCount() returns Count
 	function appendOps(mutates self, source Self)

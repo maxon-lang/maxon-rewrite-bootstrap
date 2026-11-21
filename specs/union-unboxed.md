@@ -329,10 +329,8 @@ end 'main'
 ```
 
 <!-- test: an-error-union-keeps-its-box -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A union that implements `Error` is thrown by its box pointer, so it stays boxed and still carries its payload.
 ```maxon
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Failure implements Error
 	none
 	because(reason String)
@@ -345,7 +343,7 @@ end 'risky'
 function main() returns ExitCode
 	try risky() otherwise (e) 'caught'
 		return match e 'kind'
-			because(reason) gives reason.byteLength() as ExitCode
+			because(reason) gives try reason.byteLength() as ExitCode otherwise panic("out of range")
 			none gives 0
 		end 'kind'
 	end 'caught'

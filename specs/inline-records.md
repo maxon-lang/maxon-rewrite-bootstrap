@@ -154,19 +154,15 @@ false 0 0 0 0
 ```
 
 <!-- test: inline-records.bits-alias-field -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 Four `bits(n)` fields sum to 56 bits, so `Packed` is one word and the exit code is 8; a four-slot heap
 record would exit with its size instead. The two wide fields carry every bit set, so a field read
 that sign-extended or masked short would print the wrong number.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Nib4 = bits(4)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word32 = bits(32)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Half16 = bits(16)
 
 type Packed
@@ -579,12 +575,10 @@ end 'main'
 ```
 
 <!-- test: inline-records.sixty-five-bits-stays-a-heap-record -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 CONTROL: 64 bits plus one is past the word, and the bound is the SUM rather than any single field, so a
 whole-word pattern beside a single flag stays a heap record.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 type Flagged
@@ -894,13 +888,11 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-sole-whole-word-field -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 CONTROL: one 64-bit field is the whole word, so the literal is the field's own value retagged and the read
 is the word unmasked — the two branches a multi-field record never reaches. Every bit is set, so a read
 that masked, shifted or sign-extended would print a different number.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 type Handle

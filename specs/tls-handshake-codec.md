@@ -50,7 +50,6 @@ in the case and compared byte for byte. Every one of the 115 canra vectors has a
 
 <!-- test: tls-handshake-codec.decode-rfc8448 -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `TlsHandshakeCodec.decode` of the 20 handshake messages printed in RFC 8448. A line prints the message as the canra JSON object.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -78,7 +77,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -302,7 +300,6 @@ decode-rfc8448-4-client-client-hello-psk {"msg_type":1,"legacy_version":771,"ran
 
 <!-- test: tls-handshake-codec.decode-openssl-and-generated -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `TlsHandshakeCodec.decode` of the messages OpenSSL 3.0.13 produced, the reference client's and server's messages and the short messages built by hand (29 vectors). A line prints the message as the canra JSON object.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -330,7 +327,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -572,7 +568,6 @@ decode-unknown-extension-in-client-hello {"msg_type":1,"legacy_version":771,"ran
 
 <!-- test: tls-handshake-codec.decode-errors-1 -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `TlsHandshakeCodec.decode` of the first 29 malformed messages, each a single defect in an otherwise valid message. A line prints the `TlsCodecError` and the alert code point it names.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -600,7 +595,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -835,7 +829,6 @@ decode-err-029 decodeError 50
 
 <!-- test: tls-handshake-codec.decode-errors-2 -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `TlsHandshakeCodec.decode` of the remaining 29 malformed messages. A line prints the `TlsCodecError` and the alert code point it names.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -863,7 +856,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1097,7 +1089,6 @@ decode-err-058 illegalParameter 47
 ```
 
 <!-- test: tls-handshake-codec.encode -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `TlsHandshakeCodec.encode` of 8 messages built with the typed constructors. A line prints the encoded message.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1125,7 +1116,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

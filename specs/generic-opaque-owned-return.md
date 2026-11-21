@@ -215,9 +215,7 @@ the same reason it is owned in a generic type's own method.
 
 <!-- test: opaque-owned-return-from-an-interface-extension -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Item
 	function get() returns Item
 end 'Holder'

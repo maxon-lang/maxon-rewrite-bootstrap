@@ -6030,7 +6030,6 @@ error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), bu
 
 <!-- test: error.a-wrong-arity-extension-alias-every-conformer-overrides-still-reports-the-arity-error -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface extension's alias is refused for its arity where it is written, even when every conformer declares its
 own member of that name and so the extension's alias is never what a conformer reads.
@@ -6042,7 +6041,6 @@ type Pair uses A, B
 	export var second as B
 end 'Pair'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Container uses Item
 	function only() returns Item
 end 'Container'
@@ -6077,7 +6075,6 @@ error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), b
 <!-- test: error.a-wrong-arity-alias-in-a-conditional-extension-no-conformer-meets-reports-the-arity-error -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal when the alias sits in a conditional extension whose `where` clause no conformer meets: the alias is
 judged where it is written, whether or not any conformer ever reads it.
@@ -6089,7 +6086,6 @@ type Pair uses A, B
 	export var second as B
 end 'Pair'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Container uses Item
 	function only() returns Item
 end 'Container'
@@ -6131,7 +6127,6 @@ error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), b
 
 <!-- test: error.a-wrong-arity-alias-in-an-extension-of-an-interface-nothing-implements-reports-the-arity-error -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal when nothing implements the extended interface at all.
 ```maxon
@@ -6140,7 +6135,6 @@ type Pair uses A, B
 	export var second as B
 end 'Pair'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Container uses Item
 	function only() returns Item
 end 'Container'

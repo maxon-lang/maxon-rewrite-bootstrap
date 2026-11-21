@@ -346,7 +346,6 @@ end 'main'
 ```
 
 <!-- test: the-process-seed-differs-between-processes -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Each process draws its own seed at startup, so the digest of one message differs from one process to the
 next. The program re-executes itself three times and each child prints the digest of a fixed message under
@@ -358,7 +357,6 @@ environment would otherwise hand every child the one seed. Not on `wasm32-wasi`,
 is refused at compile time (`subprocess-unsupported.md`).
 ```maxon
 function spelled(hash HashValue) returns String
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	return "{hash:08x}"
 end 'spelled'
 
@@ -403,7 +401,6 @@ not all equal: true
 
 <!-- test: each-tier-is-its-own-hash -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 `MAXON_HASH_TIER` forces the tier, so every tier is exercised on every host. The parent draws one seed and
@@ -440,7 +437,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -450,7 +446,6 @@ function child() returns ExitCode
 	let hex = try Process.environmentVariable("SEED") otherwise return 3
 	let seed = try HashSeed.fromBytes(fromHex(hex)) otherwise return 4
 	let digest = KeyedHasher.combinedBytes(KeyedHasher.empty(seed), bytes: "each tier is its own hash".toByteArray())
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{digest:016x}\n")
 	return 0
 end 'child'
@@ -534,7 +529,6 @@ an empty tier is the best tier: true
 ```
 
 <!-- test: an-unknown-tier-is-refused -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `MAXON_HASH_TIER` that names no tier is refused before `main`: the child writes nothing to stdout, one
 line to stderr and exits 1. Silently falling back to the best tier would hide a misspelt setting. The program
@@ -544,7 +538,6 @@ subprocess band is refused at compile time.
 function main() returns ExitCode
 	if CommandLine.args().count() > 1 'iAmTheChild'
 		if CommandLine.args().count() > 8 'neverReached'
-			// TODO: string interpolation format specifiers are not supported in minimaxon
 			print("{"abc".hash():08x}\n")
 		end 'neverReached'
 		print("main ran\n")
@@ -574,7 +567,6 @@ child exit=1
 ```
 
 <!-- test: a-pinned-seed-is-the-process-seed-in-every-process -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `MAXON_HASH_SEED` set to 16 hexadecimal digits is the process seed instead of a random draw: the digits are
 read as the seed's 8 bytes in order, upper case as well as lower. The program re-executes itself with the
@@ -589,7 +581,6 @@ function child() returns ExitCode
 	let hasher = Hasher.create()
 	hasher.combineBytes("abc".toByteArray())
 	let folded = hasher.finalize()
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{folded:08x}\n{folded == "abc".hash()}\n")
 	return 0
 end 'child'
@@ -633,7 +624,6 @@ another seed, another hash: true
 ```
 
 <!-- test: a-malformed-seed-is-refused -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `MAXON_HASH_SEED` that is not exactly 16 hexadecimal digits is refused before `main`: the child writes
 nothing to stdout, one line to stderr and exits 1. Reading a short value as a partial seed would pin a seed
@@ -643,7 +633,6 @@ child did. Not on `wasm32-wasi`, where the subprocess band is refused at compile
 function main() returns ExitCode
 	if CommandLine.args().count() > 1 'iAmTheChild'
 		if CommandLine.args().count() > 8 'neverReached'
-			// TODO: string interpolation format specifiers are not supported in minimaxon
 			print("{"abc".hash():08x}\n")
 		end 'neverReached'
 		print("main ran\n")
@@ -673,7 +662,6 @@ child exit=1
 ```
 
 <!-- test: an-unknown-tier-is-refused-by-the-environment -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- env: MAXON_HASH_TIER=fast -->
 The same refusal on every lane, `wasm32-wasi` included: the harness launches the program itself with
 `MAXON_HASH_TIER=fast`, so `main` never runs, stdout is empty, stderr holds the one line and the exit code is 1.
@@ -682,7 +670,6 @@ hash runtime validates both variables before `main`, whether or not it reaches a
 ```maxon
 function main() returns ExitCode
 	if CommandLine.args().count() > 8 'neverReached'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		print("{"abc".hash():08x}\n")
 	end 'neverReached'
 	print("main ran\n")
@@ -697,7 +684,6 @@ MAXON_HASH_TIER=fast is not a hash tier: expected aes or software
 ```
 
 <!-- test: the-sha-tier-is-refused-like-any-unknown-tier -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- env: MAXON_HASH_TIER=sha -->
 There is no `sha` tier: the name is refused exactly as `fast` is, on every lane and on every host whatever
 instructions its CPU has. `main` never runs, stdout is empty, stderr holds the one line naming the value and
@@ -705,7 +691,6 @@ the two tiers there are, and the exit code is 1.
 ```maxon
 function main() returns ExitCode
 	if CommandLine.args().count() > 8 'neverReached'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		print("{"abc".hash():08x}\n")
 	end 'neverReached'
 	print("main ran\n")
@@ -794,7 +779,6 @@ error E3004: <fragment>:3:22: call to undefined function 'HashSeed.process'
 ```
 
 <!-- test: the-software-tier-is-one-function-on-every-target -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
 <!-- env: MAXON_HASH_TIER=software -->
 The `software` tier is one function on every target: one seed and one sequence of steps reach one digest on
@@ -817,16 +801,12 @@ function main() returns ExitCode
 	let processFold = Hasher.create()
 	processFold.combineBytes(message)
 	processFold.combine(0x0123456789ABCDEF)
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("process fold: {processFold.finalize():08x}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("abc: {"abc".hash():08x}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("array: {IntegerList from [1, 2, 3, 4, 5].hash():08x}\n")
 	let seededFold = KeyedHasher.create(explicit)
 	seededFold.combineBytes(message)
 	seededFold.combine(0x0123456789ABCDEF)
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("seeded fold: {seededFold.finalize():016x}\n")
 	return 0
 end 'main'
@@ -842,7 +822,6 @@ seeded fold: aad21b3d9e3c1ee5
 ```
 
 <!-- test: the-aes-tier-is-refused-on-wasm -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 <!-- env: MAXON_HASH_TIER=aes -->
 The best tier on `wasm32-wasi` is software, so forcing `aes` there names a tier the host cannot run: `main`
@@ -851,7 +830,6 @@ pinned, because on a native lane whether `aes` is available is a property of the
 ```maxon
 function main() returns ExitCode
 	if CommandLine.args().count() > 8 'neverReached'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		print("{"abc".hash():08x}\n")
 	end 'neverReached'
 	print("main ran\n")
@@ -1312,7 +1290,6 @@ another boundary differs: true
 ```
 
 <!-- test: a-process-fold-finalizes-to-a-hash-value -->
-<!-- skip: minimaxon does not parse the converted source: format specifiers are not supported by minimaxon -->
 `Hasher.finalize()` returns the type `String.hash()` returns, `HashValue`: a function that takes a `HashValue`
 accepts it with no cast, the value is the hash a `String` of the same bytes answers, and it is at most 8
 hexadecimal digits wide.
@@ -1493,7 +1470,6 @@ error E3036: <fragment>:3:26: 'KeyedHasher.empty' expects 1 argument(s) but 0 we
 ```
 
 <!-- test: a-pinned-process-draws-the-same-random-seeds-on-every-run -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Under a pinned `MAXON_HASH_SEED`, the n-th `HashSeed.random()` of a process is the same on every run: the pin
 fixes the whole sequence a process draws, not one value. The program re-executes itself twice with one pin,
@@ -1508,7 +1484,6 @@ let SpelledSeedLength = 17
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1553,7 +1528,6 @@ the two runs drew one sequence: true
 ```
 
 <!-- test: one-pin-draws-the-same-random-seeds-on-every-tier -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 The sequence a pin fixes does not depend on the hash tier: one pin draws the same `HashSeed.random()` seeds under
@@ -1571,7 +1545,6 @@ let SpelledSeedLength = 17
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1625,7 +1598,6 @@ the tiers drew one sequence: true
 ```
 
 <!-- test: two-pins-draw-different-random-seeds -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Two pins fix two sequences: a process pinned to `0123456789abcdef` and one pinned to `fedcba9876543210` draw
 different `HashSeed.random()` seeds, the first draw already. The program re-executes itself once per pin, and
@@ -1639,7 +1611,6 @@ let SpelledSeedLength = 17
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1690,7 +1661,6 @@ the sequences differ: true
 ```
 
 <!-- test: every-random-seed-call-is-a-draw -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Every `HashSeed.random()` call is a draw, so the compiler neither merges two calls nor drops one whose result
 is discarded. The program re-executes itself three times. Two children run under one pin: the first prints
@@ -1706,7 +1676,6 @@ let SpelledDrawLength = 16
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1821,7 +1790,6 @@ no draw keys the process fold: true
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
 Under a pin the n-th draw of a process is the n-th seed of the pin's sequence, and the n is one counter the whole
@@ -1850,7 +1818,6 @@ let SpelledSeedLength = 16
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

@@ -1844,7 +1844,7 @@ function pick(k Count) returns Count
 		1 then r = try risky(k) otherwise break
 		default then r = 50
 	end 'check'
-	return r + 1
+	return try r + 1 otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode

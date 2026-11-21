@@ -113,14 +113,10 @@ serverError=500
 ### Float-Backed Enum
 
 <!-- test: enum-allcases.float-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Threshold
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	low = 0.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	medium = 0.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 
@@ -140,14 +136,10 @@ end 'main'
 
 <!-- test: enum-allcases.string-backed -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum ContentType
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	json = "application/json"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	html = "text/html"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	plain = "text/plain"
 end 'ContentType'
 
@@ -173,16 +165,12 @@ text/plain
 <!-- test: enum-allcases.char-backed -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	a = 'A'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	b = 'B'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	c = 'C'
 end 'Grade'

@@ -90,13 +90,11 @@ encode-012 [AA==]
 ```
 
 <!-- test: base64.decode -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The texts `encode` produces for the same inputs decode back to them.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -153,13 +151,11 @@ decode-012 [00]
 ```
 
 <!-- test: base64.decode-refuses-what-encode-cannot-produce -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Missing padding and bad lengths, whitespace, URL-safe and non-ASCII symbols, misplaced and excess padding, and non-zero pad bits, each with the one error the check order gives it.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

@@ -109,7 +109,6 @@ end 'main'
 ```
 
 <!-- test: existential.cursor-protocol-inherited -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 The protocol reaches the existential through `extends`. `Counted` declares only `size()`; `current()` and
 `advance()` are `Seq`'s, and the loop finds them because the requirement list is transitive.
 ```maxon
@@ -120,7 +119,6 @@ interface Seq
 	function advance(mutates self) throws IterationError
 end 'Seq'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Counted extends Seq
 	function size() returns Integer
 end 'Counted'
@@ -493,7 +491,6 @@ error E2015: <fragment>:30:2: Unsupported: `for … in` over a value dispatched 
 ```
 
 <!-- test: error.ambiguous-protocol-requirement -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 ⚠ **THE LOOP MAY NOT SILENTLY PICK A SLOT THE WRITTEN CALL REFUSES TO PICK.** `Derived extends Base` and both
 declare a zero-argument `current()`, so the dispatch has TWO table slots and nothing to choose by — which is
@@ -508,7 +505,6 @@ interface Base
 	function advance(mutates self) throws IterationError
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Derived extends Base
 	function current() returns Integer
 end 'Derived'

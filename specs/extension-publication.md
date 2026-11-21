@@ -598,7 +598,6 @@ end 'main'
 <!-- test: a-type-extension-conformance-satisfies-a-conditional-interface-extension -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `extension HasItems where Element is Sizer` is available on a conformer that binds `Element` to `Tag`.
 ```maxon
 interface Sizer
@@ -619,7 +618,6 @@ extension Tag implements Sizer
 	end 'size'
 end 'Tag'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface HasItems uses Element
 	function current() returns Element
 end 'HasItems'

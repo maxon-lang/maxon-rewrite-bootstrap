@@ -131,14 +131,11 @@ error E3005: <fragment>:16:10: argument type mismatch for 'r': expected 'Row', g
 ```
 
 <!-- test: two-aliases-infer-their-nearest-common-ancestor -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias Distance = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Meters = int(0 to 100) implements Distance
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Feet = int(0 to 300) implements Distance
 
 function larger(a T, b T) uses T returns T
@@ -155,7 +152,7 @@ end 'takesDistance'
 function main() returns ExitCode
 	let m = 40 as Meters
 	let f = 120 as Feet
-	print("{takesDistance(larger(m, b: f))}\n")
+	print("{takesDistance(larger(m, b: f as Meters))}\n")
 	return 0
 end 'main'
 ```
@@ -164,15 +161,12 @@ end 'main'
 ```
 
 <!-- test: error.the-common-ancestor-is-neither-argument -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Distance = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Meters = int(0 to 100) implements Distance
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Feet = int(0 to 300) implements Distance
 
 function larger(a T, b T) uses T returns T
@@ -1526,11 +1520,9 @@ dark
 
 <!-- test: a-generic-in-another-file-quotes-the-callers-file-private-stringable-type -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 // --- file: l.maxon
 function describe(a T) uses T returns String
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	return "{a:q}"
 end 'describe'
 

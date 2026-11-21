@@ -34,13 +34,11 @@ block with its label and bytes.
 ## Tests
 
 <!-- test: pem.decode -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The RFC 7468 figures, CRLF line endings, no final line break, two blocks with text around them, one long body line, many short ones, whitespace in the body and after the boundaries, an empty body, an empty label, no blocks, and a malformed BEGIN line and a stray END line read as text.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -123,13 +121,11 @@ decode-016 "DATA" [000102]
 ```
 
 <!-- test: pem.decode-errors -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A missing END line, a BEGIN line inside a block, an END line naming another label, the label in another case, or with four hyphens, RFC 1421 header lines, and bodies that are not strict base64.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -372,7 +368,6 @@ encode-err-006 invalidLabel
 ```
 
 <!-- test: pem.decode-of-encode-gives-back-the-block -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Pem.decode` of what `Pem.encode` writes is one block with the label and bytes that went in: an empty body, a one-byte body under a hyphenated label, three bytes under the empty label, and a 100-byte body that spans three lines.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -400,7 +395,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

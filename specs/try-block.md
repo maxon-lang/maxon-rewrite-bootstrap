@@ -510,14 +510,12 @@ end 'main'
 ```
 
 <!-- test: try-block.single-enum-assoc-value -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A try block whose only throwing-error enum has associated values: the binding `e` is
 the typed enum, and pattern bindings extract the payload via the legacy single-enum
 match path.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 end 'ErrA'
@@ -547,14 +545,13 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-success -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Multi-member error union with one assoc-value member: the assoc member throws,
 the case-binding extracts the payload, and the heap object is freed via the
 per-arm typed-enum binding's scope-end decref. No leak.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 end 'ErrA'
@@ -597,13 +594,12 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-second-error -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Multi-member error union: the simple-enum sibling throws (not the assoc-value
 member). The simple match arm fires, no heap object exists to leak.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 end 'ErrA'
@@ -646,13 +642,12 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-success-path -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Multi-member error union: no calls throw, otherwise body is skipped. Sanity
 check that the try-block construct doesn't leak when nothing happens.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 end 'ErrA'
@@ -695,7 +690,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-default -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Multi-member error union with a `default panic` arm: the assoc-value member
 throws but the user only covers the simple-enum case. Default fires; pre-default
 cleanup block decrefs the heap pointer (incref-then-decref pair to balance the
@@ -703,7 +698,6 @@ rc=0 at delivery → free). No leak, no underflow before the panic.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 end 'ErrA'
@@ -752,14 +746,13 @@ Stack trace:
 ```
 
 <!-- test: try-block.multi-union-assoc-discard-bindings -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Multi-member error union: assoc-value case matched without payload bindings
 (`EnumName.case` form, no parens). Heap object is still freed via the per-arm
 typed-enum binding's scope-end decref.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 end 'ErrA'
@@ -802,7 +795,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-multiple-payloads -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Multi-member error union with an assoc-value member carrying TWO payloads. Both
 bindings extract correctly.
 ```maxon
@@ -810,7 +803,6 @@ typealias Score = int(0 to 1000)
 
 typealias Msg = int(0 to 100)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score, msg Msg)
 end 'ErrA'
@@ -853,7 +845,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-mixed-bindings -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Mix assoc-value and bare patterns of the same enum (different cases) in one
 union match. The discard-binding case still gets its heap object freed.
 ```maxon
@@ -861,7 +853,6 @@ typealias Score = int(0 to 1000)
 
 typealias Sel = int(0 to 2)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 	worse(level Score)
@@ -909,7 +900,7 @@ end 'main'
 ```
 
 <!-- test: error.try-block-multi-union-assoc-wrong-binding-count -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 Wrong binding count on an error-union assoc-value pattern: error E3035 fires.
 ```maxon
@@ -917,7 +908,6 @@ typealias Score = int(0 to 1000)
 
 typealias Msg = int(0 to 100)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score, msg Msg)
 end 'ErrA'
@@ -1387,7 +1377,7 @@ function classify(r Num) returns Num
 		end 'm'
 	end 'blk' otherwise (e) 'h'
 		match e 'k'
-			tooBig(limit) then out = limit - 499
+			tooBig(limit) then out = try limit - 499 otherwise panic("out of range")
 		end 'k'
 	end 'h'
 	return out
@@ -1396,8 +1386,8 @@ end 'classify'
 function main() returns ExitCode
 	var total = 0 as Num
 	total = total + classify(3)
-	total = total + classify(4)
-	total = total + classify(900)
+	total = try total + classify(4) otherwise panic("out of range")
+	total = try total + classify(900) otherwise panic("out of range")
 	return total
 end 'main'
 ```
@@ -1523,14 +1513,13 @@ error E2008: <fragment>:14:2: Mismatched end label: expected 'work', got 'job'
 ```
 
 <!-- test: try-block.or-arm-joins-cases-of-two-error-types -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 An arm of a combined error's `match` joins cases with `or`, across error types as well as within one. `ErrA`
 is a union, so its error arrives as a box: the arm naming both types cannot keep it, and releases it on the
 path where `ErrA` is the error in flight — a leak exits 101, a double release faults.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 	worse
@@ -1589,14 +1578,13 @@ end 'main'
 ```
 
 <!-- test: error.try-block-or-arm-within-one-union-member-reads-a-payload-one-alternative-lacks -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 An arm whose alternatives all belong to one error type is held to the ordinary `or`-arm rule: `worse` binds
 nothing at slot 0, so on its path the body would read a `code` no pattern bound, and the arm is refused.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 	worse
@@ -1651,13 +1639,12 @@ error E3129: <fragment>:43:13: the payload binding 'code' cannot be honoured: ca
 
 
 <!-- test: try-block.split-arms-within-one-union-member-bind-their-payload -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Alternatives of one error type that disagree about a payload take an arm each, and the arm that names `bad` binds
 its `code`.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 	worse
@@ -1715,14 +1702,13 @@ end 'main'
 ```
 
 <!-- test: error.try-block-or-arm-across-error-types-binds-a-payload -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 An arm naming cases of two error types cannot bind a payload: `ErrB.splat` is an enum ordinal, not a box with a
 slot 0. The refusal names `code`, the binding that reads, rather than the `_` before it.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(note Score, code Score)
 end 'ErrA'
@@ -1759,7 +1745,7 @@ error E3129: <fragment>:30:16: the payload binding 'code' cannot be honoured: th
 ```
 
 <!-- test: try-block.fallthrough-between-arms-of-a-boxed-error-member -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 `and fallthrough` between arms of a combined error's `match` releases a boxed member's error exactly once on
 every path: out of the arm that named it into an arm naming several types or into a `default throws`, and
 from an arm of another type into the arm that names it. A leak exits 101; a double release, or a release of
@@ -1767,7 +1753,6 @@ an enum's ordinal as though it were a box, faults.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(code Score)
 	worse
@@ -1880,14 +1865,13 @@ end 'main'
 ```
 
 <!-- test: error.try-block-combined-error-matched-again-inside-an-arm-naming-several-types -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A `match e` inside an arm of the `match e` that already ran is a second match on that path: the arm naming
 several error types released the box as it was entered, so the inner arm would read a released box.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 	worse
@@ -1947,14 +1931,13 @@ error E3161: <fragment>:44:28: 'e' may hold a boxed error, which only the arm of
 ```
 
 <!-- test: error.try-block-combined-error-matched-again-inside-a-boxed-member-arm -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A second `match e` inside the arm that keeps one boxed error type's box is refused too, though that arm still
 holds the box: the inner match's arms release boxes of their own.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 	worse
@@ -2005,13 +1988,12 @@ error E3161: <fragment>:35:25: 'e' may hold a boxed error, which only the arm of
 ```
 
 <!-- test: try-block.fallthrough-chain-through-a-boxed-members-payload-arm -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 A chain of `and fallthrough` arms over a combined error, starting at an arm that moves a boxed member's `String`
 payload out, releases that box once on every path, and each later arm's own dispatch edge releases its own.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 	worse(note String)
@@ -2080,14 +2062,13 @@ sum 11
 ```
 
 <!-- test: error.try-block-combined-error-matched-twice-in-sequence -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 Two `match e` statements in sequence match one combined error twice on one path, and the first already
 released the box.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2140,14 +2121,13 @@ error E3161: <fragment>:42:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-on-one-path-only -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A combined error matched on only one path through its handler is never released on the other, so the join
 the two paths reach is refused.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2198,14 +2178,13 @@ error E3161: <fragment>:37:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-inside-a-loop -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A `match e` inside a loop the handler opened runs once per iteration — never, if the loop does not run, and
 again on a box the first iteration released if it runs twice.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2252,13 +2231,12 @@ error E3161: <fragment>:34:4: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-returns-before-its-match -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A `return` that leaves the handler before its `match e` never releases a boxed error in flight.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2306,14 +2284,13 @@ error E3161: <fragment>:34:4: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-breaks-out-before-its-match -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A `break` out of a loop around the whole `try` leaves the handler too, and before its `match e` it never releases
 a boxed error in flight.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2359,14 +2336,13 @@ error E3161: <fragment>:35:5: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: try-block.combined-error-matched-once-after-other-statements -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 A handler over a combined error with a boxed member may do other work before its one `match e` — a nested
 `try` block, an `if` — and may match `e` on each arm of an `if`/`else`, which is one match per path. Every path
 releases the box exactly once: a leak exits 101, a double release faults.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2449,14 +2425,13 @@ sum 11
 ```
 
 <!-- test: error.try-block-combined-error-matched-on-the-right-of-and -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A `match e` on the right of `and` runs only when the left is true, so the path that skips it leaves the handler
 without having matched `e`.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2503,13 +2478,12 @@ error E3161: <fragment>:33:25: 'e' may hold a boxed error, which only the arm of
 ```
 
 <!-- test: error.try-block-combined-error-matched-in-a-while-condition -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A `match e` in a `while` condition runs on every trip, so a second trip matches a box the first released.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2556,14 +2530,13 @@ error E3161: <fragment>:33:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-between-two-calls-of-an-inner-try -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 A `match e` between two throwing calls of a `try` block inside the handler is matched on the second call's
 error path and not on the first's, which reach the inner handler together.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2628,14 +2601,13 @@ error E3161: <fragment>:45:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-in-an-arm-another-arm-falls-from -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 An `and fallthrough` arm reached both from an arm that matched `e` and straight from the dispatch arrives with
 `e` matched on one edge and not on the other.
 ```maxon
 typealias Score = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union ErrA implements Error
 	bad(msg String)
 end 'ErrA'
@@ -2905,11 +2877,10 @@ end 'main'
 ```
 
 <!-- test: an-error-union-binding-read-after-a-boxed-arm-is-the-flag -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -2964,11 +2935,10 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-inside-a-boxed-arm-is-the-member -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3024,11 +2994,10 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-copied-into-a-var-after-a-boxed-arm -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3084,11 +3053,10 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-copied-into-a-var-reassigned-on-one-path -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3146,11 +3114,10 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-copies-into-a-var -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3206,11 +3173,10 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-assigned-to-an-outer-var-after-a-boxed-arm -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3265,11 +3231,10 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-given-by-an-arm-after-a-boxed-arm -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3322,13 +3287,12 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-a-boxed-arm-does-not-see-the-handlers-error-union -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
 typealias Measure = function() returns Tally
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3392,13 +3356,12 @@ inArm 1 7 3
 ```
 
 <!-- test: a-closure-in-a-scalar-arm-does-not-see-the-handlers-error-union -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
 typealias Measure = function() returns Tally
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3463,7 +3426,7 @@ inArm 50 1 3
 ```
 
 <!-- test: a-closure-in-a-boxed-arm-captures-the-member -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3471,7 +3434,6 @@ typealias Reader = function() returns String
 
 typealias TextArray = Array with String
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'
@@ -3544,11 +3506,10 @@ captured 5 7 5 2
 ```
 
 <!-- test: a-payload-binding-named-like-the-handlers-error-in-a-boxed-arm -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxErr implements Error
 	boxed(text String)
 end 'BoxErr'

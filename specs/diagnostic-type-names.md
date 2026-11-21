@@ -322,10 +322,8 @@ error E2004: <fragment>:10:22: Cannot operate on Array with float(0 to 1) and in
 
 <!-- test: error.an-instance-over-a-bit-pattern-names-its-width -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Hash = bits(64)
 
 function seed() returns Hash

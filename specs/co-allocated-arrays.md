@@ -22,11 +22,9 @@ the window into a new array, so a view cannot outlive the allocation its bytes l
 ## Tests
 
 <!-- test: a-fixed-array-is-one-allocation-and-one-free -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `Planes.create()` allocates once and the drop frees once.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -61,12 +59,10 @@ end 'main'
 ```
 
 <!-- test: a-fixed-array-above-256-bytes-is-one-allocation -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A fixed array created by `create()` never grows, so its buffer shares its record's allocation at 512 bytes as it
 does at 64.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -141,11 +137,9 @@ end 'main'
 ```
 
 <!-- test: a-recycled-fixed-array-reads-zero-at-a-slab-class-and-past-the-slabs -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A freed fixed array's allocation is handed to the next creation. At 400 bytes it is a slab class and at 40000 bytes
 it is an operating-system mapping; either way the new array must not see the old one's elements.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Cells = FixedArray with Word
@@ -193,13 +187,11 @@ end 'main'
 ```
 
 <!-- test: a-clone-and-a-slice-of-a-large-fixed-array-copy-their-window -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A clone of a record holding a fixed array, and a slice of the fixed array, copy rather than view, at 400 bytes and at
 40000: writing or clearing either side leaves the other alone, and the slice outlives the array it was cut from.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Cells = FixedArray with Word
@@ -210,6 +202,7 @@ extension FixedArray
 		let window = try managed.slice(start, stop) otherwise panic("slice")
 		return window.length() as ElementIndex
 	end 'windowCount'
+
 	function clearedWindowLeavesTheArray(start ElementIndex, stop ElementIndex) returns bool
 		let window = try managed.slice(start, stop) otherwise panic("slice")
 		let before = managed.length()
@@ -265,11 +258,9 @@ end 'main'
 ```
 
 <!-- test: a-published-large-fixed-array-is-copied-before-it-is-written -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A fixed array published through a `SharedValue` is frozen at 400 bytes and at 40000: a reader that wants to write
 copies it first, and the published one keeps its elements.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Cells = FixedArray with Word
@@ -316,14 +307,12 @@ end 'main'
 <!-- test: a-large-fixed-array-crosses-to-a-service-and-is-written-there -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A move proves the record sole, so a fixed array of 400 bytes or of 40000 crosses to a service with its elements, the
 service writes it in place, and it is released there once.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Cells = FixedArray with Word
@@ -371,12 +360,10 @@ end 'main'
 ```
 
 <!-- test: a-recycled-co-allocated-array-reads-zero -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A freed array's box is handed to the next creation; the new array must not see the old one's elements, in the
 buffer or in the record.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -968,7 +955,6 @@ end 'main'
 
 <!-- test: a-co-allocated-array-crosses-to-a-service-and-is-released-there -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -976,7 +962,6 @@ end 'main'
 A move proves the record sole and detaches it; a co-allocated buffer is already private, so the record crosses with
 its elements and the service releases it once.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -1024,10 +1009,8 @@ end 'main'
 ```
 
 <!-- test: the-co-allocation-limit-is-256-bytes-of-words -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 32 words, 256 bytes, are one allocation; one word more is two.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Planes = Array with Word
@@ -1236,12 +1219,10 @@ end 'main'
 ```
 
 <!-- test: a-published-co-allocated-array-is-copied-before-it-is-written -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A value published through a `SharedValue` is frozen: a reader that wants to write copies it first, and the copy of
 a co-allocated array owns a buffer of its own while the published one keeps its elements.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -1309,13 +1290,11 @@ end 'main'
 ```
 
 <!-- test: a-separate-buffer-allocated-right-behind-its-record-is-released-with-it -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A growable array whose buffer was allocated separately, in the same size class as its record and right behind it,
 is released as a separate buffer: the record tells a co-allocated buffer from a separate one by a field it carries, and
 never by where the buffer sits. **If the buffer behind a record is taken for a co-allocated one, dropping the array
 leaks it and the run exits 101.**
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Words = Array with Word
@@ -1323,9 +1302,9 @@ typealias Words = Array with Word
 typealias Rows = Array with Words
 
 function main() returns ExitCode
-	let rows = Rows.create(0)
+	var rows = Rows.create(0)
 	for row in 0 upto 64 'eachRow'
-		let words = Words.create(0)
+		var words = Words.create(0)
 		words.reserve(6)
 		words.push(row as Word)
 		rows.push(words)

@@ -639,7 +639,6 @@ verify-err-081 invalidSignatureEncoding
 ```
 
 <!-- test: ecdsa.sign-p256 -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `EcdsaP256.sign` against the canra ecdsa-sign-p256 vectors: RFC 6979 A.2.5, computed signatures and refused keys. Vectors sign-001 to sign-err-007 (33).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -667,7 +666,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -764,7 +762,6 @@ sign-err-007 invalidPrivateKey
 ```
 
 <!-- test: ecdsa.sign-p384 -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `EcdsaP384.sign` against the canra ecdsa-sign-p384 vectors: RFC 6979 A.2.6, computed signatures and refused keys. Vectors sign-001 to sign-err-008 (25).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -792,7 +789,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -935,7 +931,6 @@ edge-infinity-p384 false
 ```
 
 <!-- test: ecdsa.digest-above-the-order -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A message whose SHA-256 digest `ffffffffe50edc4d27674023ce1746624a9cb68ef2f8fd03d422ef0d3d44bb44` is at least the P-256 group order `n`, so the digest must be reduced mod `n` on both paths: RFC 6979 section 2.3.4 reduces it for the nonce derivation and FIPS 186-5 uses `e mod n` in `u1 = e·s⁻¹`. The message `maxon-nist-digest-above-order-759881945` was found by exhaustive search for a SHA-256 prefix of `ffffffff`. The expected signature is the RFC 6979 deterministic signature from an independent Python implementation (it reproduces RFC 6979 A.2.5 and A.2.6 exactly) and Python `cryptography` (OpenSSL) accepts it; the last vector is a randomized OpenSSL signature of the same message under a fresh key.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -963,7 +958,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -996,7 +990,6 @@ above-order-verify-openssl true
 ```
 
 <!-- test: ecdsa.p384-sign-verify-round-trip -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `EcdsaP384.sign` then `Ecdsa.verify` on P-384 for three private keys (a mid-range key, `n - 1` and 1) and three messages each (empty, short and 200 bytes). Each line prints the deterministic signature, whether `Ecdsa.verify` accepts it under the matching public key, and whether it accepts it for the message with one byte appended. The signatures are RFC 6979 over HMAC-SHA-384 from an independent Python implementation that reproduces RFC 6979 A.2.6, and each was accepted by Python `cryptography` (OpenSSL).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1024,7 +1017,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

@@ -1762,13 +1762,11 @@ error E3005: p/<fragment>:20:9: argument type mismatch for 'xs': expected 'p.Num
 ```
 
 <!-- test: a-call-result-of-a-qualified-existential-return-is-iterated -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `makeSeq` returns a parameterized existential spelled through its directory, `alpha.IntegerSeq`. The caller in `main.maxon` iterates the result, so the witness half of the returned value is resolved in `alpha/`, where the alias is declared, from the written qualified name.
 ```maxon
 // --- file: alpha/a.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Seq uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError

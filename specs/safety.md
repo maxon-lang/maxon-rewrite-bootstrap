@@ -527,7 +527,6 @@ r=0
 ```
 
 <!-- test: mod-by-a-ranged-divisor-that-admits-minus-one-is-zero -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 #### Door 3 — a ranged divisor that excludes `0` but ADMITS `-1`
 `int(-1 to -1)` is the shape that shows "excludes zero" was never the same proof as "cannot
 overflow": it earns the bare divide by the fallible-division rule and is `-1` every time. The
@@ -538,7 +537,6 @@ nothing holds the caller to the range the proof read — the same door
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias NegativeOne = int(-1 to -1) implements Integer
 
 function ident(v Integer) returns Integer
@@ -552,7 +550,7 @@ end 'remainder'
 function main() returns ExitCode
 	let n = ident(i64.min)
 	let d = ident(-1)
-	let r = remainder(n, d: d as NegativeOne)
+	let r = remainder(n, d: try d as NegativeOne otherwise panic("out of range"))
 	print("r={r}\n")
 	return 0
 end 'main'
@@ -1016,13 +1014,12 @@ Stack trace:
 ```
 
 <!-- test: integer-overflow-fault-from-int-min-over-minus-one -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### `i64.min / -1` panics `integer overflow` — its own words, on every target
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias NegativeOne = int(-1 to -1) implements Integer
 
 function ident(v Integer) returns Integer

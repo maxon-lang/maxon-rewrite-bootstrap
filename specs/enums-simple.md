@@ -219,14 +219,10 @@ end 'main'
 ```
 
 <!-- test: float-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum FloatBacked
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	North = 1.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	South = 2.2
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	East = 3.3
 end 'FloatBacked'
 
@@ -245,14 +241,10 @@ end 'main'
 ```
 
 <!-- test: float-backed-negative -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum FloatSigned
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	below = -2.2
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	zero = 0.0
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	above = 1.1
 end 'FloatSigned'
 
@@ -271,12 +263,9 @@ end 'main'
 ```
 
 <!-- test: float-backed-signed-zero -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum SignedZero
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	negz = -0.0
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	posz = 0.0
 end 'SignedZero'
 
@@ -395,12 +384,9 @@ error E3031: specs/enums-simple/error.duplicate-raw-value.maxon:4:2: duplicate r
 ```
 
 <!-- test: error.raw-value-type-mismatch -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum Status
 	ok = 100
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	fail = 5.0
 end 'Status'
 
@@ -450,16 +436,13 @@ end 'main'
 ```
 
 <!-- test: float-backed-arithmetic-between-two-cases -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 A float-backed enum's tag IS the f64's IEEE-754 bit pattern, so an ARITHMETIC operand must be decoded
 before the operator runs; adding the two bit patterns as integers would print `-9217742537320562688`.
 The answer is `6.5`, and `Weight.light * 2` `5.0`: an integer operand promotes against the
 DECODED double, not against its encoding.
 ```maxon
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 
@@ -476,7 +459,6 @@ end 'main'
 ```
 
 <!-- test: float-backed-ordering-two-negative-cases -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ⭐ THE CASE A POSITIVE-ONLY ENUM CANNOT MAKE. IEEE-754 bit patterns of POSITIVE doubles are monotonically
 ordered as integers, so `low < high` passes under both readings and pins neither — which is why
 `enum-full`'s and `enum-match-exhaustive`'s float cases cannot catch an undecoded compare.
@@ -484,11 +466,8 @@ Two NEGATIVE cases invert: `bits(-2.2)` is the LARGER signed i64, so an undecode
 where the correct answer is `lt`.
 ```maxon
 enum FloatSigned
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	below = -2.2
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mid = -1.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	above = 1.1
 end 'FloatSigned'
 
@@ -510,16 +489,13 @@ lt
 ```
 
 <!-- test: float-backed-comparison-against-a-float -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 An ORDERING comparison against a genuine `float`, both ways round — the shape `specs/constants.md`'s
 `float-comparison` pins — plus an EQUALITY against a float literal, which names no case and so is also a
 question about the number. The enum's `named` tag reads as integral and a comparison is domain-strict,
 so without the decode all three would be `E3005 cannot compare float with int`.
 ```maxon
 enum Threshold
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	low = 0.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 
@@ -538,16 +514,13 @@ end 'main'
 ```
 
 <!-- test: float-backed-equality-is-the-tag-compare -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ⭐ THE ONE COMPARISON THAT DELIBERATELY DOES NOT DECODE, and the negative control on the decode above. `==`
 between two values of ONE enum asks WHICH CASE, so it stays the i64 tag compare `match` dispatch uses —
 `-0.0` and `+0.0` are distinct raw values here (`float-backed-signed-zero`), and a `ucomisd` would report
 them EQUAL while `match` still selected `negz`. One equality, two operators, one answer.
 ```maxon
 enum SignedZero
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	negz = -0.0
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	posz = 0.0
 end 'SignedZero'
 
@@ -567,7 +540,6 @@ end 'main'
 ```
 
 <!-- test: float-backed-enum-into-a-float-parameter -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 The one decode site the PARSER cannot own: the conversion is forced by the CALLEE's declared parameter
 type, a whole-program fact a file's parse may not hold, so it is paid in `LowerMaxonToStd.floatWidenedArg`
 instead. An argument WIDENED rather than reinterpreted would print `4612811918334231000.0`.
@@ -575,7 +547,6 @@ instead. An argument WIDENED rather than reinterpreted would print `461281191833
 typealias Real = float(f64.min to f64.max)
 
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
 end 'Weight'
 
@@ -596,8 +567,6 @@ end 'main'
 ```
 
 <!-- test: error.float-backed-enum-cast -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 A cast whose SOURCE is an enum has no conversion. As a representational no-op it would hand back the raw
 i64 wearing the target's type, so `Weight.light as Real` would print `4612811918334231000.0`: a silent
 wrong answer where the `as` is supposed to BE the type check.
@@ -605,7 +574,6 @@ wrong answer where the `as` is supposed to BE the type check.
 typealias Real = float(f64.min to f64.max)
 
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
 end 'Weight'
 
@@ -640,13 +608,10 @@ error E3009: <fragment>:9:18: Cannot cast from enum to int
 ```
 
 <!-- test: error.float-backed-enum-shift -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 A shift on a float-backed enum is refused in the SHIFT's own words, because the decode makes the operand
 a float and a double's bits are a sign/exponent/mantissa triple rather than a magnitude.
 ```maxon
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
 end 'Weight'
 
@@ -661,7 +626,6 @@ error E3005: <fragment>:7:23: operator 'shl' requires integer operands, but this
 ```
 
 <!-- test: float-backed-negation -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ⭐ THE SIXTH READ SITE. A prefix `-` is arithmetic, so it is a question about the NUMBER — but `parseUnary`
 reads the operand's raw tag rather than the number's, and a float-backed enum's `named` tag is not
 `tagIsFloat`, so an undecoded `-Weight.light` would emit an INTEGER negate over the IEEE-754 bits and
@@ -669,7 +633,6 @@ print `-4612811918334230528`. The int-backed arm beside it is the negative contr
 the integer negate.
 ```maxon
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
 end 'Weight'
 
@@ -690,15 +653,12 @@ end 'main'
 ```
 
 <!-- test: error.float-backed-enum-not -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 `not` is the shift's twin — a bitwise operator with no reading of a sign/exponent/mantissa triple — so it
 is refused in its own words, exactly as `error.float-backed-enum-shift` is. Complementing the encoding would
 print
 `-4612811918334230529`.
 ```maxon
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
 end 'Weight'
 
@@ -713,7 +673,6 @@ error E3005: <fragment>:7:10: operator 'not' requires integer operands, but this
 ```
 
 <!-- test: float-backed-enum-as-a-parameter-default -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 A float-backed enum reaching a parameter DEFAULT is the seam between two rules: a default expression
 consumes the whole token region the capture skipped, and every read of a float-backed enum DECODEs its
 i64 rather than reading it as a magnitude. The default is parsed from a lifted token region rather than
@@ -724,9 +683,7 @@ for the same case.
 typealias Real = float(f64.min to f64.max)
 
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 2.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 

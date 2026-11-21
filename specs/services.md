@@ -11688,7 +11688,6 @@ error E3057: <fragment>:16:16: throwing function requires try: 'Calc.total'
 
 <!-- test: error.a-message-that-throws-a-payload-carrying-union-is-refused -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 ⚠ **THE ONE ERROR SHAPE A REPLY CANNOT CARRY, REFUSED RATHER THAN MISCOMPILED.** The reply's error word is a
 single word holding the handler error's `ordinal + bias`; a payload-carrying union's flag is a heap POINTER
@@ -11699,7 +11698,6 @@ synthesized from the DECLARATION and completes a reply for every reply-bearing m
 message the cell cannot carry would put a wrong-width store into a body the service really runs — whether or
 not the program ever sends that message. There is no `spawn`-free program here to check it against.
 ```maxon
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Trouble implements Error
 	detail(text String)
 end 'Trouble'
@@ -20252,7 +20250,6 @@ end 'main'
 <!-- test: services.a-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Ten arguments — integers, floats and a value held at an interface type — travel to the service's thread in the order and
 register class the factory declares them in, and the interface value is released with its own witness.
 ```maxon
@@ -20286,7 +20283,6 @@ type Plot
 	end 'create'
 
 	export function show()
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		print("{self.count} {self.span:.1}\n")
 	end 'show'
 end 'Plot'
@@ -20411,13 +20407,11 @@ exhausted
 
 <!-- test: services.a-throwing-factory-with-a-payload-error-reports-the-payload -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A factory that throws a case of an error union carrying a payload, a heap string or an integer, hands that payload to the
 spawner's handler, which matches the case and reads it.
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union StartError implements Error
 	refused(reason String)
 	exhausted(limit Whole)
@@ -20676,7 +20670,6 @@ refused
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The spawner's wait costs the start record nothing: ten arguments — integers, floats and a value held at an interface
 type — reach a throwing factory in the order and register class it declares them in, and one that fails releases the
 interface value with its own witness.
@@ -20718,7 +20711,6 @@ type Plot
 	end 'create'
 
 	export function summary() returns String
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		return "{self.count} {self.span:.1}"
 	end 'summary'
 end 'Plot'

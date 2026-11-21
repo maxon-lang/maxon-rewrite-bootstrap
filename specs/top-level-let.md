@@ -497,11 +497,9 @@ test.txt
 ```
 
 <!-- test: a-top-level-array-literal-of-tuples -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A module-scope `Alias from [ ... ]` whose elements are tuples reads back each element's fields, as the
 same literal does in a body.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Step = (Word, Word)
@@ -556,10 +554,8 @@ end 'main'
 ```
 
 <!-- test: a-top-level-array-literal-of-nested-tuples -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A tuple element that is itself a tuple takes the stated element type's columns in turn.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Inner = (Word, Word)
@@ -587,11 +583,9 @@ end 'main'
 ```
 
 <!-- test: a-static-struct-literal-tuple-field -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 A struct literal's field declared at a tuple type takes a tuple literal in a static initializer.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Step = (Word, Word)
@@ -848,10 +842,8 @@ end 'main'
 ```
 
 <!-- test: a-parenthesised-tuple-element-of-a-typed-array-literal -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 A tuple literal written in extra parentheses is the same tuple in a slot that states one.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Step = (Word, Word)
@@ -931,12 +923,10 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-tuple-literal-in-an-array-of-scalars -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple literal is a tuple wherever it stands, so an array of `Word` refuses it as the same array literal in a
 function body does.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Words = Array with Word
@@ -952,10 +942,8 @@ error E3009: <fragment>:5:25: Cannot cast from (int, int) to int
 ```
 
 <!-- test: error.a-tuple-literal-in-an-array-of-scalars-in-a-body -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Words = Array with Word
@@ -3444,10 +3432,7 @@ error E2080: <fragment>:22:2: `return` has no function to leave in the initializ
 ```
 
 <!-- test: error.a-type-name-of-a-refused-alias-written-in-a-healthy-body-reports-only-the-refusal -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Odd = bits(5)
 
 function main() returns ExitCode
@@ -3461,11 +3446,8 @@ error E3148: <fragment>:2:22: 'bits(5)' is not a legal width: bits(n) takes 1, 2
 ```
 
 <!-- test: error.a-type-refused-in-one-file-and-written-in-a-healthy-file-reports-only-the-refusal -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: odd.maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 export typealias Odd = bits(5)
 
 // --- file: main.maxon
@@ -3498,10 +3480,7 @@ error E2051: <fragment>:2:10: identifier '__helper' is reserved: declarations st
 ```
 
 <!-- test: error.an-unknown-type-no-refused-declaration-names-is-still-reported-beside-a-refusal -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Odd = bits(5)
 
 function main() returns ExitCode
@@ -3556,12 +3535,10 @@ error E3081: <fragment>:13:3: use 'value' instead of 'value(_)' to ignore associ
 ```
 
 <!-- test: error.a-program-that-folds-twice-with-an-explained-consequence-does-not-panic -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Odd = bits(5)
 
 function same(v T) uses T returns T
@@ -3997,12 +3974,10 @@ error E2001: <fragment>:2:1: Expected function declaration, got 'main'
 ```
 
 <!-- test: error.a-fold-redone-with-a-stdlib-body-demand-reports-only-the-width -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Odd = bits(5)
 
 function same(v T) uses T returns T

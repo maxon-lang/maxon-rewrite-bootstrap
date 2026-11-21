@@ -313,14 +313,12 @@ end 'main'
 ```
 
 <!-- test: witness-throws.boxed-error-caught-at-witness-edge -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A PAYLOAD-CARRYING (heap-boxed) union error caught at the witness dispatch's own error edge, inside the
 shared generic body. The box is handed to the caller owned, so the `(e)` binding must release it exactly
 once — a leak or a double free is exit 101.
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union CheckError implements Error
 	tooSmall(limit Code)
 end 'CheckError'
@@ -347,7 +345,7 @@ end 'Point'
 type Box uses T where T implements Checked
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -355,7 +353,7 @@ type Box uses T where T implements Checked
 		var out = 1 as Code
 		try self.item.check() otherwise (e) 'caught'
 			match e 'k'
-				tooSmall(limit) then out = limit + 1
+				tooSmall(limit) then out = try limit + 1 otherwise panic("out of range")
 			end 'k'
 		end 'caught'
 		return out
@@ -498,7 +496,6 @@ error E3016: <fragment>:19:6: Method 'Point.digest' throws 'OtherError' but inte
 ```
 
 <!-- test: witness-throws.error.impl-throws-scalar-where-interface-boxes -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 The same rule, at the severity that makes it a memory-safety obligation rather than a wrong answer: the
 interface declares a BOXED (payload-bearing) union and the implementation throws a SCALAR enum. The `try` types
@@ -507,7 +504,6 @@ program SEGFAULTED.
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxedError implements Error
 	withMessage(msg String)
 	plain

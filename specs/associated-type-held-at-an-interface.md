@@ -46,19 +46,16 @@ an interface that is written as a requirement's PARAMETER is refused where the h
 ## Tests
 
 <!-- test: held.nested-dispatch -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐ **THE PROGRAM `stdlib/Array.maxon` STANDS AT.** `Bag`'s `Iter` is held at `Cursor`, so `createIterator()`
 hands back an existential and the loop walks it through a table it loaded out of the bag's own table.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -125,7 +122,6 @@ end 'main'
 ```
 
 <!-- test: held.two-conformers-bind-differently -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE CASE THE WHOLE MECHANISM EXISTS FOR, AND THE ONE A SINGLE STATIC TABLE GETS WRONG.** `UpBag` binds
 `Iter` to `UpCursor` and `DownBag` binds it to `DownCursor` — two different concrete types under one held
 position — and a merge phi decides at RUN TIME which of them the loop walks. The two cursors answer
@@ -133,13 +129,11 @@ differently on purpose, so a nested table picked statically would print one of t
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -258,7 +252,6 @@ end 'main'
 ```
 
 <!-- test: held.managed-values-through-the-nested-dispatch -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⚠ **AN OWNED HEAP RECORD ON BOTH SIDES OF THE NESTED DISPATCH.** The CURSOR the outer dispatch returns is
 itself a heap record the loop owns and must release through the NESTED table's `destroyFunc@8`, and each trip
 mints a `String` the body must release too. Over 200 rounds a missed release is exit 101 and a double release
@@ -271,7 +264,6 @@ interface Lines
 	function advance(mutates self) throws IterationError
 end 'Lines'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Doc uses Walk
 	function createIterator() returns Walk throws IterationError
 end 'Doc'
@@ -377,7 +369,6 @@ end 'main'
 ```
 
 <!-- test: error.held-position-reaches-a-parameter -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔ **A HELD ASSOCIATED TYPE IN AN ARGUMENT POSITION IS REFUSED, AND THE RESULT POSITION IS NOT.** The witness
 the argument carries is the CALLER's, a different conformer at every call site, so no slot in the callee's
@@ -390,7 +381,6 @@ interface Cursor
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink uses Item
 	function take(it Item) returns Integer
 end 'Sink'
@@ -439,7 +429,6 @@ error E2015: <fragment>:41:34: Unsupported: an interface instance's associated-t
 ```
 
 <!-- test: error.a-conformer-binds-something-that-does-not-conform -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE HOLDING IS A CLAIM ABOUT EVERY CONFORMER, AND ONE THAT DOES NOT CONFORM IS REFUSED.** Widening
 `OddBag`'s `Tally` into a `Cursor` existential would stamp a nested table for a conformance that does not
@@ -452,7 +441,6 @@ interface Cursor
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -501,7 +489,6 @@ error E3126: <fragment>:25:6: 'OddBag' binds 'Bag's associated type 'Iter' to 'T
 ```
 
 <!-- test: error.a-non-conforming-binding-that-is-never-dispatched -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⚠⚠ **THE HOLDING'S OBLIGATION IS TRIGGERED BY A WIDENING, NOT BY A DISPATCH, AND GETTING THAT WRONG IS A
 COMPILER PANIC.** E3119/E3120 are gated on the interface being DISPATCHED, because their subject is a shared
@@ -518,7 +505,6 @@ interface Cursor
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -561,8 +547,6 @@ error E3126: <fragment>:21:6: 'OddBag' binds 'Bag's associated type 'Iter' to 'T
 ```
 
 <!-- test: error.a-conformer-binds-the-holding-interface-itself -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ⚠ **A HOLDING SUPPLIES THE SECOND WORD FOR A CONCRETE BINDING, AND HAS NOTHING LEFT TO SUPPLY WHEN THE
 BINDING IS ALREADY AN INTERFACE.** `WeirdBag` binds `Iter` to `Cursor` itself, so the impl is asked to hand
 back both words out of a witness call that returns one — E3120's fat-pointer clause, which the holding
@@ -576,7 +560,6 @@ interface Cursor
 	function current() returns Integer
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function makeIt() returns Iter
 end 'Bag'
@@ -621,7 +604,6 @@ error E3120: <fragment>:24:6: 'WeirdBag' binds 'Bag's associated type 'Iter' to 
 ```
 
 <!-- test: held.the-element-is-the-enclosing-types-own-parameter -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE PROGRAM `stdlib/Array.maxon`'s `Array.from` IS.** A generic type walking a
 value held at a parameterized interface over its OWN parameter — `Bag with (Element, Cursor with Element)`
 inside `type Collector uses Element` — and storing each element into its `Array with Element`.
@@ -640,13 +622,11 @@ instantiation, at the position the holding was read at — so the instantiation 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -687,7 +667,6 @@ end 'main'
 ```
 
 <!-- test: a-use-site-binding-a-type-parameter-is-a-claim-about-each-instantiation -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE PROGRAM BELOW IS CORRECT AND COMPILES.** A comparison of `'Element'` against `'Integer'` at the
 declaration is meaningless. `typealias ElementCursor = Cursor with Element` inside `type Counter uses Element` states nothing
 about the program; it states something different at every `Counter with X`, and E3125 has no instantiation in
@@ -699,7 +678,6 @@ E3127 sentence reading `bound to 'T'`.
 ```maxon
 public typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 public interface Cursor uses Element
 	function current() returns Element
 	function tag() returns Integer
@@ -755,7 +733,6 @@ ok
 ```
 
 <!-- test: held.a-conformer-binds-a-generic-instance -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **A CONFORMER MAY BIND A HELD POSITION TO A GENERIC INSTANCE, AND THE QUESTION MUST BE ASKED OF THE
 BASE DECLARATION.** A conformance’s `with` argument is recorded by `renderDeclaredTypeName` as the compiler’s
 own CANONICAL name (`UpCursor_Integer`), and no `implements` clause is filed under one — the registry is keyed
@@ -783,7 +760,6 @@ interface Cursor
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -851,8 +827,6 @@ end 'main'
 ```
 
 <!-- test: held.a-generic-instance-conforming-through-extends -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ⭐⭐ **`stdlib/Array.maxon`'s OWN SHAPE, TO THE LETTER.** `type ArrayIterator uses Element implements
 BidirectionalIterator with Element` with `interface BidirectionalIterator extends Iterator`, bound into
 `Array`'s `implements … Iterable with (Element, ArrayIter)` and held at `Iterator` by
@@ -862,18 +836,15 @@ code, so this case is what says they compose.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface BiCursor extends Cursor
 	function retreat() throws IterationError
 end 'BiCursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -944,8 +915,6 @@ end 'main'
 ```
 
 <!-- test: held.a-conformer-reaching-the-holding-through-extends -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 The FALSE-REJECT CONTROL that separates the two facts of the case above: a CONCRETE conformer whose
 conformance reaches the holding only through `extends`. It is accepted — `typeDeclaresInterface`
 walks `extendsInterfaces` for every conformance question in the compiler — so a red here attributes a
@@ -958,12 +927,10 @@ interface Cursor
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface BiCursor extends Cursor
 	function retreat() throws IterationError
 end 'BiCursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -1030,7 +997,6 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-instance-whose-base-does-not-conform -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE OTHER DIRECTION OF THE SAME REDUCTION: A BASE THAT GENUINELY DOES NOT CONFORM IS STILL REFUSED, AND
 THE SENTENCE NAMES THE TYPE THE AUTHOR WROTE.** `Tally` declares no conformance at all, so no reduction can
@@ -1045,7 +1011,6 @@ interface Cursor
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -1096,7 +1061,6 @@ error E3126: <fragment>:27:6: 'OddBag' binds 'Bag's associated type 'Iter' to 'I
 ```
 
 <!-- test: held.a-generic-conformer-binding-an-instance-over-its-own-parameter-is-frozen -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `UpBag with Tally` binds `Cursor` to `UpCursor with Slot`, an instance over its own parameter, so the nested table its `Bag` table carries is the instance's own, and a freeze in a program that spawns a service walks the cursor through it.
 
@@ -1107,7 +1071,6 @@ interface Cursor
 	function current() returns Tally
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -1183,7 +1146,6 @@ end 'main'
 ```
 
 <!-- test: error.held-binding-whose-conformer-holds-a-function-value-is-frozen -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1200,7 +1162,6 @@ interface Cursor
 	function current() returns Tally
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -1291,19 +1252,16 @@ note: <fragment>:47:34: `StepCursor` is converted to `Cursor` here
 ```
 
 <!-- test: error.held-bindings-naming-ever-deeper-instances-are-refused -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 `Nest` holds a value of its parameter and binds the associated type of `A` and of `B`, each held at the other, to an instance that nests `Nest`'s own parameter one level deeper, so the conformers a share walk must judge never end.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface A uses X
 	function makeX() returns X
 end 'A'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface B uses Y
 	function makeY() returns Y
 end 'B'
@@ -1363,19 +1321,16 @@ error E2015: <fragment>:12:51: Unsupported: sharing is judged at every conformer
 ```
 
 <!-- test: held-bindings-naming-ever-deeper-instances-over-an-unread-parameter-run -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Nest` binds the associated type of `A` and of `B` to an instance that nests its own parameter one level deeper, and nothing reads that parameter, so every conformer a share walk judges is the same.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface A uses X
 	function makeX() returns X
 end 'A'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface B uses Y
 	function makeY() returns Y
 end 'B'
@@ -1451,7 +1406,6 @@ end 'main'
 ```
 
 <!-- test: held-binding-chains-follow-only-the-conformers-converted-to-an-interface -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Bar` binds `J`'s associated type to `Foo` over its own parameter, and `Foo` binds `I`'s to `Bar` over a `Box` of its own; only `Foo` is converted to `I`, and `I` holds its associated type at an interface with none of its own, so the chain ends at `Bar`.
 
@@ -1462,12 +1416,10 @@ interface Plain0
 	function id0() returns Tally
 end 'Plain0'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface I uses A
 	function makeA() returns A
 end 'I'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface J uses B
 	function makeB() returns B
 end 'J'
@@ -1587,14 +1539,12 @@ end 'main'
 ```
 
 <!-- test: held-binding-cycle-over-an-unread-parameter-runs -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `P`, `Q` and `R` bind each other's associated types in a cycle that nests `Cell` around the parameter once, and no `T` is stored anywhere, so the cycle builds no deeper conformer.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface A uses X
 	function makeX() returns X
 end 'A'
@@ -1693,7 +1643,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-parameter-only-a-nested-instance-reads-keep-their-own-tables -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Outer` binds `Bag`'s associated type to `Inner with (Wrap with (X, Y))`. `Wrap` stores only its `X`, so a share walk cannot tell `Wrap with (Tally, bool)` from `Wrap with (Tally, Tally)`; but `Wrap.width` reads `sizeof(Y)`, and `Inner.current` reaches it through its `where W is Probe` witness. The two bindings' `Cursor` tables must stay apart, each handing `current` its own descriptor: 1 and 8.
@@ -1709,7 +1658,6 @@ interface Cursor
 	function current() returns Tally
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -1803,7 +1751,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-held-position-no-share-walk-reaches-keep-their-own-tables -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` holds its `P` only as the element of an `Array`, a position no share walk of `Item` names. `Item with (Tally, String)` and `Item with (Tally, Tally)` still release different arrays, so each binding's `Cursor` table keeps its own.
 
@@ -1814,7 +1761,6 @@ interface Cursor
 	function current() returns Tally
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -1897,7 +1843,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-constrained-position-keep-their-own-tables -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` constrains `P` with `where P is Weigh` and reads `sizeof(P)` in `current`, which the `Cursor` table's adapter reaches through its descriptor and `P`'s witness; the two bindings' tables stay apart: 8 and 16.
@@ -1938,7 +1883,6 @@ interface Cursor
 	function current() returns Tally
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -2017,7 +1961,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-constrained-position-nothing-reads-run -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` constrains `P` and nothing reads it, so the two bindings stay correct whichever tables they get: both answer 1.
 
@@ -2057,7 +2000,6 @@ interface Cursor
 	function current() returns Tally
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'

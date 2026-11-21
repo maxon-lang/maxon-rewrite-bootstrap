@@ -1770,7 +1770,6 @@ the shared slot list exists to make unrepresentable, passing green. `71` is reac
 swap reads `17`. Target-independent.
 
 <!-- test: where-clauses.inherited-requirement-dispatch -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
@@ -1778,7 +1777,6 @@ interface Base
 	function label() returns Code
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Derived extends Base
 	function extra() returns Code
 end 'Derived'
@@ -1802,7 +1800,7 @@ end 'Widget'
 type Box uses T where T implements Derived
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1820,7 +1818,7 @@ typealias WidgetBox = Box with Widget
 function main() returns ExitCode
 	let w = Widget.create(7)
 	let b = WidgetBox.create(w)
-	return (b.callInherited() * 10 + b.callOwn()) as ExitCode
+	return try (b.callInherited() * 10 + b.callOwn()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1834,7 +1832,6 @@ must reach DIFFERENT impls, which is what `7` and `21` prove: a single slot serv
 them twice. Target-independent.
 
 <!-- test: where-clauses.a-child-requirement-and-an-inherited-one-reach-different-impls -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
@@ -1842,7 +1839,6 @@ interface Base
 	function label() returns Code
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Derived extends Base
 	function scaled(width Code) returns Code
 end 'Derived'
@@ -1859,14 +1855,14 @@ type Widget implements Derived
 	end 'label'
 
 	function scaled(width Code) returns Code
-		return self.seed * width
+		return try self.seed * width otherwise panic("out of range")
 	end 'scaled'
 end 'Widget'
 
 type Box uses T where T implements Derived
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1883,7 +1879,7 @@ typealias WidgetBox = Box with Widget
 
 function main() returns ExitCode
 	let b = WidgetBox.create(Widget.create(7))
-	return (b.zeroArg() + b.oneArg()) as ExitCode
+	return try (b.zeroArg() + b.oneArg()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1905,7 +1901,6 @@ positional numeral the answer is `194` for the correct numbering and a different
 other 23. Target-independent.
 
 <!-- test: where-clauses.diamond-inherited-requirement -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
@@ -1915,17 +1910,14 @@ interface Root
 	function base() returns Code
 end 'Root'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Left extends Root
 	function left() returns Code
 end 'Left'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Right extends Root
 	function right() returns Code
 end 'Right'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Both extends Left, Right
 	function both() returns Code
 end 'Both'
@@ -1957,12 +1949,12 @@ end 'Widget'
 type Box uses T where T implements Both
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function digits() returns Code
-		return ((self.item.base() * SlotRadix + self.item.left()) * SlotRadix + self.item.right()) * SlotRadix + self.item.both()
+		return try ((self.item.base() * SlotRadix + self.item.left()) * SlotRadix + self.item.right()) * SlotRadix + self.item.both() otherwise panic("out of range")
 	end 'digits'
 end 'Box'
 
@@ -1996,7 +1988,6 @@ and returned `left`'s answer for it. `123` is reached only when the inherited re
 constraints' own requirements each read their own slot. Target-independent.
 
 <!-- test: where-clauses.shared-ancestor-through-two-constraints -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
@@ -2004,12 +1995,10 @@ interface Root
 	function base() returns Code
 end 'Root'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Left extends Root
 	function left() returns Code
 end 'Left'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Right extends Root
 	function right() returns Code
 end 'Right'
@@ -2037,12 +2026,12 @@ end 'Widget'
 type Box uses T where T implements Left and Right
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function go() returns Code
-		return self.item.base() * 100 + self.item.left() * 10 + self.item.right()
+		return try self.item.base() * 100 + self.item.left() * 10 + self.item.right() otherwise panic("out of range")
 	end 'go'
 end 'Box'
 
@@ -2066,16 +2055,13 @@ which is two DISTINCT declaring interfaces (`Equatable` and `AlsoEquatable`) and
 files under two impl keys and can hold two different members. Target-independent.
 
 <!-- test: where-clauses.shared-equatable-through-two-constraints -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface EqL extends Equatable
 	function l() returns Code
 end 'EqL'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface EqR extends Equatable
 	function r() returns Code
 end 'EqR'
@@ -2131,7 +2117,6 @@ and the sentence is TRUE of every interface in the chain. Without this the two c
 satisfied by a resolver that had simply stopped refusing anything. Target-independent.
 
 <!-- test: where-clauses.error.no-constraint-declares-method -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Code = int(0 to u32.max)
@@ -2140,7 +2125,6 @@ interface Base
 	function label() returns Code
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Derived extends Base
 	function extra() returns Code
 end 'Derived'
@@ -2193,7 +2177,6 @@ which is the interface the author has to edit, and spells each through `assemble
 `name(p t) returns r` the conformance diagnostics already print a requirement with. Target-independent.
 
 <!-- test: where-clauses.error.ambiguous-inherited-requirement -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Code = int(0 to u32.max)
@@ -2202,7 +2185,6 @@ interface Base
 	function label() returns Code
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Derived extends Base
 	function label() returns Code
 end 'Derived'
@@ -2318,13 +2300,11 @@ receiver as an argument), and E2015's `no `where` constraint … declares a meth
 the constraint declares it, as a static. Target-independent.
 
 <!-- test: where-clauses.error.static-requirement-through-type-param -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
 interface Origin
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function origin() returns Code
 	function digest() returns Code
 end 'Origin'
@@ -2375,12 +2355,10 @@ dispatches an INSTANCE requirement through the witness, so the two forms are pro
 `2 + 7`.
 
 <!-- test: where-clauses.concrete-static-beside-witness-dispatch -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
 interface Origin
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function origin() returns Code
 	function digest() returns Code
 end 'Origin'
@@ -2404,12 +2382,12 @@ end 'Widget'
 type Box uses T where T implements Origin
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function go() returns Code
-		return self.item.digest() + Widget.origin()
+		return try self.item.digest() + Widget.origin() otherwise panic("out of range")
 	end 'go'
 end 'Box'
 
@@ -2435,13 +2413,11 @@ wrong-arity one, so it takes the same E3005 those take: the author's cure is the
 same sentence. Target-independent.
 
 <!-- test: where-clauses.error.static-operator-witness -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
 interface StaticEq
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function equals(other Self) returns bool
 end 'StaticEq'
 
@@ -2495,13 +2471,11 @@ The count is what tells the two apart from a real arity error: the requirement i
 call supplies, so the receiver kind is reported and the argument count never comes up. Target-independent.
 
 <!-- test: where-clauses.error.static-requirement-wrong-arity-at-call -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
 interface Origin
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function origin(seed Code) returns Code
 end 'Origin'
 
@@ -2527,18 +2501,15 @@ Two constraints supplying one `static` name are not an AMBIGUITY — there is no
 because neither of them was ever reachable. Naming the first is the whole answer. Target-independent.
 
 <!-- test: where-clauses.error.two-static-requirements-through-type-param -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Code = int(0 to u32.max)
 
 interface OriginA
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function origin() returns Code
 end 'OriginA'
 
 interface OriginB
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function origin() returns Code
 end 'OriginB'
 
@@ -2568,12 +2539,10 @@ declare both `static origin` and `origin` (E3006) — which is exactly why the s
 only thing that decides it is the parse.
 
 <!-- test: where-clauses.static-and-instance-requirement-of-one-name -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 ```maxon
 public typealias Code = int(0 to u32.max)
 
 public interface StaticOrigin
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function origin() returns Code
 end 'StaticOrigin'
 

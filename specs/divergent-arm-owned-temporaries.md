@@ -47,7 +47,6 @@ stdout never checks the exit code — so the leak this whole spec is about would
 ## Tests
 
 <!-- test: default-throws-settles-a-borrowed-temporary -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The `default` position, both ways through the match: `pick(1)` takes the `gives` arm and `pick(2)` takes the diverging
 `default`, whose thrown value borrows a field out of a temporary box. Without the `default`'s floor this
 program does not compile at all — the parser panics at `reconcileMovesAtMerge`.
@@ -62,7 +61,6 @@ type Box
 	end 'make'
 end 'Box'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union E implements Error
 	p(s String)
 end 'E'
@@ -70,7 +68,7 @@ end 'E'
 function pick(n Small) returns Small throws E
 	let r = match n 'k'
 		1 gives 5
-		default throws E.p(Box.make().name)
+		default throws E.p(Box.make().name.clone())
 	end 'k'
 	return r
 end 'pick'
@@ -91,7 +89,6 @@ gives=5throws=9
 ```
 
 <!-- test: expression-arm-throws-settles-a-borrowed-temporary -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The control: the same borrowed temporary on a diverging PATTERN arm of a match expression rather than on
 the `default`. This position brackets the arm through `finishArmExit` and was already correct — it
 answered identically on a binary where the `default` case still panicked, which is what proves the two
@@ -107,14 +104,13 @@ type Box
 	end 'make'
 end 'Box'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union E implements Error
 	p(s String)
 end 'E'
 
 function pick(n Small) returns Small throws E
 	let r = match n 'k'
-		1 then throw E.p(Box.make().name)
+		1 then throw E.p(Box.make().name.clone())
 		default gives 5
 	end 'k'
 	return r

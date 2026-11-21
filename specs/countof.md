@@ -908,12 +908,10 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-reads-the-count-of-a-type -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A file-scope initialiser is a constant, and `countof(T)` of a type that states its count is one, so `let n = countof(P)` is read back as the count with no function around it.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -931,12 +929,10 @@ end 'main'
 ```
 
 <!-- test: a-top-level-initialiser-folds-countof-in-an-expression -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `countof(P)` is an operand of the folded top-level expression exactly as a literal is: `countof(P) - 1` is the last index and `countof(P) * 2` the doubled count.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon

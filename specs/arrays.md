@@ -4651,14 +4651,11 @@ error E3106: <fragment>:11:9: 'resize' cannot grow an array of 'Level': the grow
 ```
 
 <!-- test: error.create-with-capacity-zeroed-cannot-hold-a-payload-free-union-whose-tags-exclude-zero -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 <!-- positions: moved -->
 A payload-free union is stored as its tag exactly as an enum is, so an explicit tag set without 0 is refused the same way.
 ```maxon
 union Phase
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	early = 3
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	late = 4
 end 'Phase'
 
@@ -4998,7 +4995,6 @@ error E3106: <fragment>:7:14: 'create(n)' cannot publish zeroed slots of '(Digit
 ```
 
 <!-- test: create-with-capacity-zeroed-holds-an-enum-whose-first-case-is-zero -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 A plain enum numbers its first case 0, an explicit raw value of 0 names a case too, and a string-backed enum stores declaration indices, so each admits the zeroed form and its zeroed slots read as the case numbered 0.
 ```maxon
 enum Plain
@@ -5012,9 +5008,7 @@ enum Gauge
 end 'Gauge'
 
 enum Mime
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	json = "application/json"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	html = "text/html"
 end 'Mime'
 
@@ -5073,7 +5067,6 @@ end 'main'
 
 <!-- test: error.create-with-capacity-zeroed-cannot-hold-a-tag-set-without-zero-at-any-backing -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 The slot is the tag, and the test is whether 0 is one of the declared tags. A tag set that straddles 0 without containing it, an all-negative one, a float backing without `0.0` and a character backing without `'\0'` each exclude it, and each function below is refused on its own.
 ```maxon
@@ -5088,17 +5081,13 @@ enum Negative
 end 'Negative'
 
 enum Ratio
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	half = 0.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	whole = 1.0
 end 'Ratio'
 
 enum Mark
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	first = 'a'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	second = 'b'
 end 'Mark'
@@ -5144,7 +5133,7 @@ error E3106: <fragment>:46:11: 'create(n)' cannot publish zeroed slots of 'Mark'
 
 <!-- test: create-with-capacity-zeroed-holds-an-enum-with-a-zero-tag-at-any-backing -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 A tag of 0 is a case whichever way it arrives: an auto-increment that lands on 0, a float `0.0`, a character `'\0'`, and a struct or function backing, whose tags are declaration indices. A zeroed slot reads as the case that owns 0.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5172,32 +5161,28 @@ enum Climb
 end 'Climb'
 
 enum Ratio
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	none = 0.0
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	whole = 1.0
 end 'Ratio'
 
 enum Mark
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	nul = '\0'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	letter = 'a'
 end 'Mark'
 
 enum Timing
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	fast = Meta.create(1)
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	slow = Meta.create(5)
 end 'Timing'
 
 enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = double
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = triple
 end 'Op'
 

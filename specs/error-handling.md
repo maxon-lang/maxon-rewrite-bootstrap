@@ -1022,20 +1022,18 @@ end 'main'
 ```
 
 <!-- test: error.assoc-value-throw-catch -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 // Test error enum with associated value - throw and catch
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union MyError implements Error
 	notFound(code Integer)
 	failed
 end 'MyError'
 
 function mayFail(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	throw MyError.notFound(42)
 end 'mayFail'
 
@@ -1048,7 +1046,7 @@ function main() returns ExitCode
 			failed then result = 1
 		end 'check'
 	end 'handler'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1056,20 +1054,18 @@ end 'main'
 ```
 
 <!-- test: error.assoc-value-throw-catch-2 -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 // Test error enum with associated value - second case
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union MyError implements Error
 	notFound(code Integer)
 	failed
 end 'MyError'
 
 function mayFail(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	throw MyError.notFound(42)
 end 'mayFail'
 
@@ -1082,7 +1078,7 @@ function main() returns ExitCode
 			failed then result = 0
 		end 'check'
 	end 'handler'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1090,7 +1086,6 @@ end 'main'
 ```
 
 <!-- test: error.union-caught-cross-file-declared-in-the-forward-file -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 An error union declared in the FORWARD file (`liberr.maxon` sorts before
 `main.maxon`, so it is folded into the signatures index before the catch site is
 parsed) is caught across files. Its `bad(code Code)` payload type crosses by NAME
@@ -1104,7 +1099,6 @@ typealias Code = int(i64.min to i64.max)
 
 // The catch site in another file learns this type through `risky`'s `throws`
 // clause, which is what the union-payload adopt door re-interns by name.
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union LibErr implements Error
 	bad(code Code)
 end 'LibErr'
@@ -1124,7 +1118,7 @@ function main() returns ExitCode
 			bad(code) then result = code
 		end 'check'
 	end 'handler'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1132,7 +1126,6 @@ end 'main'
 ```
 
 <!-- test: error.cross-file-throws-caught-later-file -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 BACKWARD ordering: `risky`/`Woe` are declared in `zzz.maxon`, which sorts AFTER
 the catch site in `app.maxon`. The whole-program signature sweep
 (`queryProgramSignatures` → `foldDeclaredSignaturesInto` → `foldFile`) folds every
@@ -1157,13 +1150,12 @@ function main() returns ExitCode
 			negative then result = 1
 		end 'check'
 	end 'handler'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 
 // --- file: zzz.maxon
 typealias Code = int(i64.min to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Woe implements Error
 	tooBig(by Code)
 	negative
@@ -1181,7 +1173,6 @@ end 'risky'
 ```
 
 <!-- test: error.cross-file-throws-string-payload-later-file -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 BACKWARD ordering with a MANAGED (String) payload: `Woe.bad(msg String)` is
 declared in `zzz.maxon` (sorts after `app.maxon`), thrown by `risky`, and caught
 in `app.maxon` where `match e` binds and reads the String payload. The payload's
@@ -1205,7 +1196,6 @@ end 'main'
 // --- file: zzz.maxon
 typealias Code = int(i64.min to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Woe implements Error
 	bad(msg String)
 	ok
@@ -1223,7 +1213,6 @@ end 'risky'
 ```
 
 <!-- test: error.cross-file-throws-struct-payload-later-file -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 BACKWARD ordering with a MANAGED (struct) payload: `Woe.bad(p Payload)` and the
 struct `Payload` are declared in `zzz.maxon` (sorts after `app.maxon`). The catch
 site in `app.maxon` binds the struct payload and reads `p.mass`. Classifying the
@@ -1240,7 +1229,7 @@ function main() returns ExitCode
 			ok then result = 1
 		end 'check'
 	end 'handler'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 
 // --- file: zzz.maxon
@@ -1254,7 +1243,6 @@ type Payload
 	end 'create'
 end 'Payload'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Woe implements Error
 	bad(p Payload)
 	ok
@@ -1272,7 +1260,6 @@ end 'risky'
 ```
 
 <!-- test: error.cross-file-union-constructed-later-file -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 BACKWARD ordering with the earlier file DECLARING DECOY types that SHIFT its
 interner: `app.maxon` constructs and matches `Woe.bad(Payload.create(7))` whose
 `Woe`/`Payload` live in `zzz.maxon` (sorts later), but first declares `Decoy1`
@@ -1301,7 +1288,7 @@ function main() returns ExitCode
 		bad(p) then result = p.mass
 		ok then result = 1
 	end 'check'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 
 // --- file: zzz.maxon
@@ -1315,7 +1302,6 @@ type Payload
 	end 'create'
 end 'Payload'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Woe implements Error
 	bad(p Payload)
 	ok
@@ -1326,7 +1312,6 @@ end 'Woe'
 ```
 
 <!-- test: error.otherwise-block-reused-binding -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1336,7 +1321,6 @@ typealias Integer = int(i64.min to i64.max)
 // (one associated-value enum, one simple enum). Without per-block scoping,
 // the first block's managed-type registration of `e` persists and the
 // function epilogue incorrectly decrefs the second block's integer `e`.
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union AssocError implements Error
 	withCode(code Integer)
 	plain
@@ -1364,10 +1348,10 @@ function main() returns ExitCode
 	end 'handler1'
 	try mayFailSimple() otherwise (e) 'handler2'
 		match e 'check2'
-			broken then result = result + 35
+			broken then result = try result + 35 otherwise panic("out of range")
 		end 'check2'
 	end 'handler2'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1852,7 +1836,6 @@ end 'main'
 
 
 <!-- test: error.string-payload-throw-catch -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
 // A MANAGED (String) payload NESTED in an error union — the only shape that proves the
@@ -1863,7 +1846,6 @@ end 'main'
 // no note of which transfer ran — so the binding drops its own reference at the arm's end
 // and `__destruct_E` drops the slot's. A leak or double-free of either the String or the box
 // is exit 101; a clean `"boom".byteLength()` is 4.
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union E implements Error
 	failed(msg String)
 end 'E'
@@ -1876,7 +1858,7 @@ function main() returns ExitCode
 	var n = 0 as ExitCode
 	try mk() otherwise (e) 'h'
 		match e 'm'
-			failed(msg) then n = msg.byteLength() as ExitCode
+			failed(msg) then n = try msg.byteLength() as ExitCode otherwise panic("out of range")
 		end 'm'
 	end 'h'
 	return n
@@ -1887,7 +1869,6 @@ end 'main'
 ```
 
 <!-- test: error.otherwise-no-binding-boxed-decref -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1897,7 +1878,6 @@ typealias Integer = int(i64.min to i64.max)
 // twin of throw-transfers-ownership.md's `propagate-throw-otherwise-no-binding-decrefs`, which the
 // corpus writes with a labeled union-case argument the compiler does not yet parse.) A leak or double-free
 // of the box is exit 101; a clean fall-through returns 5.
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union LexErr implements Error
 	problem(code Integer)
 end 'LexErr'
@@ -1919,7 +1899,6 @@ end 'main'
 ```
 
 <!-- test: throw-borrowed-union-co-owns -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Throwing a BORROWED union CO-OWNS its box — it does not move it
 ⛔⛔ **A BORROWED AGGREGATE CROSSES A CALL BOUNDARY WITHOUT A CROSS-CALL CONSUME, AND A `throw` IS NO
 EXCEPTION.** `Parser.valueIsNonTextAggregate`'s header states it for the RETURN door: the callee increfs before
@@ -1940,13 +1919,12 @@ refcount prints `a=7 b=7` and exits 0.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Fault implements Error
 	bad(code Integer)
 end 'Fault'
 
 function rethrow(e Fault) returns Integer throws Fault
-	throw e
+	throw e.clone()
 end 'rethrow'
 
 function useAfterRethrow(e Fault) returns Integer
@@ -1974,11 +1952,9 @@ a=7 b=7
 ```
 
 <!-- test: throw-borrowed-union-leaves-a-sibling-path-borrowing -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Fault implements Error
 	bad(text String, at Tally)
 end 'Fault'
@@ -1987,7 +1963,7 @@ type Kept
 	export let fault as Fault
 
 	static function create(fault Fault) returns Kept
-		return Self{fault: fault}
+		return Self{fault: fault.clone()}
 	end 'create'
 end 'Kept'
 
@@ -2000,14 +1976,14 @@ type Keeper
 		return Keeper{kept: KeptArray.create(0)}
 	end 'create'
 
-	function keepUnlessLate(fault Fault, at Tally) throws Fault
+	function keepUnlessLate(mutates self, fault Fault, at Tally) throws Fault
 		if at > 500 'late'
-			throw fault
+			throw fault.clone()
 		end 'late'
 		self.kept.push(Kept.create(fault))
 	end 'keepUnlessLate'
 
-	function keep(at Tally) throws Fault
+	function keep(mutates self, at Tally) throws Fault
 		let fault = Fault.bad("at {at}", at: at)
 		try self.keepUnlessLate(fault, at: at)
 	end 'keep'
@@ -2016,7 +1992,7 @@ type Keeper
 		var total = 0 as Tally
 		for k in self.kept 'each'
 			match k.fault 'fault'
-				bad(text, _) then total = total + text.byteLength() as Tally
+				bad(text, _) then total = try total + text.byteLength() as Tally otherwise panic("out of range")
 			end 'fault'
 		end 'each'
 		return total
@@ -2024,7 +2000,7 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	let keeper = Keeper.create()
+	var keeper = Keeper.create()
 	try keeper.keep(3) otherwise return 1
 	try keeper.keep(40) otherwise return 2
 	try keeper.keep(900) otherwise (e) 'late'
@@ -2046,11 +2022,9 @@ kept 9
 
 <!-- test: throw-sole-owned-field-leaves-a-sibling-path-borrowing -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Fault implements Error
 	bad(text String, at Tally)
 end 'Fault'
@@ -2103,11 +2077,9 @@ kept 9
 ```
 
 <!-- test: throw-sole-owned-field-to-a-try-block-leaves-the-field -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Fault implements Error
 	bad(text String, at Tally)
 end 'Fault'
@@ -2129,7 +2101,7 @@ type Holder
 			end 'fault'
 		end 'handler'
 		match holder.fault 'again'
-			bad(text, _) then return caught + text.byteLength() as Tally
+			bad(text, _) then return try caught + text.byteLength() as Tally otherwise panic("out of range")
 		end 'again'
 	end 'probe'
 end 'Holder'
@@ -2154,7 +2126,6 @@ end 'main'
 ```
 
 <!-- test: error.throw-payload-expr-temp-decref -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -2165,13 +2136,12 @@ typealias Integer = int(i64.min to i64.max)
 // drops it. The throw and return exits share ONE hand-off cleanup for that reason; a throw that dropped
 // its bindings but not this leftover temporary leaked the buffer (exit 101). A clean throw/catch of
 // `"val=7".byteLength()` is 5.
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union E implements Error
 	problem(code Integer)
 end 'E'
 
 function len(s String) returns Integer
-	return s.byteLength()
+	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'len'
 
 function mk(x Integer) returns Integer throws E
@@ -2182,7 +2152,7 @@ function main() returns ExitCode
 	var n = 0 as ExitCode
 	try mk(7) otherwise (e) 'h'
 		match e 'm'
-			problem(code) then n = code as ExitCode
+			problem(code) then n = try code as ExitCode otherwise panic("out of range")
 		end 'm'
 	end 'h'
 	return n
@@ -2372,8 +2342,6 @@ end 'main'
 ```
 
 <!-- test: error.throws-interface-on-a-plain-function -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
-<!-- positions: moved -->
 ⭐⭐ **A PLAIN FUNCTION'S `throws` CLAUSE MUST NAME A DECLARED ENUM OR UNION, AND THIS IS THE PROGRAM THE
 RULE EXISTS FOR.** The error-flag ABI has two shapes — `ordinal + ErrorFlagOrdinalBias` for a
 payload-free enum, a heap BOX POINTER for a payload-carrying union — and the two ends of a throw derive which
@@ -2386,7 +2354,6 @@ ABI and guarded by E3016 — see `specs/interface-conformance.md`.
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxedError implements Error
 	withMessage(msg String)
 end 'BoxedError'
@@ -2407,7 +2374,6 @@ error E3113: <fragment>:8:10: 'throws Error' names an INTERFACE. A caught error 
 ```
 
 <!-- test: throws-concrete-union-is-untouched -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ⭐ **THE CONTROL: WHAT IS REFUSED ABOVE IS THE CLAUSE, NOT THE PROGRAM.** The identical program with the
 CONCRETE clause — the only difference is `throws BoxedError` for `throws Error` — compiles, catches the boxed
 error, and releases the box. This is the bisection the refusal above rests on: same union, same throw,
@@ -2415,7 +2381,6 @@ same catch, only the declared clause differs.
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxedError implements Error
 	withMessage(msg String)
 end 'BoxedError'
@@ -2436,8 +2401,6 @@ end 'main'
 ```
 
 <!-- test: error.throws-unresolvable-type-on-a-plain-function -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
-<!-- positions: moved -->
 ⭐ **THE SIBLING THROUGH THE SAME DOOR: A `throws` CLAUSE NAMING NOTHING AT ALL.** `throws Bogus` names no
 declared enum, no union, and no interface — and before the check it COMPILED AND RAN, the author's typo read
 as a licence for an untyped error channel. It is the same argument
@@ -2446,7 +2409,6 @@ DECLARES, not something a name fails to be.
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxedError implements Error
 	withMessage(msg String)
 end 'BoxedError'
@@ -2467,7 +2429,6 @@ error E3113: <fragment>:8:10: 'throws Bogus' names no declared enum or union. A 
 ```
 
 <!-- test: error.throws-interface-on-a-method -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 ⭐ **THE RULE REACHES A METHOD AND A STATIC, NOT ONLY A TOP-LEVEL FUNCTION** — every function with a BODY
 declares its own clause and every one of them is caught the same way, so the check walks the merged module's
@@ -2476,7 +2437,6 @@ play: this is the plain-function refusal reaching a method.
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxedError implements Error
 	withMessage(msg String)
 end 'BoxedError'
@@ -2636,8 +2596,6 @@ end 'main'
 ```
 
 <!-- test: error.throw-a-boxed-union-under-a-scalar-clause -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
-<!-- positions: moved -->
 ⭐⭐ **THE SIBLING DOOR TO `error.throws-interface-on-a-plain-function`: A CLAUSE THAT NAMES A DIFFERENT
 DECLARED ENUM.** The mechanism is identical and so is the failure it prevents: the THROW site stamps boxedness
 off the value it actually throws (a heap BOX POINTER for this payload-carrying union), the CATCH site derives
@@ -2648,7 +2606,6 @@ An error leaves a function by exactly two doors, and the `try` door refuses this
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxedError implements Error
 	withMessage(msg String)
 end 'BoxedError'
@@ -2839,8 +2796,6 @@ error E3059: <fragment>:20:11: type mismatch: 'throw of 'ErrB' but the enclosing
 ```
 
 <!-- test: error.default-throws-arm-with-no-enclosing-throws -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
-<!-- positions: moved -->
 ⭐⭐ **THE `default` ARM IS THE "UNREACHABLE" MARKER THE ENUM-`match` GRAMMAR DEMANDS, and in a function that
 declares no `throws` it has to be spelled `default panic(...)`** — there is no error channel for a `throws` to
 publish into. Accepted, it is the SAME leak by another door: **with a payload-carrying union, `exit 101` /
@@ -2853,7 +2808,6 @@ enum Kind
 	beta
 end 'Kind'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BoxedError implements Error
 	withMessage(msg String)
 end 'BoxedError'

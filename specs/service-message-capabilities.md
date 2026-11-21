@@ -979,14 +979,12 @@ error E3217: <fragment>:30:13: parameter `p` of the message `Calc.hold` is a Pro
 
 <!-- test: error.a-reply-the-cell-cannot-carry-keeps-e3140-after-an-unmarked-record -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 `wipe` throws a payload-carrying union, refused first by the rule that has always refused it, though `plot` declares an unmarked `Point` before it.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Trouble implements Error
 	detail(text String)
 end 'Trouble'

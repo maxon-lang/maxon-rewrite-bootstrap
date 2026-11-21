@@ -109,20 +109,16 @@ end 'main'
 ### Float-Backed Enum
 
 <!-- test: enum-ordinal.float-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Threshold
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	low = 0.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	medium = 0.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 
 function main() returns ExitCode
 	let t = Threshold.high
-	return t.ordinal as ExitCode
+	return try t.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -132,20 +128,16 @@ end 'main'
 ### String-Backed Enum
 
 <!-- test: enum-ordinal.string-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum ContentType
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	json = "application/json"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	html = "text/html"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	plain = "text/plain"
 end 'ContentType'
 
 function main() returns ExitCode
 	let ct = ContentType.html
-	return ct.ordinal as ExitCode
+	return try ct.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -156,16 +148,12 @@ end 'main'
 
 <!-- test: enum-ordinal.char-backed -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	a = 'A'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	b = 'B'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	c = 'C'
 end 'Grade'
@@ -212,9 +200,7 @@ If the binop result kept the operand's enum type, the `lookup(index Idx)` call
 would reject it.
 
 <!-- test: enum-ordinal.bare-case-arithmetic-index -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias IdxArray = Array with Idx

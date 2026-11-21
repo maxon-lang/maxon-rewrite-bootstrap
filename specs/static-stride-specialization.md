@@ -260,7 +260,6 @@ end 'main'
 ```
 
 <!-- test: a-shared-generic-body-keeps-the-runtime-fork -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 THE SHARED-BODY CONTROL. `Bag uses Element` is compiled ONCE and reached here at two different element WIDTHS —
 an 8-byte `Word` and a 1-byte `Byte`. There is no stride for its body to be specialized on, and every
 value below is wrong by a factor of eight in one direction or the other if it is specialized anyway: an
@@ -275,7 +274,6 @@ typealias Word = int(i64.min to i64.max)
 
 typealias Byte = int(0 to 255)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element

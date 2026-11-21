@@ -649,7 +649,6 @@ end 'main'
 <!-- test: async-scheduler.integers-floats-and-interface-values-past-both-register-files -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Ten integers, ten floats and two interface values: integers and floats overflow their own files
 independently, the overflow shares one run of stack words in argument order, and both witness tables are
 hidden integer arguments after the declared ones.
@@ -676,7 +675,6 @@ end 'Square'
 
 function show(i0 Integer, f0 Real, s0 Shape, i1 Integer, f1 Real, i2 Integer, f2 Real, i3 Integer, f3 Real, i4 Integer, f4 Real, i5 Integer, f5 Real, i6 Integer, f6 Real, i7 Integer, f7 Real, i8 Integer, f8 Real, i9 Integer, f9 Real, s1 Shape)
 	Scheduler.yield()
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{i0} {i1} {i2} {i3} {i4} {i5} {i6} {i7} {i8} {i9} | {f0:.1} {f1:.1} {f2:.1} {f3:.1} {f4:.1} {f5:.1} {f6:.1} {f7:.1} {f8:.1} {f9:.1} | {s0.area()} {s1.area()}\n")
 end 'show'
 

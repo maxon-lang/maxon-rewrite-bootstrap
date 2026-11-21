@@ -283,12 +283,10 @@ end 'main'
 ```
 
 <!-- test: consecutive-stores-with-computed-words-land-in-order -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Eight words, each computed from the others and stored in turn: every store lands with the value computed
 for it, and the sum of the stored words pins the order.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon

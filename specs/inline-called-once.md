@@ -339,7 +339,7 @@ Stack trace:
 ```
 
 <!-- test: a-hardware-fault-inside-a-spliced-body-names-the-callee -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- unsupported-targets: arm64-macos, arm64-linux -->
 ⭐ **A FAULT HAS NO PANIC BLOCK TO TAG — ONLY AN ADDRESS.** `specs/safety.md`'s
 `integer-overflow-fault-from-int-min-over-minus-one`, with the dividing function given a store loop
@@ -355,7 +355,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias NegativeOne = int(-1 to -1) implements Integer
 
 function ident(v Integer) returns Integer

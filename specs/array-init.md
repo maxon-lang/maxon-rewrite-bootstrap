@@ -497,7 +497,6 @@ end 'main'
 ```
 
 <!-- test: an-opaque-element-array-adopts-and-becomes-the-last-owner -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ⭐⭐ **THE OPAQUE INSTANCE, AND THE ADOPTION AS SOLE OWNER.** `parseArrayStaticCall`'s header claims the
 adoption serves an OPAQUE instance (`Array with Element` inside a generic body) exactly as a concrete
 one, "element-agnostic by construction" — and this case is what runs that claim. It is reachable through
@@ -507,7 +506,6 @@ reference — leaving the adopted array the LAST owner, whose drop must free the
 Strings. A wrong drop callee for the retained value is exit **101** or a double free; neither is
 expressible as a wrong count.
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Count = int(0 to u64.max) implements ElementIndex
 
 type Container uses Element

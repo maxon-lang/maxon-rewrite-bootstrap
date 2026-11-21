@@ -47,7 +47,6 @@ sides enable.
 
 <!-- test: tls12-handshake-server.replay-openssl-transcripts -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Five transcripts the client of OpenSSL 3.0.13 sent to the canra reference server replay byte for byte: every record the server sends is the record the vector lists, the one-record server flight, change_cipher_spec, Finished, application data and close_notify included, and the master secret equals the one in OpenSSL's key log. They are ECDHE-ECDSA, ECDHE-RSA with AES-256-GCM over secp256r1, a handshake where the server required, and verified, OpenSSL's P-256 client certificate, ECDHE-RSA with a PKCS #1 v1.5 ServerKeyExchange signature, and a client without extended_master_secret.
 ```maxon
@@ -76,7 +75,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -215,7 +213,6 @@ server12-openssl-no-extended-master-secret {"state":"connected","version":771,"c
 
 <!-- test: tls12-handshake-server.handshakes-by-suite-and-server-key -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 The canra reference client's TLS 1.2 handshakes with each server key type: a client limited to TLS 1.2 reaching a server that also enables TLS 1.3, which carries the downgrade sentinel in its random, a server limited to TLS 1.2 with a P-384 suite, with an RSA key (ChaCha20-Poly1305, and a PKCS #1 v1.5 ServerKeyExchange signature), with an ECDSA P-384 key and with an Ed25519 key, and a client without extended_master_secret, which gets the RFC 5246 master secret.
 ```maxon
@@ -244,7 +241,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -401,7 +397,6 @@ server12-no-extended-master-secret {"state":"connected","version":771,"cipher_su
 
 <!-- test: tls12-handshake-server.client-authentication -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A server that asks for a client certificate: it requires, and verifies with the clientAuth purpose and no host name, an ECDSA P-256 or an RSA PKCS #1 v1.5 client certificate, and with `request` it continues when the client sends an empty Certificate (the peer is not authenticated).
 ```maxon
@@ -430,7 +425,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -551,7 +545,6 @@ server12-mtls-request-no-certificate {"state":"connected","version":771,"cipher_
 
 <!-- test: tls12-handshake-server.negotiation-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A ClientHello the server refuses, each with the alert the server sends, in the contract's negotiation order: no null compression, TLS_FALLBACK_SCSV while TLS 1.3 is enabled, a non-empty renegotiation_info, no suite that fits the key, no supported_groups, ec_point_formats without uncompressed, no signature_algorithms, and no common version.
 ```maxon
@@ -580,7 +573,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -746,7 +738,6 @@ server12-err-protocol-version protocolVersion
 
 <!-- test: tls12-handshake-server.client-flight-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A client flight the server refuses: a ClientKeyExchange whose share is not a point is IllegalParameter, and a client Finished that does not verify is DecryptError.
 ```maxon
@@ -775,7 +766,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -887,7 +877,6 @@ server12-err-client-finished decryptError
 
 <!-- test: tls12-handshake-server.client-authentication-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A client the server refuses when it asks for a certificate: none under `require` (HandshakeFailure, where TLS 1.3 sends certificate_required), a chain from an unknown CA, a message other than the Certificate where it belongs, a CertificateVerify that does not verify and one whose scheme the request did not list or the key does not fit, and a request whose schemes no client certificate can answer.
 ```maxon
@@ -916,7 +905,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1064,7 +1052,6 @@ server12-err-no-common-client-scheme handshakeFailure
 
 <!-- test: tls12-handshake-server.message-length-limits -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A client Certificate header that announces more than 262144 bytes is refused, with InternalError, as soon as the header is buffered; one that announces exactly 262144 bytes is not refused: the server waits for the rest.
 ```maxon
@@ -1093,7 +1080,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1205,7 +1191,6 @@ server12-client-certificate-at-the-length-limit {"state":"handshaking","version"
 
 <!-- test: tls12-handshake-server.no-record-inside-a-handshake-message -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Application data while a partial handshake message is buffered after the handshake is UnexpectedMessage.
 ```maxon
@@ -1234,7 +1219,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1337,7 +1321,6 @@ server12-err-application-data-inside-a-handshake-message unexpectedMessage
 
 <!-- test: tls12-handshake-server.useless-records -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Sixteen warning alerts in a row after the ClientHello are ignored and a seventeenth is UnexpectedMessage.
 ```maxon
@@ -1366,7 +1349,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1478,7 +1460,6 @@ server12-err-too-many-ignored-alerts unexpectedMessage
 
 <!-- test: tls12-handshake-server.reference-signatures-and-preferences -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Handshakes made with the canra reference client and checked by the canra reference server, for the server's choices the canra vectors do not reach: the server's own suite, group and ALPN order, the first scheme of the server's list that the client offered and the key fits, RSA-PSS with SHA-384 and SHA-512 and RSA PKCS #1 v1.5 with SHA-256 and SHA-384 in the ServerKeyExchange, no ALPN when either side has none, TLS_EMPTY_RENEGOTIATION_INFO_SCSV answered with an empty renegotiation_info (the reference client then refuses the extension it did not send), and TLS_FALLBACK_SCSV, which is ignored when TLS 1.3 is disabled.
 ```maxon
@@ -1507,7 +1488,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1709,7 +1689,6 @@ reference12-fallback-scsv-is-ignored-when-tls13-is-disabled {"state":"connected"
 
 <!-- test: tls12-handshake-server.reference-record-shapes -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 More handshakes made with the canra reference client: a ClientHello split over two records, a client flight in 50-byte records, a warning alert before the change_cipher_spec and one after the handshake, which are ignored, application data written in fragments of 16384 bytes with an empty write between under AES-GCM and under ChaCha20-Poly1305, and records after close_notify, which are ignored unread.
 ```maxon
@@ -1738,7 +1717,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -1895,7 +1873,6 @@ reference12-records-after-close-notify-are-ignored {"state":"connected","version
 
 <!-- test: tls12-handshake-server.reference-client-authentication -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 More client authentication made with the canra reference client: an Ed25519 client certificate under `require`, a P-256 one under `request`, an RSA one signing with RSA-PSS, and a request that lists certificate_authorities.
 ```maxon
@@ -1924,7 +1901,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -2054,7 +2030,6 @@ reference12-mtls-with-certificate-authorities {"state":"connected","version":771
 
 <!-- test: tls12-handshake-server.reference-refusals -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Records and messages the server refuses, made with the canra reference client: a change_cipher_spec whose body is not 1 or that comes before the ClientHello, a first message that is not a ClientHello, a ClientHello cut short, a ClientHello that offers no null compression, a TLS 1.3 only client, alerts before the ClientHello and during the handshake (a warning alert before the ClientHello is a refusal too, since no version is selected yet), application data before the change_cipher_spec, a Finished without it, a ClientKeyExchange that does not end its record or that takes the place of a requested Certificate, and a HelloRequest or a NewSessionTicket from the client after the handshake, a close_notify during the handshake, an empty handshake record, and a protected record whose version is not 0x0303 or whose body is too short to hold a nonce and a tag.
 ```maxon
@@ -2083,7 +2058,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -2451,7 +2425,6 @@ tls12-disabled-client-offers-tls12 protocolVersion records=1
 ```
 
 <!-- test: tls12-handshake-server.our-client-handshakes-with-our-server-over-tls12 -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 The client and the server of this stdlib handshake with each other in memory over TLS 1.2, each with the production entropy and the client verifying the server's chain for example.com: each of the six ECDHE suites (AES-128-GCM, AES-256-GCM and ChaCha20-Poly1305, each with ECDSA and with RSA), each server key type (ECDSA P-256, ECDSA P-384, Ed25519, RSA) under the suite that fits it, a ServerKeyExchange signed with RSA PKCS #1 v1.5, a key exchange over secp256r1 instead of X25519, and a client without extended_master_secret, which both sides then derive the RFC 5246 master secret for. A line per side prints what it negotiated, whether it authenticated its peer, whether it saw the peer's close_notify and the application data it received; the server's line adds whether its ServerHello carried extended_master_secret.
 ```maxon
@@ -2480,7 +2453,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -2733,7 +2705,6 @@ without-extended-master-secret-rsa server connected=true version=771 suite=52392
 ```
 
 <!-- test: tls12-handshake-server.our-client-authenticates-to-our-server-over-tls12 -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 The client and the server of this stdlib handshake with each other in memory over TLS 1.2 with the server requiring a client certificate and verifying it for the clientAuth purpose: an ECDSA P-256, an Ed25519 and an RSA client certificate (the RSA one signing with RSA-PSS and, by configuration, with RSA PKCS #1 v1.5), under ECDHE-ECDSA and ECDHE-RSA suites, and without extended_master_secret.
 ```maxon
@@ -2762,7 +2733,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -3003,7 +2973,6 @@ mutual-without-extended-master-secret server connected=true version=771 suite=52
 ```
 
 <!-- test: tls12-handshake-server.our-client-and-server-negotiate-the-version -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 The client and the server of this stdlib negotiate the version the two configurations allow: both enabling TLS 1.3 and TLS 1.2 negotiate TLS 1.3, a side limited to TLS 1.2 brings the other to TLS 1.2, a side limited to TLS 1.3 brings the other to TLS 1.3, and a client and a server with no version in common are refused with protocol_version, with and without client authentication.
 ```maxon
@@ -3032,7 +3001,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

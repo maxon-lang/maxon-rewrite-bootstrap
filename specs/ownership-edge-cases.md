@@ -1452,17 +1452,13 @@ end 'main'
 
 <!-- test: rc-enum-char-rawvalue-from-function -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Returning an enum's char rawValue through a function must not underflow the refcount: the returned value is a raw constant, not a managed allocation, so releasing it as one would underflow.
 ```maxon
 enum Grade
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	excellent = 'A'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	good = 'B'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	average = 'C'
 end 'Grade'
@@ -1513,15 +1509,11 @@ end 'main'
 ```
 
 <!-- test: rc-enum-string-rawvalue-from-function -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Returning a string-backed enum's rawValue through a function must not underflow the refcount. Same root cause as the char variant: raw constant treated as managed allocation.
 ```maxon
 enum Planet
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	earth = "Earth"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mars = "Mars"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	venus = "Venus"
 end 'Planet'
 
@@ -1648,15 +1640,11 @@ end 'main'
 ```
 
 <!-- test: rc-string-backed-enum-compare -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Comparing two string-backed enum values must not leak: the allocations for the enum case values must be freed.
 ```maxon
 enum ContentType
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	json = "application/json"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	html = "text/html"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	plain = "text/plain"
 end 'ContentType'
 
@@ -1674,14 +1662,11 @@ end 'main'
 
 <!-- test: rc-char-backed-enum-compare -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Comparing two char-backed enum values must not leak: the Character allocations for the enum case values must be freed.
 ```maxon
 enum Escape
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	newline = '\n'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	tab = '\t'
 end 'Escape'

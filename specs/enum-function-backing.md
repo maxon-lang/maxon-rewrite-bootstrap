@@ -33,7 +33,7 @@ end 'Op'
 ## Tests
 
 <!-- test: function-backing.basic-dispatch -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -47,9 +47,9 @@ function tripleFn(x Integer) returns Integer
 end 'tripleFn'
 
 enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
@@ -63,7 +63,7 @@ end 'main'
 ```
 
 <!-- test: function-backing.multi-case-dispatch -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -77,9 +77,9 @@ function tripleFn(x Integer) returns Integer
 end 'tripleFn'
 
 enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
@@ -94,7 +94,7 @@ end 'main'
 ```
 
 <!-- test: function-backing.through-variable -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -108,9 +108,9 @@ function tripleFn(x Integer) returns Integer
 end 'tripleFn'
 
 enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
@@ -128,7 +128,7 @@ end 'main'
 ```
 
 <!-- test: function-backing.two-args -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -142,9 +142,9 @@ function subFn(a Integer, b Integer) returns Integer
 end 'subFn'
 
 enum BinOp
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = addFn
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	sub = subFn
 end 'BinOp'
 
@@ -159,7 +159,7 @@ end 'main'
 ```
 
 <!-- test: function-backing.forward-reference -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 Function-backed enum cases may name functions declared later in the same file.
 The case binding is deferred until all top-level declarations are scanned.
 
@@ -168,9 +168,9 @@ The case binding is deferred until all top-level declarations are scanned.
 typealias Integer = int(i64.min to i64.max)
 
 enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
@@ -193,7 +193,7 @@ end 'main'
 
 <!-- test: function-backing.cross-file -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 Function-backed enums may reference functions defined in other files.
 
 ```maxon
@@ -210,9 +210,9 @@ end 'tripleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
@@ -228,7 +228,7 @@ end 'main'
 
 <!-- test: function-backing.contested-name-resolves-at-the-declaring-file -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 A case's function name is resolved where the ENUM is declared, under the bare-call rule: `doubleFn` is
 declared in `alpha/` (unmarked) and in `beta/` (exported), so from `api/dispatch.maxon` it means
 beta's. The read happens inside `alpha/a.maxon`, where alpha's own `doubleFn` is visible — so a name
@@ -254,7 +254,7 @@ end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
 end 'Op'
 
@@ -269,7 +269,7 @@ end 'main'
 
 <!-- test: function-backing.error.contested-name-with-two-visible-candidates -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 Two visible declarations of the case's function name are an ambiguity at the enum's declaration, and
 the case is refused rather than bound to either.
@@ -289,7 +289,7 @@ end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
 end 'Op'
 
@@ -305,7 +305,7 @@ error E3095: api/<fragment>:16:13: Ambiguous bare function name 'doubleFn' backi
 
 <!-- test: function-backing.error.contested-name-with-different-results-is-called-from-another-file -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 When the candidates disagree about the result, calling the refused case's value from another file reports
 the ambiguity alone — the call's result is not typed from either candidate.
@@ -325,7 +325,7 @@ end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
 end 'Op'
 
@@ -341,7 +341,7 @@ error E3095: api/<fragment>:16:13: Ambiguous bare function name 'doubleFn' backi
 
 <!-- test: function-backing.error.undeclared-name-is-called-from-another-file -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 A case backed by a function no file declares is refused where it is declared, and calling its value from
 another file adds nothing to that refusal.
@@ -351,7 +351,7 @@ another file adds nothing to that refusal.
 export typealias Integer = int(i64.min to i64.max)
 
 export enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = nosuchFn
 end 'Op'
 
@@ -367,7 +367,7 @@ error E2004: api/<fragment>:6:2: Undefined variable 'nosuchFn'
 
 <!-- test: function-backing.contested-name-qualified-by-its-directory -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 The remedy E3095 names is writable in the declaration: a directory-qualified function name backs the case with
 the declaration that directory holds.
 
@@ -386,9 +386,9 @@ end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = beta.doubleFn
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = alpha.doubleFn
 end 'Op'
 
@@ -405,7 +405,7 @@ end 'main'
 
 <!-- test: function-backing.error.a-throwing-backing-function-is-refused-by-the-name-it-was-written-as -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 The case's refusal quotes the function name the declaration wrote, though it resolves to beta's declaration.
 
@@ -435,7 +435,7 @@ end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
 end 'Op'
 
@@ -450,7 +450,7 @@ error E3101: api/<fragment>:28:2: Cannot use throwing function 'doubleFn' as a v
 ```
 
 <!-- test: function-backing.error.a-type-method-does-not-back-a-case -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 A dotted name backs a case only where it would read as a function value: `beta.doubleFn` names a function in a
 directory, and `Box.make` names a type's method, which `let f = Box.make` does not read as one either.
@@ -465,7 +465,7 @@ type Box
 end 'Box'
 
 enum Op
-	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	double = Box.make
 end 'Op'
 

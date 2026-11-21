@@ -416,13 +416,11 @@ end 'main'
 ```
 
 <!-- test: witness-by-reference.error.a-narrow-var-at-a-wider-requirement-formal-is-refused-at-the-call -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The declared alias of the requirement's position is `Wide`; the variable is `Narrow`, and a conformer may write any `Wide` through the position, so the call is refused.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 interface Bumper
@@ -468,12 +466,10 @@ error E3005: <fragment>:30:18: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: witness-by-reference.a-narrow-var-written-within-its-range-needs-no-adapter-check -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 A conformer whose parameter is the variable's own alias writes only values that alias admits.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 interface Bumper
@@ -495,7 +491,7 @@ end 'Settler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -708,7 +704,6 @@ end 'main'
 ```
 
 <!-- test: witness-by-reference.a-requirement-inherited-through-extends-follows-the-same-rule -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 The requirement is declared by `Base` and reached through `Derived`; its convention belongs to the
 requirement, not to the interface the constraint names.
 ```maxon
@@ -718,7 +713,6 @@ interface Base
 	function bump(mutates n Wide)
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Derived extends Base
 	function label() returns Wide
 end 'Derived'
@@ -742,7 +736,7 @@ end 'Doubler'
 type Holder uses T where T implements Derived
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -832,17 +826,13 @@ error E2013: <fragment>:41:13: 'x' is a let and cannot be passed to a `mutable` 
 ```
 
 <!-- test: witness-by-reference.error.a-narrow-var-at-an-associated-type-formal-is-refused-at-the-call -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A requirement formal that names an associated type declares no alias of its own, so each conformer binds it and may write any value of the type it binds, which a variable naming a ranged alias cannot be shown to hold.
 ```maxon
 typealias Wide = int(0 to 10000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink uses Item
 	function put(mutates n Item)
 end 'Sink'
@@ -886,12 +876,10 @@ error E3005: <fragment>:30:17: argument type mismatch for 'n': expected 'Item', 
 ```
 
 <!-- test: witness-by-reference.a-var-read-back-through-the-interface-is-written-at-an-associated-type-formal -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A variable whose type is the associated type itself, read back through the interface, is the type the conformer binds, so the formal takes it.
 ```maxon
 typealias Wide = int(0 to 10000)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink uses Item
 	function get() returns Item
 	function put(mutates n Item)
@@ -943,10 +931,8 @@ done
 ```
 
 <!-- test: witness-by-reference.a-string-var-at-an-associated-type-formal-is-written-in-the-caller -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A variable that names no ranged alias has no range for a conformer's write to leave, so an associated-type formal takes it.
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink uses Item
 	function put(mutates n Item)
 end 'Sink'
@@ -993,13 +979,11 @@ put
 ```
 
 <!-- test: witness-by-reference.error.an-impl-taking-a-wider-alias-than-its-requirement-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 A conformer's parameter names the requirement's alias exactly, so no conformer can take a wider one than the requirement states.
 ```maxon
 typealias Wide = int(0 to 10000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 interface Bumper
@@ -1100,13 +1084,11 @@ end 'main'
 ```
 
 <!-- test: witness-by-reference.error.a-conformance-declared-on-a-generic-instance-alias-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 An alias of a generic instance cannot declare a conformance, so no conformer is ever filed under an alias name.
 ```maxon
 typealias Wide = int(0 to 10000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
 interface Bumper

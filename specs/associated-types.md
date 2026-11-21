@@ -253,12 +253,10 @@ error E3016: specs/associated-types/docs-example-5.maxon:9:6: Partial interface 
 ## Tests
 
 <!-- test: basic-associated-type -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Wrapper uses Inner
 	function unwrap() returns Inner
 end 'Wrapper'
@@ -277,7 +275,7 @@ end 'IntBox'
 
 function main() returns ExitCode
 	let box = IntBox.create(42)
-	return box.unwrap()
+	return try box.unwrap() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -286,12 +284,10 @@ end 'main'
 
 
 <!-- test: associated-type-in-param -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Accumulator uses Item
 	function add(item Item) returns Self
 	function total() returns Integer
@@ -301,7 +297,7 @@ type IntSum implements Accumulator with Integer
 	let sum as Integer
 
 	function add(item Integer) returns IntSum
-		return IntSum{sum: sum + item}
+		return IntSum{sum: try sum + item otherwise panic("out of range")}
 	end 'add'
 
 	function total() returns Integer
@@ -317,7 +313,7 @@ function main() returns ExitCode
 	var acc = IntSum.create(0)
 	acc = acc.add(10)
 	acc = acc.add(32)
-	return acc.total()
+	return try acc.total() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -326,20 +322,18 @@ end 'main'
 
 
 <!-- test: multiple-associated-types -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 typealias Float = float(f64.min to f64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Pair uses First, Second
 	function getFirst() returns First
 	function getSecond() returns Second
 end 'Pair'
 
-type IntFloat implements Pair with Integer, Float
+type IntFloat implements Pair with (Integer, Float)
 	let a as Integer
 	let b as Float
 
@@ -360,7 +354,7 @@ function main() returns ExitCode
 	let p = IntFloat.create(40, b: 2.5)
 	let x = p.getFirst()
 	let y = trunc(p.getSecond()) as Integer
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -370,12 +364,10 @@ end 'main'
 
 <!-- test: character-element-type -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `CharSource` declares no `extends`, so `implements CharSource with Character` is the ordinary root-entry
 binding every case above it uses; `Character.codepoints()` supplies the value, and the program exits **65**.
 ```maxon
 // character is a grapheme cluster type, use codepoints() to access codepoint values
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface CharSource uses Element
 	function getChar() returns Element
 end 'CharSource'
@@ -408,12 +400,10 @@ end 'main'
 
 
 <!-- test: byte-element-type -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Byte = int(0 to u8.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface ByteSource uses Element
 	function getByte() returns Element
 end 'ByteSource'
@@ -442,13 +432,10 @@ end 'main'
 
 
 <!-- test: missing-type-binding-error -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface NeedsElement uses Element
 	function get() returns Element
 end 'NeedsElement'
@@ -471,13 +458,10 @@ error E3016: specs/associated-types/missing-type-binding-error.maxon:9:6: Type '
 
 
 <!-- test: partial-implementation-error -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface TwoMethods uses Element
 	function first() returns Element
 	function second() returns Element
@@ -502,7 +486,6 @@ error E3016: specs/associated-types/partial-implementation-error.maxon:10:6: Par
 
 
 <!-- test: wrong-return-type-error -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
@@ -510,7 +493,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Float = float(f64.min to f64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Typed uses Output
 	function make() returns Output
 end 'Typed'
@@ -534,7 +516,6 @@ error E3016: specs/associated-types/wrong-return-type-error.maxon:10:6: Partial 
 
 
 <!-- test: wrong-param-type-error -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
@@ -542,7 +523,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Float = float(f64.min to f64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Acceptor uses Input
 	function accept(val Input) returns Integer
 end 'Acceptor'
@@ -645,12 +625,10 @@ against `held() returns T` and never agree — `E3016 … held() returns type pa
 returns T)` on a program that must compile and run (exit 42).
 
 <!-- test: conformance-argument-is-the-conformers-own-type-parameter -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	function held() returns Element
 end 'Holder'
@@ -662,7 +640,7 @@ type Box uses T implements Holder with T
 		return value
 	end 'held'
 
-	static function create(value T) returns Self
+	static function create(consumes value T) returns Self
 		return Self{value: value}
 	end 'create'
 end 'Box'
@@ -671,7 +649,7 @@ typealias IntBox = Box with Integer
 
 function main() returns ExitCode
 	let b = IntBox.create(42)
-	return b.held()
+	return try b.held() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -686,13 +664,10 @@ parameter rendered as one string, a diagnostic could not tell `T` from `U`. Here
 `Element := T` and the method returns `U`.
 
 <!-- test: conformance-argument-type-parameter-mismatch -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	function held() returns Element
 end 'Holder'
@@ -731,19 +706,16 @@ settles it. `Alpha` takes one, so the comma after `Integer` opens a sibling conf
 `stdlib/List.maxon:12` is written in exactly this shape. A greedy reader eats `Beta` as an argument.
 
 <!-- test: mixed-bound-and-unbound-interfaces -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 typealias Float = float(f64.min to f64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Alpha uses A
 	function one() returns A
 end 'Alpha'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Beta uses B
 	function two() returns B
 end 'Beta'
@@ -774,7 +746,7 @@ end 'Multi'
 
 function main() returns ExitCode
 	let m = Multi.create(7)
-	return m.one() + m.three()
+	return try m.one() + m.three() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -792,14 +764,13 @@ compile and run (exit 42). The arity comes from the whole-program declaration sw
 file's `interface` declarations before any file is parsed — the same guarantee `type` and `enum` have.
 
 <!-- test: interface-declared-below-its-conformance -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Score = int(i64.min to i64.max)
 
 typealias Weight = float(f64.min to f64.max)
 
-type Both implements Duo with Score, Weight
+type Both implements Duo with (Score, Weight)
 	let a as Score
 	let b as Weight
 
@@ -816,7 +787,6 @@ type Both implements Duo with Score, Weight
 	end 'create'
 end 'Both'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Duo uses P, Q
 	function getFirst() returns P
 	function getSecond() returns Q
@@ -824,7 +794,7 @@ end 'Duo'
 
 function main() returns ExitCode
 	let v = Both.create(42, b: 1.5)
-	return v.getFirst()
+	return try v.getFirst() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -840,7 +810,6 @@ because "declared lower in this file" and "declared in a file swept later" are t
 per-file lookup misses, and only one of them a re-ordering of declarations could hide.
 
 <!-- test: interface-declared-in-a-later-file -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // --- file: a.maxon
 typealias Score = int(i64.min to i64.max)
@@ -870,7 +839,6 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: b.maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Duo uses P, Q
 	function getFirst() returns P
 	function getSecond() returns Q
@@ -890,7 +858,6 @@ resolvable for a forward interface, a reader that consulted it and then over-con
 reason; it must stay green for the right one.
 
 <!-- test: forward-interface-comma-still-opens-a-sibling-conformance -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -917,12 +884,10 @@ type Multi implements Alpha with Integer, Beta with Float, Plain
 	end 'create'
 end 'Multi'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Alpha uses A
 	function one() returns A
 end 'Alpha'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Beta uses B
 	function two() returns B
 end 'Beta'
@@ -933,7 +898,7 @@ end 'Plain'
 
 function main() returns ExitCode
 	let m = Multi.create(7)
-	return m.one() + m.three()
+	return try m.one() + m.three() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -959,14 +924,13 @@ correct modelling that the corpus cannot exercise, and an edit that breaks it wi
 nothing here. Do not read this case as its guard.
 
 <!-- test: forward-interface-with-no-uses-clause -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Score = int(i64.min to i64.max)
 
 typealias Weight = float(f64.min to f64.max)
 
-type Both implements Plain with Score, Duo with Score, Weight
+type Both implements Plain with Score, Duo with (Score, Weight)
 	let a as Score
 	let b as Weight
 
@@ -991,7 +955,6 @@ interface Plain
 	function plain() returns Score
 end 'Plain'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Duo uses P, Q
 	function getFirst() returns P
 	function getSecond() returns Q
@@ -1204,7 +1167,6 @@ below it pin that.
 names both types rather than a count.
 
 <!-- test: error.surplus-parenthesized-conformance-argument -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
@@ -1212,12 +1174,11 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Float = float(f64.min to f64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface One uses A
 	function get() returns A
 end 'One'
 
-type Holder implements One with (Integer, Float)
+type Holder implements One with ((Integer, Float))
 	let v as Integer
 
 	function get() returns Integer
@@ -1247,13 +1208,11 @@ ignored (the case above, unchanged); `with (Integer)` is refused. Nothing but th
 and the parentheses are exactly what makes the count an assertion.
 
 <!-- test: error.a-where-clause-after-a-conformance-argument-is-not-part-of-its-spelling -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A `where` clause after a conformance's `with` argument constrains the type's parameter; it is not part of the argument, so the requirement's `A` is the conformer's `T`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface One uses A
 	function get() returns A
 end 'One'
@@ -1317,7 +1276,6 @@ interface the compiler never found. The program's real error is that the name re
 that is the only sentence it earns.
 
 <!-- test: error.surplus-parenthesized-argument-on-unresolvable-interface -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
@@ -1325,7 +1283,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Float = float(f64.min to f64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface One uses A
 	function get() returns A
 end 'One'
@@ -1360,12 +1317,10 @@ green. `with (A)` ≡ `with A` is prose elsewhere (`specs/interfaces.md`); here 
 differ in nothing but the parentheses.
 
 <!-- test: conformance-argument-in-parentheses-at-arity-one -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface One uses A
 	function get() returns A
 end 'One'
@@ -1384,7 +1339,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create(42)
-	return h.get()
+	return try h.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1393,12 +1348,10 @@ end 'main'
 
 
 <!-- test: conformance-argument-unparenthesized-at-arity-one -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface One uses A
 	function get() returns A
 end 'One'
@@ -1417,7 +1370,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create(42)
-	return h.get()
+	return try h.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1426,14 +1379,12 @@ end 'main'
 
 
 <!-- test: conformance-arguments-in-parentheses-at-arity-two -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 typealias Float = float(f64.min to f64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Two uses A, B
 	function first() returns A
 	function second() returns B
@@ -1458,7 +1409,7 @@ end 'Pair'
 
 function main() returns ExitCode
 	let p = Pair.create(42, b: 1.5)
-	return p.first()
+	return try p.first() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1475,12 +1426,10 @@ was tested — a bare `Integer` inside the parentheses exercises the count again
 `T` exercises it against a name that only exists inside this declaration's own `uses` list.
 
 <!-- test: conformance-argument-in-parentheses-is-the-conformers-own-type-parameter -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	function held() returns Element
 end 'Holder'
@@ -1492,7 +1441,7 @@ type Box uses T implements Holder with (T)
 		return value
 	end 'held'
 
-	static function create(value T) returns Self
+	static function create(consumes value T) returns Self
 		return Self{value: value}
 	end 'create'
 end 'Box'
@@ -1501,7 +1450,7 @@ typealias IntBox = Box with Integer
 
 function main() returns ExitCode
 	let b = IntBox.create(42)
-	return b.held()
+	return try b.held() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1522,14 +1471,12 @@ meant two bindings and had one to give.
 items — would turn this legal program into an arity complaint while every other case stayed green.
 
 <!-- test: conformance-argument-in-parentheses-is-a-tuple-type -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 typealias Float = float(f64.min to f64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface One uses A
 	function get() returns A
 end 'One'
@@ -1550,7 +1497,7 @@ end 'Holder'
 function main() returns ExitCode
 	let h = Holder.create(42, f: 1.5)
 	let t = h.get()
-	return t.0
+	return try t.0 as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1574,19 +1521,14 @@ binding, so `interface Sub extends Base` — where `Base uses Element` — rejec
 as a wrong SIGNATURE.
 
 <!-- test: error.surplus-parenthesized-argument-against-an-inherited-uses-name -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Base uses Element
 	function get() returns Element
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Sub extends Base
 	function extra() returns Integer
 end 'Sub'
@@ -1623,19 +1565,14 @@ The case above with two characters removed. It is what proves the parenthesized 
 rejection of a program already rejected, rather than a rejection of one otherwise accepted.
 
 <!-- test: error.inherited-uses-name-unparenthesized-is-still-a-signature-error -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Base uses Element
 	function get() returns Element
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Sub extends Base
 	function extra() returns Integer
 end 'Sub'
@@ -1667,7 +1604,6 @@ error E3016: specs/associated-types/error.inherited-uses-name-unparenthesized-is
 ```
 
 <!-- test: associated-types.uses-name-shadowing-a-builtin -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **A `uses` PARAMETER IS AN IDENTIFIER, AND IDENTIFIERS CAN SPELL BUILTINS.** `float`, `bool` and
 `int` are KEYWORDS a `uses` list cannot hold (E2010), but `ExitCode` and `String` are not — so
 `interface Taker uses ExitCode` is a legal program in which `ExitCode` is a TYPE PARAMETER denoting
@@ -1679,7 +1615,6 @@ The requirement stores a `uses` name as a type parameter, never as the builtin i
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses ExitCode
 	function take(e ExitCode) returns Integer
 end 'Taker'
@@ -1709,7 +1644,6 @@ end 'main'
 ```
 
 <!-- test: associated-types.assoc-bound-to-exitcode-through-type-parameter -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 An associated type bound to `ExitCode` — the one narrow (`u32`) type a Maxon signature can name — as a
 requirement's PARAMETER, dispatched through a constrained type parameter. The formal's own spelling
 (`Element`) says nothing about its width; `implements Taker with ExitCode` is what makes the argument a
@@ -1718,7 +1652,6 @@ wasm `i32`, so the call site has to resolve the BINDING to declare the same func
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -1758,13 +1691,11 @@ end 'main'
 ```
 
 <!-- test: associated-types.assoc-bound-to-exitcode-through-existential -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The EXISTENTIAL twin of the case above: one dispatch mechanism, two receiver kinds, and the binding has
 to be resolved on both. **Unresolved: wasm traps, x64 `31`.** Returns `31`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -1794,7 +1725,6 @@ end 'main'
 ```
 
 <!-- test: associated-types.assoc-bound-to-float-takes-an-int-actual -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 An associated type bound to `float`, given an INTEGER actual. The requirement spells `Element`, so the
 parser's own float widening — which keys on a formal SPELLED `float` — cannot see that this argument
 must become an f64; the lowering resolves the binding and widens there, through the same
@@ -1804,7 +1734,6 @@ the integer `20` handed to a callee that compares `e > 19.0` — while wasm trap
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -1846,7 +1775,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: associated-types.assoc-bound-to-float-returned-through-an-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 An associated type bound to `float` in a RETURN position, implemented by a method declared `returns Real`:
 the requirement is an unnamed slot and a named value decays into it, exactly as `take(e Real)` implements
 `take(e Element)` above. Prints `1.5`.
@@ -1855,7 +1783,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Real = float(-1000.0 to 1000.0)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Giver uses Element
 	function give() returns Element
 end 'Giver'
@@ -1886,7 +1813,6 @@ end 'main'
 ```
 
 <!-- test: associated-types.assoc-bound-to-float-takes-a-float-actual -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The FALSE-REJECT CONTROL for the two refusals below, and for the widening above: an associated type
 bound to `float` in a PARAMETER position, given a float actual, is a correct program and must keep
 compiling. A rule that refused associated types in ABI positions outright would take this with it.
@@ -1894,7 +1820,6 @@ Returns `40`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -1936,7 +1861,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: error.two-conformers-binding-one-associated-type-differently -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **ONE ABI CLASS IS NOT AGREEMENT.** `Integer` and `Score` are different ranged aliases and the same
 machine word, so a rule comparing the ABI CLASS would hold the two conformers to agree. They do not:
@@ -1953,7 +1877,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Score = int(0 to 100)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -1995,14 +1918,12 @@ error E3119: specs/associated-types/error.two-conformers-binding-one-associated-
 ```
 
 <!-- test: associated-types.two-conformers-binding-the-same-type-still-compile -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The FALSE-REJECT CONTROL for E3119: TWO conformers binding one associated
 type to the SAME type is exactly what the refusal above must NOT take with it, and it is the only
 two-conformer shape a shared body can be compiled for. `(5 + 10) + (6 + 10)`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -2044,7 +1965,6 @@ end 'main'
 ```
 
 <!-- test: a-conformer-binding-spelled-qualified-agrees-with-the-bare-declaration -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The same agreement across two spellings. `A`, inside `alpha/`, binds `Element` to `Integer` bare; `B`, in
 `beta/`, binds it to `alpha.Integer`. Both name `alpha/`'s one declaration, so the two conformers bind one
 type and the dispatch in `useIt` is compiled for both. `(5 + 10) + (6 + 10)`.
@@ -2052,7 +1972,6 @@ type and the dispatch in `useIt` is compiled for both. `(5 + 10) + (6 + 10)`.
 // --- file: alpha/ifc.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -2096,7 +2015,6 @@ end 'main'
 ```
 
 <!-- test: a-written-binding-spelled-qualified-matches-its-conformers -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A use site's binding spelled through the declaring directory. `A`, inside `alpha/`, binds `Element` to
 `Integer` bare; `main.maxon` writes the claim as `Taker with alpha.Integer`. Both name one declaration, so the
 claim is the binding the conformer holds. `20 + 11`.
@@ -2104,7 +2022,6 @@ claim is the binding the conformer holds. `20 + 11`.
 // --- file: alpha/ifc.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -2137,7 +2054,6 @@ end 'main'
 ```
 
 <!-- test: associated-types.conformers-disagree-but-nothing-dispatches -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE DISPATCH GATE, AND WITHOUT IT E3119 REFUSES A CORRECT PROGRAM.** Two conformers bind
 `Element` to `float` and to `Integer` — the disagreement the case two above refuses — but every call
 here is statically resolved, so no shared body is compiled against both and no witness table exists to
@@ -2148,7 +2064,6 @@ so which interfaces are actually dispatched is knowable exactly, and the check r
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -2188,8 +2103,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: error.dispatched-associated-type-bound-to-a-string-beside-an-int -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **E3119's STRING-BESIDE-INT FAILURE, PINNED BY A CASE RATHER THAN BY ITS OWN HEADER.** `String`
 beside `Integer` is the pair the entry calls the worst of the three: both are one ABI class and one machine
 word, so no width rule and no register-file rule can separate them, and the shared body compiled against
@@ -2199,7 +2112,6 @@ and this case is what catches the refusal being lifted.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -2241,7 +2153,6 @@ error E3119: specs/associated-types/error.dispatched-associated-type-bound-to-a-
 ```
 
 <!-- test: error.dispatched-associated-type-bound-to-a-float-beside-an-int -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **E3119's FLOAT-BESIDE-INT FAILURE, IN THE PLAIN SHAPE THE ENTRY DESCRIBES.** The `extends` projection case
 is about the TRANSITIVE slot list; this is the direct disagreement. **With the refusal lifted, x64-windows:
@@ -2252,7 +2163,6 @@ fact that gates the rule: there every call is direct, here one is a dispatch.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -2296,7 +2206,6 @@ error E3119: specs/associated-types/error.dispatched-associated-type-bound-to-a-
 ```
 
 <!-- test: associated-types.disagreement-in-a-requirement-no-dispatch-reaches -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE GATE IS THE DISPATCHED SLOT, NOT THE DISPATCHED INTERFACE NAME.** `Tally` declares two
 requirements: `take`, which writes `Element` in a parameter, and `label`, which writes nothing associated.
 The only dispatch in the program jumps through `label`. There is therefore no shared body compiled against
@@ -2311,7 +2220,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Score = int(0 to 100)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Tally uses Element
 	function take(e Element) returns Integer
 	function label() returns Integer
@@ -2362,8 +2270,6 @@ end 'main'
 ```
 
 <!-- test: error.associated-return-bound-to-a-managed-type -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **"MACHINE WORD" IS THE WRONG PREDICATE FOR E3120, AND WHAT IT LETS THROUGH LEAKS.** A `String`
 binding IS a machine word — a pointer — so a machine-word rule admits it. The parser types
 `m.make()` off the requirement, whose return is the associated type `Element`, as `int`, so nothing takes
@@ -2376,7 +2282,6 @@ is clean, which attributes the leak exactly to the associated-return path.**
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Maker uses Element
 	function make() returns Element
 end 'Maker'
@@ -2406,7 +2311,6 @@ error E3120: specs/associated-types/error.associated-return-bound-to-a-managed-t
 ```
 
 <!-- test: associated-types.assoc-return-bound-to-a-machine-word-still-compiles -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The FALSE-REJECT CONTROL for E3120: an associated type in a RETURN position bound to a ranged alias is
 a machine word, so the front end's `named` reading of `Element` and the impl's own return agree, and
 the program compiles and answers correctly. Refusing associated returns outright would take this with
@@ -2414,7 +2318,6 @@ it. `20 + 11`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Maker uses Element
 	function make() returns Element
 end 'Maker'
@@ -2444,8 +2347,6 @@ end 'main'
 ```
 
 <!-- test: error.extends-projected-associated-type-disagreement -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **E3119 MUST NOT BE ESCAPABLE THROUGH `extends`, AND THE ESCAPE IS A SILENT WRONG ANSWER.** `Base` declares
 `take(e Element)`; `Derived extends Base` redeclares `uses Element`; two conformers of `Derived` bind it
@@ -2460,13 +2361,10 @@ the DISPATCHED interface. The same disagreement declared on the CHILD fires by i
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Base uses Element
 	function take(e Element) returns Integer
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Derived extends Base uses Element
 	function extra() returns Integer
 end 'Derived'
@@ -2518,8 +2416,6 @@ error E3119: specs/associated-types/error.extends-projected-associated-type-disa
 ```
 
 <!-- test: associated-types.extends-projected-associated-type-single-conformer -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 The FALSE-REJECT CONTROL for the case above. ONE conformer, binding `Derived`'s `Element` to `float`,
 with `Base`'s `take` projected in through `extends`.
 **The control compiles and answers 31. Resolving the formal against the DECLARING interface instead finds
@@ -2530,13 +2426,10 @@ is what makes the single-conformer case right and the two-conformer case refusab
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Base uses Element
 	function take(e Element) returns Integer
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Derived extends Base uses Element
 	function extra() returns Integer
 end 'Derived'
@@ -2572,19 +2465,14 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: an-inherited-requirement-returns-the-bound-type-through-the-derived-interface -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 A base interface's requirement that returns its associated type, called through the derived interface, returns the conformer's binding.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function take(item Item) returns Item
 end 'Source'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink extends Source uses Item
 	function extra() returns Integer
 end 'Sink'
@@ -2621,21 +2509,16 @@ end 'main'
 ```
 
 <!-- test: an-inherited-requirement-result-is-not-a-same-named-file-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 The same call beside a file-scope alias that shares the associated type's name: the result is still the binding.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias Item = int(0 to 3)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function take(item Item) returns Item
 end 'Source'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink extends Source uses Item
 	function extra() returns Integer
 end 'Sink'
@@ -2677,20 +2560,16 @@ end 'main'
 ```
 
 <!-- test: a-base-interfaces-associated-type-through-a-derived-interface-that-does-not-redeclare-it -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 A derived interface that declares no `uses` of its own still returns the binding of its base's associated type, beside a file-scope alias of the same name.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias Item = int(0 to 3)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function take(item Item) returns Item
 end 'Source'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Sink extends Source
 	function extra() returns Integer
 end 'Sink'
@@ -2732,13 +2611,11 @@ end 'main'
 ```
 
 <!-- test: a-constraint-bound-result-crosses-from-the-owner-types-file -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A `where` constraint's binding names the alias of the file that declares the constrained type, not a same-named alias of another file.
 ```maxon
 // --- file: a.maxon
 typealias Level = int(0 to 100)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -2790,14 +2667,12 @@ end 'smallOk'
 ```
 
 <!-- test: error.unneeded.a-constraint-bound-float-result-cast-to-its-own-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A value the constraint's binding already types as `Percent` gains nothing from a cast to `Percent`.
 ```maxon
 // --- file: a.maxon
 typealias Percent = float(0.0 to 100.0)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -2850,13 +2725,11 @@ error E3010: <fragment>:29:28: unneeded cast: 'Percent' already fits in 'Percent
 ```
 
 <!-- test: an-instance-bound-result-reads-its-alias-where-the-instance-is-written -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 An interface instance's result is typed by the alias its binding names in the file that writes the instance, not by a same-named alias of the interface's file.
 ```maxon
 // --- file: a/a.maxon
 typealias Level = int(0 to 100)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -2899,14 +2772,11 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-conformance-with-a-file-private-alias-is-refused -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 An interface instance written in the interface's file names that file's unmarked `Level`. `Tick` binds the interface's `Element` to it in its `implements` clause and `LevelCursor` is the alias of the instance, and neither may be exported over an unmarked alias, so a file with its own `Level` can never call through them.
 ```maxon
 // --- file: a/a.maxon
 typealias Level = int(0 to 100)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
@@ -2946,8 +2816,6 @@ error E3167: a/<fragment>:21:18: exported typealias 'a.LevelCursor' names unexpo
 ```
 
 <!-- test: error.associated-return-bound-to-a-generic-instance -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **E3120 MUST NOT ADMIT A GENERIC INSTANCE, OR THE PROGRAM LEAKS.** A `Box with Integer` IS a machine
 word — a pointer — and it is managed. A generic-instance binding is asked about by the compiler's own
 CANONICAL name (`Box_Integer`), while `genericAliases` is keyed by the ALIAS (`IntBox`) — so
@@ -2975,7 +2843,6 @@ end 'Box'
 
 typealias IntBox = Box with Integer
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Maker uses Element
 	function make() returns Element
 end 'Maker'
@@ -3005,8 +2872,6 @@ error E3120: specs/associated-types/error.associated-return-bound-to-a-generic-i
 ```
 
 <!-- test: error.associated-type-bound-to-an-interface -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **AN ASSOCIATED TYPE BOUND TO AN INTERFACE NAME SEGFAULTS.** A value held at an interface is a
 two-word fat pointer `(value, witness)`, and a witness call carries ONE machine word per argument — so
 the second word is dropped and the impl reads a witness that was never passed: exit 139 on x64-windows,
@@ -3034,7 +2899,6 @@ type Sq implements Shape
 	end 'create'
 end 'Sq'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3084,7 +2948,6 @@ substitute it through — so an opaque claim there has no answer and E3127 says 
 an associated RETURN whose binding the parser cannot resolve and points at the parameter position instead.
 
 <!-- test: associated-types.existential-parameter-bound-to-the-enclosing-generics-own-parameter -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE CASE A WHOLE-PROGRAM E3125 WOULD REFUSE, AND THE PROGRAM COMPUTES.** A shared generic body binds an
 existential's associated position to its OWN type parameter and dispatches through it. `Box with Integer`
 makes the claim `Taker with Integer`, which is what `Runner` binds — so the widening is sound and the dispatch
@@ -3093,7 +2956,6 @@ is the ordinary one. **Compared whole-program: `E3125 … binds its associated t
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3134,7 +2996,6 @@ end 'main'
 ```
 
 <!-- test: error.existential-parameter-claim-disagrees-with-the-widened-conformer -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE SAFETY CONDITION THE DEFERRAL OWES, AND WITHOUT IT THE PROGRAM IS E3119's FIRST RECORDED FAILURE
 ONE INDIRECTION LATER.** The same shared body, instantiated at `String`: the site's claim is
@@ -3145,7 +3006,6 @@ conformer — so neither E3119 nor E3125 can see it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 	function label() returns Integer
@@ -3191,14 +3051,12 @@ error E3127: specs/associated-types/error.existential-parameter-claim-disagrees-
 ```
 
 <!-- test: associated-types.existential-parameter-with-a-concrete-claim-still-runs -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The FALSE-REJECT CONTROL for the new door in its ordinary shape: a CONCRETE claim that restates what the
 one conformer binds is what E3125 has always admitted, and the widening check must agree with it rather
 than acquire an opinion of its own. Returns `31`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3230,7 +3088,6 @@ end 'main'
 ```
 
 <!-- test: error.existential-return-claim-cannot-be-resolved-in-the-declaration-view -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE HOLE THE DEFERRAL WOULD OTHERWISE OPEN, CLOSED WHERE IT OPENS.** A `return` widens too, and it is
 checked once against the shared body's DECLARATION view — where `T` is still opaque and no call instance
@@ -3240,7 +3097,6 @@ the sentence names the position that CAN be resolved.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 	function label() returns Integer
@@ -3286,7 +3142,6 @@ error E3127: specs/associated-types/error.existential-return-claim-cannot-be-res
 ```
 
 <!-- test: associated-types.existential-field-at-an-opaque-claim-is-filled-through-a-checked-parameter -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐ **THE FIELD POSITION, WHICH IS THE THIRD PLACE A VALUE BECOMES AN EXISTENTIAL.** The deferral admits
 `Taker with T` as a FIELD type as well as a parameter one, and a store into such a field is a widening site of
 its own. This is the route that restates a settled claim: the field is filled from a PARAMETER declared at the
@@ -3296,7 +3151,6 @@ from, and the one `stdlib` shapes are built out of. Returns `31`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 	function label() returns Integer
@@ -3342,7 +3196,6 @@ end 'main'
 ```
 
 <!-- test: error.existential-field-at-an-opaque-claim-cannot-be-filled-inside-the-shared-body -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE THIRD DISCHARGE OF THE DEFERRAL: A DIRECT STORE INTO THE FIELD IS A WIDENING SITE, CHECKED BY
 E3127.** The same field, filled by a struct literal inside the shared body with a concrete `Runner`. The E3125
@@ -3353,7 +3206,6 @@ than admitted for a `Box with String` whose `Runner` binds `Element` to `Integer
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 	function label() returns Integer
@@ -3399,7 +3251,6 @@ error E3127: <fragment>:35:10: cannot widen 'Runner' into the field 'Box.t', whi
 ```
 
 <!-- test: associated-types.existential-field-at-an-opaque-claim-is-filled-directly-through-a-concrete-instance -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE POSITIVE TWIN: A STORE THROUGH A CONCRETE INSTANCE FIXES `T`, SO THE CLAIM IS SETTLED AND THE STORE
 IS LEGAL.** `box` is a `Box with Integer`, so `box.t`'s `Taker with T` is `Taker with Integer` at this store,
 and a `Runner` binds exactly that. The store replaces the conformer the constructor put there, and the dispatch
@@ -3407,7 +3258,6 @@ through `take` reaches the new one with an `Integer` argument. Returns `31`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3446,7 +3296,6 @@ end 'main'
 ```
 
 <!-- test: error.existential-field-store-through-a-concrete-instance-disagrees-with-the-claim -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **AND THROUGH A CONCRETE INSTANCE THE CLAIM CAN DISAGREE.** `box` is a `Box with String`, so the store's
 `Taker with T` is `Taker with String`, and `Runner` binds `Element` to `Integer`: the argument position's
@@ -3454,7 +3303,6 @@ refusal, naming the field.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3503,7 +3351,6 @@ error E3127: <fragment>:44:2: cannot widen 'Runner' into the field 'Box.t', whic
 ```
 
 <!-- test: error.a-deferred-claim-field-cannot-be-filled-from-a-value-already-held-at-the-interface -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **A VALUE ALREADY HELD AT THE BARE INTERFACE CANNOT FILL THE FIELD EITHER.** `t` is a `Taker`, which says
 nothing about which conformer is inside it, so the field's deferred claim has nothing to be settled against —
@@ -3512,7 +3359,6 @@ the argument position's refusal of the same value, at the store. Without it a `B
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 	function label() returns Integer
@@ -3561,7 +3407,6 @@ end 'main'
 error E3127: <fragment>:35:10: cannot store a value already held at the interface type 'Taker' into the field 'Box.t', which is declared at the existential type 'Taker' with its associated type 'Element' bound to 'T' — 'T' is a type parameter of the declaring type, so this site's binding was never settled against the conformances, and a value held at an interface does not say which conformer is inside it for the store to settle it against. Store the concrete conformer, or declare the field 'Box.t' at 'Taker' with no `with` clause
 ```
 <!-- test: associated-types.a-generic-conformers-binding-is-resolved-through-its-own-instance -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE CONFORMER'S SIDE IS A SOURCE SPELLING TOO, AND A GENERIC CONFORMER'S NAMES ITS OWN PARAMETER.**
 `type Holder uses E implements Taker with E` records the binding as the STRING `E` — not a type, and not
 anything a site's `Integer` could equal. Compared raw that is a false disagreement, and it is exactly the shape
@@ -3572,7 +3417,6 @@ into `Taker with Integer`) and the CONFORMER's binding through its own (`Holder 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 	function label() returns Integer
@@ -3621,7 +3465,6 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-conformers-resolved-binding-still-has-to-match -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **AND THE CONTROL THAT KEEPS THE REDUCTION HONEST.** The identical program at `Box with String`: the site
 claims `Taker with String` and `IntHolder`'s `E` resolves to `Integer`. A reduction that quietly
@@ -3630,7 +3473,6 @@ resolution happens, the other that it still compares.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 	function label() returns Integer
@@ -3678,7 +3520,6 @@ end 'main'
 error E3127: specs/associated-types/error.a-generic-conformers-resolved-binding-still-has-to-match.maxon:44:27: cannot widen 'IntHolder' into 't', which is declared at the existential type 'Taker' with its associated type 'Element' bound to 'String' — 'IntHolder' binds 'Element' to 'Integer'. A dispatch through this value is emitted against the binding the site claims and would reach an impl written for the other one. Write the binding the conformer declares, or widen a conformer that binds 'Element' to 'String'
 ```
 <!-- test: error.a-deferred-claim-cannot-be-filled-from-a-value-already-held-at-the-interface -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **THE HOLE A DEFERRED CLAIM OPENS, AND THE REASON E3127 IS NOT ONLY ABOUT CONCRETE CONFORMERS.** Every
 check above asks what the ARRIVING TYPE binds. A value already held at `Taker` answers
@@ -3690,7 +3531,6 @@ recorded failure class one indirection later, which is precisely what E3127 exis
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3735,7 +3575,6 @@ error E3127: specs/associated-types/error.a-deferred-claim-cannot-be-filled-from
 ```
 
 <!-- test: associated-types.a-concrete-claim-may-still-be-filled-from-a-value-already-held-at-the-interface -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⚖ **AND THE REASON THE REFUSAL ABOVE IS NARROW RATHER THAN BLANKET.** The identical forwarding into a
 CONCRETE claim is legal and must stay so: E3125 has already checked `Taker with Integer` against the one
 binding the conformances settled, and E3119 makes that binding unique — so whatever conformer is inside the fat
@@ -3744,7 +3583,6 @@ had neither check, which is the one case the refusal names. Returns `31`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3779,7 +3617,6 @@ end 'main'
 31
 ```
 <!-- test: error.a-deferred-claim-cannot-be-laundered-through-a-return -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE ESCAPE ATTEMPT, RUN RATHER THAN REASONED ABOUT.** The `return` position lets an ALREADY-existential
 value through — `function id(t TakerOfT) returns TakerOfT` restates its own claim and widens nothing — so the
@@ -3790,7 +3627,6 @@ already-existential argument again. Refused at the consumer, with the same sente
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3836,7 +3672,6 @@ error E3127: specs/associated-types/error.a-deferred-claim-cannot-be-laundered-t
 ```
 
 <!-- test: associated-types.two-conformers-disagree-but-every-dispatch-site-names-its-binding -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE PER-SITE RULE, AND IT IS THE EXACT STRING-BESIDE-INT PROGRAM E3119 REFUSES, ONE `with`
 CLAUSE APART.** `String` beside `Integer` is the pair that SEGFAULTS when a single shared body is
 compiled against one of them — and the body is only shared when the receiver is written at the bare
@@ -3850,7 +3685,6 @@ typealias IntTaker = Taker with Integer
 
 typealias TextTaker = Taker with String
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -3896,7 +3730,6 @@ end 'main'
 ```
 
 <!-- test: associated-types.a-held-position-carries-its-own-with-arguments-through-the-dispatch -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE SITE'S CLAIM SURVIVES ONE INDIRECTION — through a HELD position, which is the shape
 `stdlib/Array.maxon` is made of.** `Bag with (Integer, Cursor with Integer)` says `Iter` is held at `Cursor`
 AND that whatever cursor arrives yields `Integer`, so `b.cursor().item()` is typed from the site rather than
@@ -3910,12 +3743,10 @@ typealias IntCursor = Cursor with Integer
 
 typealias IntBag = Bag with (Integer, IntCursor)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Item
 	function item() returns Item
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function cursor() returns Iter
 end 'Bag'
@@ -3981,7 +3812,6 @@ end 'main'
 ```
 
 <!-- test: error.held-position-nested-binding-disagreement -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE OTHER HALF OF THE CASE ABOVE, AND WITHOUT IT THE PER-SITE RULE IS A SILENT WRONG ANSWER.** The site
 claims `Cursor with Integer` at a HELD position; `BadBag` binds `Iter` to a cursor yielding `String`. E3125
@@ -3996,12 +3826,10 @@ typealias IntCursor = Cursor with Integer
 
 typealias IntBag = Bag with (Integer, IntCursor)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Item
 	function item() returns Item
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function cursor() returns Iter
 end 'Bag'
@@ -4067,7 +3895,6 @@ error E3127: specs/associated-types/error.held-position-nested-binding-disagreem
 ```
 
 <!-- test: a-holding-written-in-an-instance-inline-in-an-alias-declares-the-binding -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **A HOLDING IS DECLARED BY AN INSTANCE WRITTEN INLINE, NOT ONLY BY A TOP-LEVEL ALIAS.** The only site in this
 program that writes `Bag with (Integer, IntegerCursor)` sits inside the arguments of `Bags`, and it is its own
 instantiation site, so it declares that `Iter` is held at `Cursor`. `total` takes the bare `Bag`: its shared body
@@ -4077,13 +3904,11 @@ bindings would be the disagreement E3119 refuses. **It answers 0, 10 and 600.**
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -4187,7 +4012,6 @@ end 'main'
 ```
 
 <!-- test: error.a-binding-written-in-an-instance-inline-disagrees-with-the-conformers -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **E3125 JUDGES AN INSTANCE WRITTEN INLINE, AT ITS OWN BASE NAME.** The conformer binds `Element` to `Integer` and
 `Seq with Text` is written inside the arguments of `TextSeqs`. That instance is its own instantiation site, so the
@@ -4198,7 +4022,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Text = int(0 to 255)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -4256,15 +4079,11 @@ the ROOT entry's bindings would compare the inherited `current() returns Element
 current() returns Pos (expected current() returns Element)` against a program that must compile and run.
 
 <!-- test: associated-types.extends.inherited-requirement-substituted-by-a-sibling-conformance -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface BiCursor extends Cursor
 	function retreat(mutates self)
 end 'BiCursor'
@@ -4308,15 +4127,11 @@ The lookup is a SEARCH of the whole `implements` clause and not a look-behind, b
 write the descendant first, so an order-dependent answer here would be a defect.
 
 <!-- test: associated-types.extends.the-sibling-conformance-may-be-written-after-the-descendant -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface BiCursor extends Cursor
 	function retreat(mutates self)
 end 'BiCursor'
@@ -4362,15 +4177,11 @@ substitution, which is what attributes a future regression to the `extends` half
 generally.
 
 <!-- test: associated-types.extends.the-ancestor-conformance-alone-still-answers -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 public interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 public interface BiCursor extends Cursor
 	function retreat(mutates self)
 end 'BiCursor'
@@ -4417,16 +4228,12 @@ written — the same sentence the `implements BiCursor with Pos` spelling one fi
 `Parser.conformanceUsesArity` records why.
 
 <!-- test: error.extends.no-sibling-conformance-leaves-the-inherited-name-unbound -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface BiCursor extends Cursor
 	function retreat(mutates self)
 end 'BiCursor'
@@ -4478,16 +4285,12 @@ agree, both naming the substituted `Pos`. De-duplicating a rejection the way
 `Project` beside that map.
 
 <!-- test: error.extends.wrong-signature-under-an-inherited-binding-names-the-substituted-type -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 end 'Cursor'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface BiCursor extends Cursor
 	function retreat(mutates self)
 end 'BiCursor'
@@ -4530,17 +4333,12 @@ and `Parent with Real`. The clause entry is consulted before the declaring entry
 `Parent`'s slot compare different requirements, and one `current()` cannot satisfy both.
 
 <!-- test: error.extends.a-clause-binding-one-inherited-name-two-ways-is-refused -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Parent uses Element
 	function current() returns Element
 end 'Parent'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Child extends Parent uses Element
 	function retreat(mutates self)
 end 'Child'
@@ -4601,13 +4399,10 @@ diagnostic naming a type its program never wrote.
 ⚖ **USER RULING: conformance is decided on the UNDERLYING TYPE.**
 
 <!-- test: w61.interface-scoped-alias-in-a-requirement -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 public interface Holder uses Element
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	export typealias ElementArray = Array with Element
@@ -4615,7 +4410,6 @@ public interface Holder uses Element
 end 'Holder'
 
 public interface Maker
-	// TODO: static functions in interfaces are not supported in minimaxon
 	static function spawn() returns Self
 end 'Maker'
 
@@ -4654,12 +4448,10 @@ right-hand-side expansion — it is what the ruling requires — so it is also
 the case a regression toward name-matching would land on first.
 
 <!-- test: w61.conformer-names-the-alias-differently -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
@@ -4766,12 +4558,10 @@ recurses through the inner instance rather than stopping at the outer one. It is
 expansion works on the alias's TYPE and not on a one-level spelling.
 
 <!-- test: w61.expansion-descends-into-a-nested-instance-argument -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Nested = Array with (Array with Element)
@@ -4826,13 +4616,11 @@ The refusal below is committed so that a change which makes this shape legal has
 deliberately rather than discover it as a hang.
 
 <!-- test: error.w61.interface-alias-naming-another-interface-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
@@ -4869,7 +4657,6 @@ message would leave this program correctly rejected while telling its author the
 `Holder.ElementArray` — a type their program cannot write, and one no positive case can see.
 
 <!-- test: error.w61.wrong-signature-under-an-expanded-alias-names-the-expanded-type -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -4877,7 +4664,6 @@ typealias Num = int(0 to 1000)
 
 typealias Other = int(0 to 7)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
@@ -4908,12 +4694,10 @@ error E3016: <fragment>:12:6: Partial interface implementation: type 'Crate' has
 ```
 
 <!-- test: conformers-binding-an-associated-type-differently-are-each-dispatched-through-a-receiver-claiming-theirs -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 Two conformers bind one associated type to different types, and every dispatch site claims the binding it reaches, so each conformer's witness table is built against its own binding.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink uses Item
 	function put(x Item) returns Integer
 end 'Sink'
@@ -4967,12 +4751,10 @@ end 'main'
 ```
 
 <!-- test: a-float-binding-beside-a-string-binding-is-built-from-its-own-conformer -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A conformer binding the associated type to a float is widened to the unclaimed interface beside a conformer binding it to `String`, and its table is built against its own float binding.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink uses Item
 	function put(x Item) returns Integer
 	function tag() returns Integer
@@ -5033,12 +4815,10 @@ end 'main'
 ```
 
 <!-- test: an-unclaimed-dispatch-of-another-requirement-does-not-read-a-float-bound-associated-result -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A conformer binds the associated type to a float, and the only dispatch through the unclaimed `Giver` is `tag()`, which has no associated type in it. The table the widening builds still holds `give`, whose result is the float the conformer bound.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Giver uses Element
 	function give() returns Element
 	function tag() returns Integer
@@ -5077,13 +4857,10 @@ end 'main'
 ```
 
 <!-- test: error.an-unclaimed-dispatch-of-a-float-bound-associated-result-is-refused -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- positions: moved -->
 Dispatching an associated-type result through a receiver that does not say which binding it holds types the result before any conformer is known, so it cannot be the float a conformer bound.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Giver uses Element
 	function give() returns Element
 	function tag() returns Integer
@@ -5124,7 +4901,6 @@ error E3120: <fragment>:9:6: 'Runner' binds 'Giver's associated type 'Element' t
 
 <!-- test: a-conformance-declared-by-an-extension-binds-its-own-associated-type -->
 <!-- skip: extension headers with type arguments are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `A` declares `implements Named` on the type and its `Sink` conformance on an `extension`, so its `Sink` binding is in a later declaration than its first.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5133,7 +4909,6 @@ interface Named
 	function code() returns Integer
 end 'Named'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink uses Item
 	function put(x Item) returns Integer
 end 'Sink'
@@ -5195,7 +4970,6 @@ end 'main'
 
 <!-- test: error.an-extension-declared-binding-is-checked-against-the-receivers-claim -->
 <!-- skip: extension headers with type arguments are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same split declaration, widened into a receiver claiming the other binding.
 ```maxon
@@ -5205,7 +4979,6 @@ interface Named
 	function code() returns Integer
 end 'Named'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sink uses Item
 	function put(x Item) returns Integer
 end 'Sink'
@@ -5264,7 +5037,6 @@ error E3127: <fragment>:54:10: cannot widen 'A' into 's', which is declared at t
 
 
 <!-- test: error.two-files-binding-one-associated-type-to-their-own-same-named-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 E3119 compares two conformers' bindings as the declarations their own files mean, not as the names they
 spell. `alpha/a.maxon` and `beta/b.maxon` each declare an unmarked `Num` — one over `int`, one over
@@ -5272,7 +5044,6 @@ spell. `alpha/a.maxon` and `beta/b.maxon` each declare an unmarked `Num` — one
 in `useIt`, compiled once for both conformers, is refused exactly as `float` beside `Integer` is.
 ```maxon
 // --- file: main.maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Taker uses Element
 	function take(e Element) returns ExitCode
 end 'Taker'

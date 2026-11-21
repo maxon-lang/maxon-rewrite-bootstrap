@@ -2385,12 +2385,10 @@ end 'main'
 ```
 
 <!-- test: private-aliases-over-different-primitives-as-associated-type-bindings -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // --- file: a/a.maxon
 typealias Measure = int(0 to 100)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface IntSource uses Element
 	function first() returns Element
 end 'IntSource'
@@ -2420,7 +2418,6 @@ end 'fromA'
 // --- file: b/b.maxon
 typealias Measure = float(0.0 to 1.0)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface FloatSource uses Element
 	function first() returns Element
 end 'FloatSource'
@@ -2455,7 +2452,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-interface-instance-over-a-file-private-argument-is-refused -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `lib/b.maxon` and `app/main.maxon` each declare an unmarked `Measure` and `Items`, and `ItemsSource` is `Source with Items` of `lib/b.maxon`'s. An exported alias and an exported function cannot name an unmarked alias, so both are refused and no dispatch through `ItemsSource` reaches `app/main.maxon`'s own `Items`.
@@ -2465,7 +2461,6 @@ typealias Measure = int(0 to 1000)
 
 typealias Items = Array with Measure
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Source uses Element
 	function first() returns Element
 end 'Source'
@@ -2979,7 +2974,6 @@ error E3063: <fragment>:18:11: Ambiguous type name 'StringArray': more than one 
 ```
 
 <!-- test: a-factory-argument-cast-to-a-contested-name-keeps-the-casting-files-alias -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ⭐ **A CAST ARGUMENT CARRIES THE ALIAS ITS FILE MEANS, NOT THE BARE SPELLING.** `2 as Small` in the
 second file names that file's unmarked `int(0 to 100)` alias, a subtype of the factory's `Wide` parameter; a
 sibling declares `type Small`. The scalar is typed through the reading file's identity, so the factory
@@ -2992,7 +2986,6 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: malpha/m-alpha.maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Small = int(0 to 100) implements Wide
 
 typealias Wide = int(0 to 1000)
@@ -3030,7 +3023,6 @@ end 'nominalQ'
 ```
 
 <!-- test: a-function-body-factory-argument-cast-to-a-contested-name-keeps-the-casting-files-alias -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The same factory call in a function body.
 
 ```maxon
@@ -3040,7 +3032,6 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: malpha/m-alpha.maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Small = int(0 to 100) implements Wide
 
 typealias Wide = int(0 to 1000)

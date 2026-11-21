@@ -187,7 +187,6 @@ end 'main'
 
 <!-- test: otherwise-binding-throws.wraps-error -->
 <!-- skip: terminal 'otherwise panic/throws' on a try block is not supported in minimaxon; use a labelled otherwise block -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -195,7 +194,6 @@ enum BindingWrapInner implements Error
 	bad
 end 'BindingWrapInner'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BindingWrapOuter implements Error
 	wrap(inner BindingWrapInner)
 end 'BindingWrapOuter'

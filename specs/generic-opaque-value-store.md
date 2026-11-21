@@ -33,11 +33,9 @@ a wrong answer and not merely a slower one.
 ### A managed aggregate argument is SHARED by the record the shared body builds
 
 <!-- test: aggregate-argument-is-shared-not-copied -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Index = int(0 to u64.max) implements ElementIndex
 
 type Cell
@@ -349,12 +347,10 @@ end 'main'
 ```
 
 <!-- test: a-mixed-instance-snapshot-inside-a-generic-copies-like-the-concrete-one -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 A snapshot cloned inside a generic body copies its records exactly as the same snapshot of a concrete instance does.
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Index = int(0 to u64.max) implements ElementIndex
 
 typealias NameArray = Array with String
@@ -445,13 +441,11 @@ generic 1
 ```
 
 <!-- test: error.an-aliased-array-argument-of-a-mixed-instance-snapshot-is-refused -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 An array type argument spelled through an alias is refused at a snapshot exactly as the inline spelling is.
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Index = int(0 to u64.max) implements ElementIndex
 
 typealias NameArray = Array with String
@@ -2810,11 +2804,9 @@ end 'main'
 ```
 
 <!-- test: string-argument-outlives-its-source -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Index = int(0 to u64.max) implements ElementIndex
 
 type Holder uses Element
@@ -2859,11 +2851,9 @@ end 'main'
 ### A trivial argument's retain word is 0, so the same body stores it raw
 
 <!-- test: trivial-argument-takes-no-reference -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Index = int(0 to u64.max) implements ElementIndex
 
 typealias SmallInt = int(0 to 100)
@@ -3467,7 +3457,6 @@ error E2012: <fragment>:10:24: Circular typealias dependency: A
 
 <!-- test: error.a-struct-literal-over-an-inner-alias-the-conformer-binds-to-an-interface-reports-only-the-refusal -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A conformer that binds an associated type to an interface makes the extension's inner alias `Array with Named`, the same instance the alias written at the bottom is refused for. The literal in the extension body is read whole, fields and all, so the only errors are the conformer's binding and the alias written at the bottom.
 ```maxon
@@ -3485,7 +3474,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -3530,7 +3518,6 @@ No written site spells the refused instance here: the extension writes `Array wi
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-stores-as-an-element-is-refused -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 interface Named
@@ -3547,7 +3534,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -3585,7 +3571,6 @@ error E2015: <fragment>:29:34: Unsupported: a container's element type declared 
 
 <!-- test: error.a-conformer-binding-an-interface-is-reported-once-however-many-aliases-and-uses-store-it -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 Two aliases in the extension store `Item`, both are used, and the one conformer binding is still reported once.
 ```maxon
@@ -3603,7 +3588,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -3647,7 +3631,6 @@ error E2015: <fragment>:36:34: Unsupported: a container's element type declared 
 
 <!-- test: error.each-conformer-binding-an-interface-that-an-extension-stores-is-reported-at-its-own-binding -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 Two conformers bind `Item` to `Named`: each binding is reported, at its own token.
 ```maxon
@@ -3665,7 +3648,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -3715,7 +3697,6 @@ error E2015: <fragment>:39:35: Unsupported: a container's element type declared 
 
 <!-- test: error.the-reported-binding-is-the-position-the-extension-stores -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The extension stores `Second`, so the binding of `Second` is the one reported; `First` is bound to a concrete type and is not.
 ```maxon
@@ -3733,7 +3714,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Pair uses First, Second
 	function first() returns First
 	function second() returns Second
@@ -3748,7 +3728,7 @@ extension Pair
 	end 'seconds'
 end 'Pair'
 
-type Both implements Pair with Count, Named
+type Both implements Pair with (Count, Named)
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -3776,7 +3756,6 @@ error E2015: <fragment>:30:39: Unsupported: a container's element type declared 
 
 <!-- test: a-conformer-binding-an-interface-the-extension-does-not-store-compiles -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The extension stores `First`, which is bound to a concrete type; `Second` is bound to an interface and no alias stores it, so nothing is refused.
 ```maxon
 interface Named
@@ -3793,7 +3772,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Pair uses First, Second
 	function first() returns First
 	function second() returns Second
@@ -3808,7 +3786,7 @@ extension Pair
 	end 'firsts'
 end 'Pair'
 
-type Both implements Pair with Count, Named
+type Both implements Pair with (Count, Named)
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -3836,7 +3814,6 @@ end 'main'
 
 <!-- test: a-conformer-binding-a-concrete-type-the-extension-stores-compiles -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The same extension and the same use are legal for a conformer that binds `Item` to a concrete type.
 ```maxon
 interface Named
@@ -3853,7 +3830,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -3889,7 +3865,6 @@ end 'main'
 <!-- test: a-conformer-binding-an-interface-is-not-refused-where-a-conditional-extension-is-withheld -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The extension that stores `Item` holds only for an `Equatable` binding, `Named` is not one, so the alias is never published for the conformer and nothing is refused.
 ```maxon
 interface Named
@@ -3906,7 +3881,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -3942,7 +3916,6 @@ end 'main'
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-in-another-file-stores-is-refused -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The extension is declared in `a.maxon` and the conformer in `main.maxon`: the one E2015 is at the conformer's binding.
 ```maxon
@@ -3951,7 +3924,6 @@ export interface Named
 	function label() returns String
 end 'Named'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -4000,7 +3972,6 @@ error E2015: <fragment>:31:34: Unsupported: a container's element type declared 
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-stores-is-refused-though-no-body-uses-the-alias -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal is the pair of the binding and the extension's declaration, so it stands when nothing reads the alias.
 ```maxon
@@ -4018,7 +3989,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -4060,7 +4030,6 @@ The member's signature reads the conformer's binding, so for a conformer that bi
 
 <!-- test: an-extension-member-taking-an-associated-type-bound-to-an-interface-runs -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 interface Named
 	function label() returns String
@@ -4086,7 +4055,6 @@ type Other implements Named
 	end 'label'
 end 'Other'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -4123,7 +4091,6 @@ end 'main'
 
 <!-- test: an-extension-member-returning-an-associated-type-bound-to-an-interface-runs -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 interface Named
 	function label() returns String
@@ -4139,7 +4106,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -4177,7 +4143,6 @@ thing
 
 <!-- test: an-extension-member-passing-an-associated-type-bound-to-an-interface-through-runs -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 One member takes the associated type and returns it, so the witness the caller supplies travels in and back out.
 ```maxon
 interface Named
@@ -4204,7 +4169,6 @@ type Other implements Named
 	end 'label'
 end 'Other'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -4246,7 +4210,6 @@ thing other one
 
 <!-- test: an-extension-member-taking-an-associated-type-serves-a-concrete-and-an-interface-conformer -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The one extension member serves a conformer that binds `Item` to a concrete type and one that binds it to an interface.
 ```maxon
 interface Named
@@ -4263,7 +4226,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -4630,9 +4592,7 @@ And the direction no exit code can see is the other one: an over-retain leaks an
 which a single store could not tell from a rounding error and a hundred can.
 
 <!-- test: a-hundred-borrowed-stores-into-the-parameters-own-container-balance -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
@@ -4944,11 +4904,9 @@ and it is a LOCAL that dies before the borrow's owner does, so nothing releases 
 afterwards, and the program exits 0. A refusal that fired here would be refusing a program that is whole.
 
 <!-- test: a-record-built-from-a-borrow-may-die-in-the-frame -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Box uses T
@@ -7470,7 +7428,6 @@ The pair of a conformer's interface binding and an extension's alias is refused 
 
 <!-- test: error.an-extension-function-alias-over-a-bound-interface-is-refused-once -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A function alias over the associated type, with a member taking it, is refused at the alias; the program never calls through it.
 ```maxon
@@ -7488,7 +7445,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -7533,7 +7489,6 @@ error E2015: <fragment>:21:30: Unsupported: a function type's parameter declared
 
 <!-- test: error.an-extension-tuple-alias-over-a-bound-interface-is-refused -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple alias holding the associated type is refused at the alias, whatever member uses it.
 ```maxon
@@ -7551,7 +7506,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -7650,7 +7604,6 @@ error E2015: stdlib/Interfaces.maxon:204:47: Unsupported: a function type's para
 
 <!-- test: error.a-generic-conformer-binding-an-interface-is-reported-once-however-many-instances -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A generic conformer binds `Item` to an interface and is instantiated over two element types: the one binding is reported once.
 ```maxon
@@ -7668,7 +7621,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -7706,7 +7658,6 @@ error E2015: <fragment>:29:40: Unsupported: a container's element type declared 
 
 <!-- test: error.an-interface-extension-publishes-no-member-onto-an-enum-conformer-binding-an-interface -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface extension publishes no member onto an enum conformer, so the alias it stores is never instantiated for one and the call is refused as any call to a missing method is.
 ```maxon
@@ -7724,7 +7675,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'
@@ -7757,7 +7707,6 @@ error E4006: <fragment>:40:14: Type 'Mode' has no method named 'collected'
 ```
 
 <!-- test: error.a-conformer-in-the-earlier-file-binding-an-interface-that-an-extension-in-a-later-file-stores-is-refused -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The conformer is declared in `a.maxon` and the extension in `main.maxon`: the one E2015 is at the conformer's binding.
 ```maxon
@@ -7776,7 +7725,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Item
 	function first() returns Item
 end 'Source'

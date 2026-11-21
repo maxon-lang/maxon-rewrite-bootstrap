@@ -844,8 +844,6 @@ error E4014: <fragment>:25:6: type 'Scaled' contains a reference cycle (via Scal
 ```
 
 <!-- test: error.clone-of-a-record-holding-an-interface-a-handle-owner-conforms-to-through-an-extension-is-refused -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- positions: moved -->
 ### The roster counts extensions, and follows `extends`
 A conformance declared by `extension T implements I` is a conformance, and a conformer of an
 interface that `extends` `Shape` is a conformer of `Shape`. A roster reading only the type
@@ -857,7 +855,6 @@ interface Shape
 	function area() returns Integer
 end 'Shape'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Drawable extends Shape
 	function draw() returns Integer
 end 'Drawable'
@@ -886,6 +883,7 @@ extension Tap implements Drawable
 	function area() returns Integer
 		return 1
 	end 'area'
+
 	function draw() returns Integer
 		return 2
 	end 'draw'

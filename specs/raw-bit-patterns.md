@@ -44,14 +44,12 @@ pinned below so the decision is on the record.
 ## Tests
 
 <!-- test: a-whole-word-pattern-cast-to-a-signed-alias-reinterprets -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ### `bits(64) as Integer` keeps the pattern and reads negative
 The deliberate reinterpretation. `u64.max` and `-1` are one 64-bit pattern; naming it under a signed
 alias changes what it is CALLED and not one bit of what it IS.
 ⚠ The claim is asked as a COMPARISON rather than as a printed digit string on purpose: how a value is
 SPELLED is `string-interpolation.md`'s subject, and this case is about what the bits are.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Integer = int(i64.min to i64.max)
@@ -62,7 +60,7 @@ end 'opaque'
 
 function main() returns ExitCode
 	let w = u64.max as Word
-	let minusOne = opaque(0) - 1
+	let minusOne = try opaque(0) - 1 otherwise panic("out of range")
 	return 7 if (w as Integer) == minusOne else 1
 end 'main'
 ```
@@ -94,12 +92,10 @@ end 'main'
 ```
 
 <!-- test: a-whole-word-pattern-reaches-an-unsigned-quantity-unguarded -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ### `bits(64) as int(0 to u64.max)` is free
 Pattern → quantity crosses no signed domain and no width, so the quantity's door has nothing to test
 even though it is a guarded door in general.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Count = int(0 to u64.max)
@@ -118,12 +114,10 @@ end 'main'
 ```
 
 <!-- test: a-signed-negative-reaches-a-whole-word-pattern-unguarded -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ### `Integer as bits(64)` is free, and keeps the pattern
 The direction that separates a pattern from a quantity most sharply: the SAME `-1` this file's next
 case panics on is admitted here, because every pattern is one of `bits(64)`'s values.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Integer = int(i64.min to i64.max)
@@ -133,7 +127,7 @@ function opaque(n Integer) returns Integer
 end 'opaque'
 
 function main() returns ExitCode
-	let laundered = opaque(0) - 1
+	let laundered = try opaque(0) - 1 otherwise panic("out of range")
 	let extreme = u64.max as Word
 	return 7 if (laundered as Word) == extreme else 1
 end 'main'
@@ -174,13 +168,10 @@ Stack trace:
 ```
 
 <!-- test: a-narrow-pattern-widens-with-no-check -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ### `bits(32) as bits(64)` is a widening
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Half = bits(32)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function seed() returns Half
@@ -201,16 +192,14 @@ end 'main'
 ```
 
 <!-- test: a-whole-word-pattern-narrowed-to-32-bits-panics -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### `bits(64) as bits(32)` panics — the WIDTH is the door
 Truncation is never implicit. A caller who wants the low 32 bits writes the mask.
 ⚠ The pattern is laundered through `opaque` so the value arrives at RUN TIME: a folded one is refused
 before the program runs, which is a different rule (E3005) reported by a different case.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Half = bits(32)
 
 typealias Integer = int(i64.min to i64.max)
@@ -236,12 +225,11 @@ Stack trace:
 ```
 
 <!-- test: a-signed-negative-into-a-narrow-pattern-panics -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### `Integer as bits(32)` panics — `-1` does not fit 32 bits
 A pattern narrower than a word is guarded like any other narrow range, so the unguardedness of
 `bits(64)` is a property of the WIDTH and not of the spelling.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Half = bits(32)
 
 typealias Integer = int(i64.min to i64.max)
@@ -267,12 +255,11 @@ Stack trace:
 ```
 
 <!-- test: a-whole-word-pattern-into-a-signed-nonnegative-alias-panics -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### `bits(64)` into a range that stops at `i64.max` panics on bit 63
 The control that a pattern is not waved into every target: `Small` genuinely excludes the value, and
 the ordinary containment check is what refuses it.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Small = int(0 to i64.max)
@@ -328,8 +315,6 @@ end 'main'
 ```
 
 <!-- test: error.a-written-negative-into-a-pattern-is-refused -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ### A WRITTEN `-1` is still E3005, even where the pattern would hold it
 The compile-time rule is about what the author wrote, not about what the bits would do: a declared
 lower bound of 0 refuses a negative literal. `u64.max` and `0xFFFFFFFFFFFFFFFF` are how the same
@@ -337,7 +322,6 @@ pattern is spelled without writing a sign, and both are admitted.
 ⚠ The message names the alias's OWN spelling: `bits(64)`, not the `int(0 to 18446744073709551615)`
 its stored bounds render as — a declaration the program does not contain.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function main() returns ExitCode
@@ -351,11 +335,8 @@ error E3005: specs/raw-bit-patterns/error.a-written-negative-into-a-pattern-is-r
 ```
 
 <!-- test: error.an-illegal-width-is-refused -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ### E3148 — a width the language does not have
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Odd = bits(5)
 
 function main() returns ExitCode
@@ -369,11 +350,8 @@ error E3148: specs/raw-bit-patterns/error.an-illegal-width-is-refused.maxon:2:22
 ```
 
 <!-- test: error.a-zero-width-is-refused -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ### E3148 — `bits(0)` holds no values at all
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Nothing = bits(0)
 
 function main() returns ExitCode
@@ -385,11 +363,8 @@ error E3148: specs/raw-bit-patterns/error.a-zero-width-is-refused.maxon:2:26: 'b
 ```
 
 <!-- test: error.a-width-past-the-machine-word-is-refused -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ### E3148 — `bits(128)` is wider than any slot
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Huge = bits(128)
 
 function main() returns ExitCode
@@ -416,11 +391,8 @@ error E3011: specs/raw-bit-patterns/error.bare-bits-is-not-a-type.maxon:3:12: Un
 ```
 
 <!-- test: error.a-cast-to-a-values-own-pattern-alias-is-unneeded -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ### E3010 is unchanged — a pattern is an alias like any other
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function main() returns ExitCode
@@ -434,32 +406,24 @@ error E3010: specs/raw-bit-patterns/error.a-cast-to-a-values-own-pattern-alias-i
 ```
 
 <!-- test: every-width-rides-the-storage-ladder -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### Storage is the existing ladder — 8/4/2/1 bytes, then 4/2/1 packed bits
 `bits(n)` adds no storage rule of its own: it lands on the same ladder a ranged `int` of the same
 value set does. A negative `elementSize` is the ladder's spelling for a SUB-BYTE packed element,
 and it is why the legal widths divide a byte.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W64 = bits(64)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W32 = bits(32)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W16 = bits(16)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W8 = bits(8)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W4 = bits(4)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W2 = bits(2)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W1 = bits(1)
 
 typealias A64 = Array with W64
@@ -498,13 +462,11 @@ end 'main'
 ```
 
 <!-- test: a-pattern-and-the-range-with-its-value-set-share-a-slot -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### `bits(4)` and `int(0 to 15)` are one slot
 The control for the case above: the ladder is asked about the VALUE SET, so the two spellings cannot
 drift apart in layout. What separates them is the door, and nothing else.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias W4 = bits(4)
 
 typealias N15 = int(0 to 15)
@@ -565,14 +527,12 @@ end 'main'
 ```
 
 <!-- test: a-word-sourced-value-is-free-at-a-return-door-and-at-a-binding -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ### The `bits(64)`-SOURCED route, one door at a time — the two that are FREE
 `bits(64) as int(0 to u64.max)` is free, so a value that arrived through a `Word` reaches a `Count`
 RETURN and a `Count` BINDING with nothing to test, bit 63 set and all. Both doors read the pattern the
 `Word` already held and print it as the unsigned quantity it now denotes. The case below is the same
 value at the remaining door.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Count = int(0 to u64.max)
@@ -595,7 +555,7 @@ function throughBinding(n Integer) returns Count
 end 'throughBinding'
 
 function main() returns ExitCode
-	let laundered = opaque(0) - 3
+	let laundered = try opaque(0) - 3 otherwise panic("out of range")
 	print("{throughReturn(laundered)}\n")
 	print("{throughBinding(laundered)}\n")
 	return 0
@@ -610,12 +570,10 @@ end 'main'
 ```
 
 <!-- test: a-word-sourced-value-is-free-at-an-unsigned-quantity-parameter -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ### …and the ARGUMENT door is free too
 The same route at a parameter. The argument's static type is `Count`, which is unsigned, so the call
 has no sign to test and the value arrives as the quantity 18446744073709551613.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Count = int(0 to u64.max)
@@ -631,7 +589,7 @@ function show(c Count) returns Count
 end 'show'
 
 function main() returns ExitCode
-	let laundered = opaque(0) - 3
+	let laundered = try opaque(0) - 3 otherwise panic("out of range")
 	let pattern = laundered as Word
 	print("{show(pattern as Count)}\n")
 	return 0
@@ -714,7 +672,6 @@ end 'main'
 ```
 
 <!-- test: a-dynamic-shift-count-carries-an-unsigned-quantity-into-bit-63 -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ### A shift by a count the compiler cannot fold still lands an unsigned quantity in bit 63
 The count is a parameter, so the shift is emitted behind the saturating mask — and the result's domain
 is the LEFT operand's, which the count cannot change.
@@ -722,11 +679,10 @@ is the LEFT operand's, which the count cannot change.
 typealias Word = int(0 to u64.max)
 
 function shifted(value Word, by Word) returns Word
-	return value shl by
+	return try value shl by otherwise panic("out of range")
 end 'shifted'
 
 function main() returns ExitCode
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{shifted(0xAB, by: 56):x}\n")
 	return 0
 end 'main'
@@ -739,7 +695,6 @@ ab00000000000000
 ```
 
 <!-- test: a-product-and-an-or-reach-the-same-bit-63-unsigned-value -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ### A product and an `or` reach the same bit-63 value with nothing to test
 The two controls for the shift above: the identical pattern, produced by two other operations closed
 over the unsigned domain.
@@ -747,7 +702,7 @@ over the unsigned domain.
 typealias Word = int(0 to u64.max)
 
 function multiplied(value Word, by Word) returns Word
-	return value * by
+	return try value * by otherwise panic("out of range")
 end 'multiplied'
 
 function orred(low Word, high Word) returns Word
@@ -755,9 +710,7 @@ function orred(low Word, high Word) returns Word
 end 'orred'
 
 function main() returns ExitCode
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{multiplied(0xAB, by: 0x100000000000000):x}\n")
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{orred(1, high: 0x8000000000000000):x}\n")
 	return 0
 end 'main'
@@ -771,7 +724,6 @@ ab00000000000000
 ```
 
 <!-- test: an-accumulation-in-a-loop-carries-a-bit-63-unsigned-value -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ### An accumulation inside a loop carries a bit-63 unsigned value out of it
 ```maxon
 typealias Word = int(0 to u64.max)
@@ -787,7 +739,6 @@ function looped(seed Word, high Word, laps Lap) returns Word
 end 'looped'
 
 function main() returns ExitCode
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{looped(1, high: 0x8000000000000000, laps: 2):x}\n")
 	return 0
 end 'main'
@@ -801,7 +752,6 @@ end 'main'
 
 <!-- test: bytes-assembled-in-a-loop-fill-an-unsigned-quantity-word -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ### Bytes assembled in a loop fill an unsigned-quantity word, top byte included
 The shape any code building a machine word out of bytes has: a loop-carried accumulator, a shift by a
 computed count, and a last byte at or above 0x80.
@@ -823,7 +773,6 @@ function main() returns ExitCode
 		bytes.push(i as Byte)
 	end 'eachLowByte'
 	bytes.push(0xCC as Byte)
-	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{packed(bytes):x}\n")
 	return 0
 end 'main'
@@ -1168,12 +1117,10 @@ error E3005: <fragment>:12:17: Value -2 is outside the range of 'Count' (int(0 t
 ```
 
 <!-- test: a-signed-counter-through-an-associated-type-to-an-unsigned-quantity-parameter-panics -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ### …and at a call through an interface whose formal is an ASSOCIATED TYPE, where the conformer keeps its entry guard
 ```maxon
 typealias Count = int(0 to u64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Shower uses Shown
 	function show(c Shown) returns Shown
 end 'Shower'
@@ -1546,13 +1493,11 @@ error E3005: specs/raw-bit-patterns/error.a-wrapping-unsigned-fold-is-refused.ma
 ```
 
 <!-- test: a-wrapping-sum-over-bits-64-reaches-an-unsigned-quantity-parameter -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 ### The spelling for arithmetic that wraps is `bits(64)`
 A sum over `bits(64)` patterns wraps, and the pattern converts to the quantity at the door.
 ```maxon
 typealias Count = int(0 to u64.max)
 
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function take(c Count) returns Count

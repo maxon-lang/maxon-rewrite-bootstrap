@@ -477,7 +477,6 @@ error E3202: <fragment>:11:10: the closure at <fragment>:11:10 is mutable and ca
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 An error carries its payload out of the function, so a payload that holds the region's array leaves the block exactly as a returned view does.
 
@@ -501,7 +500,6 @@ type Bag
 	end 'bump'
 end 'Bag'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BagFault implements Error
 	named(names NameArray)
 end 'BagFault'
@@ -534,7 +532,6 @@ error E3202: <fragment>:29:9: 'BagFault.named(bag.names)' is mutable and cannot 
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 A record an element read bound inside the block is region data too, and naming it in the payload does not make it a value.
 
@@ -566,7 +563,6 @@ type Table
 	end 'bump'
 end 'Table'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union RowFault implements Error
 	named(row Row)
 	empty
@@ -602,7 +598,6 @@ error E3202: <fragment>:40:9: 'RowFault.named(first)' is mutable and cannot leav
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A `String` is a value, so a payload built from the block's text, or from a string an element read produced, may leave through the error.
 
 ```maxon
@@ -626,7 +621,6 @@ type Bag
 	end 'bump'
 end 'Bag'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BagFault implements Error
 	named(text String)
 	empty
@@ -682,7 +676,6 @@ alpha
 <!-- test: thrown-region-contents-leaving-an-enclosing-try-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 A block-form `try` around the `modify` carries the thrown payload out of the window to its handler.
 
@@ -706,7 +699,6 @@ type Bag
 	end 'bump'
 end 'Bag'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BagFault implements Error
 	named(names NameArray)
 end 'BagFault'
@@ -736,7 +728,6 @@ error E3202: <fragment>:32:10: 'BagFault.named(bag.names)' is mutable and cannot
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A block-form `try` written inside the `modify` hands the payload to a handler that is still inside the window, so nothing leaves it.
 
 ```maxon
@@ -759,7 +750,6 @@ type Bag
 	end 'bump'
 end 'Bag'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union BagFault implements Error
 	named(names NameArray)
 end 'BagFault'
@@ -795,7 +785,6 @@ end 'main'
 
 <!-- test: thrown-region-contents-leaving-the-statement-that-opens-refused -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 A payload built from the one-statement open's region data leaves with the error just as a returned one does.
 
@@ -819,7 +808,6 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union PageFault implements Error
 	named(lines LineArray)
 end 'PageFault'

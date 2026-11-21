@@ -28,12 +28,10 @@ A count that is a variable is a rotate only when its declared type or recorded i
 ## Tests
 
 <!-- test: a-constant-rotate-moves-the-top-bits-round -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 Rotates by 1, 8, 32 and 63 in both directions over `0x0123456789ABCDEF`. A rotate left by `k` is a rotate right by `64 - k`, so the two directions meet at 1/63 and 32/32.
 
 `halves` compares the answer's two 32-bit halves, so no expected value has its top bit set.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function rotateLeftBy1(word Word) returns Word
@@ -106,10 +104,8 @@ end 'main'
 ```
 
 <!-- test: a-rotate-fills-from-the-top-bit-with-zeros -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 The same rotates over `0x8000000000000001`, whose top bit is set. A right shift that filled with the sign would smear that bit across the half the rotate vacates, and these answers would carry it.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function rotateLeftBy1(word Word) returns Word
@@ -154,10 +150,8 @@ end 'main'
 ```
 
 <!-- test: a-count-declared-inside-one-to-sixty-three-rotates -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 Rotates by a variable count whose type is `int(1 to 63)`, at both ends of the range and in between. The count reaches the rotate as an argument chosen at run time, so nothing about it is folded.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Step = int(0 to 3)
@@ -223,10 +217,8 @@ end 'main'
 ```
 
 <!-- test: xor-of-the-two-shifts-is-the-same-rotate -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 For a count in `1..63` the two shifted halves share no bit, so joining them with `xor` gives the answer `or` gives.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function rotateLeftByEight(word Word) returns Word
@@ -257,10 +249,8 @@ end 'main'
 ```
 
 <!-- test: shifts-of-two-different-values-are-not-a-rotate -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 `(a shl 8) or (b shr 56)` reads two values, so it takes the high bytes of `a` and the top byte of `b`: `0x23456789ABCDEF00 or 0x11`.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function joined(a Word, b Word) returns Word
@@ -283,10 +273,8 @@ end 'main'
 ```
 
 <!-- test: counts-that-do-not-sum-to-64-are-not-a-rotate -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 `(word shl 8) or (word shr 55)` brings down nine bits where a rotate by 8 brings down eight, so its low byte is `0x02` where a rotate by 8 has `0x01`.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function lookalike(word Word) returns Word
@@ -329,10 +317,8 @@ end 'main'
 ```
 
 <!-- test: a-count-that-can-be-zero-keeps-the-saturating-shifts -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 With `n` declared `int(0 to 63)`, `64 - n` reaches 64 and the guarded right shift saturates to 0 there. So at `n = 0` the pair is `word xor 0`, which is `word`; a rotate-by-zero of both halves under `xor` would be 0.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Reach = int(0 to 63)
@@ -346,7 +332,7 @@ function orLookalike(word Word, n Reach) returns Word
 end 'orLookalike'
 
 function reachFor(step Reach) returns Reach
-	return (step * 8) as Reach
+	return try (step * 8) as Reach otherwise panic("out of range")
 end 'reachFor'
 
 function halves(word Word, high Word, low Word) returns bool
@@ -372,10 +358,8 @@ end 'main'
 ```
 
 <!-- test: a-shift-also-used-elsewhere-survives-the-rotate -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 `high` is the left shift and is also an operand of the rotate. Both the rotate (`0x23456789ABCDEF01`) and `high` itself (`0x23456789ABCDEF00`) are read, so the shift stays whatever the rotate becomes.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function halves(word Word, high Word, low Word) returns bool
@@ -416,10 +400,8 @@ end 'main'
 ```
 
 <!-- test: shifts-computed-before-a-branch-feed-an-or-inside-it -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 Both shifts are computed before the `if`; the `or` is inside it. Taken, the answer is the rotate `0x23456789ABCDEF01`; not taken, it is the left shift alone, `0x23456789ABCDEF00`.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 function halves(word Word, high Word, low Word) returns bool
@@ -451,10 +433,8 @@ end 'main'
 ```
 
 <!-- test: a-variable-count-rotates-in-either-operand-order -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
 With `n` declared `int(1 to 63)`, the right rotate is written `(x shr n) or (x shl (64 - n))` and `(x shl (64 - n)) or (x shr n)`, the left rotate `(x shl n) or (x shr (64 - n))` and `(x shr (64 - n)) or (x shl n)`. Each spelling gives the one answer for its direction: over `0x0123456789ABCDEF`, right by 8 is `0xEF012345 6789ABCD` and left by 8 is `0x23456789ABCDEF01`.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
 typealias Step = int(0 to 1)

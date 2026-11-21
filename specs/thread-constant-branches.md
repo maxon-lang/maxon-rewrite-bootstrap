@@ -67,14 +67,12 @@ the function ("value … is live-in to block … but was never colored — a use
 ## Tests
 
 <!-- test: a-known-flag-skips-the-test -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The shape the pass was opened for. In `pick`'s emitted code (`--emit-ir`) the fast arm loads the element and reaches
 `tryok` directly — no `movRegImm32 …, 0` for the flag, no `cmpRegImm32 r10, 0`, no `critsplit` copy
 of the flag — while `__im_slow`'s call is followed by the `cmp`/`jcc` to `tryerr`.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias WordArray = Array with Word
@@ -84,13 +82,13 @@ function pick(a WordArray, i Idx) returns Word
 end 'pick'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i * 2)
 	end 'seed'
 	var t = 0 as Word
 	for i in 0 upto 6 'sum'
-		t = t + pick(a, i: i)
+		t = try t + pick(a, i: i) otherwise panic("out of range")
 	end 'sum'
 	if t != 30 'total'
 		return 1
@@ -103,14 +101,12 @@ end 'main'
 ```
 
 <!-- test: a-fallback-value-is-taken-on-a-real-failure -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The slow path after the rewrite: the duplicated test sits in the slow arm and must still reach the
 handler on a genuine failure, while the fast arm's value phi still reaches the continuation. Five
 elements read at nine indices: 0+1+2+3+4 from the array and 99 four times from the handler.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias WordArray = Array with Word
@@ -120,13 +116,13 @@ function pickOr(a WordArray, i Idx) returns Word
 end 'pickOr'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i)
 	end 'seed'
 	var t = 0 as Word
 	for i in 0 upto 9 'sum'
-		t = t + pickOr(a, i: i)
+		t = try t + pickOr(a, i: i) otherwise panic("out of range")
 	end 'sum'
 	if t != 406 'total'
 		return 1
@@ -139,13 +135,11 @@ end 'main'
 ```
 
 <!-- test: a-block-handler-runs-on-a-real-failure -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The block-form handler is a block of its own reached from the duplicated test; it returns through the
 function's exit, so a test that fell into the continuation instead would print 5 where 7 is right.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias WordArray = Array with Word
@@ -158,7 +152,7 @@ function probe(a WordArray, i Idx) returns Word
 end 'probe'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(5)
 	if probe(a, i: 0) != 5 'present'
 		return 1
@@ -174,25 +168,23 @@ end 'main'
 ```
 
 <!-- test: a-write-in-a-loop-keeps-its-slow-arm -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The store shape, with the store's own continuation carrying `(noError, noError)` from the fast arm.
 Every slot is written and read back, and the one write past the end must still take the slow arm
 and land in the handler.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias WordArray = Array with Word
 
-function put(a WordArray, i Idx, v Word) returns bool
+function put(mutates a WordArray, i Idx, v Word) returns bool
 	try a.set(i, value: v) otherwise return false
 	return true
 end 'put'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.resize(4)
 	var stored = 0 as FullRangeInt
 	for i in 0 upto 5 'each'
@@ -205,7 +197,7 @@ function main() returns ExitCode
 	end 'count'
 	var seen = 0 as Word
 	for v in a 'check'
-		seen = seen + v
+		seen = try seen + v otherwise panic("out of range")
 	end 'check'
 	if seen != 60 'sum'
 		return 2
@@ -248,13 +240,11 @@ end 'main'
 ```
 
 <!-- test: a-binding-handler-reads-the-flag-and-is-left-alone -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The flag is read in the handler to decode `e`, so the rule refuses the site and the site behaves as
 it always did: `indexOutOfBounds` is what an index past the end reports.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias WordArray = Array with Word
@@ -270,7 +260,7 @@ function classify(a WordArray, i Idx) returns Word
 end 'classify'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(8)
 	if classify(a, i: 0) != 8 'present'
 		return 1
@@ -286,25 +276,23 @@ end 'main'
 ```
 
 <!-- test: a-rethrowing-try-propagates-the-error -->
-<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 A bare `try` in a throwing function rethrows the flag it received, so the flag is read past the
 compare and the site is refused. The caller's own `otherwise` is the ordinary shape and may be
 rewritten; the two must compose.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 typealias WordArray = Array with Word
 
 function twice(a WordArray, i Idx) returns Word throws ArrayError
 	let v = try a.get(i)
-	return v * 2
+	return try v * 2 otherwise panic("out of range")
 end 'twice'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(21)
 	let present = try twice(a, i: 0) otherwise 0
 	let absent = try twice(a, i: 5) otherwise 100

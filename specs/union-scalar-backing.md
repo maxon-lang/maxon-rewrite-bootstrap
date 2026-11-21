@@ -41,16 +41,12 @@ duplicate raw values are rejected — identical to enum backing rules.
 ## Tests
 
 <!-- test: int-backed-union-rawvalue -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 A bare reference to an int-backed union case exposes its raw value via
 `.rawValue`.
 ```maxon
 union ErrorCode
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	lexerUnexpectedCharacter = 1001
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	parserUnexpectedToken = 2001
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	semanticTypeMismatch = 3001
 end 'ErrorCode'
 
@@ -65,15 +61,11 @@ end 'main'
 
 
 <!-- test: int-backed-union-match -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 A scalar-backed union matches like an enum — bare case names, exhaustive.
 ```maxon
 union Status
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	ok = 200
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	notFound = 404
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	serverError = 500
 end 'Status'
 
@@ -122,14 +114,11 @@ error E3034: specs/union-scalar-backing/error.unknown-union-case.maxon:11:3: unk
 
 
 <!-- test: string-backed-union-name -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 A string-backed union keeps an integer runtime tag but exposes the decoded
 string through `.rawValue`, and `.name` returns the case spelling.
 ```maxon
 union Mnemonic
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	add = "mir.add.i64"
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	sub = "mir.sub.i64"
 end 'Mnemonic'
 
@@ -153,7 +142,6 @@ sub
 ## the compiler additions
 
 <!-- test: payload-case-scalar-raw-value -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 A case's PAYLOAD LIST and its RAW VALUE are independent halves, so a case may write both. This is the shape
 `specs/union-struct-backing.md` pins — `add(dest ID, src ID) = OpMeta.create(1)` — read at the scalar
 backing this file is about. The raw value is read AFTER the optional payload list; a parser that let
@@ -168,9 +156,7 @@ answers one of them with the other.
 typealias ID = int(i64.min to i64.max)
 
 union Instr
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	add(dest ID, src ID) = 5
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	nop = 7
 end 'Instr'
 
@@ -178,7 +164,7 @@ function main() returns ExitCode
 	let op = Instr.add(1, src: 2)
 	var r = 0 as ID
 	match op 'h'
-		add(d, s) then r = d + s
+		add(d, s) then r = try d + s otherwise panic("out of range")
 		nop then r = 99
 	end 'h'
 	print("{r} {op.rawValue} {op.ordinal} {op.name}")
@@ -199,28 +185,24 @@ A scalar-backed union value is not a number — the operators refuse it as they 
 `.rawValue` and `.ordinal` read out of it is a plain value of the backing's type, which every operator takes.
 
 <!-- test: int-backed-union-rawvalue-takes-every-integer-operator -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 `.rawValue` of an int-backed union is an `int`: it adds, subtracts, multiplies, divides, takes a remainder,
 masks and shifts, and it is an argument to an `int` parameter.
 ```maxon
 union Status
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	ok = 200
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	notFound = 404
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	serverError = 500
 end 'Status'
 
 function twice(n FullRangeInt) returns FullRangeInt
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 function main() returns ExitCode
 	let s = Status.notFound
 	let n = s.rawValue
-	print("{n + 1} {n - 400} {n * 2} {n / 4} {n mod 100} {n and 7} {n shr 2} {twice(s.rawValue)}\n")
-	return ((s.rawValue - 400) * 2 + (n and 7)) as ExitCode
+	print("{try n + 1 otherwise panic("out of range")} {try n - 400 otherwise panic("out of range")} {try n * 2 otherwise panic("out of range")} {n / 4} {n mod 100} {n and 7} {n shr 2} {twice(try s.rawValue as FullRangeInt otherwise panic("out of range"))}\n")
+	return try ((s.rawValue - 400) * 2 + (n and 7)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -231,24 +213,20 @@ end 'main'
 ```
 
 <!-- test: int-backed-union-rawvalue-through-a-parameter -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 The raw value of a union that arrives as a parameter, not as a constant case, is read the same way.
 ```maxon
 union Status
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	ok = 200
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	notFound = 404
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	serverError = 500
 end 'Status'
 
 function bucket(s Status) returns FullRangeInt
-	return s.rawValue / 100 + (s.ordinal as FullRangeInt)
+	return try s.rawValue / 100 + (s.ordinal as FullRangeInt) otherwise panic("out of range")
 end 'bucket'
 
 function main() returns ExitCode
-	return bucket(Status.serverError) as ExitCode
+	return try bucket(Status.serverError) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -256,14 +234,11 @@ end 'main'
 ```
 
 <!-- test: float-backed-union-rawvalue-takes-every-float-operator -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
 `.rawValue` of a float-backed union is a `float`, decoded from the case's bits: it takes float arithmetic and
 is an argument to a `float` parameter.
 ```maxon
 union Weight
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	light = 2.5
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 
@@ -309,15 +284,11 @@ end 'main'
 ```
 
 <!-- test: error.an-int-backed-union-value-is-not-an-operand -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
-<!-- positions: moved -->
 A scalar-backed union is representationally an enum, but its VALUE is not a number: it is refused as an
 operand, and the raw value it carries is read with `.rawValue`.
 ```maxon
 union Status
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	ok = 200
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	notFound = 404
 end 'Status'
 
@@ -332,14 +303,11 @@ error E2004: <fragment>:9:12: Cannot operate on int and Status
 ```
 
 <!-- test: error.a-float-backed-union-value-is-not-an-operand -->
-<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: operand types -->
 The refusal is the same for a float-backed union, whose value is not a float either.
 ```maxon
 union Weight
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	light = 2.5
-	// TODO: explicit raw values on union cases are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 

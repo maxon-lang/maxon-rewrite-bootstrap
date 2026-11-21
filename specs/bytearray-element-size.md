@@ -1498,12 +1498,9 @@ error E3005: <fragment>:11:9: argument type mismatch for 'b': expected 'Byte', g
 ```
 
 <!-- test: error.a-bits-byte-and-the-librarys-int-byte-are-two-types -->
-<!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 The same door with the author's `Byte` spelled as a raw pattern, `bits(8)`. Its value set is the library
 `Byte`'s, but an alias's identity is its declaration, so the library's element does not reach it.
 ```maxon
-// TODO: bits(...) typealiases are not supported in minimaxon
 typealias Byte = bits(8)
 
 function takeByte(b Byte) returns ExitCode

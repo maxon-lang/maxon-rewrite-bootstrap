@@ -38,13 +38,11 @@ an associated type a requirement TAKES.
 ## Tests
 
 <!-- test: parameterized.cursor-protocol -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐ **THE CURSOR PROTOCOL THROUGH A PARAMETERIZED EXISTENTIAL.** `Seq uses Element`, `Upto implements Seq with Integer`, and the
 parameter is written at the INSTANCE. Both protocol calls are witness dispatches through the fat pointer.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -94,14 +92,12 @@ end 'main'
 ```
 
 <!-- test: parameterized.two-conformers -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE DISPATCH THROUGH A PARAMETERIZED EXISTENTIAL IS GENUINELY DYNAMIC.** Two conformers reach ONE
 parameter, and a merge phi decides which at run time — so no static reading of the source can fold the
 witness away, and the two answers differ.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -189,14 +185,12 @@ end 'main'
 ```
 
 <!-- test: parameterized.managed-values -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⚠ **THE VALUE THE LOOP HANDS THE BODY IS AN OWNED HEAP RECORD.** The interface is parameterized and the
 traversal element is a `String` the conformer MINTS per call, so each trip must release exactly once. A leak
 or a double release is a non-zero exit here, not a wrong number.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Lines uses Tag
 	function tag() returns Tag
 	function current() returns String
@@ -256,14 +250,12 @@ end 'main'
 ```
 
 <!-- test: parameterized.early-exits -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⚠ **THE PER-TRIP RELEASE ON THE EXITS THE FALL-THROUGH CASE CANNOT REACH.** A `return` out of the body and a
 `break` each leave a promoted per-trip temporary live; over 200 rounds a missed release is exit 101 and a
 double release is a fault.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Lines uses Tag
 	function tag() returns Tag
 	function current() returns String
@@ -337,14 +329,12 @@ end 'main'
 ```
 
 <!-- test: parameterized.every-producer-of-one -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 Every way a program can hand a parameterized existential on: a CALL RESULT, a LOCAL binding, and a struct
 FIELD declared at the instance. Each is its own producer of the witness half, and an unpaired one panics the
 compiler rather than answering.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -427,7 +417,6 @@ end 'main'
 ```
 
 <!-- test: error.binding-contradicts-the-conformers -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **A WRITTEN BINDING IS A CLAIM, AND A FALSE ONE IS REFUSED RATHER THAN IGNORED.** The conformers bind
 `Element` to `Integer`; the use site writes `Text`. Nothing in the program could make that true — one
@@ -438,7 +427,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Text = int(0 to 255)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -483,20 +471,17 @@ error E3125: <fragment>:30:11: this use of 'Seq' binds its associated type 'Elem
 ```
 
 <!-- test: parameterized.associated-type-held-at-an-interface -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐ **AN ASSOCIATED TYPE HELD AT AN INTERFACE.** `Iter` is bound to an INTERFACE, so `createIterator()` hands back a
 value plus the table to walk it through — two words out of a call that returns one. The second travels in the
 FIRST table (`specs/associated-type-held-at-an-interface.md`).
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Cursor uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
 end 'Cursor'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Bag uses Element, Iter
 	function createIterator() returns Iter throws IterationError
 end 'Bag'
@@ -562,7 +547,6 @@ end 'main'
 ```
 
 <!-- test: error.associated-type-bound-to-an-existential-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⚠ **E3120 MUST STILL CATCH THE BINDING WHEN IT IS SPELLED AS AN ALIAS**, and what makes it do so is a
 RENDERING rather than a second predicate: `ProgramSignatures.declaredNameIsFatPointer` knows only the bare
@@ -573,7 +557,6 @@ would carry one machine word where the impl reads two.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Element
 	function current() returns Element
 	function advance(mutates self) throws IterationError
@@ -601,7 +584,6 @@ end 'Upto'
 
 typealias IntegerSeq = Seq with Integer
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Taker uses Element
 	function take(e Element) returns Integer
 end 'Taker'
@@ -632,9 +614,7 @@ error E3120: <fragment>:35:6: 'Runner' binds 'Taker's associated type 'Element' 
 ```
 
 <!-- test: a-call-result-carries-the-instance-its-declared-return-names -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Element
 	function first() returns Element
 end 'Source'
@@ -671,13 +651,11 @@ from a call
 ```
 
 <!-- test: a-generic-alias-binding-agrees-with-the-conformers-instance -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias Measure = int(0 to 1000)
 
 typealias Items = Array with Measure
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Source uses Element
 	function first() returns Element
 end 'Source'

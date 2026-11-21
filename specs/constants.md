@@ -408,14 +408,10 @@ end 'main'
 ```
 
 <!-- test: float-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Threshold
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	low = 0.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	medium = 0.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 
@@ -432,14 +428,10 @@ end 'main'
 ```
 
 <!-- test: string-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum ContentType
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	json = "application/json"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	html = "text/html"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	plain = "text/plain"
 end 'ContentType'
 
@@ -457,13 +449,10 @@ end 'main'
 
 <!-- test: char-backed -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Escape
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	newline = '\n'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	tab = '\t'
 end 'Escape'
@@ -597,12 +586,9 @@ error E3031: specs/constants/error.duplicate-value.maxon:4:2: duplicate raw valu
 ```
 
 <!-- test: error.mixed-backing-types -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum Mixed
 	first = 1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	second = "two"
 end 'Mixed'
 
@@ -675,13 +661,10 @@ end 'main'
 ```
 
 <!-- test: float-arithmetic -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Float-backed enum can be used in arithmetic with floats.
 ```maxon
 enum Weight
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 0.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 2.0
 end 'Weight'
 
@@ -699,13 +682,10 @@ end 'main'
 ```
 
 <!-- test: float-comparison -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Float-backed enum can be compared with float values.
 ```maxon
 enum Threshold
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	low = 0.1
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 
@@ -722,13 +702,10 @@ end 'main'
 ```
 
 <!-- test: string-comparison -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 String-backed enum can be compared with string values.
 ```maxon
 enum ContentType
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	json = "application/json"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	html = "text/html"
 end 'ContentType'
 
@@ -746,14 +723,11 @@ end 'main'
 
 <!-- test: char-comparison -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Character-backed enum can be compared with character values.
 ```maxon
 enum Escape
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	newline = '\n'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	tab = '\t'
 end 'Escape'
@@ -873,14 +847,10 @@ end 'main'
 ```
 
 <!-- test: float-backed-rawvalue -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Weights
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 1.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	medium = 2.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 3.5
 end 'Weights'
 
@@ -898,12 +868,9 @@ end 'main'
 ```
 
 <!-- test: explicit-string-backed-rawvalue -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Planet
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	earth = "Earth"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mars = "Mars"
 end 'Planet'
 
@@ -925,16 +892,12 @@ Mars
 
 <!-- test: explicit-char-backed-rawvalue -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum CardSuit
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	Hearts = 'H'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	Diamonds = 'D'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	Spades = 'S'
 end 'CardSuit'
@@ -954,12 +917,9 @@ D
 ```
 
 <!-- test: string-rawvalue-dynamic-comparison -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Planet
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	earth = "Earth"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mars = "Mars"
 end 'Planet'
 
@@ -986,12 +946,9 @@ Mars
 ```
 
 <!-- test: string-rawvalue-after-reassign -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Planet
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	earth = "Earth"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mars = "Mars"
 end 'Planet'
 
@@ -1011,15 +968,12 @@ Mars
 ```
 
 <!-- test: float-rawvalue-in-function -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Float = float(f64.min to f64.max)
 
 enum Weights
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 1.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	medium = 2.5
 end 'Weights'
 
@@ -1068,14 +1022,10 @@ end 'main'
 ```
 
 <!-- test: string-rawvalue-function-param -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Planet
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	earth = "Earth"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mars = "Mars"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	venus = "Venus"
 end 'Planet'
 
@@ -1098,16 +1048,12 @@ end 'main'
 
 <!-- test: char-rawvalue-function-param -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	excellent = 'A'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	good = 'B'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	average = 'C'
 end 'Grade'
@@ -1176,12 +1122,9 @@ notFound
 ```
 
 <!-- test: name-string-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Planet
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	earth = "Earth"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mars = "Mars"
 end 'Planet'
 
@@ -1248,14 +1191,10 @@ done
 ```
 
 <!-- test: name-float-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Weights
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 1.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	medium = 2.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 3.5
 end 'Weights'
 
@@ -1274,16 +1213,12 @@ heavy
 
 <!-- test: name-char-backed -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum CardSuit
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	Hearts = 'H'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	Diamonds = 'D'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	Spades = 'S'
 end 'CardSuit'
@@ -1373,14 +1308,10 @@ end 'main'
 ```
 
 <!-- test: fromRawValue-float-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Weights
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 1.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	medium = 2.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 3.5
 end 'Weights'
 
@@ -1397,12 +1328,9 @@ end 'main'
 ```
 
 <!-- test: fromRawValue-string-backed -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Planet
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	earth = "Earth"
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	mars = "Mars"
 end 'Planet'
 
@@ -1420,16 +1348,12 @@ end 'main'
 
 <!-- test: fromRawValue-char-backed -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	excellent = 'A'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	good = 'B'
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	average = 'C'
 end 'Grade'

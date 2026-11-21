@@ -106,12 +106,10 @@ Stack trace:
 ```
 
 <!-- test: panic-interpolation.format-spec -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 42
 	if x > 0 'check'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		panic("hex: {x:x}")
 	end 'check'
 	return 0

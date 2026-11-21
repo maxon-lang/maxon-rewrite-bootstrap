@@ -720,7 +720,6 @@ error E3005: <fragment>:26:15: argument type mismatch for 'n': expected 'Integer
 
 
 <!-- test: dispatch-extended-interface -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -729,7 +728,6 @@ interface Base
 	function base() returns Integer
 end 'Base'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Derived extends Base
 	function derived() returns Integer
 end 'Derived'

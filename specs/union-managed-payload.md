@@ -1139,12 +1139,10 @@ end 'main'
 ```
 
 <!-- test: retained-give-routed-through-a-try-channel -->
-<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The retained payload leaves its function through a `throws` signature and is joined with an
 `otherwise` fallback at the call site — the ok-edge/error-edge phi reconciliation, over a value
 whose `+1` came from a retain rather than from a fresh allocation.
 ```maxon
-// TODO: union errors are not supported in minimaxon; an error is an enum
 union Fail implements Error
 	because(why String)
 end 'Fail'
@@ -1160,7 +1158,7 @@ function grab(m M, strict bool) returns String throws Fail
 	end 'strict'
 	return match m 'k'
 		silent gives "a fallback literal long enough to be a real heap string"
-		text(s) gives s
+		text(s) gives s.clone()
 	end 'k'
 end 'grab'
 
@@ -2812,7 +2810,7 @@ type Inner
 	export var e as Err
 
 	static function create(e Err) returns Self
-		return Self{e: e}
+		return Self{e: e.clone()}
 	end 'create'
 end 'Inner'
 
@@ -2820,18 +2818,18 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function boom(g Outer) returns Integer throws Err
-	let c = g.inner
+	let c = g.inner.clone()
 	throw c.e
 end 'boom'
 
 function whyLen(e Err) returns Integer
 	return match e 'l'
-		bad(why) gives why.byteLength() as Integer
+		bad(why) gives try why.byteLength() as Integer otherwise panic("out of range")
 	end 'l'
 end 'whyLen'
 
@@ -2920,17 +2918,17 @@ type Holder
 	export var e as Err
 
 	static function create(e Err) returns Self
-		return Self{e: e}
+		return Self{e: e.clone()}
 	end 'create'
 end 'Holder'
 
 function boom(h Holder) returns Integer throws Err
-	throw h.e
+	throw h.e.clone()
 end 'boom'
 
 function whyLen(e Err) returns Integer
 	return match e 'l'
-		bad(why) gives why.byteLength() as Integer
+		bad(why) gives try why.byteLength() as Integer otherwise panic("out of range")
 	end 'l'
 end 'whyLen'
 
@@ -2939,7 +2937,7 @@ function main() returns ExitCode
 	var first = 0 as Integer
 	try boom(h) otherwise (e) 'caught'
 		first = match e 'm'
-			bad(why) gives why.byteLength() as Integer
+			bad(why) gives try why.byteLength() as Integer otherwise panic("out of range")
 		end 'm'
 	end 'caught'
 	let second = whyLen(h.e)

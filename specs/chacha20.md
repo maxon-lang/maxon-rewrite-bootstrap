@@ -25,7 +25,6 @@ The vectors are RFC 8439 sections 2.3.2 and 2.4.2 and appendices A.1 and A.2.
 ## Tests
 
 <!-- test: chacha20.xor-key-stream -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 RFC 8439 sections 2.3.2 and 2.4.2 and appendices A.1 and A.2, prefixes across block boundaries, and the last block counter.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -53,7 +52,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text
@@ -126,7 +124,6 @@ xor-key-stream-020 []
 ```
 
 <!-- test: chacha20.refuses-invalid-inputs -->
-<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Keys and nonces of other lengths, data running past block `2^32 - 1`, and two faults at once, which report the earlier check.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -154,7 +151,6 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
 	end 'eachByte'
 	return text

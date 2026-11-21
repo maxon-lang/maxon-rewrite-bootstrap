@@ -477,8 +477,6 @@ end 'main'
 
 
 <!-- test: transitive-interface-validation -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -487,7 +485,6 @@ interface BaseInterface
 	function baseMethod() returns Integer
 end 'BaseInterface'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface DerivedInterface extends BaseInterface
 	function derivedMethod() returns Integer
 end 'DerivedInterface'
@@ -512,7 +509,6 @@ error E3016: specs/interfaces/transitive-interface-validation.maxon:14:6: Partia
 
 
 <!-- test: transitive-interface-complete -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -521,7 +517,6 @@ interface BaseInterface
 	function baseMethod() returns Integer
 end 'BaseInterface'
 
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface DerivedInterface extends BaseInterface
 	function derivedMethod() returns Integer
 end 'DerivedInterface'
@@ -535,7 +530,7 @@ type CompleteType implements DerivedInterface
 	end 'baseMethod'
 
 	function derivedMethod() returns Integer
-		return value * 2
+		return try value * 2 otherwise panic("out of range")
 	end 'derivedMethod'
 
 	static function create(value Integer) returns Self
@@ -545,7 +540,7 @@ end 'CompleteType'
 
 function main() returns ExitCode
 	let t = CompleteType.create(21)
-	return t.baseMethod() + t.derivedMethod()
+	return try t.baseMethod() + t.derivedMethod() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -563,13 +558,11 @@ refused. `stdlib/helpers/string/views.maxon` uses the parenthesized form three t
 Here `Slot` is named nowhere but the conformance argument.
 
 <!-- test: parenthesized-conformance-arg-is-a-use -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias Index = int(0 to 100)
 
 typealias Slot = int(0 to 100)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Container uses Element
 	function size() returns Index
 end 'Container'

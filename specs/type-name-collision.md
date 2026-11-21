@@ -574,7 +574,6 @@ end 'main'
 ```
 
 <!-- test: error.two-directories-each-declare-a-type-of-one-name-beside-two-extensions-declaring-its-alias -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 Two copies of a `type` that declares a generic-instance alias, in two directories, beside two copies of an
@@ -587,7 +586,6 @@ abort.
 // --- file: seq.maxon
 export typealias Digit = int(0 to 9)
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 export interface Seq uses Item
 	function first() returns Item
 end 'Seq'
@@ -2961,7 +2959,6 @@ end 'main'
 
 
 <!-- test: crossfile-ranged-alias-against-a-float-backed-enum-arithmetic -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 The operand rule asks the same question of an arithmetic operator: `a.maxon`'s `W` is an integer alias, so
 `w * 2` multiplies integers, `w / 2` divides them and `w < 4` compares them. Decoding `w` as the other
 file's float-backed enum would turn each into arithmetic on a double's bit pattern. `b.maxon`'s `W` is the
@@ -2978,9 +2975,7 @@ end 'goA'
 
 // --- file: b/b.maxon
 enum W
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 1.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 2.5
 end 'W'
 
@@ -3006,7 +3001,6 @@ end 'main'
 
 
 <!-- test: error.crossfile-ranged-alias-beside-a-float-backed-enum-is-not-a-float -->
-<!-- skip: non-integer enum raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **A NAME HELD BY A RANGED ALIAS IN ONE FILE AND A FLOAT-BACKED ENUM IN ANOTHER IS AN INTEGER IN THE FIRST.**
 `b.maxon`'s unmarked `enum W` is float-backed and `a.maxon`'s `W` is `int(0 to 5)`, so `3 as W` in
@@ -3030,9 +3024,7 @@ end 'goA'
 
 // --- file: b/b.maxon
 enum W
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	light = 1.5
-	// TODO: non-integer enum raw values are not supported in minimaxon
 	heavy = 2.5
 end 'W'
 
@@ -3902,7 +3894,6 @@ b missing
 
 <!-- test: error.extension-alias-pair-compiling-to-one-name -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ The same non-injective `_` join as `error.two-instantiations-compile-to-one-name`, reached through the
 door that case cannot reach: a `typealias` declared INSIDE an `extension`, minted once per conforming
@@ -3963,7 +3954,6 @@ type Pair uses X, Y
 	end 'make'
 end 'Pair'
 
-// TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Duo uses K, V
 	function first() returns K
 	function second() returns V
@@ -4117,7 +4107,6 @@ end 'main'
 ```
 
 <!-- test: a-parent-interface-beside-the-librarys-names-the-authors -->
-<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair named by an `extends` clause.
 ```maxon
@@ -4127,7 +4116,6 @@ export interface Parsable
 end 'Parsable'
 
 // --- file: app/main.maxon
-// TODO: interface inheritance (extends) is not supported in minimaxon
 interface Fancy extends Parsable
 	function shine() returns bool
 end 'Fancy'
