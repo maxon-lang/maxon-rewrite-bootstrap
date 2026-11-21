@@ -50,6 +50,9 @@ function visitStmtOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID,
 		end 'else'
 		return join(o, p: p, a: a, b: b)
 	end 'if'
+	if k == ast.NodeKind.ifTryStmt 'ifTry'
+		return ifTryStmtOwn(o, p: p, st: st, s: s)
+	end 'ifTry'
 	if k == ast.NodeKind.whileStmt 'while'
 		return loopOwn(o, p: p, target: st, s: s, body: ast.whileStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), cond: ast.whileStmtCond(p.modules[o.c.modIdx].tree, id: st), fresh: ast.noLocal)
 	end 'while'
@@ -234,6 +237,36 @@ function tryStmtOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID, c
 	let handler = walk(o, p: p, body: ast.tryStmtHandlerRef(p.modules[o.c.modIdx].tree, id: st), s: c.entry)
 	return join(o, p: p, a: after, b: handler)
 end 'tryStmtOwn'
+
+// ifTryStmtOwn checks a conditional try: the failures of its call go to the else block, which starts from the join of the
+// states where they happen, and the block that runs when the call succeeds owns what the call gave.
+function ifTryStmtOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID, consumes s OwnState) returns OwnState
+	let call = ast.ifTryStmtCall(p.modules[o.c.modIdx].tree, id: st)
+	let name = ast.ifTryStmtName(p.modules[o.c.modIdx].tree, id: st)
+	let mark = o.inFlight.count()
+	let added = enterTry(o, handles: true)
+	var after = s
+	if name != "" 'binds'
+		after = consume(o, p: p, e: call, dest: OwnDest.make(OwnDestKind.destVariable, name: name.clone()), s: after)
+	end 'binds' else 'bare'
+		after = expr(o, p: p, e: call, s: after)
+	end 'bare'
+	let entry = leaveTryEntry(o, added: added)
+	land(o, mark: mark)
+	let scope = o.obliged.count()
+	if name != "" 'bound'
+		let sym = ownLocalOf(o, node: st)
+		oblige(o, p: p, l: sym, site: offsetOfOwn(o, p: p, node: st))
+		after = without(after, l: sym)
+	end 'bound'
+	let walked = walk(o, p: p, body: ast.ifTryStmtThenRef(p.modules[o.c.modIdx].tree, id: st), s: after)
+	let succeeded = endScope(o, p: p, mark: scope, s: walked)
+	if not ast.ifTryStmtHasElse(p.modules[o.c.modIdx].tree, id: st) 'noElse'
+		return join(o, p: p, a: succeeded, b: entry)
+	end 'noElse'
+	let failed = walk(o, p: p, body: ast.ifTryStmtElseRef(p.modules[o.c.modIdx].tree, id: st), s: entry)
+	return join(o, p: p, a: succeeded, b: failed)
+end 'ifTryStmtOwn'
 
 // enterTry starts a try: one with a handler catches what it covers, and one without passes it to the try around it, or
 // with none around it to the caller. It gives whether the try added a catch.

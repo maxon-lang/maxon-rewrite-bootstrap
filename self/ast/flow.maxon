@@ -11,6 +11,9 @@ export function terminates(t Tree, s NodeID) returns bool
 	if k == NodeKind.ifStmt 'if'
 		return ifStmtHasElse(t, id: s) and terminatesBody(t, ref: ifStmtThenRef(t, id: s)) and terminatesBody(t, ref: ifStmtElseRef(t, id: s))
 	end 'if'
+	if k == NodeKind.ifTryStmt 'ifTry'
+		return ifTryStmtHasElse(t, id: s) and terminatesBody(t, ref: ifTryStmtThenRef(t, id: s)) and terminatesBody(t, ref: ifTryStmtElseRef(t, id: s))
+	end 'ifTry'
 	if k == NodeKind.matchStmt 'match'
 		return everyArmLeaves(t, core: matchStmtMatch(t, id: s))
 	end 'match'
@@ -91,6 +94,9 @@ function leaves(t Tree, s NodeID) returns bool
 	if k == NodeKind.ifStmt 'if'
 		return ifStmtHasElse(t, id: s) and leavesBody(t, ref: ifStmtThenRef(t, id: s)) and leavesBody(t, ref: ifStmtElseRef(t, id: s))
 	end 'if'
+	if k == NodeKind.ifTryStmt 'ifTry'
+		return ifTryStmtHasElse(t, id: s) and leavesBody(t, ref: ifTryStmtThenRef(t, id: s)) and leavesBody(t, ref: ifTryStmtElseRef(t, id: s))
+	end 'ifTry'
 	return terminates(t, s: s)
 end 'leaves'
 

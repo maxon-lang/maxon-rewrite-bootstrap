@@ -117,6 +117,24 @@ function stringEnd(text String, at Count) returns Count
 	return n
 end 'stringEnd'
 
+// byteStringEnd is past the byte string literal that starts with its b at at: its text has no interpolation, and a newline
+// is part of it.
+function byteStringEnd(text String, at Count) returns Count
+	var i = stepOn(stepOn(at))
+	let n = text.byteLength()
+	while i < n 'chars'
+		let c = text.byteAt(i)
+		if c == backslashByte 'escape'
+			i = stepOn(stepOn(i))
+		end 'escape' else if c == quoteByte 'close'
+			return stepOn(i)
+		end 'close' else 'plain'
+			i = stepOn(i)
+		end 'plain'
+	end 'chars'
+	return n
+end 'byteStringEnd'
+
 // labelEnd is past the quoted label whose opening apostrophe is at at.
 function labelEnd(text String, at Count) returns Count
 	var i = stepOn(at)
@@ -249,6 +267,9 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	if k == NodeKind.strLit 'string'
 		return table.Option.some(stringEnd(t.text, at: start))
 	end 'string'
+	if k == NodeKind.byteStrLit 'byteString'
+		return table.Option.some(byteStringEnd(t.text, at: start))
+	end 'byteString'
 	if k == NodeKind.panicExpr or k == NodeKind.structLitExpr 'opened'
 		return table.Option.some(closingEnd(t.text, at: openingAfter(t.text, at: start)))
 	end 'opened'

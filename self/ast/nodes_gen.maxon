@@ -23,6 +23,7 @@ export enum NodeKind
 	assignStmt
 	exprStmt
 	ifStmt
+	ifTryStmt
 	whileStmt
 	forStmt
 	tryStmt
@@ -46,6 +47,7 @@ export enum NodeKind
 	tryExpr
 	intLit
 	strLit
+	byteStrLit
 	boolLit
 	nameExpr
 	selfExpr
@@ -93,10 +95,10 @@ export function isReserved(word String) returns bool
 		"interface" or
 		"if" or
 		"else" or
+		"try" or
 		"while" or
 		"for" or
 		"in" or
-		"try" or
 		"otherwise" or
 		"throw" or
 		"return" or
@@ -141,7 +143,7 @@ export function numberSlots(tree Tree, mutates slots U32List) returns Slots
 	var count = Slots.zero()
 	for id in 1 upto tree.records.count() 'each'
 		let k = tree.records[id].kind
-		if k == NodeKind.letStmt or k == NodeKind.forStmt or k == NodeKind.tryStmt or k == NodeKind.handlerBlock 'c_localSlots'
+		if k == NodeKind.letStmt or k == NodeKind.ifTryStmt or k == NodeKind.forStmt or k == NodeKind.tryStmt or k == NodeKind.handlerBlock 'c_localSlots'
 			count.localSlots = try count.localSlots + 1 otherwise panic("slot overflow")
 			slots[id] = count.localSlots
 		end 'c_localSlots'
@@ -684,6 +686,125 @@ end 'ifStmtElseEnd'
 export function setIfStmtElseEnd(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 5 as Count, value: value as diag.U32)
 end 'setIfStmtElseEnd'
+
+export function newIfTryStmt(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.ifTryStmt, start: start)
+	let blk = t.reserve(8 as Count)
+	t.records[id as Count].b = blk
+	return id
+end 'newIfTryStmt'
+
+export function ifTryStmtIsLet(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'ifTryStmtIsLet'
+
+export function setIfTryStmtIsLet(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setIfTryStmtIsLet'
+
+export function ifTryStmtName(t Tree, id NodeID) returns String
+	return t.nameAt(t.records[id as Count].a)
+end 'ifTryStmtName'
+
+export function ifTryStmtNameRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'ifTryStmtNameRef'
+
+export function setIfTryStmtNameRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setIfTryStmtNameRef'
+
+export function ifTryStmtIsVar(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (2 as Byte)) != 0
+end 'ifTryStmtIsVar'
+
+export function setIfTryStmtIsVar(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (2 as Byte)
+end 'setIfTryStmtIsVar'
+
+export function ifTryStmtCall(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 0 as Count) as NodeID
+end 'ifTryStmtCall'
+
+export function setIfTryStmtCall(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
+end 'setIfTryStmtCall'
+
+export function ifTryStmtLabel(t Tree, id NodeID) returns String
+	return t.labelAt(t.blockWordAt(id, offset: 1 as Count))
+end 'ifTryStmtLabel'
+
+export function ifTryStmtLabelRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 1 as Count)
+end 'ifTryStmtLabelRef'
+
+export function setIfTryStmtLabelRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
+end 'setIfTryStmtLabelRef'
+
+export function ifTryStmtThenRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 2 as Count)
+end 'ifTryStmtThenRef'
+
+export function setIfTryStmtThenRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 2 as Count, value: ref)
+end 'setIfTryStmtThenRef'
+
+export function ifTryStmtEnd(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 3 as Count) as NodeID
+end 'ifTryStmtEnd'
+
+export function setIfTryStmtEnd(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 3 as Count, value: value as diag.U32)
+end 'setIfTryStmtEnd'
+
+export function ifTryStmtHasElse(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (4 as Byte)) != 0
+end 'ifTryStmtHasElse'
+
+export function setIfTryStmtHasElse(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (4 as Byte)
+end 'setIfTryStmtHasElse'
+
+export function ifTryStmtErrName(t Tree, id NodeID) returns String
+	return t.nameAt(t.blockWordAt(id, offset: 4 as Count))
+end 'ifTryStmtErrName'
+
+export function ifTryStmtErrNameRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 4 as Count)
+end 'ifTryStmtErrNameRef'
+
+export function setIfTryStmtErrNameRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 4 as Count, value: ref)
+end 'setIfTryStmtErrNameRef'
+
+export function ifTryStmtElseLabel(t Tree, id NodeID) returns String
+	return t.labelAt(t.blockWordAt(id, offset: 5 as Count))
+end 'ifTryStmtElseLabel'
+
+export function ifTryStmtElseLabelRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 5 as Count)
+end 'ifTryStmtElseLabelRef'
+
+export function setIfTryStmtElseLabelRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 5 as Count, value: ref)
+end 'setIfTryStmtElseLabelRef'
+
+export function ifTryStmtElseRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 6 as Count)
+end 'ifTryStmtElseRef'
+
+export function setIfTryStmtElseRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 6 as Count, value: ref)
+end 'setIfTryStmtElseRef'
+
+export function ifTryStmtElseEnd(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 7 as Count) as NodeID
+end 'ifTryStmtElseEnd'
+
+export function setIfTryStmtElseEnd(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 7 as Count, value: value as diag.U32)
+end 'setIfTryStmtElseEnd'
 
 export function newWhileStmt(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.whileStmt, start: start)
@@ -1522,6 +1643,19 @@ end 'strLitPartsRef'
 export function setStrLitPartsRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.records[id as Count].a = ref
 end 'setStrLitPartsRef'
+
+export function newByteStrLit(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.byteStrLit, start: start)
+	return id
+end 'newByteStrLit'
+
+export function byteStrLitPartsRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'byteStrLitPartsRef'
+
+export function setByteStrLitPartsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setByteStrLitPartsRef'
 
 export function newBoolLit(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.boolLit, start: start)

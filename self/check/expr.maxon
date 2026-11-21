@@ -65,6 +65,9 @@ function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if k == ast.NodeKind.strLit 'strLit'
 		return checkStrLit(c, p: p, e: e, errs: errs)
 	end 'strLit'
+	if k == ast.NodeKind.byteStrLit 'byteStrLit'
+		return checkByteStrLit(c, p: p, e: e, errs: errs)
+	end 'byteStrLit'
 	if k == ast.NodeKind.nameExpr 'nameExpr'
 		return checkNameExpr(c, p: p, e: e, errs: errs)
 	end 'nameExpr'
@@ -125,6 +128,14 @@ function checkStrLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mut
 	end 'parts'
 	return p.builtins.stringTy
 end 'checkStrLit'
+
+// checkByteStrLit types a byte string: a new ByteArray of its bytes, which the program may write.
+function checkByteStrLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var args = ast.TypeIDList.create(0)
+	args.push(p.builtins.byteTy)
+	let origin = p.builtins.arrayOrigin
+	return instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+end 'checkByteStrLit'
 
 function checkInterpolation(mutates c Checker, mutates p ast.Project, part ast.NodeID, mutates errs diag.ErrorList) returns bool
 	let typed = checkExpr(c, p: p, e: part, errs: errs)

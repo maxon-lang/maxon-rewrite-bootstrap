@@ -72,6 +72,9 @@ function visitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	if k == ast.NodeKind.strLit 'strLit'
 		return visitStrLit(l, p: p, e: e)
 	end 'strLit'
+	if k == ast.NodeKind.byteStrLit 'byteStrLit'
+		return visitByteStrLit(l, p: p, e: e)
+	end 'byteStrLit'
 	if k == ast.NodeKind.nameExpr 'nameExpr'
 		return visitNameExpr(l, p: p, e: e)
 	end 'nameExpr'
@@ -670,7 +673,11 @@ end 'TextPart'
 
 // plainText is the text of a string literal with no interpolation.
 function plainText(l Lowerer, p ast.Project, e ast.NodeID) returns String
-	let partsRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: e)
+	return partsText(l, p: p, partsRef: ast.strLitPartsRef(p.modules[l.mi].tree, id: e))
+end 'plainText'
+
+// partsText is the text of the parts of a literal that has no interpolation.
+function partsText(l Lowerer, p ast.Project, partsRef diag.U32) returns String
 	let count = p.modules[l.mi].tree.strPartCount(partsRef)
 	if count == 1 'one'
 		return p.modules[l.mi].tree.strPartText(partsRef, index: 0 as Count)
@@ -680,7 +687,19 @@ function plainText(l Lowerer, p ast.Project, e ast.NodeID) returns String
 		text.append(p.modules[l.mi].tree.strPartText(partsRef, index: i).toByteArray())
 	end 'parts'
 	return String.from(text)
-end 'plainText'
+end 'partsText'
+
+// visitByteStrLit is a new byte array with the bytes of a byte string literal, copied from its text in the executable's data.
+function visitByteStrLit(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let a = arrayOf(l, p: p, site: siteOf(l, p: p, node: e), t: exprType(p, module: l.module, node: e))
+	let out = arrayNew(l, p: p, box: a)
+	let text = partsText(l, p: p, partsRef: ast.byteStrLitPartsRef(p.modules[l.mi].tree, id: e))
+	if text.byteLength() > 0 'bytes'
+		let literal = strReg(l, value: text)
+		arrayAppendText(l, p: p, box: a, arr: out, text: literal)
+	end 'bytes'
+	return out
+end 'visitByteStrLit'
 
 // visitStrLit joins the parts of an interpolated literal into a new string, dropping each intermediate string once it has
 // been joined. A literal of a single borrowed string is a copy of it, because the literal's value is its own.

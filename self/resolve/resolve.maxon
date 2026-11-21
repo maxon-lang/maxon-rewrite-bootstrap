@@ -524,7 +524,9 @@ function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		if ast.ifStmtHasElse(r.tree, id: id) 'el'
 			resolveBlock(r, p: p, listRef: ast.ifStmtElseRef(r.tree, id: id), errs: errs)
 		end 'el'
-	end 'sIf' else if k == ast.NodeKind.whileStmt 'sWh'
+	end 'sIf' else if k == ast.NodeKind.ifTryStmt 'sIfTry'
+		resolveIfTryStmt(r, p: p, id: id, errs: errs)
+	end 'sIfTry' else if k == ast.NodeKind.whileStmt 'sWh'
 		checkEnd(r, label: ast.whileStmtLabel(r.tree, id: id), endNode: ast.whileStmtEnd(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, id: ast.whileStmtCond(r.tree, id: id), errs: errs)
 		resolveBlock(r, p: p, listRef: ast.whileStmtBodyRef(r.tree, id: id), errs: errs)
@@ -593,6 +595,30 @@ function resolveTryStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutate
 		popScope(r)
 	end 'ho'
 end 'resolveTryStmt'
+
+// resolveIfTryStmt resolves a conditional try: its binding is in scope in the block that runs on success, and the name of
+// the error in the one that runs on failure.
+function resolveIfTryStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	checkEnd(r, label: ast.ifTryStmtLabel(r.tree, id: id), endNode: ast.ifTryStmtEnd(r.tree, id: id), errs: errs)
+	checkEnd(r, label: ast.ifTryStmtElseLabel(r.tree, id: id), endNode: ast.ifTryStmtElseEnd(r.tree, id: id), errs: errs)
+	resolveExpr(r, p: p, id: ast.ifTryStmtCall(r.tree, id: id), errs: errs)
+	var bound = ast.StringList.create(0)
+	if ast.ifTryStmtName(r.tree, id: id) != "" 'named'
+		bound.push(ast.ifTryStmtName(r.tree, id: id))
+	end 'named'
+	pushScopeList(r, names: bound)
+	resolveBlock(r, p: p, listRef: ast.ifTryStmtThenRef(r.tree, id: id), errs: errs)
+	popScope(r)
+	if ast.ifTryStmtHasElse(r.tree, id: id) 'else'
+		var failed = ast.StringList.create(0)
+		if ast.ifTryStmtErrName(r.tree, id: id) != "" 'named'
+			failed.push(ast.ifTryStmtErrName(r.tree, id: id))
+		end 'named'
+		pushScopeList(r, names: failed)
+		resolveBlock(r, p: p, listRef: ast.ifTryStmtElseRef(r.tree, id: id), errs: errs)
+		popScope(r)
+	end 'else'
+end 'resolveIfTryStmt'
 
 function resolveMatchCore(mutates r Resolver, p ast.Project, mc ast.NodeID, mutates errs diag.ErrorList)
 	checkEnd(r, label: ast.matchCoreLabel(r.tree, id: mc), endNode: ast.matchCoreEnd(r.tree, id: mc), errs: errs)
@@ -727,7 +753,7 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		return
 	end 'nil'
 	let k = r.tree.kindOf(id)
-	if k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr 'leaf'
+	if k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'leaf'
 		return
 	end 'leaf' else if k == ast.NodeKind.nameExpr 'nm'
 		resolveNameExpr(r, p: p, id: id, errs: errs)

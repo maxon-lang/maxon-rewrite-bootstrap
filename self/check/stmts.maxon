@@ -17,6 +17,9 @@ function terminates(tree ast.Tree, s ast.NodeID) returns bool
 	if k == ast.NodeKind.ifStmt 'if'
 		return ast.ifStmtHasElse(tree, id: s) and bodyTerminates(tree, body: ast.ifStmtThenRef(tree, id: s)) and bodyTerminates(tree, body: ast.ifStmtElseRef(tree, id: s))
 	end 'if'
+	if k == ast.NodeKind.ifTryStmt 'ifTry'
+		return ast.ifTryStmtHasElse(tree, id: s) and bodyTerminates(tree, body: ast.ifTryStmtThenRef(tree, id: s)) and bodyTerminates(tree, body: ast.ifTryStmtElseRef(tree, id: s))
+	end 'ifTry'
 	if k == ast.NodeKind.matchStmt 'match'
 		return armsTerminate(tree, core: ast.matchStmtMatch(tree, id: s))
 	end 'match'
@@ -109,6 +112,10 @@ function checkStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutat
 		checkIf(c, p: p, s: s, errs: errs)
 		return
 	end 'if'
+	if k == ast.NodeKind.ifTryStmt 'ifTry'
+		checkIfTryStmt(c, p: p, s: s, errs: errs)
+		return
+	end 'ifTry'
 	if k == ast.NodeKind.whileStmt 'while'
 		checkWhile(c, p: p, s: s, errs: errs)
 		return
@@ -174,6 +181,65 @@ function checkIf(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates
 		checkBlock(c, p: p, body: ast.ifStmtElseRef(p.modules[c.modIdx].tree, id: s), errs: errs)
 	end 'else'
 end 'checkIf'
+
+// The word 'try' and the space after it, which come right before the call of a conditional try.
+let tryKeywordWidth = 4 as Count
+
+// ifTryKeywordOffset is where the 'try' of a conditional try is, which its errors are reported at.
+function ifTryKeywordOffset(tree ast.Tree, call ast.NodeID) returns diag.U32
+	return try (ast.exprStart(tree, e: call) - tryKeywordWidth) as diag.U32 otherwise panic("a conditional try starts before its 'try'")
+end 'ifTryKeywordOffset'
+
+// calleeText is the name a call is written with, as an error names it.
+function calleeText(tree ast.Tree, call ast.NodeID) returns String
+	return placeText(tree, e: ast.callExprCallee(tree, id: call))
+end 'calleeText'
+
+// checkIfTryStmt types a conditional try: its call can fail, and what it gives is bound for the block that runs when it does
+// not. The else block runs on a failure, and names the error when it asks. The error binding is keyed by the call, the
+// binding of the result by the statement.
+function checkIfTryStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let call = ast.ifTryStmtCall(p.modules[c.modIdx].tree, id: s)
+	let name = ast.ifTryStmtName(p.modules[c.modIdx].tree, id: s)
+	if p.modules[c.modIdx].tree.kindOf(call) != ast.NodeKind.callExpr 'notCall'
+		checkFail(c.modID, off: ifTryKeywordOffset(p.modules[c.modIdx].tree, call: call), code: diag.errExpressionError, msg: "'if try' tests a call that can fail: write the call after 'try'", errs: errs)
+		return
+	end 'notCall'
+	beginCatching(c)
+	let t = checkExpr(c, p: p, e: call, errs: errs)
+	let errors = endCatching(c)
+	if t == ast.noType 'badCall'
+		return
+	end 'badCall'
+	let hasValue = t != p.builtins.voidTy and t != p.builtins.neverTy
+	let at = ifTryKeywordOffset(p.modules[c.modIdx].tree, call: call)
+	if name == "" and hasValue 'discards'
+		checkFail(c.modID, off: at, code: diag.errIfTryDiscardsResult, msg: diag.ifTryDiscardsResult(calleeText(p.modules[c.modIdx].tree, call: call)), errs: errs)
+		return
+	end 'discards'
+	if name != "" and not hasValue 'noValue'
+		checkFail(c.modID, off: at, code: diag.errErrorTypeMismatch, msg: diag.callReturnsNoValue(calleeText(p.modules[c.modIdx].tree, call: call)), errs: errs)
+		return
+	end 'noValue'
+	pushScope(c)
+	if name != "" 'bind'
+		bindLet(c, p: p, s: s, name: name, t: t, isVar: ast.ifTryStmtIsVar(p.modules[c.modIdx].tree, id: s), off: offsetOf(c, p: p, node: s), errs: errs)
+	end 'bind'
+	checkStmts(c, p: p, body: ast.ifTryStmtThenRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	popScope(c)
+	if not ast.ifTryStmtHasElse(p.modules[c.modIdx].tree, id: s) 'noElse'
+		return
+	end 'noElse'
+	let failed = ast.ifTryStmtErrName(p.modules[c.modIdx].tree, id: s)
+	let handler = ast.ifTryStmtElseRef(p.modules[c.modIdx].tree, id: s)
+	pushScope(c)
+	if failed == "" 'anonymous'
+		checkStmts(c, p: p, body: handler, errs: errs)
+	end 'anonymous' else 'named'
+		checkHandlerBinding(c, p: p, s: call, binding: failed, errors: errors, body: handler, requireMatch: false, errs: errs)
+	end 'named'
+	popScope(c)
+end 'checkIfTryStmt'
 
 function checkWhile(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
 	if not requireBool(c, p: p, e: ast.whileStmtCond(p.modules[c.modIdx].tree, id: s), keyword: "while", errs: errs) 'badCond'

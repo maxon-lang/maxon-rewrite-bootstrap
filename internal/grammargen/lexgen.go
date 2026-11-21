@@ -309,12 +309,56 @@ func (m *model) lexTokens() []*lexToken {
 			m.fail(t.line, "token '%s' matches the empty string, so the lexer would never move on", t.name)
 		}
 		if t.scan {
-			// The DFA only starts a scanned token; its first byte is the whole match.
-			lt.re = &rx{kind: rxBytes, set: t.body.first()}
+			lt.re = scanStart(t.body)
 		}
 		toks = append(toks, lt)
 	}
 	return toks
+}
+
+// scanStart is what the DFA matches of a scanned token, which the lexer reads the rest of: the bytes its rule starts with
+// when they are single, as a byte string's `b"` is, and otherwise the first byte, from the set of those a match can start with.
+func scanStart(body *rx) *rx {
+	start := &rx{kind: rxSeq}
+	start.subs, _ = singleBytes(body)
+	if len(start.subs) > 0 {
+		return start
+	}
+	return &rx{kind: rxBytes, set: body.first()}
+}
+
+// singleBytes are the elements of r that start it and match one byte each, and whether they are all of r.
+func singleBytes(r *rx) ([]*rx, bool) {
+	switch r.kind {
+	case rxBytes:
+		if !r.set.single() {
+			return nil, false
+		}
+		return []*rx{r}, true
+	case rxSeq:
+		var out []*rx
+		for _, s := range r.subs {
+			bytes, whole := singleBytes(s)
+			out = append(out, bytes...)
+			if !whole {
+				return out, false
+			}
+		}
+		return out, true
+	case rxAlt, rxStar, rxPlus, rxOpt:
+		return nil, false
+	}
+	panic(fmt.Sprintf("grammargen: unknown rx kind %d", r.kind))
+}
+
+func (s byteSet) single() bool {
+	n := 0
+	for _, in := range s {
+		if in {
+			n++
+		}
+	}
+	return n == 1
 }
 
 func buildDfa(m *model) *dfa {

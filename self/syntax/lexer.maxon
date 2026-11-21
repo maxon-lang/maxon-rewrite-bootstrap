@@ -83,7 +83,27 @@ let surrogateLast = 57343 as Count
 
 let replacementCharacter = 65533 as Count
 
+// A byte string holds the bytes 0 to 255, and each character of its text is one of them: the code points up to U+00FF.
+let byteStringMax = 255 as Count
+
+// The bits of a UTF-8 lead byte that belong to the code point, for a sequence of two, three and four bytes.
+let utf8Lead2Bits = 31 as Count
+
+let utf8Lead3Bits = 15 as Count
+
+let utf8Lead4Bits = 7 as Count
+
+let utf8ContinuationShift = 6 as Count
+
+// byteEscapeForm is how the message for a character that is no byte spells the escape that writes any byte.
+let byteEscapeForm = "\\xNN"
+
 let hexDigitValue = 10 as Count
+
+// A code point is shown with at least this many hex digits.
+let codepointDigits = 4 as Count
+
+let hexDigits = "0123456789abcdef"
 
 let hexRadix = 16 as Count
 
@@ -237,6 +257,34 @@ function runeLength(text String, at Count, limit Count) returns Count
 	end 'continuation'
 	return n
 end 'runeLength'
+
+// codepointAt is the code point of the UTF-8 sequence of n bytes at the offset, which runeLength found valid.
+function codepointAt(text String, at Count, n Count) returns Count
+	var cp = text.byteAt(at) as Count
+	if n == 2 'two'
+		cp = cp and utf8Lead2Bits
+	end 'two' else if n == 3 'three'
+		cp = cp and utf8Lead3Bits
+	end 'three' else 'four'
+		cp = cp and utf8Lead4Bits
+	end 'four'
+	for i in 1 upto n 'continuations'
+		let next = text.byteAt(try at + i otherwise panic("a source offset overflows")) as Count
+		cp = try (cp shl utf8ContinuationShift) or (next and utf8ContinuationBits) otherwise panic("a code point exceeds a word")
+	end 'continuations'
+	return cp
+end 'codepointAt'
+
+// codepointText is a code point as U+ and its hex digits, at least four.
+function codepointText(cp Count) returns String
+	var digits = ByteArray.create(0)
+	var rest = cp
+	while rest > 0 or digits.count() < codepointDigits 'digits'
+		digits.insert(0 as Count, value: hexDigits.byteAt(rest and 15))
+		rest = rest shr 4
+	end 'digits'
+	return "U+{String.from(digits)}"
+end 'codepointText'
 
 // appendRune appends the UTF-8 bytes of a code point an escape writes, which is at most four hex digits.
 function appendRune(mutates buf ByteArray, ch Count)
@@ -546,6 +594,12 @@ function scanString(src Source, mutates errs diag.ErrorList, file Count, start C
 	return try r.read(src, errs: errs)
 end 'scanString'
 
+// scanByteString reads the byte string literal at start, which the DFA only starts with its b and its quote, returning its end.
+function scanByteString(src Source, mutates errs diag.ErrorList, file Count, start Count) returns Count throws SyntaxError
+	var r = byteStringReaderAt(src, file: file, open: start, collect: false)
+	return try r.read(src, errs: errs)
+end 'scanByteString'
+
 // lexSource lexes every file of src, recording the error it stops at in errs. Each code line ends with a newline; a line
 // indented one tab more than the code line before it starts with an indent, and one indented less starts with a dedent
 // for each tab. Each file ends with a fileEnd and the module with an eof.
@@ -662,6 +716,14 @@ function stringReaderAt(src Source, file Count, open Count, collect bool) return
 	return StringReader.make(file, open: open, limit: src.files[file].endOff as Count, collect: collect)
 end 'stringReaderAt'
 
+// byteStringReaderAt is the reader of the byte string literal whose b is at open in the file of the index.
+function byteStringReaderAt(src Source, file Count, open Count, collect bool) returns StringReader
+	var r = stringReaderAt(src, file: file, open: open, collect: collect)
+	r.bytes = true
+	r.pos = after(after(open))
+	return r
+end 'byteStringReaderAt'
+
 // StringReader reads one string literal; the lexer uses it to find the literal's end and report its errors, and the
 // parser to take its parts.
 type StringReader
@@ -675,9 +737,11 @@ type StringReader
 	var run as Count
 	var buf as ByteArray
 	var escaped as bool
+	// bytes is set for a byte string, whose text is one byte to a character and has no interpolation.
+	var bytes as bool
 
 	static function make(file Count, open Count, limit Count, collect bool) returns StringReader
-		return StringReader{file: file, open: open, pos: after(open), limit: limit, collect: collect, parts: StrParts.create(0), run: 0 as Count, buf: ByteArray.create(0), escaped: false}
+		return StringReader{file: file, open: open, pos: after(open), limit: limit, collect: collect, parts: StrParts.create(0), run: 0 as Count, buf: ByteArray.create(0), escaped: false, bytes: false}
 	end 'make'
 
 	function fail(src Source, mutates errs diag.ErrorList, consumes message String, at Count) returns SyntaxError
@@ -687,6 +751,9 @@ type StringReader
 
 	// read reads the literal, returning its end.
 	function read(mutates self, src Source, mutates errs diag.ErrorList) returns Count throws SyntaxError
+		if bytes 'bytes'
+			return try self.readBytes(src, errs: errs)
+		end 'bytes'
 		run = pos
 		var added = false
 		while pos < limit and src.text.byteAt(pos) != byteNewline 'chars'
@@ -717,6 +784,48 @@ type StringReader
 		throw self.fail(src, errs: errs, message: "unterminated string literal", at: open)
 	end 'read'
 
+	// readBytes reads a byte string, returning its end. Its bytes are kept in buf as they are read, since a character that
+	// is more than one byte of the source is one byte of the string.
+	function readBytes(mutates self, src Source, mutates errs diag.ErrorList) returns Count throws SyntaxError
+		while pos < limit and src.text.byteAt(pos) != byteNewline 'chars'
+			let c = src.text.byteAt(pos)
+			if c == byteQuote 'close'
+				if collect 'collect'
+					parts.push(StrPart.text(String.from(buf), begin: run, raw: false))
+				end 'collect'
+				pos = after(pos)
+				return pos
+			end 'close' else if c == byteBackslash 'escape'
+				try self.escape(src, errs: errs)
+			end 'escape' else if (c as Count) < utf8ContinuationTag 'ascii'
+				if collect 'keep'
+					buf.push(c)
+				end 'keep'
+				pos = after(pos)
+			end 'ascii' else 'multibyte'
+				let n = runeLength(src.text, at: pos, limit: limit)
+				if n == 0 'invalid'
+					throw self.fail(src, errs: errs, message: "invalid UTF-8 in a byte string literal", at: pos)
+				end 'invalid'
+				let cp = codepointAt(src.text, at: pos, n: n)
+				try self.requireByte(src, errs: errs, codepoint: cp)
+				if collect 'keep'
+					buf.push(try cp as Byte otherwise panic("a byte string character exceeds a byte"))
+				end 'keep'
+				pos = try pos + n otherwise panic("a source offset overflows")
+			end 'multibyte'
+		end 'chars'
+		throw self.fail(src, errs: errs, message: "unterminated string literal", at: open)
+	end 'readBytes'
+
+	// requireByte refuses a code point that has no byte of its own.
+	function requireByte(mutates self, src Source, mutates errs diag.ErrorList, codepoint Count) throws SyntaxError
+		if codepoint > byteStringMax 'tooBig'
+			errs.push(src.errorAt(diag.errInvalidEscape, message: diag.byteStringCodepointRange(codepointText(codepoint), escape: byteEscapeForm), file: file, offset: open))
+			throw SyntaxError.refused
+		end 'tooBig'
+	end 'requireByte'
+
 	function flushText(mutates self, src Source)
 		if collect 'collect'
 			if escaped 'decoded'
@@ -730,7 +839,7 @@ type StringReader
 	end 'flushText'
 
 	function escape(mutates self, src Source, mutates errs diag.ErrorList) throws SyntaxError
-		if not escaped and collect 'start'
+		if not escaped and collect and not bytes 'start'
 			buf = src.text.sliceBytes(run, endPos: pos).toByteArray()
 		end 'start'
 		escaped = true
@@ -750,17 +859,22 @@ type StringReader
 			ch = byteCR as Count
 		end 'cr' else if e == byteZero 'nul'
 			ch = 0 as Count
-		end 'nul' else if e == byteBackslash or e == byteQuote or e == byteApostrophe or e == byteLBrace or e == byteRBrace 'itself'
+		end 'nul' else if e == byteBackslash or e == byteQuote or e == byteApostrophe or ((e == byteLBrace or e == byteRBrace) and not bytes) 'itself'
 			ch = e as Count
 		end 'itself' else if e == byteLowerX 'byte'
 			ch = try self.readHex(src, errs: errs, digits: 2 as Count)
 		end 'byte' else if e == byteLowerU 'unicode'
 			ch = try self.readHex(src, errs: errs, digits: 4 as Count)
+			if bytes 'narrow'
+				try self.requireByte(src, errs: errs, codepoint: ch)
+			end 'narrow'
 		end 'unicode' else 'unknown'
 			let shown = runeAt(src.text, at: at, limit: limit)
 			throw self.fail(src, errs: errs, message: "unknown escape sequence '\\{shown}'", at: open)
 		end 'unknown'
-		if collect 'collect'
+		if collect and bytes 'byte'
+			buf.push(try ch as Byte otherwise panic("a byte string escape exceeds a byte"))
+		end 'byte' else if collect 'collect'
 			appendRune(buf, ch: ch)
 		end 'collect'
 	end 'escape'

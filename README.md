@@ -908,7 +908,7 @@ and nothing else.
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
   destructors").
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
-  `_ = call()`, `if`/`else if`/`else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
+  `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
   maxon's iteration protocol (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), and a `try` block with or
@@ -917,7 +917,7 @@ and nothing else.
   whose every branch returns or panics) is allowed and type-checked, but never compiled (`ast.Live`): its calls make no
   instance of a generic. A `break` or `continue` inside a branch does not end the code after the `if` or `match`,
   since a `break` can leave a `match`.
-- Integer, bool and string literals, array literals `[a, b]` and map literals `[k: v, k: w]` (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
+- Integer, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]` and map literals `[k: v, k: w]` (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
@@ -1023,6 +1023,12 @@ end 'forms'
   that names the error (`(e)`) takes the one error its block's calls and throws fail with, must `match` on it (`E3084`),
   and refuses anything else that fails in the block (`E3059`), which a `try ... otherwise` of its own handles instead. A
   handler without a name catches every error.
+- A conditional try, `if let x = try call() 'label'` (`if var x` for a binding that may be assigned) and `if try call() 'label'` for a
+  call that returns nothing, runs its block only when the call succeeds, with the result bound there. An `else (e) 'label'`
+  block, whose `(e)` is optional, runs when it fails, and `e` has the one error the call fails with, which need not be
+  matched; with no `else` the failure is dropped, and the enclosing function need not throw. `if try` over a call that returns
+  a value is `E3124`. The call is covered by the statement as by a `try ... otherwise`, but the blocks are not. There is no
+  `else if` after it.
 - A block handler, `otherwise (e) 'label'` or `otherwise 'label'` with the block on the lines after it, ends with `end
   'label'` and stands as a statement, as the value of a `let` or a `var`, on the right of an assignment, and after a
   `return`. The `e` it binds has the one error the `try` covers (as in a `try` block's handler, so a second error is
@@ -1703,7 +1709,7 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   tell that it leaked, and a program that panics or traps does not free what it holds.
 - Errors (see "Errors of the program"): an error is an enum, not a union with payloads; a `try` block's handler names
   one error, not the combined error of several (refused with `E3059`), and has no terminal `otherwise panic(...)` or
-  `otherwise throws ...` form; there is no `if try`, no block handler `otherwise (e) 'label'` on a `try` expression
+  `otherwise throws ...` form; there is no block handler `otherwise (e) 'label'` on a `try` expression
   inside brackets and no `default throws` in a match. Maxon's `E3168` (a `throws` that nothing throws) and
   `E3083` (a `try` block with nothing that throws) are not raised, so a sharper range analysis never breaks a program. A `try` covers every
   operation of its expression, not one call, and a condition that rules a failure out is a proof the compiler checks
@@ -1712,6 +1718,9 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   it fits, and the value that may not fit is `E3057` (see "Integers"). Maxon converts every `return` implicitly and checks
   it at run time, trapping where the value does not fit, so a function that returns an `ExitCode` can return any
   integer there; here the conversion costs nothing and is never a trap, and a value that is not proved needs `try ... as T`.
+- A `b"..."` literal is a fresh `ByteArray` each time it is evaluated, copied from its bytes in the executable's data, and the
+  program may write it: there is no `immutable` image data, so `E3207`, `E3196` and `E3209` do not exist, and a module-level
+  `let` of one is built again at each use, as a literal array is. `\{` and `\}` in one are the unknown escape of a string (`E2001`), and a raw newline in one ends it unterminated, as in a string, where maxon keeps the newline as a byte: write `\n`.
 - No alias subtyping (an alias implementing another), floats, characters, tuples, closures, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
   parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and

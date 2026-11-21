@@ -70,6 +70,9 @@ throwNoThrows	ErrErrorTypeMismatch	type mismatch: 'throw of '{errorType}' but th
 throwMismatch	ErrErrorTypeMismatch	type mismatch: 'throw of '{errorType}' but the enclosing function throws '{enclosing}' — the caller decodes the error flag against '{enclosing}', so one enum's ordinals would be read as another's tags, and a payload-carrying union arriving where a scalar is expected leaks its box; throw a '{enclosing}' case, or declare 'throws {errorType}''
 unionNotComparable	ErrEnumNotComparable	cannot compare union values using '{op}', use 'match' instead
 constructorRestricted	ErrConstructorRestriction	type '{typeName}' can only be constructed from within its own methods; use a static factory method instead
+byteStringCodepointRange	ErrInvalidEscape	Codepoint {codepoint} exceeds the byte range 0-255 in byte string literal; use a {escape} hex escape to embed a raw byte
+callReturnsNoValue	ErrErrorTypeMismatch	type mismatch: ''{callee}' does not return a value'
+ifTryDiscardsResult	ErrIfTryDiscardsResult	'if try' discards the result of '{callee}': only a call that returns nothing may be tested bare — bind the result with 'if let'
 tryBlockBindingNotMatched	ErrTryBlockBindingNotMatched	otherwise block must contain a match on the error binding '{bindingName}'
 fieldNotInitialized	ErrFieldNotInitialized	Field '{field}' of type '{typeName}' is not initialized (provide in literal, add a default value on the declaration, or assign via self.field in a static factory)
 useOfValueMovedInto	ErrUseAfterMove	use of moved value '{name}': its ownership moved to {into}

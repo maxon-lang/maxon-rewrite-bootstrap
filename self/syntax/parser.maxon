@@ -434,6 +434,22 @@ function strLitParts(mutates p Parser, t Token) returns diag.U32 throws SyntaxEr
 	return b.finish(p.tree)
 end 'strLitParts'
 
+// byteStrLitParts reads the byte string literal that t is: its bytes are one part, which is a string of them.
+function byteStrLitParts(mutates p Parser, t Token) returns diag.U32 throws SyntaxError
+	let file = p.fileNumber()
+	var r = byteStringReaderAt(p.src, file: file, open: t.start as Count, collect: true)
+	_ = try r.read(p.src, errs: p.errors)
+	let parts = exchange(r.parts, value: StrParts.create(0))
+	var b = ast.StrPartsBuilder.new()
+	for i in 0 upto parts.count() 'each'
+		match parts[i] 'part'
+			text(run, begin, raw) then addTextPart(p, parts: b, text: run, begin: begin, raw: raw)
+			expr(begin, until) then panic("a byte string holds an interpolation at {begin} to {until}")
+		end 'part'
+	end 'each'
+	return b.finish(p.tree)
+end 'byteStrLitParts'
+
 // lexemeStart and lexemeEnd are where a token's source text begins and ends: a label's token leaves out its quotes.
 function lexemeStart(t Token) returns Count
 	if t.kind == TokenKind.label 'label'

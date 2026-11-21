@@ -1,0 +1,32 @@
+function show(label String, bytes ByteArray)
+	var line = label.clone()
+	for i in 0 upto bytes.count() 'each'
+		line = "{line} {bytes[i]}"
+	end 'each'
+	print("{line}\n")
+end 'show'
+
+let Constant = b"abc"
+
+function main() returns ExitCode
+	show("hello", bytes: b"hello")
+	show("empty", bytes: b"")
+	show("hex", bytes: b"\xFF\x00")
+	show("latin", bytes: b"À\u00e9")
+	show("escapes", bytes: b"a\n\t\\\"\0{}")
+	var mutable = b"hi"
+	mutable.push(33 as Byte)
+	show("pushed", bytes: mutable)
+	show("constant", bytes: Constant)
+	print("{b"AB".count()} {String.from(b"text")}\n")
+	return 0
+end 'main'
+
+//> hello 104 101 108 108 111
+//> empty
+//> hex 255 0
+//> latin 192 233
+//> escapes 97 10 9 92 34 0 123 125
+//> pushed 104 105 33
+//> constant 97 98 99
+//> 2 text

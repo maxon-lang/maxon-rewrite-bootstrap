@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let wide = b"a\u0100"
+	print("{wide.count()}\n")
+	return 0
+end 'main'
+
+// expect-error: E1004 at 2:13

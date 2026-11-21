@@ -210,6 +210,10 @@ function visitStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 		visitIfStmt(l, p: p, s: s)
 		return
 	end 'ifStmt'
+	if k == ast.NodeKind.ifTryStmt 'ifTryStmt'
+		visitIfTryStmt(l, p: p, s: s)
+		return
+	end 'ifTryStmt'
 	if k == ast.NodeKind.whileStmt 'whileStmt'
 		visitWhileStmt(l, p: p, s: s)
 		return

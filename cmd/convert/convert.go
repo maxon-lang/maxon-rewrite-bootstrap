@@ -1062,10 +1062,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	// Statement-head checks.
 	if len(toks) > 0 {
 		switch toks[0].text {
-		case "if":
-			if len(toks) > 1 && (toks[1].text == "try" || ((toks[1].text == "let" || toks[1].text == "var") && hasTokenBeforeLabel(toks, "try"))) {
-				warn(line, "if try is not supported in minimaxon")
-			}
 		case "modify":
 			if toks[len(toks)-1].kind == tokLabel {
 				warn(line, "modify blocks are not supported in minimaxon")
@@ -1113,7 +1109,9 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 		case tokFloat:
 			warn(line, "float literals are not supported in minimaxon")
 		case tokByteString:
-			warn(line, "byte string literals are not supported in minimaxon")
+			if !strings.HasSuffix(t.text, "\"") || len(t.text) < 3 {
+				warn(line, "a byte string literal that spans lines is not supported in minimaxon")
+			}
 		case tokString:
 			if hasFormatSpecifier(t.text) {
 				warn(line, "string interpolation format specifiers are not supported in minimaxon")
@@ -1401,18 +1399,6 @@ func keywordNameMessage(word string) string {
 
 func hasToken(toks []token, text string) bool {
 	for _, t := range toks {
-		if t.text == text {
-			return true
-		}
-	}
-	return false
-}
-
-func hasTokenBeforeLabel(toks []token, text string) bool {
-	for _, t := range toks {
-		if t.kind == tokLabel {
-			return false
-		}
 		if t.text == text {
 			return true
 		}

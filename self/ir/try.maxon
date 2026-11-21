@@ -125,6 +125,36 @@ function visitTryStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	l.cur = join
 end 'visitTryStmt'
 
+// visitIfTryStmt lowers a conditional try: its call with the failures going to the else block, and then the block that
+// runs when the call succeeds, which owns the result the call gave. A failure of that block is not the call's, so the try
+// ends before it.
+function visitIfTryStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let call = ast.ifTryStmtCall(p.modules[l.mi].tree, id: s)
+	let failed = l.b.newBlock()
+	let join = l.b.newBlock()
+	_ = enterTry(l, target: failed, binding: tryBindingSlot(l, p: p, node: call))
+	let v = lowerExpr(l, p: p, e: call)
+	if ast.ifTryStmtName(p.modules[l.mi].tree, id: s) != "" 'bind'
+		let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
+		emit(l, i: newStoreSlot(slotOf(sym), src: v, borrow: false))
+		leaveTry(l)
+		pushScope(l, block: true)
+		ownLocal(l, p: p, slot: slotOf(sym), t: sym.ty)
+	end 'bind' else 'bare'
+		leaveTry(l)
+		pushScope(l, block: true)
+	end 'bare'
+	lowerBlock(l, p: p, ref: ast.ifTryStmtThenRef(p.modules[l.mi].tree, id: s))
+	popScope(l, p: p)
+	goTo(l, target: join)
+	l.cur = failed
+	if ast.ifTryStmtHasElse(p.modules[l.mi].tree, id: s) 'else'
+		lowerBlock(l, p: p, ref: ast.ifTryStmtElseRef(p.modules[l.mi].tree, id: s))
+	end 'else'
+	goTo(l, target: join)
+	l.cur = join
+end 'visitIfTryStmt'
+
 // visitTryExpr lowers a try that gives a value on a failure: its expression and the value 'otherwise' gives are the two
 // branches of a value, as a conditional's are. One that ignores a failure has no value, and its failure goes on after it.
 function visitTryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg

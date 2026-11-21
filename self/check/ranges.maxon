@@ -424,6 +424,10 @@ function rangeStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 		rangeIfStmt(r, p: p, s: s)
 		return
 	end 'if'
+	if k == ast.NodeKind.ifTryStmt 'ifTry'
+		rangeIfTryStmt(r, p: p, s: s)
+		return
+	end 'ifTry'
 	if k == ast.NodeKind.whileStmt 'while'
 		rangeWhileStmt(r, p: p, s: s)
 		return
@@ -529,6 +533,39 @@ function rangeIfStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	let els = r.st
 	r.st = r.states.joined(thenEnd, b: els)
 end 'rangeIfStmt'
+
+// rangeIfTryStmt covers the failures of the call of a conditional try: the else block starts from the state where the
+// call failed, and the block that runs on success from the one after it, with the result bound.
+function rangeIfTryStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let call = ast.ifTryStmtCall(p.modules[r.modIdx].tree, id: s)
+	let takes = match consumes nodeLocalOf(r, node: call) 'local'
+		some(id) gives r.typing.locals[id as Count].ty
+		none gives ast.noType
+	end 'local'
+	let added = rangeEnterTry(r, p: p, site: s, handles: true, takes: takes)
+	let v = rangeEval(r, p: p, e: call)
+	if not added 'passed'
+		return
+	end 'passed'
+	let h = rangeLeaveTry(r)
+	_ = rangeKeep(r)
+	if ast.ifTryStmtName(p.modules[r.modIdx].tree, id: s) != "" 'bind'
+		let local = match consumes nodeLocalOf(r, node: s) 'bound'
+			some(id) gives id
+			none panic("ranges: the conditional try at node {s} declares no local")
+		end 'bound'
+		let ty = r.typing.locals[local as Count].ty
+		rangeWrite(r, p: p, place: Place.local(slotOf(r, local: local)), s: v, t: ty)
+	end 'bind'
+	rangeBlock(r, p: p, body: ast.ifTryStmtThenRef(p.modules[r.modIdx].tree, id: s))
+	let succeeded = r.st
+	r.st = h.entry
+	if ast.ifTryStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
+		rangeBlock(r, p: p, body: ast.ifTryStmtElseRef(p.modules[r.modIdx].tree, id: s))
+	end 'else'
+	let failed = r.st
+	r.st = r.states.joined(succeeded, b: failed)
+end 'rangeIfTryStmt'
 
 function rangeWhileStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	rangeForget(r, p: p)

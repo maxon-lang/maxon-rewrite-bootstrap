@@ -1,0 +1,16 @@
+enum Failure implements Error
+	broken
+end 'Failure'
+
+function fetch() returns Count throws Failure
+	return 1
+end 'fetch'
+
+function main() returns ExitCode
+	if try fetch() 'tested'
+		print("fetched\n")
+	end 'tested'
+	return 0
+end 'main'
+
+// expect-error: E3124 at 10:5

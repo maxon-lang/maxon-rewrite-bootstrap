@@ -39,6 +39,44 @@ end 'Counter'
 `,
 		},
 		{
+			name: "a conditional try converts without a warning",
+			in: `function f(s String)
+    if let digit = try parse(s) 'parsed'
+        print("{digit}")
+    end 'parsed' else (e) 'failed'
+        print("no")
+    end 'failed'
+    if try check(s) 'checked'
+        print("ok")
+    end 'checked'
+end 'f'
+`,
+			want: `function f(s String)
+	if let digit = try parse(s) 'parsed'
+		print("{digit}")
+	end 'parsed' else (e) 'failed'
+		print("no")
+	end 'failed'
+	if try check(s) 'checked'
+		print("ok")
+	end 'checked'
+end 'f'
+`,
+		},
+		{
+			name: "a byte string converts without a warning",
+			in: `function f() returns Count
+    let bytes = b"aÿ"
+    return bytes.count()
+end 'f'
+`,
+			want: `function f() returns Count
+	let bytes = b"aÿ"
+	return bytes.count()
+end 'f'
+`,
+		},
+		{
 			name: "array and map literals convert without a warning",
 			in: `function f() returns Count
     let xs = [1, 2, 3]
@@ -319,9 +357,9 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "iterator-based for loops over a string",
 		},
 		{
-			name:     "if try",
-			in:       "function f()\n\tif try work() 'ok'\n\t\tprint(\"ok\")\n\tend 'ok'\nend 'f'\n",
-			wantTodo: "if try",
+			name:     "byte string spanning lines",
+			in:       "let Newline = b\"\n\"\n",
+			wantTodo: "a byte string literal that spans lines",
 		},
 		{
 			name:     "block otherwise on try expr inside brackets",

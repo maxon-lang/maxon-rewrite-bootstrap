@@ -288,6 +288,13 @@ function scanStmt(r Ranges, p ast.Project, s ast.NodeID, mutates found Candidate
 		scanBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
 		return
 	end 'for'
+	if k == ast.NodeKind.ifTryStmt 'ifTry'
+		scanBlock(r, p: p, body: ast.ifTryStmtThenRef(p.modules[r.modIdx].tree, id: s), found: found)
+		if ast.ifTryStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
+			scanBlock(r, p: p, body: ast.ifTryStmtElseRef(p.modules[r.modIdx].tree, id: s), found: found)
+		end 'else'
+		return
+	end 'ifTry'
 	if k == ast.NodeKind.tryStmt 'try'
 		scanBlock(r, p: p, body: ast.tryStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
 		if ast.tryStmtHasOtherwise(p.modules[r.modIdx].tree, id: s) 'handler'

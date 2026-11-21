@@ -320,6 +320,21 @@ export function constructorRestricted(typeName String) returns String
 	return "type '{typeName}' can only be constructed from within its own methods; use a static factory method instead"
 end 'constructorRestricted'
 
+// The text of errInvalidEscape for: Codepoint {codepoint} exceeds the byte range 0-255 in byte string literal; use a {escape} hex escape to embed a raw byte
+export function byteStringCodepointRange(codepoint String, escape String) returns String
+	return "Codepoint {codepoint} exceeds the byte range 0-255 in byte string literal; use a {escape} hex escape to embed a raw byte"
+end 'byteStringCodepointRange'
+
+// The text of errErrorTypeMismatch for: type mismatch: ''{callee}' does not return a value'
+export function callReturnsNoValue(callee String) returns String
+	return "type mismatch: ''{callee}' does not return a value'"
+end 'callReturnsNoValue'
+
+// The text of errIfTryDiscardsResult for: 'if try' discards the result of '{callee}': only a call that returns nothing may be tested bare — bind the result with 'if let'
+export function ifTryDiscardsResult(callee String) returns String
+	return "'if try' discards the result of '{callee}': only a call that returns nothing may be tested bare — bind the result with 'if let'"
+end 'ifTryDiscardsResult'
+
 // The text of errTryBlockBindingNotMatched for: otherwise block must contain a match on the error binding '{bindingName}'
 export function tryBlockBindingNotMatched(bindingName String) returns String
 	return "otherwise block must contain a match on the error binding '{bindingName}'"

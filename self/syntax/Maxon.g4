@@ -269,6 +269,7 @@ block returns [[]Stmt stmts]
 stmt
     : letStmt
     | discardStmt
+    | ifTryStmt
     | ifStmt
     | whileStmt
     | forStmt
@@ -317,6 +318,19 @@ ifStmt
 
 @ast::IfStmt {
 	Else []Stmt
+}
+
+// A conditional try runs its block only when its call succeeds, binding the result, and its else block only when the call
+// fails, naming the error.
+ifTryStmt
+    : 'if' (isLet='let' name=Name '=' | isVar='var' name=Name '=')? 'try' call=expr label=Label
+      then=block
+      'end' end=endLabel?
+      ( hasElse='else' ('(' errName=Name ')')? elseLabel=Label else=block 'end' elseEnd=endLabel? )?
+    ;
+
+@ast::IfTryStmt {
+	Local Slot[Local]
 }
 
 whileStmt
@@ -444,6 +458,7 @@ patternValue returns [Expr value]
 expr
     : intLit
     | strLit
+    | byteStrLit
     | boolLit
     | structLitExpr
     | collectionLitExpr
@@ -503,6 +518,15 @@ strLit
     ;
 
 @ast::StrLit {
+	Parts Word
+}
+
+// A byte string's text is one byte to each character, so it has no interpolation.
+byteStrLit
+    : parts=ByteString
+    ;
+
+@ast::ByteStrLit {
 	Parts Word
 }
 
@@ -570,6 +594,9 @@ Integer
 
 /** a string */
 String : '"' (~["\\{}\n] | '\\' . | '{' ~[}\n]* '}')* '"' -> scan ;
+
+/** a byte string */
+ByteString : 'b"' (~["\\] | '\\' .)* '"' -> scan ;
 
 /** a label */
 Label : '\'' [A-Za-z_] [A-Za-z0-9_]* '\'' ;

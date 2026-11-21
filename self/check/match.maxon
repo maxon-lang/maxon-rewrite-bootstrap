@@ -241,7 +241,7 @@ end 'checkArm'
 
 // blockStatementKeyword is the word that opens a statement that holds a block, or "" for one that does not.
 function blockStatementKeyword(kind ast.NodeKind) returns String
-	if kind == ast.NodeKind.ifStmt 'if'
+	if kind == ast.NodeKind.ifStmt or kind == ast.NodeKind.ifTryStmt 'if'
 		return "if"
 	end 'if'
 	if kind == ast.NodeKind.whileStmt 'while'

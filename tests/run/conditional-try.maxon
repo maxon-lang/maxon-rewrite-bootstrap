@@ -1,0 +1,81 @@
+typealias Amount = int(i64.min to i64.max)
+
+enum ParseError implements Error
+	empty
+	invalidSyntax
+end 'ParseError'
+
+function parseDigit(s String) returns Amount throws ParseError
+	if s == "" 'empty'
+		throw ParseError.empty
+	end 'empty'
+	if s == "7" 'seven'
+		return 7
+	end 'seven'
+	throw ParseError.invalidSyntax
+end 'parseDigit'
+
+function check(s String) throws ParseError
+	if s == "" 'empty'
+		throw ParseError.empty
+	end 'empty'
+end 'check'
+
+function describe(text String)
+	if let digit = try parseDigit(text) 'parsed'
+		print("got {digit}\n")
+	end 'parsed' else (e) 'failed'
+		match e 'kind'
+			empty then print("no input\n")
+			invalidSyntax then print("not a digit\n")
+		end 'kind'
+	end 'failed'
+end 'describe'
+
+function quiet(text String) returns Amount
+	var total = 0 as Amount
+	if var digit = try parseDigit(text) 'parsed'
+		digit = 8
+		total = digit
+	end 'parsed'
+	return total
+end 'quiet'
+
+function bare(text String)
+	if try check(text) 'checked'
+		print("ok [{text}]\n")
+	end 'checked' else 'failed'
+		print("failed\n")
+	end 'failed'
+end 'bare'
+
+function owned(text String) returns String
+	if let name = try label(text) 'named'
+		return name
+	end 'named'
+	return "none"
+end 'owned'
+
+function label(text String) returns String throws ParseError
+	try check(text)
+	return "label {text}"
+end 'label'
+
+function main() returns ExitCode
+	describe("7")
+	describe("")
+	describe("x")
+	print("{quiet("7")} {quiet("")}\n")
+	bare("a")
+	bare("")
+	print("{owned("a")} {owned("")}\n")
+	return 0
+end 'main'
+
+//> got 7
+//> no input
+//> not a digit
+//> 8 0
+//> ok [a]
+//> failed
+//> label a none

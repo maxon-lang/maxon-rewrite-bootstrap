@@ -217,7 +217,7 @@ function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 	if k == ast.NodeKind.intLit 'intLit'
 		return Span.exactly(ast.intLitValue(p.modules[r.modIdx].tree, id: e))
 	end 'intLit'
-	if k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr 'nothing'
+	if k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'nothing'
 		return noSpan()
 	end 'nothing'
 	if k == ast.NodeKind.strLit 'strLit'
